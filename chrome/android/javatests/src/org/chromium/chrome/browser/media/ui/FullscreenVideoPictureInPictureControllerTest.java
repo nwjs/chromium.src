@@ -4,6 +4,8 @@
 
 package org.chromium.chrome.browser.media.ui;
 
+import android.os.Build;
+
 import androidx.test.filters.MediumTest;
 import androidx.test.platform.app.InstrumentationRegistry;
 
@@ -80,17 +82,20 @@ public class FullscreenVideoPictureInPictureControllerTest {
     @After
     public void tearDown() throws Exception {
         if (mActivity != null) {
-            ThreadUtils.runOnUiThreadBlocking(
-                    () -> {
-                        if (mActivity.isInPictureInPictureMode()
-                                || mActivity.getLastPictureInPictureModeForTesting()) {
-                            mActivity.onPictureInPictureModeChanged(
-                                    false, mActivity.getResources().getConfiguration());
-                        }
-                    });
+            boolean wasInPip =
+                    ThreadUtils.runOnUiThreadBlocking(
+                            () ->
+                                    mActivity.isInPictureInPictureMode()
+                                            || mActivity.getLastPictureInPictureModeForTesting());
+            if (wasInPip) {
+                ThreadUtils.runOnUiThreadBlocking(
+                        () ->
+                                mActivity.onPictureInPictureModeChanged(
+                                        false, mActivity.getResources().getConfiguration()));
+            }
             int state = ApplicationStatus.getStateForActivity(mActivity);
-            // Restores the PAUSED/STOPPED activity back to RESUMED state.
-            if (state == ActivityState.PAUSED || state == ActivityState.STOPPED) {
+            // Restores the PAUSED/STOPPED activity or PiP window back to RESUMED state.
+            if (wasInPip || state == ActivityState.PAUSED || state == ActivityState.STOPPED) {
                 mActivityTestRule.launchMainActivityFromLauncher();
             }
         }
@@ -261,6 +266,7 @@ public class FullscreenVideoPictureInPictureControllerTest {
 
         enterFullscreen(true);
         triggerAutoPiPAndWait();
+        exitPipAndFullscreenAndWait();
     }
 
     private void exitPipAndFullscreenAndWait() throws Throwable {
@@ -410,6 +416,8 @@ public class FullscreenVideoPictureInPictureControllerTest {
 
     @Test
     @MediumTest
+    @DisableIf.Build(sdk_equals = Build.VERSION_CODES.S, message = "crbug.com/540400359")
+    @DisableIf.Build(sdk_equals = Build.VERSION_CODES.S_V2, message = "crbug.com/540400359")
     public void testMetricsRecorded() throws Throwable {
         HistogramWatcher enteredWatcher =
                 HistogramWatcher.newBuilder()

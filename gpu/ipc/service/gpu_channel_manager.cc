@@ -357,7 +357,7 @@ GpuChannelManager::GpuChannelManager(
     const GpuFeatureInfo& gpu_feature_info,
     GpuProcessShmCount* use_shader_cache_shm_count,
     scoped_refptr<gl::GLSurface> default_offscreen_surface,
-    viz::VulkanContextProvider* vulkan_context_provider,
+    VulkanContextProvider* vulkan_context_provider,
     DawnContextProvider* dawn_context_provider,
     webgpu::DawnCachingInterfaceFactory* dawn_caching_interface_factory,
     const SharedContextState::GrContextOptionsProvider*
@@ -430,8 +430,12 @@ GpuChannelManager::~GpuChannelManager() {
 
   // Try to make the context current so that GPU resources can be destroyed
   // correctly.
-  if (shared_context_state_)
+  if (shared_context_state_) {
     shared_context_state_->MakeCurrent(nullptr);
+    // Clear the thread-local pointer before the context is destroyed.
+    SharedContextState::ClearForCurrentThread();
+    shared_context_state_ = nullptr;
+  }
 }
 
 gles2::Outputter* GpuChannelManager::outputter() {
@@ -644,6 +648,8 @@ void GpuChannelManager::LoseAllContexts() {
                                         weak_factory_.GetWeakPtr()));
   if (shared_context_state_) {
     shared_context_state_->MarkContextLost();
+    // Clear the thread-local pointer when the context is lost.
+    SharedContextState::ClearForCurrentThread();
     shared_context_state_.reset();
   }
 }
@@ -792,6 +798,8 @@ void GpuChannelManager::OnBackgroundCleanup() {
 
   if (shared_context_state_) {
     shared_context_state_->MarkContextLost();
+    // Clear the thread-local pointer when the context is lost.
+    SharedContextState::ClearForCurrentThread();
     shared_context_state_.reset();
   }
 
@@ -896,12 +904,6 @@ scoped_refptr<SharedContextState> GpuChannelManager::GetSharedContextState(
     *result = ContextResult::kSuccess;
     return shared_context_state_;
   }
-
-  // Temporarily check the ANGLE metal experiment early in GPU process
-  // initialization. This will help us determine why users sometimes do not
-  // check the feature on subsequent runs of Chrome. crbug.com/1423439
-  [[maybe_unused]] bool default_angle_metal =
-      base::FeatureList::IsEnabled(features::kDefaultANGLEMetal);
 
   scoped_refptr<gl::GLSurface> surface = default_offscreen_surface();
   bool use_virtualized_gl_contexts = false;
@@ -1022,6 +1024,10 @@ scoped_refptr<SharedContextState> GpuChannelManager::GetSharedContextState(
   }
 
   shared_context_state_ = std::move(shared_context_state);
+  // Register as the active SharedContextState on the GPU main thread so
+  // downstream operations (e.g. CompoundImageBacking fallback copy strategies)
+  // can access the active context for this thread.
+  SharedContextState::SetForCurrentThread(shared_context_state_.get());
 
   *result = ContextResult::kSuccess;
   return shared_context_state_;

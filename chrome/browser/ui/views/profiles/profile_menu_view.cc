@@ -145,18 +145,6 @@ std::u16string GetSyncErrorButtonText(
       GetSyncErrorButtonStringId(error, /*support_title_case=*/true));
 }
 
-std::u16string GetProfileIdentifier(const ProfileAttributesEntry& entry) {
-  switch (entry.GetNameForm()) {
-    case NameForm::kGaiaName:
-    case NameForm::kLocalName:
-      return entry.GetName();
-    case NameForm::kGaiaAndLocalName:
-      return l10n_util::GetStringFUTF16(
-          IDS_PROFILE_MENU_PROFILE_IDENTIFIER_WITH_SEPARATOR,
-          entry.GetGAIANameToDisplay(), entry.GetLocalProfileName());
-  }
-}
-
 }  // namespace
 
 // static
@@ -229,8 +217,6 @@ void ProfileMenuView::BuildMenu() {
         l10n_util::GetStringUTF16(IDS_PROFILE_MENU_PROFILES_LIST_TITLE));
   }
   BuildOtherProfilesSection(available_profiles);
-  base::UmaHistogramBoolean("ProfileChooser.HasProfilesShown",
-                            !available_profiles.empty());
 
   // Users should not be able to manage profiles from WebApps.
   if (!is_web_app) {
@@ -435,11 +421,12 @@ void ProfileMenuView::OnSignoutButtonClicked() {
     return;
   }
   GetWidget()->CloseWithReason(views::Widget::ClosedReason::kUnspecified);
-  browser().GetFeatures().signin_view_controller()->SignoutOrReauthWithPrompt(
-      signin_metrics::AccessPoint::kProfileMenuSignoutConfirmationPrompt,
-      signin_metrics::ProfileSignout::kUserClickedSignoutProfileMenu,
-      signin_metrics::SourceForRefreshTokenOperation::
-          kUserMenu_SignOutAllAccounts);
+  SigninViewController::From(&browser())
+      ->SignoutOrReauthWithPrompt(
+          signin_metrics::AccessPoint::kProfileMenuSignoutConfirmationPrompt,
+          signin_metrics::ProfileSignout::kUserClickedSignoutProfileMenu,
+          signin_metrics::SourceForRefreshTokenOperation::
+              kUserMenu_SignOutAllAccounts);
 }
 
 void ProfileMenuView::OnOtherProfileSelected(
@@ -811,7 +798,8 @@ ProfileMenuView::GetIdentitySectionParams(const ProfileAttributesEntry& entry) {
         break;
       }
       // "Continue as" signin button.
-      account_info_for_signin_action = account_info_for_promos;
+      account_info_for_signin_action =
+          account_info_for_promos.GetCoreAccountInfo();
       if (account_preview_data_service) {
         if (std::optional<
                 signin::AccountPreviewDataService::AccountPreviewPreference>
@@ -820,7 +808,8 @@ ProfileMenuView::GetIdentitySectionParams(const ProfileAttributesEntry& entry) {
             preferred_account.has_value() &&
             preferred_account->gaia_id == account_info_for_promos.GetGaiaId()) {
           if (std::optional<std::string> custom_subtitle =
-                  signin::GetAccountPreviewPromoSubtitle(*preferred_account);
+                  signin::GetAccountPreviewProfileMenuSubtitle(
+                      account_info_for_promos.GetEmail(), *preferred_account);
               custom_subtitle.has_value() && !custom_subtitle->empty()) {
             params.subtitle = base::UTF8ToUTF16(*custom_subtitle);
           }

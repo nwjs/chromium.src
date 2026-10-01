@@ -56,6 +56,8 @@
 #include "components/history/core/browser/history_db_task.h"
 #include "components/history/core/browser/history_types.h"
 #include "components/history/core/browser/in_memory_history_backend.h"
+#include "components/history/core/browser/journeys/journeys_backend_util.h"
+#include "components/history/core/browser/journeys/journeys_sync_bridge.h"
 #include "components/history/core/browser/keyword_search_term.h"
 #include "components/history/core/browser/keyword_search_term_util.h"
 #include "components/history/core/browser/page_usage_data.h"
@@ -414,18 +416,41 @@ HistoryBackend::~HistoryBackend() {
 #endif
 }
 
+void HistoryBackend::SetInitParams(
+    bool force_fail,
+    const HistoryDatabaseParams& history_database_params) {
+  force_fail_ = force_fail;
+  history_database_params_ =
+      std::make_unique<HistoryDatabaseParams>(history_database_params);
+}
+
 void HistoryBackend::Init(
     bool force_fail,
     const HistoryDatabaseParams& history_database_params) {
+  if (is_inited_) {
+    return;
+  }
+  SetInitParams(force_fail, history_database_params);
+  InitWithCachedParams();
+}
+
+void HistoryBackend::InitWithCachedParams() {
+  DCHECK(task_runner_->RunsTasksInCurrentSequence());
+  if (is_inited_) {
+    return;
+  }
+  CHECK(history_database_params_);
+  is_inited_ = true;
+
   TRACE_EVENT0("browser", "HistoryBackend::Init");
 
-  DCHECK(base::PathExists(history_database_params.history_dir))
+  DCHECK(base::PathExists(history_database_params_->history_dir))
       << "History directory does not exist. If you are in a test make sure "
          "that ~TestingProfile() has not been called or that the "
          "ScopedTempDirectory used outlives this task.";
 
-  if (!force_fail) {
-    InitImpl(history_database_params);
+  if (!force_fail_) {
+    InitImpl(*history_database_params_);
   }
   delegate_->DBLoaded();
 
@@ -434,13 +459,30 @@ void HistoryBackend::Init(
       std::make_unique<ClientTagBasedDataTypeProcessor>(
           syncer::HISTORY,
           base::BindRepeating(&syncer::ReportUnrecoverableError,
-                              history_database_params.channel)));
+                              history_database_params_->channel)));
+
+  // Forward the sync transport state if SetSyncTransportState() was called
+  // before backend initialization.
+  if (sync_transport_state_.has_value()) {
+    history_sync_bridge_->SetSyncTransportState(*sync_transport_state_);
+  }
+
+  if (base::FeatureList::IsEnabled(syncer::kSyncJourney)) {
+    journeys_sync_bridge_ = std::make_unique<journeys::JourneysSyncBridge>(
+        this, db_ ? db_->GetJourneysMetadataDB() : nullptr,
+        std::make_unique<ClientTagBasedDataTypeProcessor>(
+            syncer::JOURNEY,
+            base::BindRepeating(&syncer::ReportUnrecoverableError,
+                                history_database_params_->channel)));
+  }
 
   if (db_ && db_->GetDeleteForeignVisitsUntilId() != kInvalidVisitID) {
     // A deletion of foreign visits was still ongoing during the previous
     // browser shutdown. Continue it.
     StartDeletingForeignVisits();
   }
+
+  history_database_params_.reset();
 }
 
 void HistoryBackend::SetOnBackendDestroyTask(
@@ -1354,6 +1396,7 @@ void HistoryBackend::InitImpl(
 void HistoryBackend::CloseAllDatabases() {
   // Reset to avoid dangling pointers to the database.
   history_sync_bridge_.reset();
+  journeys_sync_bridge_.reset();
   expirer_.SetDatabases(/*main_db=*/nullptr, /*favicon_db=*/nullptr);
   if (db_) {
     CommitSingletonTransactionIfItExists();
@@ -2057,17 +2100,72 @@ QueryURLAndVisitsResult HistoryBackend::QueryURLAndVisits(
 
 base::WeakPtr<syncer::DataTypeControllerDelegate>
 HistoryBackend::GetHistorySyncControllerDelegate() {
+  DCHECK(task_runner_->RunsTasksInCurrentSequence());
+  InitWithCachedParams();
   if (history_sync_bridge_) {
     return history_sync_bridge_->change_processor()->GetControllerDelegate();
   }
   return nullptr;
 }
 
+base::WeakPtr<syncer::DataTypeControllerDelegate>
+HistoryBackend::GetJourneysSyncControllerDelegate() {
+  DCHECK(task_runner_->RunsTasksInCurrentSequence());
+  InitWithCachedParams();
+  if (journeys_sync_bridge_) {
+    return journeys_sync_bridge_->change_processor()->GetControllerDelegate();
+  }
+  return nullptr;
+}
+
 void HistoryBackend::SetSyncTransportState(
     syncer::SyncService::TransportState state) {
+  sync_transport_state_ = state;
+  // If the sync bridge has already been created, forward the state immediately;
+  // otherwise, it will be forwarded when InitWithCachedParams() runs.
   if (history_sync_bridge_) {
     history_sync_bridge_->SetSyncTransportState(state);
   }
+}
+
+bool HistoryBackend::AddOrUpdateJourneyRows(
+    const std::vector<journeys::JourneyRow>& journeys) {
+  if (!db_) {
+    return false;
+  }
+  ScheduleCommit();
+  return db_->AddOrUpdateJourneys(journeys);
+}
+
+bool HistoryBackend::DeleteJourneys(
+    const std::vector<std::string>& journey_ids) {
+  if (!db_) {
+    return false;
+  }
+  ScheduleCommit();
+  return db_->DeleteJourneys(journey_ids);
+}
+
+std::vector<journeys::JourneyRow> HistoryBackend::GetAllJourneyRows() {
+  if (!db_) {
+    return {};
+  }
+  return db_->GetAllJourneys();
+}
+
+std::vector<journeys::Journey> HistoryBackend::GetAllJourneysWithVisits() {
+  if (!db_) {
+    return {};
+  }
+  return journeys::GetAllJourneysWithResolvedVisits(*db_);
+}
+
+bool HistoryBackend::DeleteAllJourneys() {
+  if (!db_) {
+    return false;
+  }
+  ScheduleCommit();
+  return db_->DeleteAllJourneys();
 }
 
 // Statistics ------------------------------------------------------------------
@@ -2357,6 +2455,7 @@ std::vector<AnnotatedVisit> HistoryBackend::ToAnnotatedVisitsFromRows(
   VisitSourceMap sources;
   GetVisitsSource(visit_rows, &sources);
 
+  base::flat_map<VisitID, VisitRow> redirect_start_cache;
   std::vector<AnnotatedVisit> annotated_visits;
   for (const auto& visit_row : visit_rows) {
     // Add a result row for this visit, get the URL info from the DB.
@@ -2382,7 +2481,19 @@ std::vector<AnnotatedVisit> HistoryBackend::ToAnnotatedVisitsFromRows(
     VisitID referring_visit_of_redirect_chain_start = 0;
     VisitID opener_visit_of_redirect_chain_start = 0;
     if (compute_redirect_chain_start_properties) {
-      VisitRow redirect_start = GetRedirectChainStart(visit_row);
+      VisitRow redirect_start;
+      auto it = redirect_start_cache.find(visit_row.visit_id);
+      if (it != redirect_start_cache.end()) {
+        redirect_start = it->second;
+      } else {
+        VisitVector redirect_chain = GetRedirectChain(visit_row);
+        if (!redirect_chain.empty()) {
+          redirect_start = redirect_chain.front();
+          for (const auto& chain_visit : redirect_chain) {
+            redirect_start_cache[chain_visit.visit_id] = redirect_start;
+          }
+        }
+      }
       referring_visit_of_redirect_chain_start = redirect_start.referring_visit;
       opener_visit_of_redirect_chain_start = redirect_start.opener_visit;
     }
@@ -2660,7 +2771,8 @@ VisitVector HistoryBackend::GetRedirectChain(VisitRow visit) {
   result.push_back(visit);
   if (db_) {
     base::flat_set<VisitID> visit_set;
-    while (!(visit.transition & ui::PAGE_TRANSITION_CHAIN_START)) {
+    while (!(visit.transition & ui::PAGE_TRANSITION_CHAIN_START) &&
+           result.size() < kMaxRedirectChainLength) {
       visit_set.insert(visit.visit_id);
       // `GetRowForVisit()` should not return false if the DB is correct.
       VisitRow referring_visit;
@@ -2905,8 +3017,13 @@ URLRows HistoryBackend::GetMatchesForHost(const std::u16string& host_name) {
   if (db_ && db_->InitURLEnumeratorForEverything(&iter)) {
     URLRow row;
     std::string host_name_utf8 = base::UTF16ToUTF8(host_name);
+    const bool improved_suffix_matching = base::FeatureList::IsEnabled(
+        kBrowsingHistoryImprovedHostnameSuffixMatching);
     while (iter.GetNextURL(&row)) {
-      if (row.url().is_valid() && row.url().GetHost() == host_name_utf8) {
+      const bool matches_host = improved_suffix_matching
+                                    ? row.url().DomainIs(host_name_utf8)
+                                    : (row.url().GetHost() == host_name_utf8);
+      if (row.url().is_valid() && matches_host) {
         results.push_back(std::move(row));
       }
     }
@@ -3684,10 +3801,13 @@ void HistoryBackend::KillHistoryDatabase() {
     return;
   }
 
-  // Notify the sync bridge about storage error. It'll report failures to the
+  // Notify the sync bridges about storage error. It'll report failures to the
   // sync engine and stop accepting remote updates.
   if (history_sync_bridge_) {
     history_sync_bridge_->OnDatabaseError();
+  }
+  if (journeys_sync_bridge_) {
+    journeys_sync_bridge_->OnDatabaseError();
   }
 
   // Rollback transaction because Raze() cannot be called from within a

@@ -8,7 +8,6 @@
 #include "base/metrics/histogram_functions.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/translate/chrome_translate_client.h"
 #include "chrome/browser/ui/accelerator_utils.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
@@ -116,8 +115,7 @@ ReadAnythingController::ReadAnythingController(
       read_anything_side_panel_controller_(
           std::make_unique<ReadAnythingSidePanelController>(
               tab,
-              side_panel_registry)),
-      distillation_state_locked_for_testing_(freeze_distillation_for_testing_) {
+              side_panel_registry)) {
   // Point the FindBar to IRM's WebContents, if it's open. We already call
   // MaybeUpdateFindBarController when IRM opens and closes, but if IRM is open
   // on a split view, it can stay open even if the tab is not active, so we need
@@ -296,7 +294,7 @@ SidePanelUI* ReadAnythingController::GetSidePanelUI() {
     return nullptr;
   }
 
-  return tab_->GetBrowserWindowInterface()->GetFeatures().side_panel_ui();
+  return SidePanelUI::From(tab_->GetBrowserWindowInterface());
 }
 
 // Lazily creates and returns the WebUIContentsWrapper for Reading Mode.
@@ -328,10 +326,6 @@ ReadAnythingContentsWrapper ReadAnythingController::GetOrCreateWebUIWrapper(
         web_ui_wrapper_->web_contents(), this);
     find_in_page::FindTabHelper::CreateForWebContents(
         web_ui_wrapper_->web_contents());
-    if (features::IsReadAnythingTranslateEntryPointEnabled()) {
-      ChromeTranslateClient::CreateForWebContents(
-          web_ui_wrapper_->web_contents());
-    }
   }
   return std::move(web_ui_wrapper_);
 }
@@ -482,14 +476,16 @@ void ReadAnythingController::CloseImmersiveUI(ReadAnythingCloseReason reason) {
     should_show_immersive_on_tab_reactivate_ = true;
   }
 
-  // Ensure the observer returned the web_ui_wrapper_
-  CHECK(web_ui_wrapper_);
+  // Ensure the observer returned the web_ui_wrapper_ if one existed.
+  CHECK(!has_shown_ui_ || web_ui_wrapper_);
 }
 
 void ReadAnythingController::CloseSidePanelUI(ReadAnythingCloseReason reason) {
   if (GetPresentationState() != PresentationState::kInSidePanel) {
     return;
   }
+
+  pending_side_panel_close_reason_ = reason;
 
   if (SidePanelUI* side_panel_ui = GetSidePanelUI()) {
     SidePanelEntryHideReason hide_reason =
@@ -499,6 +495,20 @@ void ReadAnythingController::CloseSidePanelUI(ReadAnythingCloseReason reason) {
     side_panel_ui->Close(hide_reason,
                          /*suppress_animations=*/true);
   }
+}
+
+void ReadAnythingController::OnSidePanelWillHide(
+    SidePanelEntryHideReason side_panel_reason) {
+  ReadAnythingCloseReason reason;
+  if (pending_side_panel_close_reason_.has_value()) {
+    reason = *pending_side_panel_close_reason_;
+    pending_side_panel_close_reason_.reset();
+  } else if (side_panel_reason == SidePanelEntryHideReason::kBackgrounded) {
+    reason = ReadAnythingCloseReason::kTabSwitched;
+  } else {
+    reason = ReadAnythingCloseReason::kClosedByUser;
+  }
+  observers_.Notify(&ReadAnythingLifecycleObserver::OnWillClose, reason);
 }
 
 void ReadAnythingController::ShowInPreferredUI(
@@ -655,23 +665,36 @@ void ReadAnythingController::ReleaseMainContentsCapture() {
 
 void ReadAnythingController::OnDistillationStateChanged(
     DistillationState new_state) {
-  if (distillation_state_locked_for_testing_) {
+  if (freeze_distillation_for_testing_) {
     return;
   }
 
-  if (new_state == DistillationState::kDistillationEmpty &&
-      GetPresentationState() == PresentationState::kInImmersiveOverlay) {
-    base::UmaHistogramEnumeration(
-        "Accessibility.ReadAnything.SidePanelTriggeredByEmptyState",
-        ReadAnythingOpenTrigger::kReadAnythingTogglePresentationButton);
+  auto* user_ed =
+      BrowserUserEducationInterface::From(tab_->GetBrowserWindowInterface());
 
-    TogglePresentation(/*is_user_initiated=*/false);
+  if (new_state == DistillationState::kDistillationEmpty) {
+    if (user_ed) {
+      user_ed->AbortFeaturePromo(
+          feature_engagement::kIPHReadingModeLineFocusFeature);
+    }
+
+    if (GetPresentationState() == PresentationState::kInImmersiveOverlay) {
+      base::UmaHistogramEnumeration(
+          "Accessibility.ReadAnything.SidePanelTriggeredByEmptyState",
+          ReadAnythingOpenTrigger::kReadAnythingTogglePresentationButton);
+
+      TogglePresentation(/*is_user_initiated=*/false);
+    }
+  } else if (features::IsReadAnythingLineFocusEnabled() &&
+             new_state == DistillationState::kDistillationWithContent &&
+             GetPresentationState() != PresentationState::kInactive &&
+             user_ed) {
+    // Only show the line focus IPH if there is content because line focus does
+    // not do anything on an empty page.
+    user_ed->MaybeShowFeaturePromo(
+        feature_engagement::kIPHReadingModeLineFocusFeature);
   }
   distillation_state_ = new_state;
-}
-
-void ReadAnythingController::UnlockDistillationStateForTesting() {
-  distillation_state_locked_for_testing_ = false;
 }
 
 void ReadAnythingController::SetDwellTimeForTesting(base::TimeTicks test_time) {

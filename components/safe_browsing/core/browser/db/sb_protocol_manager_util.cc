@@ -12,15 +12,17 @@
 #include "base/hash/hash.h"
 #include "base/hash/sha1.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/not_fatal_until.h"
 #include "base/rand_util.h"
 #include "base/strings/escape.h"
+#include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/strings/string_view_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
-#include "components/safe_browsing/core/browser/db/v4_protocol_config.h"
+#include "components/safe_browsing/core/browser/db/sb_protocol_config.h"
 #include "components/safe_browsing/core/common/features.h"
 #include "crypto/hash.h"
 #include "google_apis/google_api_keys.h"
@@ -31,8 +33,6 @@
 #include "url/url_util.h"
 
 using base::Time;
-
-// TODO(crbug.com/362791941): change all DCHECKs to CHECKs for v5 usages.
 namespace safe_browsing {
 
 // Can be overriden by tests.
@@ -180,7 +180,7 @@ const char* GetSbV5UrlPrefix() {
                                        : kSbV5UrlPrefix;
 }
 
-std::string GetReportUrl(const V4ProtocolConfig& config,
+std::string GetReportUrl(const SBProtocolConfig& config,
                          const std::string& method,
                          const ExtendedReportingLevel* reporting_level,
                          const bool is_enhanced_protection) {
@@ -310,7 +310,8 @@ ListIdentifier GetUrlUwsId() {
 }
 
 std::string GetUmaSuffixForStore(const base::FilePath& file_path) {
-  DCHECK_EQ(kStoreSuffix, file_path.BaseName().Extension());
+  CHECK_EQ(kStoreSuffix, file_path.BaseName().Extension(),
+           base::NotFatalUntil::M162);
   return base::StringPrintf(
       ".%" PRFilePath, file_path.BaseName().RemoveExtension().value().c_str());
 }
@@ -383,17 +384,35 @@ std::string GetV5ListName(const ListIdentifier& list_identifier) {
     case SBThreatType::SB_THREAT_TYPE_HIGH_CONFIDENCE_ALLOWLIST:
       return "gc-32b";
     case SBThreatType::SB_THREAT_TYPE_URL_MALWARE:
+#if BUILDFLAG(IS_IOS)
+      // iOS uses the Android/mobile malware list ("pha-4b", Potentially Harmful
+      // Applications) to match the v4 server-side behavior.
+      return "pha-4b";
+#else
       return "mw-4b";
+#endif
     case SBThreatType::SB_THREAT_TYPE_URL_BINARY_MALWARE:
       return "mwb-4b";
     case SBThreatType::SB_THREAT_TYPE_URL_PHISHING:
+#if BUILDFLAG(IS_IOS)
+      // iOS uses the Android/mobile social engineering list ("sea-4b") to match
+      // the v4 server-side behavior.
+      return "sea-4b";
+#else
       return "se-4b";
+#endif
     case SBThreatType::SB_THREAT_TYPE_SUBRESOURCE_FILTER:
       return "srf-4b";
     case SBThreatType::SB_THREAT_TYPE_SUSPICIOUS_SITE:
       return "sus-4b";
     case SBThreatType::SB_THREAT_TYPE_URL_UNWANTED:
+#if BUILDFLAG(IS_IOS)
+      // iOS uses the Android/mobile unwanted software list ("uwsa-4b") to
+      // match the v4 server-side behavior.
+      return "uwsa-4b";
+#else
       return "uws-4b";
+#endif
     case SBThreatType::SB_THREAT_TYPE_UNUSED:
     case SBThreatType::SB_THREAT_TYPE_SAFE:
     case SBThreatType::SB_THREAT_TYPE_URL_CLIENT_SIDE_PHISHING:
@@ -527,9 +546,9 @@ ListIdentifier::ListIdentifier(PlatformType platform_type,
       threat_type_(threat_type),
       uses_v5_api_(false) {
   CHECK(!base::FeatureList::IsEnabled(safe_browsing::kLocalListsUseSBv5));
-  DCHECK(PlatformType_IsValid(platform_type));
-  DCHECK(ThreatEntryType_IsValid(threat_entry_type));
-  DCHECK(ThreatType_IsValid(threat_type));
+  CHECK(PlatformType_IsValid(platform_type), base::NotFatalUntil::M162);
+  CHECK(ThreatEntryType_IsValid(threat_entry_type), base::NotFatalUntil::M162);
+  CHECK(ThreatType_IsValid(threat_type), base::NotFatalUntil::M162);
 }
 
 ListIdentifier::ListIdentifier(const ListUpdateResponse& response)
@@ -546,7 +565,7 @@ ListIdentifier::ListIdentifier(SBThreatType sb_threat_type)
 base::TimeDelta SBProtocolManagerUtil::GetNextBackOffInterval(
     size_t* error_count,
     size_t* multiplier) {
-  DCHECK(multiplier && error_count);
+  CHECK(multiplier && error_count, base::NotFatalUntil::M162);
   (*error_count)++;
   if (*error_count > 1 && *error_count < 9) {
     // With error count 9 and above we will hit the 24 hour max interval.
@@ -563,7 +582,7 @@ base::TimeDelta SBProtocolManagerUtil::GetNextBackOffInterval(
 void SBProtocolManagerUtil::GetRequestUrlAndHeaders(
     const std::string& request_base64,
     const std::string& method_name,
-    const V4ProtocolConfig& config,
+    const SBProtocolConfig& config,
     GURL* gurl,
     net::HttpRequestHeaders* headers) {
   const char* url_prefix = g_sbv4_url_prefix_for_testing
@@ -579,7 +598,7 @@ std::string SBProtocolManagerUtil::ComposeUrl(const std::string& prefix,
                                               const std::string& method,
                                               const std::string& request_base64,
                                               const std::string& key_param) {
-  DCHECK(!prefix.empty() && !method.empty());
+  CHECK(!prefix.empty() && !method.empty(), base::NotFatalUntil::M162);
   std::string url = base::StringPrintf(
       "%s/%s?$req=%s&$ct=application/x-protobuf", prefix.c_str(),
       method.c_str(), request_base64.c_str());
@@ -708,7 +727,7 @@ void SBProtocolManagerUtil::CanonicalizeUrl(const GURL& url,
                                             std::string* canonicalized_hostname,
                                             std::string* canonicalized_path,
                                             std::string* canonicalized_query) {
-  DCHECK(url.is_valid());
+  CHECK(url.is_valid(), base::NotFatalUntil::M162);
 
   // We only canonicalize "normal" URLs.
   if (!url.IsStandard()) {
@@ -863,10 +882,19 @@ void SBProtocolManagerUtil::GeneratePathVariantsToCheck(
 // static
 void SBProtocolManagerUtil::SetClientInfoFromConfig(
     ClientInfo* client_info,
-    const V4ProtocolConfig& config) {
-  DCHECK(client_info);
+    const SBProtocolConfig& config) {
+  CHECK(client_info, base::NotFatalUntil::M162);
   client_info->set_client_id(config.client_name);
   client_info->set_client_version(config.version);
+}
+
+// static
+void SBProtocolManagerUtil::SetV5UserAgentHeader(
+    net::HttpRequestHeaders* headers,
+    const SBProtocolConfig& config) {
+  CHECK(headers);
+  headers->SetHeader(net::HttpRequestHeaders::kUserAgent,
+                     base::StrCat({config.client_name, " ", config.version}));
 }
 
 // static

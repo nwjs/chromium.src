@@ -12,6 +12,7 @@
 #include "base/callback_list.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
+#include "base/scoped_observation.h"
 #include "ui/color/color_variant.h"
 #include "ui/compositor/layer_type.h"
 #include "ui/views/controls/focus_ring.h"
@@ -87,7 +88,8 @@ class VIEWS_EXPORT ScrollView : public View, public ScrollBarController {
     void OnViewIsDeleting(View* observed_view) override;
 
    private:
-    raw_ptr<ScrollView> scroll_view_;
+    base::ScopedObservation<ScrollView, ViewObserver> scroll_view_observation_{
+        this};
   };
 
   ScrollView();
@@ -223,7 +225,8 @@ class VIEWS_EXPORT ScrollView : public View, public ScrollBarController {
   bool is_bounded() const { return max_height_ >= 0 && min_height_ >= 0; }
 
   // Retrieves the width/height reserved for scrollbars. These return 0 if the
-  // scrollbar has not yet been created or in the case of overlay scrollbars.
+  // scrollbar has not yet been created, if the scrollbar is not visible, or in
+  // the case of overlay scrollbars.
   int GetScrollBarLayoutWidth() const;
   int GetScrollBarLayoutHeight() const;
 
@@ -418,18 +421,18 @@ class VIEWS_EXPORT ScrollView : public View, public ScrollBarController {
   raw_ptr<ScrollBar> vert_sb_;
 
   // Corner view.
-  std::unique_ptr<View> corner_view_;
+  raw_ptr<View> corner_view_;
 
   // Hidden content indicators
   // TODO(crbug.com/40742414): Use preferred width/height instead of
   // thickness members.
-  std::unique_ptr<View> more_content_left_ = std::make_unique<Separator>();
+  raw_ptr<View> more_content_left_;
   int more_content_left_thickness_ = Separator::kThickness;
-  std::unique_ptr<View> more_content_top_ = std::make_unique<Separator>();
+  raw_ptr<View> more_content_top_;
   int more_content_top_thickness_ = Separator::kThickness;
-  std::unique_ptr<View> more_content_right_ = std::make_unique<Separator>();
+  raw_ptr<View> more_content_right_;
   int more_content_right_thickness_ = Separator::kThickness;
-  std::unique_ptr<View> more_content_bottom_ = std::make_unique<Separator>();
+  raw_ptr<View> more_content_bottom_;
   int more_content_bottom_thickness_ = Separator::kThickness;
 
   // The min and max height for the bounded scroll view. These are negative

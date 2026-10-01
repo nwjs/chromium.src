@@ -150,7 +150,7 @@ struct CC_PAINT_EXPORT ImageHeaderMetadata {
 // scale or animation frame.
 class CC_PAINT_EXPORT PaintImage {
  public:
-  using Id = int;
+  using Id = int64_t;
   using AnimationSequenceId = uint32_t;
   enum class AnimationSyncSequence : AnimationSequenceId {
     // All instances of the image animation together on a shared timeline.
@@ -164,7 +164,7 @@ class CC_PAINT_EXPORT PaintImage {
   // stays constant for the same image, the content id can be updated when the
   // backing encoded data for this image changes. For instance, in the case of
   // images which can be progressively updated as more encoded data is received.
-  using ContentId = int;
+  using ContentId = int64_t;
 
   // A GeneratorClientId can be used to namespace different clients that are
   // using the output of a PaintImageGenerator.
@@ -176,7 +176,7 @@ class CC_PAINT_EXPORT PaintImage {
   // parallel. This is particularly important for animated images, where
   // compositors displaying the same image can request decodes for different
   // frames from this image.
-  using GeneratorClientId = int;
+  using GeneratorClientId = int64_t;
   static const GeneratorClientId kDefaultGeneratorClientId;
 
   // The default frame index to use if no index is provided. For multi-frame
@@ -312,7 +312,6 @@ class CC_PAINT_EXPORT PaintImage {
   CompletionState completion_state() const { return completion_state_; }
   bool is_multipart() const { return is_multipart_; }
   bool is_high_bit_depth() const { return is_high_bit_depth_; }
-  bool may_be_lcp_candidate() const { return may_be_lcp_candidate_; }
   bool no_cache() const { return no_cache_; }
   int repetition_count() const { return repetition_count_; }
   bool ShouldAnimate() const;
@@ -477,12 +476,6 @@ class CC_PAINT_EXPORT PaintImage {
 
   // Whether this image has more than 8 bits per color channel.
   bool is_high_bit_depth_ = false;
-
-  // Whether this image may untimately be a candidate for Largest Contentful
-  // Paint. The final LCP contribution of an image is unknown until we present
-  // it, but this flag is intended for metrics on when we do not present the
-  // image when the system claims.
-  bool may_be_lcp_candidate_ = false;
 
   // Indicates that the image is unlikely to be re-used past the first frame it
   // appears in. Used as a hint to avoid caching it downstream, but is not a

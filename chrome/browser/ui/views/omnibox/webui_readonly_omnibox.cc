@@ -33,9 +33,12 @@
 #include "components/omnibox/browser/omnibox_text_util.h"
 #include "components/omnibox/browser/searchbox_utils.h"
 #include "components/prefs/pref_change_registrar.h"
+#include "content/public/browser/navigation_controller.h"
+#include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/web_contents.h"
 #include "net/cert/cert_status_flags.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/events/event_constants.h"
 #include "ui/events/keycodes/dom/dom_key.h"
 #include "ui/events/keycodes/dom/keycode_converter.h"
@@ -103,6 +106,20 @@ void WebUIReadOnlyOmnibox::OnTabChanged(content::WebContents* web_contents) {
       SelectAll(true);
     } else {
       selection_ = state->selection;
+    }
+  }
+
+  // If we need to restore focus (we might not if e.g. switching in a split
+  // view), ChromeWebContentsViewFocusHelper will have given it to our
+  // views::WebView. In that case, make sure to restore it to the right-ish
+  // element --- we sadly don't know what in the location bar was focused
+  // exactly.
+  if (toolbar_delegate_) {  // null in some unit tests.
+    if (toolbar_delegate_->GetInternalWebView()->HasFocus()) {
+      SetFocusWithTarget(
+          toolbar_ui_api::mojom::FocusRequestTarget::kLocationBar);
+    } else {
+      OnBlur();
     }
   }
 
@@ -579,6 +596,19 @@ void WebUIReadOnlyOmnibox::OnBlur() {
   }
   has_focus_ = false;
   aim_hint_currently_shown_ = false;
+
+  // If focus is transferring to a WebUI popup widget (e.g., Full Popup or AIM
+  // Popup), treat this as a logical focus transfer rather than a true blur.
+  // Keep the edit model's focus state active, and skip all reversion/blurring.
+  if (controller()->popup_state_manager()->popup_state() ==
+          OmniboxPopupState::kFull ||
+      controller()->popup_state_manager()->popup_state() ==
+          OmniboxPopupState::kAim) {
+    ClearAccessibilityLabel();
+    RequestUpdateWebUI();
+    return;
+  }
+
   controller()->edit_model()->OnWillKillFocus();
   if (auto* popup_closer = controller()->client()->GetOmniboxPopupCloser()) {
     popup_closer->CloseWithReason(omnibox::PopupCloseReason::kBlur);
@@ -593,18 +623,23 @@ WebUIReadOnlyOmnibox::OnFocusChange(
     const toolbar_ui_api::mojom::OmniboxActionFocusChange& focus_change) {
   if (focus_change.has_focus) {
     has_focus_ = true;
-    selection_ = focus_change.selection;
+
     // TODO(crbug.com/500653057): Key state, though Views impl doesn't have it.
     controller()->edit_model()->OnSetFocus(/*control_down=*/false);
 
-    if (focus_change.request_clear_keyword) {
-      controller()->edit_model()->ClearKeyword();
-    }
-    if (focus_change.start_zero_suggest) {
-      controller()->edit_model()->StartZeroSuggestRequest();
-    }
-    if (focus_change.activate_default_search) {
-      EnterKeywordModeForDefaultSearchProvider();
+    // We ignore anything beyond focus update if the request is stale.
+    if (focus_change.browser_version == browser_version_) {
+      selection_ = focus_change.selection;
+
+      if (focus_change.request_clear_keyword) {
+        controller()->edit_model()->ClearKeyword();
+      }
+      if (focus_change.start_zero_suggest) {
+        controller()->edit_model()->StartZeroSuggestRequest();
+      }
+      if (focus_change.activate_default_search) {
+        EnterKeywordModeForDefaultSearchProvider();
+      }
     }
     RequestUpdateWebUI();
   } else {

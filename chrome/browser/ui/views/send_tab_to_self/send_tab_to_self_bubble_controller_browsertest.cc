@@ -25,6 +25,7 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/send_tab_to_self/send_tab_to_self_context_menu_delegate.h"
 #include "chrome/browser/ui/signin/promos/bubble_signin_promo_view.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/toasts/api/toast_id.h"
 #include "chrome/browser/ui/toasts/toast_controller.h"
 #include "chrome/browser/ui/toasts/toast_view.h"
@@ -132,8 +133,7 @@ class SendTabToSelfBubbleControllerBrowserTest : public SigninBrowserTestBase {
                         int message_id,
                         const std::u16string& replacement = u"",
                         const gfx::VectorIcon* expected_icon = nullptr) {
-    ToastController* toast_controller =
-        browser()->GetFeatures().toast_controller();
+    ToastController* toast_controller = ToastController::From(browser());
 
     EXPECT_EQ(toast_controller->GetCurrentToastId(), expected_id);
     toasts::ToastView* toast_view = toast_controller->GetToastViewForTesting();
@@ -705,14 +705,23 @@ class SendTabToSelfContextMenuParamsTest
           std::tuple<bool, EntryPointDisplayReason>> {
  public:
   SendTabToSelfContextMenuParamsTest() {
-    feature_list_.InitWithFeatureState(kSendTabToSelfEnhancedDesktopUI,
-                                       std::get<0>(GetParam()));
+    const bool enhanced_ui_enabled = std::get<0>(GetParam());
+    if (enhanced_ui_enabled) {
+      feature_list_.InitWithFeatures(
+          {kSendTabToSelfEnhancedDesktopUI, kSendTabToSelfEnhancedDesktopUIv2},
+          {});
+    } else {
+      feature_list_.InitWithFeatures({}, {kSendTabToSelfEnhancedDesktopUI,
+                                          kSendTabToSelfEnhancedDesktopUIv2});
+    }
   }
 
  private:
   base::test::ScopedFeatureList feature_list_;
 };
 
+// Verifies that the context menu offers a submenu or command item according to
+// the enhanced UI feature state and device availability display reason.
 IN_PROC_BROWSER_TEST_P(SendTabToSelfContextMenuParamsTest, VerifyMenuType) {
   const bool enhanced_ui_enabled = std::get<0>(GetParam());
   const EntryPointDisplayReason display_reason = std::get<1>(GetParam());

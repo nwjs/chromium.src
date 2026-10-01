@@ -650,7 +650,8 @@ export class CdpTarget {
       config.viewport !== undefined ||
       config.devicePixelRatio !== undefined ||
       config.screenOrientation !== undefined ||
-      config.screenArea !== undefined
+      config.screenArea !== undefined ||
+      config.scrollbarType !== undefined
     ) {
       promises.push(
         this.setDeviceMetricsOverride(
@@ -717,6 +718,10 @@ export class CdpTarget {
 
     if (config.maxTouchPoints !== undefined) {
       promises.push(this.setTouchOverride(config.maxTouchPoints));
+    }
+
+    if (config.mediaFeatures !== undefined) {
+      promises.push(this.setMediaFeaturesOverride(config.mediaFeatures));
     }
 
     if (config.digitalCredentialsBehavior && this.id === this.topLevelId) {
@@ -985,5 +990,23 @@ export class CdpTarget {
         uploadThroughput: -1,
       }),
     ]);
+  }
+
+  async setMediaFeaturesOverride(
+    mediaFeatures: Emulation.MediaFeatures | null,
+  ): Promise<void> {
+    const features: Protocol.Emulation.MediaFeature[] = [];
+    for (const [name, value] of Object.entries(mediaFeatures ?? {})) {
+      if (value !== null && value !== undefined) {
+        features.push({
+          name,
+          value: String(value),
+        });
+      }
+    }
+
+    await this.cdpClient.sendCommand('Emulation.setEmulatedMedia', {
+      features,
+    });
   }
 }

@@ -15,7 +15,10 @@
 #include "base/memory/weak_ptr.h"
 #include "base/task/cancelable_task_tracker.h"
 #include "base/time/time.h"
+#include "base/types/expected.h"
+#include "base/unguessable_token.h"
 #include "chrome/browser/ui/omnibox/omnibox_edit_model.h"
+#include "chrome/browser/ui/webui/omnibox_everywhere/mojom/omnibox_everywhere.mojom-forward.h"
 #include "components/contextual_search/input_state_model.h"
 #include "components/omnibox/browser/searchbox.mojom.h"
 #include "components/omnibox/common/input_state.h"
@@ -48,6 +51,10 @@ namespace ui {
 class ImageModel;
 }  // namespace ui
 
+namespace lens {
+enum class MimeType;
+}  // namespace lens
+
 namespace omnibox {
 enum ToolMode : int;
 }  // namespace omnibox
@@ -59,6 +66,7 @@ class WebContents;
 namespace contextual_search {
 class ContextualSearchSessionHandle;
 struct FileInfo;
+enum class ContextUploadErrorType;
 }  // namespace contextual_search
 
 class OmniboxContextMenuController;
@@ -87,8 +95,13 @@ class OmniboxContextMenuController : public ui::SimpleMenuModel::Delegate {
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kFirstTabMenuItemIdForTesting);
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kImageUploadMenuItemIdForTesting);
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kFileUploadMenuItemIdForTesting);
-  explicit OmniboxContextMenuController(OmniboxPopupFileSelector* file_selector,
-                                        content::WebContents* web_contents);
+  // If `contextual_searchbox_handler` is provided (primarily for dependency
+  // injection in unit tests), it will be used instead of looking up the active
+  // handler dynamically from `web_contents`.
+  explicit OmniboxContextMenuController(
+      OmniboxPopupFileSelector* file_selector,
+      content::WebContents* web_contents,
+      ContextualSearchboxHandler* contextual_searchbox_handler = nullptr);
   struct TabInfo {
     int tab_id;
     std::u16string title;
@@ -118,6 +131,7 @@ class OmniboxContextMenuController : public ui::SimpleMenuModel::Delegate {
       int max_num_files,
       OmniboxPopupState popup_state) const;
   bool IsCommandIdVisible(int command_id) const override;
+  std::u16string GetTooltipForCommandId(int command_id) const;
   void AddTabContext(const TabInfo& tab_info);
   static void UpdateSearchboxContext(
       content::WebContents* web_contents,
@@ -125,6 +139,16 @@ class OmniboxContextMenuController : public ui::SimpleMenuModel::Delegate {
       std::optional<omnibox::ToolMode> tool_mode,
       std::vector<searchbox::mojom::SearchContextAttachmentPtr> attachments =
           {});
+  // Handles adding file context selected from the file picker to either
+  // OmniboxEverywhereUI or SearchboxContextData / popup AIM handler.
+  static void AddFileContext(
+      content::WebContents* web_contents,
+      lens::MimeType mime_type,
+      const std::string& image_data_url,
+      const std::string& file_name,
+      const std::string& mime_string,
+      base::expected<base::UnguessableToken,
+                     contextual_search::ContextUploadErrorType> result);
   // Handles the response from the Drive picker upload flow. Updates the
   // searchbox context with files/errors. Ignores cancellations to preserve
   // existing contexts.
@@ -188,6 +212,7 @@ class OmniboxContextMenuController : public ui::SimpleMenuModel::Delegate {
     bool enabled = false;
     std::u16string menu_label;
     ui::ImageModel menu_icon;
+    std::u16string tooltip;
   };
 
   // Initializes the various data structures needed to dynamically render the
@@ -220,6 +245,7 @@ class OmniboxContextMenuController : public ui::SimpleMenuModel::Delegate {
   // Gets the most recent tabs.
   virtual std::vector<OmniboxContextMenuController::TabInfo> GetRecentTabs()
       const;
+  std::u16string GetShareTabsTooltip() const;
   // Adds the tabs favicon to the menu.
   void AddTabFavicon(int command_id,
                      const GURL& url,
@@ -229,6 +255,7 @@ class OmniboxContextMenuController : public ui::SimpleMenuModel::Delegate {
       int command_id,
       const favicon_base::FaviconImageResult& image_result);
   void OnGetInputState(const std::optional<omnibox::InputState>& input_state);
+  void OnInputStateChanged(const omnibox::InputState& new_state);
 
   void UpdateSearchboxContextToolMode(omnibox::ToolMode tool_mode);
 
@@ -254,6 +281,7 @@ class OmniboxContextMenuController : public ui::SimpleMenuModel::Delegate {
   bool IsToolEnabled(omnibox::ToolMode tool) const;
   std::u16string GetMenuLabelForTool(omnibox::ToolMode tool) const;
   ui::ImageModel GetIconForTool(omnibox::ToolMode tool) const;
+  std::u16string GetTooltipForTool(omnibox::ToolMode tool) const;
 
   /* Helpers for ModelMode input_state fields. */
   const omnibox::ModelConfig* GetModelConfig(omnibox::ModelMode model) const;
@@ -261,11 +289,15 @@ class OmniboxContextMenuController : public ui::SimpleMenuModel::Delegate {
   bool IsModelEnabled(omnibox::ModelMode model) const;
   std::u16string GetMenuLabelForModel(omnibox::ModelMode model) const;
   ui::ImageModel GetIconForModel(omnibox::ModelMode model) const;
+  std::u16string GetTooltipForModel(omnibox::ModelMode model) const;
 
   OmniboxController* GetOmniboxController() const;
   OmniboxEditModel* GetEditModel();
-  void OpenAiMode(OmniboxEditModel::AimActivation activation);
+  void OpenAiMode(
+      OmniboxEditModel::AimActivation activation,
+      omnibox_everywhere::mojom::ComposeboxInitialStatePtr initial_state);
   virtual OmniboxPopupUI* GetOmniboxPopupUI() const;
+  virtual bool IsLoomnibox() const;
   virtual ContextualSearchboxHandler* GetContextualSearchboxHandler() const;
   contextual_search::ContextualSearchSessionHandle*
   GetOrCreateContextualSessionHandle() const;
@@ -276,6 +308,7 @@ class OmniboxContextMenuController : public ui::SimpleMenuModel::Delegate {
   std::unique_ptr<TabSimpleMenuModel> shared_tabs_menu_model_;
   base::WeakPtr<OmniboxPopupFileSelector> file_selector_;
   base::WeakPtr<content::WebContents> web_contents_;
+  raw_ptr<ContextualSearchboxHandler> contextual_searchbox_handler_ = nullptr;
   raw_ptr<OmniboxEditModel> edit_model_;
 
   // Needed for using FaviconService.
@@ -297,6 +330,8 @@ class OmniboxContextMenuController : public ui::SimpleMenuModel::Delegate {
 
   mutable std::optional<std::vector<OmniboxContextMenuController::TabInfo>>
       cached_recent_tabs_;
+
+  base::CallbackListSubscription input_state_subscription_;
 
   base::WeakPtrFactory<OmniboxContextMenuController> weak_ptr_factory_{this};
 };

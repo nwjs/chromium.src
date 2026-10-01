@@ -42,6 +42,7 @@
 #include "base/test/bind.h"
 #include "base/test/run_until.h"
 #include "base/test/test_future.h"
+#include "base/threading/thread_restrictions.h"
 #include "base/values.h"
 #include "build/build_config.h"
 #include "chrome/app/chrome_command_ids.h"
@@ -69,6 +70,7 @@
 #include "chrome/browser/ui/page_action/page_action_icon_type.h"
 #include "chrome/browser/ui/startup/startup_browser_creator.h"
 #include "chrome/browser/ui/startup/web_app_startup_utils.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/create_application_shortcut_view_test_support.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
@@ -172,6 +174,7 @@
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/accessibility/ax_action_data.h"
 #include "ui/base/interaction/element_tracker.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/events/test/test_event.h"
 #include "ui/views/controls/button/button.h"
 #include "ui/views/controls/button/image_button.h"
@@ -1388,10 +1391,8 @@ void WebAppIntegrationTestDriver::EnterFullScreenApp() {
   if (!BeforeStateChangeAction(__FUNCTION__)) {
     return;
   }
-  FullscreenController* fullscreen_controller = app_browser()
-                                                    ->GetFeatures()
-                                                    .exclusive_access_manager()
-                                                    ->fullscreen_controller();
+  FullscreenController* fullscreen_controller =
+      ExclusiveAccessManager::From(app_browser())->fullscreen_controller();
   ASSERT_FALSE(fullscreen_controller->IsFullscreenForBrowser());
   ui_test_utils::ToggleFullscreenModeAndWait(app_browser());
   ASSERT_TRUE(fullscreen_controller->IsFullscreenForBrowser());
@@ -1402,10 +1403,8 @@ void WebAppIntegrationTestDriver::ExitFullScreenApp() {
   if (!BeforeStateChangeAction(__FUNCTION__)) {
     return;
   }
-  FullscreenController* fullscreen_controller = app_browser()
-                                                    ->GetFeatures()
-                                                    .exclusive_access_manager()
-                                                    ->fullscreen_controller();
+  FullscreenController* fullscreen_controller =
+      ExclusiveAccessManager::From(app_browser())->fullscreen_controller();
   ASSERT_TRUE(fullscreen_controller->IsFullscreenForBrowser());
   ui_test_utils::ToggleFullscreenModeAndWait(app_browser());
   ASSERT_FALSE(fullscreen_controller->IsFullscreenForBrowser());
@@ -2764,7 +2763,6 @@ void WebAppIntegrationTestDriver::SwitchProfileClients(ProfileClient client) {
   active_profile_ = delegate_->GetProfileClient(client);
   CHECK(active_profile_)
       << "Cannot switch profile clients if delegate only supports one profile";
-  delegate_->AwaitWebAppQuiescence();
   AfterStateChangeAction();
 }
 
@@ -5112,7 +5110,6 @@ WebAppIntegrationTest::WebAppIntegrationTest() : helper_(this) {
   // TODO(b/313492499): Update test driver to work with new intent picker UI.
   enabled_features.push_back(features::kPwaNavigationCapturing);
 #endif  // !BUILDFLAG(IS_CHROMEOS)
-  enabled_features.push_back(blink::features::kWebAppMigrationApi);
   enabled_features.push_back(features::kWebAppInstallDialog);
   disabled_features.push_back(
       features::kDesktopPWAsWindowControlsOverlayWithNoToggle);

@@ -22,6 +22,7 @@
 #include "chrome/browser/extensions/user_scripts_test_util.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/guest_view/browser/guest_view_base.h"
 #include "components/guest_view/browser/guest_view_manager_delegate.h"
@@ -29,6 +30,7 @@
 #include "components/version_info/channel.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_process_host.h"
+#include "content/public/browser/site_isolation_policy.h"
 #include "content/public/browser/tracing_controller.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/content_features.h"
@@ -61,6 +63,7 @@
 #include "net/test/embedded_test_server/embedded_test_server.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "ui/base/window_open_disposition.h"
 #include "url/gurl.h"
 
 namespace extensions {
@@ -194,8 +197,14 @@ class ScriptInjectionTrackerBrowserTest : public ExtensionBrowserTest {
     EXPECT_TRUE(child_frame->IsErrorDocument());
     EXPECT_EQ(child_url, child_frame->GetLastCommittedURL());
 
-    // The child frame is hosted in the same process as the main frame.
-    EXPECT_EQ(main_frame->GetProcess(), child_frame->GetProcess());
+    // The child frame's process depends on whether error page isolation is
+    // enabled.
+    if (content::SiteIsolationPolicy::IsErrorPageIsolationEnabled(
+            /*in_main_frame=*/false)) {
+      EXPECT_NE(main_frame->GetProcess(), child_frame->GetProcess());
+    } else {
+      EXPECT_EQ(main_frame->GetProcess(), child_frame->GetProcess());
+    }
 
     return child_frame;
   }

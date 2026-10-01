@@ -30,9 +30,8 @@ component("mirroring_service") {
     "openscreen_stats_client.h",
     "remoting_sender.cc",
     "remoting_sender.h",
+    "rpc_dispatcher.cc",
     "rpc_dispatcher.h",
-    "rpc_dispatcher_impl.cc",
-    "rpc_dispatcher_impl.h",
     "video_capture_client.cc",
     "video_capture_client.h",
   ]
@@ -93,7 +92,7 @@ source_set("unittests") {
     "openscreen_session_host_unittest.cc",
     "openscreen_stats_client_unittest.cc",
     "remoting_sender_unittest.cc",
-    "rpc_dispatcher_impl_unittest.cc",
+    "rpc_dispatcher_unittest.cc",
     "video_capture_client_unittest.cc",
   ]
 
@@ -104,6 +103,7 @@ source_set("unittests") {
     "//components/mirroring/mojom:service",
     "//components/openscreen_platform",
     "//gpu:test_support",
+    "//gpu/config",
     "//gpu/ipc/common:test_support",
     "//media",
     "//media:test_support",
@@ -125,6 +125,7 @@ source_set("unittests") {
     "//testing/gtest",
     "//third_party/openscreen/src/cast/streaming:common",
     "//third_party/openscreen/src/cast/streaming:sender",
+    "//ui/gl",
   ]
 
   # Make sure to use the Chromium protobuf headers, and not the ones in

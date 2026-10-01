@@ -26,8 +26,10 @@
 namespace autofill {
 namespace {
 
+using test::GetFlightReservationEntityInstance;
 using test::GetNationalIdCardEntityInstance;
 using test::GetPassportEntityInstance;
+using test::GetVehicleEntityInstance;
 using test::MaskEntityInstance;
 using ::testing::DoAll;
 using ::testing::InSequence;
@@ -312,6 +314,17 @@ TEST_F(AutofillAiWalletUtilsTest, GetAddEntityTypeStringForI18n_Branded) {
       l10n_util::GetStringUTF8(
           IDS_AUTOFILL_AI_ADD_DRIVERS_LICENSE_ENTITY_BRANDED));
 #endif
+}
+
+TEST_F(AutofillAiWalletUtilsTest, IsEligibleForWalletNotice) {
+  EXPECT_TRUE(IsEligibleForWalletNotice(EntityType(EntityTypeName::kVehicle),
+                                        kServerWallet));
+  EXPECT_FALSE(IsEligibleForWalletNotice(EntityType(EntityTypeName::kPassport),
+                                         kServerWallet));
+  EXPECT_FALSE(
+      IsEligibleForWalletNotice(EntityType(EntityTypeName::kVehicle), kLocal));
+  EXPECT_FALSE(IsEligibleForWalletNotice(
+      EntityType(EntityTypeName::kFlightReservation), kServerWallet));
 }
 
 }  // namespace

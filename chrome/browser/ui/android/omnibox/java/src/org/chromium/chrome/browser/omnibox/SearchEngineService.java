@@ -110,9 +110,14 @@ public class SearchEngineService implements Destroyable, TemplateUrlServiceObser
                         GlobalDiscardableReferencePool.getReferencePool(),
                         MAX_IMAGE_CACHE_SIZE_BYTES);
 
+        // TODO(b/557170473): Consider supplying OmniboxResourceProvider to resolve status icon
+        // size.
+        int logoSizeRes =
+                OmniboxCapabilities.isDesktopPlatform()
+                        ? R.dimen.omnibox_search_engine_logo_composed_size_desktop
+                        : R.dimen.omnibox_search_engine_logo_composed_size;
         mSearchEngineLogoTargetSizePixels =
-                mContext.getResources()
-                        .getDimensionPixelSize(R.dimen.omnibox_search_engine_logo_composed_size);
+                mContext.getResources().getDimensionPixelSize(logoSizeRes);
 
         // Apply safe fallback values.
         setSearchEngineName(null);
@@ -359,12 +364,6 @@ public class SearchEngineService implements Destroyable, TemplateUrlServiceObser
         return mTemplateUrlService.isDefaultSearchEngineGoogle();
     }
 
-    /** Set the instance for testing. */
-    public static void setInstanceForTesting(SearchEngineService instance) {
-        sInstanceForTesting = instance;
-        ResettersForTesting.register(() -> sInstanceForTesting = null);
-    }
-
     /** Returns the hint text to be used on fakebox/searchbox on the New Tab Page. */
     public String getNtpHintText(Context context) {
         if (TextUtils.isEmpty(mSearchEngineName)) {
@@ -386,12 +385,28 @@ public class SearchEngineService implements Destroyable, TemplateUrlServiceObser
     }
 
     private @StringRes int getHintStringRes(boolean isNtpSearchBox) {
-        if (OmniboxFeatures.sUseAskHintForNtp.getValue() && isDefaultSearchEngineGoogle()) {
-            return OmniboxCapabilities.isDesktopPlatform() && isNtpSearchBox
+        if (!isDefaultSearchEngineGoogle()) {
+            return R.string.omnibox_empty_hint_with_dse_name;
+        }
+
+        // Desktop (AL) always uses the updated "Ask" hint string.
+        if (OmniboxCapabilities.isDesktopPlatform()) {
+            return isNtpSearchBox
                     ? R.string.omnibox_empty_ask_hint_short_with_dse_name
                     : R.string.omnibox_empty_ask_hint_with_dse_name;
         }
 
+        // Mobile/Tablet uses "Ask" only if the feature flag is explicitly enabled.
+        if (OmniboxFeatures.sUseAskHintForNtp.getValue()) {
+            return R.string.omnibox_empty_ask_hint_with_dse_name;
+        }
+
         return R.string.omnibox_empty_hint_with_dse_name;
+    }
+
+    /** Set the instance for testing. */
+    public static void setInstanceForTesting(SearchEngineService instance) {
+        sInstanceForTesting = instance;
+        ResettersForTesting.register(() -> sInstanceForTesting = null);
     }
 }

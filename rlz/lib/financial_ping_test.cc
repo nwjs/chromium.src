@@ -102,7 +102,8 @@ TEST_F(FinancialPingTest, FormRequest) {
 
   std::string request;
   EXPECT_TRUE(rlz_lib::FinancialPing::FormRequest(rlz_lib::TOOLBAR_NOTIFIER,
-      points, "swg", brand, NULL, "en", false, &request));
+                                                  points, "swg", brand, "",
+                                                  "en", false, &request));
 
 #if BUILDFLAG(IS_CHROMEOS)
   // Ignore the machine Id of the request URL.  On Chrome OS a random Id is
@@ -122,7 +123,8 @@ TEST_F(FinancialPingTest, FormRequest) {
 
   EXPECT_TRUE(rlz_lib::SetAccessPointRlz(rlz_lib::IETB_SEARCH_BOX, ""));
   EXPECT_TRUE(rlz_lib::FinancialPing::FormRequest(rlz_lib::TOOLBAR_NOTIFIER,
-      points, "swg", brand, "IdOk2", NULL, false, &request));
+                                                  points, "swg", brand, "IdOk2",
+                                                  "", false, &request));
 
 #if BUILDFLAG(IS_CHROMEOS)
   // Ignore the machine Id of the request URL.  On Chrome OS a random Id is
@@ -140,15 +142,16 @@ TEST_F(FinancialPingTest, FormRequest) {
   EXPECT_EQ(expected_response, request);
 
   EXPECT_TRUE(rlz_lib::FinancialPing::FormRequest(rlz_lib::TOOLBAR_NOTIFIER,
-      points, "swg", brand, "IdOk", NULL, true, &request));
+                                                  points, "swg", brand, "IdOk",
+                                                  "", true, &request));
   expected_response.clear();
   base::StringAppendF(&expected_response,
       "/tools/pso/ping?as=swg&brand=%s&pid=IdOk&"
       "events=I7S,W1I&rep=2&rlz=T4:" DCC_PARAM, brand);
   EXPECT_EQ(expected_response, request);
 
-  EXPECT_TRUE(rlz_lib::FinancialPing::FormRequest(rlz_lib::TOOLBAR_NOTIFIER,
-      points, "swg", brand, NULL, NULL, true, &request));
+  EXPECT_TRUE(rlz_lib::FinancialPing::FormRequest(
+      rlz_lib::TOOLBAR_NOTIFIER, points, "swg", brand, "", "", true, &request));
   expected_response.clear();
   base::StringAppendF(&expected_response,
       "/tools/pso/ping?as=swg&brand=%s&events=I7S,W1I&rep=2"
@@ -160,12 +163,11 @@ TEST_F(FinancialPingTest, FormRequest) {
   EXPECT_TRUE(rlz_lib::ClearAllProductEvents(rlz_lib::TOOLBAR_NOTIFIER));
 
   // Clear all RLZs.
-  char rlz[rlz_lib::kMaxRlzLength + 1];
   for (int ap = rlz_lib::NO_ACCESS_POINT + 1;
        ap < rlz_lib::LAST_ACCESS_POINT; ap++) {
-    rlz[0] = 0;
     rlz_lib::AccessPoint point = static_cast<rlz_lib::AccessPoint>(ap);
-    if (rlz_lib::GetAccessPointRlz(point, rlz, std::size(rlz)) && rlz[0]) {
+    if (std::optional<std::string> rlz = rlz_lib::GetAccessPointRlz(point);
+        rlz && !rlz->empty()) {
       rlz_lib::SetAccessPointRlz(point, "");
     }
   }
@@ -175,14 +177,15 @@ TEST_F(FinancialPingTest, FormRequest) {
   EXPECT_TRUE(rlz_lib::SetAccessPointRlz(rlz_lib::QUICK_SEARCH_BOX,
       "QsbRlzValue"));
   EXPECT_TRUE(rlz_lib::FinancialPing::FormRequest(rlz_lib::TOOLBAR_NOTIFIER,
-      points, "swg", brand, NULL, NULL, false, &request));
+                                                  points, "swg", brand, "", "",
+                                                  false, &request));
   expected_response.clear();
   base::StringAppendF(&expected_response,
       "/tools/pso/ping?as=swg&brand=%s&rep=2&rlz=T4:TbRlzValue,"
       "Q1:QsbRlzValue" DCC_PARAM, brand);
   EXPECT_STREQ(expected_response.c_str(), request.c_str());
 
-  if (!GetAccessPointRlz(rlz_lib::IE_HOME_PAGE, rlz, std::size(rlz))) {
+  if (!GetAccessPointRlz(rlz_lib::IE_HOME_PAGE)) {
     points[2] = rlz_lib::IE_HOME_PAGE;
     EXPECT_TRUE(rlz_lib::FinancialPing::FormRequest(rlz_lib::TOOLBAR_NOTIFIER,
         points, "swg", brand, "MyId", "en-US", true, &request));
@@ -201,7 +204,8 @@ TEST_F(FinancialPingTest, FormRequestBadBrand) {
 
   std::string request;
   bool ok = rlz_lib::FinancialPing::FormRequest(rlz_lib::TOOLBAR_NOTIFIER,
-      points, "swg", "GOOG", NULL, "en", false, &request);
+                                                points, "swg", "GOOG", "", "en",
+                                                false, &request);
   EXPECT_EQ(rlz_lib::SupplementaryBranding::GetBrand().empty(), ok);
 }
 

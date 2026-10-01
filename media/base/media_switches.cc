@@ -620,7 +620,7 @@ BASE_FEATURE(kGlobalMediaControlsAutoDismiss, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables the "Save Video Frame" button in Global Media Controls.
 BASE_FEATURE(kGlobalMediaControlsSaveVideoFrame,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enable selection of audio output device in Global Media Controls.
 BASE_FEATURE(kGlobalMediaControlsSeamlessTransfer,
@@ -1001,6 +1001,13 @@ BASE_FEATURE(kUseSequencedTaskRunnerForMojoVEAProvider,
 BASE_FEATURE(kUseTaskRunnerForMojoAudioDecoderService,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// When enabled, determines whether a VideoFrame requires copying before display
+// based on whether the SharedImage usage includes
+// SHARED_IMAGE_USAGE_DISPLAY_READ, rather than using
+// VideoFrameMetadata::copy_required.
+BASE_FEATURE(kUseSharedImageUsageForVideoFrameCopy,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Safety switch to allow us to revert to the previous behavior of using the
 // restored bounds for PiP windows, rather than the window bounds.  If this
 // feature is enabled (the default), then we'll use the window bounds.
@@ -1069,11 +1076,7 @@ BASE_FEATURE(kWebCodecsVideoEncoderFrameDrop,
 // Inform webrtc with correct video color space information whenever
 // possible.
 BASE_FEATURE(kWebRTCColorAccuracy,
-#if BUILDFLAG(IS_CHROMEOS)
-             base::FEATURE_DISABLED_BY_DEFAULT
-#else
              base::FEATURE_ENABLED_BY_DEFAULT
-#endif  // BUILDFLAG(IS_CHROMEOS)
 );
 
 // A hardware video encoder is allowed to drop a frame in WebRTC.
@@ -1149,22 +1152,6 @@ BASE_FEATURE(kVideoPipForceTrustedForMediaPlaybackForTesting,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 #endif  // !BUILDFLAG(IS_ANDROID)
-
-#if BUILDFLAG(ALLOW_OOP_VIDEO_DECODER)
-// Spawn utility processes to perform hardware decode acceleration on behalf of
-// renderer processes (instead of using the GPU process). The GPU process will
-// still be used as a proxy between renderers and utility processes (see
-// go/oop-vd-dd).
-BASE_FEATURE(kUseOutOfProcessVideoDecoding,
-#if BUILDFLAG(IS_CHROMEOS)
-             base::FEATURE_ENABLED_BY_DEFAULT
-#else
-             base::FEATURE_DISABLED_BY_DEFAULT
-#endif
-);
-
-
-#endif  // BUILDFLAG(ALLOW_OOP_VIDEO_DECODER)
 
 #if BUILDFLAG(CHROME_WIDE_ECHO_CANCELLATION)
 // If echo cancellation for a mic signal is requested, mix and cancel all audio
@@ -1407,7 +1394,11 @@ BASE_FEATURE(kVTVideoEncodeAcceleratorCalculatePSNR,
 // Enables VideoToolbox zero-copy encode of opaque SharedImage-backed
 // VideoFrames.
 BASE_FEATURE(kVTVideoEncodeAcceleratorOpaqueSharedImageEncode,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Match the VideoToolbox output pixel format range to the frame color space so
+// VideoToolbox does not rescale code values.
+BASE_FEATURE(kVideoToolboxFullRangeOutput, base::FEATURE_DISABLED_BY_DEFAULT);
 
 #endif  // BUILDFLAG(IS_APPLE)
 
@@ -1528,11 +1519,6 @@ BASE_FEATURE(kCastStreamingMacHardwareH264, base::FEATURE_ENABLED_BY_DEFAULT);
 // Enables system audio loopback capture using the macOS CoreAudio tap API for
 // Cast.
 BASE_FEATURE(kMacCatapLoopbackAudioForCast, base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Enables system audio loopback capture using the macOS CoreAudio tap API for
-// screen share.
-BASE_FEATURE(kMacCatapLoopbackAudioForScreenShare,
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Use the built-in MacOS screen-sharing picker (SCContentSharingPicker). This
 // flag will only use the built-in picker on MacOS 15 Sequoia and later where it
@@ -1815,8 +1801,6 @@ bool IsApplicationLoopbackCaptureSupported() {
          IsWindowsProcessLoopbackCaptureSupported();
 #elif BUILDFLAG(IS_MAC)
   return base::FeatureList::IsEnabled(kApplicationAudioCaptureMac) &&
-         base::FeatureList::IsEnabled(
-             media::kMacCatapLoopbackAudioForScreenShare) &&
          media::IsMacCatapSystemLoopbackCaptureSupported();
 #else
   return false;
@@ -1879,8 +1863,7 @@ bool IsLiveTranslateEnabled() {
 
 bool IsRestrictOwnAudioSupported() {
 #if BUILDFLAG(IS_MAC)
-  return IsMacCatapSystemLoopbackCaptureSupported() &&
-         base::FeatureList::IsEnabled(kMacCatapLoopbackAudioForScreenShare);
+  return IsMacCatapSystemLoopbackCaptureSupported();
 #elif BUILDFLAG(IS_WIN)
   return IsWindowsProcessLoopbackCaptureSupported();
 #else
@@ -1970,22 +1953,6 @@ bool IsVideoCaptureAcceleratedJpegDecodingEnabled() {
   return false;
 #endif
 }
-
-#if BUILDFLAG(ALLOW_OOP_VIDEO_DECODER)
-bool IsOutOfProcessVideoDecodingEnabled() {
-#if BUILDFLAG(IS_CASTOS)
-  // The sandbox for OOP-VD was designed assuming that we're not on CastOS (see
-  // go/oop-vd-sandbox).
-  //
-  // TODO(b/210759684): revisit the sandbox to see if this restriction is
-  // necessary.
-  return false;
-#else
-  return base::FeatureList::IsEnabled(kUseOutOfProcessVideoDecoding);
-#endif
-}
-
-#endif  // BUILDFLAG(ALLOW_OOP_VIDEO_DECODER)
 
 #if BUILDFLAG(IS_ANDROID)
 bool IsAndroidZeroCopyVideoCaptureEnabled(

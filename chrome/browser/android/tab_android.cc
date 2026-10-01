@@ -30,6 +30,7 @@
 #include "chrome/browser/android/selection/chrome_selection_dropdown_menu_delegate.h"
 #include "chrome/browser/android/tab_features.h"
 #include "chrome/browser/android/tab_web_contents_delegate_android.h"
+#include "chrome/browser/android/tab_web_contents_destroyer.h"
 #include "chrome/browser/android/web_contents_theme_client.h"
 #include "chrome/browser/browser_about_handler.h"
 #include "chrome/browser/browser_process.h"
@@ -39,7 +40,6 @@
 #include "chrome/browser/history/history_service_factory.h"
 #include "chrome/browser/notifications/notification_permission_context.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/profiles/profile_observer.h"
 #include "chrome/browser/renderer_preferences_util.h"
 #include "chrome/browser/resource_coordinator/tab_helper.h"
 #include "chrome/browser/resource_coordinator/tab_load_tracker.h"
@@ -62,12 +62,12 @@
 #include "components/autofill/content/browser/content_autofill_client.h"
 #include "components/autofill/content/browser/content_autofill_driver.h"
 #include "components/infobars/content/content_infobar_manager.h"
-#include "components/javascript_dialogs/tab_modal_dialog_manager.h"
 #include "components/no_state_prefetch/browser/no_state_prefetch_manager.h"
 #include "components/performance_manager/public/resource_attribution/page_context.h"
 #include "components/performance_manager/public/resource_attribution/queries.h"
 #include "components/performance_manager/public/resource_attribution/resource_types.h"
 #include "components/sessions/content/session_tab_helper.h"
+#include "components/sessions/core/session_id.h"
 #include "components/tab_groups/tab_group_id.h"
 #include "components/tabs/public/supports_handles.h"
 #include "components/tabs/public/tab_alert.h"
@@ -76,8 +76,8 @@
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/devtools_agent_host.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
-#include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/render_view_host.h"
@@ -88,6 +88,7 @@
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"
 #include "third_party/blink/public/common/renderer_preferences/renderer_preferences.h"
 #include "ui/android/view_android.h"
+#include "ui/base/window_open_disposition.h"
 #include "url/android/gurl_android.h"
 #include "url/gurl.h"
 
@@ -212,8 +213,16 @@ std::unique_ptr<WebContentsStateByteBuffer>
 TabAndroid::GetWebContentsByteBuffer() const {
   JNIEnv* env = AttachCurrentThread();
   auto tab = GetJavaObject(env);
+  if (!tab) {
+    return nullptr;
+  }
+
   ScopedJavaLocalRef<jobject> state =
       Java_TabImpl_getWebContentsStateByteBuffer(env, tab);
+  if (!state) {
+    return nullptr;
+  }
+
   int version = Java_TabImpl_getWebContentsStateSavedStateVersion(env, tab);
 
   // If the web contents is null (denoted by saved_state_version being -1),
@@ -573,146 +582,17 @@ void WillRemoveWebContentsFromTab(content::WebContents* contents,
   }
 }
 
-// TODO(crbug.com/542647852): Move this to its own file.
-class TabWebContentsDestroyer : public content::WebContentsDelegate,
-                                public content::WebContentsObserver,
-                                public ProfileObserver {
- public:
-  explicit TabWebContentsDestroyer(
-      std::unique_ptr<content::WebContents> web_contents)
-      : content::WebContentsObserver(web_contents.get()),
-        web_contents_(std::move(web_contents)) {
-    if (web_contents_) {
-      if (Profile* profile =
-              Profile::FromBrowserContext(web_contents_->GetBrowserContext())) {
-        profile_observation_.Observe(profile);
-      }
-    }
-    web_contents_->SetDelegate(this);
-    // Cancel any pre-existing in-flight navigations before ClosePage() cancels
-    // NavigationRequests.
-    web_contents_->Stop();
-    web_contents_->ClosePage();
-    // 2 seconds was chosen to give sufficient time for unload handlers to run
-    // during window closure (see DEFAULT_SHUTDOWN_TIMEOUT_MS in
-    // GracefulShutdownServiceImpl which matches this duration).
-    // Fallback timer in case the renderer never responds.
-    base::SequencedTaskRunner::GetCurrentDefault()->PostDelayedTask(
-        FROM_HERE,
-        base::BindOnce(&TabWebContentsDestroyer::Destroy,
-                       weak_ptr_factory_.GetWeakPtr()),
-        base::Seconds(2));
-  }
-
-  ~TabWebContentsDestroyer() override = default;
-
-  // content::WebContentsDelegate:
-  void CloseContents(content::WebContents* source) override {
-    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
-        FROM_HERE, base::BindOnce(&TabWebContentsDestroyer::Destroy,
-                                  weak_ptr_factory_.GetWeakPtr()));
-  }
-
-  content::JavaScriptDialogManager* GetJavaScriptDialogManager(
-      content::WebContents* source) override {
-    return javascript_dialogs::TabModalDialogManager::FromWebContents(source);
-  }
-
-  // Ignore top-level navigation requests initiated during graceful shutdown
-  // (e.g. via window.location) to prevent canceled NavigationRequests from
-  // causing renderer bad message failures.
-  content::WebContents* OpenURLFromTab(
-      content::WebContents* source,
-      const content::OpenURLParams& params,
-      base::OnceCallback<void(content::NavigationHandle&)>
-          navigation_handle_callback) override {
-    return nullptr;
-  }
-
-  // Suppress JavaScript modal dialogs while WebContents is shutting down.
-  bool ShouldSuppressDialogs(content::WebContents* source) override {
-    return true;
-  }
-
-  // Intercept window/popup creation requests so CreateCustomWebContents is
-  // called to reject new windows during graceful shutdown.
-  bool IsWebContentsCreationOverridden(
-      content::RenderFrameHost* opener,
-      content::SiteInstance* source_site_instance,
-      content::mojom::WindowContainerType window_container_type,
-      const GURL& opener_url,
-      const std::string& frame_name,
-      const GURL& target_url) override {
-    return true;
-  }
-
-  // Reject creation of new WebContents/popups initiated during graceful
-  // shutdown.
-  content::WebContents* CreateCustomWebContents(
-      content::RenderFrameHost* opener,
-      content::SiteInstance* source_site_instance,
-      bool is_new_browsing_instance,
-      const GURL& opener_url,
-      const std::string& frame_name,
-      const GURL& target_url,
-      WindowOpenDisposition disposition,
-      const blink::mojom::WindowFeatures& window_features,
-      const content::StoragePartitionConfig& partition_config,
-      content::SessionStorageNamespace* session_storage_namespace) override {
-    return nullptr;
-  }
-
-  // content::WebContentsObserver:
-  void DidStartNavigation(
-      content::NavigationHandle* navigation_handle) override {
-    if (!web_contents_) {
-      return;
-    }
-    // Synchronously stopping the navigation is not safe as some other callers
-    // in the observer chain may try to access the navigation which we want to
-    // stop.
-    content::GetUIThreadTaskRunner({})->PostTask(
-        FROM_HERE, base::BindOnce(&TabWebContentsDestroyer::StopNavigation,
-                                  weak_ptr_factory_.GetWeakPtr()));
-  }
-
-  void PrimaryMainFrameRenderProcessGone(
-      base::TerminationStatus status) override {
-    Destroy();
-  }
-
-  // ProfileObserver:
-  void OnProfileWillBeDestroyed(Profile* profile) override {
-    if (profile_observation_.GetSource() == profile) {
-      Destroy();
-    }
-  }
-
- private:
-  void StopNavigation() {
-    if (web_contents_) {
-      web_contents_->Stop();
-    }
-  }
-  void Destroy() {
-    profile_observation_.Reset();
-    Observe(nullptr);
-    if (web_contents_) {
-      if (auto* dialog_manager =
-              javascript_dialogs::TabModalDialogManager::FromWebContents(
-                  web_contents_.get())) {
-        dialog_manager->CancelDialogs(web_contents_.get(),
-                                      /*reset_state=*/true);
-      }
-    }
-    delete this;
-  }
-
-  std::unique_ptr<content::WebContents> web_contents_;
-  base::ScopedObservation<Profile, ProfileObserver> profile_observation_{this};
-  base::WeakPtrFactory<TabWebContentsDestroyer> weak_ptr_factory_{this};
-};
 }  // namespace
+
+void TabAndroid::ResetTabAlertController() {
+  glic_tab_indicator_helper_.reset();
+  alert_to_show_subscription_ = {};
+  if (tab_alert_controller_ &&
+      tab_alert_controller_->GetAlertToShow().has_value()) {
+    OnAlertStateChanged(std::nullopt);
+  }
+  tab_alert_controller_.reset();
+}
 
 tabs::TabDestroyStatus TabAndroid::DestroyWebContents() {
   WillRemoveWebContentsFromTab(web_contents(), /*clear_delegate=*/false);
@@ -729,9 +609,7 @@ tabs::TabDestroyStatus TabAndroid::DestroyWebContents() {
     return DestroyWebContentsSlowShutdown();
   }
 
-  glic_tab_indicator_helper_.reset();
-  alert_to_show_subscription_ = {};
-  tab_alert_controller_.reset();
+  ResetTabAlertController();
   tab_features_.reset();
   web_contents_.reset();
   if (synced_tab_delegate_) {
@@ -742,16 +620,11 @@ tabs::TabDestroyStatus TabAndroid::DestroyWebContents() {
   return tabs::TabDestroyStatus::FAST_SHUTDOWN;
 }
 
-tabs::TabDestroyStatus TabAndroid::DestroyWebContentsSlowShutdownForTesting() {
-  WillRemoveWebContentsFromTab(web_contents(), /*clear_delegate=*/false);
-  return DestroyWebContentsSlowShutdown();
-}
-
 tabs::TabDestroyStatus TabAndroid::DestroyWebContentsSlowShutdown() {
   std::unique_ptr<content::WebContents> contents =
       ReleaseWebContentsInternal(/*keep_session_id=*/true,
                                  /*clear_delegate=*/true);
-  new TabWebContentsDestroyer(std::move(contents));
+  tabs::TabWebContentsDestroyer::DestroyWebContents(std::move(contents));
   return tabs::TabDestroyStatus::SLOW_SHUTDOWN;
 }
 
@@ -772,9 +645,7 @@ std::unique_ptr<content::WebContents> TabAndroid::ReleaseWebContentsInternal(
     bool clear_delegate) {
   WillRemoveWebContentsFromTab(web_contents(), clear_delegate);
 
-  glic_tab_indicator_helper_.reset();
-  alert_to_show_subscription_ = {};
-  tab_alert_controller_.reset();
+  ResetTabAlertController();
   tab_features_.reset();
   std::unique_ptr<content::WebContents> released_contents =
       std::move(web_contents_);

@@ -40,7 +40,6 @@ import org.chromium.ui.test.util.DeviceRestriction;
 @SuppressLint("VisibleForTests")
 @Batch(Batch.PER_CLASS)
 @Restriction(DeviceRestriction.RESTRICTION_TYPE_NON_AUTO)
-@DisableFeatures({ContentFeatureList.ACCESSIBILITY_UNIFIED_SNAPSHOTS})
 @EnableFeatures({
     ContentFeatureList.ACCESSIBILITY_DEPRECATE_TYPE_ANNOUNCE,
     ContentFeatureList.ACCESSIBILITY_EXTENDED_SELECTION,
@@ -1248,6 +1247,12 @@ public class WebContentsAccessibilityTreeTest {
 
     @Test
     @SmallTest
+    public void test_headingWithAriaLabel() {
+        performAriaTest("heading-with-aria-label.html");
+    }
+
+    @Test
+    @SmallTest
     public void test_hiddenDescribedBy() {
         performAriaTest("hidden-described-by.html");
     }
@@ -1422,10 +1427,8 @@ public class WebContentsAccessibilityTreeTest {
         performApgPatternThirdPartyTest("alert/examples/alert.html");
     }
 
-    // TODO(crbug.com/545647752): disabled due to flakiness
     @Test
     @SmallTest
-    @DisabledTest(message = "b/545647752")
     public void test_ariaApgPatternThirdPartyAlertdialog() {
         performApgPatternThirdPartyTest("alertdialog/examples/alertdialog.html");
     }
@@ -2176,6 +2179,12 @@ public class WebContentsAccessibilityTreeTest {
     @CommandLineFlags.Add({"enable-experimental-web-platform-features"})
     public void test_commandforPopoverMenus() {
         performHtmlTest("commandfor-api-popover-menus.html");
+    }
+
+    @Test
+    @SmallTest
+    public void test_containerWithGenericDescendantsAndName() {
+        performHtmlTest("container-with-generic-descendants-and-name.html");
     }
 
     @Test

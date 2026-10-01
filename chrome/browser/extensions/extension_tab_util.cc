@@ -38,6 +38,7 @@
 #include "components/data_sharing/public/features.h"
 #include "components/saved_tab_groups/public/tab_group_sync_service.h"
 #include "components/sessions/content/session_tab_helper.h"
+#include "components/sessions/core/session_id.h"
 #include "components/split_tabs/split_tab_id.h"
 #include "components/split_tabs/split_tab_visual_data.h"
 #include "components/tab_groups/tab_group_id.h"  // nogncheck
@@ -63,6 +64,7 @@
 #include "extensions/common/permissions/permissions_data.h"
 #include "third_party/blink/public/common/chrome_debug_urls.h"
 #include "ui/base/page_transition_types.h"
+#include "ui/base/window_open_disposition.h"
 #include "url/gurl.h"
 #include "url/url_constants.h"
 
@@ -103,6 +105,8 @@ namespace {
 bool g_disable_tab_list_editing_for_testing = false;
 
 constexpr char kGroupNotFoundError[] = "No group with id: *.";
+constexpr char kSplitNotFoundError[] = "No split view with id: *.";
+constexpr char kInvalidSplitIdError[] = "Invalid split view id: *.";
 constexpr char kInvalidUrlError[] = "Invalid url: \"*\".";
 
 // This enum is used for counting schemes used via a navigation triggered by
@@ -522,9 +526,6 @@ void ExtensionTabUtil::ScrubTabForExtension(
       tab->title.reset();
       tab->fav_icon_url.reset();
       break;
-    case kScrubTabUrlToOrigin:
-      tab->url = GURL(*tab->url).DeprecatedGetOriginAsURL().spec();
-      break;
     case kDontScrubTab:
       break;
   }
@@ -534,10 +535,6 @@ void ExtensionTabUtil::ScrubTabForExtension(
     switch (scrub_tab_behavior.pending_info) {
       case kScrubTabFully:
         tab->pending_url.reset();
-        break;
-      case kScrubTabUrlToOrigin:
-        tab->pending_url =
-            GURL(*tab->pending_url).DeprecatedGetOriginAsURL().spec();
         break;
       case kDontScrubTab:
         break;
@@ -853,6 +850,73 @@ bool ExtensionTabUtil::GetGroupById(
 }
 
 // static
+bool ExtensionTabUtil::GetSplitById(int split_id,
+                                    content::BrowserContext* browser_context,
+                                    bool include_incognito,
+                                    WindowController** out_window,
+                                    split_tabs::SplitTabId* out_id,
+                                    std::string* error) {
+  // Zero output parameters for the error cases.
+  if (out_window) {
+    *out_window = nullptr;
+  }
+  if (out_id) {
+    *out_id = split_tabs::SplitTabId::CreateEmpty();
+  }
+
+  if (split_id == api::tabs::SPLIT_VIEW_ID_NONE) {
+    if (error) {
+      *error = ErrorUtils::FormatErrorMessage(kInvalidSplitIdError,
+                                              base::NumberToString(split_id));
+    }
+    return false;
+  }
+
+  // `browser_context` can be null during shutdown.
+  if (!browser_context) {
+    return false;
+  }
+
+  Profile* profile = Profile::FromBrowserContext(browser_context);
+  Profile* incognito_profile =
+      include_incognito && profile->HasPrimaryOTRProfile()
+          ? profile->GetPrimaryOTRProfile(/*create_if_needed=*/false)
+          : nullptr;
+  for (WindowController* target_window : *WindowControllerList::GetInstance()) {
+    if (target_window->profile() != profile &&
+        target_window->profile() != incognito_profile) {
+      continue;
+    }
+    BrowserWindowInterface* target_browser =
+        target_window->GetBrowserWindowInterface();
+    if (!target_browser || target_browser->IsDeleteScheduled()) {
+      continue;
+    }
+    TabListInterface* tab_list = TabListInterface::From(target_browser);
+    if (!tab_list) {
+      continue;
+    }
+    for (split_tabs::SplitTabId target_split : tab_list->ListSplits()) {
+      if (ExtensionTabUtil::GetSplitId(target_split) == split_id) {
+        if (out_window) {
+          *out_window = target_window;
+        }
+        if (out_id) {
+          *out_id = target_split;
+        }
+        return true;
+      }
+    }
+  }
+  if (error) {
+    *error = ErrorUtils::FormatErrorMessage(kSplitNotFoundError,
+                                            base::NumberToString(split_id));
+  }
+
+  return false;
+}
+
+// static
 api::tab_groups::TabGroup ExtensionTabUtil::CreateTabGroupObject(
     const tab_groups::TabGroupId& id,
     const tab_groups::TabGroupVisualData& visual_data) {
@@ -1006,24 +1070,6 @@ ExtensionTabUtil::GetAllActiveWebContentsForContext(
       });
 
   return active_contents;
-}
-
-// static
-bool ExtensionTabUtil::IsWebContentsInContext(
-    content::WebContents* web_contents,
-    content::BrowserContext* browser_context,
-    bool include_incognito) {
-  // Look at the WebContents BrowserContext and see if it is the same.
-  content::BrowserContext* web_contents_browser_context =
-      web_contents->GetBrowserContext();
-  if (web_contents_browser_context == browser_context)
-    return true;
-
-  // If not it might be to include the incognito mode, so we if the profiles
-  // are the same or the parent.
-  return include_incognito && Profile::FromBrowserContext(browser_context)
-                                  ->IsSameOrParent(Profile::FromBrowserContext(
-                                      web_contents_browser_context));
 }
 
 GURL ExtensionTabUtil::ResolvePossiblyRelativeURL(const std::string& url_string,

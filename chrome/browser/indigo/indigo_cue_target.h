@@ -40,6 +40,7 @@ class IndigoCueTarget : public contextual_cueing::CueTarget {
   // contextual_cueing::CueTarget:
   contextual_cueing::CueTargetType GetType() const override;
   bool RequiresModelExecution() const override;
+  bool IsPersistent() const override;
   bool IsEligible() const override;
   void CheckEligibility(base::WeakPtr<content::WebContents> web_contents,
                         contextual_cueing::CueIntrusiveness intrusiveness,
@@ -58,6 +59,8 @@ class IndigoCueTarget : public contextual_cueing::CueTarget {
   contextual_cueing::CueActionData CueActionDataFromResponse(
       const optimization_guide::proto::ContextualCue& cue,
       std::vector<tabs::TabHandle> tabs_to_show) const override;
+  bool OverridesUcbScoring() const override;
+  bool DowngradesToQuietOnDismiss() const override;
   optimization_guide::proto::ContextualCueingSurface GetSurface()
       const override;
 

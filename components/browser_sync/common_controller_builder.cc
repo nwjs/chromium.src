@@ -25,7 +25,6 @@
 #include "components/autofill/core/browser/webdata/autofill_webdata_service.h"
 #include "components/autofill/core/browser/webdata/payments/autofill_wallet_credential_sync_bridge.h"
 #include "components/autofill/core/browser/webdata/payments/autofill_wallet_metadata_sync_bridge.h"
-#include "components/autofill/core/browser/webdata/payments/autofill_wallet_offer_sync_bridge.h"
 #include "components/autofill/core/browser/webdata/payments/autofill_wallet_sync_bridge.h"
 #include "components/autofill/core/browser/webdata/payments/autofill_wallet_usage_data_sync_bridge.h"
 #include "components/autofill/core/browser/webdata/valuables/valuable_data_type_controller.h"
@@ -43,6 +42,8 @@
 #include "components/data_sharing/public/data_sharing_service.h"
 #include "components/data_sharing/public/features.h"
 #include "components/data_sharing/public/personal_collaboration_data/personal_collaboration_data_service.h"
+#include "components/history/core/browser/history_service.h"
+#include "components/history/core/browser/journeys/journey_data_type_controller.h"
 #include "components/history/core/browser/sync/history_data_type_controller.h"
 #include "components/history/core/browser/sync/history_delete_directives_data_type_controller.h"
 #include "components/notebooks/public/notebooks_service.h"
@@ -172,17 +173,6 @@ AutofillWalletMetadataDelegateFromDataService(
   return nullptr;
 #if 0
   return autofill::AutofillWalletMetadataSyncBridge::FromWebDataService(service)
-      ->change_processor()
-      ->GetControllerDelegate();
-#endif
-}
-
-base::WeakPtr<syncer::DataTypeControllerDelegate>
-AutofillWalletOfferDelegateFromDataService(
-    autofill::AutofillWebDataService* service) {
-  return nullptr;
-#if 0
-  return autofill::AutofillWalletOfferSyncBridge::FromWebDataService(service)
       ->change_processor()
       ->GetControllerDelegate();
 #endif
@@ -467,11 +457,6 @@ CommonControllerBuilder::Build(syncer::DataTypeSet disabled_types,
     add_controller(CreateAutofillWalletMetadataDataTypeController(sync_service));
   }
 
-  if (!disabled_types.Has(syncer::AUTOFILL_WALLET_OFFER) &&
-      !disabled_types.Has(syncer::AUTOFILL_WALLET_DATA)) {
-    add_controller(CreateAutofillWalletOfferDataTypeController(sync_service));
-  }
-
 #if !BUILDFLAG(IS_IOS)
   if (!disabled_types.Has(syncer::AUTOFILL_WALLET_USAGE) &&
       !disabled_types.Has(syncer::AUTOFILL_WALLET_DATA)) {
@@ -602,7 +587,11 @@ CommonControllerBuilder::Build(syncer::DataTypeSet disabled_types,
   }
 
   if (!disabled_types.Has(syncer::JOURNEY)) {
-    add_controller(CreateJourneyDataTypeController());
+    add_controller(CreateJourneyDataTypeController(sync_service));
+  }
+
+  if (!disabled_types.Has(syncer::AUTOFILL_ENTITY_SUPPRESSION)) {
+    add_controller(CreateAutofillEntitySuppressionDataTypeController());
   }
 
   if (!disabled_types.Has(syncer::CONTEXTUAL_TASK)) {
@@ -722,19 +711,6 @@ CommonControllerBuilder::CreateAutofillWalletMetadataDataTypeController(
   return CreateWalletDataTypeController(
       syncer::AUTOFILL_WALLET_METADATA,
       base::BindRepeating(&AutofillWalletMetadataDelegateFromDataService),
-      sync_service, /*with_transport_mode_support=*/
-      syncer::IsReplaceSyncPromosWithSignInPromosEnabled());
-}
-
-std::unique_ptr<syncer::DataTypeController>
-CommonControllerBuilder::CreateAutofillWalletOfferDataTypeController(
-    syncer::SyncService* sync_service) {
-  if (!profile_autofill_web_data_service_.value()) {
-    return nullptr;
-  }
-  return CreateWalletDataTypeController(
-      syncer::AUTOFILL_WALLET_OFFER,
-      base::BindRepeating(&AutofillWalletOfferDelegateFromDataService),
       sync_service, /*with_transport_mode_support=*/
       syncer::IsReplaceSyncPromosWithSignInPromosEnabled());
 }
@@ -1252,23 +1228,25 @@ CommonControllerBuilder::CreateNotebookDataTypeController() {
 }
 
 std::unique_ptr<syncer::DataTypeController>
-CommonControllerBuilder::CreateJourneyDataTypeController() {
-  if (!base::FeatureList::IsEnabled(syncer::kSyncJourney)) {
+CommonControllerBuilder::CreateJourneyDataTypeController(
+    syncer::SyncService* sync_service) {
+  if (!base::FeatureList::IsEnabled(syncer::kSyncJourney) ||
+      !history_service_.value()) {
     return nullptr;
   }
 
-  // TODO(crbug.com/526686844): In CL #4, register the type, i.e. instantiate
-  // the DataTypeController. There is more than one way to go about it,
-  // but one option is:
-  // - Create a trivial implementation of DataTypeSyncBridge which lives in
-  //   your feature's directory. It should have synchronous access to your
-  //   data model (e.g. DualReadingListModel) and be (indirectly) owned by a
-  //   CoolKeyedService (often the model itself).
-  // - Expose CoolKeyedService::GetControllerDelegate() which calls
-  //   bridge->change_processor()->GetControllerDelegate().
-  // - Inject CoolKeyedService in this class and call GetControllerDelegate()
-  //   on it to create the DataTypeController.
-  // In CLs #5, #6, ..., implement the bridge and keep adding unit tests.
+  return std::make_unique<history::JourneyDataTypeController>(
+      sync_service, history_service_.value(), pref_service_.value());
+}
+
+std::unique_ptr<syncer::DataTypeController>
+CommonControllerBuilder::CreateAutofillEntitySuppressionDataTypeController() {
+  if (!base::FeatureList::IsEnabled(syncer::kSyncAutofillEntitySuppression)) {
+    return nullptr;
+  }
+
+  // TODO(crbug.com/501036619): Instantiate the DataTypeController once the
+  // keyed service and sync bridge are wired up.
   return nullptr;
 }
 
@@ -1355,12 +1333,10 @@ CommonControllerBuilder::CreateWalletDataTypeController(
             autofill::AutofillWebDataService*)>& delegate_from_web_data,
     syncer::SyncService* sync_service,
     bool with_transport_mode_support) {
-  // Transport mode should be supported, except for METADATA and OFFER where
-  // support is still work in progress, see crbug.com/1448894 and
-  // crbug.com/1448895.
+  // Transport mode should be supported, except for METADATA where support is
+  // still work in progress, see crbug.com/1448894.
   CHECK(with_transport_mode_support ||
-        type == syncer::AUTOFILL_WALLET_METADATA ||
-        type == syncer::AUTOFILL_WALLET_OFFER);
+        type == syncer::AUTOFILL_WALLET_METADATA);
   auto delegate_for_full_sync_mode =
       std::make_unique<syncer::ProxyDataTypeControllerDelegate>(
           profile_autofill_web_data_service_.value()->GetDBTaskRunner(),

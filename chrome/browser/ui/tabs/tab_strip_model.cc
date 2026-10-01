@@ -52,7 +52,6 @@
 #include "chrome/browser/ui/browser_command_controller.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_window.h"
-#include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/send_tab_to_self/send_tab_to_self_bubble.h"
@@ -89,6 +88,7 @@
 #include "components/content_settings/core/common/content_settings_types.h"
 #include "components/feature_engagement/public/feature_constants.h"
 #include "components/reading_list/core/reading_list_model.h"
+#include "components/sessions/core/session_id.h"
 #include "components/split_tabs/split_tab_id.h"
 #include "components/split_tabs/split_tab_visual_data.h"
 #include "components/tab_groups/tab_group_id.h"
@@ -2651,6 +2651,11 @@ bool TabStripModel::IsContextMenuCommandEnabled(
     case CommandRemoveFromGroup:
       return SupportsTabGroups();
 
+    case CommandToggleFocusGroup:
+      return SupportsTabGroups() &&
+             base::FeatureList::IsEnabled(features::kTabGroupsFocusing) &&
+             GetTabGroupForTab(context_index).has_value();
+
     case CommandMoveToExistingWindow:
       return true;
 
@@ -2978,6 +2983,32 @@ void TabStripModel::ExecuteContextMenuCommand(int context_index,
       break;
     }
 
+    case CommandToggleFocusGroup: {
+      base::UmaHistogramCounts1000(
+          "Tab.ContextMenu.ToggleFocusGroup.SelectedTabsCount",
+          selection_model_.size());
+      if (!group_model_) {
+        break;
+      }
+      std::optional<tab_groups::TabGroupId> group_id =
+          GetTabGroupForTab(context_index);
+      if (!group_id.has_value()) {
+        break;
+      }
+      if (GetFocusedGroup() == group_id) {
+        base::UmaHistogramEnumeration("TabGroups.Focus.ExitReason",
+                                      TabGroupFocusExitReason::kTabContextMenu);
+        base::RecordAction(UserMetricsAction("TabContextMenu_UnfocusTabGroup"));
+        SetFocusedGroup(std::nullopt);
+      } else {
+        base::UmaHistogramEnumeration("TabGroups.Focus.EntryPoint",
+                                      TabGroupFocusEntryPoint::kTabContextMenu);
+        base::RecordAction(UserMetricsAction("TabContextMenu_FocusTabGroup"));
+        SetFocusedGroup(group_id);
+      }
+      break;
+    }
+
     case CommandMoveToExistingWindow: {
       base::UmaHistogramCounts1000(
           "Tab.ContextMenu.MoveToExistingWindow.SelectedTabsCount",
@@ -2994,20 +3025,7 @@ void TabStripModel::ExecuteContextMenuCommand(int context_index,
       base::RecordAction(
           UserMetricsAction("TabContextMenu_MoveTabToNewWindow"));
 
-      std::vector<int> indices_to_move = GetIndicesForCommand(context_index);
-      std::vector<tab_groups::TabGroupId> groups_to_delete =
-          GetGroupsDestroyedFromRemovingIndices(indices_to_move);
-      MarkTabGroupsForClosing(groups_to_delete);
-
-      base::OnceCallback<void()> callback =
-          base::BindOnce(&TabStripModelDelegate::MoveTabsToNewWindow,
-                         base::Unretained(delegate()), indices_to_move);
-      if (!groups_to_delete.empty()) {
-        return delegate_->OnRemovingAllTabsFromGroups(groups_to_delete,
-                                                      std::move(callback));
-      } else {
-        std::move(callback).Run();
-      }
+      delegate()->MoveTabsToNewWindow(GetIndicesForCommand(context_index));
       break;
     }
 
@@ -3078,7 +3096,7 @@ void TabStripModel::ExecuteContextMenuCommand(int context_index,
       base::UmaHistogramCounts1000(
           "Tab.ContextMenu.ToggleVertical.SelectedTabsCount",
           selection_model_.size());
-      const BrowserWindowInterface* const browser =
+      BrowserWindowInterface* const browser =
           GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(
               GetWebContentsAt(context_index));
       if (auto* controller =
@@ -3087,7 +3105,7 @@ void TabStripModel::ExecuteContextMenuCommand(int context_index,
         tabs::RecordVerticalTabStripModeChanged(
             is_vertical, tabs::VerticalTabStripEntryPoint::kTabContextMenu);
       }
-      browser->GetFeatures().browser_command_controller()->ExecuteCommand(
+      chrome::BrowserCommandController::From(browser)->ExecuteCommand(
           IDC_TOGGLE_VERTICAL_TABS);
       break;
     }
@@ -3983,8 +4001,12 @@ bool TabStripModel::CloseWebContentses(
     if (tab_model->IsVisible() && !closing_all_) {
       tab_model->WillBecomeHidden(base::PassKey<TabStripModel>());
     }
-    tab_model->WillDetach(base::PassKey<TabStripModel>(),
-                          tabs::TabInterface::DetachReason::kDelete);
+    // TODO(crbug.com/558720516): Remove this and always call WillDetach after
+    // unload handlers below.
+    if (!ShouldRunUnloadListenerBeforeClosing(contents)) {
+      tab_model->WillDetach(base::PassKey<TabStripModel>(),
+                            tabs::TabInterface::DetachReason::kDelete);
+    }
   }
 
   // We only try the fast shutdown path if the whole browser process is *not*
@@ -4040,6 +4062,12 @@ bool TabStripModel::CloseWebContentses(
       TabCloseTypesData::CreateForWebContents(closing_contents, close_types);
       closed_all = false;
       continue;
+    }
+
+    tabs::TabModel* tab_model = GetTabModelAtIndex(current_index);
+    if (ShouldRunUnloadListenerBeforeClosing(closing_contents)) {
+      tab_model->WillDetach(base::PassKey<TabStripModel>(),
+                            tabs::TabInterface::DetachReason::kDelete);
     }
 
     bool create_historical_tab =
@@ -5480,7 +5508,7 @@ void TabStripModel::SetSitesMuted(const std::vector<int>& indices,
       // The goal is to only add the site URL to the exception list if
       // the request behavior differs from the default value or if there is an
       // existing less specific rule (i.e. wildcards) in the exception list.
-      if (!profile->IsIncognitoProfile()) {
+      if (!profile->IsPrimaryOTRProfileWithRegularParent()) {
         // Using default setting value below clears the setting from the
         // exception list for the site URL if it exists.
         map->SetContentSettingDefaultScope(url, url, ContentSettingsType::SOUND,

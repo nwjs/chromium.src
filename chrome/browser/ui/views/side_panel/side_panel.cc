@@ -343,18 +343,6 @@ void SidePanel::SetPanelWidth(int width) {
   SetPreferredSize(gfx::Size(width, 1));
 }
 
-bool SidePanel::ShouldRestrictMaxWidth() const {
-  // TODO(crbug.com/394339052): Only restricting width for only non-read
-  // anything content is a temporary solution and UX will investigate a better
-  // long term solution.
-  SidePanelUI* side_panel_ui = SidePanelUI::From(browser_view_->browser());
-  if (!side_panel_ui) {
-    return true;
-  }
-  return !side_panel_ui->IsSidePanelEntryShowing(
-      SidePanelEntryKey(SidePanelEntryId::kReadAnything));
-}
-
 void SidePanel::SetBackgroundRadii(const gfx::RoundedCornersF& radii) {
   if (radii == background_radii_) {
     return;
@@ -711,8 +699,7 @@ void SidePanel::AnnounceResize() {
 void SidePanel::UpdateHorizontalAlignment(
     std::optional<SidePanelEntryId> entry_id) {
   if (!entry_id) {
-    if (auto* side_panel_ui =
-            browser_view_->browser()->GetFeatures().side_panel_ui()) {
+    if (auto* side_panel_ui = SidePanelUI::From(browser_view_->browser())) {
       entry_id = side_panel_ui->GetCurrentEntryId();
     }
   }

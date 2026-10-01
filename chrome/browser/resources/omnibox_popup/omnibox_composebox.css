@@ -13,6 +13,16 @@
 
 :host {
   --composebox-cancel-button-top: var(--cr-composebox-cancel-button-top, 12px);
+  --cr-composebox-grid-min-item-width: 100px;
+  --cr-composebox-grid-padding-bottom: 10px;
+  --cr-composebox-grid-row-gap: 16px;
+  --cr-composebox-header-color: var(--color-sys-on-surface-subtle);
+  --cr-composebox-header-font-size: 12px;
+  --cr-composebox-header-font-weight: 500;
+  --cr-composebox-header-line-height: 18px;
+  --cr-composebox-image-card-aspect-ratio: 4 / 3;
+  --cr-composebox-image-card-border-radius: 16px;
+  --cr-composebox-image-card-text-color: var(--color-sys-on-surface);
   --input-bottom-spacing: 10px;
   --text-input-top-spacing: 10px;
   --text-input-inline-end-spacing: 80px;
@@ -39,17 +49,41 @@
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
+  min-height: 0;
   overflow: hidden;
   width: 100%;
+}
+
+#composeboxInput {
+  flex-shrink: 0;
+}
+
+#context {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  reading-flow: flex-visual;
 }
 
 #contextEntrypoint::part(entrypoint-button) {
   --cr-icon-button-size: 36px;
 }
 
+#lensSearchChip {
+  flex-shrink: 1;
+  max-width: 100%;
+  min-width: 0;
+}
+
 #lensSearchChip::part(lens-search-pill) {
   font-size: var(--omnibox-font-size, 14px);
   height: 36px;
+  padding: 8px 12px;
+}
+
+#contextMenuContainer {
+  margin-inline-end: 96px;
+  min-width: 0;
 }
 
 cr-composebox-tool-chip {
@@ -82,7 +116,7 @@ cr-composebox-tool-chip {
 
 /* Voice Search Styles */
 #voiceSearchButton {
-  --cr-icon-button-fill-color: var(--color-composebox-font-light);
+  --cr-icon-button-fill-color: var(--cr-composebox-voice-icon-fill-color);
   --cr-icon-button-hover-background-color: var(--color-composebox-voice-button-hover-background);
   --cr-icon-button-margin-end: 0px;
   --cr-icon-button-margin-start: 0px;
@@ -97,7 +131,8 @@ cr-composebox-tool-chip {
 }
 
 :host([submit-enabled][searchbox-layout-mode='TallBottomContext']) #voiceSearchButton {
-  inset-inline-end: calc(var(--cr-composebox-submit-container-size) + 18px);
+  inset-inline-end: calc(var(--cr-composebox-submit-container-size) + 6px);
+  margin-inline-end: 6px;
 }
 
 :host([submit-enabled][searchbox-layout-mode='TallBottomContext'][show-dropdown]) #voiceSearchButton {
@@ -109,4 +144,68 @@ cr-composebox-tool-chip {
   position: absolute;
   inset-inline-end: calc(var(--cr-composebox-submit-container-size) + 12px);
   top: 10px;
+}
+
+:host([searchbox-layout-mode='TallBottomContext']) #voiceSearchButton {
+  bottom: 11px;
+}
+
+:host([energy-effect-enabled][searchbox-layout-mode='TallBottomContext']) #voiceSearchButton,
+:host([energy-effect-enabled][searchbox-layout-mode='TallBottomContext'][show-dropdown]) #voiceSearchButton {
+  bottom: 10px;
+  top: unset;
+  inset-inline-end: 14px;
+}
+
+:host([energy-effect-enabled][submit-enabled][searchbox-layout-mode='TallBottomContext']) #voiceSearchButton {
+  inset-inline-end: calc(
+      var(--cr-composebox-submit-width,
+          var(--cr-composebox-submit-container-size)) + 8px);
+  margin-inline-end: 4px;
+}
+
+:host([submit-enabled][searchbox-layout-mode='TallBottomContext'])
+    cr-composebox-submit::part(submit) {
+  bottom: 10px;
+}
+
+:host([energy-effect-enabled][submit-enabled][searchbox-layout-mode='TallBottomContext'])
+    cr-composebox-submit::part(submit) {
+  inset-inline-end: 8px;
+}
+
+:host([submit-enabled][searchbox-layout-mode='TallBottomContext']:not([show-dropdown]))
+    cr-composebox-submit::part(submit) {
+  bottom: 6px;
+}
+
+:host([energy-effect-enabled][submit-enabled][searchbox-layout-mode='TallBottomContext']:not([show-dropdown]))
+    cr-composebox-submit::part(submit) {
+  bottom: 10px;
+}
+
+.divider-and-dropdown {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* Rich image suggestions state: context menu moves above image grid */
+:host([has-grid]) .divider-and-dropdown {
+  order: 1;
+
+  .carousel-divider {
+    --contextual-entrypoint-and-carousel-carousel-divider-margin-top: 8px;
+    --contextual-entrypoint-and-carousel-carousel-divider-margin-bottom: 12px;
+  }
+}
+
+:host([searchbox-layout-mode='TallBottomContext'][show-dropdown][has-grid]) #voiceSearchButton {
+  bottom: unset;
+  top: var(--cr-composebox-voice-icon-top, 60px);
+}
+
+:host([searchbox-layout-mode='TallBottomContext'][show-dropdown][has-grid]) cr-composebox-submit::part(submit) {
+  bottom: unset;
+  top: var(--cr-composebox-submit-container-top, 58px);
 }

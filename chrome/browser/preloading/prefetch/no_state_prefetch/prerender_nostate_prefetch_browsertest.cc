@@ -56,6 +56,7 @@
 #include "components/no_state_prefetch/browser/no_state_prefetch_manager.h"
 #include "components/prefs/pref_service.h"
 #include "components/privacy_sandbox/privacy_sandbox_features.h"
+#include "components/safe_browsing/buildflags.h"
 #include "components/safe_browsing/core/common/features.h"
 #include "components/safe_browsing/core/common/safe_browsing_prefs.h"
 #include "components/ukm/test_ukm_recorder.h"
@@ -65,7 +66,7 @@
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_process_host.h"
-#include "content/public/browser/session_storage_namespace.h"
+#include "content/public/browser/session_storage_namespace_handle.h"
 #include "content/public/browser/storage_partition.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_observer.h"
@@ -98,6 +99,7 @@
 #include "third_party/blink/public/common/chrome_debug_urls.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/navigation/preloading_headers.h"
+#include "ui/base/window_open_disposition.h"
 
 namespace {
 
@@ -1545,6 +1547,7 @@ IN_PROC_BROWSER_TEST_F(NoStatePrefetchBrowserTest, Jpeg) {
 }
 
 // If the main resource is unsafe, the whole prefetch is cancelled.
+#if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
 IN_PROC_BROWSER_TEST_F(NoStatePrefetchBrowserTest,
                        PrerenderSafeBrowsingTopLevel) {
   GURL url = src_server()->GetURL(kPrefetchPage);
@@ -1572,6 +1575,7 @@ IN_PROC_BROWSER_TEST_F(NoStatePrefetchBrowserTest, ServerRedirect) {
                       CreateServerRedirect("/prerender/prerender_page.html")),
                   FINAL_STATUS_SAFE_BROWSING, 0);
 }
+#endif  // BUILDFLAG(SAFE_BROWSING_AVAILABLE)
 
 // Checks that prefetching a page does not add it to browsing history.
 IN_PROC_BROWSER_TEST_F(NoStatePrefetchBrowserTest, HistoryUntouchedByPrefetch) {
@@ -1709,8 +1713,11 @@ void NoStatePrefetchBrowserTest::RunServiceWorkerInterceptTest(
 #endif
 IN_PROC_BROWSER_TEST_F(NoStatePrefetchBrowserTest,
                        MAYBE_ServiceWorkerIntercept) {
-  bool expect_two_hosts = base::FeatureList::IsEnabled(
+  bool expect_two_hosts = false;
+#if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
+  expect_two_hosts = base::FeatureList::IsEnabled(
       safe_browsing::kMigrateToBlockV8OptimizerOnUnfamiliarSites);
+#endif
   RunServiceWorkerInterceptTest(expect_two_hosts);
 }
 
@@ -1827,10 +1834,10 @@ IN_PROC_BROWSER_TEST_F(NoStatePrefetchBrowserTest,
       prerender->contents()->no_state_prefetch_contents();
   ASSERT_TRUE(prefetch_web_contents);
 
-  content::SessionStorageNamespace* launcher_namespace =
+  content::SessionStorageNamespaceHandle* launcher_namespace =
       GetSessionStorageNamespace();
   ASSERT_TRUE(launcher_namespace);
-  content::SessionStorageNamespace* prefetch_namespace =
+  content::SessionStorageNamespaceHandle* prefetch_namespace =
       prefetch_web_contents->GetController()
           .GetDefaultSessionStorageNamespace();
   ASSERT_TRUE(prefetch_namespace);

@@ -57,6 +57,7 @@
 #include "extensions/grit/extensions_browser_resources.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/gfx/image/image.h"
 #include "ui/message_center/public/cpp/notification.h"
 #include "ui/message_center/public/cpp/notification_delegate.h"
@@ -568,7 +569,7 @@ BackgroundContents* BackgroundContentsService::CreateBackgroundContents(
     const std::string& frame_name,
     const std::string& application_id,
     const content::StoragePartitionConfig& partition_config,
-    content::SessionStorageNamespace* session_storage_namespace) {
+    content::SessionStorageNamespaceHandle* session_storage_namespace) {
   auto contents = std::make_unique<BackgroundContents>(
       std::move(site), opener, is_new_browsing_instance, this, partition_config,
       session_storage_namespace);

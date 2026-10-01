@@ -19,12 +19,15 @@
 #include "base/test/test_future.h"
 #include "base/types/expected.h"
 #include "base/uuid.h"
+#include "chrome/browser/ash/browser_delegate/browser_controller_impl.h"
 #include "chrome/browser/chromeos/extensions/telemetry/api/routines/diagnostic_routine.h"
 #include "chrome/browser/ui/navigator/browser_navigator.h"
 #include "chrome/browser/ui/tabs/tab_enums.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/test/base/browser_with_test_window_test.h"
 #include "chromeos/ash/components/mojo_service_manager/fake_mojo_service_manager.h"
 #include "chromeos/ash/services/cros_healthd/public/cpp/fake_cros_healthd.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/ssl_status.h"
 #include "extensions/browser/extension_registry.h"
@@ -146,6 +149,7 @@ class TelemetryExtensionDiagnosticRoutinesManagerTest
   }
 
  private:
+  ash::BrowserControllerImpl browser_controller_;
   ash::mojo_service_manager::FakeMojoServiceManager fake_service_manager_;
 };
 

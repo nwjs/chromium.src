@@ -99,12 +99,6 @@ extern const base::FeatureParam<std::string>
     kBuildExternalPrivacyContextAgeMismatchLearnMoreUrl;
 #endif
 
-#if BUILDFLAG(IS_IOS)
-// Feature flag to enable caching identities in ios_internal.
-COMPONENT_EXPORT(SIGNIN_SWITCHES)
-BASE_DECLARE_FEATURE(kCacheIdentityListInChrome);
-#endif
-
 #if BUILDFLAG(IS_ANDROID)
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kCctSignInPrompt);
@@ -247,6 +241,13 @@ COMPONENT_EXPORT(SIGNIN_SWITCHES)
 extern const base::FeatureParam<std::string> kCrossDeviceSigninUrl;
 #endif  // BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
 
+#if BUILDFLAG(IS_IOS)
+// Feature flag to dismiss modal dialogs before presenting the cross-device
+// sign-in UI.
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE(kCrossDeviceSigninDismissModals);
+#endif  // BUILDFLAG(IS_IOS)
+
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 // Feature flag to enable cross-device sign-in promo.
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
@@ -338,9 +339,29 @@ BASE_DECLARE_FEATURE_PARAM(size_t, kAutofillWalletMetadataMedianThreshold);
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE_PARAM(size_t, kAutofillWalletMetadataQ3Threshold);
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE_PARAM(size_t, kReadingListQ1Threshold);
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE_PARAM(size_t, kReadingListMedianThreshold);
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE_PARAM(size_t, kReadingListQ3Threshold);
+#if BUILDFLAG(ENABLE_DICE_SUPPORT)
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE_PARAM(size_t, kExtensionsQ1Threshold);
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE_PARAM(size_t, kExtensionsMedianThreshold);
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE_PARAM(size_t, kExtensionsQ3Threshold);
+#endif
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE_PARAM(
     base::TimeDelta,
     kAccountPreviewPreferredAccountSingleAccountPromoFetchTimeout);
+
+// Controls followup features for preferred account preview (new promos, and
+// updated strings). This flag has no effect if
+// `kEnableAccountPreviewPreferredAccount` is not enabled.
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE(kEnableAccountPreviewPreferredAccountFollowup);
 
 #if BUILDFLAG(IS_ANDROID)
 // Enables the use of 1P app account information on Android in preferred account
@@ -419,14 +440,6 @@ BASE_DECLARE_FEATURE(kEnableCookieBindingCookieUpgrade);
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE_PARAM(std::string, kCookieBindingUpgradeSessionId);
 #endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
-
-#if !defined(NDEBUG) && !BUILDFLAG(IS_ANDROID)
-// A fake feature corresponding to the kFakeCapabilityForTestingName account
-// capability. This is only used in unit tests (and must be left disabled to
-// prevent fetching the fake capability).
-COMPONENT_EXPORT(SIGNIN_SWITCHES)
-BASE_DECLARE_FEATURE(kEnableFakeCapabilityForTesting);
-#endif
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
@@ -508,13 +521,6 @@ extern const base::FeatureParam<base::TimeDelta> kSearchAIModePromoFrequency;
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kEnableWebSigninLoadingDialog);
 #endif  // BUILDFLAG(IS_ANDROID)
-
-#if BUILDFLAG(IS_IOS)
-// Feature flag controlling whether the CanSignInToChrome account capability
-// should be used to determine whether an account is eligible for sign-in.
-COMPONENT_EXPORT(SIGNIN_SWITCHES)
-BASE_DECLARE_FEATURE(kEnforceCanSignInToChromeCapability);
-#endif
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
@@ -804,21 +810,6 @@ BASE_DECLARE_FEATURE(kProfileDiscOnAllPages);
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kProfilesReordering);
 
-#if BUILDFLAG(IS_IOS)
-// Feature flag controlling whether Chrome uses the contextual version of
-// relevant account capabilities on supported platforms.
-COMPONENT_EXPORT(SIGNIN_SWITCHES)
-BASE_DECLARE_FEATURE(kReadContextualAccountCapabilities);
-#endif
-
-// Enables fetching the capability of the same name on all platforms.
-COMPONENT_EXPORT(SIGNIN_SWITCHES)
-BASE_DECLARE_FEATURE(kReadIsSubjectToUniversalOptOutCapability);
-
-// Enables fetching the capability of the same name on all platforms.
-COMPONENT_EXPORT(SIGNIN_SWITCHES)
-BASE_DECLARE_FEATURE(kReadSupportsWalletPrivatePassesInAutofillCapability);
-
 #if !BUILDFLAG(IS_ANDROID)
 // Kill switch for Device Management Service OAuth scope.
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
@@ -966,6 +957,13 @@ BASE_DECLARE_FEATURE(kSyncEnableBookmarksInTransportMode);
 COMPONENT_EXPORT(SIGNIN_SWITCHES)
 BASE_DECLARE_FEATURE(kUndoChromeOsUseConsentLevelSignin);
 #endif  // BUILDFLAG(IS_CHROMEOS)
+
+#if BUILDFLAG(ENABLE_DESKTOP_ANDROID_EXTENSIONS)
+// Unifies the logic to wait for cookies after sign-in for Desktop Android
+// Extensions.
+COMPONENT_EXPORT(SIGNIN_SWITCHES)
+BASE_DECLARE_FEATURE(kUnifyWaitForCookies);
+#endif  // BUILDFLAG(ENABLE_DESKTOP_ANDROID_EXTENSIONS)
 
 #if BUILDFLAG(IS_ANDROID)
 // Additional gate for user policy registration and download based on user

@@ -40,6 +40,7 @@
 #include "components/sync_preferences/features.h"
 #include "components/themes/cross_device/features.h"
 #include "content/public/browser/browser_thread.h"
+#include "extensions/buildflags/buildflags.h"
 
 #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 #include "chrome/browser/extensions/api/storage/settings_sync_util.h"  // nogncheck
@@ -73,7 +74,6 @@
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
 #if BUILDFLAG(IS_ANDROID)
-#include "chrome/browser/android/webapk/webapk_sync_service.h"
 #include "chrome/browser/ntp_customization/ntp_android_custom_background_service.h"
 #endif  // BUILDFLAG(IS_ANDROID)
 
@@ -131,11 +131,6 @@ void ChromeSyncControllerBuilder::SetNtpAndroidCustomBackgroundService(
     NtpAndroidCustomBackgroundService* ntp_android_custom_background_service) {
   ntp_android_custom_background_service_.Set(
       ntp_android_custom_background_service);
-}
-
-void ChromeSyncControllerBuilder::SetWebApkSyncService(
-    webapk::WebApkSyncService* web_apk_sync_service) {
-  web_apk_sync_service_.Set(web_apk_sync_service);
 }
 #endif  // BUILDFLAG(IS_ANDROID)
 
@@ -334,19 +329,6 @@ ChromeSyncControllerBuilder::Build(syncer::SyncService* sync_service) {
             std::make_unique<syncer::ForwardingDataTypeControllerDelegate>(
                 delegate)));
       }
-    }
-
-    if (web_apk_sync_service_.value()) {
-      syncer::DataTypeControllerDelegate* delegate =
-          web_apk_sync_service_.value()->GetDataTypeControllerDelegate().get();
-      controllers.push_back(std::make_unique<syncer::DataTypeController>(
-          syncer::WEB_APKS,
-          /*delegate_for_full_sync_mode=*/
-          std::make_unique<syncer::ForwardingDataTypeControllerDelegate>(
-              delegate),
-          /*delegate_for_transport_mode=*/
-          std::make_unique<syncer::ForwardingDataTypeControllerDelegate>(
-              delegate)));
     }
 #endif  // BUILDFLAG(IS_ANDROID)
 

@@ -2,6 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import("//build/config/features.gni")
 import("//chrome/common/features.gni")
 
 source_set("termination_notification") {
@@ -56,6 +57,14 @@ source_set("lifetime") {
     ]
   }
 
+  if (is_linux && use_dbus) {
+    public += [ "session_end_listener_linux.h" ]
+    public_deps += [
+      "//components/dbus",
+      "//dbus",
+    ]
+  }
+
   if (!is_android && !is_chromeos) {
     public += [ "switch_utils.h" ]
   }
@@ -77,7 +86,6 @@ source_set("impl") {
     "//build/config/compiler:compiler_buildflags",
     "//chrome/browser:browser_process",
     "//chrome/browser:browser_process_platform_part",
-    "//chrome/browser:flags",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/profiles:profile_util",
     "//chrome/common:buildflags",
@@ -185,6 +193,15 @@ source_set("impl") {
     ]
   }
 
+  if (is_linux && use_dbus) {
+    sources += [ "session_end_listener_linux.cc" ]
+    deps += [
+      "//chrome/common:chrome_features",
+      "//components/dbus",
+      "//components/version_info",
+    ]
+  }
+
   if (!is_android && !is_chromeos) {
     sources += [ "switch_utils.cc" ]
   }
@@ -212,6 +229,7 @@ if (!is_android) {
       "//content/test:test_support",
       "//testing/gmock",
       "//testing/gtest",
+      "//ui/base/idle:test_support",
     ]
 
     if (is_chromeos) {
@@ -231,6 +249,32 @@ if (!is_android) {
 
     if (is_win || is_mac || is_linux) {
       sources += [ "scheduled_restart_manager_unittest.cc" ]
+      deps += [
+        ":test_support",
+        "//build/config/linux/dbus:buildflags",
+      ]
+    }
+    if (is_linux && use_dbus) {
+      sources += [ "session_end_listener_linux_unittest.cc" ]
+      deps += [
+        "//chrome/common:chrome_features",
+        "//components/dbus",
+        "//components/version_info",
+        "//dbus:test_support",
+      ]
+    }
+  }
+
+  if (is_win || is_mac || is_linux) {
+    source_set("test_support") {
+      testonly = true
+      public = [ "scheduled_restart_test_utils.h" ]
+      sources = [ "scheduled_restart_test_utils.cc" ]
+      public_deps = [
+        "//base",
+        "//chrome/browser/upgrade_detector",
+      ]
+      deps = [ ":lifetime" ]
     }
   }
 
@@ -280,6 +324,7 @@ if (!is_android) {
 
     if (is_win || is_mac || is_linux) {
       sources += [ "scheduled_restart_manager_browsertest.cc" ]
+      deps += [ ":test_support" ]
     }
 
     if (is_chromeos) {

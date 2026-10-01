@@ -24,7 +24,7 @@
 #include "third_party/blink/renderer/core/dom/container_node.h"
 
 #include "third_party/blink/renderer/bindings/core/v8/v8_get_html_options.h"
-#include "third_party/blink/renderer/bindings/core/v8/v8_union_sethtmlunsafeoptions_trustedparseroptions.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_union_sethtmlunsafeoptions_trustedhtmlparseroptions.h"
 #include "third_party/blink/renderer/core/accessibility/ax_object_cache.h"
 #include "third_party/blink/renderer/core/css/resolver/style_resolver.h"
 #include "third_party/blink/renderer/core/css/selector_filter.h"
@@ -1887,7 +1887,7 @@ Element* ContainerNode::getElementById(const AtomicString& id) const {
 }
 
 NodeListsNodeData& ContainerNode::EnsureNodeLists() {
-  return UnpackAndRefresh(EnsureRareData().EnsureNodeLists());
+  return EnsureRareData().EnsureNodeLists().RefreshNodeAndUnwrap(*this);
 }
 
 // https://html.spec.whatwg.org/C/#autofocus-delegate
@@ -1976,12 +1976,12 @@ const AtomicString& TrustedTypesInterfaceName(ContainerNode* node) {
 
 WritableStream* ContainerNode::streamAppendHTMLUnsafe(
     ScriptState* script_state,
-    V8UnionSetHTMLUnsafeOptionsOrTrustedParserOptions* options,
+    V8UnionSetHTMLUnsafeOptionsOrTrustedHTMLParserOptions* options,
     ExceptionState& exception_state) {
   std::optional<FragmentParserOptions> resolved_options =
       TrustedTypesCheckForStreaming(
-          FragmentParserOptions::From(options),
-          ExecutionContext::From(script_state), TrustedTypesInterfaceName(this),
+          FragmentParserOptions::From(options), GetExecutionContext(),
+          TrustedTypesInterfaceName(this),
           trusted_types_names::kStreamAppendHTMLUnsafe, exception_state);
   if (!resolved_options) {
     return nullptr;
@@ -2007,12 +2007,12 @@ WritableStream* ContainerNode::streamAppendHTML(
 
 WritableStream* ContainerNode::streamPrependHTMLUnsafe(
     ScriptState* script_state,
-    V8UnionSetHTMLUnsafeOptionsOrTrustedParserOptions* options,
+    V8UnionSetHTMLUnsafeOptionsOrTrustedHTMLParserOptions* options,
     ExceptionState& exception_state) {
   std::optional<FragmentParserOptions> resolved_options =
       TrustedTypesCheckForStreaming(
-          FragmentParserOptions::From(options),
-          ExecutionContext::From(script_state), TrustedTypesInterfaceName(this),
+          FragmentParserOptions::From(options), GetExecutionContext(),
+          TrustedTypesInterfaceName(this),
           trusted_types_names::kStreamPrependHTMLUnsafe, exception_state);
   if (!resolved_options) {
     return nullptr;
@@ -2036,12 +2036,12 @@ WritableStream* ContainerNode::streamPrependHTML(
 
 WritableStream* ContainerNode::streamHTMLUnsafe(
     ScriptState* script_state,
-    V8UnionSetHTMLUnsafeOptionsOrTrustedParserOptions* options,
+    V8UnionSetHTMLUnsafeOptionsOrTrustedHTMLParserOptions* options,
     ExceptionState& exception_state) {
   std::optional<FragmentParserOptions> resolved_options =
       TrustedTypesCheckForStreaming(
-          FragmentParserOptions::From(options),
-          ExecutionContext::From(script_state), TrustedTypesInterfaceName(this),
+          FragmentParserOptions::From(options), GetExecutionContext(),
+          TrustedTypesInterfaceName(this),
           trusted_types_names::kStreamHTMLUnsafe, exception_state);
   if (!resolved_options) {
     return nullptr;
@@ -2080,7 +2080,7 @@ void ContainerNode::appendHTML(const String& html,
 
 void ContainerNode::appendHTMLUnsafe(
     const V8UnionStringOrTrustedHTML* html,
-    V8UnionSetHTMLUnsafeOptionsOrTrustedParserOptions* options,
+    V8UnionSetHTMLUnsafeOptionsOrTrustedHTMLParserOptions* options,
     ExceptionState& exception_state) {
   const AtomicString& interface_name = IsElementNode()
                                            ? trusted_types_names::kElement
@@ -2120,7 +2120,7 @@ void ContainerNode::prependHTML(const String& html,
 
 void ContainerNode::prependHTMLUnsafe(
     const V8UnionStringOrTrustedHTML* html,
-    V8UnionSetHTMLUnsafeOptionsOrTrustedParserOptions* options,
+    V8UnionSetHTMLUnsafeOptionsOrTrustedHTMLParserOptions* options,
     ExceptionState& exception_state) {
   const AtomicString& interface_name = IsElementNode()
                                            ? trusted_types_names::kElement

@@ -85,13 +85,19 @@ class OmniboxPopupView {
   virtual void OnTabChanged(content::WebContents* contents) {}
 
   // Called when the omnibox gains focus.
-  virtual void OnFocus(bool query_zps) {}
+  virtual void OnFocus(bool query_zps, bool select_all = false) {}
 
   // Called when the omnibox loses focus.
   virtual void OnBlur() {}
 
   // Called when the WebUI omnibox reports a manual blur.
   virtual void OnManualBlur() {}
+
+  // Notifies the popup view that its WebUI page handler is ready.
+  virtual void OnPopupHandlerReady() {}
+
+  // Returns true if the WebUI page handler is ready to process input.
+  virtual bool IsPopupHandlerReady() const;
 
   // Returns true if the popup controls its own selection state.
   virtual bool IsSelectionPopupControlled() const = 0;

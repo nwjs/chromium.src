@@ -39,12 +39,15 @@
 #include "components/input/native_web_keyboard_event.h"
 #include "components/web_modal/web_contents_modal_dialog_host.h"
 #include "components/web_modal/web_contents_modal_dialog_manager.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/web_contents.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/mojom/dialog_button.mojom.h"
 #include "ui/base/mojom/ui_base_types.mojom-shared.h"
+#include "ui/base/page_transition_types.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/views/bubble/bubble_frame_view.h"
 #include "ui/views/controls/webview/webview.h"
 #include "ui/views/layout/animating_layout_manager.h"
@@ -62,6 +65,7 @@
 
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
 #include "chrome/browser/ui/webui/signin/history_sync_optin/history_sync_optin_ui.h"
+#include "chrome/browser/ui/webui/signin/managed_user_profile_notice_ui.h"
 #endif  // BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
 
 namespace {
@@ -93,7 +97,7 @@ void CloseModalSigninInBrowser(
     return;
   }
 
-  browser->GetFeatures().signin_view_controller()->CloseModalSignin();
+  SigninViewController::From(browser.get())->CloseModalSignin();
   BrowserView* browser_view =
       BrowserView::GetBrowserViewForBrowser(browser.get());
   if (browser_view) {
@@ -744,10 +748,11 @@ SigninViewControllerDelegate::CreateManagedUserNoticeDelegate(
         BlockNavigationUntilEnterpriseActionTaken(
             browser.GetProfile(), active_contents, dialog_web_contents, email);
 
-    content::OpenURLParams params(active_contents->GetVisibleURL(),
-                                  content::Referrer(),
-                                  WindowOpenDisposition::CURRENT_TAB,
-                                  ui::PAGE_TRANSITION_AUTO_TOPLEVEL, false);
+    content::OpenURLParams params =
+        content::OpenURLParams::CreateBrowserInitiated(
+            active_contents->GetVisibleURL(),
+            WindowOpenDisposition::CURRENT_TAB,
+            ui::PAGE_TRANSITION_AUTO_TOPLEVEL);
 
     base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
         FROM_HERE,

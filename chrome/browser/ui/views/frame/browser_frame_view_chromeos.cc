@@ -32,6 +32,7 @@
 #include "chrome/browser/ui/immersive/immersive_mode_controller.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/browser_widget.h"
+#include "chrome/browser/ui/views/frame/safe_invoke/safe_invoke.h"
 #include "chrome/browser/ui/views/frame/tab_strip_region_view.h"
 #include "chrome/browser/ui/views/frame/top_container_view.h"
 #include "chrome/browser/ui/views/profiles/profile_indicator_icon.h"
@@ -701,9 +702,7 @@ void BrowserFrameViewChromeOS::OnWindowPropertyChanged(aura::Window* window,
   if (key == chromeos::kWindowHasRoundedCornersKey) {
     UpdateWindowRoundedCorners();
     if (GetProperty(chromeos::kWindowHasRoundedCornersKey) != old) {
-      if (auto* const browser_view = GetBrowserView()) {
-        browser_view->InvalidateLayout();
-      }
+      SafeInvoke(GetBrowserView()).Then(&views::View::InvalidateLayout, false);
     }
   }
 
@@ -831,11 +830,9 @@ bool BrowserFrameViewChromeOS::ShouldEnableImmersiveModeController() const {
     return !GetBrowserView()->GetSupportsTabStrip();
   }
 
-  const auto* fullscreen_controller = GetBrowserView()
-                                          ->browser()
-                                          ->GetFeatures()
-                                          .exclusive_access_manager()
-                                          ->fullscreen_controller();
+  const auto* fullscreen_controller =
+      ExclusiveAccessManager::From(GetBrowserView()->browser())
+          ->fullscreen_controller();
   // For other scnarios, use immersive if the browser is in fullscreen, and it
   // is NOT requested via extension or HTML API `requestFullscreen()`.
   return browser_widget()->IsFullscreen() &&

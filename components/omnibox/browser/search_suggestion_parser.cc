@@ -225,10 +225,6 @@ bool DecodeProtoFromBase64(const std::string* encoded_data, T& result_proto) {
   return true;
 }
 
-// Format template image URLs that do not contain a scheme.
-// The call to GetFormattedURL() will return the URL with a scheme added or
-// return the same URL if no formatting is necessary.
-
 std::u16string GetAnnotation(
     base::optional_ref<const omnibox::SuggestTemplateInfo>
         suggest_template_info) {
@@ -245,6 +241,14 @@ bool SuggestTemplateInfoHasPrimaryText(
   return suggest_template_info.has_value() &&
          suggest_template_info->has_primary_text() &&
          !suggest_template_info->primary_text().text().empty();
+}
+
+bool SuggestTemplateInfoHasSecondaryText(
+    base::optional_ref<const omnibox::SuggestTemplateInfo>
+        suggest_template_info) {
+  return suggest_template_info.has_value() &&
+         suggest_template_info->has_secondary_text() &&
+         !suggest_template_info->secondary_text().text().empty();
 }
 
 // Update `match_contents` if there is any input that has a higher precedence.
@@ -692,6 +696,31 @@ void SearchSuggestionParser::SuggestResult::ClassifyMatchContents(
   // Note we discard our existing match_contents_class_ with this call.
   match_contents_class_ =
       ClassifyAllMatchesInString(input_text, match_contents_, true);
+}
+
+ACMatchClassifications
+SearchSuggestionParser::SuggestResult::ClassifyAnnotation() const {
+  if (annotation_.empty()) {
+    return {};
+  }
+
+  // Only use the server-provided `suggest_template_info` formatting if the
+  // template's secondary text is non-empty, has fragments, and matches
+  // `annotation_`. Otherwise the fragment indices would not apply to
+  // `annotation_`.
+  if (SuggestTemplateInfoHasSecondaryText(suggest_template_info_) &&
+      suggest_template_info_->secondary_text().fragments_size() > 0 &&
+      annotation_ ==
+          base::UTF8ToUTF16(suggest_template_info_->secondary_text().text())) {
+    auto classifications = ClassifyFormattedString(
+        suggest_template_info_->secondary_text(), ACMatchClassification::DIM);
+    if (!classifications.empty()) {
+      return classifications;
+    }
+  }
+
+  // The fallback for annotations is dimmed text.
+  return {ACMatchClassification(0, ACMatchClassification::DIM)};
 }
 
 void SearchSuggestionParser::SuggestResult::SetRichAnswerTemplate(

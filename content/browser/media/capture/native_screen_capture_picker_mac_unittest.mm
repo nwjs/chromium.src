@@ -130,11 +130,13 @@ API_AVAILABLE(macos(14.0))
 
 @interface FakeSCContentFilter : NSObject
 @property(strong) NSArray* includedWindows;
+@property(strong) NSArray* includedDisplays;
 @property(assign, readonly) CGRect contentRect;
 @end
 
 @implementation FakeSCContentFilter
 @synthesize includedWindows = _includedWindows;
+@synthesize includedDisplays = _includedDisplays;
 - (CGRect)contentRect {
   return CGRectMake(0, 0, 100, 100);
 }
@@ -326,14 +328,28 @@ class NativeScreenCapturePickerMacTest : public testing::Test {
                                    onScreen:YES];
   }
 
+  // Helper to create a fake display.
+  FakeSCDisplay* CreateFakeDisplay(CGDirectDisplayID display_id) {
+    return [[FakeSCDisplay alloc] initWithID:display_id frame:CGRectZero];
+  }
+
   // Triggers a picker observer update. If |window_id| is provided, the filter
-  // will include that specific window (macOS 15.2+).
-  void TriggerUpdate(std::optional<CGWindowID> window_id = std::nullopt) {
+  // will include that specific window (macOS 15.2+). If |display_id| is
+  // provided, the filter will include that display (macOS 15.2+).
+  void TriggerUpdate(
+      std::optional<CGWindowID> window_id = std::nullopt,
+      std::optional<CGDirectDisplayID> display_id = std::nullopt) {
     if (@available(macOS 14.0, *)) {
       FakeSCContentFilter* filter = [[FakeSCContentFilter alloc] init];
       if (window_id.has_value()) {
         if (@available(macOS 15.2, *)) {
           filter.includedWindows = @[ CreateFakeWindow(*window_id) ];
+        }
+      }
+      if (display_id.has_value()) {
+        if (@available(macOS 15.2, *)) {
+          filter.includedDisplays =
+              @[ (SCDisplay*)CreateFakeDisplay(*display_id) ];
         }
       }
       [g_fake_picker.observer
@@ -430,6 +446,25 @@ TEST_F(NativeScreenCapturePickerMacTest, ObserverUpdateCallback) {
     DesktopMediaID::Id captured_id =
         OpenPickerAndSelect(DesktopMediaID::TYPE_SCREEN);
     EXPECT_EQ(captured_id, 1);
+  }
+}
+
+TEST_F(NativeScreenCapturePickerMacTest, ObserverUpdatePopulatesDisplayId) {
+  if (@available(macOS 15.2, *)) {
+    Source selected_source;
+    base::RunLoop run_loop;
+    picker_->Open(DesktopMediaID::TYPE_SCREEN, base::DoNothing(),
+                  base::BindLambdaForTesting([&](Source source) {
+                    selected_source = source;
+                    run_loop.Quit();
+                  }),
+                  base::DoNothing(), base::DoNothing(), base::DoNothing());
+    constexpr CGDirectDisplayID kTestDisplayId = 42;
+    TriggerUpdate(/*window_id=*/std::nullopt, kTestDisplayId);
+    run_loop.Run();
+
+    EXPECT_EQ(selected_source.id, 1);
+    EXPECT_EQ(selected_source.display_id, kTestDisplayId);
   }
 }
 
@@ -599,6 +634,7 @@ TEST_F(NativeScreenCapturePickerMacTest, CaptureScreenshotSuccess) {
     EXPECT_FALSE(bitmap.drawsNothing());
     EXPECT_EQ(bitmap.width(), kTestFrameWidth);
     EXPECT_EQ(bitmap.height(), kTestFrameHeight);
+    EXPECT_FALSE(g_fake_picker.active);
   }
 }
 
@@ -629,6 +665,7 @@ TEST_F(NativeScreenCapturePickerMacTest, CaptureScreenshotError) {
     // 5. Verify it returns an empty bitmap.
     const SkBitmap& bitmap = future.Get();
     EXPECT_TRUE(bitmap.drawsNothing());
+    EXPECT_FALSE(g_fake_picker.active);
   }
 }
 
@@ -642,6 +679,26 @@ TEST_F(NativeScreenCapturePickerMacTest, CaptureScreenshotInvalidSession) {
     // Should return immediately with empty bitmap (no task delay).
     const SkBitmap& bitmap = future.Get();
     EXPECT_TRUE(bitmap.drawsNothing());
+    EXPECT_FALSE(g_fake_picker.active);
+  }
+}
+
+TEST_F(NativeScreenCapturePickerMacTest, CancelPickerDeactivatesSystemPicker) {
+  if (@available(macOS 14.0, *)) {
+    base::RunLoop cancel_run_loop;
+    picker_->Open(DesktopMediaID::TYPE_SCREEN, base::DoNothing(),
+                  base::DoNothing(),
+                  base::BindLambdaForTesting([&]() { cancel_run_loop.Quit(); }),
+                  base::DoNothing(), base::DoNothing());
+
+    EXPECT_TRUE(g_fake_picker.active);
+
+    [g_fake_picker.observer
+        contentSharingPicker:(SCContentSharingPicker*)g_fake_picker
+          didCancelForStream:nil];
+
+    cancel_run_loop.Run();
+    EXPECT_FALSE(g_fake_picker.active);
   }
 }
 

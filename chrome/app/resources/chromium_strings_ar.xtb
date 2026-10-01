@@ -37,7 +37,6 @@
 <translation id="1330562121671411446">رصد اللغة</translation>
 <translation id="1342274909142618978">‏حذف البيانات من Chromium أيضًا (<ph name="URL" />)</translation>
 <translation id="1345251407431278948">تمّ تثبيت اللوحة. يمكنك الوصول إلى ميزة "البحث بالصور" مرة أخرى من خلال الزر الجديد في شريط الأدوات</translation>
-<translation id="1356661055722410047">ميزة جديدة: يمكنك ترجمة كل من النص والصور على شاشتك</translation>
 <translation id="1383876407941801731">البحث</translation>
 <translation id="1388276868779258475">‏يمكنك استخدام تطبيق Chromium لمواصلة التصفّح أثناء التنقل</translation>
 <translation id="141901961143729572">شارِك أفكارك</translation>
@@ -69,6 +68,7 @@
 <translation id="1793486931176048546">‏انقر على <ph name="BEGIN_BOLD" />نعم<ph name="END_BOLD" /> في إشعار Windows لتثبيت Chromium في شريط التطبيقات والوصول إليه بسرعة.</translation>
 <translation id="1808667845054772817">‏إعادة تثبيت Chromium</translation>
 <translation id="1820835682567584003">‏يحاول Chromium <ph name="AUTHENTICATION_PURPOSE" />.</translation>
+<translation id="1828328511398219809">‏حساب "<ph name="EXISTING_USER" />" مسجّل الدخول حاليًا. للحصول على تجربة تصفّح منفصلة، يُرجى تسجيل الدخول إلى ملفك الشخصي في Chromium بحساب <ph name="USER_EMAIL_ADDRESS" />. سيتيح لك ذلك أيضًا الوصول إلى إضافاتك وغيرها من <ph name="DEVICE" />.</translation>
 <translation id="183031085822326697">‏عند فتح Chromium على <ph name="DEVICE_TYPE" /> في المرة القادمة، ستظهر لك رسالة تطلب منك استخدام "مدير كلمات المرور في Google".</translation>
 <translation id="1838374766361614909">محو البحث</translation>
 <translation id="18552579716432081">‏لحذف بيانات التصفّح من هذا الجهاز فقط والاحتفاظ بها في حسابك على Google، يُرجى <ph name="BEGIN_LINK" />تسجيل الخروج من Chromium<ph name="END_LINK" />.</translation>
@@ -147,6 +147,7 @@
 <translation id="2575822587468774919">انقر أي محتوى للبحث عنه باستخدام ميزة "البحث بالصور"</translation>
 <translation id="2576118232315942160">‏سجِّل الدخول إلى Chromium للوصول إلى كلمات المرور وغيرها على جميع أجهزتك</translation>
 <translation id="2587622539943955767">‏يمكنك مسح رمز الاستجابة السريعة ضوئيًا باستخدام هاتفك لتنزيل تطبيق Chromium وتسجيل الدخول إلى حساب Google.</translation>
+<translation id="2587885422541096572">‏للبحث باستخدام Chromium</translation>
 <translation id="2592940277904433508">‏مواصلة استخدام Chromium</translation>
 <translation id="259935314519650377">تعذَّر إجراء تخزين مؤقت للمثبّت الذي تم تنزيله. الخطأ: <ph name="UNPACK_CACHING_ERROR_CODE" />.</translation>
 <translation id="2620436844016719705">النظام</translation>
@@ -191,6 +192,7 @@
 <translation id="3038232873781883849">في انتظار التثبيت...</translation>
 <translation id="3045032126857188731">اللغة الهدف: <ph name="LANGUAGE" /></translation>
 <translation id="3047590466164881923">إغلاق مربّع حوار الملاحظات</translation>
+<translation id="3064717200427679322">‏حساب "<ph name="EXISTING_USER" />" مسجّل الدخول حاليًا. للحصول على تجربة تصفّح منفصلة، يُرجى تسجيل الدخول إلى ملفك الشخصي في Chromium بحساب <ph name="USER_EMAIL_ADDRESS" />. سيتيح لك ذلك أيضًا الوصول إلى قائمة القراءة وغيرها من <ph name="DEVICE" />.</translation>
 <translation id="3068187312562070417">‏الملفات الشخصية الأخرى على Chromium</translation>
 <translation id="3068290154869370196">‏تتيح لك الإضافات تخصيص متصفِّح Chromium وإضفاء طابعك الشخصي عليه، مع الحفاظ على التنظيم وتبسيط المهام اليومية.</translation>
 <translation id="3068515742935458733">‏يمكنك المساعدة في تحسين Chromium عن طريق إرسال تقارير الأعطال و<ph name="UMA_LINK" /> إلى Google</translation>
@@ -292,6 +294,7 @@
 <translation id="4147856324248078748">‏تخصيص Chromium</translation>
 <translation id="4148957013307229264">جارٍ التثبيت...</translation>
 <translation id="419998258129752635">‏<ph name="PAGE_TITLE" /> - تسجيل الدخول إلى الشبكة - Chromium</translation>
+<translation id="4208652172235621272">‏حساب "<ph name="EXISTING_USER" />" مسجّل الدخول حاليًا. للحصول على تجربة تصفّح منفصلة، يُرجى تسجيل الدخول إلى ملفك الشخصي في Chromium بحساب <ph name="USER_EMAIL_ADDRESS" />. سيتيح لك ذلك أيضًا الوصول إلى قائمة القراءة وغيرها على جميع أجهزتك.</translation>
 <translation id="421369550622382712">‏اكتشف تطبيقات، وألعاب، وإضافات، ومظاهر رائعة لمتصفح Chromium.</translation>
 <translation id="4217080900579554343">‏يمكنك تسجيل الدخول إلى Chromium للحصول على هذه الإضافة وغيرها على جميع أجهزة الكمبيوتر الخاصة بك</translation>
 <translation id="4217972271355023382">‏للحفاظ على أمانك على الإنترنت من خلال خيارات أحد والدَيك، انتقِل إلى ملفك الشخصي على Chromium الذي سجّلت الدخول إليه من قبل باستخدام الحساب <ph name="USER_EMAIL_ADDRESS" /></translation>
@@ -306,7 +309,6 @@
 <translation id="4298125729853015961">‏تصدير كلمات المرور من Chromium</translation>
 <translation id="4304713468139749426">مدير كلمات المرور</translation>
 <translation id="4334241893986177674">البحث في لقطة الشاشة هذه</translation>
-<translation id="4368547723231502008">‏يتيح لك هذا الإعداد البحث وطرح الأسئلة من أي مكان، حتى إذا كان Chromium مصغّرًا</translation>
 <translation id="4384331407722351213">‏يمكنك فتح Chromium تلقائيًا عند بدء تشغيل Windows</translation>
 <translation id="4400772909124543403">ما مِن تحديث متاح</translation>
 <translation id="4407044323746248786">‏هل تريد الخروج من Chromium على أي حال؟</translation>
@@ -337,6 +339,7 @@
 <translation id="4621240073146040695">‏أوشك التحديث على الانتهاء! إعادة تشغيل Chromium لإنهاء التحديث.</translation>
 <translation id="4625064703209785397">‏يعمل هذا الإعداد على زيادة سرعة المواقع الإلكترونية باستخدام محرّك V8 في Chromium، ولكنه يحد قليلاً من قدرة Chromium على مقاومة الهجمات</translation>
 <translation id="4626321472657185181">‏فتح ميزة "البحث في Chromium"</translation>
+<translation id="4654639495249754755">‏الملف الشخصي على Chromium</translation>
 <translation id="4665829708273112819">‏تحذير: لا يستطيع Chromium منع الإضافات من تسجيل سجلّ التصفُّح. لإيقاف هذه الإضافة في وضع التصفُّح المتخفي، يجب إلغاء تحديد هذا الخيار.</translation>
 <translation id="4673151026126227699">‏في حال مشاركة تقارير استخدام Chromium أيضًا، ستتضمّن هذه التقارير عناوين URL التي تنتقل إليها.</translation>
 <translation id="4673710618874938871">تم تسجيل الدخول باسم <ph name="USER_NAME" />، ولديك اشتراك. يمكنك فتح قائمة الحسابات</translation>
@@ -392,6 +395,7 @@
 <translation id="5382964351116519680">‏فتح ميزة "البحث في Chromium"</translation>
 <translation id="5383439451358640070">‏التعرّف على سبب حظر Chromium لبعض الملفات</translation>
 <translation id="5386450000063123300">‏جارٍ تحديث Chromium (<ph name="PROGRESS_PERCENT" />)</translation>
+<translation id="5387586787134731891">‏حساب "<ph name="EXISTING_USER" />" مسجّل الدخول حاليًا. للحصول على تجربة تصفّح منفصلة، يُرجى تسجيل الدخول إلى ملفك الشخصي في Chromium بحساب <ph name="USER_EMAIL_ADDRESS" />. سيتيح لك ذلك أيضًا الوصول إلى الإضافات وغيرها على جميع أجهزتكِ.</translation>
 <translation id="538767207339317086">‏السماح بتسجيل الدخول إلى Chromium</translation>
 <translation id="5405650547142096840">‏إزالة من Chromium</translation>
 <translation id="5424544524441439284">‏يقلِّل هذا الخيار من مستوى الأداء ويعزِّز من مقاومة Chromium للهجمات</translation>
@@ -468,6 +472,7 @@
 <translation id="6174920971222007286">‏قد يكون هذا الملف خطيرًا.<ph name="LINE_BREAK" />بإمكان Chromium التحقُّق من عملية التنزيل هذه في حال أدخلت كلمة المرور. وتُرسل معلومات حول الملف إلى ميزة "التصفّح الآمن من Google"، ولكن يظل محتوى الملف وكلمة المرور على جهازك.</translation>
 <translation id="6182736845697986886">تعذَّر تثبيت التطبيق بسبب حدوث خطأ داخلي في خادم التحديث.</translation>
 <translation id="6183079672144801177">‏يُرجى التأكُّد من تسجيل الدخول إلى متصفِّح Chromium على جهازك <ph name="TARGET_DEVICE_NAME" /> ثم محاولة الإرسال مرة أخرى.</translation>
+<translation id="6192070012454216182">‏يمكنك البحث وطرح الأسئلة باستخدام Chromium من أي مكان، حتى إن كان مصغّرًا. ويسمح هذا الإعداد بتشغيل Chromium في الخلفية.</translation>
 <translation id="6212496753309875659">‏يحتوي هذا الكمبيوتر فعلاً على إصدار أحدث من Chromium. إذا كان البرنامج لا يعمل، يُرجى إزالة Chromium وإعادة المحاولة.</translation>
 <translation id="6219195342503754812">{0,plural, =0{‏ستتم إعادة تشغيل Chromium الآن}=1{‏ستتم إعادة تشغيل Chromium في غضون ثانية واحدة}two{‏ستتم إعادة تشغيل Chromium في غضون ثانيتين}few{‏ستتم إعادة تشغيل Chromium في غضون # ثوان}many{‏ستتم إعادة تشغيل Chromium في غضون # ثانيةً}other{‏ستتم إعادة تشغيل Chromium في غضون # ثانية}}</translation>
 <translation id="6241367896540709610">‏يحتاج Chromium إلى إذن للوصول إلى مساحة التخزين من أجل تنزيل الملفات.</translation>
@@ -594,6 +599,7 @@
 <translation id="7288567540154601580">علامات التبويب والإضافات</translation>
 <translation id="7295544978856094497">{NUM_EXTENSIONS,plural, =1{‏ينصح متصفّح Chromium بإزالتها}zero{‏ينصح متصفّح Chromium بإزالتها}two{‏ينصح متصفّح Chromium بإزالتهما}few{‏ينصح متصفّح Chromium بإزالتها}many{‏ينصح متصفّح Chromium بإزالتها}other{‏ينصح متصفّح Chromium بإزالتها}}</translation>
 <translation id="7296334833518879294">‏لمشاركة صوت النظام، افتح "إعدادات النظام" (System Settings) وفعِّل خيار "تسجيل صوت النظام فقط" (System Audio Recording Only) لمتصفّح Chromium، ثم أعِد تشغيل المتصفّح.</translation>
+<translation id="7299899569525778554">البحث من خلال الكمبيوتر المكتبي</translation>
 <translation id="731795002583552498">‏تحديث Chromium</translation>
 <translation id="7318036098707714271">‏ملف الإعدادات المفضّلة تالف أو غير صالح.
 
@@ -649,6 +655,7 @@
 <translation id="7790626492778995050"><ph name="PAGE_TITLE" /> - Chromium Canary</translation>
 <translation id="7803986347287457849">‏يمكنك جعل الاطّلاع على المواقع الإلكترونية التي تزورها أكثر صعوبة على الجهات التي يمكنها الوصول إلى حركة مرور بياناتك على الإنترنت. يستخدم Chromium اتصالاً آمنًا للبحث عن عنوان IP الخاص بأي موقع إلكتروني في نظام أسماء النطاقات (DNS).</translation>
 <translation id="7810005234485217901">يمكنك تثبيت ميزة "البحث بالصور" للوصول إليها بسهولة</translation>
+<translation id="7813626943009612327">‏يمكنك طرح أسئلة حول محتوى خارج Chromium، مثل تطبيق آخر أو ملف مفتوح</translation>
 <translation id="7828527096541974699">‏اختيار المحتوى الذي تتم مشاركته مع Chromium</translation>
 <translation id="7828947555739565424">‏يتوفّر حاليًا على هذا الجهاز ملف شخصي لهذا الحساب على Chromium.</translation>
 <translation id="7845233973568007926">شكرًا على التثبيت. عليك إعادة تشغيل الكمبيوتر قبل استخدام <ph name="BUNDLE_NAME" />.</translation>
@@ -736,10 +743,10 @@
 <translation id="856656450041460113">البحث في قائمة اللغات</translation>
 <translation id="8576826849825683917">‏تدير مؤسسات متعدّدة متصفِّح Chromium</translation>
 <translation id="8586442755830160949">‏حقوق الطبع والنشر لعام <ph name="YEAR" /> لصالح The Chromium Authors. جميع الحقوق محفوظة.</translation>
-<translation id="8601359445272098721">ميزة جديدة: يمكنك ترجمة النص والصور على الشاشة من خلال النقر على زر "ترجمة محتوى الشاشة"</translation>
 <translation id="8619360774459241877">‏جارٍ إطلاق Chromium...</translation>
 <translation id="8624541899164515475">الإعدادات (يفتح الرابط في علامة تبويب جديدة)</translation>
 <translation id="8648201657708811153">‏لا يمكن اختيار الإصدار Google Chrome for Test ليكون متصفِّحك التلقائي.</translation>
+<translation id="8676101123715131330">‏البحث باستخدام Chromium من أي مكان</translation>
 <translation id="8697124171261953979">‏كما أنها تتحكم في الصفحة التي تظهر عند تشغيل Chromium أو إجراء بحث من المربع متعدد الاستخدامات.</translation>
 <translation id="8704119203788522458">‏هذا هو Chromium الخاص بك</translation>
 <translation id="8712637175834984815">حسنًا</translation>
@@ -773,6 +780,7 @@
 <translation id="897581876605952338">‏شعار Chromium Enterprise</translation>
 <translation id="8980139959902937527">‏ميزات الأمان من Google ستكون متاحة لك أثناء التنقل باستخدام تطبيق Chromium على "<ph name="DEVICE_TYPE" />"</translation>
 <translation id="8981150672034878610">‏يتعذّر بدء تشغيل Chromium بسبب حدوث خطأ أثناء فتح ملفك الشخصي. يُرجى تجربة إعادة تشغيله.</translation>
+<translation id="8981886272598860786">‏للبحث باستخدام Chromium أو التخصيص من خلال <ph name="BEGIN_LINK" />الإعدادات<ph name="END_LINK" /></translation>
 <translation id="8988036198400390003">‏إدارة الملفات الشخصية على Chromium</translation>
 <translation id="8993855408334954620">‏يمكنك استخدام لوحة المفاتيح للتنقّل بين "Gemini في Chromium" وعلامة التبويب المفتوحة.</translation>
 <translation id="9018218886431812662">اكتمل التثبيت</translation>

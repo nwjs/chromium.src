@@ -19,7 +19,6 @@
 #include "components/contextual_tasks/public/contextual_tasks_service.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/receiver.h"
-#include "mojo/public/cpp/bindings/remote.h"
 #include "ui/base/interaction/element_tracker.h"
 
 namespace base {
@@ -82,7 +81,7 @@ class ContextualTasksPageHandler
   void OpenFeedbackUi() override;
   void OpenOnboardingHelpUi() override;
   void OpenOverflowMenuHelpUi() override;
-  void OpenUrl(const GURL& url, WindowOpenDisposition disposition) override;
+  void OpenAskGHelpUi() override;
   void MoveTaskUiToNewTab() override;
   void OnTabClickedFromSourcesMenu(int32_t tab_id, const GURL& url) override;
   void OnFileClickedFromSourcesMenu(const GURL& url) override;

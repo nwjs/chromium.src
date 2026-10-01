@@ -28,7 +28,9 @@ export function selectionToString(s: OmniboxPopupSelection): string {
 
 export function selectionIsNativelySupported(s: OmniboxPopupSelection):
     boolean {
-  return s.state !== SelectionLineState.kFocusedButtonContextEntrypoint;
+  return s.state !== SelectionLineState.kFocusedButtonContextEntrypoint &&
+      s.state !== SelectionLineState.kFocusedButtonVoiceSearch &&
+      s.state !== SelectionLineState.kFocusedButtonLensSearch;
 }
 
 function findSelectionIndex(
@@ -119,6 +121,7 @@ export interface SearchboxSelectionMixinInterface {
 
   onSelectionChanged(e: CustomEvent<{value: OmniboxPopupSelection}>): void;
   isAiModeVirtualFocused(): boolean;
+  isContextEntrypointVirtualFocused(): boolean;
 }
 
 export type SearchboxSelectionMixinBase = CrLitElement;
@@ -159,6 +162,11 @@ export const SearchboxSelectionMixin = <
 
     isAiModeVirtualFocused(): boolean {
       return this.selection_.state === SelectionLineState.kFocusedButtonAim;
+    }
+
+    isContextEntrypointVirtualFocused(): boolean {
+      return this.selection_.state ===
+          SelectionLineState.kFocusedButtonContextEntrypoint;
     }
 
     getAvailableSelections(result: AutocompleteResult|null):
@@ -263,16 +271,24 @@ export const SearchboxSelectionMixin = <
         return normalIndex < 0 ? from : selectionsList[normalIndex]!;
       }
 
+      const currentNormalIndex =
+          (from.line >= 0 &&
+           from.state !== SelectionLineState.kFocusedButtonAim) ?
+          selectionsList.findIndex(s => isNormal(s) && s.line === from.line) :
+          -1;
+      if (step === SelectionStep.kWholeLine && currentNormalIndex >= 0 &&
+          selectionsList.filter(isNormal).length === 1) {
+        return selectionsList[currentNormalIndex]!;
+      }
+      const remainder = (lhs: number, rhs: number) => ((lhs % rhs) + rhs) % rhs;
       for (let offset = 1; offset < selectionsList.length; offset++) {
         const offsetDirection =
             direction === SelectionDirection.kForward ? offset : -offset;
         const newIndex = fromIndex + offsetDirection;
-
-        const remainder = (lhs: number, rhs: number) =>
-            ((lhs % rhs) + rhs) % rhs;
         const index = remainder(newIndex, selectionsList.length);
         const selection = selectionsList[index]!;
-        if (step === SelectionStep.kStateOrLine || isNormal(selection)) {
+        if (step === SelectionStep.kStateOrLine ||
+            (isNormal(selection) && index !== currentNormalIndex)) {
           return selection;
         }
       }

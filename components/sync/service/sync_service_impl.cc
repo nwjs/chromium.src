@@ -1249,6 +1249,10 @@ void SyncServiceImpl::FetchAccessToken(
     base::OnceCallback<void(signin::AccessTokenInfo)> callback) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
+  // Local sync communicates with a loopback server on disk and does not use
+  // access tokens.
+  CHECK(!IsLocalSyncEnabled());
+
   if (!auth_manager_) {
     std::move(callback).Run(signin::AccessTokenInfo());
     return;
@@ -1857,17 +1861,13 @@ void SyncServiceImpl::UpdateDataTypesForInvalidations() {
   DataTypeSet types = Intersection(GetPreferredDataTypes(), ProtocolTypes());
   types.RemoveAll(CommitOnlyTypes());
 
-  bool should_register_sessions = sessions_invalidations_enabled_;
 #if BUILDFLAG(IS_ANDROID)
-  if (!should_register_sessions &&
-      base::FeatureList::IsEnabled(
+  if (!sessions_invalidations_enabled_ &&
+      !base::FeatureList::IsEnabled(
           kAlwaysRegisterSessionsInvalidationsAndroid)) {
-    should_register_sessions = true;
-  }
-#endif
-  if (!should_register_sessions) {
     types.Remove(SESSIONS);
   }
+#endif  // BUILDFLAG(IS_ANDROID)
 
   if (!data_type_manager_->GetDataTypesWithPermanentErrors().empty() &&
       base::FeatureList::IsEnabled(
@@ -2204,18 +2204,18 @@ bool SyncServiceImpl::HasSyncConsent() const {
   return auth_manager_->GetActiveAccountInfo().is_sync_consented;
 }
 
+#if BUILDFLAG(IS_ANDROID)
 void SyncServiceImpl::SetInvalidationsForSessionsEnabled(bool enabled) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
   sessions_invalidations_enabled_ = enabled;
-#if BUILDFLAG(IS_ANDROID)
   if (base::FeatureList::IsEnabled(
           kAlwaysRegisterSessionsInvalidationsAndroid)) {
     return;
   }
-#endif
   UpdateDataTypesForInvalidations();
 }
+#endif  // BUILDFLAG(IS_ANDROID)
 
 void SyncServiceImpl::SendExplicitPassphraseToPlatformClient() {
   RunOrQueueTaskOnEngineInitialized(base::BindOnce(

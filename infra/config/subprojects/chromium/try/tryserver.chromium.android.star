@@ -145,6 +145,7 @@ try_.builder(
             "debug_try_builder",
         ],
     ),
+    contact_team_email = "clank-engprod@google.com",
     siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
 )
 
@@ -176,6 +177,7 @@ try_.builder(
             "debug_try_builder",
         ],
     ),
+    contact_team_email = "clank-engprod@google.com",
 )
 
 try_.builder(
@@ -428,6 +430,20 @@ try_.builder(
 )
 
 try_.builder(
+    name = "android-annotator-rel",
+    mirrors = ["ci/android-annotator-rel"],
+    gn_args = gn_args.config(
+        configs = [
+            "ci/android-annotator-rel",
+            "try_builder",
+            "no_symbols",
+        ],
+    ),
+    contact_team_email = "cbe-compliance@google.com",
+    siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
+)
+
+try_.builder(
     name = "android-arm-compile-dbg",
     branch_selector = branches.selector.ANDROID_BRANCHES,
     mirrors = ["ci/Android arm Builder (dbg)"],
@@ -479,6 +495,7 @@ try_.orchestrator_builder(
         ],
     ),
     compilator = "android-arm64-rel-compilator",
+    contact_team_email = "clank-engprod@google.com",
     coverage_test_types = ["unit", "overall"],
     cq_settings = try_.cq_settings(
         on_default_cq = True,
@@ -490,6 +507,8 @@ try_.orchestrator_builder(
         "chromium.enable_cleandead": 100,
         # go/rts-project-proposal
         "chromium_rts.filter_file_analysis": 100,
+        # crbug.com/40280175
+        "chromium_checkout.expand_submodules": 100,
     },
     main_list_view = "try",
     # TODO(crbug.com/40241638): Use orchestrator pool once overloaded test pools
@@ -688,6 +707,8 @@ try_.builder(
     experiments = {
         # crbug/940930
         "chromium.enable_cleandead": 50,
+        # crbug.com/40280175
+        "chromium_checkout.expand_submodules": 100,
     },
     main_list_view = "try",
 )
@@ -1023,6 +1044,7 @@ try_.builder(
             "release_try_builder",
         ],
     ),
+    contact_team_email = "woa-engprod@google.com",
 )
 
 try_.builder(
@@ -1053,6 +1075,7 @@ try_.builder(
             "debug_try_builder",
         ],
     ),
+    contact_team_email = "clank-engprod@google.com",
     siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
 )
 
@@ -1068,6 +1091,7 @@ try_.builder(
             "debug_try_builder",
         ],
     ),
+    contact_team_email = "clank-engprod@google.com",
     siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
 )
 
@@ -1117,6 +1141,8 @@ try_.orchestrator_builder(
         "chromium.enable_cleandead": 100,
         # go/rts-project-proposal
         "chromium_rts.filter_file_analysis": 100,
+        # crbug.com/40280175
+        "chromium_checkout.expand_submodules": 100,
     },
     main_list_view = "try",
     # TODO(crbug.com/40241638): Use orchestrator pool once overloaded test pools
@@ -1161,6 +1187,8 @@ try_.orchestrator_builder(
         "chromium.enable_cleandead": 100,
         # go/rts-project-proposal
         "chromium_rts.filter_file_analysis": 100,
+        # crbug.com/40280175
+        "chromium_checkout.expand_submodules": 100,
     },
     main_list_view = "try",
     # TODO(crbug.com/40241638): Use orchestrator pool once overloaded test pools
@@ -1353,6 +1381,7 @@ try_.builder(
     builderless = not settings.is_main,
     cores = 32 if settings.is_main else 16,
     ssd = True,
+    contact_team_email = "clank-engprod@google.com",
     cq_settings = try_.cq_settings(
         on_default_cq = True,
     ),
@@ -1389,6 +1418,7 @@ try_.builder(
     ),
     cores = 16,
     ssd = True,
+    contact_team_email = "clank-engprod@google.com",
     cq_settings = try_.cq_settings(
         location_filters = [
             "chrome/android/java/src/org/chromium/chrome/browser/vr/.+",
@@ -1441,6 +1471,7 @@ try_.builder(
     ),
     cores = 16,
     ssd = True,
+    contact_team_email = "clank-engprod@google.com",
     cq_settings = try_.cq_settings(
         location_filters = [
             "chrome/android/java/src/org/chromium/chrome/browser/vr/.+",

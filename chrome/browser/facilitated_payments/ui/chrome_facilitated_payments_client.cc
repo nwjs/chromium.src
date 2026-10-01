@@ -54,7 +54,7 @@ ChromeFacilitatedPaymentsClient::ChromeFacilitatedPaymentsClient(
   pix_account_linking_manager_ =
       std::make_unique<payments::facilitated::PixAccountLinkingManager>(
           this, payments::facilitated::GetFacilitatedPaymentsApiClientCreator(
-                    web_contents->GetPrimaryMainFrame()->GetGlobalId()));
+                    web_contents->GetWeakPtr()));
   RegisterAllowlists();
 }
 
@@ -160,8 +160,9 @@ void ChromeFacilitatedPaymentsClient::ShowPaymentLinkPrompt(
       std::move(on_fop_selected));
 }
 
-void ChromeFacilitatedPaymentsClient::ShowProgressScreen() {
-  facilitated_payments_controller_->ShowProgressScreen();
+void ChromeFacilitatedPaymentsClient::ShowProgressScreen(
+    payments::facilitated::ProgressScreenType type) {
+  facilitated_payments_controller_->ShowProgressScreen(type);
 }
 
 void ChromeFacilitatedPaymentsClient::ShowErrorScreen() {

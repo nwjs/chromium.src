@@ -186,6 +186,11 @@ public abstract class LanguageItemListFragment extends Fragment
                                 assumeNonNull(code);
                                 onSelectLanguageResult(code);
                             });
+                    // Deliberately uses the non-tab-scoped navigation. The result is delivered via
+                    // the androidx Fragment Result API, which requires this fragment to stay alive
+                    // on the fragment back stack until SelectLanguageFragment pops itself.
+                    // SettingsInTabUrlNav would replace and destroy it. See crbug.com/555347875.
+                    // Do not change to createSettingsNavigation(getContext()).
                     SettingsNavigationFactory.createSettingsNavigation()
                             .startSettings(
                                     getActivity(),

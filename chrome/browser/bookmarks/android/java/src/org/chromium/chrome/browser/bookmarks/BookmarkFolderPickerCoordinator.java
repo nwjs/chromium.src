@@ -69,7 +69,7 @@ public class BookmarkFolderPickerCoordinator implements BackPressHandler {
         mRecyclerView.setAdapter(mAdapter);
         mAdapter.registerType(
                 ViewType.IMPROVED_BOOKMARK_VISUAL,
-                BookmarkManagerCoordinator::buildVisualImprovedBookmarkRow,
+                ImprovedBookmarkRow::buildVisualRow,
                 ImprovedBookmarkRowViewBinder::bind);
         mAdapter.registerType(
                 ViewType.IMPROVED_BOOKMARK_COMPACT,
@@ -169,7 +169,7 @@ public class BookmarkFolderPickerCoordinator implements BackPressHandler {
     // Building rows for the recycler view.
 
     View buildCompactRow(ViewGroup parent) {
-        View row = BookmarkManagerCoordinator.buildCompactImprovedBookmarkRow(parent);
+        View row = ImprovedBookmarkRow.buildCompactRow(parent);
         if (BookmarkUtils.isDesktopBookmarksDialogEnabled()) {
             View container = row.findViewById(R.id.container);
             if (container != null

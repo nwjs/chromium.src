@@ -27,9 +27,9 @@ enum class KeyType {
   kVirtualizedKey,
 };
 
-const SignatureVerifier::SignatureAlgorithm kAllAlgorithms[] = {
-    SignatureVerifier::SignatureAlgorithm::ECDSA_SHA256,
-    SignatureVerifier::SignatureAlgorithm::RSA_PKCS1_SHA256,
+const sign::SignatureKind kAllAlgorithms[] = {
+    sign::ECDSA_SHA256,
+    sign::RSA_PKCS1_SHA256,
 };
 
 constexpr char kTestKeyName[] = "ChromeMetricsTestKey";
@@ -108,30 +108,14 @@ void ReportUmaTpmOperation(TPMOperation operation,
   }
 }
 
-constexpr sign::SignatureKind ToSignatureKind(
-    SignatureVerifier::SignatureAlgorithm alg) {
-  switch (alg) {
-    case SignatureVerifier::RSA_PKCS1_SHA1:
-      return sign::RSA_PKCS1_SHA1;
-    case SignatureVerifier::RSA_PKCS1_SHA256:
-      return sign::RSA_PKCS1_SHA256;
-    case SignatureVerifier::ECDSA_SHA256:
-      return sign::ECDSA_SHA256;
-    case SignatureVerifier::RSA_PSS_SHA256:
-      return sign::RSA_PSS_SHA256;
-  }
-
-  NOTREACHED();
-}
-
-bool VerifySignature(SignatureVerifier::SignatureAlgorithm alg,
+bool VerifySignature(sign::SignatureKind alg,
                      base::span<const uint8_t> spki,
                      base::span<const uint8_t> data,
                      base::span<const uint8_t> signature) {
   std::optional<keypair::PublicKey> public_key =
       keypair::PublicKey::FromSubjectPublicKeyInfo(spki);
   return public_key.has_value() &&
-         sign::Verify(ToSignatureKind(alg), *public_key, data, signature);
+         sign::Verify(alg, *public_key, data, signature);
 }
 
 internal::TPMSupport MeasureVirtualTpmOperations() {
@@ -146,14 +130,25 @@ internal::TPMSupport MeasureVirtualTpmOperations() {
   auto algo = virtual_provider->SelectAlgorithm(kAllAlgorithms);
   if (algo) {
     switch (*algo) {
-      case SignatureVerifier::SignatureAlgorithm::ECDSA_SHA256:
+      case sign::ECDSA_SHA256:
         supported_virtual_algo = internal::TPMSupport::kECDSA;
         break;
-      case SignatureVerifier::SignatureAlgorithm::RSA_PKCS1_SHA256:
+      case sign::RSA_PKCS1_SHA256:
         supported_virtual_algo = internal::TPMSupport::kRSA;
         break;
-      case SignatureVerifier::SignatureAlgorithm::RSA_PKCS1_SHA1:
-      case SignatureVerifier::SignatureAlgorithm::RSA_PSS_SHA256:
+      case sign::RSA_PKCS1_SHA1:
+      case sign::RSA_PKCS1_SHA384:
+      case sign::RSA_PKCS1_SHA512:
+      case sign::RSA_PSS_SHA256:
+      case sign::RSA_PSS_SHA384:
+      case sign::RSA_PSS_SHA512:
+      case sign::ECDSA_SHA1:
+      case sign::ECDSA_SHA384:
+      case sign::ECDSA_SHA512:
+      case sign::ED25519:
+      case sign::MLDSA_44:
+      case sign::MLDSA_65:
+      case sign::MLDSA_87:
         // Not supported for this metric.
         break;
     }
@@ -217,14 +212,25 @@ void MeasureTpmOperationsInternal(UnexportableKeyProvider::Config config) {
   auto algo = provider->SelectAlgorithm(kAllAlgorithms);
   if (algo) {
     switch (*algo) {
-      case SignatureVerifier::SignatureAlgorithm::ECDSA_SHA256:
+      case sign::ECDSA_SHA256:
         supported_algo = internal::TPMSupport::kECDSA;
         break;
-      case SignatureVerifier::SignatureAlgorithm::RSA_PKCS1_SHA256:
+      case sign::RSA_PKCS1_SHA256:
         supported_algo = internal::TPMSupport::kRSA;
         break;
-      case SignatureVerifier::SignatureAlgorithm::RSA_PKCS1_SHA1:
-      case SignatureVerifier::SignatureAlgorithm::RSA_PSS_SHA256:
+      case sign::RSA_PKCS1_SHA1:
+      case sign::RSA_PKCS1_SHA384:
+      case sign::RSA_PKCS1_SHA512:
+      case sign::RSA_PSS_SHA256:
+      case sign::RSA_PSS_SHA384:
+      case sign::RSA_PSS_SHA512:
+      case sign::ECDSA_SHA1:
+      case sign::ECDSA_SHA384:
+      case sign::ECDSA_SHA512:
+      case sign::ED25519:
+      case sign::MLDSA_44:
+      case sign::MLDSA_65:
+      case sign::MLDSA_87:
         // Not supported for this metric.
         break;
     }
@@ -377,14 +383,27 @@ std::string OperationToString(TPMOperation operation) {
   }
 }
 
-std::string AlgorithmToString(SignatureVerifier::SignatureAlgorithm algorithm) {
+std::string AlgorithmToString(sign::SignatureKind algorithm) {
   switch (algorithm) {
-    case SignatureVerifier::SignatureAlgorithm::RSA_PKCS1_SHA1:
-    case SignatureVerifier::SignatureAlgorithm::RSA_PKCS1_SHA256:
-    case SignatureVerifier::SignatureAlgorithm::RSA_PSS_SHA256:
+    case sign::RSA_PKCS1_SHA1:
+    case sign::RSA_PKCS1_SHA256:
+    case sign::RSA_PKCS1_SHA384:
+    case sign::RSA_PKCS1_SHA512:
+    case sign::RSA_PSS_SHA256:
+    case sign::RSA_PSS_SHA384:
+    case sign::RSA_PSS_SHA512:
       return "RSA";
-    case SignatureVerifier::SignatureAlgorithm::ECDSA_SHA256:
+    case sign::ECDSA_SHA1:
+    case sign::ECDSA_SHA256:
+    case sign::ECDSA_SHA384:
+    case sign::ECDSA_SHA512:
       return "ECDSA";
+    case sign::ED25519:
+      return "ED25519";
+    case sign::MLDSA_44:
+    case sign::MLDSA_65:
+    case sign::MLDSA_87:
+      return "MLDSA";
   }
 }
 

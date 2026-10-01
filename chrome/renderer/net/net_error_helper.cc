@@ -56,6 +56,7 @@
 #include "third_party/blink/public/web/web_frame.h"
 #include "third_party/blink/public/web/web_history_item.h"
 #include "third_party/blink/public/web/web_local_frame.h"
+#include "ui/base/page_transition_types.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/base/webui/web_ui_util.h"
 #include "url/gurl.h"
@@ -302,7 +303,7 @@ void NetErrorHelper::DiagnoseError(const GURL& page_url) {
 }
 
 void NetErrorHelper::PortalSignin() {
-#if BUILDFLAG(IS_CHROMEOS)
+#if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
   GetRemoteNetErrorPageSupport()->ShowPortalSignin();
 #endif
 }

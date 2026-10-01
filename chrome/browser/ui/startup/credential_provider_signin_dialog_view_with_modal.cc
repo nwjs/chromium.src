@@ -7,6 +7,7 @@
 #include "base/logging.h"
 #include "components/web_modal/web_contents_modal_dialog_manager.h"
 #include "content/public/browser/web_contents.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/views/widget/widget.h"
 
 CredentialProviderWebDialogViewWithModal::
@@ -75,7 +76,7 @@ CredentialProviderWebDialogViewWithModal::CreateCustomWebContents(
     WindowOpenDisposition disposition,
     const blink::mojom::WindowFeatures& window_features,
     const content::StoragePartitionConfig& partition_config,
-    content::SessionStorageNamespace* session_storage_namespace) {
+    content::SessionStorageNamespaceHandle* session_storage_namespace) {
   VLOG(0) << "Suppressed window creation for  " << target_url.GetHost()
           << target_url.GetPath();
   return nullptr;

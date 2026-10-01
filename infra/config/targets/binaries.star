@@ -1908,6 +1908,20 @@ targets.binaries.generated_script(
     module_scheme = "junit",
 )
 
+targets.binaries.script(
+    name = "partition_alloc_perftests",
+    label = "//base/allocator/partition_allocator/src/partition_alloc:partition_alloc_perftests",
+    script = "//testing/scripts/run_performance_tests.py",
+    skip_usage_check = True,
+    args = [
+        "partition_alloc_perftests",
+        "--non-telemetry=true",
+        "--test-launcher-print-test-stdio=always",
+        "--test-launcher-jobs=1",
+        "--test-launcher-retry-limit=0",
+    ],
+)
+
 targets.binaries.console_test_launcher(
     name = "pdf_unittests",
     label = "//pdf:pdf_unittests",
@@ -1961,14 +1975,8 @@ targets.binaries.generated_script(
 )
 
 targets.binaries.generated_script(
-    name = "performance_test_suite_android_trichrome_chrome_google_64_32_bundle",
-    label = "//chrome/test:performance_test_suite_android_trichrome_chrome_google_64_32_bundle",
-    module_scheme = "flat",
-)
-
-targets.binaries.generated_script(
-    name = "performance_test_suite_android_trichrome_chrome_google_bundle",
-    label = "//chrome/test:performance_test_suite_android_trichrome_chrome_google_bundle",
+    name = "performance_test_suite_android_chrome_google_bundle",
+    label = "//chrome/test:performance_test_suite_android_chrome_google_bundle",
     module_scheme = "flat",
 )
 

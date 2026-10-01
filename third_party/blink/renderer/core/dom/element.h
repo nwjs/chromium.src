@@ -171,7 +171,7 @@ class StylePropertyMapReadOnly;
 class StyleRecalcContext;
 class StyleScopeData;
 class TextVisitor;
-class TrustedParserOptions;
+class TrustedHTMLParserOptions;
 class V8UnionBooleanOrScrollIntoViewOptions;
 class V8UnionCSSPseudoElementOrDocumentOrElementOrText;
 class V8UnionKeyframeAnimationOptionsOrUnrestrictedDouble;
@@ -230,6 +230,11 @@ enum class SelectionBehaviorOnFocus {
   kReset,
   kRestore,
   kNone,
+};
+
+enum class BlurEventBehavior {
+  kFire,
+  kDropWhenRemoving,
 };
 
 enum class FocusableState {
@@ -914,7 +919,7 @@ class CORE_EXPORT Element : public ContainerNode {
   using TinyBloomFilter = uint32_t;
   static TinyBloomFilter FilterForAttribute(
       const QualifiedName& attribute_name) {
-    return FilterForString(attribute_name.LocalNameUpper());
+    return attribute_name.BloomFilter();
   }
   static TinyBloomFilter FilterForString(const AtomicString& str) {
     unsigned hash = str.Hash();
@@ -1162,9 +1167,6 @@ class CORE_EXPORT Element : public ContainerNode {
     SetElementFlag(ElementFlags::kStyleAffectedByEmpty);
   }
 
-  // Determine whether the parent or owner of this element in the flat tree is a
-  // canvas element or in a canvas subtree.
-  bool ComputeIsInCanvasSubtree() const;
   // Recursively sets the IsInCanvasSubtree bit for the element and its subtree.
   void SetIsInCanvasSubtree(bool value);
   // Is in the flat subtree of a canvas element, but not the canvas element
@@ -1251,7 +1253,12 @@ class CORE_EXPORT Element : public ContainerNode {
   void Focus();
   void Focus(const FocusOptions*);
 
-  virtual void SetFocused(bool received, mojom::blink::FocusType);
+  void SetFocused(bool received, mojom::blink::FocusType focus_type) {
+    SetFocused(received, focus_type, BlurEventBehavior::kFire);
+  }
+  virtual void SetFocused(bool received,
+                          mojom::blink::FocusType,
+                          BlurEventBehavior);
   virtual void SetHasFocusWithinUpToAncestor(bool has_focus_within,
                                              Element* ancestor,
                                              bool need_snap_container_search);
@@ -1542,7 +1549,7 @@ class CORE_EXPORT Element : public ContainerNode {
                      SetHTMLUnsafeOptions*,
                      ExceptionState&);
   void setHTMLUnsafe(const V8UnionStringOrTrustedHTML* html,
-                     TrustedParserOptions*,
+                     TrustedHTMLParserOptions*,
                      ExceptionState&);
   void setHTML(const String& html, SetHTMLOptions*, ExceptionState&);
 
@@ -1607,6 +1614,8 @@ class CORE_EXPORT Element : public ContainerNode {
   // Returns true if this element contains any ::scroll-button or
   // ::scroll-marker-group pseudos.
   bool HasScrollButtonOrMarkerGroupPseudos() const;
+  // Returns true if this element contains an ::interest-button pseudo.
+  bool HasInterestButtonPseudo() const;
 
   bool PseudoElementStylesAffectCounters() const;
 
@@ -1638,6 +1647,10 @@ class CORE_EXPORT Element : public ContainerNode {
   // See StyleRecalcContext for more information.
   const ComputedStyle* StyleForPseudoElement(const StyleRecalcContext&,
                                              const StyleRequest&);
+
+  // StyleForPseudoElement specifically for kPseudoIdFirstLineInherited.
+  const ComputedStyle* StyleForFirstLineInherited(const StyleRecalcContext&,
+                                                  const StyleRequest&);
 
   // These are used by ResolveStyle with Highlight Inheritance when caching
   // is not used.
@@ -1898,8 +1911,14 @@ class CORE_EXPORT Element : public ContainerNode {
   // `ad_provenance` is not overwritten).
   void SetIsAdRelated(AdProvenance ad_provenance);
 
+  // Marks this element as an ad-related video stream.
+  void UpdateToVideoAd();
+
   // Returns true if the element is considered ad-related.
   bool IsAdRelated() const;
+
+  // Returns true if the element is an ad-related video stream.
+  bool IsVideoAd() const;
 
   // Returns the `AdProvenance` if the element is ad-related, or `std::nullopt`
   // otherwise.
@@ -2035,6 +2054,9 @@ class CORE_EXPORT Element : public ContainerNode {
   void HandleFocusEventsForInterestFor(FocusEvent* focus_event);
 
   void DefaultEventHandler(Event&) override;
+
+  virtual String FilterBeforeTextInserted(const String& text);
+  virtual void NotifyEditableContentChanged();
 
   // Set on elements with scroll-target-group property to
   // collect HTMLAnchorElement scroll markers.
@@ -2503,6 +2525,7 @@ class CORE_EXPORT Element : public ContainerNode {
     if (IsDocumentElement()) {
       return;
     }
+    AttachPseudoElement(kPseudoIdInterestButton, context);
     AttachSucceedingScrollControlsPseudoElements(context);
   }
 
@@ -2510,7 +2533,6 @@ class CORE_EXPORT Element : public ContainerNode {
     AttachPseudoElement(kPseudoIdAfter, context);
     AttachPseudoElement(kPseudoIdExpandIcon, context);
     AttachPseudoElement(kPseudoIdPickerIcon, context);
-    AttachPseudoElement(kPseudoIdInterestButton, context);
     AttachDocumentElementSucceedingPseudoElements(context);
     AttachPseudoElement(kPseudoIdBackdrop, context);
     UpdateFirstLetterPseudoElement(StyleUpdatePhase::kAttachLayoutTree);

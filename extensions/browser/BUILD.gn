@@ -712,7 +712,7 @@ source_set("browser_sources") {
 
   public_deps = [
     "//base",
-    "//components/safe_browsing/core/browser/db:v4_protocol_config",
+    "//components/safe_browsing/core/browser/db:sb_protocol_config",
     "//components/url_matcher",
     "//components/url_pattern_index",
     "//components/user_prefs",
@@ -914,6 +914,7 @@ source_set("crx_installer") {
     deps += [ "//components/user_manager" ]
   }
 }
+
 source_set("webstore_installer") {
   sources = [
     "webstore_data_fetcher.cc",
@@ -999,9 +1000,9 @@ source_set("test_support") {
     "//base/test:test_support",
     "//components/pref_registry",
     "//components/safe_browsing/core/browser/db:database_manager",
+    "//components/safe_browsing/core/browser/db:sb_test_util",
     "//components/safe_browsing/core/browser/db:util",
     "//components/safe_browsing/core/browser/db:v4_protocol_manager_util",
-    "//components/safe_browsing/core/browser/db:v4_test_util",
     "//components/safe_browsing/core/common/proto:crx_info_proto_gen",
     "//components/sync/model",
     "//components/sync_preferences",
@@ -1041,8 +1042,8 @@ source_set("test_support") {
       "fake_safe_browsing_database_manager.h",
     ]
     deps += [
+      "//components/safe_browsing/core/browser/db:sb_test_util",
       "//components/safe_browsing/core/browser/db:test_database_manager",
-      "//components/safe_browsing/core/browser/db:v4_test_util",
     ]
   }
 
@@ -1079,6 +1080,7 @@ source_set("unit_tests") {
     "api/file_handlers/directory_util_unittest.cc",
     "api/file_handlers/mime_util_unittest.cc",
     "api/idle/idle_api_unittest.cc",
+    "api/permissions/permissions_api_helpers_unittest.cc",
     "api/power/power_api_unittest.cc",
     "api/proxy/proxy_api_helpers_unittest.cc",
     "api/runtime/restart_after_delay_api_unittest.cc",

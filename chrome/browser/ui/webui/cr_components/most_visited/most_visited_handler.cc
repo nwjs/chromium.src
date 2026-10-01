@@ -24,6 +24,8 @@
 #include "chrome/browser/preloading/new_tab_page_preload/new_tab_page_preload_pipeline_manager.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
+#include "ui/base/page_transition_types.h"
+#include "ui/base/window_open_disposition.h"
 // Android uses a different implementation of tab features.
 #if BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/android/tab_features.h"
@@ -293,11 +295,10 @@ void MostVisitedHandler::OnMostVisitedTileNavigation(
       navigation_handle_callback =
           base::BindRepeating(&AttachNewTabPageNavigationHandleUserData);
   web_contents_->OpenURL(
-      content::OpenURLParams(tile->url, content::Referrer(), disposition,
-                             tile->is_query_tile
-                                 ? ui::PAGE_TRANSITION_LINK
-                                 : ui::PAGE_TRANSITION_AUTO_BOOKMARK,
-                             /*is_renderer_initiated=*/false),
+      content::OpenURLParams::CreateBrowserInitiated(
+          tile->url, disposition,
+          tile->is_query_tile ? ui::PAGE_TRANSITION_LINK
+                              : ui::PAGE_TRANSITION_AUTO_BOOKMARK),
       std::move(navigation_handle_callback));
 }
 

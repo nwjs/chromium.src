@@ -7,6 +7,7 @@
 #include "build/android_buildflags.h"
 #include "build/branding_buildflags.h"
 #include "build/build_config.h"
+#include "chrome/browser/browser_actuator/internals/browser_actuator_internals_ui.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_ui.h"
 #include "chrome/browser/glic/experimental_opt_in/glic_experimental_opt_in_ui.h"
 #include "chrome/browser/glic/host/glic_ui.h"
@@ -17,7 +18,6 @@
 #include "chrome/browser/ui/webui/autofill_and_password_manager_internals/autofill_internals_ui.h"
 #include "chrome/browser/ui/webui/autofill_and_password_manager_internals/password_manager_internals_ui.h"
 #include "chrome/browser/ui/webui/bluetooth_internals/bluetooth_internals_ui.h"
-#include "chrome/browser/ui/webui/chrome_finds_internals/chrome_finds_internals_ui.h"
 #include "chrome/browser/ui/webui/chrome_urls/chrome_urls_ui.h"
 #include "chrome/browser/ui/webui/commerce/commerce_internals_ui_config.h"
 #include "chrome/browser/ui/webui/components/components_ui.h"
@@ -97,6 +97,7 @@
 #include "chrome/browser/ui/webui/bookmarks/bookmarks_ui.h"
 #include "chrome/browser/ui/webui/color_pipeline_internals/color_pipeline_internals_ui.h"
 #include "chrome/browser/ui/webui/commerce/shopping_insights_side_panel_ui.h"
+#include "chrome/browser/ui/webui/critical_actions/critical_actions_ui.h"
 #include "chrome/browser/ui/webui/downloads/downloads_ui.h"
 #include "chrome/browser/ui/webui/drive_picker_host/drive_picker_host_ui.h"
 #include "chrome/browser/ui/webui/feedback/feedback_ui.h"
@@ -142,6 +143,7 @@
 #include "chrome/browser/ui/webui/webui_gallery/webui_gallery_ui.h"
 #include "chrome/browser/ui/webui/webui_js_error/webui_js_error_ui.h"
 #else  // !BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/ui/webui/chrome_finds_internals/chrome_finds_internals_ui.h"
 #include "chrome/browser/ui/webui/feed_internals/feed_internals_ui.h"
 #include "chrome/browser/ui/webui/notifications_internals/notifications_internals_ui.h"
 #include "chrome/browser/ui/webui/webapks/webapks_ui.h"
@@ -160,7 +162,8 @@
 #endif  // BUILDFLAG(ENABLE_PRINT_PREVIEW)
 
 #if BUILDFLAG(IS_CHROMEOS)
-#include "chrome/browser/ui/webui/ash/config/chrome_web_ui_configs_chromeos.h"
+#include "base/check_is_test.h"
+#include "chrome/browser/ui/webui/ash/config/ash_web_ui_config_manager.h"
 #include "chrome/browser/ui/webui/ash/dlp_internals/dlp_internals_ui.h"
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
@@ -244,9 +247,19 @@
 
 void RegisterChromeWebUIConfigs() {
   // Don't add calls to `AddWebUIConfig()` for Ash-specific WebUIs here. Add
-  // them in chrome_web_ui_configs_chromeos.cc.
+  // them to `AshWebUIConfigManager::RegisterWebUIConfigs()` in
+  // ash_web_ui_config_manager.cc.
 #if BUILDFLAG(IS_CHROMEOS)
-  ash::RegisterAshChromeWebUIConfigs();
+  if (auto* ash_webui_config_manager =
+          ash::AshWebUIConfigManager::GetInstance()) {
+    ash_webui_config_manager->RegisterWebUIConfigs();
+  } else {
+    // AshWebUIConfigManager is created in
+    // ChromeBrowserMainPartsAsh::PreProfileInit() and is not instantiated in
+    // unit tests by default. Unit tests that require specific WebUIs should
+    // register their configs individually in test fixtures.
+    CHECK_IS_TEST();
+  }
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
   auto& map = content::WebUIConfigMap::GetInstance();
@@ -254,7 +267,7 @@ void RegisterChromeWebUIConfigs() {
   map.AddWebUIConfig(std::make_unique<AutofillInternalsUIConfig>());
   map.AddWebUIConfig(std::make_unique<BluetoothInternalsUIConfig>());
   map.AddWebUIConfig(
-      std::make_unique<chrome_finds_internals::ChromeFindsInternalsUIConfig>());
+      std::make_unique<browser_actuator::BrowserActuatorInternalsUIConfig>());
   map.AddWebUIConfig(std::make_unique<chrome_urls::ChromeUrlsUIConfig>());
   map.AddWebUIConfig(std::make_unique<chromeos::DeviceLogUIConfig>());
   map.AddWebUIConfig(std::make_unique<CrashesUIConfig>());
@@ -325,6 +338,8 @@ void RegisterChromeWebUIConfigs() {
 #endif
 
 #if BUILDFLAG(IS_ANDROID)
+  map.AddWebUIConfig(
+      std::make_unique<chrome_finds_internals::ChromeFindsInternalsUIConfig>());
   map.AddWebUIConfig(std::make_unique<FeedInternalsUIConfig>());
   map.AddWebUIConfig(std::make_unique<NotificationsInternalsUIConfig>());
   map.AddWebUIConfig(std::make_unique<WebApksUIConfig>());
@@ -347,6 +362,8 @@ void RegisterChromeWebUIConfigs() {
   map.AddWebUIConfig(
       std::make_unique<
           contextual_cueing_internals::ContextualCueingInternalsUIConfig>());
+  map.AddWebUIConfig(
+      std::make_unique<critical_actions::CriticalActionsInternalsUIConfig>());
   map.AddWebUIConfig(std::make_unique<DownloadsUIConfig>());
   map.AddWebUIConfig(std::make_unique<DrivePickerHostUIConfig>());
   map.AddWebUIConfig(std::make_unique<FeedbackUIConfig>());

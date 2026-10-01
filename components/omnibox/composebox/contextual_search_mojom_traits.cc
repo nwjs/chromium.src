@@ -59,6 +59,8 @@ UsedToolMode EnumTraits<UsedToolMode, omnibox::ToolMode>::ToMojom(
       return UsedToolMode::kAimGenPrompt;
     case omnibox::ToolMode::TOOL_MODE_AGENT_TASK:
       return UsedToolMode::kAgentTask;
+    case omnibox::ToolMode::TOOL_MODE_SEARCH_MORE:
+      return UsedToolMode::kSearchMore;
     case omnibox::ToolMode::TOOL_MODE_DISABLE_SUGGEST:
       return UsedToolMode::kDisableSuggest;
     case omnibox::ToolMode::TOOL_MODE_GEMINI_PRO:
@@ -94,6 +96,8 @@ omnibox::ToolMode EnumTraits<UsedToolMode, omnibox::ToolMode>::FromMojom(
       return omnibox::ToolMode::TOOL_MODE_AIM_GEN_PROMPT;
     case UsedToolMode::kAgentTask:
       return omnibox::ToolMode::TOOL_MODE_AGENT_TASK;
+    case UsedToolMode::kSearchMore:
+      return omnibox::ToolMode::TOOL_MODE_SEARCH_MORE;
     case UsedToolMode::kDisableSuggest:
       return omnibox::ToolMode::TOOL_MODE_DISABLE_SUGGEST;
     case UsedToolMode::kGeminiPro:
@@ -449,6 +453,18 @@ StructTraits<UsedToolConfigDataView, omnibox::ToolConfig>::menu_tooltip(
 }
 
 // static
+int32_t StructTraits<UsedToolConfigDataView, omnibox::ToolConfig>::icon(
+    const omnibox::ToolConfig& config) {
+  if (config.has_icon() && config.icon().has_icon_id()) {
+    int icon_id = static_cast<int>(config.icon().icon_id());
+    if (omnibox::IconResourceIds_IsValid(icon_id)) {
+      return icon_id;
+    }
+  }
+  return static_cast<int32_t>(omnibox::IconResourceIds::PLACE_WHITE);
+}
+
+// static
 bool StructTraits<UsedToolConfigDataView, omnibox::ToolConfig>::Read(
     UsedToolConfigDataView data,
     omnibox::ToolConfig* output) {
@@ -494,6 +510,13 @@ bool StructTraits<UsedToolConfigDataView, omnibox::ToolConfig>::Read(
     return false;
   }
   output->set_menu_tooltip(menu_tooltip);
+
+  int32_t icon_id = data.icon();
+  if (omnibox::IconResourceIds_IsValid(icon_id) &&
+      icon_id != static_cast<int32_t>(omnibox::IconResourceIds::PLACE_WHITE)) {
+    output->mutable_icon()->set_icon_id(
+        static_cast<omnibox::IconResourceIds>(icon_id));
+  }
 
   return true;
 }

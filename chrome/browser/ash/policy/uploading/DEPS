@@ -17,13 +17,16 @@ include_rules = [
   "+chrome/browser/ash/policy/core",
   "+chrome/browser/ash/policy/status_collector",
   "+chrome/browser/ash/settings",
-  "+chrome/browser/browser_process.h",
   "+chrome/browser/device_identity",
   "+chrome/browser/media/webrtc",
   "+chrome/browser/policy",
-  "+chrome/browser/prefs",
   "+chrome/browser/profiles",
-  "+chrome/common/chrome_switches.h",
   "+chrome/common/extensions",
   "+chrome/test/base",
 ]
+
+specific_include_rules = {
+  ".*unittest\\.cc": [
+    "+chrome/browser/prefs",
+  ],
+}

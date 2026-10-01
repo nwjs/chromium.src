@@ -325,6 +325,13 @@ ItemPosition FlexLayoutAlgorithm::ResolvedAlignSelf(
     return is_column_ ? logical.InlineEnd() : logical.BlockEnd();
   }
 
+  // TODO(celestepan): swap usage of `kFlexStart/End` with `kFlowStart/End`.
+  if (align == ItemPosition::kFlowStart) {
+    align = ItemPosition::kFlexStart;
+  } else if (align == ItemPosition::kFlowEnd) {
+    align = ItemPosition::kFlexEnd;
+  }
+
   if (is_wrap_reverse_) {
     if (align == ItemPosition::kFlexStart) {
       align = ItemPosition::kFlexEnd;
@@ -461,8 +468,10 @@ AxisEdge MainAxisStaticPositionEdge(
   const ContentPosition content_position = justify_content.GetPosition();
   DCHECK_NE(content_position, ContentPosition::kLeft);
   DCHECK_NE(content_position, ContentPosition::kRight);
-  if (content_position == ContentPosition::kFlexEnd)
+  if (content_position == ContentPosition::kFlexEnd ||
+      content_position == ContentPosition::kFlowEnd) {
     return is_reverse_direction ? AxisEdge::kStart : AxisEdge::kEnd;
+  }
 
   if (content_position == ContentPosition::kCenter ||
       justify_content.Distribution() == ContentDistributionType::kSpaceAround ||
@@ -518,8 +527,7 @@ void FlexLayoutAlgorithm::HandleOutOfFlowPositionedItems(
   // size information (e.g. any expanded rows, etc), so for center aligned
   // items, we could end up with an incorrect static position.
   if (InvolvedInBlockFragmentation(container_builder_)) [[unlikely]] {
-    should_process_block_end = !container_builder_.DidBreakSelf() &&
-                               !container_builder_.ShouldBreakInside();
+    should_process_block_end = !container_builder_.ShouldBreak();
     if (should_process_block_end) {
       // Recompute the total block size in case |total_intrinsic_block_size|
       // changed as a result of fragmentation.
@@ -840,7 +848,9 @@ void FlexLayoutAlgorithm::ConstructAndAppendFlexItems(
     if (phase == Phase::kColumnWrapIntrinsicSize) {
       auto space = BuildSpaceForIntrinsicInlineSize(child, alignment);
       MinMaxSizesResult child_contributions =
-          ComputeMinAndMaxContentContribution(Style(), child, space);
+          ComputeMinAndMaxContentContribution(
+              Style(), child, space,
+              MinMaxSizesInput::UnconstrainedUntriaged());
       max_content_contribution = child_contributions.sizes.max_size;
       BoxStrut child_margins =
           ComputeMarginsFor(space, child.Style(), GetConstraintSpace());
@@ -888,7 +898,9 @@ void FlexLayoutAlgorithm::ConstructAndAppendFlexItems(
       // We want the child's intrinsic inline sizes in its writing mode, so
       // pass child's writing mode as the first parameter, which is nominally
       // |container_writing_mode|.
-      return child.ComputeMinMaxSizes(child_writing_mode, type, child_space);
+      return child.ComputeMinMaxSizes(
+          child_writing_mode, type, child_space,
+          MinMaxSizesInput::UnconstrainedUntriaged());
     };
 
     auto InlineSizeFunc = [&]() -> LayoutUnit {
@@ -1295,7 +1307,7 @@ const LayoutResult* FlexLayoutAlgorithm::LayoutInternal() {
 
   std::optional<FlexGapAccumulator> gap_accumulator = std::nullopt;
   if (Style().HasGapRule() && !flex_lines.empty()) {
-    std::optional<GapGeometry::FlexGapPlacementReversal> gap_placement_reversal;
+    std::optional<GapGeometry::PlacementReversal> gap_placement_reversal;
     if (is_wrap_reverse_ || is_reverse_direction_) {
       gap_placement_reversal.emplace(is_wrap_reverse_, is_reverse_direction_);
     }
@@ -1686,8 +1698,10 @@ LayoutUnit InitialContentPositionOffset(const StyleContentAlignmentData& data,
     case ContentPosition::kEnd:
       return free_space;
     case ContentPosition::kFlexEnd:
+    case ContentPosition::kFlowEnd:
       return is_reverse ? LayoutUnit() : free_space;
     case ContentPosition::kFlexStart:
+    case ContentPosition::kFlowStart:
     case ContentPosition::kNormal:
     case ContentPosition::kBaseline:
     case ContentPosition::kLastBaseline:
@@ -2870,7 +2884,8 @@ FlexLayoutAlgorithm::ComputeMinMaxSizeOfMultilineColumnContainer() {
   return {min_max_sizes, /* depends_on_block_constraints */ true};
 }
 
-MinMaxSizesResult FlexLayoutAlgorithm::ComputeMinMaxSizeOfRowContainer() {
+MinMaxSizesResult FlexLayoutAlgorithm::ComputeMinMaxSizeOfRowContainer(
+    const MinMaxSizesInput& input) {
   DCHECK(!is_column_);
   MinMaxSizes container_sizes;
   bool depends_on_block_constraints = false;
@@ -2884,13 +2899,22 @@ MinMaxSizesResult FlexLayoutAlgorithm::ComputeMinMaxSizeOfRowContainer() {
   // the flex basis is not definite.
   ConstructAndAppendFlexItems(Phase::kRowIntrinsicSize);
 
-  // We only need to run the line-breaker if we have "flex-wrap:balance".
+  // Run the line-breaker if we are in a shrink-to-fit context or if we have
+  // "flex-wrap: balance" to ensure correct wrapping during intrinsic size
+  // calculation.
   base::span<FlexItem> items = base::span(flex_items_);
+  std::optional<LayoutUnit> line_break_size;
+  if (is_multi_line_ && Style().IsInShrinkToFitSubtree() &&
+      input.constrained_inline_size != LayoutUnit::Max()) {
+    line_break_size = input.constrained_inline_size;
+  } else if (balance_min_line_count_) {
+    line_break_size = LayoutUnit::Max();
+  }
+
   const FlexLineBreakerResult result =
-      balance_min_line_count_
-          ? BreakFlexItemsIntoLines(items, LayoutUnit::Max(),
-                                    gap_between_items_, is_multi_line_,
-                                    balance_min_line_count_)
+      line_break_size
+          ? BreakFlexItemsIntoLines(items, *line_break_size, gap_between_items_,
+                                    is_multi_line_, balance_min_line_count_)
           : FlexLineBreakerResult(
                 {InitialFlexLine(flex_items_.size(), LayoutUnit())},
                 LayoutUnit());
@@ -2906,7 +2930,9 @@ MinMaxSizesResult FlexLayoutAlgorithm::ComputeMinMaxSizeOfRowContainer() {
       const ConstraintSpace space =
           BuildSpaceForIntrinsicInlineSize(child, item.alignment);
       const MinMaxSizesResult min_max_content_contributions =
-          ComputeMinAndMaxContentContribution(Style(), child, space);
+          ComputeMinAndMaxContentContribution(
+              Style(), child, space,
+              MinMaxSizesInput::UnconstrainedUntriaged());
       depends_on_block_constraints |=
           min_max_content_contributions.depends_on_block_constraints;
 
@@ -2997,13 +3023,13 @@ MinMaxSizesResult FlexLayoutAlgorithm::ComputeMinMaxSizeOfRowContainer() {
 }
 
 MinMaxSizesResult FlexLayoutAlgorithm::ComputeMinMaxSizes(
-    const MinMaxSizesFloatInput&) {
+    const MinMaxSizesInput& input) {
   if (auto result = CalculateMinMaxSizesIgnoringChildren(
           Node(), BorderScrollbarPadding()))
     return *result;
 
   if (!is_column_) {
-    return ComputeMinMaxSizeOfRowContainer();
+    return ComputeMinMaxSizeOfRowContainer(input);
   }
 
   if (is_multi_line_) {
@@ -3025,8 +3051,8 @@ MinMaxSizesResult FlexLayoutAlgorithm::ComputeMinMaxSizes(
 
     const ConstraintSpace space = BuildSpaceForIntrinsicInlineSize(
         child, ResolvedAlignSelf(child.Style()));
-    MinMaxSizesResult child_result =
-        ComputeMinAndMaxContentContribution(Style(), child, space);
+    MinMaxSizesResult child_result = ComputeMinAndMaxContentContribution(
+        Style(), child, space, MinMaxSizesInput::UnconstrainedUntriaged());
     BoxStrut child_margins =
         ComputeMarginsFor(space, child.Style(), GetConstraintSpace());
     child_result.sizes += child_margins.InlineSum();

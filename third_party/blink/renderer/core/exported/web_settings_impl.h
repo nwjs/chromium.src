@@ -65,6 +65,7 @@ class CORE_EXPORT WebSettingsImpl final : public WebSettings {
   void SetAllowRunningOfInsecureContent(bool) override;
   void SetAllowScriptsToCloseWindows(bool) override;
   void SetAllowUnrestrictedWindowFocus(bool) override;
+  void SetClipboardFocusExempt(bool) override;
   void SetAllowUniversalAccessFromFileURLs(bool) override;
   void SetAlwaysShowContextMenuOnTouch(bool) override;
   void SetAntialiased2dCanvasEnabled(bool) override;
@@ -123,6 +124,7 @@ class CORE_EXPORT WebSettingsImpl final : public WebSettings {
   void SetMaxTouchPoints(int) override;
   void SetPictureInPictureEnabled(bool) override;
   void SetWebAppScope(const WebString&) override;
+  void SetWebAppCustomManifestUrl(const WebURL&) override;
   void SetIsInitialProfile(bool) override;
   void SetPresentationRequiresUserGesture(bool) override;
   void SetEmbeddedMediaExperienceEnabled(bool) override;

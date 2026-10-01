@@ -16,25 +16,21 @@ namespace blink {
 struct IgnoringAsciiCaseHash {
   STATIC_ONLY(IgnoringAsciiCaseHash);
 
-  static unsigned GetHash(const String& string) {
+  static uint32_t GetHash(const String& string) {
     if (string.ContainsOnlyAsciiOrEmpty() && string.ContainsNoAsciiUpper()) {
       return HashTraits<String>::GetHash(string);
     }
-    base::span<const char> bytes = base::as_chars(string.RawByteSpan());
+    auto bytes = string.RawByteSpan();
     if (string.Is8Bit()) {
-      return StringHasher::ComputeHashAndMaskTop8Bits<
-          AsciiLowerHashReader<LChar>>(bytes.data(), bytes.size());
+      return HashString24<AsciiLowerHashReader<LChar>>(bytes);
     }
     if (string.ContainsOnlyLatin1OrEmpty()) {
-      using Reader = AsciiConvertTo8AndLowerHashReader;
-      return StringHasher::ComputeHashAndMaskTop8Bits<Reader>(
-          bytes.data(), bytes.size() / Reader::kCompressionFactor);
+      return HashString24<AsciiConvertTo8AndLowerHashReader>(bytes);
     }
-    return StringHasher::ComputeHashAndMaskTop8Bits<
-        AsciiLowerHashReader<UChar>>(bytes.data(), bytes.size());
+    return HashString24<AsciiLowerHashReader<UChar>>(bytes);
   }
 
-  static unsigned GetHash(const AtomicString& string) {
+  static uint32_t GetHash(const AtomicString& string) {
     return GetHash(string.GetString());
   }
 
@@ -67,22 +63,18 @@ struct IgnoringAsciiCaseHashTraits : HashTraits<T>, IgnoringAsciiCaseHash {
 struct IgnoringAsciiCaseHashTranslator {
   STATIC_ONLY(IgnoringAsciiCaseHashTranslator);
 
-  static unsigned GetHash(StringView string) {
+  static uint32_t GetHash(StringView string) {
     if (string.SharedImpl()) {
       return IgnoringAsciiCaseHash::GetHash(string.ToString());
     }
-    base::span<const char> bytes = base::as_chars(string.RawByteSpan());
+    auto bytes = string.RawByteSpan();
     if (string.Is8Bit()) {
-      return StringHasher::ComputeHashAndMaskTop8Bits<
-          AsciiLowerHashReader<LChar>>(bytes.data(), bytes.size());
+      return HashString24<AsciiLowerHashReader<LChar>>(bytes);
     }
     if (string.ContainsOnlyLatin1OrEmpty()) {
-      using Reader = AsciiConvertTo8AndLowerHashReader;
-      return StringHasher::ComputeHashAndMaskTop8Bits<Reader>(
-          bytes.data(), bytes.size() / Reader::kCompressionFactor);
+      return HashString24<AsciiConvertTo8AndLowerHashReader>(bytes);
     }
-    return StringHasher::ComputeHashAndMaskTop8Bits<
-        AsciiLowerHashReader<UChar>>(bytes.data(), bytes.size());
+    return HashString24<AsciiLowerHashReader<UChar>>(bytes);
   }
 
   static bool Equal(const String& a, StringView b) {

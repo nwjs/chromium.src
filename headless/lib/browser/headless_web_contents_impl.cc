@@ -19,6 +19,7 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/trace_event/trace_event.h"
+#include "base/types/expected.h"
 #include "base/values.h"
 #include "build/build_config.h"
 #include "components/headless/console_message_logger/headless_console_message_logger.h"
@@ -27,8 +28,10 @@
 #include "components/viz/common/frame_sinks/copy_output_result.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/child_process_termination_info.h"
+#include "content/public/browser/document_picture_in_picture_window_controller.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_handle.h"
+#include "content/public/browser/picture_in_picture_window_controller.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/render_view_host.h"
@@ -136,7 +139,8 @@ class HeadlessWebContentsImpl::Delegate : public content::WebContentsDelegate {
   void GetAIPageContent(
       content::WebContents* web_contents,
       bool include_actionable_elements,
-      base::OnceCallback<void(const std::string&)> callback) override {
+      base::OnceCallback<void(base::expected<std::string, std::string>)>
+          callback) override {
     auto options = include_actionable_elements
                        ? optimization_guide::ActionableAIPageContentOptions(
                              /*on_critical_path=*/false)
@@ -146,11 +150,13 @@ class HeadlessWebContentsImpl::Delegate : public content::WebContentsDelegate {
     optimization_guide::GetAIPageContent(
         web_contents, std::move(options),
         base::BindOnce([](optimization_guide::AIPageContentResultOrError result)
-                           -> std::string {
+                           -> base::expected<std::string, std::string> {
+          // Preserve the provider's error so DevTools callers can diagnose the
+          // extraction failure.
           if (!result.has_value()) {
-            return "";
+            return base::unexpected(result.error());
           }
-          return result->proto.SerializeAsString();
+          return base::ok(result->proto.SerializeAsString());
         }).Then(std::move(callback)));
   }
 
@@ -178,6 +184,20 @@ class HeadlessWebContentsImpl::Delegate : public content::WebContentsDelegate {
                                  ? default_bounds
                                  : window_features.bounds;
     raw_child_contents->SetBounds(bounds);
+
+    if (disposition == WindowOpenDisposition::NEW_PICTURE_IN_PICTURE) {
+      // Register the document Picture-in-Picture child contents so the
+      // controller can manage the PiP window's lifetime.
+      content::DocumentPictureInPictureWindowController* controller =
+          content::PictureInPictureWindowController::
+              GetOrCreateDocumentPictureInPictureController(source);
+      // Close any existing PiP window for `source` before registering the new
+      // child contents. This is a no-op if there is no existing window.
+      controller->Close(/*should_pause_video=*/false);
+      controller->SetChildWebContents(raw_child_contents->web_contents());
+      controller->Show();
+    }
+
     return raw_child_contents->web_contents();
   }
 

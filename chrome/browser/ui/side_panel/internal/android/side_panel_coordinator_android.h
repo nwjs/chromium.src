@@ -54,7 +54,7 @@ class SidePanelCoordinatorAndroid : public SidePanelUIBase {
   void Init();
   void Destroy();
   void ClosePanel(bool suppress_animations);
-  bool HasContentToShow();
+  bool HasContentToShow(TabAndroid* tab);
   void OnPanelContainerUpdated(int old_width, int new_width);
   void OnPanelContentReplaced();
   void OnActiveChanged(bool active);
@@ -232,8 +232,6 @@ class SidePanelCoordinatorAndroid : public SidePanelUIBase {
   bool has_insufficient_space_ = false;
 
   SidePanelDeferredEntryTracker deferred_entry_tracker_{browser()};
-
-  std::optional<gfx::Rect> last_starting_bounds_;
 
   ui::ScopedUnownedUserData<SidePanelCoordinatorAndroid>
       scoped_unowned_user_data_;

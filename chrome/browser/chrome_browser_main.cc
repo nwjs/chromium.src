@@ -28,7 +28,6 @@
 #include "base/task/thread_pool.h"
 #include "base/threading/hang_watcher.h"
 #include "base/time/time.h"
-#include "base/trace_event/named_trigger.h"
 #include "base/trace_event/trace_event.h"
 #include "base/values.h"
 #include "build/branding_buildflags.h"
@@ -62,6 +61,7 @@
 #include "chrome/browser/policy/chrome_browser_policy_connector.h"
 #include "chrome/browser/profiles/chrome_browser_main_extra_parts_profiles.h"
 #include "chrome/browser/profiles/profile.h"
+#include "extensions/buildflags/buildflags.h"
 
 #if BUILDFLAG(ENABLE_DOWNGRADE_PROCESSING)
 #include "chrome/browser/downgrade/downgrade_manager_delegate_impl.h"  // nogncheck
@@ -122,7 +122,6 @@
 #include "components/spellcheck/spellcheck_buildflags.h"
 #include "components/startup_metric_utils/browser/startup_metric_utils.h"
 #include "components/startup_metric_utils/common/startup_metric_utils.h"
-#include "components/tracing/common/background_tracing_utils.h"
 #include "components/translate/core/browser/translate_metrics_logger_impl.h"
 #include "components/variations/service/variations_service.h"
 #include "components/variations/synthetic_trials_active_group_id_provider.h"
@@ -225,9 +224,14 @@
 #if BUILDFLAG(IS_MAC)
 #include <Security/Security.h>
 
+#include "chrome/browser/infobars/browser_infobar_manager.h"
+#include "chrome/browser/infobars/infobar_features.h"
 #include "chrome/browser/mac/chrome_browser_main_extra_parts_mac.h"
 #include "chrome/browser/shutdown_watchdog_mac.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/cocoa/keystone_infobar_delegate.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/ui_features.h"
 
 #if defined(ARCH_CPU_X86_64)
@@ -1070,6 +1074,37 @@ void ChromeBrowserMainParts::ToolkitInitialized() {
   InitializeActionIdStringMapping();
 }
 
+#if BUILDFLAG(IS_MAC) && BUILDFLAG(ENABLE_UPDATER)
+void PromptUpdaterPromotion() {
+  content::GetUIThreadTaskRunner({})->PostTask(
+      FROM_HERE, base::BindOnce([]() {
+        if (base::CommandLine::ForCurrentProcess()->HasSwitch(
+                switches::kNoDefaultBrowserCheck)) {
+          return;
+        }
+        if (infobars::IsInfoBarMigrated(
+                infobars::InfoBarDelegate::
+                    KEYSTONE_PROMOTION_INFOBAR_DELEGATE_MAC)) {
+          auto* browser_infobar_manager =
+              infobars::BrowserInfoBarManager::From(g_browser_process);
+          CHECK(browser_infobar_manager);
+          browser_infobar_manager->ShowGlobally(
+              infobars::InfoBarDelegate::
+                  KEYSTONE_PROMOTION_INFOBAR_DELEGATE_MAC);
+          return;
+        }
+        BrowserWindowInterface* browser =
+            GlobalBrowserCollection::GetInstance()->GetLastActiveBrowser();
+        if (browser && browser->GetProfile() &&
+            browser->GetProfile()->GetPrefs()->GetBoolean(
+                prefs::kShowUpdatePromotionInfoBar)) {
+          KeystonePromotionInfoBarDelegate::Create(
+              browser->GetTabStripModel()->GetActiveWebContents());
+        }
+      }));
+}
+#endif  // BUILDFLAG(IS_MAC) && BUILDFLAG(ENABLE_UPDATER)
+
 void ChromeBrowserMainParts::PreCreateMainMessageLoop() {
   TRACE_EVENT0("startup", "ChromeBrowserMainParts::PreCreateMainMessageLoop");
 
@@ -1084,7 +1119,7 @@ void ChromeBrowserMainParts::PreCreateMainMessageLoop() {
   }
   updater::SchedulePeriodicTasks(
 #if BUILDFLAG(IS_MAC) && BUILDFLAG(ENABLE_UPDATER)
-      base::BindRepeating(&ShowUpdaterPromotionInfoBar)
+      base::BindRepeating(&PromptUpdaterPromotion)
 #else
       base::DoNothing()
 #endif
@@ -1434,7 +1469,7 @@ int ChromeBrowserMainParts::PreCreateThreadsImpl() {
   return content::RESULT_CODE_NORMAL_EXIT;
 }
 
-void ChromeBrowserMainParts::PostCreateThreads() {
+int ChromeBrowserMainParts::PostCreateThreads() {
   TRACE_EVENT("startup", "ChromeBrowserMainParts::PostCreateThreads");
   // This task should be posted after the IO thread starts, and prior to the
   // base version of the function being invoked. It is functionally okay to post
@@ -1480,15 +1515,11 @@ void ChromeBrowserMainParts::PostCreateThreads() {
   ChromeProcessSingleton::GetInstance()->StartWatching();
 #endif
 
-  tracing::SetupSystemTracingFromFieldTrial();
-  tracing::SetupBackgroundTracingFromCommandLine();
-  tracing::SetupPresetTracingFromFieldTrial();
-  base::trace_event::EmitNamedTrigger(
-      base::trace_event::kStartupTracingTriggerName);
-
   for (auto& chrome_extra_part : chrome_extra_parts_) {
     chrome_extra_part->PostCreateThreads();
   }
+
+  return content::RESULT_CODE_NORMAL_EXIT;
 }
 
 int ChromeBrowserMainParts::PreMainMessageLoopRun() {
@@ -1839,14 +1870,6 @@ int ChromeBrowserMainParts::PreMainMessageLoopRunImpl() {
   CHECK(aura::Env::GetInstance());
 #endif
 
-#if BUILDFLAG(IS_WIN)
-  // We must call DoUpgradeTasks now that we own the browser singleton to
-  // finish upgrade tasks (swap) and relaunch if necessary.
-  if (upgrade_util::DoUpgradeTasks(*base::CommandLine::ForCurrentProcess())) {
-    return CHROME_RESULT_CODE_NORMAL_EXIT_UPGRADE_RELAUNCHED;
-  }
-#endif
-
 #if BUILDFLAG(ENABLE_DOWNGRADE_PROCESSING) && !BUILDFLAG(IS_ANDROID)
   // Begin relaunch processing immediately if User Data migration is required
   // to handle a version downgrade.
@@ -2022,7 +2045,6 @@ int ChromeBrowserMainParts::PreMainMessageLoopRunImpl() {
   net::NetModule::SetResourceProvider(ChromeNetResourceProvider);
   media::SetLocalizedStringProvider(ChromeMediaLocalizedStringProvider);
 
-#if !BUILDFLAG(IS_ANDROID)
   // In unittest mode, this will do nothing.  In normal mode, this will create
   // the global IntranetRedirectDetector instance, which will promptly go to
   // sleep for seven seconds (to avoid slowing startup), and wake up afterwards
@@ -2035,7 +2057,6 @@ int ChromeBrowserMainParts::PreMainMessageLoopRunImpl() {
   // This can't be created in the BrowserProcessImpl constructor because it
   // needs to read prefs that get set after that runs.
   //browser_process_->intranet_redirect_detector();
-#endif
 
 #if BUILDFLAG(ENABLE_PDF)
   chrome_pdf::features::SetIsOopifPdfPolicyEnabled(

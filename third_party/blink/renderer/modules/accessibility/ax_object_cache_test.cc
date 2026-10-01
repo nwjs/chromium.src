@@ -4,6 +4,7 @@
 
 #include "third_party/blink/renderer/core/accessibility/ax_object_cache.h"
 
+#include <algorithm>
 #include <vector>
 
 #include "base/auto_reset.h"
@@ -155,6 +156,57 @@ TEST_F(AccessibilityTest, HistogramTest) {
     histogram_tester.ExpectTotalCount(
         "Accessibility.Performance.AXObjectCacheImpl.Incremental.String", 1);
   }
+}
+
+TEST_F(AccessibilityTest, SnapshotWithDanglingAriaOwnsInOwnedSubtree) {
+  SetBodyInnerHTML(R"HTML(
+    <button aria-owns="target">Owner</button>
+    <div id="target">
+      <button aria-owns="does-not-exist">Dangling owner</button>
+    </div>
+  )HTML");
+
+  Member<AXObjectCache> snapshot_cache = AXObjectCache::CreateSnapshotter(
+      GetDocument(), ui::AXMode(ui::AXMode::kPDFPrinting));
+  ui::AXTreeUpdate response;
+  std::set<ui::AXSerializationErrorFlag> out_error;
+  snapshot_cache->SerializeEntireTreeAndDispose(
+      /*max_nodes=*/1000, base::TimeDelta::FiniteMax(), &response, &out_error);
+
+  EXPECT_FALSE(response.nodes.empty());
+  EXPECT_TRUE(out_error.empty());
+}
+
+TEST_F(AccessibilityTest, SnapshotWithValidAriaOwnsInOwnedSubtree) {
+  SetBodyInnerHTML(R"HTML(
+    <button aria-owns="target">Owner</button>
+    <div id="target">
+      <button id="inner-owner" aria-owns="inner-target">Inner owner</button>
+    </div>
+    <div id="inner-target">Inner target</div>
+  )HTML");
+
+  AXID inner_owner_id = GetElementById("inner-owner")->GetDomNodeId();
+  AXID inner_target_id = GetElementById("inner-target")->GetDomNodeId();
+  Member<AXObjectCache> snapshot_cache = AXObjectCache::CreateSnapshotter(
+      GetDocument(), ui::AXMode(ui::AXMode::kPDFPrinting));
+  ui::AXTreeUpdate response;
+  std::set<ui::AXSerializationErrorFlag> out_error;
+  snapshot_cache->SerializeEntireTreeAndDispose(
+      /*max_nodes=*/1000, base::TimeDelta::FiniteMax(), &response, &out_error);
+
+  EXPECT_FALSE(response.nodes.empty());
+  EXPECT_TRUE(out_error.empty());
+  bool inner_target_is_owned = false;
+  for (const ui::AXNodeData& node : response.nodes) {
+    if (node.id == inner_owner_id) {
+      inner_target_is_owned =
+          std::ranges::find(node.child_ids, inner_target_id) !=
+          node.child_ids.end();
+      break;
+    }
+  }
+  EXPECT_TRUE(inner_target_is_owned);
 }
 
 TEST_F(AccessibilityTest, RemoveReferencesToAXID) {
@@ -589,6 +641,44 @@ TEST_F(AccessibilityTest, AccessibilityFocus) {
   EXPECT_EQ(ul, cache.GetAccessibilityFocus());
 }
 
+TEST_F(AccessibilityTest, LocationSerializationDelayForAccessibilityFocus) {
+  SetBodyInnerHTML(R"HTML(
+      <button id="button">Click</button>
+  )HTML");
+
+  Element* button = GetElementById("button");
+  ASSERT_NE(nullptr, button);
+
+  auto& cache = GetAXObjectCache();
+  cache.SetAXMode(ui::kAXModeBasic);
+
+  auto* ax_button = cache.FirstObjectWithRole(ax::mojom::Role::kButton);
+  ASSERT_NE(nullptr, ax_button);
+
+  // Without any changes, delay defaults to non-focused delay (500ms).
+  EXPECT_EQ(500, cache.GetLocationSerializationDelay());
+
+  // Invalidate bounds on button when it does not have focus.
+  cache.InvalidateBoundingBox(ax_button->AXObjectID());
+  EXPECT_EQ(500, cache.GetLocationSerializationDelay());
+
+  // Set accessibility focus on the button.
+  ui::AXActionData action;
+  action.action = ax::mojom::Action::kSetAccessibilityFocus;
+  ax_button->PerformAction(action);
+  EXPECT_EQ(button, cache.GetAccessibilityFocus());
+
+  // With accessibility focus set, location updates are scheduled with
+  // the focused delay (75ms) instead of the non-focused delay (500ms).
+  EXPECT_EQ(75, cache.GetLocationSerializationDelay());
+
+  // Clear accessibility focus and verify it reverts to 500ms.
+  action.action = ax::mojom::Action::kClearAccessibilityFocus;
+  ax_button->PerformAction(action);
+  EXPECT_EQ(nullptr, cache.GetAccessibilityFocus());
+  EXPECT_EQ(500, cache.GetLocationSerializationDelay());
+}
+
 TEST_F(AccessibilityTest, SetMenuListOptionsBoundsBasePickerClearsState) {
   SetBodyInnerHTML(R"HTML(
       <style>
@@ -949,6 +1039,72 @@ TEST_F(AccessibilityTest, RestoreAriaOwnsAfterAriaHiddenRemoved) {
   EXPECT_EQ(2u, list->ChildrenIncludingIgnored().size());
   EXPECT_EQ(list, item1->ParentObject());
   EXPECT_EQ(list, item2->ParentObject());
+}
+
+// Regression test for crbug.com/503872382.
+TEST_F(AccessibilityTest, ReleaseAriaOwnedChildWhenOwnerBecomesEditable) {
+  SetBodyInnerHTML(R"HTML(
+      <ul id="list" aria-owns="item"></ul>
+      <li id="item">Item</li>
+  )HTML");
+
+  AXObject* item = GetAXObjectByElementId("item");
+  ASSERT_NE(nullptr, item);
+  EXPECT_EQ(GetAXObjectByElementId("list"), item->ParentObject());
+
+  // The element with aria-owns stops being a valid owner.
+  Element* list_element = GetElementById("list");
+  list_element->setAttribute(html_names::kContenteditableAttr, g_empty_atom);
+  GetDocument().View()->UpdateAllLifecyclePhasesForTest();
+
+  AXObject* list = GetAXObjectByElementId("list");
+  item = GetAXObjectByElementId("item");
+  ASSERT_NE(nullptr, list);
+  ASSERT_NE(nullptr, item);
+  EXPECT_EQ(0u, list->ChildrenIncludingIgnored().size());
+  EXPECT_EQ(GetAXBodyObject(), item->ParentObject());
+
+  // The element with aria-owns becomes a valid owner again.
+  list_element->removeAttribute(html_names::kContenteditableAttr);
+  GetDocument().View()->UpdateAllLifecyclePhasesForTest();
+
+  list = GetAXObjectByElementId("list");
+  item = GetAXObjectByElementId("item");
+  ASSERT_NE(nullptr, list);
+  ASSERT_NE(nullptr, item);
+  EXPECT_EQ(list, item->ParentObject());
+  EXPECT_TRUE(list->ChildrenIncludingIgnored().Contains(item));
+}
+
+// Regression test for crbug.com/503872382.
+TEST_F(AccessibilityTest, LazyRemovalOfInvalidAriaOwnsRestoresParent) {
+  SetBodyInnerHTML(R"HTML(
+      <ul id="list" aria-owns="item"></ul>
+      <li id="item">Item</li>
+  )HTML");
+
+  // Hold a cache reference, as each GetAXObjectCache() runs a lifecycle update.
+  AXObjectCacheImpl& cache = GetAXObjectCache();
+  AXObject* item = GetAXObjectByElementId("item");
+  ASSERT_NE(nullptr, item);
+  EXPECT_EQ(GetAXObjectByElementId("list"), item->ParentObject());
+
+  // The element with aria-owns stops being a valid owner.
+  GetElementById("list")->setAttribute(html_names::kContenteditableAttr,
+                                       g_empty_atom);
+
+  // Lazy revalidation (which requires clean layout) detaches the child from
+  // its invalid owner; its natural parent will be restored by the next update.
+  GetDocument().UpdateStyleAndLayout(DocumentUpdateReason::kTest);
+  ASSERT_TRUE(cache.IsAriaOwned(item));
+  EXPECT_EQ(nullptr, cache.ValidatedAriaOwner(item));
+  EXPECT_EQ(nullptr, item->ParentObjectIfPresent());
+
+  cache.UpdateAXForAllDocuments();
+
+  item = GetAXObjectByElementId("item");
+  ASSERT_NE(nullptr, item);
+  EXPECT_EQ(GetAXBodyObject(), item->ParentObject());
 }
 
 #if AX_FAIL_FAST_BUILD()

@@ -203,6 +203,18 @@ enabled):
 Non-standard, debugging or unsafe command line flags and features are not
 accepted.
 
+### Reporting full-chains
+
+Please report each individual bug in the chain as distinct bugs including the
+information we need to reproduce each bug in isolation. Once you have done so,
+create an additional vulnerability report that describes how the components
+chain together and refers to each bug for its details. Attach a video or logs
+showing the chain, and the command line, Chrome version, Operating System and
+hardware that you've used to demonstrate the full-chain exploit. Finally, add
+the
+[Security-Request-Exploit-Assessment](https://issues.chromium.org/hotlists/8186895)
+hotlist to the issue (you can do this after it has been filed).
+
 ## Frequently Asked Questions (FAQ)
 
 ### Scope / Reward Eligibility
@@ -400,6 +412,13 @@ security problem, and adding necessary pocs and traces as attachments.
 * The CVE number will be updated directly on the report itself and listed in
   the Chrome Browser release notes for that Stable channel update.
 
+#### My bug got a CVE but I didn't get a reward?
+
+* Chrome sometimes issues a CVE then later reexamines a report and determines
+  that it does not have security impact. Chrome does not routinely revoke
+  CVEs when this happens, but does update the bug status to reflect our new
+  assessment.
+
 ### Disclosure / Report Visibility
 
 #### What if I disclose the bug publicly before you have fixed or disclosed it?
@@ -414,7 +433,7 @@ security problem, and adding necessary pocs and traces as attachments.
 
 #### When will the bug I reported be publicly disclosed?
 
-* Most security bugs are automatically opened for public access 14 weeks after
+* Most security bugs are automatically opened for public access 30 days after
   the bug is closed as Fixed, meaning the fix commit is landed on Chromium main.
 * Our automation removes the view restrictions, opening the report for public
   visibility at that time.

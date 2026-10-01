@@ -45,20 +45,6 @@ chromium-metrics-reviews@google.com.
 
 <!-- LINT.ThenChange(//content/browser/interest_group/interest_group_storage.cc:AdProtoDecompressionOutcome) -->
 
-<enum name="AllowedByStorageAccessType">
-  <int value="0"
-      label="kNone: The cookie was not accessible through
-             TopLevelStorageAccess or StorageAccess."/>
-  <int value="1"
-      label="kTopLevelOnly: The cookie was accessible via
-             TopLevelStorageAccess."/>
-  <int value="2"
-      label="kStorageAccessOnly: The cookie was accessible via StorageAccess."/>
-  <int value="3"
-      label="kTopLevelAndStorageAccess: The cookie was accessible via
-             TopLevelStorageAccess and StorageAccess"/>
-</enum>
-
 <enum name="BooleanInherited">
   <int value="0" label="Not inherited"/>
   <int value="1" label="Inherited"/>
@@ -292,7 +278,7 @@ chromium-metrics-reviews@google.com.
   <int value="12" label="kCursorPrefetchResetInvalidUsedPrefetches"/>
   <int value="13" label="kTransactionCreateObjectStoreInvalidId"/>
   <int value="14" label="kTransactionPutReadOnly"/>
-  <int value="15" label="kTransactionPutInvalidValue"/>
+  <int value="15" label="(Obsolete) kTransactionPutInvalidValue"/>
   <int value="16" label="kTransactionPutInvalidExternalObjects"/>
   <int value="17" label="kTransactionDoPutInvalidObjectStoreId"/>
   <int value="18" label="kTransactionDoPutInvalidIndexId"/>
@@ -310,6 +296,22 @@ chromium-metrics-reviews@google.com.
 </enum>
 
 <!-- LINT.ThenChange(//content/browser/indexed_db/indexed_db_reporting.h:BadMessageReason) -->
+
+<!-- LINT.IfChange(IndexedDbMigrationEvent) -->
+
+<enum name="IndexedDbMigrationEvent">
+  <int value="0" label="Disk space query failed"/>
+  <int value="1" label="Migration skipped due to insufficient disk space"/>
+  <int value="2" label="Failed to create the SQLite database directory"/>
+  <int value="3" label="Migration started"/>
+  <int value="4"
+      label="Failed to delete LevelDB files after a successful migration"/>
+  <int value="5"
+      label="Failed to migrate to SQLite, then failed to clean up some files
+             from the aborted SQLite migration"/>
+</enum>
+
+<!-- LINT.ThenChange(//content/browser/indexed_db/instance/bucket_context.cc:MigrationEvent) -->
 
 <!-- LINT.IfChange(IndexedDbSqliteSpecificEvent) -->
 
@@ -341,6 +343,8 @@ chromium-metrics-reviews@google.com.
   <int value="18" label="Failed to delete a legacy blob file"/>
   <int value="19" label="Meta table was missing in an existing DB"/>
   <int value="20" label="IDB database version was invalid in an existing DB"/>
+  <int value="21"
+      label="Failed to delete a SQLite database file (main or WAL or journal)"/>
 </enum>
 
 <!-- LINT.ThenChange(//content/browser/indexed_db/instance/sqlite/database_connection.h:SpecificEvent) -->

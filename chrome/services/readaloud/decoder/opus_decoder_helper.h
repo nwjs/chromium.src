@@ -13,6 +13,7 @@
 #include "base/memory/weak_ptr.h"
 #include "base/sequence_checker.h"
 #include "chrome/services/readaloud/decoded_audio_segment.h"
+#include "chrome/services/readaloud/word_timing.h"
 
 namespace media {
 class DecoderBuffer;
@@ -32,9 +33,8 @@ class OpusDecoderHelper {
   OpusDecoderHelper& operator=(const OpusDecoderHelper&) = delete;
 
   // Asynchronously decodes the compressed Ogg/Opus container bytes, slices the
-  // output raw audio into sentence-level segments at indices defined by
-  // `sentence_chunk_indices` and `timings`, and returns the segments via the
-  // `callback`.
+  // output raw audio into word-level segments based on the provided
+  // `timings`, and returns the segments via the `callback`.
   //
   // Calls the callback with an empty vector if `container_buffer` is empty.
   //
@@ -42,19 +42,16 @@ class OpusDecoderHelper {
   // `DecodeAndSlice` was called on.
   virtual void DecodeAndSlice(
       scoped_refptr<media::DecoderBuffer> container_buffer,
-      const std::vector<DecodedAudioSegment::WordTiming>& timings,
-      const std::vector<int32_t>& sentence_chunk_indices,
+      const std::vector<WordTiming>& timings,
       DecodeCallback callback);
 
  private:
   // Callback executed on the main sequence thread once the background
-  // ThreadPool
-  // decoding task has completed. Packages the decoded buffer into a segment and
-  // executes the client's callback.
-  void OnDecodeFinished(
-      const std::vector<DecodedAudioSegment::WordTiming>& timings,
-      DecodeCallback callback,
-      scoped_refptr<media::AudioBuffer> decoded_buffer);
+  // ThreadPool decoding task has completed. Packages the decoded buffer into
+  // a segment and executes the client's callback.
+  void OnDecodeFinished(const std::vector<WordTiming>& timings,
+                        DecodeCallback callback,
+                        scoped_refptr<media::AudioBuffer> decoded_buffer);
 
   SEQUENCE_CHECKER(sequence_checker_);
   base::WeakPtrFactory<OpusDecoderHelper> weak_ptr_factory_{this};

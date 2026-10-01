@@ -18,13 +18,14 @@
 #include "chrome/browser/profiles/keep_alive/scoped_profile_keep_alive.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/profiles/profile_test_util.h"
+#include "chrome/browser/ui/browser_command_controller.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_window.h"
-#include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/browser_window/public/profile_browser_collection.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/waap/initial_webui_profile_service.h"
 #include "chrome/browser/ui/waap/initial_webui_profile_service_factory.h"
 #include "chrome/browser/ui/waap/initial_webui_window_metrics_manager.h"
@@ -49,6 +50,7 @@
 #include "components/ukm/gmock_matchers.h"
 #include "components/ukm/test_ukm_recorder.h"
 #include "components/viz/common/features.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/spare_render_process_host_manager.h"
@@ -137,7 +139,7 @@ class ToolbarDependencyProvider : public WebUIToolbarUI::DependencyProvider {
 
   CommandUpdater* GetCommandUpdater() override {
     return reinterpret_cast<CommandUpdater*>(
-        browser_->GetFeatures().browser_command_controller());
+        chrome::BrowserCommandController::From(browser_));
   }
 
   OmniboxController* GetOmniboxController() override { return nullptr; }

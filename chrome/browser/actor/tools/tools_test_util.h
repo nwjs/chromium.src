@@ -14,6 +14,7 @@
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "chrome/browser/actor/actor_task.h"
+#include "chrome/browser/actor/tools/tool_delegate.h"
 #include "chrome/test/base/platform_browser_test.h"
 #include "components/optimization_guide/content/browser/page_content_proto_provider.h"
 #include "components/password_manager/core/browser/actor_login/actor_login_quality_logger_interface.h"
@@ -21,6 +22,7 @@
 #include "components/password_manager/core/browser/actor_login/actor_login_types.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/webid/identity_credential_source.h"
+#include "testing/gmock/include/gmock/gmock.h"
 
 namespace content {
 class WebContents;
@@ -35,6 +37,84 @@ class ActorLoginDelegateClient;
 }
 
 namespace actor {
+
+class MockToolDelegate : public ToolDelegate {
+ public:
+  MockToolDelegate();
+  ~MockToolDelegate() override;
+
+  MOCK_METHOD(Profile&, GetProfile, (), (override));
+  MOCK_METHOD(AggregatedJournal&, GetJournal, (), (override));
+  MOCK_METHOD(actor_login::ActorLoginService&,
+              GetActorLoginService,
+              (),
+              (override));
+  MOCK_METHOD(autofill::ActorFormFillingService&,
+              GetActorFormFillingService,
+              (),
+              (override));
+  MOCK_METHOD(autofill::ActorOneTimeTokenFillingService&,
+              GetActorOneTimeTokenFillingService,
+              (),
+              (override));
+  MOCK_METHOD(favicon::FaviconService*, GetFaviconService, (), (override));
+  MOCK_METHOD(const EnterprisePolicyChecker&,
+              GetEnterprisePolicyChecker,
+              (),
+              (const, override));
+  MOCK_METHOD(void,
+              IsAcceptableNavigationDestination,
+              (const GURL&, DecisionCallbackWithReason),
+              (override));
+  MOCK_METHOD(void,
+              PromptToSelectCredential,
+              (const std::vector<actor_login::Credential>&,
+               (const base::flat_map<std::string, gfx::Image>&),
+               CredentialSelectedCallback),
+              (override));
+  MOCK_METHOD(void,
+              SetUserSelectedCredential,
+              (const CredentialWithPermission&, base::OnceClosure),
+              (override));
+  MOCK_METHOD(const std::optional<CredentialWithPermission>,
+              GetUserSelectedCredential,
+              (const url::Origin&),
+              (const, override));
+  MOCK_METHOD(void,
+              RequestToShowAutofillSuggestions,
+              (std::vector<autofill::ActorFormFillingRequest>,
+               base::WeakPtr<AutofillSelectionDialogEventHandler>,
+               AutofillSuggestionSelectedCallback),
+              (override));
+  MOCK_METHOD(void,
+              RequestToShowGmailOtpOptInDialog,
+              (GmailOtpOptInCallback),
+              (override));
+  MOCK_METHOD(void,
+              RequestToShowGmailOtpConfirmationDialog,
+              (const std::string&, GmailOtpConfirmationCallback),
+              (override));
+  MOCK_METHOD(void, InterruptFromTool, (), (override));
+  MOCK_METHOD(void, InterruptFromTool, (bool), (override));
+  MOCK_METHOD(void, UninterruptFromTool, (), (override));
+  MOCK_METHOD(void,
+              EnqueueFollowupAction,
+              (std::unique_ptr<ToolRequest>),
+              (override));
+  MOCK_METHOD(void,
+              AddTab,
+              (tabs::TabHandle,
+               bool,
+               base::OnceCallback<void(mojom::ActionResultPtr)>),
+              (override));
+  MOCK_METHOD(bool, HasTab, (tabs::TabHandle), (override));
+  MOCK_METHOD(void, RemoveTab, (tabs::TabHandle), (override));
+  MOCK_METHOD(void, FailCurrentTool, (mojom::ActionResultCode), (override));
+  MOCK_METHOD(base::WeakPtr<actor_login::ActionSequenceDelegate>,
+              GetActionSequenceDelegate,
+              (),
+              (override));
+};
 
 actor_login::Credential MakeTestCredential(const std::u16string& username,
                                            const GURL& url,
@@ -52,13 +132,13 @@ class MockActorLoginService : public actor_login::ActorLoginService {
   void GetCredentials(
       actor_login::ActorLoginDelegateClient* client,
       bool has_sign_in_with_google_button,
-      base::WeakPtr<actor_login::ActorLoginQualityLoggerInterface> mqls_logger,
+      scoped_refptr<actor_login::ActorLoginQualityLoggerInterface> mqls_logger,
       actor_login::CredentialsOrErrorReply callback) override;
   void AttemptLogin(
       actor_login::ActorLoginDelegateClient* client,
       const actor_login::Credential& credential,
       bool should_store_permission,
-      base::WeakPtr<actor_login::ActorLoginQualityLoggerInterface> mqls_logger,
+      scoped_refptr<actor_login::ActorLoginQualityLoggerInterface> mqls_logger,
       base::TimeTicks attempt_login_tool_start_time,
       actor_login::FrameFillingStartedCallback frame_filling_started_cb,
       actor_login::LoginStatusResultOrErrorReply callback,

@@ -40,12 +40,11 @@ mojom("mojom_webui") {
 # Privileged interfaces that are not exposed to renderers.
 mojom("mojom") {
   sources = [
-    "indexed_db_client_state_checker.mojom",
     "indexed_db_control.mojom",
     "indexed_db_control_test.mojom",
   ]
 
-  cpp_only = true
+  generate_legacy_js = false
 
   # The interfaces defined here are privileged, and not vended to a renderer, so
   # they are not fuzzable by javascript-based fuzzers.

@@ -22,6 +22,7 @@
 #include "chrome/browser/ui/toolbar/pinned_toolbar/pinned_toolbar_actions_model.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_controller.h"
 #include "chrome/browser/ui/views/toolbar/webui_toolbar_web_view.h"
+#include "chrome/browser/ui/webui/webui_toolbar/utils/toolbar_button_utils.h"
 #include "components/browser_apis/ui_controllers/toolbar/toolbar_ui_api.mojom.h"
 #include "mojo/public/mojom/base/error.mojom.h"
 #include "third_party/abseil-cpp/absl/functional/overload.h"
@@ -35,7 +36,8 @@ namespace {
 bool ElementCanOverflow(ui::ElementIdentifier id) {
   return (id == kToolbarForwardButtonElementId ||
           id == kToolbarHomeButtonElementId ||
-          id == kToolbarSplitTabsToolbarButtonElementId);
+          id == kToolbarSplitTabsToolbarButtonElementId ||
+          id == kToolbarBatterySaverButtonElementId);
 }
 
 }  // namespace
@@ -71,6 +73,7 @@ void WebUIOverflowButton::ExecuteCommand(
         base::UserMetricsAction("ResponsiveToolbar.OverflowMenuItemActivated"));
     base::RecordAction(base::UserMetricsAction(action_name.c_str()));
   }
+  OnMenuClosed();
 }
 
 bool WebUIOverflowButton::IsCurrentlyOverflowed(
@@ -88,7 +91,17 @@ bool WebUIOverflowButton::IsEnabled(
   return it->second.is_enabled;
 }
 
-void WebUIOverflowButton::OnMenuClosed() {}
+void WebUIOverflowButton::OnMenuClosed() {
+  overflow_menu_.reset();
+  overflowed_elements_.clear();
+  UpdateState();
+}
+
+void WebUIOverflowButton::UpdateState() {
+  auto state = toolbar_ui_api::mojom::OverflowButtonControlState::New();
+  state->is_context_menu_visible = overflow_menu_ != nullptr;
+  delegate_->OnOverflowButtonControlStateChanged(std::move(state));
+}
 
 void WebUIOverflowButton::ShowOverflowMenu(
     const std::vector<toolbar_ui_api::mojom::OverflowMenuItemPtr>& controls,
@@ -101,21 +114,44 @@ void WebUIOverflowButton::ShowOverflowMenu(
   std::map<OverflowableElementId, OverflowedElementInfo>
       new_overflowed_elements;
   for (const auto& item : controls) {
-    auto element_id =
-        ui::ElementIdentifier::FromName(item->id->native_identifier.c_str());
-    if (!element_id || !ElementCanOverflow(element_id)) {
-      std::move(callback).Run(base::unexpected(mojo_base::mojom::Error::New(
-          mojo_base::mojom::Code::kInvalidArgument,
-          base::StringPrintf("WebUIOverflowButton: Unknown control ID: %s",
-                             item->id->native_identifier.c_str()))));
-      return;
+    switch (item->id->which()) {
+      case toolbar_ui_api::mojom::OverflowMenuItemId::Tag::kTrackedElementId: {
+        auto element_id = ui::ElementIdentifier::FromName(
+            item->id->get_tracked_element_id()->native_identifier.c_str());
+        if (!element_id || !ElementCanOverflow(element_id)) {
+          std::move(callback).Run(base::unexpected(mojo_base::mojom::Error::New(
+              mojo_base::mojom::Code::kInvalidArgument,
+              base::StringPrintf("WebUIOverflowButton: Unknown control ID: %s",
+                                 item->id->get_tracked_element_id()
+                                     ->native_identifier.c_str()))));
+          return;
+        }
+        new_overflowed_elements.emplace(
+            element_id, OverflowedElementInfo{.is_enabled = item->is_enabled});
+        break;
+      }
+      case toolbar_ui_api::mojom::OverflowMenuItemId::Tag::kPinnedAction: {
+        auto action_id = webui_toolbar::PinnedToolbarActionToActionId(
+            item->id->get_pinned_action());
+        if (!action_id) {
+          std::move(callback).Run(base::unexpected(mojo_base::mojom::Error::New(
+              mojo_base::mojom::Code::kInvalidArgument,
+              base::StringPrintf(
+                  "WebUIOverflowButton: Unknown pinned action enum: %d",
+                  static_cast<int>(item->id->get_pinned_action())))));
+          return;
+        }
+        new_overflowed_elements.emplace(
+            *action_id, OverflowedElementInfo{.is_enabled = item->is_enabled});
+        break;
+      }
     }
-    new_overflowed_elements.emplace(
-        element_id, OverflowedElementInfo{.is_enabled = item->is_enabled});
   }
 
   // Destroy old overflow menu, if there is one.
-  overflow_menu_.reset();
+  if (overflow_menu_) {
+    OnMenuClosed();
+  }
   overflowed_elements_ = std::move(new_overflowed_elements);
 
   // If there are no overflowed elements, do nothing. It's unclear if this can
@@ -134,6 +170,7 @@ void WebUIOverflowButton::ShowOverflowMenu(
 
   overflow_menu_->ShowMenu(delegate_->GetView()->GetWidget(), nullptr,
                            screen_rect);
+  UpdateState();
   std::move(callback).Run(std::monostate());
 }
 

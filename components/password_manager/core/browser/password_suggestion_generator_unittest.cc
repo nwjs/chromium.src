@@ -14,6 +14,7 @@
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
 #include "base/types/expected.h"
+#include "components/affiliations/core/browser/match_type.h"
 #include "components/autofill/core/browser/foundations/test_autofill_client.h"
 #include "components/autofill/core/browser/integrators/identity_credential/mock_identity_credential_delegate.h"
 #include "components/autofill/core/browser/suggestions/suggestion.h"
@@ -317,18 +318,18 @@ class PasswordSuggestionGeneratorTest : public testing::Test {
   PasswordForm password_form() const {
     return CreateEntry("username@example.com", "password",
                        GURL("https://google.com/"),
-                       PasswordForm::MatchType::kExact);
+                       affiliations::MatchType::kExact);
   }
 
   PasswordForm grouped_password_form() const {
     return CreateEntry("username@example.com", "password",
                        GURL("https://google.com/"),
-                       PasswordForm::MatchType::kGrouped);
+                       affiliations::MatchType::kGrouped);
   }
 
   PasswordForm password_form_no_username() const {
     return CreateEntry("", "password", GURL("https://google.com/"),
-                       PasswordForm::MatchType::kExact);
+                       affiliations::MatchType::kExact);
   }
 
   CredentialUIEntry credential_ui_entry() const {
@@ -906,7 +907,6 @@ TEST_F(PasswordSuggestionGeneratorTest,
                           EqualsManagePasswordsSuggestion()));
 }
 
-
 TEST_F(PasswordSuggestionGeneratorTest,
        ManualFallback_AllPasswords_SuggestionContent) {
   std::vector<Suggestion> suggestions = GenerateAllPasswordsSection(
@@ -1035,10 +1035,10 @@ TEST_F(PasswordSuggestionGeneratorTest,
        ManualFallback_AllPasswords_AllDomainsAreUsed) {
   PasswordForm form_1 =
       CreateEntry("example@google.com", "password", GURL("https://google.com/"),
-                  PasswordForm::MatchType::kExact);
+                  affiliations::MatchType::kExact);
   PasswordForm form_2 =
       CreateEntry("example@google.com", "password", GURL("https://amazon.com/"),
-                  PasswordForm::MatchType::kExact);
+                  affiliations::MatchType::kExact);
   CredentialUIEntry entry({std::move(form_1), std::move(form_2)});
   std::vector<Suggestion> suggestions =
       GenerateAllPasswordsSection({entry}, IsTriggeredOnPasswordForm(true));
@@ -1073,16 +1073,16 @@ TEST_F(PasswordSuggestionGeneratorTest,
        ManualFallback_AllPasswords_SortedByDomain) {
   PasswordForm form_1 =
       CreateEntry("first@google.com", "first", GURL("https://google.com/"),
-                  PasswordForm::MatchType::kExact);
+                  affiliations::MatchType::kExact);
   PasswordForm form_2 =
       CreateEntry("second@google.com", "first", GURL("https://microsoft.com/"),
-                  PasswordForm::MatchType::kExact);
+                  affiliations::MatchType::kExact);
   PasswordForm form_3 =
       CreateEntry("third@google.com", "second", GURL("https://netflix.com/"),
-                  PasswordForm::MatchType::kExact);
+                  affiliations::MatchType::kExact);
   PasswordForm form_4 =
       CreateEntry("fourth@google.com", "second", GURL("https://amazon.com/"),
-                  PasswordForm::MatchType::kExact);
+                  affiliations::MatchType::kExact);
 
   std::vector<Suggestion> suggestions =
       GenerateAllPasswordsSection({CredentialUIEntry({std::move(form_1)}),
@@ -1294,11 +1294,11 @@ TEST_F(PasswordSuggestionGeneratorTest,
        ManualFallback_BothSections_GroupedCredentials) {
   PasswordForm form_1 =
       CreateEntry("first@google.com", "first", GURL("https://google.com/"),
-                  PasswordForm::MatchType::kExact);
+                  affiliations::MatchType::kExact);
 
   PasswordForm form_2 =
       CreateEntry("second@google.com", "second", GURL("https://microsoft.com/"),
-                  PasswordForm::MatchType::kGrouped);
+                  affiliations::MatchType::kGrouped);
 
   std::vector<Suggestion> suggestions = GenerateBothSections(
       {form_1, form_2},
@@ -1373,15 +1373,15 @@ TEST_F(PasswordSuggestionGeneratorTest,
        ManualFallback_BothSections_OnlyAllPasswordsSectionIsSorted) {
   PasswordForm form_1 =
       CreateEntry("first@google.com", "first", GURL("https://microsoft.com/"),
-                  PasswordForm::MatchType::kExact);
+                  affiliations::MatchType::kExact);
 
   PasswordForm form_2 =
       CreateEntry("second@google.com", "second", GURL("https://google.com/"),
-                  PasswordForm::MatchType::kExact);
+                  affiliations::MatchType::kExact);
 
   PasswordForm form_3 =
       CreateEntry("third@google.com", "third", GURL("https://amazon.com/"),
-                  PasswordForm::MatchType::kExact);
+                  affiliations::MatchType::kExact);
 
   std::vector<Suggestion> suggestions = GenerateBothSections(
       {form_1, form_2},
@@ -1497,10 +1497,10 @@ TEST_F(PasswordSuggestionGeneratorTest,
        ManualFallback_Favicons_CanBeRequestedFromGoogleForAccountPassword) {
   CredentialUIEntry credendials_1(
       {CreateEntry("example1@google.com", "first", GURL("https://amazon.com/"),
-                   PasswordForm::MatchType::kExact)});
+                   affiliations::MatchType::kExact)});
   CredentialUIEntry credendials_2(
       {CreateEntry("example2@google.com", "second", GURL("https://google.com/"),
-                   PasswordForm::MatchType::kExact)});
+                   affiliations::MatchType::kExact)});
 
   // Make the google.com password coming from user account.
   credendials_2.stored_in.insert(PasswordForm::Store::kAccountStore);
@@ -1527,7 +1527,7 @@ TEST_F(
 
   CredentialUIEntry credendials(
       {CreateEntry("example2@google.com", "second", GURL("https://google.com/"),
-                   PasswordForm::MatchType::kExact)});
+                   affiliations::MatchType::kExact)});
   credendials.stored_in.insert(PasswordForm::Store::kAccountStore);
 
   std::vector<Suggestion> suggestions = GenerateAllPasswordsSection(
@@ -1541,7 +1541,7 @@ TEST_F(PasswordSuggestionGeneratorTest,
        ManualFallback_Favicons_NoFaviconDetailsForNonHttpsUrl) {
   PasswordForm form =
       CreateEntry("user@example.com", "pass", GURL("http://127.0.0.1:8080/"),
-                  PasswordForm::MatchType::kExact);
+                  affiliations::MatchType::kExact);
   form.signon_realm = "https://example.com/";
 
   std::vector<Suggestion> suggestions = GenerateSuggestedPasswordsSection(
@@ -1973,7 +1973,6 @@ TEST_F(PasswordSuggestionGeneratorTest,
                                expected_message, Suggestion::Icon::kDevice));
 }
 
-
 TEST_F(PasswordSuggestionGeneratorTest,
        NoWebauthnSignInWithAnotherDeviceSuggestionWhenNoPasskeys) {
   ON_CALL(credentials_delegate(), GetPasskeys)
@@ -2068,6 +2067,7 @@ TEST_F(PasswordSuggestionGeneratorTest,
           EqualsSuggestion(SuggestionType::kWebauthnPasskeyQrCode,
                            l10n_util::GetStringUTF16(
                                IDS_PASSWORD_MANAGER_PASSKEY_QR_CODE_TITLE)),
+          EqualsSuggestion(SuggestionType::kSeparator),
           EqualsSuggestion(
               SuggestionType::kWebauthnSignInWithAnotherDevice,
               l10n_util::GetStringUTF16(
@@ -2075,6 +2075,38 @@ TEST_F(PasswordSuggestionGeneratorTest,
                       ? IDS_PASSWORD_MANAGER_USE_PASSKEY
                       : IDS_PASSWORD_MANAGER_USE_PASSKEY_OTHER_DEVICE),
               Suggestion::Icon::kDevice),
+          EqualsManagePasswordsSuggestion()));
+}
+
+TEST_F(PasswordSuggestionGeneratorTest, GetSuggestionsForDomain_InlineQrOnly) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeatureWithParameters(
+      switches::kMagiChromePasskeySignIn, {{"flow_type", "autofill"}});
+
+  const std::string kTestQrString = "test_qr_string";
+  ON_CALL(credentials_delegate(), GetCableQrString)
+      .WillByDefault(Return(kTestQrString));
+  ON_CALL(client(), IsChromeSigninPage).WillByDefault(Return(true));
+  ON_CALL(credentials_delegate(), IsSecurityKeyOrHybridFlowAvailable)
+      .WillByDefault(Return(false));
+
+  std::vector<Suggestion> suggestions = generator().GetSuggestionsForDomain(
+      undo_controller(), password_form_fill_data(), favicon(),
+      /*username_filter=*/u"", OffersGeneration(false),
+      ShowPasswordSuggestions(true), ShowWebAuthnCredentials(false),
+      ShowIdentityCredentials(false));
+
+  EXPECT_THAT(
+      suggestions,
+      ElementsAre(
+          EqualsDomainPasswordSuggestion(SuggestionType::kPasswordEntry,
+                                         u"username", password_label(8u),
+                                         /*realm_label=*/u"", favicon()),
+          EqualsSuggestion(SuggestionType::kSeparator),
+          EqualsSuggestion(SuggestionType::kWebauthnPasskeyQrCode,
+                           l10n_util::GetStringUTF16(
+                               IDS_PASSWORD_MANAGER_PASSKEY_QR_CODE_TITLE)),
+          EqualsSuggestion(SuggestionType::kSeparator),
           EqualsManagePasswordsSuggestion()));
 }
 #endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)

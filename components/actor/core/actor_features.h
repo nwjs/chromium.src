@@ -32,9 +32,6 @@ BASE_DECLARE_FEATURE(kGlicActorLocalhostIsSensitive);
 BASE_DECLARE_FEATURE(kGlicCrossOriginNavigationGating);
 // Feature params to kGlicCrossOriginNavigationGating to enable individual
 // checks for debugging.
-// Toggles if we prompt users for navigation to sensitive sites (true) or we
-// just fail the navigation (false).
-BASE_DECLARE_FEATURE_PARAM(bool, kGlicPromptUserForSensitiveNavigations);
 // Toggles confirming actor navigations to new origins.
 BASE_DECLARE_FEATURE_PARAM(bool, kGlicConfirmNavigationToNewOrigins);
 // Toggles displaying a user confirmation to confirm the navigation instead of
@@ -109,6 +106,10 @@ BASE_DECLARE_FEATURE(kActorLoginObservationStartDelay);
 extern const base::FeatureParam<base::TimeDelta>
     kActorLoginObservationStartDelayDuration;
 
+BASE_DECLARE_FEATURE(kActorTypeToolObservationStartDelay);
+extern const base::FeatureParam<base::TimeDelta>
+    kActorTypeToolObservationStartDelayDuration;
+
 // Kill switch to disable sending a browser signal (which is used for user
 // interaction) before sending action to renderer.
 BASE_DECLARE_FEATURE(kActorSendBrowserSignalForAction);
@@ -144,6 +145,23 @@ BASE_DECLARE_FEATURE(kActorScriptToolTransientUserActivation);
 // Guards the new Actor Task invocation source completion metrics.
 BASE_DECLARE_FEATURE(kActorRecordInvocationSourceCompletionMetrics);
 
+// Page stability parameters for Actor.
+BASE_DECLARE_FEATURE(kActorPageStability);
+extern const base::FeatureParam<base::TimeDelta> kActorPageStabilityTimeout;
+extern const base::FeatureParam<base::TimeDelta> kActorPageStabilityMinWait;
+extern const base::FeatureParam<base::TimeDelta>
+    kActorPaintStabilityInitialPaintTimeout;
+extern const base::FeatureParam<base::TimeDelta>
+    kActorPaintStabilitySubsequentPaintTimeout;
+
+// Observation delay parameters for Actor.
+BASE_DECLARE_FEATURE(kActorObservationDelay);
+extern const base::FeatureParam<base::TimeDelta> kActorObservationDelayTimeout;
+extern const base::FeatureParam<base::TimeDelta> kActorObservationDelayLcp;
+extern const base::FeatureParam<base::TimeDelta>
+    kActorObservationDelayAutofillPredictionsTimeout;
+
+// Tool execution delay and timeout parameters for Actor.
 }  // namespace actor
 
 #endif  // COMPONENTS_ACTOR_CORE_ACTOR_FEATURES_H_

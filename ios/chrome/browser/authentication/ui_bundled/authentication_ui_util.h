@@ -7,18 +7,13 @@
 
 #import <UIKit/UIKit.h>
 
-#include <string>
-#include <string_view>
-
 #include "base/ios/block_types.h"
 
 @class ActionSheetCoordinator;
 @class AlertCoordinator;
 class AuthenticationService;
 class Browser;
-class GaiaId;
 class PrefService;
-class ProfileIOS;
 
 namespace signin {
 class IdentityManager;
@@ -45,12 +40,14 @@ enum class SignedInUserState {
   // displayed.
   kNotSyncingAndReplaceSyncWithSignin,
   // Sign-in with UNO, where the user is managed, and was migrated from the
-  // syncing state. In this state, data needs to be cleared on signout only when
-  // kSeparateProfilesForManagedAccounts is disabled.
+  // syncing state. No data needs to be cleared on signout.
   kManagedAccountAndMigratedFromSyncing,
   // Signed in with managed account with the ClearDeviceDataOnSignoutForManaged
-  // user feature enabled. In this state, data needs to be cleared on signout
-  // only when kSeparateProfilesForManagedAccounts is disabled.
+  // user feature enabled.
+  // TODO(crbug.com/407498240): Clean this up. Since
+  // SeparateProfilesForManagedAccounts is fully launched (including migrating
+  // pre-existing users), no "clear data on signout" dialog is necessary
+  // anymore.
   kManagedAccountClearsDataOnSignout
 };
 
@@ -62,10 +59,6 @@ using SignoutActionSheetCoordinatorCompletion =
 // account switching.
 using LeavingPrimaryAccountConfirmationDialogCompletion =
     void (^)(bool continue_flow);
-
-// Returns the hosted domain for the primary account.
-std::u16string HostedDomainForPrimaryAccount(
-    signin::IdentityManager* identity_manager);
 
 // Returns the sign in alert coordinator for `error`. `dismissAction` is called
 // when the dialog is dismissed (the user taps on the Ok button) or cancelled
@@ -95,35 +88,11 @@ AlertCoordinator* ErrorCoordinatorNoItem(NSError* error,
 NSString* ViewControllerPresentationStatusDescription(
     UIViewController* view_controller);
 
-// Returns an alert coordinator asking the user whether they accept to switch to
-// a managed account. Must only be called if separate profiles is disabled.
-AlertCoordinator* ManagedConfirmationDialogContentForHostedDomain(
-    NSString* hosted_domain,
-    Browser* browser,
-    UIViewController* view_controller,
-    ProceduralBlock accept_block,
-    ProceduralBlock cancel_block);
-
-// Returns YES if the managed confirmation dialog should be shown for the
-// hosted domain.
-BOOL ShouldShowManagedConfirmationForHostedDomain(
-    NSString* hosted_domain,
-    const GaiaId& gaia_ID,
-    PrefService* prefs);
-
 // Returns the current sign-in&sync state.
 SignedInUserState GetSignedInUserState(
     AuthenticationService* authentication_service,
     signin::IdentityManager* identity_manager,
     PrefService* profile_pref_service);
-
-// Returns `true` if the dialog from
-// `GetLeavingPrimaryAccountConfirmationDialog()` needs to be shown, even if
-// there is no unsynced data.
-bool ForceLeavingPrimaryAccountConfirmationDialog(
-    SignedInUserState signed_in_user_state,
-    ProfileIOS* profile,
-    const GaiaId& gaia_id_to_sign_in);
 
 // Returns a dialog for the user to confirm to sign out, switch account.
 // `anchorView` and `anchorRect` is the position that triggered sign-in.

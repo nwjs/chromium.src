@@ -24,6 +24,8 @@
 #include "chrome/grit/generated_resources.h"
 #include "chrome/grit/tab_search_resources.h"
 #include "chrome/grit/tab_search_resources_map.h"
+#include "chrome/grit/tab_search_shared_resources.h"
+#include "chrome/grit/tab_search_shared_resources_map.h"
 #include "components/favicon_base/favicon_url_parser.h"
 #include "components/prefs/pref_service.h"
 #include "components/strings/grit/components_strings.h"
@@ -111,6 +113,9 @@ TabSearchUI::TabSearchUI(content::WebUI* web_ui)
   source->AddBoolean(
       "cjkWordBoundaryEnabled",
       base::FeatureList::IsEnabled(tabs::kTabSearchCjkWordBoundary));
+  source->AddBoolean(
+      "tabSearchPerformanceImprovements",
+      base::FeatureList::IsEnabled(tabs::kTabSearchPerformanceImprovements));
 
   source->AddLocalizedString("close", IDS_CLOSE);
 
@@ -127,6 +132,7 @@ TabSearchUI::TabSearchUI(content::WebUI* web_ui)
 
   webui::SetupWebUIDataSource(source, kTabSearchResources,
                               IDR_TAB_SEARCH_TAB_SEARCH_HTML);
+  source->AddResourcePaths(kTabSearchSharedResources);
 
   content::URLDataSource::Add(
       profile, std::make_unique<FaviconSource>(

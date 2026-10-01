@@ -52,8 +52,8 @@ class PackedField:
       (
         mojom.Array,
         mojom.Map,
+        mojom.HashMap,
         mojom.Struct,
-        mojom.Interface,
         mojom.PendingRemote,
         mojom.PendingAssociatedRemote,
       ),
@@ -79,7 +79,7 @@ class PackedField:
   def GetAlignmentForKind(cls, kind):
     if isinstance(
       kind,
-      (mojom.Interface, mojom.PendingRemote, mojom.PendingAssociatedRemote),
+      (mojom.PendingRemote, mojom.PendingAssociatedRemote),
     ):
       return 4
     if isinstance(kind, mojom.Union):

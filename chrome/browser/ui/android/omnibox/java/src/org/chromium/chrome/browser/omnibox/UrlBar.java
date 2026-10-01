@@ -70,6 +70,7 @@ import org.chromium.ui.display.DisplayUtil;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
+import java.text.BreakIterator;
 
 /** The URL text entry view for the Omnibox. */
 @NullMarked
@@ -138,6 +139,11 @@ public class UrlBar extends AutocompleteEditText {
     private boolean mPointerDragActive;
 
     private boolean mPendingScroll;
+
+    // Whether an origin change was reported for a scroll request that had to be deferred until
+    // the next layout pass. The deferred scroll performed from layout() has no origin change
+    // information of its own, so the signal is latched here and consumed when the scroll runs.
+    private boolean mPendingScrollOriginChanged;
 
     // Captures the current intended text scroll type.
     // This may not be effective if mPendingScroll is true.
@@ -452,6 +458,7 @@ public class UrlBar extends AutocompleteEditText {
 
         if (focused) {
             mPendingScroll = false;
+            mPendingScrollOriginChanged = false;
         }
         fixupTextDirection();
 
@@ -665,8 +672,12 @@ public class UrlBar extends AutocompleteEditText {
     public boolean onTouchEvent(MotionEvent event) {
         int action = event.getActionMasked();
         if (action == MotionEvent.ACTION_DOWN) {
-            if ((event.getButtonState() & MotionEvent.BUTTON_SECONDARY) != 0 && !isFocused()) {
-                performClick();
+            if ((event.getButtonState() & MotionEvent.BUTTON_SECONDARY) != 0) {
+                if (isFocused()) {
+                    selectWordAt(event.getX(), event.getY());
+                } else {
+                    performClick();
+                }
             }
 
             mLongPressPerformed = false;
@@ -698,6 +709,43 @@ public class UrlBar extends AutocompleteEditText {
         }
 
         return super.onTouchEvent(event);
+    }
+
+    /**
+     * Selects the word under the given coordinates using {@link BreakIterator}.
+     *
+     * @param x The x coordinate of the pointer.
+     * @param y The y coordinate of the pointer.
+     */
+    private void selectWordAt(float x, float y) {
+        int offset = getOffsetForPosition(x, y);
+
+        // Out of bounds.
+        CharSequence text = getText();
+        if (text == null || offset < 0 || offset >= text.length()) {
+            return;
+        }
+
+        // Within existing selection.
+        int selectionStart = getSelectionStart();
+        int selectionEnd = getSelectionEnd();
+        int minSel = Math.min(selectionStart, selectionEnd);
+        int maxSel = Math.max(selectionStart, selectionEnd);
+        if (minSel != maxSel && offset >= minSel && offset < maxSel) {
+            return;
+        }
+
+        BreakIterator iterator = BreakIterator.getWordInstance(getTextLocale());
+        iterator.setText(text.toString());
+
+        int start = iterator.preceding(offset + 1);
+        int end = iterator.following(offset);
+
+        if (start == BreakIterator.DONE || end == BreakIterator.DONE || start >= end) {
+            return;
+        }
+
+        setSelection(start, end);
     }
 
     @Override
@@ -775,9 +823,10 @@ public class UrlBar extends AutocompleteEditText {
     }
 
     /**
-     * Set the listener to be notified when the URL text wraps.
+     * Sets the listener to be notified when the URL text wraps.
      *
-     * @param listener The listener to be notified.
+     * @param listener The listener to be notified, or null to unregister any previously registered
+     *     listener.
      */
     /* package */ void setUrlTextWrappingChangeListener(@Nullable Callback<Boolean> listener) {
         if (mDetectAndNotifyOnTextWrappingChanges != null) {
@@ -799,7 +848,7 @@ public class UrlBar extends AutocompleteEditText {
     }
 
     /**
-     * Set the listener to be notified when the URL text has changed. (for autocomplete suggestions)
+     * Set the listener to be notified when the URL text has changed (for autocomplete suggestions).
      *
      * @param listener The listener to be notified.
      */
@@ -1176,7 +1225,12 @@ public class UrlBar extends AutocompleteEditText {
         // Request scroll update in case scroll type or view dimensions have changed.
         mCurrentScrollType = scrollType;
         mPendingScroll = isLayoutRequested() || (getLayout() == null);
-        if (mPendingScroll) return;
+        if (mPendingScroll) {
+            mPendingScrollOriginChanged |= originChanged;
+            return;
+        }
+        originChanged |= mPendingScrollOriginChanged;
+        mPendingScrollOriginChanged = false;
 
         if (mFocused) return;
 
@@ -1205,6 +1259,9 @@ public class UrlBar extends AutocompleteEditText {
                 // therefore false negative using regular equality is unlikely.
                 && currentTextSize == mPreviousScrollFontSize
                 && currentIsRtl == mPreviousScrollWasRtl
+                // A previously computed scroll position is only valid for text whose origin ends
+                // at the same index the position was computed for.
+                && mOriginEndIndex == mPreviousScrollOriginEndIndex
                 && isVisibleTextTheSame(text)) {
             scrollTo(mPreviousScrollResultXPosition, 0);
 
@@ -1552,6 +1609,12 @@ public class UrlBar extends AutocompleteEditText {
             if (!(mPointerDragActive && draggingSelection)) {
                 return false;
             }
+            // Suppress framework driven auto-scrolling if we're focused and currently selecting all
+            // text so that the beginning of the url remains visible.
+        } else if (!TextUtils.isEmpty(getText())
+                && getSelectionStart() == 0
+                && getSelectionEnd() == getText().length()) {
+            return false;
         }
         assert !mPendingScroll || hasFocus();
 
@@ -1771,14 +1834,6 @@ public class UrlBar extends AutocompleteEditText {
         public static final BoundsEllipsisSpan INSTANCE = new BoundsEllipsisSpan();
     }
 
-    /* package */ boolean hasPendingDisplayTextScrollForTesting() {
-        return mPendingScroll;
-    }
-
-    /* package */ void setVisibleTextPrefixHintForTesting(CharSequence hintForTesting) {
-        mVisibleTextPrefixHint = hintForTesting;
-    }
-
     /* package */ @Nullable Runnable getManageSearchEnginesCallback() {
         return mManageSearchEnginesCallback;
     }
@@ -1797,6 +1852,14 @@ public class UrlBar extends AutocompleteEditText {
             mContextMenuHelper.clearTouchCoordinates();
         }
         return super.showContextMenu();
+    }
+
+    /* package */ boolean hasPendingDisplayTextScrollForTesting() {
+        return mPendingScroll;
+    }
+
+    /* package */ void setVisibleTextPrefixHintForTesting(CharSequence hintForTesting) {
+        mVisibleTextPrefixHint = hintForTesting;
     }
 
     @Nullable UrlBarContextMenuHelper getContextMenuHelperForTesting() {

@@ -10,6 +10,7 @@
 #include "chrome/test/base/testing_profile.h"
 #include "chrome/test/views/chrome_views_test_base.h"
 #include "components/omnibox/common/omnibox_features.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui.h"
 #include "content/public/test/navigation_simulator.h"
@@ -18,6 +19,8 @@
 #include "testing/gmock/include/gmock/gmock.h"
 #include "third_party/blink/public/mojom/window_features/window_features.mojom.h"
 #include "ui/base/accelerators/accelerator.h"
+#include "ui/base/page_transition_types.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/compositor/layer.h"
 #include "ui/gfx/geometry/rounded_corners_f.h"
 #include "ui/views/controls/webview/webview.h"
@@ -185,9 +188,10 @@ TEST_F(DrivePickerHostViewTest, OpenURLFromTab_ForwardsToBrowserWindow) {
       drive_picker_host::DrivePickerHostRequest::RequestType::kConsentDialog);
 
   const GURL test_url("https://policies.google.com/terms");
-  content::OpenURLParams params(test_url, content::Referrer(),
-                                WindowOpenDisposition::CURRENT_TAB,
-                                ui::PAGE_TRANSITION_LINK, false);
+  content::OpenURLParams params =
+      content::OpenURLParams::CreateBrowserInitiated(
+          test_url, WindowOpenDisposition::CURRENT_TAB,
+          ui::PAGE_TRANSITION_LINK);
 
   EXPECT_CALL(*browser_window_interface(),
               OpenURL(testing::Field(&content::OpenURLParams::disposition,
@@ -206,9 +210,10 @@ TEST_F(DrivePickerHostViewTest, OpenURLFromTab_RejectsPrivilegedSchemes) {
   for (const std::string& url_str :
        {"chrome://settings", "file:///etc/passwd"}) {
     const GURL privileged_url(url_str);
-    content::OpenURLParams params(privileged_url, content::Referrer(),
-                                  WindowOpenDisposition::CURRENT_TAB,
-                                  ui::PAGE_TRANSITION_LINK, false);
+    content::OpenURLParams params =
+        content::OpenURLParams::CreateBrowserInitiated(
+            privileged_url, WindowOpenDisposition::CURRENT_TAB,
+            ui::PAGE_TRANSITION_LINK);
 
     EXPECT_CALL(*browser_window_interface(), OpenURL(testing::_, testing::_))
         .Times(0);

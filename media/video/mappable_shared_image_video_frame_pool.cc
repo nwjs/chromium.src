@@ -59,7 +59,6 @@
 #include "third_party/perfetto/include/perfetto/tracing/track.h"
 #include "ui/gfx/buffer_types.h"
 #include "ui/gfx/color_space.h"
-#include "ui/gl/trace_util.h"
 
 #if BUILDFLAG(IS_MAC)
 #include "base/mac/mac_util.h"
@@ -1154,8 +1153,6 @@ scoped_refptr<VideoFrame> MappableSharedImageVideoFramePool::PoolImpl::
   }
   frame->SetReleaseMailboxCB(
       base::BindOnce(&PoolImpl::SharedImageReleased, this, frame_resource));
-
-  frame->set_color_space(frame_resource->shared_image->color_space());
 
   frame->metadata().read_lock_fences_enabled = true;
   frame->metadata().is_webgpu_compatible = is_webgpu_compatible;

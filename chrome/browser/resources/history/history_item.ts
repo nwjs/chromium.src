@@ -10,6 +10,7 @@ import './shared_icons.html.js';
 import '/strings.m.js';
 import 'chrome://resources/cr_elements/cr_checkbox/cr_checkbox.js';
 import 'chrome://resources/cr_elements/cr_collapse/cr_collapse.js';
+import 'chrome://resources/cr_elements/cr_icon/cr_icon.js';
 import 'chrome://resources/cr_elements/cr_icon_button/cr_icon_button.js';
 import 'chrome://resources/cr_elements/icons.html.js';
 import 'chrome://resources/cr_elements/policy/cr_tooltip_icon.js';
@@ -244,8 +245,9 @@ export class HistoryItemElement extends HistoryItemElementBase {
   }
 
   /**
-   * Actions menu is described by the title and domain of the row and may
-   * include the date to make sure users know if they have jumped between dates.
+   * Actions menu and critical actions expand button are described by the title
+   * and domain of the row and may include the date to make sure users know if
+   * they have jumped between dates.
    */
   protected getAriaDescribedByForActions_(): string {
     return this.isCardStart || this.isCardEnd ?
@@ -287,6 +289,11 @@ export class HistoryItemElement extends HistoryItemElementBase {
 
   protected getCriticalActions_(): CriticalAction[] {
     return this.item?.criticalActions || [];
+  }
+
+  protected getCriticalActionAriaLabel_(action: CriticalAction): string {
+    return loadTimeData.getStringF(
+        'criticalActionLinkoutA11yLabel', action.tooltip);
   }
 
   protected onCriticalActionClick_(e: Event) {

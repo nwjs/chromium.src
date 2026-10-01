@@ -31,6 +31,8 @@
 #include "components/personal_context/core/mock_personal_context_service.h"
 #include "components/personal_context/core/personal_context_service.h"
 #include "components/personal_context/proto/features/auto_todos.pb.h"
+#include "components/personal_context/proto/features/common_data.pb.h"
+#include "components/personal_context/proto/features/smart_search.pb.h"
 #include "components/saved_tab_groups/public/saved_tab_group.h"
 #include "components/saved_tab_groups/public/tab_group_sync_service.h"
 #include "components/saved_tab_groups/public/types.h"
@@ -183,6 +185,7 @@ class ContextHubPageHandlerTest : public testing::Test {
         {features::kContextHub, features::kMemoryBanks,
          browser::context_hub::mojom::kAutoTabGroups,
          browser::context_hub::mojom::kAutoTodos,
+         browser::context_hub::mojom::kSmartSearch,
          optimization_guide::features::kOptimizationHints},
         {});
     return feature_list;
@@ -455,6 +458,65 @@ TEST(ContextHubMojomTraitsTest, SourceReferenceSerialization) {
   EXPECT_EQ(output.subject, "Test Subject");
 }
 
+TEST(ContextHubMojomTraitsTest, SmartSearchResultSerialization) {
+  personal_context::proto::SmartSearchItem input;
+  input.set_description("Document discussing project plan.");
+  personal_context::proto::DriveFile* drive_ref =
+      input.add_source_references()->mutable_drive();
+  drive_ref->set_name("Project Plan 2026");
+  drive_ref->set_url("https://docs.google.com/document/d/123");
+
+  personal_context::proto::SmartSearchItem output;
+  ASSERT_TRUE(mojo::test::SerializeAndDeserialize<
+              browser::context_hub::mojom::SmartSearchResult>(input, output));
+  EXPECT_EQ(output.description(), "Document discussing project plan.");
+  ASSERT_EQ(output.source_references_size(), 1);
+  EXPECT_TRUE(output.source_references(0).has_drive());
+  EXPECT_EQ(output.source_references(0).drive().name(), "Project Plan 2026");
+  EXPECT_EQ(output.source_references(0).drive().url(),
+            "https://docs.google.com/document/d/123");
+}
+
+TEST(ContextHubMojomTraitsTest, SmartSearchResultSerialization_GmailAndPhotos) {
+  personal_context::proto::SmartSearchItem input;
+  input.set_description("Results with multiple sources.");
+
+  personal_context::proto::DriveFile* drive_ref =
+      input.add_source_references()->mutable_drive();
+  drive_ref->set_name("Project Plan 2026");
+  drive_ref->set_url("https://docs.google.com/document/d/123");
+
+  personal_context::proto::GmailReference* gmail_ref =
+      input.add_source_references()->mutable_gmail();
+  gmail_ref->set_message_url("https://mail.google.com/mail/u/0/#inbox/456");
+  gmail_ref->set_subject("Project Discussion");
+
+  personal_context::proto::PhotosReference* photos_ref =
+      input.add_source_references()->mutable_photos();
+  photos_ref->set_photos_url("https://photos.google.com/photo/789");
+
+  personal_context::proto::SmartSearchItem output;
+  ASSERT_TRUE(mojo::test::SerializeAndDeserialize<
+              browser::context_hub::mojom::SmartSearchResult>(input, output));
+  EXPECT_EQ(output.description(), "Results with multiple sources.");
+  ASSERT_EQ(output.source_references_size(), 3);
+
+  EXPECT_TRUE(output.source_references(0).has_drive());
+  EXPECT_EQ(output.source_references(0).drive().name(), "Project Plan 2026");
+  EXPECT_EQ(output.source_references(0).drive().url(),
+            "https://docs.google.com/document/d/123");
+
+  EXPECT_TRUE(output.source_references(1).has_gmail());
+  EXPECT_EQ(output.source_references(1).gmail().message_url(),
+            "https://mail.google.com/mail/u/0/#inbox/456");
+  EXPECT_EQ(output.source_references(1).gmail().subject(),
+            "Project Discussion");
+
+  EXPECT_TRUE(output.source_references(2).has_photos());
+  EXPECT_EQ(output.source_references(2).photos().photos_url(),
+            "https://photos.google.com/photo/789");
+}
+
 TEST(ContextHubMojomTraitsTest, FirstPartyDataSerialization) {
   context_hub::FirstPartyData input;
   input.actionable_url = GURL("https://docs.google.com/doc/123");
@@ -617,16 +679,19 @@ TEST(ContextHubMojomTraitsTest, AutoTodoItemSerialization_ThirdPartyData) {
 TEST_F(ContextHubPageHandlerTest, GetAutoTodos_Empty) {
   base::test::TestFuture<const std::vector<context_hub::AutoTodoEntry>&,
                          const std::vector<context_hub::AutoTodoEntry>&,
-                         base::Time, base::Time>
+                         const context_hub::AutoTodosGenerationMetadata&,
+                         const context_hub::AutoTodosGenerationMetadata&>
       future;
   handler_->GetAutoTodos(future.GetCallback());
 
-  auto [first_party, third_party, last_first_party_time,
-        last_third_party_time] = future.Take();
+  auto [first_party, third_party, first_party_metadata, third_party_metadata] =
+      future.Take();
   EXPECT_TRUE(first_party.empty());
   EXPECT_TRUE(third_party.empty());
-  EXPECT_TRUE(last_first_party_time.is_null());
-  EXPECT_TRUE(last_third_party_time.is_null());
+  EXPECT_TRUE(first_party_metadata.last_generation_time.is_null());
+  EXPECT_FALSE(first_party_metadata.has_error);
+  EXPECT_TRUE(third_party_metadata.last_generation_time.is_null());
+  EXPECT_FALSE(third_party_metadata.has_error);
 }
 
 TEST_F(ContextHubPageHandlerTest, GetAutoTodos_WithTodos) {
@@ -665,12 +730,13 @@ TEST_F(ContextHubPageHandlerTest, GetAutoTodos_WithTodos) {
 
   base::test::TestFuture<const std::vector<context_hub::AutoTodoEntry>&,
                          const std::vector<context_hub::AutoTodoEntry>&,
-                         base::Time, base::Time>
+                         const context_hub::AutoTodosGenerationMetadata&,
+                         const context_hub::AutoTodosGenerationMetadata&>
       get_future;
   handler_->GetAutoTodos(get_future.GetCallback());
 
-  auto [first_party, third_party, last_first_party_time,
-        last_third_party_time] = get_future.Take();
+  auto [first_party, third_party, first_party_metadata, third_party_metadata] =
+      get_future.Take();
   ASSERT_EQ(first_party.size(), 1u);
   EXPECT_EQ(first_party.at(0).id, "fp_1");
   EXPECT_EQ(first_party.at(0).title, "First Party Todo");
@@ -693,21 +759,26 @@ TEST_F(ContextHubPageHandlerTest, GetAutoTodos_WithTodos) {
   EXPECT_EQ(third_party.at(0).tab_id(), 42);
   EXPECT_EQ(third_party.at(0).group_type(),
             ThirdPartyData::GroupType::kNudgeToClose);
-  EXPECT_TRUE(last_first_party_time.is_null());
-  EXPECT_TRUE(last_third_party_time.is_null());
+  EXPECT_TRUE(first_party_metadata.last_generation_time.is_null());
+  EXPECT_FALSE(first_party_metadata.has_error);
+  EXPECT_TRUE(third_party_metadata.last_generation_time.is_null());
+  EXPECT_FALSE(third_party_metadata.has_error);
 }
 
 TEST_F(ContextHubPageHandlerTest, GetAutoTodos_ReturnsLastGenerationTimes) {
   // Before generation, last generation times are null.
   base::test::TestFuture<const std::vector<context_hub::AutoTodoEntry>&,
                          const std::vector<context_hub::AutoTodoEntry>&,
-                         base::Time, base::Time>
+                         const context_hub::AutoTodosGenerationMetadata&,
+                         const context_hub::AutoTodosGenerationMetadata&>
       initial_future;
   handler_->GetAutoTodos(initial_future.GetCallback());
-  auto [initial_fp, initial_tp, initial_fp_time, initial_tp_time] =
+  auto [initial_fp, initial_tp, initial_fp_metadata, initial_tp_metadata] =
       initial_future.Take();
-  EXPECT_TRUE(initial_fp_time.is_null());
-  EXPECT_TRUE(initial_tp_time.is_null());
+  EXPECT_TRUE(initial_fp_metadata.last_generation_time.is_null());
+  EXPECT_FALSE(initial_fp_metadata.has_error);
+  EXPECT_TRUE(initial_tp_metadata.last_generation_time.is_null());
+  EXPECT_FALSE(initial_tp_metadata.has_error);
 
   // 1. Generate First-Party Auto Todos via ContextHubService.
   personal_context::proto::AutoTodosResponse response;
@@ -734,13 +805,16 @@ TEST_F(ContextHubPageHandlerTest, GetAutoTodos_ReturnsLastGenerationTimes) {
   // Verify GetAutoTodos returns the updated 1P timestamp and 3P is still null.
   base::test::TestFuture<const std::vector<context_hub::AutoTodoEntry>&,
                          const std::vector<context_hub::AutoTodoEntry>&,
-                         base::Time, base::Time>
+                         const context_hub::AutoTodosGenerationMetadata&,
+                         const context_hub::AutoTodosGenerationMetadata&>
       after_fp_future;
   handler_->GetAutoTodos(after_fp_future.GetCallback());
-  auto [after_fp, after_tp, after_fp_time, after_tp_time] =
+  auto [after_fp, after_tp, after_fp_metadata, after_tp_metadata] =
       after_fp_future.Take();
-  EXPECT_EQ(after_fp_time, fp_generation_time);
-  EXPECT_TRUE(after_tp_time.is_null());
+  EXPECT_EQ(after_fp_metadata.last_generation_time, fp_generation_time);
+  EXPECT_FALSE(after_fp_metadata.has_error);
+  EXPECT_TRUE(after_tp_metadata.last_generation_time.is_null());
+  EXPECT_FALSE(after_tp_metadata.has_error);
   ASSERT_EQ(after_fp.size(), 1u);
   EXPECT_EQ(after_fp[0].title, "Generated Todo");
 
@@ -760,14 +834,124 @@ TEST_F(ContextHubPageHandlerTest, GetAutoTodos_ReturnsLastGenerationTimes) {
   // Verify GetAutoTodos returns both updated timestamps.
   base::test::TestFuture<const std::vector<context_hub::AutoTodoEntry>&,
                          const std::vector<context_hub::AutoTodoEntry>&,
-                         base::Time, base::Time>
+                         const context_hub::AutoTodosGenerationMetadata&,
+                         const context_hub::AutoTodosGenerationMetadata&>
       after_tp_future;
   handler_->GetAutoTodos(after_tp_future.GetCallback());
-  auto [final_fp, final_tp, final_fp_time, final_tp_time] =
+  auto [final_fp, final_tp, final_fp_metadata, final_tp_metadata] =
       after_tp_future.Take();
-  EXPECT_EQ(final_fp_time, fp_generation_time);
-  EXPECT_EQ(final_tp_time, tp_generation_time);
+  EXPECT_EQ(final_fp_metadata.last_generation_time, fp_generation_time);
+  EXPECT_FALSE(final_fp_metadata.has_error);
+  EXPECT_EQ(final_tp_metadata.last_generation_time, tp_generation_time);
+  EXPECT_FALSE(final_tp_metadata.has_error);
 #endif
+}
+
+TEST_F(ContextHubPageHandlerTest, GetAutoTodos_ReturnsGenerationErrors) {
+  // 1. Initial error states are false.
+  base::test::TestFuture<const std::vector<context_hub::AutoTodoEntry>&,
+                         const std::vector<context_hub::AutoTodoEntry>&,
+                         const context_hub::AutoTodosGenerationMetadata&,
+                         const context_hub::AutoTodosGenerationMetadata&>
+      initial_future;
+  handler_->GetAutoTodos(initial_future.GetCallback());
+  auto [initial_fp, initial_tp, initial_fp_metadata, initial_tp_metadata] =
+      initial_future.Take();
+  EXPECT_FALSE(initial_fp_metadata.has_error);
+  EXPECT_FALSE(initial_tp_metadata.has_error);
+
+  // 2. Simulate 1P generation failure.
+  personal_context::ContextMemoryError error =
+      personal_context::ContextMemoryError::FromExecutionError(
+          personal_context::ContextMemoryError::ExecutionError::
+              kPermissionDenied);
+  EXPECT_CALL(
+      *GetMockService(),
+      FetchContext(personal_context::proto::CONTEXT_MEMORY_FEATURE_AUTO_TODOS,
+                   _, _, _))
+      .WillOnce(RunOnceCallback<3>(
+          personal_context::FetchContextResult(base::unexpected(error))));
+
+  base::test::TestFuture<bool> fp_gen_future;
+  handler_->GenerateFirstPartyAutoTodos(fp_gen_future.GetCallback());
+  EXPECT_FALSE(fp_gen_future.Get());
+
+  // Verify GetAutoTodos returns has_error = true.
+  base::test::TestFuture<const std::vector<context_hub::AutoTodoEntry>&,
+                         const std::vector<context_hub::AutoTodoEntry>&,
+                         const context_hub::AutoTodosGenerationMetadata&,
+                         const context_hub::AutoTodosGenerationMetadata&>
+      error_future;
+  handler_->GetAutoTodos(error_future.GetCallback());
+  auto [err_fp, err_tp, err_fp_metadata, err_tp_metadata] = error_future.Take();
+  EXPECT_TRUE(err_fp_metadata.has_error);
+  EXPECT_FALSE(err_tp_metadata.has_error);
+
+  // 3. Clear First Party Auto Todos should clear the error.
+  base::test::TestFuture<bool> clear_future;
+  handler_->ClearFirstPartyAutoTodos(clear_future.GetCallback());
+  EXPECT_TRUE(clear_future.Get());
+
+  base::test::TestFuture<const std::vector<context_hub::AutoTodoEntry>&,
+                         const std::vector<context_hub::AutoTodoEntry>&,
+                         const context_hub::AutoTodosGenerationMetadata&,
+                         const context_hub::AutoTodosGenerationMetadata&>
+      after_clear_future;
+  handler_->GetAutoTodos(after_clear_future.GetCallback());
+  auto [cleared_fp, cleared_tp, cleared_fp_metadata, cleared_tp_metadata] =
+      after_clear_future.Take();
+  EXPECT_FALSE(cleared_fp_metadata.has_error);
+  EXPECT_FALSE(cleared_tp_metadata.has_error);
+
+  // 4. Simulate failure again, then successful generation recovers the error
+  // state.
+  EXPECT_CALL(
+      *GetMockService(),
+      FetchContext(personal_context::proto::CONTEXT_MEMORY_FEATURE_AUTO_TODOS,
+                   _, _, _))
+      .WillOnce(RunOnceCallback<3>(
+          personal_context::FetchContextResult(base::unexpected(error))));
+  base::test::TestFuture<bool> fp_fail_future;
+  handler_->GenerateFirstPartyAutoTodos(fp_fail_future.GetCallback());
+  EXPECT_FALSE(fp_fail_future.Get());
+
+  base::test::TestFuture<const std::vector<context_hub::AutoTodoEntry>&,
+                         const std::vector<context_hub::AutoTodoEntry>&,
+                         const context_hub::AutoTodosGenerationMetadata&,
+                         const context_hub::AutoTodosGenerationMetadata&>
+      error2_future;
+  handler_->GetAutoTodos(error2_future.GetCallback());
+  EXPECT_TRUE(std::get<2>(error2_future.Take()).has_error);
+
+  personal_context::proto::AutoTodosResponse response;
+  personal_context::proto::AutoTodoItem* todo = response.add_todos();
+  todo->set_title("Recovered Todo");
+  todo->set_description("Description");
+  todo->set_actionable_url("https://example.com/action");
+  todo->set_importance_score(0.85f);
+  personal_context::proto::Any any_response;
+  response.SerializeToString(any_response.mutable_value());
+
+  EXPECT_CALL(
+      *GetMockService(),
+      FetchContext(personal_context::proto::CONTEXT_MEMORY_FEATURE_AUTO_TODOS,
+                   _, _, _))
+      .WillOnce(RunOnceCallback<3>(personal_context::FetchContextResult(
+          base::ok(std::move(any_response)))));
+  base::test::TestFuture<bool> fp_success_future;
+  handler_->GenerateFirstPartyAutoTodos(fp_success_future.GetCallback());
+  EXPECT_TRUE(fp_success_future.Get());
+
+  base::test::TestFuture<const std::vector<context_hub::AutoTodoEntry>&,
+                         const std::vector<context_hub::AutoTodoEntry>&,
+                         const context_hub::AutoTodosGenerationMetadata&,
+                         const context_hub::AutoTodosGenerationMetadata&>
+      recovered_future;
+  handler_->GetAutoTodos(recovered_future.GetCallback());
+  auto [rec_fp, rec_tp, rec_fp_metadata, rec_tp_metadata] =
+      recovered_future.Take();
+  EXPECT_FALSE(rec_fp_metadata.has_error);
+  EXPECT_FALSE(rec_tp_metadata.has_error);
 }
 
 TEST_F(ContextHubPageHandlerTest, UpdateAutoTodo_Success) {
@@ -933,7 +1117,7 @@ TEST_F(ContextHubPageHandlerTest, OnAutoTodosChanged) {
   EXPECT_EQ(todos[0].importance_score, 0.8f);
 }
 
-TEST_F(ContextHubPageHandlerTest, GetAutoTodos_FiltersDismissedTodos) {
+TEST_F(ContextHubPageHandlerTest, GetAutoTodos_IncludesDismissedTodos) {
   ContextHubService* service =
       ContextHubServiceFactory::GetForProfile(&profile_);
   ASSERT_TRUE(service);
@@ -974,21 +1158,27 @@ TEST_F(ContextHubPageHandlerTest, GetAutoTodos_FiltersDismissedTodos) {
                           completed_future.GetCallback());
   ASSERT_TRUE(completed_future.Get());
 
-  // Verify that GetAutoTodos returns non-dismissed todos to WebUI.
+  // Verify that GetAutoTodos returns both active and dismissed todos to WebUI.
   base::test::TestFuture<const std::vector<context_hub::AutoTodoEntry>&,
                          const std::vector<context_hub::AutoTodoEntry>&,
-                         base::Time, base::Time>
+                         const context_hub::AutoTodosGenerationMetadata&,
+                         const context_hub::AutoTodosGenerationMetadata&>
       get_future;
   handler_->GetAutoTodos(get_future.GetCallback());
 
-  auto [first_party, third_party, last_first_party_time,
-        last_third_party_time] = get_future.Take();
-  ASSERT_EQ(first_party.size(), 1u);
-  EXPECT_EQ(first_party.at(0).id, "active_1");
+  auto [first_party, third_party, first_party_metadata, third_party_metadata] =
+      get_future.Take();
+  ASSERT_EQ(first_party.size(), 2u);
+  std::vector<std::string> first_party_ids = {first_party.at(0).id,
+                                              first_party.at(1).id};
+  EXPECT_THAT(first_party_ids,
+              testing::UnorderedElementsAre("active_1", "dismissed_1"));
   ASSERT_EQ(third_party.size(), 1u);
   EXPECT_EQ(third_party.at(0).id, "completed_1");
-  EXPECT_TRUE(last_first_party_time.is_null());
-  EXPECT_TRUE(last_third_party_time.is_null());
+  EXPECT_TRUE(first_party_metadata.last_generation_time.is_null());
+  EXPECT_FALSE(first_party_metadata.has_error);
+  EXPECT_TRUE(third_party_metadata.last_generation_time.is_null());
+  EXPECT_FALSE(third_party_metadata.has_error);
 
   // Verify that the dismissed item is still in the cache/store.
   base::test::TestFuture<std::vector<AutoTodoEntry>> service_get_future;
@@ -997,12 +1187,13 @@ TEST_F(ContextHubPageHandlerTest, GetAutoTodos_FiltersDismissedTodos) {
   EXPECT_EQ(all_cached_entries.size(), 3u);
 }
 
-TEST_F(ContextHubPageHandlerTest, OnAutoTodosChanged_FiltersDismissedTodos) {
+TEST_F(ContextHubPageHandlerTest, OnAutoTodosChanged_IncludesDismissedTodos) {
   ContextHubService* service =
       ContextHubServiceFactory::GetForProfile(&profile_);
   ASSERT_TRUE(service);
 
-  // Updating the todo to dismissed should notify the page with an empty list.
+  // Updating the todo to dismissed should notify the page with the dismissed
+  // todo.
   AutoTodoEntry dismissed_entry;
   dismissed_entry.id = "todo_1";
   dismissed_entry.status = AutoTodoEntry::Status::kDismissed;
@@ -1023,10 +1214,11 @@ TEST_F(ContextHubPageHandlerTest, OnAutoTodosChanged_FiltersDismissedTodos) {
   EXPECT_TRUE(update_future.Get());
 
   auto updated_todos = dismissed_notify_future.Take();
-  EXPECT_TRUE(updated_todos.empty());
+  ASSERT_EQ(updated_todos.size(), 1u);
+  EXPECT_EQ(updated_todos[0].id, "todo_1");
+  EXPECT_EQ(updated_todos[0].status, AutoTodoEntry::Status::kDismissed);
 
-  // Verify that the dismissed item is in the cache still, just filtered from
-  // the WebUI.
+  // Verify that the dismissed item is in the cache.
   base::test::TestFuture<std::vector<AutoTodoEntry>> cache_future;
   service->GetAutoTodos(cache_future.GetCallback());
   auto cached_items = cache_future.Get();
@@ -1543,6 +1735,36 @@ TEST_F(ContextHubPageHandlerTest, ClearTabGroupChatHistory) {
   EXPECT_TRUE(service->GetTabGroupChatHistory().empty());
 }
 
+TEST_F(ContextHubPageHandlerTest, GetAndClearMemoryBankChatHistory) {
+  ContextHubService* service =
+      ContextHubServiceFactory::GetForProfile(&profile_);
+  ASSERT_TRUE(service);
+
+  service->AddMemoryBankChatHistoryTurn(
+      optimization_guide::proto::ChatHistoryTurn::ROLE_USER, "User query");
+  task_environment_.FastForwardBy(base::Milliseconds(1));
+  service->AddMemoryBankChatHistoryTurn(
+      optimization_guide::proto::ChatHistoryTurn::ROLE_ASSISTANT,
+      "Assistant response");
+
+  base::test::TestFuture<
+      std::vector<browser::context_hub::mojom::ChatMessagePtr>>
+      get_future;
+  handler_->GetMemoryBankChatHistory(get_future.GetCallback());
+  auto history = get_future.Take();
+  ASSERT_EQ(history.size(), 2u);
+  EXPECT_EQ(history[0]->role, browser::context_hub::mojom::ChatRole::kUser);
+  EXPECT_EQ(history[0]->content, "User query");
+  EXPECT_EQ(history[1]->role,
+            browser::context_hub::mojom::ChatRole::kAssistant);
+  EXPECT_EQ(history[1]->content, "Assistant response");
+
+  base::test::TestFuture<void> clear_future;
+  handler_->ClearMemoryBankChatHistory(clear_future.GetCallback());
+  EXPECT_TRUE(clear_future.Wait());
+  EXPECT_TRUE(service->GetMemoryBankChatHistory().empty());
+}
+
 TEST_F(ContextHubPageHandlerTest, ClearTabGroups) {
   ContextHubService* service =
       ContextHubServiceFactory::GetForProfile(&profile_);
@@ -1935,6 +2157,138 @@ TEST_F(ContextHubPageHandlerTest, SaveMemoryBankEntry_WithContext) {
   EXPECT_EQ(entries[0].note, "Test Note");
   EXPECT_EQ(entries[0].collection, "Test Collection");
   EXPECT_THAT(entries[0].tags, testing::ElementsAre("tag1"));
+}
+
+TEST_F(ContextHubPageHandlerTest, UpdateMemoryBankEntryAnnotations_Success) {
+  auto* service = ContextHubServiceFactory::GetForProfile(&profile_);
+  ASSERT_TRUE(service);
+  MemoryBankEntry entry(MemoryBankType::kTextSelection,
+                        GURL("https://example.com/test"), "Test Title",
+                        "Test Snippet");
+  entry.tags = {"old_tag"};
+  entry.note = "Old Note";
+  entry.collection = "Old Collection";
+
+  base::test::TestFuture<bool> save_future;
+  service->SaveMemoryBankEntry(std::move(entry), save_future.GetCallback());
+  EXPECT_TRUE(save_future.Get());
+
+  base::test::TestFuture<std::vector<MemoryBankEntry>> entries_future;
+  service->GetAllEntries(entries_future.GetCallback());
+  auto entries = entries_future.Take();
+  ASSERT_EQ(entries.size(), 1u);
+  int64_t id = entries[0].id;
+
+  auto new_annotations =
+      browser::context_hub::mojom::MemoryBankEntryAnnotations::New();
+  new_annotations->note = "New Note";
+  new_annotations->collection = "New Collection";
+  new_annotations->tags = std::vector<std::string>{"new_tag1", "new_tag2"};
+
+  base::test::TestFuture<bool> update_future;
+  handler_->UpdateMemoryBankEntryAnnotations(id, std::move(new_annotations),
+                                             update_future.GetCallback());
+  EXPECT_TRUE(update_future.Get());
+
+  base::test::TestFuture<std::vector<MemoryBankEntry>> updated_entries_future;
+  service->GetAllEntries(updated_entries_future.GetCallback());
+  auto updated_entries = updated_entries_future.Take();
+  ASSERT_EQ(updated_entries.size(), 1u);
+  EXPECT_EQ(updated_entries[0].id, id);
+  EXPECT_EQ(updated_entries[0].note, "New Note");
+  EXPECT_EQ(updated_entries[0].collection, "New Collection");
+  EXPECT_THAT(updated_entries[0].tags,
+              testing::ElementsAre("new_tag1", "new_tag2"));
+}
+
+TEST_F(ContextHubPageHandlerTest, UpdateMemoryBankEntryAnnotations_NotFound) {
+  auto new_annotations =
+      browser::context_hub::mojom::MemoryBankEntryAnnotations::New();
+  new_annotations->note = "Note";
+
+  base::test::TestFuture<bool> update_future;
+  handler_->UpdateMemoryBankEntryAnnotations(999999, std::move(new_annotations),
+                                             update_future.GetCallback());
+  EXPECT_FALSE(update_future.Get());
+}
+
+TEST_F(ContextHubPageHandlerTest, ExecuteSmartSearch_Success) {
+  personal_context::proto::SmartSearchResponse expected_response;
+
+  personal_context::proto::SmartSearchItem* item =
+      expected_response.add_items();
+  item->set_description("Document discussing project plan.");
+  personal_context::proto::SourceReference* ref =
+      item->add_source_references();
+  ref->mutable_drive()->set_name("Project Plan 2026");
+  ref->mutable_drive()->set_url("https://docs.google.com/document/d/123");
+
+  personal_context::proto::Any any_response;
+  expected_response.SerializeToString(any_response.mutable_value());
+
+  EXPECT_CALL(
+      *GetMockService(),
+      FetchContext(
+          personal_context::proto::CONTEXT_MEMORY_FEATURE_SMART_SEARCH, _, _, _))
+      .WillOnce(RunOnceCallback<3>(
+          personal_context::FetchContextResult(base::ok(any_response))));
+
+  base::test::TestFuture<
+      const std::vector<personal_context::proto::SmartSearchItem>&>
+      future;
+  handler_->ExecuteSmartSearch("project", future.GetCallback());
+
+  const auto& results = future.Get();
+  ASSERT_EQ(1u, results.size());
+
+  EXPECT_EQ("Document discussing project plan.", results[0].description());
+  ASSERT_EQ(1, results[0].source_references_size());
+  EXPECT_TRUE(results[0].source_references(0).has_drive());
+  EXPECT_EQ("Project Plan 2026",
+            results[0].source_references(0).drive().name());
+  EXPECT_EQ("https://docs.google.com/document/d/123",
+            results[0].source_references(0).drive().url());
+}
+
+TEST_F(ContextHubPageHandlerTest, ExecuteSmartSearch_Failure) {
+  EXPECT_CALL(
+      *GetMockService(),
+      FetchContext(
+          personal_context::proto::CONTEXT_MEMORY_FEATURE_SMART_SEARCH, _, _, _))
+      .WillOnce(RunOnceCallback<3>(
+          personal_context::FetchContextResult(base::unexpected(
+              personal_context::ContextMemoryError::FromExecutionError(
+                  personal_context::ContextMemoryError::ExecutionError::
+                      kUnknown)))));
+
+  base::test::TestFuture<
+      const std::vector<personal_context::proto::SmartSearchItem>&>
+      future;
+  handler_->ExecuteSmartSearch("project", future.GetCallback());
+
+  const auto& results = future.Get();
+  EXPECT_TRUE(results.empty());
+}
+
+TEST_F(ContextHubPageHandlerTest, ExecuteSmartSearch_EmptyResults) {
+  personal_context::proto::SmartSearchResponse expected_response;
+  personal_context::proto::Any any_response;
+  expected_response.SerializeToString(any_response.mutable_value());
+
+  EXPECT_CALL(
+      *GetMockService(),
+      FetchContext(
+          personal_context::proto::CONTEXT_MEMORY_FEATURE_SMART_SEARCH, _, _, _))
+      .WillOnce(RunOnceCallback<3>(
+          personal_context::FetchContextResult(base::ok(any_response))));
+
+  base::test::TestFuture<
+      const std::vector<personal_context::proto::SmartSearchItem>&>
+      future;
+  handler_->ExecuteSmartSearch("nonexistent", future.GetCallback());
+
+  const auto& results = future.Get();
+  EXPECT_TRUE(results.empty());
 }
 
 }  // namespace

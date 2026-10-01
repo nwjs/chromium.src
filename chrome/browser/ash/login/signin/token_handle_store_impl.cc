@@ -10,7 +10,6 @@
 #include "base/functional/bind.h"
 #include "base/json/values_util.h"
 #include "base/metrics/histogram_functions.h"
-#include "chrome/browser/signin/identity_manager_factory.h"
 #include "components/account_id/account_id.h"
 #include "components/account_manager_core/chromeos/account_manager.h"
 #include "components/prefs/pref_registry_simple.h"
@@ -18,6 +17,7 @@
 #include "components/user_manager/known_user.h"
 #include "components/user_manager/user.h"
 #include "components/user_manager/user_manager.h"
+#include "services/network/public/cpp/shared_url_loader_factory.h"
 
 // Enable VLOG level 1.
 // TODO(b/387248794): Remove after stabilizing, along with associated log

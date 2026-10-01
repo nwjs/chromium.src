@@ -31,8 +31,6 @@
 #include "components/password_manager/core/browser/sync/password_proto_utils.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/strings/grit/components_strings.h"
-#include "components/sync/base/client_tag_hash.h"
-#include "components/sync/base/data_type.h"
 #include "components/sync/protocol/password_specifics.pb.h"
 #include "components/sync/service/sync_service.h"
 #include "components/sync/service/sync_user_settings.h"
@@ -107,7 +105,13 @@ RemoteActorCredentialSharingImpl::RemoteActorCredentialSharingImpl(
   CHECK(dialog_factory_);
 }
 
-RemoteActorCredentialSharingImpl::~RemoteActorCredentialSharingImpl() = default;
+RemoteActorCredentialSharingImpl::~RemoteActorCredentialSharingImpl() {
+  // Explicitly close the receiver before `pending_request_` is destroyed during
+  // member destruction. Closing the binding endpoint first ensures that any
+  // in-flight request callback can be safely dropped without invoking it when
+  // the hosting frame is destroyed.
+  receiver_.reset();
+}
 
 void RemoteActorCredentialSharingImpl::Bind(
     mojo::PendingAssociatedReceiver<chrome::mojom::RemoteActorCredentialSharing>
@@ -146,15 +150,16 @@ void RemoteActorCredentialSharingImpl::RequestAgentAuthentication(
 
 void RemoteActorCredentialSharingImpl::OnGetPasswordStoreResultsOrErrorFrom(
     PasswordStoreInterface* store,
-    LoginsResultOrError results_or_error) {
+    base::expected<std::vector<StoredCredential>, PasswordStoreBackendError>
+        results_or_error) {
   if (!pending_request_) {
     return;
   }
 
   pending_request_->received_callbacks++;
 
-  if (std::holds_alternative<LoginsResult>(results_or_error)) {
-    auto logins = std::get<LoginsResult>(std::move(results_or_error));
+  if (results_or_error) {
+    std::vector<StoredCredential> logins = std::move(*results_or_error);
 
     auto* profile =
         Profile::FromBrowserContext(render_frame_host().GetBrowserContext());
@@ -254,10 +259,6 @@ void RemoteActorCredentialSharingImpl::ProceedWithCredential(
   StoredCredential credential = FromPasswordForm(std::move(selected_form));
   sync_pb::PasswordSpecificsData specifics_data =
       SpecificsDataFromStoredCredential(credential);
-  std::string client_tag = GetClientTag(specifics_data);
-  std::string client_tag_hash = syncer::ClientTagHash::FromUnhashed(
-                                    syncer::DataType::PASSWORDS, client_tag)
-                                    .value();
 
   RemoteActorCredentialSharingService::ShareParameters params;
   params.obfuscated_gaia_id = pending_request_->gaia_id;
@@ -265,7 +266,6 @@ void RemoteActorCredentialSharingImpl::ProceedWithCredential(
       url::Origin::Create(
           GURL(base::StrCat({"https://", pending_request_->domain})))
           .Serialize();
-  params.password_client_tag_hash = client_tag_hash;
   params.password_data = std::move(specifics_data);
   params.time_to_live = kShareTimeToLive;
   params.task_id = pending_request_->task_id;

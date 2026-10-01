@@ -250,7 +250,7 @@ GetPrefetchResponseCompletedCallbackForTesting() {
 
 void RecordPrefetchProxyPrefetchMainframeTotalTime(
     network::mojom::URLResponseHead* head) {
-  DCHECK(head);
+  CHECK(head, base::NotFatalUntil::M159);
 
   base::Time start = head->request_time;
   base::Time end = head->response_time;
@@ -266,7 +266,7 @@ void RecordPrefetchProxyPrefetchMainframeTotalTime(
 
 void RecordPrefetchProxyPrefetchMainframeConnectTime(
     network::mojom::URLResponseHead* head) {
-  DCHECK(head);
+  CHECK(head, base::NotFatalUntil::M159);
 
   base::TimeTicks start = head->load_timing.connect_timing.connect_start;
   base::TimeTicks end = head->load_timing.connect_timing.connect_end;
@@ -900,7 +900,7 @@ void PrefetchContainer::SetPrefetchStatus(PrefetchStatus prefetch_status) {
 }
 
 PrefetchStatus PrefetchContainer::GetPrefetchStatus() const {
-  DCHECK(prefetch_status_);
+  CHECK(prefetch_status_, base::NotFatalUntil::M159);
   return prefetch_status_.value();
 }
 
@@ -1447,7 +1447,7 @@ void PrefetchContainer::OnPrefetchCompleteInternal() {
   // Updates the prefetch's status if it hasn't been updated since the request
   // first started. For the prefetch to reach the network stack, it must have
   // `PrefetchStatus::kPrefetchNotStarted` or beyond.
-  DCHECK(HasPrefetchStatus());
+  CHECK(HasPrefetchStatus(), base::NotFatalUntil::M159);
   if (GetPrefetchStatus() == PrefetchStatus::kPrefetchNotFinishedInTime) {
     SetPrefetchStatus(net_error == net::OK
                           ? PrefetchStatus::kPrefetchSuccessful
@@ -2326,9 +2326,6 @@ void PrefetchContainer::RecordPrefetchContainerServedCountHistogram() {
 // For WebView Prefetch, this is no-op, because `PrefetchCacheableDuration()` is
 // longer than TTL so `PrefetchContainer` is destroyed before that.
 void PrefetchContainer::OnStale() {
-  if (!base::FeatureList::IsEnabled(features::kPrefetchOffTheMainThread)) {
-    return;
-  }
   if (is_stale_notified_) {
     return;
   }

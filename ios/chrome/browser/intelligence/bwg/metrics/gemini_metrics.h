@@ -65,6 +65,9 @@ extern const char kSignInRequiredSnackbarShownHistogram[];
 // UMA histogram key for IOS.Gemini.EntryPoint.Available.
 extern const char kEntryPointAvailableHistogram[];
 
+// UMA histogram key for IOS.Gemini.EntryPoint.DisabledByQuota.
+extern const char kEntryPointDisabledByQuotaHistogram[];
+
 // UMA histogram key for IOS.Gemini.FRE.EntryPoint.
 extern const char kFirstRunEntryPointHistogram[];
 
@@ -545,6 +548,12 @@ void RecordSignInRequiredSnackbarShown(gemini::EntryPoint entry_point);
 // selected some text, and is eligible to use the feature.
 void RecordGeminiEntryPointAvailable(gemini::EntryPoint entry_point);
 
+// Records when the Gemini entry point is disabled because quota was reached.
+void RecordGeminiEntryPointDisabledByQuota(gemini::EntryPoint entry_point);
+
+// Records when Gemini quota has been reached.
+void RecordGeminiQuotaReached();
+
 // Records that the Gemini FRE was shown.
 void RecordFirstRunShown();
 
@@ -764,5 +773,23 @@ void RecordBlockQuerySubmissionWhileLoading(bool block_submission);
 // Records whether to display the page loading snackbar on the opening
 // invocation while page context is loading.
 void RecordShowPageLoadingSnackbarOnOpeningInvocation(bool show_snackbar);
+
+// Enum representing the account alignment status when entering via the App
+// Switcher AI Summarization intent.
+// LINT.IfChange(GeminiAppSwitcherAccountStatus)
+enum class GeminiAppSwitcherAccountStatus {
+  kMatching = 0,
+  kMismatched = 1,
+  kExternalAppOnlySignedIn = 2,
+  kClientAppOnlySignedIn = 3,
+  kBothSignedOut = 4,
+  kMaxValue = kBothSignedOut,
+};
+// LINT.ThenChange(//tools/metrics/histograms/metadata/ios/enums.xml:GeminiAppSwitcherAccountStatus)
+
+// Records the account alignment status of a user entering via the App Switcher
+// AI Summarization intent.
+void RecordGeminiAppSwitcherAccountStatus(
+    GeminiAppSwitcherAccountStatus status);
 
 #endif  // IOS_CHROME_BROWSER_INTELLIGENCE_BWG_METRICS_GEMINI_METRICS_H_

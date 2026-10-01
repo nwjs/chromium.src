@@ -12,6 +12,7 @@
 #include "ash/constants/ash_features.h"
 #include "ash/constants/ash_pref_names.h"
 #include "ash/constants/ash_switches.h"
+#include "ash/constants/chrome_switches.h"
 #include "ash/webui/diagnostics_ui/url_constants.h"
 #include "ash/webui/help_app_ui/url_constants.h"
 #include "ash/webui/os_feedback_ui/url_constants.h"
@@ -30,22 +31,19 @@
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/test_future.h"
 #include "base/values.h"
-#include "chrome/browser/ash/browser_delegate/browser_delegate.h"
 #include "chrome/browser/ash/os_feedback/os_feedback_screenshot_manager.h"
 #include "chrome/browser/ash/system_web_apps/system_web_app_manager.h"
-#include "chrome/browser/browser_process.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/signin/identity_test_environment_profile_adaptor.h"
 #include "chrome/browser/ui/ash/system_web_apps/system_web_app_ui_utils.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/webui/ash/os_feedback_dialog/os_feedback_dialog.h"
-#include "chrome/common/chrome_switches.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/testing_profile.h"
 #include "chrome/test/base/ui_test_utils.h"
+#include "chromeos/ash/components/browser_delegate/browser_delegate.h"
 #include "chromeos/ash/components/system_web_apps/system_web_app_type.h"
 #include "components/feedback/content/content_tracing_manager.h"
 #include "components/feedback/content/feedback_uploader_factory.h"
@@ -342,13 +340,6 @@ class ChromeOsFeedbackDelegateTest : public InProcessBrowserTest {
   base::test::ScopedFeatureList scoped_feature_list_;
 };
 
-// Test GetApplicationLocale returns a valid locale.
-IN_PROC_BROWSER_TEST_F(ChromeOsFeedbackDelegateTest, GetApplicationLocale) {
-  auto feedback_delegate =
-      ChromeOsFeedbackDelegate::CreateForTesting(browser()->GetProfile());
-  EXPECT_EQ(feedback_delegate.GetApplicationLocale(), "en-US");
-}
-
 // Test GetLastActivePageUrl returns last active page url if any.
 IN_PROC_BROWSER_TEST_F(ChromeOsFeedbackDelegateTest, GetLastActivePageUrl) {
   EXPECT_EQ(GlobalBrowserCollection::GetInstance()->GetSize(), 1u);
@@ -382,7 +373,7 @@ class ChromeOsFeedbackDelegateGuestModeBrowserTest
                                     user_manager::kGuestUserName);
     command_line->AppendSwitchASCII(ash::switches::kLoginProfile,
                                     TestingProfile::kTestUserProfileDir);
-    command_line->AppendSwitch(::switches::kIncognito);
+    command_line->AppendSwitch(ash::chrome_switches::kIncognito);
   }
 };
 

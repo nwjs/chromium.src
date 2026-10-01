@@ -8969,7 +8969,9 @@ TEST_P(CompositorFrameProducingLayerTreeHostImplTest,
                                       gfx::Size(10, 10));
   UpdateDrawProperties(host_impl_->active_tree());
 
+  EXPECT_FALSE(did_notify_input_event_);
   host_impl_->NotifyInputEvent(/*is_fling=*/false);
+  EXPECT_TRUE(did_notify_input_event_);
   host_impl_->SetFullViewportDamage();
   host_impl_->SetNeedsRedraw(/*animation_only=*/false,
                              /*skip_if_inside_draw=*/false);
@@ -8987,6 +8989,17 @@ TEST_P(CompositorFrameProducingLayerTreeHostImplTest,
     EXPECT_TRUE(frame_interval_inputs.has_input);
     EXPECT_EQ(args.frame_time, frame_interval_inputs.frame_time);
   }
+}
+
+TEST_P(LayerTreeHostImplTest, NotifyInputEvent) {
+  EXPECT_FALSE(did_notify_input_event_);
+
+  host_impl_->NotifyInputEvent(/*is_fling=*/false);
+  EXPECT_TRUE(did_notify_input_event_);
+
+  did_notify_input_event_ = false;
+  host_impl_->NotifyInputEvent(/*is_fling=*/true);
+  EXPECT_TRUE(did_notify_input_event_);
 }
 
 #if BUILDFLAG(IS_ANDROID)
@@ -15883,6 +15896,25 @@ TEST_P(UnboundedElementTest, UnboundedCompositorFrameExtraction) {
             effect_tree.Node(effect_node_id).render_surface_reason);
 }
 
+TEST_P(UnboundedElementTest, IsUnboundedMember) {
+  auto* root = SetupDefaultRootLayer(gfx::Size(100, 100));
+  auto* unbounded_layer = AddLayerInActiveTree();
+  CopyProperties(root, unbounded_layer);
+
+  EXPECT_FALSE(root->IsUnboundedMember());
+  EXPECT_FALSE(unbounded_layer->IsUnboundedMember());
+
+  EffectNode& effect_node = CreateEffectNode(unbounded_layer);
+  effect_node.render_surface_reason = RenderSurfaceReason::kUnboundedElement;
+
+  EXPECT_FALSE(root->IsUnboundedMember());
+  EXPECT_TRUE(unbounded_layer->IsUnboundedMember());
+
+  auto* child_layer = AddLayerInActiveTree();
+  CopyProperties(unbounded_layer, child_layer);
+  EXPECT_TRUE(child_layer->IsUnboundedMember());
+}
+
 TEST_P(UnboundedElementTest, HasDamageWithUnboundedElementOutsideViewport) {
   // Viewport is 100x100.
   auto* root = SetupDefaultRootLayer(gfx::Size(100, 100));
@@ -16187,6 +16219,32 @@ TEST_P(LayerTreeHostImplTest,
   // occluder should NOT subtract from the tracked element's visible bounds.
   // Visible bounds should remain (10, 10, 50, 50).
   EXPECT_EQ(gfx::Rect(10, 10, 50, 50), rects.at(kFeature0)[0].visible_bounds);
+}
+
+TEST_P(LayerTreeHostImplTest, NormalizedInvalidatedAreaWithHugeOutputRect) {
+  // A UI compositor draws into whatever output rect it is given, and a large
+  // enough one has an area that does not fit in an int. Drawing must not
+  // CHECK-fail computing it.
+  constexpr float kDeviceScaleFactor = 2.f;
+
+  auto draw_with_viewport = [&](const gfx::Size& viewport_in_dip,
+                                bool expect_area_fits_in_int) {
+    LayerTreeSettings settings = DefaultSettings();
+    settings.is_layer_tree_for_ui = true;
+    CreateHostImpl(settings, CreateLayerTreeFrameSink());
+    host_impl_->active_tree()->SetDeviceScaleFactor(kDeviceScaleFactor);
+
+    ASSERT_EQ(expect_area_fits_in_int,
+              DipSizeToPixelSize(viewport_in_dip).GetCheckedArea().IsValid());
+
+    SetupDefaultRootLayer(viewport_in_dip);
+    DrawFrame();
+  };
+
+  // Either side of the height at which the scaled area stops fitting in an
+  // int.
+  draw_with_viewport(gfx::Size(26000, 20000), true);
+  draw_with_viewport(gfx::Size(26000, 21000), false);
 }
 
 }  // namespace cc

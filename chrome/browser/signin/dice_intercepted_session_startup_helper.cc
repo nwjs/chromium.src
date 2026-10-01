@@ -25,6 +25,7 @@
 #include "google_apis/gaia/gaia_auth_fetcher.h"
 #include "google_apis/gaia/gaia_auth_util.h"
 #include "google_apis/gaia/google_service_auth_error.h"
+#include "ui/base/page_transition_types.h"
 #include "url/gurl.h"
 
 namespace {
@@ -129,10 +130,18 @@ void DiceInterceptedSessionStartupHelper::StartupMultilogin(
   reconcilor_lock_ = std::make_unique<AccountReconcilor::Lock>(
       AccountReconcilorFactory::GetForProfile(profile_));
 
+  std::vector<CoreAccountId> accounts_to_send = {account_id_};
+  for (const auto& account_info :
+       identity_manager->GetAccountsWithRefreshTokens()) {
+    if (account_info.account_id != account_id_) {
+      accounts_to_send.push_back(account_info.account_id);
+    }
+  }
+
   // Start the multilogin call.
   signin::MultiloginParameters params = {
       /*mode=*/gaia::MultiloginMode::MULTILOGIN_UPDATE_COOKIE_ACCOUNTS_ORDER,
-      /*accounts_to_send=*/{account_id_}};
+      /*accounts_to_send=*/std::move(accounts_to_send)};
   identity_manager->GetAccountsCookieMutator()->SetAccountsInCookie(
       params, gaia::GaiaSource::kChrome,
       base::BindOnce(

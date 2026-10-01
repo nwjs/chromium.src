@@ -8,12 +8,10 @@
 <translation id="1091252999271033193">Das bedeutet, dass Chromium immer die mobile Website anfordert.</translation>
 <translation id="1115463765356382667">Mit den unten vorgeschlagenen Aktionen lässt sich Chromium optimal nutzen.</translation>
 <translation id="1185134272377778587">Über Chromium</translation>
-<translation id="119044033865561140">Chromium sofort öffnen, wenn du dein iPad verwendest</translation>
 <translation id="1229234641991056119">In Safari gespeicherte Passwörter, Verlauf, Lesezeichen und Kreditkarten in Chromium verwenden</translation>
 <translation id="1257458525759135959">Um Bilder zu speichern, gib Chromium unter „Einstellungen“ die Berechtigung zum Hinzufügen von Fotos</translation>
 <translation id="1260702988262336471">Chromium-Menü öffnen</translation>
 <translation id="12739128458173458">Wenn du diesen Tab an ein anderes Gerät senden möchtest, melde dich auf beiden Geräten in Chromium an.</translation>
-<translation id="1279797561821266129">Über das Dock schneller auf Chromium zugreifen</translation>
 <translation id="1361748954329991663">Chromium ist veraltet. Wenn im <ph name="BEGIN_LINK" />App Store<ph name="END_LINK" /> kein Update verfügbar ist, unterstützt dein Gerät neuere Versionen von Chromium möglicherweise nicht mehr.</translation>
 <translation id="1383876407941801731">Suchen</translation>
 <translation id="1423007117030725713">Eine Suche auf einem neuen Chromium-Tab starten.</translation>
@@ -32,7 +30,6 @@
 <translation id="1553657876656159572">Ein personalisierter Feed für dich. Er enthält Nachrichten, Sport und das Wetter.</translation>
 <translation id="1561849081734670621">Wenn du den Blockierungsmodus in Chromium deaktivieren möchtest, musst du ihn auf deinem iPhone ausschalten.</translation>
 <translation id="1569258826720962327">Chromium-Aktionen unter iOS verwenden</translation>
-<translation id="1573441572176948907">Chromium in dein Dock verschieben</translation>
 <translation id="159029779861043703">Chromium trägt mit Face ID dazu bei, deine sensiblen Daten zu schützen.</translation>
 <translation id="1591119736686995611">Öffnet das Chromium-Tabraster.</translation>
 <translation id="16001233025397167">Der Sicherheitscheck hilft dabei, dich vor Bedrohungen wie Datenpannen und schädlichen Erweiterungen zu schützen. Du erhältst Benachrichtigungen bei Problemen mit dem Datenschutz oder der Sicherheit, die Chromium für dich erkennt.</translation>
@@ -144,6 +141,7 @@ Warte einige Minuten, bevor du das Konto wechselst. Wenn du jetzt das Konto wech
 <translation id="3855938650519180865">Jetzt neu bei Chromium</translation>
 <translation id="3886689467633467988">Melde dich bei dieser Website und in Chromium an, um deine Lesezeichen und mehr auf allen deinen Geräten abzurufen.</translation>
 <translation id="3949514465204582407">Chromium-Tipp: Passwörter in allen Apps abrufen</translation>
+<translation id="3983298990898629929">Du kannst Chromium als Standardbrowser festlegen, um Links mit nur einem Tippen zu öffnen</translation>
 <translation id="4005283307739974863">Dadurch wird der Sicherheitscheck in Chromium geöffnet und ausgeführt.</translation>
 <translation id="4043291146360695975">Passwörter werden auf diesem Gerät nur im Passwortmanager gespeichert.</translation>
 <translation id="4046625794029820944">Kein Kopieren von URLs mehr. Du kannst Chromium als Standardbrowser festlegen, um Seiten direkt zu laden.</translation>
@@ -181,7 +179,6 @@ Wenn du diese Einstellung ändern möchtest, <ph name="BEGIN_LINK" />lösche die
 <translation id="4790638144988730920">Chromium-Daten in deinem Google-Konto weiterhin verwenden.</translation>
 <translation id="4828317641996116749">Chromium konnte nicht alle Passwörter prüfen. Versuchen Sie es später noch einmal.</translation>
 <translation id="4856138222358683580">Chromium-Aktionen</translation>
-<translation id="4869706986935301458">Chromium sofort öffnen, wenn du dein iPhone verwendest</translation>
 <translation id="4904452304169763785">Benachrichtigungen bei Datenschutz- oder Sicherheitsproblemen, die Chromium für dich erkennt.</translation>
 <translation id="4962295957157529683">Schließe zuerst deine vorherige Aktion in deinem anderen offenen Chromium-Fenster ab.</translation>
 <translation id="4985291216379576555">Offline, Chromium kann nicht nach Aktualisierungen suchen</translation>
@@ -276,6 +273,7 @@ Wichtige Hinweise:
 <translation id="6680609900732453726">Mit der Geräteauthentifizierung bleiben deine Browsing-Aktivitäten privat, wenn du Chromium schließt</translation>
 <translation id="6696512128741076907">Du kannst Chromium als Standardbrowser festlegen, um Links aus anderen Apps sofort zu öffnen.</translation>
 <translation id="6752854822223394465">Deine Organisation richtet Chromium ein…</translation>
+<translation id="6777348401413221846">Video im Vollbildmodus, in dem gezeigt wird, wie Chromium als Standardbrowser festgelegt werden kann: Öffne unter iOS die Chromium-Einstellungen, tippe auf „Standard-Browser-App“ und wähle „Chromium“ aus.</translation>
 <translation id="6794054469102824109">Öffnet Chromium Dino.</translation>
 <translation id="6820823224820483452">Chromium konnte nicht alle Passwörter prüfen. Versuche es morgen noch einmal.</translation>
 <translation id="6830782797004194206">Mit Chromium Autofill schneller anmelden</translation>
@@ -305,8 +303,8 @@ Nur Personen, die deine Passphrase kennen, können deine verschlüsselten Daten 
 <translation id="7337881442233988129">Chromium</translation>
 <translation id="7395825497086981028">Dein Passwort wird im Passwortmanager für <ph name="EMAIL" /> gespeichert.</translation>
 <translation id="7434848749522628428">Dieser Passkey wird im Passwortmanager für <ph name="USER_EMAIL" /> gespeichert</translation>
+<translation id="7453822113116681031">Du kannst Chromium zu deinem Standardbrowser machen, um Links mit nur einem Tippen zu öffnen</translation>
 <translation id="7504829997542308412">Öffne Chromium</translation>
-<translation id="7507535968973352823">Chromium unten platzieren, um jederzeit darauf zugreifen zu können</translation>
 <translation id="7531461704633548377">Aus Chromium</translation>
 <translation id="7554983317097061001">Chromium-Tipp: Chromium ins Dock verschieben</translation>
 <translation id="7576863740961052505">Chromium-Einstellungen verwalten</translation>
@@ -356,7 +354,6 @@ Nur Personen, die deine Passphrase kennen, können deine verschlüsselten Daten 
 <translation id="8730503818204408000">Öffnet die Chromium-Einstellung, mit der Chromium als Standardbrowser festgelegt wird.</translation>
 <translation id="8754966941001340678">Chromium empfiehlt den erweiterten Schutz</translation>
 <translation id="8759037115129007407">Dein Familienmitglied kann derzeit keine Passwörter erhalten. Bitte es, Chromium zu aktualisieren und seine Passwörter zu synchronisieren. <ph name="BEGIN_LINK" />Weitere Informationen<ph name="END_LINK" /></translation>
-<translation id="8769418653786388149">Chromium überall nutzen</translation>
 <translation id="8776843108004031667">Dieses Konto und alle nicht gespeicherten Daten werden aus Chromium entfernt.</translation>
 <translation id="8793333988063379360">Hier findest du Chromium-Einstellungen und mehr</translation>
 <translation id="8805148242934787134">Chromium als Standardbrowser festlegen</translation>

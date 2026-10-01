@@ -6,6 +6,7 @@
 #define IOS_CHROME_BROWSER_PASSWORDS_MODEL_ACTOR_LOGIN_IOS_CHROME_ACTOR_LOGIN_DELEGATE_CLIENT_H_
 
 #include "base/memory/raw_ptr.h"
+#include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
 #include "components/password_manager/core/browser/actor_login/internal/actor_login_delegate_client.h"
 #include "ios/web/public/web_state_observer.h"
@@ -22,6 +23,11 @@ class ActionSequenceDelegate;
 struct Credential;
 }  // namespace actor_login
 
+namespace password_manager {
+class PasswordFormCache;
+}  // namespace password_manager
+
+@protocol ActorLoginToolDelegate;
 class PrefService;
 
 // iOS-specific implementation of `ActorLoginDelegateClient`.
@@ -38,6 +44,12 @@ class IOSChromeActorLoginDelegateClient
   IOSChromeActorLoginDelegateClient& operator=(
       const IOSChromeActorLoginDelegateClient&) = delete;
 
+  // Returns the delegate for Actor Login form extraction.
+  id<ActorLoginToolDelegate> GetActorLoginToolDelegate();
+
+  // Returns the PasswordFormCache for the associated WebState.
+  password_manager::PasswordFormCache* GetPasswordFormCache();
+
   // ActorLoginDelegateClient:
   void SetActorLoginWebContentInterface(
       actor_login::ActorLoginWebContentInterface* web_interface) override;
@@ -52,7 +64,7 @@ class IOSChromeActorLoginDelegateClient
   GetPermissionCleaningService() override;
   std::unique_ptr<actor_login::ActorLoginCredentialsFetcher>
   CreateFederatedCredentialsFetcher(
-      base::WeakPtr<actor_login::ActorLoginQualityLoggerInterface> mqls_logger,
+      scoped_refptr<actor_login::ActorLoginQualityLoggerInterface> mqls_logger,
       actor_login::ActorLoginMetricsHelper* metrics_helper) override;
   std::unique_ptr<actor_login::ActorLoginSiwgControllerInterface>
   CreateSiwgController(
@@ -61,7 +73,7 @@ class IOSChromeActorLoginDelegateClient
       actor_login::LoginStatusResultOrErrorReply on_finished_callback,
       base::WeakPtr<actor_login::ActionSequenceDelegate>
           action_sequence_delegate,
-      base::WeakPtr<actor_login::ActorLoginQualityLoggerInterface> mqls_logger,
+      scoped_refptr<actor_login::ActorLoginQualityLoggerInterface> mqls_logger,
       base::TimeTicks attempt_login_tool_start_time,
       base::OnceCallback<void(bool)> post_button_click_login_result_callback)
       override;

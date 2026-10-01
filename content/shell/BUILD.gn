@@ -632,6 +632,7 @@ if (is_android) {
       content_shell_version,
     ]
   }
+
   mac_app_bundle("content_shell") {
     testonly = true
     output_name = content_shell_product_name
@@ -1030,6 +1031,7 @@ if (is_mac) {
     _helper_target = helper_params[0]
     _helper_bundle_id = helper_params[1]
     _helper_suffix = helper_params[2]
+
     content_shell_helper_app("content_shell_helper_app_${_helper_target}") {
       helper_name_suffix = _helper_suffix
       helper_bundle_id_suffix = _helper_bundle_id
@@ -1087,7 +1089,7 @@ if (is_mac) {
 }
 
 mojom("content_browsertests_mojom") {
-  cpp_only = true
+  generate_legacy_js = false
   sources = [
     "common/main_frame_counter_test.mojom",
     "common/memory_coordinator/memory_coordinator_test.mojom",

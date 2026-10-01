@@ -34,6 +34,7 @@
 #include "components/omnibox/common/omnibox_features.h"
 #include "components/sessions/content/session_tab_helper.h"
 #include "components/tabs/public/tab_interface.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
@@ -43,6 +44,8 @@
 #include "net/dns/mock_host_resolver.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "testing/gmock/include/gmock/gmock.h"
+#include "ui/base/page_transition_types.h"
+#include "ui/base/window_open_disposition.h"
 
 namespace contextual_tasks {
 
@@ -375,8 +378,12 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksUiServiceZeroStateEnabledTest,
   GURL zero_state_url = ui_service->GetDefaultAiPageUrl();
 
   content::TestNavigationObserver navigation_observer(panel_contents);
-  ui_service->StartTaskUiInSidePanel(browser(), active_tab, zero_state_url,
-                                     nullptr);
+  ui_service->StartTaskUiInSidePanel(
+      browser(), active_tab, zero_state_url, nullptr,
+      StartTaskUiOptions{
+          .entry_point = omnibox::ChromeAimEntryPoint::
+              DESKTOP_CHROME_COBROWSE_OMNIBOX_ACTION,
+      });
   navigation_observer.Wait();
 
   std::string new_task_id_str = GetTaskIdFromPanel(panel_contents);
@@ -414,8 +421,12 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksUiServiceZeroStateDisabledTest,
   GURL zero_state_url = ui_service->GetDefaultAiPageUrl();
 
   content::TestNavigationObserver navigation_observer(panel_contents);
-  ui_service->StartTaskUiInSidePanel(browser(), active_tab, zero_state_url,
-                                     nullptr);
+  ui_service->StartTaskUiInSidePanel(
+      browser(), active_tab, zero_state_url, nullptr,
+      StartTaskUiOptions{
+          .entry_point = omnibox::ChromeAimEntryPoint::
+              DESKTOP_CHROME_COBROWSE_OMNIBOX_ACTION,
+      });
 
   // We expect it to NOT reload because feature is disabled.
   base::RunLoop().RunUntilIdle();
@@ -693,10 +704,10 @@ IN_PROC_BROWSER_TEST_F(
   ASSERT_TRUE(panel_contents);
 
   GURL aim_url("https://www.google.com/search?q=aim_test");
-  content::OpenURLParams params(aim_url, content::Referrer(),
-                                WindowOpenDisposition::CURRENT_TAB,
-                                ui::PAGE_TRANSITION_LINK,
-                                /*is_renderer_initiated=*/false);
+  content::OpenURLParams params =
+      content::OpenURLParams::CreateBrowserInitiated(
+          aim_url, WindowOpenDisposition::CURRENT_TAB,
+          ui::PAGE_TRANSITION_LINK);
 
   bool handled = ui_service->HandleNavigation(
       params, panel_contents, /*is_from_embedded_page=*/true,
@@ -737,10 +748,10 @@ IN_PROC_BROWSER_TEST_F(
   ASSERT_TRUE(panel_contents);
 
   GURL lens_url("https://www.google.com/search?q=lens_test&lns_mode=un");
-  content::OpenURLParams params(lens_url, content::Referrer(),
-                                WindowOpenDisposition::CURRENT_TAB,
-                                ui::PAGE_TRANSITION_LINK,
-                                /*is_renderer_initiated=*/false);
+  content::OpenURLParams params =
+      content::OpenURLParams::CreateBrowserInitiated(
+          lens_url, WindowOpenDisposition::CURRENT_TAB,
+          ui::PAGE_TRANSITION_LINK);
 
   bool handled = ui_service->HandleNavigation(
       params, panel_contents, /*is_from_embedded_page=*/true,
@@ -771,10 +782,9 @@ IN_PROC_BROWSER_TEST_F(
       browser()->GetTabStripModel()->GetActiveTab()->GetContents();
 
   GURL url("https://www.google.com/search?q=tab_test");
-  content::OpenURLParams params(url, content::Referrer(),
-                                WindowOpenDisposition::CURRENT_TAB,
-                                ui::PAGE_TRANSITION_LINK,
-                                /*is_renderer_initiated=*/false);
+  content::OpenURLParams params =
+      content::OpenURLParams::CreateBrowserInitiated(
+          url, WindowOpenDisposition::CURRENT_TAB, ui::PAGE_TRANSITION_LINK);
 
   bool handled = ui_service->HandleNavigation(
       params, tab_contents, /*is_from_embedded_page=*/false,
@@ -804,10 +814,9 @@ IN_PROC_BROWSER_TEST_F(
   ASSERT_TRUE(panel_contents);
 
   GURL url("https://www.google.com/search?q=aim_test&gsc=2&hl=en&cs=0");
-  content::OpenURLParams params(url, content::Referrer(),
-                                WindowOpenDisposition::CURRENT_TAB,
-                                ui::PAGE_TRANSITION_LINK,
-                                /*is_renderer_initiated=*/false);
+  content::OpenURLParams params =
+      content::OpenURLParams::CreateBrowserInitiated(
+          url, WindowOpenDisposition::CURRENT_TAB, ui::PAGE_TRANSITION_LINK);
 
   bool handled = ui_service->HandleNavigation(
       params, panel_contents, /*is_from_embedded_page=*/true,
@@ -842,10 +851,10 @@ IN_PROC_BROWSER_TEST_F(
   EXPECT_CALL(*aim_service, IsAimUrl(third_party_url, testing::_))
       .WillRepeatedly(testing::Return(false));
 
-  content::OpenURLParams params(third_party_url, content::Referrer(),
-                                WindowOpenDisposition::CURRENT_TAB,
-                                ui::PAGE_TRANSITION_LINK,
-                                /*is_renderer_initiated=*/false);
+  content::OpenURLParams params =
+      content::OpenURLParams::CreateBrowserInitiated(
+          third_party_url, WindowOpenDisposition::CURRENT_TAB,
+          ui::PAGE_TRANSITION_LINK);
 
   bool handled = ui_service->HandleNavigation(
       params, panel_contents, /*is_from_embedded_page=*/true,
@@ -878,10 +887,9 @@ IN_PROC_BROWSER_TEST_F(
       contextual_tasks::HostOverride{"test.google.com"});
 
   GURL url("https://www.google.com/search?q=host_test&gsc=2&hl=en&cs=0");
-  content::OpenURLParams params(url, content::Referrer(),
-                                WindowOpenDisposition::CURRENT_TAB,
-                                ui::PAGE_TRANSITION_LINK,
-                                /*is_renderer_initiated=*/false);
+  content::OpenURLParams params =
+      content::OpenURLParams::CreateBrowserInitiated(
+          url, WindowOpenDisposition::CURRENT_TAB, ui::PAGE_TRANSITION_LINK);
 
   bool handled = ui_service->HandleNavigation(
       params, panel_contents, /*is_from_embedded_page=*/true,

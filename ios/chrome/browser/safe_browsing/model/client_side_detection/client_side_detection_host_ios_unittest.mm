@@ -6,7 +6,10 @@
 
 #import <UIKit/UIKit.h>
 
+#import <string>
+
 #import "base/command_line.h"
+#import "base/containers/span.h"
 #import "base/strings/strcat.h"
 #import "base/test/metrics/histogram_tester.h"
 #import "base/test/scoped_command_line.h"
@@ -16,6 +19,7 @@
 #import "base/values.h"
 #import "components/keyed_service/core/service_access_type.h"
 #import "components/optimization_guide/core/delivery/optimization_guide_model_provider.h"
+#import "components/optimization_guide/proto/features/common_quality_data.pb.h"
 #import "components/safe_browsing/core/browser/db/test_database_manager.h"
 #import "components/safe_browsing/core/browser/intelligent_scan_delegate.h"
 #import "components/safe_browsing/core/browser/verdict_cache_manager.h"
@@ -30,6 +34,7 @@
 #import "components/safe_browsing/ios/browser/safe_browsing_url_allow_list.h"
 #import "components/signin/public/identity_manager/identity_manager.h"
 #import "ios/chrome/browser/history/model/history_service_factory.h"
+#import "ios/chrome/browser/intelligence/proto_wrappers/page_context_wrapper.h"
 #import "ios/chrome/browser/safe_browsing/model/client_side_detection/client_side_detection_service.h"
 #import "ios/chrome/browser/safe_browsing/model/client_side_detection/client_side_detection_service_factory.h"
 #import "ios/chrome/browser/safe_browsing/model/verdict_cache_manager_factory.h"
@@ -42,7 +47,9 @@
 #import "ios/chrome/browser/tabs/model/tab_helper_filter.h"
 #import "ios/chrome/browser/tabs/model/tab_helper_util.h"
 #import "ios/chrome/test/ios_chrome_scoped_testing_local_state.h"
+#import "ios/components/security_interstitials/safe_browsing/fake_safe_browsing_client.h"
 #import "ios/components/security_interstitials/safe_browsing/fake_safe_browsing_service.h"
+#import "ios/components/security_interstitials/safe_browsing/safe_browsing_query_manager.h"
 #import "ios/components/security_interstitials/safe_browsing/safe_browsing_tab_helper.h"
 #import "ios/components/security_interstitials/safe_browsing/safe_browsing_unsafe_resource_container.h"
 #import "ios/web/public/test/fakes/fake_navigation_context.h"
@@ -50,9 +57,69 @@
 #import "ios/web/public/test/fakes/fake_web_frames_manager.h"
 #import "ios/web/public/test/fakes/fake_web_state.h"
 #import "ios/web/public/test/web_task_environment.h"
+#import "net/base/apple/url_conversions.h"
 #import "testing/gmock/include/gmock/gmock.h"
 #import "testing/gtest/include/gtest/gtest.h"
 #import "testing/platform_test.h"
+#import "third_party/ocmock/OCMock/OCMock.h"
+#import "third_party/ocmock/gtest_support.h"
+
+// Fake `PageContextWrapper` for testing inner text extraction in
+// `ClientSideDetectionHostIOS`.
+@interface FakeClientSideDetectionPageContextWrapper : PageContextWrapper
+
+@property(nonatomic, readonly) BOOL populateCalled;
+
+- (void)respondWithInnerText:(const std::string&)innerText;
+- (void)respondWithError:(PageContextWrapperError)error;
+- (void)respondWithEmptyProto;
+
+@end
+
+@implementation FakeClientSideDetectionPageContextWrapper {
+  base::OnceCallback<void(PageContextWrapperCallbackResponse)> _callback;
+}
+
+- (instancetype)initWithWebState:(web::WebState*)webState
+              completionCallback:
+                  (base::OnceCallback<void(PageContextWrapperCallbackResponse)>)
+                      completionCallback {
+  self = [super initWithWebState:webState completionCallback:base::DoNothing()];
+  if (self) {
+    _callback = std::move(completionCallback);
+    _populateCalled = NO;
+  }
+  return self;
+}
+
+- (void)populatePageContextFieldsAsync {
+  _populateCalled = YES;
+}
+
+- (void)respondWithInnerText:(const std::string&)innerText {
+  if (_callback) {
+    auto page_context =
+        std::make_unique<optimization_guide::proto::PageContext>();
+    page_context->set_inner_text(innerText);
+    std::move(_callback).Run(base::ok(std::move(page_context)));
+  }
+}
+
+- (void)respondWithError:(PageContextWrapperError)error {
+  if (_callback) {
+    std::move(_callback).Run(base::unexpected(error));
+  }
+}
+
+- (void)respondWithEmptyProto {
+  if (_callback) {
+    auto page_context =
+        std::make_unique<optimization_guide::proto::PageContext>();
+    std::move(_callback).Run(base::ok(std::move(page_context)));
+  }
+}
+
+@end
 
 namespace safe_browsing {
 namespace {
@@ -64,12 +131,11 @@ constexpr std::string_view kDifferentUrlPattern = "different.example.com/";
 constexpr int kCacheDurationSec = 60;
 constexpr char kPhishingUrl[] = "https://phishing.example.com";
 constexpr char kReferrerUrl[] = "https://referrer.example.com/";
-constexpr char kLoopbackIpStr[] = "127.0.0.1";
 constexpr char kLoopbackIpUrl[] = "http://127.0.0.1";
 constexpr char kPrivateIpStr[] = "192.168.1.1";
 constexpr char kPrivateIpUrl[] = "http://192.168.1.1";
 constexpr char kLocalhostUrl[] = "http://localhost";
-constexpr char kIntranetUrl[] = "http://intranet-page";
+constexpr char kTestInnerText[] = "Test page inner text content";
 
 class MockIntelligentScanDelegate
     : public safe_browsing::IntelligentScanDelegate {
@@ -239,8 +305,24 @@ class ClientSideDetectionHostIOSTest : public PlatformTest {
   }
 
   void TearDown() override {
+    if (mock_page_context_wrapper_class_) {
+      [mock_page_context_wrapper_class_ stopMocking];
+      mock_page_context_wrapper_class_ = nil;
+    }
     mock_service_.SetScorerForTesting(nullptr);
     PlatformTest::TearDown();
+  }
+
+  FakeClientSideDetectionPageContextWrapper* CreateAndStubPageContextWrapper() {
+    if (mock_page_context_wrapper_class_) {
+      [mock_page_context_wrapper_class_ stopMocking];
+      mock_page_context_wrapper_class_ = nil;
+    }
+    mock_page_context_wrapper_class_ = OCMClassMock([PageContextWrapper class]);
+    FakeClientSideDetectionPageContextWrapper* fake_wrapper =
+        [FakeClientSideDetectionPageContextWrapper alloc];
+    OCMStub([mock_page_context_wrapper_class_ alloc]).andReturn(fake_wrapper);
+    return fake_wrapper;
   }
 
   std::unique_ptr<ClientSideDetectionHostIOS> CreateHost() {
@@ -291,12 +373,6 @@ class ClientSideDetectionHostIOSTest : public PlatformTest {
   bool trigger_model_request_sent_as_force_request(
       ClientSideDetectionHostIOS* host) {
     return host->trigger_model_request_sent_as_force_request();
-  }
-
-  void set_trigger_model_request_sent_as_force_request(
-      ClientSideDetectionHostIOS* host,
-      bool value) {
-    host->set_trigger_model_request_sent_as_force_request(value);
   }
 
   void set_send_sample_ping(ClientSideDetectionHostIOS* host, bool value) {
@@ -353,8 +429,22 @@ class ClientSideDetectionHostIOSTest : public PlatformTest {
     host->image_embedder_ = std::move(embedder);
   }
 
+  safe_browsing::PhishingClassifier* classifier(
+      ClientSideDetectionHostIOS* host) {
+    return host->classifier_.get();
+  }
+
+  safe_browsing::PhishingImageEmbedder* image_embedder(
+      ClientSideDetectionHostIOS* host) {
+    return host->image_embedder_.get();
+  }
+
   base::TimeTicks image_embedding_start_time(ClientSideDetectionHostIOS* host) {
     return host->image_embedding_start_time();
+  }
+
+  PageContextWrapper* page_context_wrapper(ClientSideDetectionHostIOS* host) {
+    return host->page_context_wrapper_;
   }
 
   void MaybeStartImageEmbedding(
@@ -438,6 +528,19 @@ class ClientSideDetectionHostIOSTest : public PlatformTest {
     cache_manager->CacheRealTimeUrlVerdict(response, base::Time::Now());
   }
 
+  // Simulates the completion of an asynchronous Safe Browsing real-time check
+  // for `url`.
+  void SimulateAsyncSafeBrowsingCheckFinished(ClientSideDetectionHostIOS* host,
+                                              const GURL& url) {
+    SafeBrowsingQueryManager::Query query(url, "GET");
+    SafeBrowsingQueryManager::Result result;
+    SafeBrowsingQueryManager::QueryData query_data(
+        nullptr, query, QueryType::kAsync, result,
+        safe_browsing::SafeBrowsingUrlCheckerImpl::PerformedCheck::
+            kUrlRealTimeCheck);
+    host->SafeBrowsingAsyncQueryFinished(query_data);
+  }
+
   // Simulates the completion of an asynchronous Safe Browsing check and asserts
   // force request status and histograms.
   void TestAsyncSafeBrowsingCheck(
@@ -445,8 +548,7 @@ class ClientSideDetectionHostIOSTest : public PlatformTest {
       std::optional<
           ClientSideDetectionHostBase::AsyncCheckTriggerForceRequestResult>
           expected_result,
-      bool expect_force_request,
-      bool is_already_forced) {
+      bool expect_force_request) {
     safe_browsing::SetSafeBrowsingState(
         profile_->GetPrefs(),
         safe_browsing::SafeBrowsingState::ENHANCED_PROTECTION);
@@ -463,18 +565,7 @@ class ClientSideDetectionHostIOSTest : public PlatformTest {
     web_state_.SetCurrentURL(main_url);
     web_state_.OnNavigationFinished(&context);
 
-    if (is_already_forced) {
-      set_trigger_model_request_sent_as_force_request(host.get(), true);
-    }
-
-    SafeBrowsingQueryManager::Query query(query_url, "GET");
-    SafeBrowsingQueryManager::Result result;
-    SafeBrowsingQueryManager::QueryData query_data(
-        nullptr, query, QueryType::kAsync, result,
-        safe_browsing::SafeBrowsingUrlCheckerImpl::PerformedCheck::
-            kUrlRealTimeCheck);
-
-    host->SafeBrowsingAsyncQueryFinished(query_data);
+    SimulateAsyncSafeBrowsingCheckFinished(host.get(), query_url);
 
     if (expected_result.has_value()) {
       histogram_tester_.ExpectUniqueSample(
@@ -496,6 +587,68 @@ class ClientSideDetectionHostIOSTest : public PlatformTest {
     }
   }
 
+  // Configures Safe Browsing, creates tab helpers, and returns a host for
+  // redirect tests.
+  std::unique_ptr<ClientSideDetectionHostIOS> SetUpHostWithSafeBrowsing(
+      ::FakeSafeBrowsingClient& client) {
+    safe_browsing::SetSafeBrowsingState(
+        profile_->GetPrefs(),
+        safe_browsing::SafeBrowsingState::ENHANCED_PROTECTION);
+
+    static_cast<FakeSafeBrowsingService*>(client.GetSafeBrowsingService())
+        ->SetDatabaseManager(database_manager_);
+    SafeBrowsingQueryManager::CreateForWebState(&web_state_, &client);
+    SafeBrowsingTabHelper::CreateForWebState(&web_state_, &client);
+
+    SnapshotTabHelper::CreateForWebState(&web_state_);
+    web_state_.SetContentsMimeType("text/html");
+
+    return CreateHost();
+  }
+
+  // Simulates a navigation through a chain of redirected URLs ending with the
+  // final committed URL.
+  void SimulateRedirectChain(::FakeSafeBrowsingClient& client,
+                             base::span<const GURL> url_chain) {
+    ASSERT_FALSE(url_chain.empty());
+    for (size_t i = 0; i < url_chain.size(); ++i) {
+      web_state_.ShouldAllowRequest(
+          [NSURLRequest requestWithURL:net::NSURLWithGURL(url_chain[i])],
+          web::WebStatePolicyDecider::RequestInfo(
+              ui::PageTransition::PAGE_TRANSITION_LINK,
+              /*target_frame_is_main=*/true,
+              /*target_frame_is_cross_origin=*/false,
+              /*target_window_is_cross_origin=*/false,
+              /*is_user_initiated=*/false, /*user_tapped_recently=*/false),
+          base::DoNothing());
+      client.run_sync_callbacks();
+
+      if (i > 0) {
+        web::FakeNavigationContext redirect_context;
+        web_state_.OnNavigationRedirected(&redirect_context);
+      }
+    }
+
+    const GURL& final_url = url_chain.back();
+    NSURLResponse* response =
+        [[NSURLResponse alloc] initWithURL:net::NSURLWithGURL(final_url)
+                                  MIMEType:@"text/html"
+                     expectedContentLength:0
+                          textEncodingName:nil];
+    web_state_.ShouldAllowResponse(
+        response,
+        web::WebStatePolicyDecider::ResponseInfo(/*for_main_frame=*/true),
+        base::DoNothing());
+    client.run_sync_callbacks();
+
+    web::FakeNavigationContext commit_context;
+    commit_context.SetUrl(final_url);
+    commit_context.SetHasCommitted(true);
+    commit_context.SetIsSameDocument(false);
+    web_state_.SetCurrentURL(final_url);
+    web_state_.OnNavigationFinished(&commit_context);
+  }
+
   web::WebTaskEnvironment task_environment_{
       web::WebTaskEnvironment::TimeSource::MOCK_TIME};
   IOSChromeScopedTestingLocalState scoped_testing_local_state_;
@@ -505,6 +658,7 @@ class ClientSideDetectionHostIOSTest : public PlatformTest {
   FakeOptimizationGuideModelProvider test_opt_guide_;
   MockClientSideDetectionService mock_service_;
   base::HistogramTester histogram_tester_;
+  id mock_page_context_wrapper_class_ = nil;
 };
 
 // Tests that GetFeatureCache() creates the feature cache on-demand when it does
@@ -524,6 +678,41 @@ TEST_F(ClientSideDetectionHostIOSTest, GetFeatureCacheNullWebState) {
   std::unique_ptr<ClientSideDetectionHostIOS> host = CreateHost();
   host->WebStateDestroyed(&web_state_);
   EXPECT_EQ(host->GetFeatureCache(), nullptr);
+}
+
+// Tests that GetRedirectChain() returns an empty vector when
+// SafeBrowsingTabHelper is not attached to the WebState.
+TEST_F(ClientSideDetectionHostIOSTest,
+       GetRedirectChainNoSafeBrowsingTabHelper) {
+  std::unique_ptr<ClientSideDetectionHostIOS> host = CreateHost();
+  EXPECT_TRUE(host->GetRedirectChain().empty());
+}
+
+// Tests that GetRedirectChain() returns an empty vector when the WebState is
+// destroyed.
+TEST_F(ClientSideDetectionHostIOSTest, GetRedirectChainNullWebState) {
+  std::unique_ptr<ClientSideDetectionHostIOS> host = CreateHost();
+  host->WebStateDestroyed(&web_state_);
+  EXPECT_TRUE(host->GetRedirectChain().empty());
+}
+
+// Tests that GetRedirectChain() returns the redirect chain from
+// SafeBrowsingTabHelper.
+TEST_F(ClientSideDetectionHostIOSTest,
+       GetRedirectChainFromSafeBrowsingTabHelper) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(
+      safe_browsing::kClientSideDetectionEnabledIos);
+
+  AttachTabHelpers(&web_state_, TabHelperFilter::kEmpty);
+  SafeBrowsingTabHelper* sb_tab_helper =
+      SafeBrowsingTabHelper::FromWebState(&web_state_);
+  ASSERT_TRUE(sb_tab_helper);
+  safe_browsing::ClientSideDetectionHostBase* csd_host =
+      sb_tab_helper->client_side_detection_host();
+  ASSERT_TRUE(csd_host);
+
+  EXPECT_EQ(csd_host->GetRedirectChain(), sb_tab_helper->GetRedirectChain());
 }
 
 // Tests that ClientSideDetectionHostIOS is created via SafeBrowsingTabHelper
@@ -937,7 +1126,7 @@ TEST_F(ClientSideDetectionHostIOSTest, CacheHitPreventsClassification) {
 }
 
 TEST_F(ClientSideDetectionHostIOSTest,
-       LocalIPAndIntranetPreventClassification) {
+       LocalhostAndPrivateIPPreventClassification) {
   safe_browsing::SetSafeBrowsingState(
       profile_->GetPrefs(),
       safe_browsing::SafeBrowsingState::ENHANCED_PROTECTION);
@@ -966,23 +1155,6 @@ TEST_F(ClientSideDetectionHostIOSTest,
       safe_browsing::PreClassificationCheckResult::NO_CLASSIFY_LOCAL_RESOURCE,
       1);
 
-  context.SetUrl(GURL(kIntranetUrl));
-  web_state_.SetCurrentURL(GURL(kIntranetUrl));
-  web_state_.OnNavigationFinished(&context);
-
-  host->MaybeStartPreClassification(
-      safe_browsing::ClientSideDetectionType::TRIGGER_MODELS);
-
-  histogram_tester_.ExpectBucketCount(
-      "SBClientPhishing.PreClassificationCheckResult",
-      safe_browsing::PreClassificationCheckResult::NO_CLASSIFY_LOCAL_RESOURCE,
-      2);
-
-  EXPECT_CALL(mock_service_,
-              IsPrivateIPAddress(testing::Property(
-                  &net::IPAddress::ToString, testing::Eq(kLoopbackIpStr))))
-      .WillOnce(testing::Return(true));
-
   context.SetUrl(GURL(kLoopbackIpUrl));
   web_state_.SetCurrentURL(GURL(kLoopbackIpUrl));
   web_state_.OnNavigationFinished(&context);
@@ -992,7 +1164,8 @@ TEST_F(ClientSideDetectionHostIOSTest,
 
   histogram_tester_.ExpectBucketCount(
       "SBClientPhishing.PreClassificationCheckResult",
-      safe_browsing::PreClassificationCheckResult::NO_CLASSIFY_PRIVATE_IP, 1);
+      safe_browsing::PreClassificationCheckResult::NO_CLASSIFY_LOCAL_RESOURCE,
+      2);
 
   EXPECT_CALL(mock_service_,
               IsPrivateIPAddress(testing::Property(&net::IPAddress::ToString,
@@ -1008,7 +1181,7 @@ TEST_F(ClientSideDetectionHostIOSTest,
 
   histogram_tester_.ExpectBucketCount(
       "SBClientPhishing.PreClassificationCheckResult",
-      safe_browsing::PreClassificationCheckResult::NO_CLASSIFY_PRIVATE_IP, 2);
+      safe_browsing::PreClassificationCheckResult::NO_CLASSIFY_PRIVATE_IP, 1);
 }
 
 TEST_F(ClientSideDetectionHostIOSTest, SuccessfulGatingLogsClassify) {
@@ -1530,13 +1703,9 @@ TEST_F(ClientSideDetectionHostIOSTest,
 }
 
 // Tests that local resources (file://) are caught before unsupported
-// scheme checks when kClientSideDetectionLocalResourceCheckFix is enabled.
+// scheme checks.
 TEST_F(ClientSideDetectionHostIOSTest,
        PreClassificationLocalResourcePreventsClassification) {
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndEnableFeature(
-      safe_browsing::kClientSideDetectionLocalResourceCheckFix);
-
   safe_browsing::SetSafeBrowsingState(
       profile_->GetPrefs(),
       safe_browsing::SafeBrowsingState::ENHANCED_PROTECTION);
@@ -2868,8 +3037,7 @@ TEST_F(ClientSideDetectionHostIOSTest,
       /*expected_result=*/
       ClientSideDetectionHostBase::AsyncCheckTriggerForceRequestResult::
           kTriggered,
-      /*expect_force_request=*/true,
-      /*is_already_forced=*/false);
+      /*expect_force_request=*/true);
 }
 
 // Tests that an asynchronous real-time check does not trigger a force request
@@ -2881,40 +3049,140 @@ TEST_F(ClientSideDetectionHostIOSTest,
       /*expected_result=*/
       ClientSideDetectionHostBase::AsyncCheckTriggerForceRequestResult::
           kSkippedNotForced,
-      /*expect_force_request=*/false,
-      /*is_already_forced=*/false);
-}
-
-// Tests that an asynchronous real-time check skips triggering a force request
-// if the page-load trigger models request was already sent as a force request.
-// TODO(crbug.com/502615476) Once redirect chains are supported, add a test
-// case similar to this one that verifies only one request is sent when there
-// are two redirects that both asynchronously try to trigger a request.
-TEST_F(ClientSideDetectionHostIOSTest,
-       AsyncSBCheckDoesNotTriggerWhenAlreadyForced) {
-  SetForceRequestRTResponseInCacheManager(kExampleUrlPattern);
-  TestAsyncSafeBrowsingCheck(
-      GURL(kExampleUrl),
-      /*expected_result=*/
-      ClientSideDetectionHostBase::AsyncCheckTriggerForceRequestResult::
-          kSkippedTriggerModelsPingSentAsForceRequest,
-      /*expect_force_request=*/false,
-      /*is_already_forced=*/true);
+      /*expect_force_request=*/false);
 }
 
 // Tests that an asynchronous real-time check for a URL that does not match the
-// current main-frame URL is ignored and does not trigger
-// a force request.
-// TODO(crbug.com/502615476): Once redirect chain tracking is implemented, add a
-// test verifying that multi-hop redirects triggering async checks deduplicate
-// cleanly.
+// current main-frame URL and is not in its redirect chain is ignored and does
+// not trigger a force request.
 TEST_F(ClientSideDetectionHostIOSTest,
        AsyncSBCheckForDifferentUrlDoesNotTrigger) {
   SetForceRequestRTResponseInCacheManager(kDifferentUrlPattern);
   TestAsyncSafeBrowsingCheck(GURL(kDifferentUrl),
                              /*expected_result=*/std::nullopt,
-                             /*expect_force_request=*/false,
-                             /*is_already_forced=*/false);
+                             /*expect_force_request=*/false);
+}
+
+// Tests that an asynchronous real-time check skips triggering a force request
+// if the page-load trigger models request was already sent as a force request.
+TEST_F(ClientSideDetectionHostIOSTest,
+       AsyncSBCheckDoesNotTriggerWhenAlreadyForced) {
+  safe_browsing::SetSafeBrowsingState(
+      profile_->GetPrefs(),
+      safe_browsing::SafeBrowsingState::ENHANCED_PROTECTION);
+
+  std::unique_ptr<ClientSideDetectionHostIOS> host = CreateHost();
+  SnapshotTabHelper::CreateForWebState(&web_state_);
+  web_state_.SetContentsMimeType("text/html");
+
+  SetForceRequestRTResponseInCacheManager(kExampleUrlPattern);
+
+  GURL main_url(kExampleUrl);
+  web::FakeNavigationContext context;
+  context.SetUrl(main_url);
+  context.SetHasCommitted(true);
+  context.SetIsSameDocument(false);
+  web_state_.SetCurrentURL(main_url);
+  web_state_.OnNavigationFinished(&context);
+
+  // Simulate visual classification completing first and dispatching the forced
+  // ping (which sets `trigger_model_request_sent_as_force_request_ = true`).
+  EXPECT_CALL(mock_service_, SendClientReportPhishingRequest(
+                                 testing::_, testing::_, testing::_))
+      .Times(1);
+  host->OnVisualClassificationDoneForTesting(main_url, {});
+
+  // When the async check finishes later, it should detect that a forced ping
+  // was already sent and deduplicate rather than triggering a second ping.
+  SimulateAsyncSafeBrowsingCheckFinished(host.get(), main_url);
+
+  histogram_tester_.ExpectUniqueSample(
+      "SBClientPhishing.ClientSideDetection."
+      "AsyncCheckTriggerForceRequestResult",
+      ClientSideDetectionHostBase::AsyncCheckTriggerForceRequestResult::
+          kSkippedTriggerModelsPingSentAsForceRequest,
+      1);
+  EXPECT_FALSE(should_send_as_force_request(host.get()));
+}
+
+// Tests that an asynchronous real-time check for a redirect URL in the redirect
+// chain triggers a force request.
+TEST_F(ClientSideDetectionHostIOSTest,
+       AsyncSBCheckInRedirectChainTriggersForceRequest) {
+  ::FakeSafeBrowsingClient client(profile_->GetPrefs());
+  std::unique_ptr<ClientSideDetectionHostIOS> host =
+      SetUpHostWithSafeBrowsing(client);
+
+  GURL redirect_url("http://redirect.test");
+  GURL main_url(kExampleUrl);
+
+  SetForceRequestRTResponseInCacheManager("redirect.test/");
+
+  SimulateRedirectChain(client, {redirect_url, main_url});
+  EXPECT_EQ(host->GetRedirectChain(),
+            std::vector<GURL>({redirect_url, main_url}));
+
+  SimulateAsyncSafeBrowsingCheckFinished(host.get(), redirect_url);
+
+  histogram_tester_.ExpectUniqueSample(
+      "SBClientPhishing.ClientSideDetection."
+      "AsyncCheckTriggerForceRequestResult",
+      ClientSideDetectionHostBase::AsyncCheckTriggerForceRequestResult::
+          kTriggered,
+      1);
+  EXPECT_TRUE(should_send_as_force_request(host.get()));
+
+  histogram_tester_.ExpectUniqueSample(
+      "SBClientPhishing.PreClassificationCheckResult.ForceRequest",
+      safe_browsing::PreClassificationCheckResult::CLASSIFY, 1);
+  EXPECT_EQ(last_request_type(host.get()),
+            safe_browsing::ClientSideDetectionType::FORCE_REQUEST);
+}
+
+// Tests that when multiple redirects in a redirect chain asynchronously finish
+// with FORCE_REQUEST verdicts, only one force request is triggered and
+// subsequent checks deduplicate cleanly.
+TEST_F(ClientSideDetectionHostIOSTest,
+       AsyncSBCheckMultipleRedirectsDeduplicates) {
+  ::FakeSafeBrowsingClient client(profile_->GetPrefs());
+  std::unique_ptr<ClientSideDetectionHostIOS> host =
+      SetUpHostWithSafeBrowsing(client);
+
+  GURL redirect_url1("http://redirect1.test");
+  GURL redirect_url2("http://redirect2.test");
+  GURL main_url(kExampleUrl);
+
+  SetForceRequestRTResponseInCacheManager("redirect1.test/");
+  SetForceRequestRTResponseInCacheManager("redirect2.test/");
+
+  SimulateRedirectChain(client, {redirect_url1, redirect_url2, main_url});
+  EXPECT_EQ(host->GetRedirectChain(),
+            std::vector<GURL>({redirect_url1, redirect_url2, main_url}));
+
+  // First async query finishes for redirect_url1 -> triggers force request.
+  SimulateAsyncSafeBrowsingCheckFinished(host.get(), redirect_url1);
+  histogram_tester_.ExpectBucketCount(
+      "SBClientPhishing.ClientSideDetection."
+      "AsyncCheckTriggerForceRequestResult",
+      ClientSideDetectionHostBase::AsyncCheckTriggerForceRequestResult::
+          kTriggered,
+      1);
+
+  // Simulate visual classification completing and sending the forced ping.
+  EXPECT_CALL(mock_service_, SendClientReportPhishingRequest(
+                                 testing::_, testing::_, testing::_))
+      .Times(1);
+  host->OnVisualClassificationDoneForTesting(main_url, {});
+
+  // Second async query finishes for redirect_url2 -> deduplicates without
+  // triggering another ping.
+  SimulateAsyncSafeBrowsingCheckFinished(host.get(), redirect_url2);
+  histogram_tester_.ExpectBucketCount(
+      "SBClientPhishing.ClientSideDetection."
+      "AsyncCheckTriggerForceRequestResult",
+      ClientSideDetectionHostBase::AsyncCheckTriggerForceRequestResult::
+          kSkippedTriggerModelsPingSentAsForceRequest,
+      1);
 }
 
 // Tests that MaybeStartImageEmbedding triggers image embedding and emits
@@ -3318,6 +3586,258 @@ TEST_F(ClientSideDetectionHostIOSTest,
       safe_browsing::PhishingDetectorResult::CLASSIFICATION_SUCCESS);
 
   EXPECT_EQ(image_embedding_start_time(host.get()), expected_start_time);
+}
+
+// Tests that `GetInnerText` initiates text extraction via `PageContextWrapper`
+// and returns the extracted inner text on success.
+TEST_F(ClientSideDetectionHostIOSTest, GetInnerTextSuccess) {
+  std::unique_ptr<ClientSideDetectionHostIOS> host = CreateHost();
+  FakeClientSideDetectionPageContextWrapper* fake_wrapper =
+      CreateAndStubPageContextWrapper();
+
+  base::test::TestFuture<std::string> future;
+  host->GetInnerText(future.GetCallback());
+
+  EXPECT_TRUE([fake_wrapper populateCalled]);
+  EXPECT_TRUE(fake_wrapper.shouldGetInnerText);
+  EXPECT_FALSE(fake_wrapper.shouldGetSnapshot);
+  EXPECT_FALSE(fake_wrapper.shouldGetFullPagePDF);
+  EXPECT_FALSE(fake_wrapper.shouldGetAnnotatedPageContent);
+  EXPECT_EQ(page_context_wrapper(host.get()), fake_wrapper);
+
+  [fake_wrapper respondWithInnerText:kTestInnerText];
+  EXPECT_EQ(future.Get(), kTestInnerText);
+  EXPECT_EQ(page_context_wrapper(host.get()), nil);
+}
+
+// Tests that `GetInnerText` returns an empty string when `PageContextWrapper`
+// returns an error response.
+TEST_F(ClientSideDetectionHostIOSTest,
+       GetInnerTextExtractionFailureReturnsEmptyString) {
+  std::unique_ptr<ClientSideDetectionHostIOS> host = CreateHost();
+  FakeClientSideDetectionPageContextWrapper* fake_wrapper =
+      CreateAndStubPageContextWrapper();
+
+  base::test::TestFuture<std::string> future;
+  host->GetInnerText(future.GetCallback());
+
+  EXPECT_TRUE([fake_wrapper populateCalled]);
+  EXPECT_EQ(page_context_wrapper(host.get()), fake_wrapper);
+  [fake_wrapper respondWithError:PageContextWrapperError::kInnerTextError];
+
+  EXPECT_EQ(future.Get(), "");
+  EXPECT_EQ(page_context_wrapper(host.get()), nil);
+}
+
+// Tests that `GetInnerText` returns an empty string when `PageContextWrapper`
+// succeeds but the `PageContext` proto contains no inner text.
+TEST_F(ClientSideDetectionHostIOSTest,
+       GetInnerTextMissingInnerTextReturnsEmptyString) {
+  std::unique_ptr<ClientSideDetectionHostIOS> host = CreateHost();
+  FakeClientSideDetectionPageContextWrapper* fake_wrapper =
+      CreateAndStubPageContextWrapper();
+
+  base::test::TestFuture<std::string> future;
+  host->GetInnerText(future.GetCallback());
+
+  EXPECT_TRUE([fake_wrapper populateCalled]);
+  EXPECT_EQ(page_context_wrapper(host.get()), fake_wrapper);
+  [fake_wrapper respondWithEmptyProto];
+
+  EXPECT_EQ(future.Get(), "");
+  EXPECT_EQ(page_context_wrapper(host.get()), nil);
+}
+
+// Tests that when an earlier inner text extraction is in flight and a newer
+// request starts, the older callback is cleanly resolved with an empty string,
+// completing the older wrapper does not affect the active newer request, and
+// the newer request completes with its extracted inner text.
+TEST_F(ClientSideDetectionHostIOSTest,
+       OverlappingInnerTextExtractionCleanlyResolvesOlderCallback) {
+  std::unique_ptr<ClientSideDetectionHostIOS> host = CreateHost();
+
+  FakeClientSideDetectionPageContextWrapper* fake_wrapper1 =
+      CreateAndStubPageContextWrapper();
+  base::test::TestFuture<std::string> future1;
+  host->GetInnerText(future1.GetCallback());
+  EXPECT_EQ(page_context_wrapper(host.get()), fake_wrapper1);
+  EXPECT_FALSE(future1.IsReady());
+
+  // Start a second request, superseding the first request.
+  FakeClientSideDetectionPageContextWrapper* fake_wrapper2 =
+      CreateAndStubPageContextWrapper();
+  base::test::TestFuture<std::string> future2;
+  host->GetInnerText(future2.GetCallback());
+
+  // The first request must be cleanly resolved with an empty string.
+  EXPECT_TRUE(future1.IsReady());
+  EXPECT_EQ(future1.Get(), "");
+  EXPECT_EQ(page_context_wrapper(host.get()), fake_wrapper2);
+  EXPECT_FALSE(future2.IsReady());
+
+  // Triggering the superseded wrapper's response must not hijack the active
+  // request's callback or nil out the active wrapper.
+  [fake_wrapper1 respondWithInnerText:"stale text"];
+  EXPECT_FALSE(future2.IsReady());
+  EXPECT_EQ(page_context_wrapper(host.get()), fake_wrapper2);
+
+  // Completing the second wrapper resolves the second request.
+  [fake_wrapper2 respondWithInnerText:"new text"];
+  EXPECT_TRUE(future2.IsReady());
+  EXPECT_EQ(future2.Get(), "new text");
+  EXPECT_EQ(page_context_wrapper(host.get()), nil);
+}
+
+// Tests that completing a cancelled inner text extraction after a subsequent
+// extraction has started does not hijack the callback or deallocate the
+// wrapper.
+TEST_F(ClientSideDetectionHostIOSTest,
+       CancelledInnerTextExtractionCompletionDoesNotAffectSubsequentRequest) {
+  std::unique_ptr<ClientSideDetectionHostIOS> host = CreateHost();
+  FakeClientSideDetectionPageContextWrapper* fake_wrapper1 =
+      CreateAndStubPageContextWrapper();
+
+  base::test::TestFuture<std::string> future1;
+  host->GetInnerText(future1.GetCallback());
+  EXPECT_TRUE([fake_wrapper1 populateCalled]);
+
+  host->CancelPendingRequests();
+  EXPECT_EQ(page_context_wrapper(host.get()), nil);
+
+  // Start a new request after cancellation.
+  FakeClientSideDetectionPageContextWrapper* fake_wrapper2 =
+      CreateAndStubPageContextWrapper();
+  base::test::TestFuture<std::string> future2;
+  host->GetInnerText(future2.GetCallback());
+  EXPECT_EQ(page_context_wrapper(host.get()), fake_wrapper2);
+
+  // Trigger response on the cancelled older wrapper; ensure it is ignored.
+  [fake_wrapper1 respondWithInnerText:"stale text"];
+  EXPECT_FALSE(future1.IsReady());
+  EXPECT_FALSE(future2.IsReady());
+  EXPECT_EQ(page_context_wrapper(host.get()), fake_wrapper2);
+
+  // Trigger response on the active newer wrapper.
+  [fake_wrapper2 respondWithInnerText:kTestInnerText];
+  EXPECT_FALSE(future1.IsReady());
+  EXPECT_TRUE(future2.IsReady());
+  EXPECT_EQ(future2.Get(), kTestInnerText);
+  EXPECT_EQ(page_context_wrapper(host.get()), nil);
+}
+
+// Tests that `GetInnerText` returns an empty string immediately when
+// `web_state` is null.
+TEST_F(ClientSideDetectionHostIOSTest,
+       GetInnerTextNullWebStateReturnsEmptyString) {
+  std::unique_ptr<ClientSideDetectionHostIOS> host = CreateHost();
+  host->WebStateDestroyed(&web_state_);
+
+  base::test::TestFuture<std::string> future;
+  host->GetInnerText(future.GetCallback());
+
+  EXPECT_EQ(future.Get(), "");
+}
+
+// Tests that `CancelPendingRequests` cancels pending inner text extraction so
+// that subsequent wrapper completion does not invoke the callback.
+TEST_F(ClientSideDetectionHostIOSTest,
+       CancelPendingRequestsCancelsInnerTextExtraction) {
+  std::unique_ptr<ClientSideDetectionHostIOS> host = CreateHost();
+  FakeClientSideDetectionPageContextWrapper* fake_wrapper =
+      CreateAndStubPageContextWrapper();
+
+  base::test::TestFuture<std::string> future;
+  host->GetInnerText(future.GetCallback());
+
+  EXPECT_TRUE([fake_wrapper populateCalled]);
+  host->CancelPendingRequests();
+
+  // Trigger response after cancellation; ensure no callback dispatch occurs.
+  [fake_wrapper respondWithInnerText:kTestInnerText];
+
+  EXPECT_FALSE(future.IsReady());
+}
+
+// Test that swapping the `Scorer` on the service drops the raw `Scorer`
+// pointers cached by the classifier and the image embedder. The service hands
+// the previous `Scorer` to a background thread for destruction before notifying
+// observers, so a cached pointer would be dereferenced while the `Scorer`'s
+// memory-mapped model is being unmapped. See crbug.com/561910278.
+TEST_F(ClientSideDetectionHostIOSTest, ScorerChangeClearsCachedScorer) {
+  std::unique_ptr<ClientSideDetectionHostIOS> host = CreateHost();
+  set_last_request_type(host.get(),
+                        safe_browsing::ClientSideDetectionType::TRIGGER_MODELS);
+
+  OnSnapshotReceived(host.get(), GURL(kExampleUrl), CreateTestImage());
+  ASSERT_TRUE(classifier(host.get())->is_ready());
+  ASSERT_TRUE(image_embedder(host.get())->is_ready());
+
+  mock_service_.SetScorerForTesting(std::make_unique<safe_browsing::Scorer>());
+
+  EXPECT_FALSE(classifier(host.get())->is_ready());
+  EXPECT_FALSE(image_embedder(host.get())->is_ready());
+}
+
+// Test that a `Scorer` change cancels in-flight image embedding. Cancellation
+// deliberately does not consult `is_ready()`, because that reads the very
+// `Scorer` pointer that the service just handed to a background thread for
+// destruction. See crbug.com/561910278.
+TEST_F(ClientSideDetectionHostIOSTest, ScorerChangeCancelsImageEmbedding) {
+  std::unique_ptr<ClientSideDetectionHostIOS> host = CreateHost();
+  auto mock_embedder = std::make_unique<MockPhishingImageEmbedder>();
+  MockPhishingImageEmbedder* mock_embedder_ptr = mock_embedder.get();
+  set_image_embedder(host.get(), std::move(mock_embedder));
+
+  EXPECT_CALL(*mock_embedder_ptr, CancelPendingImageEmbedding())
+      .Times(testing::AtLeast(1));
+
+  mock_service_.SetScorerForTesting(nullptr);
+
+  // Verify now rather than at host destruction, which also cancels.
+  testing::Mock::VerifyAndClearExpectations(mock_embedder_ptr);
+}
+
+// Tests that destroying `ClientSideDetectionHostIOS` while `PageContextWrapper`
+// is in flight safely resets and does not cause a use-after-free.
+TEST_F(ClientSideDetectionHostIOSTest,
+       HostDestructionDuringExtractionDoesNotCrash) {
+  std::unique_ptr<ClientSideDetectionHostIOS> host = CreateHost();
+  FakeClientSideDetectionPageContextWrapper* fake_wrapper =
+      CreateAndStubPageContextWrapper();
+
+  base::test::TestFuture<std::string> future;
+  host->GetInnerText(future.GetCallback());
+
+  EXPECT_TRUE([fake_wrapper populateCalled]);
+
+  // Destroy the host while the wrapper is in flight.
+  host.reset();
+
+  // Trigger response on the orphan wrapper; ensure no crash or callback
+  // dispatch occurs.
+  [fake_wrapper respondWithInnerText:kTestInnerText];
+
+  EXPECT_FALSE(future.IsReady());
+}
+
+// Tests that `WebState` destruction cancels pending inner text extraction.
+TEST_F(ClientSideDetectionHostIOSTest,
+       WebStateDestructionCancelsPendingInnerTextExtraction) {
+  std::unique_ptr<ClientSideDetectionHostIOS> host = CreateHost();
+  FakeClientSideDetectionPageContextWrapper* fake_wrapper =
+      CreateAndStubPageContextWrapper();
+
+  base::test::TestFuture<std::string> future;
+  host->GetInnerText(future.GetCallback());
+
+  EXPECT_TRUE([fake_wrapper populateCalled]);
+  host->WebStateDestroyed(&web_state_);
+
+  // Trigger response after `WebState` destruction; ensure no callback dispatch
+  // occurs.
+  [fake_wrapper respondWithInnerText:kTestInnerText];
+
+  EXPECT_FALSE(future.IsReady());
 }
 
 }  // namespace safe_browsing

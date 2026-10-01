@@ -34,6 +34,7 @@
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/abseil-cpp/absl/strings/str_format.h"
+#include "ui/base/window_open_disposition.h"
 #include "url/gurl.h"
 
 namespace actor {
@@ -53,12 +54,14 @@ using State = ::actor::ObservationDelayController::State;
 class ObservationDelayControllerTest : public ObservationDelayTest {
  public:
   ObservationDelayControllerTest() {
-    scoped_feature_list_.InitAndEnableFeatureWithParameters(
-        features::kGlicActor,
-        {// Effectively disable the timeout to prevent flakes.
-         {features::kGlicActorPageStabilityTimeout.name, "30000ms"},
-         // Use small LCP delay.
-         {features::kActorObservationDelayLcp.name, "100ms"}});
+    scoped_feature_list_.InitWithFeaturesAndParameters(
+        {{kActorPageStability,
+          {// Effectively disable the timeout to prevent flakes.
+           {kActorPageStabilityTimeout.name, "30000ms"}}},
+         {kActorObservationDelay,
+          {// Use small LCP delay.
+           {kActorObservationDelayLcp.name, "100ms"}}}},
+        {});
   }
   ~ObservationDelayControllerTest() override = default;
 
@@ -305,13 +308,15 @@ class ObservationDelayControllerLcpTest : public ObservationDelayTest {
   static constexpr int kLcpDelayInMs = 3000;
   ObservationDelayControllerLcpTest() {
     std::string lcp_delay = absl::StrFormat("%dms", kLcpDelayInMs);
-    scoped_feature_list_.InitAndEnableFeatureWithParameters(
-        features::kGlicActor,
-        {// Effectively disable the timeout to prevent flakes.
-         {features::kGlicActorPageStabilityTimeout.name, "30000ms"},
-         // Do not use min wait
-         {features::kGlicActorPageStabilityMinWait.name, "0ms"},
-         {features::kActorObservationDelayLcp.name, lcp_delay}});
+    scoped_feature_list_.InitWithFeaturesAndParameters(
+        {{kActorPageStability,
+          {// Effectively disable the timeout to prevent flakes.
+           {kActorPageStabilityTimeout.name, "30000ms"},
+           // Do not use min wait
+           {kActorPageStabilityMinWait.name, "0ms"}}},
+         {kActorObservationDelay,
+          {{kActorObservationDelayLcp.name, lcp_delay}}}},
+        {});
   }
   ~ObservationDelayControllerLcpTest() override = default;
 
@@ -399,7 +404,7 @@ IN_PROC_BROWSER_TEST_P(ObservationDelayControllerExcludeAdRequestsTest,
   ASSERT_TRUE(iframe_rfh);
 
   // Mark the iframe as an ad frame.
-  iframe_rfh->UpdateIsAdFrame(/*is_ad_frame=*/true);
+  iframe_rfh->UpdateToAdFrame();
 
   const GURL iframe_url = embedded_test_server()->GetURL("/actor/simple.html");
   TestNavigationManager iframe_manager(web_contents(), iframe_url);
@@ -481,17 +486,18 @@ class ObservationDelayControllerAutofillTest
     std::string lcp_delay = absl::StrFormat("%dms", lcp_delay_in_ms);
     feature_list_.InitWithFeaturesAndParameters(
         {{autofill::features::kAutofillDelayApcForPredictions, {}},
-         {features::kGlicActor,
+         {kActorPageStability,
           {// Effectively disable stability timeout to prevent flakes.
-           {features::kGlicActorPageStabilityTimeout.name, "30000ms"},
+           {kActorPageStabilityTimeout.name, "30000ms"},
            // Do not use min wait for stability so that it happens immediately.
-           {features::kGlicActorPageStabilityMinWait.name, "0ms"},
-           // wait for LCP quickly so that it happens immediately.
-           {features::kActorObservationDelayLcp.name, lcp_delay},
-           {features::kActorObservationDelayAutofillPredictionsTimeout.name,
+           {kActorPageStabilityMinWait.name, "0ms"}}},
+         {kActorObservationDelay,
+          {// wait for LCP quickly so that it happens immediately.
+           {kActorObservationDelayLcp.name, lcp_delay},
+           {kActorObservationDelayAutofillPredictionsTimeout.name,
             autofill_parsing_timeout},
            // Timeout the overall process after 15 seconds.
-           {features::kActorObservationDelayTimeout.name, "15000ms"}}}},
+           {kActorObservationDelayTimeout.name, "15000ms"}}}},
         {});
   }
 

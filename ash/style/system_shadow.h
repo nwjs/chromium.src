@@ -22,7 +22,6 @@ namespace ui {
 class ColorProvider;
 class ColorProviderSource;
 class Layer;
-class LayerNinePatch;
 class Shadow;
 }  // namespace ui
 
@@ -45,10 +44,6 @@ class ASH_EXPORT SystemShadow : public ui::ColorProviderSourceObserver {
     kElevation24,  // corresponds to cros.sys.system-elevation5.
   };
 
-  using LayerRecreatedCallback =
-      base::RepeatingCallback<void(ui::Layer* /*old_layer*/,
-                                   ui::Layer* /*new_layer*/)>;
-
   ~SystemShadow() override;
 
   // Create a system shadow based on `ui::Shadow` which paints shadow on a nine
@@ -58,8 +53,7 @@ class ASH_EXPORT SystemShadow : public ui::ColorProviderSourceObserver {
   // shadow's layer at the bottom of the view's parent layer. The layer's
   // content bounds should be manually updated.
   static std::unique_ptr<SystemShadow> CreateShadowOnNinePatchLayer(
-      Type shadow_type,
-      const LayerRecreatedCallback& layer_recreated_callback);
+      Type shadow_type);
 
   // Create a system shadow based on `ash::ViewShadow`. This shadow is used for
   // views. The shadow's layer is added to the `layers_beneath_` of the view and
@@ -101,12 +95,6 @@ class ASH_EXPORT SystemShadow : public ui::ColorProviderSourceObserver {
   // Return the layer of the shadow. The layer is commonly used for setting
   // layer hierarchy, visibility, and transformation.
   ui::Layer* GetLayer();
-
-  // Return the nine patch layer of the shadow. The nine patch layer is a child
-  // layer of the shadow's layer painted with the shadow image. Normally, set
-  // the hierarchy, visibility and transformation on the shadow's layer instead
-  // of the nine patch layer.
-  ui::LayerNinePatch* GetNinePatchLayer();
 
   // Observe the given color provider source to update the shadow colors.
   void ObserveColorProviderSource(

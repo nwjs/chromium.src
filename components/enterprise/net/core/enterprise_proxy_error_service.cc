@@ -9,10 +9,9 @@
 #include "base/functional/bind.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/strings/string_number_conversions.h"
-#include "base/strings/stringprintf.h"
-#include "components/enterprise/net/core/enterprise_proxy_error_data.h"
-#include "components/enterprise/net/core/enterprise_proxy_service.h"
 #include "components/enterprise/net/core/features.h"
+#include "components/error_page/common/localized_error.h"
+#include "net/log/net_log_event_type.h"
 
 namespace enterprise_net {
 
@@ -24,28 +23,65 @@ EnterpriseProxyErrorService::EnterpriseProxyErrorService(
 
 EnterpriseProxyErrorService::~EnterpriseProxyErrorService() = default;
 
-std::string EnterpriseProxyErrorService::GetErrorPageHTML(
-    Delegate* delegate) const {
-  if (!IsEnterpriseProxyErrorHandlingEnabled() || !delegate) {
-    return std::string();
+void EnterpriseProxyErrorService::RecordDisguisedError(
+    int64_t navigation_id,
+    EnterpriseProxyErrorData error_data,
+    const net::NetLogWithSource& net_log) {
+  if (navigation_id != 0) {
+    net_log.AddEvent(
+        net::NetLogEventType::ENTERPRISE_PROXY_DISGUISED_ERROR_SAVED, [&] {
+          return base::DictValue()
+              .Set("navigation_id", base::NumberToString(navigation_id))
+              .Set("destination_url",
+                   error_data.destination_url().possibly_invalid_spec())
+              .Set("proxy_url", error_data.proxy_url().possibly_invalid_spec())
+              .Set("error_code", error_data.error_code());
+        });
   }
-  const EnterpriseProxyErrorData* error_data =
-      delegate->GetDisguisedErrorData();
-  if (!error_data) {
-    return std::string();
+  disguised_errors_.insert_or_assign(navigation_id, std::move(error_data));
+}
+
+std::optional<EnterpriseProxyErrorData>
+EnterpriseProxyErrorService::TakeDisguisedError(int64_t navigation_id) {
+  auto it = disguised_errors_.find(navigation_id);
+  if (it == disguised_errors_.end()) {
+    return std::nullopt;
+  }
+  EnterpriseProxyErrorData data = std::move(it->second);
+  disguised_errors_.erase(it);
+  return data;
+}
+
+void EnterpriseProxyErrorService::RemoveDisguisedError(int64_t navigation_id) {
+  disguised_errors_.erase(navigation_id);
+}
+
+base::DictValue EnterpriseProxyErrorService::GetErrorPageParams(
+    const EnterpriseProxyErrorData& error_data) const {
+  base::DictValue params;
+  if (!IsEnterpriseProxyErrorHandlingEnabled()) {
+    return params;
   }
 
-  base::UmaHistogramSparse("Enterprise.Proxy.DisguisedErrorPage.ErrorCode",
-                           error_data->error_code());
+  RecordErrorCodeHistogram(error_data.error_code());
 
-  return GetErrorPageHTML(*error_data);
+  params.Set(error_page::kOverrideErrorPage, true);
+  params.Set("title", "Enterprise Proxy Error");
+  params.Set("destination_url", error_data.destination_url().spec());
+  params.Set("proxy_url", error_data.proxy_url().spec());
+  params.Set("error_code", base::NumberToString(error_data.error_code()));
+  params.Set(
+      "error_category",
+      base::NumberToString(static_cast<int>(error_data.error_category())));
+  params.Set("is_enterprise_proxy_error", true);
+  return params;
 }
 
 bool EnterpriseProxyErrorService::InterceptProxyAuthChallenge(
     const net::AuthChallengeInfo& auth_info,
     const GURL& destination_url,
     const scoped_refptr<net::HttpResponseHeaders>& response_headers,
-    std::unique_ptr<Delegate> delegate,
+    int64_t navigation_id,
     base::OnceCallback<void(const std::optional<net::AuthCredentials>&)>
         callback) {
   bool is_handled = true;
@@ -59,7 +95,7 @@ bool EnterpriseProxyErrorService::InterceptProxyAuthChallenge(
   }
   auto eps_callback = base::BindOnce(
       &EnterpriseProxyErrorService::OnProxyAuthChallengeResult,
-      weak_ptr_factory_.GetWeakPtr(), &is_handled, std::move(delegate),
+      weak_ptr_factory_.GetWeakPtr(), &is_handled, navigation_id,
       destination_url, std::move(proxy_url), error_code, std::move(callback));
 
   enterprise_proxy_service_->HandleProxyAuthChallenge(
@@ -68,49 +104,67 @@ bool EnterpriseProxyErrorService::InterceptProxyAuthChallenge(
   return is_handled;
 }
 
-// TODO(crbug.com/543015665): Replace with production error page HTML/TS
-// template.
-std::string EnterpriseProxyErrorService::GetErrorPageHTML(
-    const EnterpriseProxyErrorData& error_data) const {
-  return base::StringPrintf(
-      "<!DOCTYPE html>\n"
-      "<html>\n"
-      "<head><title>Enterprise Proxy Error</title></head>\n"
-      "<body>\n"
-      "<h1>Enterprise Proxy Error</h1>\n"
-      "<p>Destination URL: <span id=\"destination-url\">%s</span></p>\n"
-      "<p>Proxy URL: <span id=\"proxy-url\">%s</span></p>\n"
-      "<p>Disguised Error Code: <span id=\"error-code\">%d</span></p>\n"
-      "</body>\n"
-      "</html>\n",
-      error_data.destination_url().spec().c_str(),
-      error_data.proxy_url().spec().c_str(), error_data.error_code());
+void EnterpriseProxyErrorService::RecordErrorCodeHistogram(
+    int error_code) const {
+  base::UmaHistogramSparse("Enterprise.Proxy.DisguisedErrorPage.ErrorCode",
+                           error_code);
+}
+
+void EnterpriseProxyErrorService::MaybeRecordErrorForNavigation(
+    int64_t navigation_id,
+    const GURL& destination_url,
+    const GURL& proxy_url,
+    int error_code,
+    EnterpriseProxyErrorData::ErrorCategory category,
+    const net::NetLogWithSource& net_log) {
+  if (navigation_id <= 0) {
+    return;
+  }
+  RecordDisguisedError(navigation_id,
+                       EnterpriseProxyErrorData(destination_url, proxy_url,
+                                                error_code, category),
+                       net_log);
 }
 
 void EnterpriseProxyErrorService::OnProxyAuthChallengeResult(
     bool* handled_flag,
-    std::unique_ptr<Delegate> delegate,
+    int64_t navigation_id,
     const GURL& destination_url,
     const GURL& proxy_url,
     int error_code,
     base::OnceCallback<void(const std::optional<net::AuthCredentials>&)>
         coord_callback,
     EnterpriseProxyService::ProxyAuthChallengeResult result,
-    const std::optional<net::AuthCredentials>& credentials) {
+    const std::optional<net::AuthCredentials>& credentials,
+    const net::NetLogWithSource& net_log) {
   switch (result) {
     case EnterpriseProxyService::ProxyAuthChallengeResult::kNotApplicable:
       *handled_flag = false;
       return;
-    case EnterpriseProxyService::ProxyAuthChallengeResult::kDisguisedError:
-      if (delegate) {
-        delegate->AttachDisguisedErrorData(
-            EnterpriseProxyErrorData(destination_url, proxy_url, error_code));
-      }
+    case EnterpriseProxyService::ProxyAuthChallengeResult::kDisguisedError: {
+      EnterpriseProxyErrorData::ErrorCategory category =
+          (error_code == 403)
+              ? EnterpriseProxyErrorData::ErrorCategory::kAuthorization
+              : EnterpriseProxyErrorData::ErrorCategory::kOther;
+      MaybeRecordErrorForNavigation(navigation_id, destination_url, proxy_url,
+                                    error_code, category, net_log);
+      std::move(coord_callback).Run(std::nullopt);
+      return;
+    }
+    case EnterpriseProxyService::ProxyAuthChallengeResult::kSignInRequired:
+      MaybeRecordErrorForNavigation(
+          navigation_id, destination_url, proxy_url, error_code,
+          EnterpriseProxyErrorData::ErrorCategory::kAuthentication, net_log);
+      std::move(coord_callback).Run(std::nullopt);
+      return;
+    case EnterpriseProxyService::ProxyAuthChallengeResult::
+        kCredentialFetchFailure:
+      MaybeRecordErrorForNavigation(
+          navigation_id, destination_url, proxy_url, error_code,
+          EnterpriseProxyErrorData::ErrorCategory::kOther, net_log);
       std::move(coord_callback).Run(std::nullopt);
       return;
     case EnterpriseProxyService::ProxyAuthChallengeResult::kNoCredentialsNeeded:
-    case EnterpriseProxyService::ProxyAuthChallengeResult::
-        kCredentialFetchFailure:
       std::move(coord_callback).Run(std::nullopt);
       return;
     case EnterpriseProxyService::ProxyAuthChallengeResult::

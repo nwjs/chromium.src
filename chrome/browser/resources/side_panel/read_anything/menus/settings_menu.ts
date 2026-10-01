@@ -243,6 +243,11 @@ export class SettingsMenuElement extends SettingsMenuElementBase {
     this.keyDownCallback_ = this.onKeyDown_.bind(this);
   }
 
+  override disconnectedCallback() {
+    super.disconnectedCallback();
+    this.close();
+  }
+
   override willUpdate(changedProperties: PropertyValues<this>) {
     super.willUpdate(changedProperties);
 
@@ -298,7 +303,6 @@ export class SettingsMenuElement extends SettingsMenuElementBase {
       SettingsOption.MEDIA,
       SettingsOption.TEXT,
       SettingsOption.AUDIO,
-      SettingsOption.VOICE_SELECTION,
     ];
 
     if (this.visualBrowserProxy_.isLineFocusEnabled()) {
@@ -326,10 +330,18 @@ export class SettingsMenuElement extends SettingsMenuElementBase {
 
     this.options_ = optionIDs.map(id => {
       const original = MENU_ITEM_DATA[id];
-      const title = loadTimeData.getString(original.title);
+      let title = loadTimeData.getString(original.title);
       let ariaLabel = title;
       let checked = false;
       let disabled = false;
+      let icon = original.icon;
+
+      if (id === SettingsOption.LINE_FOCUS &&
+          this.visualBrowserProxy_.isReadAnythingImprovedUiEnabled()) {
+        icon = 'read-anything:service_toolbox';
+        title = loadTimeData.getString('toolsLabel');
+        ariaLabel = title;
+      }
 
       if (id === SettingsOption.IMAGES) {
         checked = this.visualBrowserProxy_.isImagesEnabled();
@@ -356,6 +368,7 @@ export class SettingsMenuElement extends SettingsMenuElementBase {
         ...original,
         id,
         title,
+        icon,
         ariaLabel,
         checked,
         disabled,
@@ -443,13 +456,14 @@ export class SettingsMenuElement extends SettingsMenuElementBase {
       return;
     }
 
-    this.fire(ToolbarEvent.OPEN_SETTINGS_SUBMENU, {
-      id: newMenuId,
-      previousId: this.currentOpenId_,
-      target: currentTarget,
-    });
+    const previousId = this.currentOpenId_;
     this.currentOpenId_ = newMenuId;
     this.lastMenuOpenTime_ = Date.now();
+    this.fire(ToolbarEvent.OPEN_SETTINGS_SUBMENU, {
+      id: newMenuId,
+      previousId,
+      target: currentTarget,
+    });
   }
 
   private onToggleMenuItemClick_(item: SettingsItem) {
@@ -519,13 +533,14 @@ export class SettingsMenuElement extends SettingsMenuElementBase {
         MENU_SHOW_DELAY_MS;
 
     this.openTimer_ = window.setTimeout(() => {
-      this.fire(ToolbarEvent.OPEN_SETTINGS_SUBMENU, {
-        id: newMenuId,
-        previousId: this.currentOpenId_,
-        target: currentTarget,
-      });
+      const previousId = this.currentOpenId_;
       this.currentOpenId_ = newMenuId;
       this.lastMenuOpenTime_ = Date.now();
+      this.fire(ToolbarEvent.OPEN_SETTINGS_SUBMENU, {
+        id: newMenuId,
+        previousId,
+        target: currentTarget,
+      });
     }, delay);
   }
 

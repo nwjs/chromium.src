@@ -17,7 +17,7 @@ import {Ink2Manager, MIN_TEXTBOX_SIZE_PX, stylesEqual} from '../ink2_manager.js'
 import {convertRotatedCoordinates, screenToPageCoordinates} from '../ink_text_annotation_utils.js';
 import {record, UserAction} from '../metrics.js';
 import {PdfViewerPrivateProxyImpl} from '../pdf_viewer_private_proxy.js';
-import {colorsEqual, colorToHex, hasCtrlModifier, hasCtrlModifierOnly} from '../pdf_viewer_utils.js';
+import {colorsEqual, colorToHex, hasCtrlModifier, hasCtrlModifierOnly, isStrikethroughShortcut} from '../pdf_viewer_utils.js';
 import type {Viewport, ViewportRect} from '../viewport.js';
 
 import {getCss} from './ink_text_box.css.js';
@@ -577,6 +577,13 @@ export class InkTextBoxElement extends InkTextBoxElementBase {
       }
     }
 
+    if (isStrikethroughShortcut(e)) {
+      e.preventDefault();
+      e.stopPropagation();
+      Ink2Manager.getInstance().toggleTextStyle(TextStyle.STRIKETHROUGH);
+      return;
+    }
+
     const target = e.composedPath()[0];
 
     // Ignore keyboard events on the textbox itself, other than 'Escape', which
@@ -792,8 +799,14 @@ export class InkTextBoxElement extends InkTextBoxElementBase {
     this.$.textbox.style.fontWeight =
         newAttributes.styles.bold ? 'bold' : 'normal';
     this.$.textbox.style.color = colorToHex(newAttributes.color);
-    this.$.textbox.style.textDecoration =
-        newAttributes.styles.strikethrough ? 'line-through' : 'none';
+    const decorations: string[] = [];
+    if (newAttributes.styles.underline) {
+      decorations.push('underline');
+    }
+    if (newAttributes.styles.strikethrough) {
+      decorations.push('line-through');
+    }
+    this.$.textbox.style.textDecoration = decorations.join(' ') || 'none';
   }
 
   override onTextAttributesChanged(newAttributes: TextAttributes) {

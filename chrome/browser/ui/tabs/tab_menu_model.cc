@@ -63,6 +63,7 @@
 #include "extensions/buildflags/buildflags.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/ui_base_features.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/views/vector_icons.h"
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
@@ -83,6 +84,7 @@ DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(TabMenuModel, kArrangeSplitTabsMenuItem);
 DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(TabMenuModel, kSwapSplitTabsMenuItem);
 DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(TabMenuModel, kAddNewTabAdjacentMenuItem);
 DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(TabMenuModel, kDuplicateMenuItem);
+DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(TabMenuModel, kFocusTabGroupMenuItem);
 
 TabMenuModel::TabMenuModel(ui::SimpleMenuModel::Delegate* delegate,
                            TabMenuModelDelegate* tab_menu_model_delegate,
@@ -221,19 +223,19 @@ void TabMenuModel::BuildSendTabToSelfSubmenu(int index,
 #if BUILDFLAG(IS_MAC)
   if (features::IsMenuSimplificationEnabled()) {
     AddSubMenuWithStringIdAndIcon(
-        TabStripModel::CommandSendTabToSelf, IDS_MENU_SEND_TAB_TO_SELF,
+        TabStripModel::CommandSendTabToSelf, IDS_CONTEXT_MENU_SEND_TAB_TO_SELF,
         send_tab_to_self_submenu_.get(),
         ui::ImageModel::FromVectorIcon(
             features::IsRoundedIconsEnabled() ? kDevicesIcon : kDevicesOldIcon,
             ui::kColorMenuIcon, kTabMenuIconSize));
   } else {
     AddSubMenuWithStringId(TabStripModel::CommandSendTabToSelf,
-                           IDS_MENU_SEND_TAB_TO_SELF,
+                           IDS_CONTEXT_MENU_SEND_TAB_TO_SELF,
                            send_tab_to_self_submenu_.get());
   }
 #else
   AddSubMenuWithStringIdAndIcon(
-      TabStripModel::CommandSendTabToSelf, IDS_MENU_SEND_TAB_TO_SELF,
+      TabStripModel::CommandSendTabToSelf, IDS_CONTEXT_MENU_SEND_TAB_TO_SELF,
       send_tab_to_self_submenu_.get(),
       ui::ImageModel::FromVectorIcon(
           features::IsRoundedIconsEnabled() ? kDevicesIcon : kDevicesOldIcon,
@@ -252,19 +254,20 @@ void TabMenuModel::BuildSendTabToSelfSubmenu(int index,
 void TabMenuModel::BuildLegacySendTabToSelfItem() {
 #if BUILDFLAG(IS_MAC)
   if (features::IsMenuSimplificationEnabled()) {
-    AddItemWithIcon(TabStripModel::CommandSendTabToSelf,
-                    l10n_util::GetStringUTF16(IDS_MENU_SEND_TAB_TO_SELF),
-                    ui::ImageModel::FromVectorIcon(
-                        features::IsRoundedIconsEnabled() ? kDevicesIcon
-                                                          : kDevicesOldIcon));
+    AddItemWithIcon(
+        TabStripModel::CommandSendTabToSelf,
+        l10n_util::GetStringUTF16(IDS_CONTEXT_MENU_SEND_TAB_TO_SELF),
+        ui::ImageModel::FromVectorIcon(features::IsRoundedIconsEnabled()
+                                           ? kDevicesIcon
+                                           : kDevicesOldIcon));
   } else {
     AddItem(TabStripModel::CommandSendTabToSelf,
-            l10n_util::GetStringUTF16(IDS_MENU_SEND_TAB_TO_SELF));
+            l10n_util::GetStringUTF16(IDS_CONTEXT_MENU_SEND_TAB_TO_SELF));
   }
 #else
   AddItemWithIcon(
       TabStripModel::CommandSendTabToSelf,
-      l10n_util::GetStringUTF16(IDS_MENU_SEND_TAB_TO_SELF),
+      l10n_util::GetStringUTF16(IDS_CONTEXT_MENU_SEND_TAB_TO_SELF),
       ui::ImageModel::FromVectorIcon(
           features::IsRoundedIconsEnabled() ? kDevicesIcon : kDevicesOldIcon));
 #endif
@@ -403,6 +406,19 @@ void TabMenuModel::Build(int index) {
                                            : kSplitSceneOldIcon,
                                        ui::kColorMenuIcon, kTabMenuIconSize));
     SetElementIdentifierAt(GetItemCount() - 1, kArrangeSplitTabsMenuItem);
+  }
+
+  if (base::FeatureList::IsEnabled(features::kTabGroupsFocusing) &&
+      tab_strip_->SupportsTabGroups()) {
+    std::optional<tab_groups::TabGroupId> group_id =
+        tab_strip_->GetTabGroupForTab(index);
+    if (group_id.has_value()) {
+      const bool is_focused = tab_strip_->GetFocusedGroup() == group_id;
+      AddItemWithStringId(TabStripModel::CommandToggleFocusGroup,
+                          is_focused ? IDS_TAB_CXMENU_UNFOCUS_TAB_GROUP
+                                     : IDS_TAB_CXMENU_FOCUS_TAB_GROUP);
+      SetElementIdentifierAt(GetItemCount() - 1, kFocusTabGroupMenuItem);
+    }
   }
 
   if (ExistingTabGroupSubMenuModel::ShouldShowSubmenu(

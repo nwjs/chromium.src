@@ -51,7 +51,7 @@
           "networkPredictionEnabled": {
             "$ref": "types.ChromeSetting",
             "value": ["networkPredictionEnabled", {"type":"boolean"}],
-            "description": "If enabled, Chrome attempts to speed up your web browsing experience by pre-resolving DNS entries and preemptively opening TCP and SSL connections to servers. This preference only affects actions taken by Chrome's internal prediction service. It does not affect webpage-initiated prefectches or preconnects. This preference's value is a boolean, defaulting to <code>true</code>."
+            "description": "If enabled, Chrome attempts to speed up your web browsing experience by pre-resolving DNS entries, preemptively opening TCP and SSL connections to servers, and preloading pages. Disabling this preference overrides site owners' ability to speculatively load content (such as prefetching or prerendering via the <a href='https://developer.mozilla.org/docs/Web/API/Speculation_Rules_API'>Speculation Rules API</a>). It does not affect webpage-initiated preconnects or DNS prefetches. This preference's value is a boolean, defaulting to <code>true</code>."
           },
           "webRTCIPHandlingPolicy": {
             "$ref": "types.ChromeSetting",
@@ -169,11 +169,6 @@
             "value": ["protectedContentEnabled", {"type":"boolean"}],
             "description": "<strong>Available on Windows and ChromeOS only</strong>: If enabled, Chrome provides a unique ID to plugins in order to run protected content. The value of this preference is of type boolean, and the default value is <code>true</code>.",
             "platforms": ["win", "chromeos"]
-          },
-          "relatedWebsiteSetsEnabled": {
-            "$ref": "types.ChromeSetting",
-            "value": ["relatedWebsiteSetsEnabled", {"type": "boolean"}],
-            "description": "If disabled, <a href='https://developer.chrome.com/docs/privacy-sandbox/related-website-sets/'>Related Website Sets</a> is deactivated. The value of this preference is of type boolean, and the default value is <code>true</code>. Extensions may only disable this API by setting the value to <code>false</code>. If you try setting this API to <code>true</code>, it will throw an error."
           }
         }
       }

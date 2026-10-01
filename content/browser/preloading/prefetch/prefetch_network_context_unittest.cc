@@ -10,6 +10,7 @@
 #include "content/browser/preloading/prefetch/prefetch_test_util_internal.h"
 #include "content/browser/preloading/prefetch/prefetch_type.h"
 #include "content/browser/preloading/prefetch/prefetch_url_loader_factory_utils.h"
+#include "content/browser/renderer_host/render_frame_host_impl.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/child_process_host.h"
 #include "content/public/browser/preloading_trigger_type.h"

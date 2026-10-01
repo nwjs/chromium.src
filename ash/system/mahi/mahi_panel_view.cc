@@ -15,7 +15,6 @@
 #include "ash/constants/url_constants.h"
 #include "ash/controls/rounded_scroll_bar.h"
 #include "ash/public/cpp/new_window_delegate.h"
-#include "ash/public/cpp/style/color_provider.h"
 #include "ash/resources/vector_icons/vector_icons.h"
 #include "ash/strings/grit/ash_strings.h"
 #include "ash/style/icon_button.h"
@@ -522,31 +521,27 @@ MahiPanelView::MahiPanelView(MahiUiController* ui_controller)
 
   if (chromeos::features::IsSystemBlurEnabled()) {
     layer()->SetFillsBoundsOpaquely(false);
-    layer()->SetBackgroundBlur(ColorProvider::kBackgroundBlurSigma);
-    layer()->SetBackdropFilterQuality(ColorProvider::kBackgroundBlurQuality);
+    layer()->SetBackgroundBlur(StyleUtil::kBackgroundBlurSigma);
+    layer()->SetBackdropFilterQuality(StyleUtil::kBackgroundBlurQuality);
   }
   SetBorder(std::make_unique<views::HighlightBorder>(
       mahi_constants::kPanelCornerRadius,
       views::HighlightBorder::Type::kHighlightBorderOnShadow,
       /*insets_type=*/views::HighlightBorder::InsetsType::kHalfInsets));
 
-  // If resizing is enabled, display the drag handle icon at the bottom right
-  // corner of the panel.
-  if (base::FeatureList::IsEnabled(chromeos::features::kMahiPanelResizable)) {
-    AddChildView(
-        views::Builder<views::BoxLayoutView>()
-            .SetMainAxisAlignment(views::LayoutAlignment::kEnd)
-            .SetCrossAxisAlignment(views::LayoutAlignment::kEnd)
-            .AddChild(
-                views::Builder<views::ImageView>()
-                    .SetID(mahi_constants::ViewId::kDragHandleIcon)
-                    .SetImage(ui::ImageModel::FromVectorIcon(
-                        ash::kDragHandleIcon, cros_tokens::kCrosSysSecondary,
-                        kDragHandleIconSize))
-                    .SetBorder(
-                        views::CreateEmptyBorder(kDragHandleIconPadding)))
-            .Build());
-  }
+  // Display the drag handle icon at the bottom right corner of the panel.
+  AddChildView(
+      views::Builder<views::BoxLayoutView>()
+          .SetMainAxisAlignment(views::LayoutAlignment::kEnd)
+          .SetCrossAxisAlignment(views::LayoutAlignment::kEnd)
+          .AddChild(
+              views::Builder<views::ImageView>()
+                  .SetID(mahi_constants::ViewId::kDragHandleIcon)
+                  .SetImage(ui::ImageModel::FromVectorIcon(
+                      ash::kDragHandleIcon, cros_tokens::kCrosSysSecondary,
+                      kDragHandleIconSize))
+                  .SetBorder(views::CreateEmptyBorder(kDragHandleIconPadding)))
+          .Build());
 
   // The `main_container` is used to anchor the contents to the middle of the
   // panel when its size is animating. The anchoring to middle effect is

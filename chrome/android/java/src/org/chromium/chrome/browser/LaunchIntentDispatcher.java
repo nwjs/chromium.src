@@ -16,6 +16,7 @@ import android.net.Uri;
 import android.text.TextUtils;
 
 import androidx.annotation.IntDef;
+import androidx.annotation.VisibleForTesting;
 import androidx.browser.customtabs.CustomTabsIntent;
 import androidx.browser.customtabs.TrustedWebUtils;
 import androidx.core.os.BuildCompat;
@@ -26,12 +27,16 @@ import org.chromium.base.CommandLine;
 import org.chromium.base.IntentUtils;
 import org.chromium.base.Log;
 import org.chromium.base.metrics.RecordHistogram;
+import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.R;
+import org.chromium.chrome.browser.actor.ActorUtils;
 import org.chromium.chrome.browser.browserservices.SessionDataHolder;
 import org.chromium.chrome.browser.browserservices.SessionHandler;
+import org.chromium.chrome.browser.browserservices.intents.BrowserServicesIntentDataProvider.CustomTabsUiType;
 import org.chromium.chrome.browser.browserservices.intents.SessionHolder;
+import org.chromium.chrome.browser.browserservices.intents.WebappConstants;
 import org.chromium.chrome.browser.browserservices.ui.splashscreen.trustedwebactivity.TwaSplashController;
 import org.chromium.chrome.browser.customtabs.AuthTabIntentDataProvider;
 import org.chromium.chrome.browser.customtabs.CustomTabActivity;
@@ -41,8 +46,11 @@ import org.chromium.chrome.browser.customtabs.content.WebAppLaunchHandler;
 import org.chromium.chrome.browser.document.ChromeLauncherActivity;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
+import org.chromium.chrome.browser.glic.GlicEnabling;
 import org.chromium.chrome.browser.init.ChromeBrowserInitializer;
 import org.chromium.chrome.browser.multiwindow.MultiWindowUtils;
+import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
+import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.profiles.ProfileManager;
 import org.chromium.chrome.browser.ui.searchactivityutils.SearchActivityClient;
@@ -52,6 +60,7 @@ import org.chromium.components.browser_ui.notifications.ForegroundServiceUtils;
 import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.components.externalauth.ExternalAuthUtils;
 import org.chromium.ui.widget.Toast;
+import org.chromium.webapk.lib.common.WebApkConstants;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -69,6 +78,9 @@ public class LaunchIntentDispatcher {
 
     private static final String START_ACTOR_FOREGROUND_SERVICE =
             "org.chromium.chrome.browser.actor.START_ACTOR_FOREGROUND_SERVICE";
+
+    private static final String GLIC_EXTERNAL_TRIGGERING_ACTION =
+            "org.chromium.chrome.browser.glic.EXTERNAL_TRIGGERING";
 
     private static final String TAG = "ActivityDispatcher";
 
@@ -118,6 +130,10 @@ public class LaunchIntentDispatcher {
     public static @Action int dispatchToCustomTabActivity(Activity currentActivity, Intent intent) {
         LaunchIntentDispatcher dispatcher = new LaunchIntentDispatcher(currentActivity, intent);
         if (!isCustomTabIntent(dispatcher.mIntent)) return Action.CONTINUE;
+        if (shouldOverrideAlwaysOpenInBrowser(dispatcher.mIntent)) {
+            RecordUserAction.record("CustomTabs.AlwaysOpenInBrowserOverride");
+            return dispatcher.dispatchToTabbedActivity();
+        }
         if (dispatcher.launchCustomTabActivity()) {
             return Action.FINISH_ACTIVITY;
         } else {
@@ -126,13 +142,13 @@ public class LaunchIntentDispatcher {
     }
 
     /**
-     * Dispatches the intent to start ActorForegroundService securely. Synchronously loads native to
-     * ensure ActorForegroundServiceManager can bind and issue the Foreground Notification.
+     * Dispatches the intent to start ActorForegroundService securely for Glic triggering.
+     * Synchronously loads native to check the explicit opt-in state before routing.
      */
-    public static @Action int dispatchToActorForegroundService(
-            Activity currentActivity, Intent intent) {
-        Log.d(TAG, "dispatchToActorForegroundService");
-        if (!START_ACTOR_FOREGROUND_SERVICE.equals(intent.getAction())) {
+    public static @Action int dispatchGlicExternalTrigger(Activity currentActivity, Intent intent) {
+        Log.d(TAG, "dispatchGlicExternalTrigger");
+        if (!ChromeFeatureList.sGlicBackgroundTriggering.isEnabled()
+                || !GLIC_EXTERNAL_TRIGGERING_ACTION.equals(intent.getAction())) {
             return Action.CONTINUE;
         }
 
@@ -140,24 +156,38 @@ public class LaunchIntentDispatcher {
         // TODO(b/548542183): Check calling package.
         if (ExternalAuthUtils.getInstance().isGoogleSigned(callingPackage)) {
 
-            // Load native before starting the service so the Manager acts on it.
-            // TODO(b/548905266): Should move to the foreground service imp.
+            // Load native before checking consent state and starting the service.
+            // TODO(b/548905266): Should move to the foreground service imp if possible.
             ChromeBrowserInitializer.getInstance().handleSynchronousStartup();
 
-            Intent serviceIntent =
-                    new Intent(
-                            currentActivity,
-                            org.chromium.chrome.browser.actor.ActorForegroundService.class);
-            serviceIntent.setAction(START_ACTOR_FOREGROUND_SERVICE);
-            IntentUtils.addTrustedIntentExtras(serviceIntent);
-            ForegroundServiceUtils.getInstance().startForegroundService(serviceIntent);
-            // TODO(b/548905982): Ensure foreground service started before finishing activity.
-            currentActivity.setResult(Activity.RESULT_OK);
+            Profile profile = ProfileManager.getLastUsedRegularProfile();
+
+            if (!GlicEnabling.isEnabledForProfile(profile)) {
+                currentActivity.setResult(Activity.RESULT_CANCELED);
+                return Action.FINISH_ACTIVITY;
+            }
+
+            // TODO(b/557413667): It should be possible to warm up Glic instance here as
+            // well, in the future.
+            if (!GlicEnabling.experimentalOptInIsNeeded(profile)
+                    && ActorUtils.isBackgroundActuationEnabled()) {
+                Intent serviceIntent =
+                        new Intent(
+                                currentActivity,
+                                org.chromium.chrome.browser.actor.ActorForegroundService.class);
+                serviceIntent.setAction(START_ACTOR_FOREGROUND_SERVICE);
+                IntentUtils.addTrustedIntentExtras(serviceIntent);
+                ForegroundServiceUtils.getInstance().startForegroundService(serviceIntent);
+                // TODO(b/548905982): Ensure foreground service started before finishing activity.
+                currentActivity.setResult(Activity.RESULT_OK);
+                return Action.FINISH_ACTIVITY;
+            }
+
+            return Action.CONTINUE;
         } else {
             currentActivity.setResult(Activity.RESULT_CANCELED);
+            return Action.FINISH_ACTIVITY;
         }
-
-        return Action.FINISH_ACTIVITY;
     }
 
     private LaunchIntentDispatcher(Activity activity, Intent intent) {
@@ -511,5 +541,44 @@ public class LaunchIntentDispatcher {
         // For now we expose this risky change only to TWAs.
         return IntentUtils.safeGetBooleanExtra(
                 intent, TrustedWebUtils.EXTRA_LAUNCH_AS_TRUSTED_WEB_ACTIVITY, false);
+    }
+
+    @VisibleForTesting
+    static boolean shouldOverrideAlwaysOpenInBrowser(Intent intent) {
+        if (!ChromeFeatureList.sCctAlwaysOpenInBrowser.isEnabled()) {
+            return false;
+        }
+        if (!ChromeSharedPreferences.getInstance()
+                .readBoolean(ChromePreferenceKeys.CUSTOM_TABS_ALWAYS_OPEN_IN_BROWSER, false)) {
+            return false;
+        }
+        if (IntentHandler.wasIntentSenderChrome(intent)) {
+            return false;
+        }
+        if (AuthTabIntentDataProvider.isAuthTabIntent(intent)) {
+            return false;
+        }
+        if (clearTopIntentsForCustomTabsEnabled(intent)) {
+            return false;
+        }
+        if (IntentHandler.willLaunchIncognitoCustomTab(intent)) {
+            return false;
+        }
+        if (intent.hasExtra(WebappConstants.EXTRA_ID)
+                || intent.hasExtra(WebApkConstants.EXTRA_WEBAPK_PACKAGE_NAME)) {
+            return false;
+        }
+        if (IntentUtils.safeGetIntExtra(
+                        intent, CustomTabIntentDataProvider.EXTRA_UI_TYPE, CustomTabsUiType.DEFAULT)
+                != CustomTabsUiType.DEFAULT) {
+            return false;
+        }
+        if (CustomTabsConnection.getInstance()
+                        .extractTargetNetwork(
+                                intent, SessionHolder.getSessionHolderFromIntent(intent))
+                != null) {
+            return false;
+        }
+        return true;
     }
 }

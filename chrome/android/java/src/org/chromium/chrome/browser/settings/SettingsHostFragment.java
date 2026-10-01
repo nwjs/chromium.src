@@ -294,7 +294,15 @@ public class SettingsHostFragment extends Fragment
         super.onViewCreated(view, savedInstanceState);
 
         if (savedInstanceState == null) {
-            Fragment initialFragment = createInitialFragment(requireActivity().getIntent());
+            // When settings is opened in a tab, the host activity (e.g. ChromeTabbedActivity)
+            // does not carry the original launch intent containing extras like EXTRA_SHOW_FRAGMENT.
+            // Prefer the last saved settings intent, falling back to the activity's intent. The
+            // saved intent is consumed so it does not affect settings tabs opened later.
+            Intent intent = SettingsIntentUtil.takeLastIntent();
+            if (intent == null) {
+                intent = requireActivity().getIntent();
+            }
+            Fragment initialFragment = createInitialFragment(intent);
             getChildFragmentManager()
                     .beginTransaction()
                     .add(CONTAINER_ID, initialFragment)
@@ -426,6 +434,22 @@ public class SettingsHostFragment extends Fragment
     }
 
     /**
+     * Returns the enclosing {@link SettingsHostFragment} containing the given fragment, or null if
+     * the fragment is not hosted by a SettingsHostFragment. Works even if the fragment is not shown
+     * (e.g. Chrome is in the background).
+     */
+    public static @Nullable SettingsHostFragment get(@Nullable Fragment fragment) {
+        Fragment current = fragment;
+        while (current != null) {
+            if (current instanceof SettingsHostFragment settingsHostFragment) {
+                return settingsHostFragment;
+            }
+            current = current.getParentFragment();
+        }
+        return null;
+    }
+
+    /**
      * Shows a fragment inside the settings native page container or detail pane. Does nothing if
      * the settings tab is not open (and returns false).
      *
@@ -440,8 +464,9 @@ public class SettingsHostFragment extends Fragment
         Fragment activeFragment = getActiveFragment();
         if (activeFragment instanceof MultiColumnSettings multiColumnSettings) {
             if (fragment == null || fragment instanceof MainSettings) {
-                if (multiColumnSettings.getSlidingPaneLayout().isSlideable()) {
-                    multiColumnSettings.getSlidingPaneLayout().closePane();
+                var slidingPane = multiColumnSettings.getSlidingPaneLayoutOrNull();
+                if (slidingPane != null && slidingPane.isSlideable()) {
+                    slidingPane.closePane();
                 }
                 // Show the default detail fragment.
                 Fragment initialFragment = multiColumnSettings.onCreateInitialDetailFragment();
@@ -510,15 +535,17 @@ public class SettingsHostFragment extends Fragment
                 activeFragment instanceof MultiColumnSettings multiColumnSettings
                         ? multiColumnSettings.getChildFragmentManager()
                         : getChildFragmentManager();
-        if (fragmentManager.getBackStackEntryCount() == 0) {
+        // Defer popping or navigating back until onStart() if fragment state has already been
+        // saved,
+        // preventing IllegalStateException from performing transactions while stopped or
+        // backgrounded.
+        if (fragmentManager.isStateSaved()) {
+            ++mPendingPopBackCount;
+        } else if (fragmentManager.getBackStackEntryCount() == 0) {
             // Show the main settings UI (which is represented by null).
             showFragment(null, /* addToBackStack= */ false, /* tag= */ null);
         } else {
-            if (fragmentManager.isStateSaved()) {
-                ++mPendingPopBackCount;
-            } else {
-                fragmentManager.popBackStack();
-            }
+            fragmentManager.popBackStack();
         }
     }
 

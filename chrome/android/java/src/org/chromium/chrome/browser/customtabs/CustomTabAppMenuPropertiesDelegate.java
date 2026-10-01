@@ -5,7 +5,10 @@
 package org.chromium.chrome.browser.customtabs;
 
 import android.content.Context;
+import android.content.Intent;
+import android.content.pm.ResolveInfo;
 import android.content.res.Resources;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.LayoutInflater;
@@ -24,6 +27,7 @@ import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ActivityTabProvider;
 import org.chromium.chrome.browser.DefaultBrowserMenuUtils;
+import org.chromium.chrome.browser.IntentHandler;
 import org.chromium.chrome.browser.app.appmenu.AppMenuItemUtils;
 import org.chromium.chrome.browser.app.appmenu.AppMenuPropertiesDelegateImpl;
 import org.chromium.chrome.browser.bookmarks.BookmarkModel;
@@ -43,6 +47,7 @@ import org.chromium.chrome.browser.toolbar.ToolbarManager;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuHandler;
 import org.chromium.chrome.browser.ui.appmenu.AppMenuItemProperties;
 import org.chromium.chrome.browser.ui.web_app_header.WebAppHeaderLayoutCoordinator;
+import org.chromium.chrome.browser.util.DefaultBrowserInfo;
 import org.chromium.components.browser_ui.accessibility.PageZoomManager;
 import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.components.embedder_support.util.UrlUtilities;
@@ -59,6 +64,8 @@ import java.util.function.Supplier;
 /** App menu properties delegate for {@link CustomTabActivity}. */
 @NullMarked
 public class CustomTabAppMenuPropertiesDelegate extends AppMenuPropertiesDelegateImpl {
+    private static final String HELP_URL =
+            "https://support.google.com/googlebook?p=web_powered_apps";
     private static final String CUSTOM_MENU_ITEM_ID_KEY = "CustomMenuItemId";
     private static final String SHOW_OPEN_IN_BROWSER_MENU_TOP_PARAM =
             "show_open_in_browser_menu_top";
@@ -157,9 +164,6 @@ public class CustomTabAppMenuPropertiesDelegate extends AppMenuPropertiesDelegat
         boolean requestDesktopSiteVisible = true;
         boolean tryAddingReadAloud = true;
         boolean translateVisible = true;
-        // When the icon row is visible, site info is a button in that row.
-        // This is a separate menu item row for the site info shown within the icon row.
-        boolean siteSettingsItemVisible = false;
         boolean zoomVisible = false;
 
         if (ChromeFeatureList.sCctAdaptiveButton.isEnabled()) {
@@ -203,8 +207,6 @@ public class CustomTabAppMenuPropertiesDelegate extends AppMenuPropertiesDelegat
             translateVisible = false;
             // Remove icons.
             iconRowVisible = false;
-            // Site settings menu item row.
-            siteSettingsItemVisible = true;
             zoomVisible = true;
             findInPageVisible = true;
             mShowShare = true;
@@ -320,20 +322,6 @@ public class CustomTabAppMenuPropertiesDelegate extends AppMenuPropertiesDelegat
                             AppMenuItemUtils.buildModelForDivider(R.id.divider_line_id)));
         }
 
-        // --- App info row ---
-        if (siteSettingsItemVisible) {
-            modelList.add(
-                    new MVCListAdapter.ListItem(
-                            AppMenuHandler.AppMenuItemType.STANDARD,
-                            AppMenuItemUtils.buildModelForStandardMenuItem(
-                                    mContext,
-                                    getAppMenuItemTheme(),
-                                    R.id.info_menu_id,
-                                    R.string.menu_app_info,
-                                    0,
-                                    isMenuIconAtStart())));
-        }
-
         // --- Open in browser ---
         boolean showOpenInBrowserAtTop =
                 ChromeFeatureList.getFieldTrialParamByFeatureAsBoolean(
@@ -359,7 +347,7 @@ public class CustomTabAppMenuPropertiesDelegate extends AppMenuPropertiesDelegat
 
         // --- Share ---
         if (mShowShare) {
-            modelList.add(buildShareListItem(false));
+            modelList.add(buildShareListItem(shouldShowIconBeforeItem));
         }
 
         // --- History ---
@@ -386,7 +374,9 @@ public class CustomTabAppMenuPropertiesDelegate extends AppMenuPropertiesDelegat
                                     getAppMenuItemTheme(),
                                     R.id.find_in_page_id,
                                     R.string.menu_find_in_page,
-                                    0,
+                                    shouldShowIconBeforeItem()
+                                            ? R.drawable.ic_find_in_page
+                                            : Resources.ID_NULL,
                                     isMenuIconAtStart())));
         }
 
@@ -394,7 +384,7 @@ public class CustomTabAppMenuPropertiesDelegate extends AppMenuPropertiesDelegat
         if (ChromeFeatureList.sCctAdaptiveButton.isEnabled()) {
             // TODO(crbug.com/391931899): Also check the dev-controlled flag
             MVCListAdapter.ListItem priceTrackingItem =
-                    maybeBuildPriceTrackingListItem(currentTab, false);
+                    maybeBuildPriceTrackingListItem(currentTab, shouldShowIconBeforeItem);
             if (priceTrackingItem != null) {
                 modelList.add(priceTrackingItem);
             }
@@ -415,7 +405,7 @@ public class CustomTabAppMenuPropertiesDelegate extends AppMenuPropertiesDelegat
 
         // --- Add to Homescreen / Open WebAPK ---
         if (addToHomeScreenVisible) {
-            modelList.add(buildAddToHomescreenListItem(currentTab, false));
+            modelList.add(buildAddToHomescreenListItem(currentTab, shouldShowIconBeforeItem));
         }
 
         // Open in App
@@ -426,13 +416,14 @@ public class CustomTabAppMenuPropertiesDelegate extends AppMenuPropertiesDelegat
         // --- Request Desktop Site ---
         if (requestDesktopSiteVisible) {
             MVCListAdapter.ListItem rdsListItem =
-                    maybeBuildRequestDesktopSiteListItem(currentTab, isNativePage, false);
+                    maybeBuildRequestDesktopSiteListItem(
+                            currentTab, isNativePage, shouldShowIconBeforeItem);
             if (rdsListItem != null) modelList.add(rdsListItem);
         }
 
         // --- Translate ---
         if (translateVisible && shouldShowTranslateMenuItem(currentTab)) {
-            modelList.add(buildTranslateMenuItem(currentTab, false));
+            modelList.add(buildTranslateMenuItem(currentTab, shouldShowIconBeforeItem));
         }
 
         // --- Site controls ---
@@ -447,12 +438,12 @@ public class CustomTabAppMenuPropertiesDelegate extends AppMenuPropertiesDelegat
 
         // --- Open with ---
         if (shouldShowOpenWithItem(currentTab)) {
-            modelList.add(buildOpenWithItem(currentTab, false));
+            modelList.add(buildOpenWithItem(currentTab, shouldShowIconBeforeItem));
         }
 
         // --- Open in Browser ---
         if (openInChromeItemVisible && !showOpenInBrowserAtTop) {
-            addOpenInChrome(modelList, /* showIcon= */ false);
+            addOpenInChrome(modelList, /* showIcon= */ shouldShowIconBeforeItem);
         }
 
         // --- Zoom ---
@@ -541,7 +532,28 @@ public class CustomTabAppMenuPropertiesDelegate extends AppMenuPropertiesDelegat
             footerTextView.setText(footerText);
         }
 
+        if (ChromeFeatureList.sDesktopAndroidTWADisclosuresHelpLink.isEnabled() && mIsTablet) {
+            footer.setFocusable(true);
+            footer.setOnClickListener(
+                    v -> {
+                        openHelpArticle();
+                        appMenuHandler.hideAppMenu();
+                    });
+        }
+
         return footer;
+    }
+
+    private void openHelpArticle() {
+        Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(HELP_URL));
+        intent.addCategory(Intent.CATEGORY_BROWSABLE);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        intent.putExtra(IntentHandler.EXTRA_FROM_OPEN_IN_BROWSER, true);
+        ResolveInfo resolveInfo = DefaultBrowserInfo.getDefaultWebBrowserInfo();
+        if (resolveInfo != null && resolveInfo.match != 0 && resolveInfo.activityInfo != null) {
+            intent.setPackage(resolveInfo.activityInfo.packageName);
+        }
+        mContext.startActivity(intent);
     }
 
     @Override
@@ -561,6 +573,17 @@ public class CustomTabAppMenuPropertiesDelegate extends AppMenuPropertiesDelegat
                 mWebAppHeaderLayoutCoordinatorSupplier.get();
         return headerCoordinator != null
                 && headerCoordinator.getExtensionsToolbarCoordinator() != null;
+    }
+
+    @Override
+    public boolean shouldShowIconBeforeItem() {
+        return mUiType == CustomTabsUiType.TRUSTED_WEB_ACTIVITY;
+    }
+
+    @Override
+    protected boolean shouldShowPageInfoItem() {
+        // Unconditionally show the site controls in the TWA 3-dot menu.
+        return mUiType == CustomTabsUiType.TRUSTED_WEB_ACTIVITY || super.shouldShowPageInfoItem();
     }
 
     void setHasClientPackageForTesting(boolean hasClientPackage) {

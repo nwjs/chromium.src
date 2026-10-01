@@ -117,6 +117,7 @@
 #include "content/public/test/navigation_simulator.h"
 #include "content/public/test/test_utils.h"
 #include "content/public/test/web_contents_tester.h"
+#include "extensions/buildflags/buildflags.h"
 #include "net/base/net_errors.h"
 #include "net/base/url_util.h"
 #include "net/cert/x509_certificate.h"
@@ -131,6 +132,7 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/mojom/loader/referrer.mojom.h"
 #include "third_party/zlib/google/zip.h"
+#include "ui/base/page_transition_types.h"
 #include "url/gurl.h"
 
 #if BUILDFLAG(IS_ANDROID)
@@ -152,7 +154,7 @@
 #else
 #include "chrome/browser/safe_browsing/android/download_protection_metrics_data.h"
 #include "chrome/browser/safe_browsing/download_protection/download_protection_delegate_android.h"
-#include "components/safe_browsing/core/browser/db/v4_test_util.h"
+#include "components/safe_browsing/core/browser/db/sb_test_util.h"
 #endif
 
 using base::RunLoop;
@@ -1696,8 +1698,8 @@ TEST_F(DownloadProtectionServiceTest, CheckClientDownloadSuccess) {
 #if !BUILDFLAG(IS_ANDROID)
   std::string feedback_ping;
   std::string feedback_response;
-#endif
   ClientDownloadResponse expected_response;
+#endif
 
   {
     base::HistogramTester histogram_tester;
@@ -4386,7 +4388,6 @@ TEST_F(DownloadProtectionServiceTest, FileSystemAccessWriteRequest_Success) {
               ExtractImageFeatures(
                   tmp_path_, BinaryFeatureExtractor::kDefaultOptions, _, _))
       .Times(9);
-  ClientDownloadResponse expected_response;
 
   {
     base::HistogramTester histogram_tester;
@@ -6124,7 +6125,7 @@ class AndroidDownloadProtectionTest
             sb_service_->GetTestURLLoaderFactory(profile()));
     sb_service_->database_manager()->StopOnUIThread(/*shutdown=*/false);
     sb_service_->database_manager()->StartOnUIThread(
-        test_shared_loader_factory_, GetTestV4ProtocolConfig());
+        test_shared_loader_factory_, GetTestSBProtocolConfig());
   }
 
   bool ShouldAndroidDownloadProtectionBeActive() const {
@@ -6598,7 +6599,7 @@ TEST_F(DownloadProtectionServiceTest,
 
   safe_browsing::V5GetHashProtocolManager v5_protocol_manager(
       /*url_loader_factory=*/nullptr,
-      safe_browsing::V4ProtocolConfig("test", false, "key", "1.0"),
+      safe_browsing::SBProtocolConfig("test", false, "key", "1.0"),
       /*cache=*/nullptr);
 
   NiceMockDownloadItem item;

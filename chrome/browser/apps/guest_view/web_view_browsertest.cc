@@ -114,6 +114,7 @@
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/content_browser_client.h"
 #include "content/public/browser/hid_chooser.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_process_host.h"
@@ -194,12 +195,15 @@
 #include "services/network/public/cpp/features.h"
 #include "services/network/public/cpp/network_switches.h"
 #include "third_party/blink/public/common/features.h"
+#include "third_party/blink/public/common/input/web_gesture_event.h"
 #include "third_party/blink/public/common/input/web_mouse_event.h"
 #include "third_party/blink/public/common/page/page_zoom.h"
 #include "third_party/blink/public/common/switches.h"
 #include "ui/accessibility/ax_mode.h"
 #include "ui/accessibility/ax_updates_and_events.h"
 #include "ui/base/mojom/menu_source_type.mojom.h"
+#include "ui/base/page_transition_types.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/display/display_switches.h"
 #include "ui/events/gesture_detection/gesture_configuration.h"
 #include "ui/gfx/geometry/point.h"
@@ -3149,9 +3153,10 @@ IN_PROC_BROWSER_TEST_P(WebViewTest, OpenURLFromTab_CurrentTab_Succeed) {
   ExtensionTestMessageListener load_listener("WebViewTest.LOADSTOP");
 
   GURL test_url("http://www.google.com");
-  content::OpenURLParams params(
-      test_url, content::Referrer(), WindowOpenDisposition::CURRENT_TAB,
-      ui::PAGE_TRANSITION_AUTO_TOPLEVEL, false /* is_renderer_initiated */);
+  content::OpenURLParams params =
+      content::OpenURLParams::CreateBrowserInitiated(
+          test_url, WindowOpenDisposition::CURRENT_TAB,
+          ui::PAGE_TRANSITION_AUTO_TOPLEVEL);
   params.source_render_frame_id = GetGuestRenderFrameHost()->GetRoutingID();
   params.source_render_process_id =
       GetGuestRenderFrameHost()->GetProcess()->GetID().GetUnsafeValue();
@@ -8034,54 +8039,6 @@ IN_PROC_BROWSER_TEST_P(WebViewFencedFrameTest, ZoomFencedFrame) {
       embedder_web_contents->GetPrimaryMainFrame()->GetRenderWidgetHost();
   EXPECT_DOUBLE_EQ(blink::ZoomFactorToZoomLevel(1.0),
                    content::GetPendingZoomLevel(embedder_rwh));
-}
-
-// TODO(crbug.com/432394750): Flaky on linux.
-#if BUILDFLAG(IS_LINUX)
-#define MAYBE_FencedFrameInGuestHasGuestSiteInstance \
-  DISABLED_FencedFrameInGuestHasGuestSiteInstance
-#else
-#define MAYBE_FencedFrameInGuestHasGuestSiteInstance \
-  FencedFrameInGuestHasGuestSiteInstance
-#endif
-IN_PROC_BROWSER_TEST_P(WebViewFencedFrameTest,
-                       MAYBE_FencedFrameInGuestHasGuestSiteInstance) {
-  SKIP_FOR_MPARCH();  // TODO(crbug.com/40202416): Enable test for MPArch.
-
-  TestHelper("testAddFencedFrame", "web_view/shim", NEEDS_TEST_SERVER);
-
-  auto* guest_rfh =
-      GetGuestViewManager()->WaitForSingleGuestRenderFrameHostCreated();
-  std::vector<content::RenderFrameHost*> rfhs =
-      content::CollectAllRenderFrameHosts(guest_rfh);
-  ASSERT_EQ(rfhs.size(), 2u);
-  ASSERT_EQ(rfhs[0], guest_rfh);
-  content::RenderFrameHostWrapper ff_rfh(rfhs[1]);
-
-  EXPECT_NE(ff_rfh->GetSiteInstance(), guest_rfh->GetSiteInstance());
-  EXPECT_TRUE(guest_rfh->GetSiteInstance()->GetSecurityPrincipal().IsGuest());
-  EXPECT_TRUE(ff_rfh->GetSiteInstance()->GetSecurityPrincipal().IsGuest());
-  EXPECT_EQ(ff_rfh->GetSiteInstance()
-                ->GetSecurityPrincipal()
-                .GetStoragePartitionConfig(),
-            guest_rfh->GetSiteInstance()
-                ->GetSecurityPrincipal()
-                .GetStoragePartitionConfig());
-
-  // The fenced frame will be in a different process from the embedding guest
-  // only if Process Isolation for Fenced Frames is enabled.
-  if (content::SiteIsolationPolicy::
-          IsProcessIsolationForFencedFramesEnabled()) {
-    EXPECT_NE(ff_rfh->GetProcess(), guest_rfh->GetProcess());
-  } else {
-    EXPECT_EQ(ff_rfh->GetProcess(), guest_rfh->GetProcess());
-  }
-
-  // Add a second fenced frame (same-site with the first fenced frame).
-  auto* ff_rfh_2 = fenced_frame_test_helper().CreateFencedFrame(
-      guest_rfh, ff_rfh->GetLastCommittedURL());
-  EXPECT_NE(ff_rfh_2->GetSiteInstance(), ff_rfh->GetSiteInstance());
-  EXPECT_EQ(ff_rfh->GetProcess(), ff_rfh_2->GetProcess());
 }
 
 class WebViewUsbTest : public WebViewTest {

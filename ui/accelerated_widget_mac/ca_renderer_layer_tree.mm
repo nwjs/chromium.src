@@ -31,6 +31,7 @@
 #include "ui/gfx/geometry/rrect_f.h"
 #include "ui/gfx/hdr_metadata.h"
 #include "ui/gfx/hdr_metadata_mac.h"
+#include "ui/gfx/mac/io_surface.h"
 #include "ui/gl/ca_renderer_layer_params.h"
 
 namespace ui {
@@ -228,16 +229,14 @@ bool AVSampleBufferDisplayLayerEnqueueIOSurface(
     return false;
   }
 
-  if (io_surface_color_space ==
-          gfx::ColorSpace(gfx::ColorSpace::PrimaryID::BT2020,
-                          gfx::ColorSpace::TransferID::PQ,
-                          gfx::ColorSpace::MatrixID::BT2020_NCL,
-                          gfx::ColorSpace::RangeID::LIMITED) ||
-      io_surface_color_space ==
-          gfx::ColorSpace(gfx::ColorSpace::PrimaryID::BT2020,
-                          gfx::ColorSpace::TransferID::HLG,
-                          gfx::ColorSpace::MatrixID::BT2020_NCL,
-                          gfx::ColorSpace::RangeID::LIMITED)) {
+  if (io_surface_color_space.GetPrimaryID() ==
+          gfx::ColorSpace::PrimaryID::BT2020 &&
+      io_surface_color_space.GetMatrixID() ==
+          gfx::ColorSpace::MatrixID::BT2020_NCL &&
+      (io_surface_color_space.GetTransferID() ==
+           gfx::ColorSpace::TransferID::PQ ||
+       io_surface_color_space.GetTransferID() ==
+           gfx::ColorSpace::TransferID::HLG)) {
     CVBufferSetAttachment(cv_pixel_buffer.get(),
                           kCVImageBufferColorPrimariesKey,
                           kCVImageBufferColorPrimaries_ITU_R_2020,
@@ -852,21 +851,14 @@ CARendererLayerTree::ContentLayer::ContentLayer(
     // video to be promoted to AV layers.
     if (tree()->allow_av_sample_buffer_display_layer_) {
       if (contents_rect == gfx::RectF(0, 0, 1, 1)) {
-        switch (IOSurfaceGetPixelFormat(io_surface.get())) {
-          case kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange:
-          case kCVPixelFormatType_422YpCbCr8BiPlanarVideoRange:
-          case kCVPixelFormatType_444YpCbCr8BiPlanarVideoRange:
-            type_ = CALayerType::kVideo;
+        const uint32_t pixel_format = IOSurfaceGetPixelFormat(io_surface.get());
+        if (gfx::IOSurfacePixelFormatCanDisplayAsAVSampleBuffer(pixel_format)) {
+          type_ = CALayerType::kVideo;
+          if (gfx::IOSurfacePixelFormatMaxBitsPerComponent(pixel_format) <= 8) {
             video_type_can_downgrade_ = !io_surface_color_space.IsHDR();
-            break;
-          case kCVPixelFormatType_420YpCbCr10BiPlanarVideoRange:
-          case kCVPixelFormatType_422YpCbCr10BiPlanarVideoRange:
-          case kCVPixelFormatType_444YpCbCr10BiPlanarVideoRange:
-            type_ = CALayerType::kVideo;
+          } else {
             video_type_can_downgrade_ = false;
-            break;
-          default:
-            break;
+          }
         }
       }
 
@@ -1357,45 +1349,30 @@ void CARendererLayerTree::ContentLayer::CommitToCA(
         blue = 1.0;
         break;
       case CALayerType::kVideo:
-        switch (pixel_format) {
-          case kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange:
-          case kCVPixelFormatType_422YpCbCr8BiPlanarVideoRange:
-          case kCVPixelFormatType_444YpCbCr8BiPlanarVideoRange:
-            // Yellow is NV12/NV16/NV24 AVSampleBufferDisplayLayer
-            red = green = 1;
-            break;
-          case kCVPixelFormatType_420YpCbCr10BiPlanarVideoRange:
-          case kCVPixelFormatType_422YpCbCr10BiPlanarVideoRange:
-          case kCVPixelFormatType_444YpCbCr10BiPlanarVideoRange:
-            // Cyan is P010/P210/P410 AVSampleBufferDisplayLayer
-            green = blue = 1;
-            break;
-          default:
-            NOTREACHED();
+        if (gfx::IOSurfacePixelFormatMaxBitsPerComponent(pixel_format) <= 8) {
+          // Yellow is <= 8-bit AVSampleBufferDisplayLayer.
+          red = green = 1;
+        } else {
+          // Cyan is > 8-bit AVSampleBufferDisplayLayer.
+          green = blue = 1;
         }
         break;
       case CALayerType::kDefault:
-        switch (pixel_format) {
-          case kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange:
-          case kCVPixelFormatType_422YpCbCr8BiPlanarVideoRange:
-          case kCVPixelFormatType_444YpCbCr8BiPlanarVideoRange:
-            // Green is NV12/NV16/NV24 AVSampleBufferDisplayLayer
+        if (pixel_format == 0) {
+          // Grey is no IOSurface (a solid color layer).
+          red = green = blue = 0.5;
+        } else if (gfx::IOSurfacePixelFormatCanDisplayAsAVSampleBuffer(
+                       pixel_format)) {
+          if (gfx::IOSurfacePixelFormatMaxBitsPerComponent(pixel_format) <= 8) {
+            // Green is <= 8-bit AVSampleBufferDisplayLayer-capable.
             green = 1;
-            break;
-          case kCVPixelFormatType_420YpCbCr10BiPlanarVideoRange:
-          case kCVPixelFormatType_422YpCbCr10BiPlanarVideoRange:
-          case kCVPixelFormatType_444YpCbCr10BiPlanarVideoRange:
-            // Red is P010/P210/P410 AVSampleBufferDisplayLayer
+          } else {
+            // Red is > 8-bit AVSampleBufferDisplayLayer-capable.
             red = 1;
-            break;
-          case 0:
-            // Grey is no IOSurface (a solid color layer).
-            red = green = blue = 0.5;
-            break;
-          default:
-            // Magenta is a non-video IOSurface.
-            red = blue = 1;
-            break;
+          }
+        } else {
+          // Magenta is a non-video IOSurface.
+          red = blue = 1;
         }
         break;
     }

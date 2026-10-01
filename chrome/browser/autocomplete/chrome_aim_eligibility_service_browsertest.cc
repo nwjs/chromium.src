@@ -572,10 +572,11 @@ IN_PROC_BROWSER_TEST_P(ChromeAimEligibilityServiceBrowserTest,
         identity_manager,
         signin::AccountAvailabilityOptionsBuilder(test_url_loader_factory())
             .Build("secondary@email.com"));
-    signin::SetCookieAccounts(
-        identity_manager, test_url_loader_factory(),
-        {{secondary_account_info.email, secondary_account_info.gaia},
-         {primary_account_info.email, primary_account_info.gaia}});
+    signin::SetCookieAccounts(identity_manager, test_url_loader_factory(),
+                              {{std::string(secondary_account_info.GetEmail()),
+                                secondary_account_info.GetGaiaId()},
+                               {std::string(primary_account_info.GetEmail()),
+                                primary_account_info.GetGaiaId()}});
     EXPECT_TRUE(identity_observer.WaitForAccountsInCookieUpdated());
     EXPECT_TRUE(identity_observer.WaitForPrimaryAccountChanged());
 
@@ -1464,7 +1465,8 @@ IN_PROC_BROWSER_TEST_F(ChromeAimEligibilityServiceOAuthBrowserTest,
           .AsPrimary(signin::ConsentLevel::kSignin)
           .Build("a@email.com"));
   EXPECT_TRUE(identity_observer.WaitForPrimaryAccountChanged());
-  identity_test_env()->SetCookieAccounts({{account_a.email, account_a.gaia}});
+  identity_test_env()->SetCookieAccounts(
+      {{std::string(account_a.GetEmail()), account_a.GetGaiaId()}});
 
   EXPECT_TRUE(request_handled_future.Take());
   EXPECT_TRUE(eligibility_changed_future.Wait());
@@ -1548,8 +1550,9 @@ IN_PROC_BROWSER_TEST_F(ChromeAimEligibilityServiceOAuthBrowserTest,
       identity_manager,
       signin::AccountAvailabilityOptionsBuilder(test_url_loader_factory())
           .Build("fallback@email.com"));
-  signin::SetCookieAccounts(identity_manager, test_url_loader_factory(),
-                            {{account_info.email, account_info.gaia}});
+  signin::SetCookieAccounts(
+      identity_manager, test_url_loader_factory(),
+      {{std::string(account_info.GetEmail()), account_info.GetGaiaId()}});
   EXPECT_TRUE(identity_observer.WaitForAccountsInCookieUpdated());
 
   EXPECT_TRUE(request_handled_future.Take());
@@ -1600,8 +1603,9 @@ IN_PROC_BROWSER_TEST_F(ChromeAimEligibilityServiceOAuthBrowserTest,
       identity_manager,
       signin::AccountAvailabilityOptionsBuilder(test_url_loader_factory())
           .Build("a@email.com"));
-  signin::SetCookieAccounts(identity_manager, test_url_loader_factory(),
-                            {{account_a.email, account_a.gaia}});
+  signin::SetCookieAccounts(
+      identity_manager, test_url_loader_factory(),
+      {{std::string(account_a.GetEmail()), account_a.GetGaiaId()}});
   EXPECT_TRUE(identity_observer.WaitForAccountsInCookieUpdated());
 
   EXPECT_TRUE(request_handled_future.Take());
@@ -1610,7 +1614,7 @@ IN_PROC_BROWSER_TEST_F(ChromeAimEligibilityServiceOAuthBrowserTest,
   eligibility_changed_future.Clear();
 
   // 2. Sign In "A" (Primary). effective ID is "A". Should NOT trigger fetch.
-  signin::MakePrimaryAccountAvailable(identity_manager, account_a.email,
+  signin::MakePrimaryAccountAvailable(identity_manager, account_a.GetEmail(),
                                       signin::ConsentLevel::kSignin);
   EXPECT_TRUE(identity_observer.WaitForPrimaryAccountChanged());
 
@@ -1684,7 +1688,8 @@ IN_PROC_BROWSER_TEST_F(ChromeAimEligibilityServiceOAuthBrowserTest,
   // the zero index cookie account ID is different from the primary account and
   // triggers a new request.
   identity_test_env()->SetCookieAccounts(
-      {{account_b.email, account_b.gaia}, {account_a.email, account_a.gaia}});
+      {{std::string(account_b.GetEmail()), account_b.GetGaiaId()},
+       {std::string(account_a.GetEmail()), account_a.GetGaiaId()}});
 
   auto* service = GetAimEligibilityService(GetProfile());
   base::test::TestFuture<void> eligibility_changed_future;
@@ -1705,7 +1710,7 @@ IN_PROC_BROWSER_TEST_F(ChromeAimEligibilityServiceOAuthBrowserTest,
   response.set_is_eligible(!response.is_eligible());
 
   signin::UpdatePersistentErrorOfRefreshTokenForAccount(
-      identity_manager, account_a.account_id,
+      identity_manager, account_a.GetAccountId(),
       GoogleServiceAuthError::FromInvalidGaiaCredentialsReason(
           GoogleServiceAuthError::InvalidGaiaCredentialsReason::
               CREDENTIALS_REJECTED_BY_SERVER));

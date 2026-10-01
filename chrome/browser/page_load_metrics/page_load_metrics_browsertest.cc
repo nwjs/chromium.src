@@ -51,7 +51,6 @@
 #include "chrome/browser/sessions/session_service_factory.h"
 #include "chrome/browser/sessions/session_service_test_helper.h"
 #include "chrome/browser/sessions/tab_restore_service_factory.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_live_tab_context.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
@@ -61,6 +60,7 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "chrome/browser/ui/navigator/browser_navigator.h"
 #include "chrome/browser/ui/navigator/browser_navigator_params.h"
+#include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_paths.h"
@@ -87,6 +87,7 @@
 #include "components/ukm/test_ukm_recorder.h"
 #include "content/public/browser/back_forward_cache.h"
 #include "content/public/browser/browser_thread.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/render_view_host.h"
@@ -122,6 +123,8 @@
 #include "third_party/blink/public/mojom/use_counter/metrics/css_property_id.mojom.h"
 #include "third_party/blink/public/mojom/use_counter/metrics/web_feature.mojom.h"
 #include "third_party/blink/public/mojom/use_counter/metrics/webdx_feature.mojom-shared.h"
+#include "ui/base/page_transition_types.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/gfx/geometry/size.h"
 #include "url/gurl.h"
 
@@ -525,10 +528,9 @@ IN_PROC_BROWSER_TEST_F(PageLoadMetricsBrowserTest, PageLCPImagePriority) {
   }
 
   browser()->OpenURL(
-      content::OpenURLParams(embedded_test_server()->GetURL("/mock_page.html"),
-                             content::Referrer(),
-                             WindowOpenDisposition::CURRENT_TAB,
-                             ui::PAGE_TRANSITION_TYPED, false),
+      content::OpenURLParams::CreateBrowserInitiated(
+          embedded_test_server()->GetURL("/mock_page.html"),
+          WindowOpenDisposition::CURRENT_TAB, ui::PAGE_TRANSITION_TYPED),
       /*navigation_handle_callback=*/{});
 
   main_html_response->WaitForRequest();
@@ -645,10 +647,9 @@ class PageLoadMetricsBrowserTestAnimatedLCP
     std::string second_frame = file_contents.substr(first_frame_size);
 
     browser()->OpenURL(
-        content::OpenURLParams(
+        content::OpenURLParams::CreateBrowserInitiated(
             embedded_test_server()->GetURL("/mock_page.html"),
-            content::Referrer(), WindowOpenDisposition::CURRENT_TAB,
-            ui::PAGE_TRANSITION_TYPED, false),
+            WindowOpenDisposition::CURRENT_TAB, ui::PAGE_TRANSITION_TYPED),
         /*navigation_handle_callback=*/{});
 
     main_html_response->WaitForRequest();
@@ -944,10 +945,10 @@ IN_PROC_BROWSER_TEST_P(PageLoadMetricsBrowserTestWithInitialWebUIParam,
 
   // Load the document and specify no-store for the main resource.
   content::TestNavigationManager navigation_manager(web_contents(), kUrl);
-  browser()->OpenURL(content::OpenURLParams(kUrl, content::Referrer(),
-                                            WindowOpenDisposition::CURRENT_TAB,
-                                            ui::PAGE_TRANSITION_TYPED, false),
-                     /*navigation_handle_callback=*/{});
+  browser()->OpenURL(
+      content::OpenURLParams::CreateBrowserInitiated(
+          kUrl, WindowOpenDisposition::CURRENT_TAB, ui::PAGE_TRANSITION_TYPED),
+      /*navigation_handle_callback=*/{});
 
   // The navigation starts.
   EXPECT_TRUE(navigation_manager.WaitForRequestStart());
@@ -2359,10 +2360,9 @@ IN_PROC_BROWSER_TEST_F(PageLoadMetricsResourceLoadBrowserTest,
   auto waiter = CreatePageLoadMetricsTestWaiter("waiter");
 
   browser()->OpenURL(
-      content::OpenURLParams(embedded_test_server()->GetURL("/mock_page.html"),
-                             content::Referrer(),
-                             WindowOpenDisposition::CURRENT_TAB,
-                             ui::PAGE_TRANSITION_TYPED, false),
+      content::OpenURLParams::CreateBrowserInitiated(
+          embedded_test_server()->GetURL("/mock_page.html"),
+          WindowOpenDisposition::CURRENT_TAB, ui::PAGE_TRANSITION_TYPED),
       /*navigation_handle_callback=*/{});
 
   main_response->WaitForRequest();
@@ -2405,10 +2405,9 @@ IN_PROC_BROWSER_TEST_F(PageLoadMetricsResourceLoadBrowserTest,
   auto waiter = CreatePageLoadMetricsTestWaiter("waiter");
 
   browser()->OpenURL(
-      content::OpenURLParams(embedded_test_server()->GetURL("/mock_page.html"),
-                             content::Referrer(),
-                             WindowOpenDisposition::CURRENT_TAB,
-                             ui::PAGE_TRANSITION_TYPED, false),
+      content::OpenURLParams::CreateBrowserInitiated(
+          embedded_test_server()->GetURL("/mock_page.html"),
+          WindowOpenDisposition::CURRENT_TAB, ui::PAGE_TRANSITION_TYPED),
       /*navigation_handle_callback=*/{});
 
   main_html_response->WaitForRequest();
@@ -2722,104 +2721,74 @@ IN_PROC_BROWSER_TEST_F(PageLoadMetricsBrowserTest,
   }
 }
 
-class SoftNavigationBrowserTest : public PageLoadMetricsBrowserTest {
- public:
-  void TestSoftNavigation(bool soft_navs_is_web_exposed) {
-    embedded_test_server()->ServeFilesFromSourceDirectory("content/test/data");
-    content::SetupCrossSiteRedirector(embedded_test_server());
-    ASSERT_TRUE(embedded_test_server()->Start());
+IN_PROC_BROWSER_TEST_F(PageLoadMetricsBrowserTest, SoftNavigation) {
+  embedded_test_server()->ServeFilesFromSourceDirectory("content/test/data");
+  content::SetupCrossSiteRedirector(embedded_test_server());
+  ASSERT_TRUE(embedded_test_server()->Start());
 
-    auto waiter = CreatePageLoadMetricsTestWaiter("waiter");
-    waiter->AddPageExpectation(TimingField::kLoadEvent);
-    waiter->AddPageExpectation(TimingField::kFirstContentfulPaint);
-    waiter->AddPageExpectation(TimingField::kLargestContentfulPaint);
-    GURL url = embedded_test_server()->GetURL(
-        "/page_load_metrics/soft_navigation.html");
-    ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
-    waiter->Wait();
+  auto waiter = CreatePageLoadMetricsTestWaiter("waiter");
+  waiter->AddPageExpectation(TimingField::kLoadEvent);
+  waiter->AddPageExpectation(TimingField::kFirstContentfulPaint);
+  waiter->AddPageExpectation(TimingField::kLargestContentfulPaint);
+  GURL url =
+      embedded_test_server()->GetURL("/page_load_metrics/soft_navigation.html");
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
+  waiter->Wait();
 
-    content::WebContents* web_contents =
-        browser()->GetTabStripModel()->GetActiveWebContents();
-    content::WaitForHitTestData(web_contents->GetPrimaryMainFrame());
+  content::WebContents* web_contents =
+      browser()->GetTabStripModel()->GetActiveWebContents();
+  content::WaitForHitTestData(web_contents->GetPrimaryMainFrame());
 
-    waiter->AddPageExpectation(TimingField::kSoftNavigationCountUpdated);
-    waiter->AddPageExpectation(TimingField::kLargestContentfulPaint);
+  waiter->AddPageExpectation(TimingField::kSoftNavigationCountUpdated);
+  waiter->AddPageExpectation(TimingField::kLargestContentfulPaint);
 
-    const std::string get_lcp_startTime = R"(
-      (() => new Promise(resolve => {
-        new PerformanceObserver(list => {
-          resolve(list.getEntries().at(-1).startTime);
-        }).observe({type: 'largest-contentful-paint', buffered: true});
-      }))();
-    )";
-    // Get the web exposed LCP value before the click.
-    int lcp_startTime = EvalJs(web_contents, get_lcp_startTime).ExtractDouble();
+  const std::string get_lcp_startTime = R"(
+    (() => new Promise(resolve => {
+      new PerformanceObserver(list => {
+        resolve(list.getEntries().at(-1).startTime);
+      }).observe({type: 'largest-contentful-paint', buffered: true});
+    }))();
+  )";
+  // Get the web exposed LCP value before the click.
+  int lcp_startTime = EvalJs(web_contents, get_lcp_startTime).ExtractDouble();
 
-    content::SimulateMouseClickAt(
-        browser()->GetTabStripModel()->GetActiveWebContents(), 0,
-        blink::WebMouseEvent::Button::kLeft, gfx::Point(100, 100));
+  content::SimulateMouseClickAt(
+      browser()->GetTabStripModel()->GetActiveWebContents(), 0,
+      blink::WebMouseEvent::Button::kLeft, gfx::Point(100, 100));
 
-    // Get the web exposed ICP value only if the feature flag for exposing to
-    // performance timeline is enabled.
-    if (soft_navs_is_web_exposed) {
-      const std::string get_icp_startTime = R"(
-        (() => new Promise(resolve => {
-          new PerformanceObserver(list => {
-            resolve(list.getEntries().at(-1).startTime);
-          }).observe({
-            type: 'interaction-contentful-paint',
-            buffered: true,
-          });
-        }))();
-      )";
-      int icp_startTime =
-          EvalJs(web_contents, get_icp_startTime).ExtractDouble();
-      ASSERT_GE(icp_startTime, lcp_startTime);
-    }
+  const std::string get_icp_startTime = R"(
+    (() => new Promise(resolve => {
+      new PerformanceObserver(list => {
+        resolve(list.getEntries().at(-1).startTime);
+      }).observe({
+        type: 'interaction-contentful-paint',
+        buffered: true,
+      });
+    }))();
+  )";
+  int icp_startTime = EvalJs(web_contents, get_icp_startTime).ExtractDouble();
+  ASSERT_GE(icp_startTime, lcp_startTime);
 
-    // Wait for a soft navigation count update.
-    waiter->Wait();
+  // Wait for a soft navigation count update.
+  waiter->Wait();
 
-    // Force navigation to another page, which should force logging of
-    // histograms persisted at the end of the page load lifetime.
-    NavigateToUntrackedUrl();
+  // Force navigation to another page, which should force logging of
+  // histograms persisted at the end of the page load lifetime.
+  NavigateToUntrackedUrl();
 
-    VerifyNavigationMetrics({url});
-    int64_t soft_navigation_count =
-        GetUKMPageLoadMetric(PageLoad::kSoftNavigationCountName);
-    ASSERT_EQ(soft_navigation_count, 1);
+  VerifyNavigationMetrics({url});
+  int64_t soft_navigation_count =
+      GetUKMPageLoadMetric(PageLoad::kSoftNavigationCountName);
+  ASSERT_EQ(soft_navigation_count, 1);
 
-    auto lcp_value_bucket_start =
-        histogram_tester_
-            ->GetAllSamples(internal::kHistogramLargestContentfulPaint)[0]
-            .min;
+  auto lcp_value_bucket_start =
+      histogram_tester_
+          ->GetAllSamples(internal::kHistogramLargestContentfulPaint)[0]
+          .min;
 
-    // The histogram value represents the low end of the bucket, not the actual
-    // value. Therefore it is lower or equal to the web exposed value.
-    ASSERT_LE(lcp_value_bucket_start, lcp_startTime);
-  }
-};
-
-class SoftNavigationBrowserTestWithSoftNavigationHeuristicsFlag
-    : public SoftNavigationBrowserTest {
- public:
-  void SetUpCommandLine(base::CommandLine* command_line) override {
-    PageLoadMetricsBrowserTest::SetUpCommandLine(command_line);
-    features_list_.InitWithFeatures({blink::features::kSoftNavigationHeuristics},
-                                    {});
-  }
-
- private:
-  base::test::ScopedFeatureList features_list_;
-};
-
-IN_PROC_BROWSER_TEST_F(SoftNavigationBrowserTest, SoftNavigation) {
-  TestSoftNavigation(/*soft_navs_is_web_exposed=*/false);
-}
-
-IN_PROC_BROWSER_TEST_F(
-    SoftNavigationBrowserTestWithSoftNavigationHeuristicsFlag, SoftNavigation) {
-  TestSoftNavigation(/*soft_navs_is_web_exposed=*/true);
+  // The histogram value represents the low end of the bucket, not the actual
+  // value. Therefore it is lower or equal to the web exposed value.
+  ASSERT_LE(lcp_value_bucket_start, lcp_startTime);
 }
 
 IN_PROC_BROWSER_TEST_F(PageLoadMetricsBrowserTest, InputEventsForOmniboxMatch) {
@@ -3212,11 +3181,13 @@ IN_PROC_BROWSER_TEST_F(PageLoadMetricsBrowserTest,
   ASSERT_TRUE(embedded_test_server()->Start());
 
   // Create a new active tab.
-  content::WebContents* target_contents = browser()->OpenURL(
-      {embedded_test_server()->GetURL("/title1.html"), content::Referrer(),
-       WindowOpenDisposition::NEW_FOREGROUND_TAB, ui::PAGE_TRANSITION_TYPED,
-       false},
-      /*navigation_handle_callback=*/{});
+  content::OpenURLParams params =
+      content::OpenURLParams::CreateBrowserInitiated(
+          embedded_test_server()->GetURL("/title1.html"),
+          WindowOpenDisposition::NEW_FOREGROUND_TAB, ui::PAGE_TRANSITION_TYPED);
+  content::WebContents* target_contents =
+      browser()->OpenURL(params,
+                         /*navigation_handle_callback=*/{});
   auto fcp_waiter =
       CreatePageLoadMetricsTestWaiter("fcp_waiter", target_contents);
   fcp_waiter->AddPageExpectation(page_load_metrics::PageLoadMetricsTestWaiter::
@@ -3273,10 +3244,11 @@ class PageLoadMetricsBrowserTestTerminatedPage
 
  public:
   content::WebContents* OpenTabAndNavigate() {
-    content::OpenURLParams page(embedded_test_server()->GetURL("/title1.html"),
-                                content::Referrer(),
-                                WindowOpenDisposition::NEW_FOREGROUND_TAB,
-                                ui::PAGE_TRANSITION_TYPED, false);
+    content::OpenURLParams page =
+        content::OpenURLParams::CreateBrowserInitiated(
+            embedded_test_server()->GetURL("/title1.html"),
+            WindowOpenDisposition::NEW_FOREGROUND_TAB,
+            ui::PAGE_TRANSITION_TYPED);
 
     content::WebContents* contents =
         browser()->OpenURL(page, /*navigation_handle_callback=*/{});
@@ -3486,11 +3458,10 @@ IN_PROC_BROWSER_TEST_P(PageLoadMetricsBrowserTestRendererCrashedPage,
       RenderFrameHost()->GetProcess(),
       content::RenderProcessHostWatcher::WATCH_FOR_PROCESS_EXIT);
 
-  browser()->OpenURL(
-      content::OpenURLParams(GURL(GetParam()), content::Referrer(),
-                             WindowOpenDisposition::CURRENT_TAB,
-                             ui::PAGE_TRANSITION_TYPED, false),
-      /*navigation_handle_callback=*/{});
+  browser()->OpenURL(content::OpenURLParams::CreateBrowserInitiated(
+                         GURL(GetParam()), WindowOpenDisposition::CURRENT_TAB,
+                         ui::PAGE_TRANSITION_TYPED),
+                     /*navigation_handle_callback=*/{});
 
   crash_observer.Wait();
   EXPECT_FALSE(crash_observer.did_exit_normally());
@@ -3545,11 +3516,10 @@ IN_PROC_BROWSER_TEST_P(PageLoadMetricsBrowserTestNoRendererCrashedPage,
   content::RenderProcessHostWatcher destruction_observer(contents,
       content::RenderProcessHostWatcher::WATCH_FOR_HOST_DESTRUCTION);
 
-  browser()->OpenURL(
-      content::OpenURLParams(GURL(GetParam()), content::Referrer(),
-                             WindowOpenDisposition::CURRENT_TAB,
-                             ui::PAGE_TRANSITION_TYPED, false),
-      /*navigation_handle_callback=*/{});
+  browser()->OpenURL(content::OpenURLParams::CreateBrowserInitiated(
+                         GURL(GetParam()), WindowOpenDisposition::CURRENT_TAB,
+                         ui::PAGE_TRANSITION_TYPED),
+                     /*navigation_handle_callback=*/{});
 
   destruction_observer.Wait();
   EXPECT_TRUE(web_contents() == contents);
@@ -3690,63 +3660,6 @@ IN_PROC_BROWSER_TEST_F(PageLoadMetricsBrowserTest,
       "PageLoad.Clients.CrossOrigin.FirstContentfulPaint", 2);
   histogram_tester_->ExpectTotalCount(
       "PageLoad.Clients.CrossOrigin.LargestContentfulPaint", 2);
-}
-
-class PageLoadMetricsBrowserTestWithFencedFrames
-    : public PageLoadMetricsBrowserTest {
- public:
-  PageLoadMetricsBrowserTestWithFencedFrames()
-      : https_server_(net::EmbeddedTestServer::TYPE_HTTPS) {
-    https_server_.SetSSLConfig(net::EmbeddedTestServer::CERT_TEST_NAMES);
-    https_server_.AddDefaultHandlers(GetChromeTestDataDir());
-  }
-  ~PageLoadMetricsBrowserTestWithFencedFrames() override = default;
-
- protected:
-  net::EmbeddedTestServer& https_server() { return https_server_; }
-
- private:
-  net::EmbeddedTestServer https_server_;
-  content::test::FencedFrameTestHelper helper_;
-};
-
-// TODO(crbug.com/334416161): Re-enable this test on Windows.
-#if BUILDFLAG(IS_WIN)
-#define MAYBE_PageLoadPrivacySandboxAdsFencedFramesMetrics \
-  DISABLED_PageLoadPrivacySandboxAdsFencedFramesMetrics
-#else
-#define MAYBE_PageLoadPrivacySandboxAdsFencedFramesMetrics \
-  PageLoadPrivacySandboxAdsFencedFramesMetrics
-#endif
-IN_PROC_BROWSER_TEST_F(PageLoadMetricsBrowserTestWithFencedFrames,
-                       MAYBE_PageLoadPrivacySandboxAdsFencedFramesMetrics) {
-  ASSERT_TRUE(https_server().Start());
-
-  static constexpr char
-      kHistogramPrivacySandboxAdsNavigationToFirstContentfulPaint[] =
-          "PageLoad.Clients.PrivacySandboxAds.PaintTiming."
-          "NavigationToFirstContentfulPaint.FencedFrames";
-
-  // Not recorded as fenced frame is not created.
-  auto waiter1 = CreatePageLoadMetricsTestWaiter("waiter1");
-  waiter1->AddPageExpectation(TimingField::kFirstContentfulPaint);
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(
-      browser(), https_server().GetURL("a.test", "/title1.html")));
-  waiter1->Wait();
-
-  histogram_tester_->ExpectTotalCount(
-      kHistogramPrivacySandboxAdsNavigationToFirstContentfulPaint, 0);
-
-  // Recorded as fenced frame is created.
-  auto waiter2 = CreatePageLoadMetricsTestWaiter("waiter2");
-  waiter2->AddPageExpectation(TimingField::kFirstContentfulPaint);
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(
-      browser(),
-      https_server().GetURL("c.test", "/fenced_frames/basic_title.html")));
-  waiter2->Wait();
-
-  histogram_tester_->ExpectTotalCount(
-      kHistogramPrivacySandboxAdsNavigationToFirstContentfulPaint, 1);
 }
 
 class PageLoadMetricsBrowserTestWithBackForwardCache

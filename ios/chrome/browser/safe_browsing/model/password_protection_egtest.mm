@@ -190,10 +190,8 @@ std::unique_ptr<net::test_server::HttpResponse> HandleRequest(
 
   [ChromeEarlGrey simulatePhysicalKeyboardEvent:@"P" flags:UIKeyModifierShift];
   for (NSString* character in @[ @"a", @"s", @"s", @"w", @"o", @"r", @"d" ]) {
-    // crbug.com/8141302 rate limits keydown events. Without a sufficient delay,
-    // Safe Browsing's Password Protection drops the keydown event. Earl Grey
-    // skips sleeping the thread if instructed to sleep for less than x. For
-    // this reason, the thread is
+    // Keydown events are rate-limited. Without a sufficient delay,
+    // Safe Browsing's Password Protection drops the keydown event.
     base::PlatformThread::Sleep(base::Milliseconds(100));
     [ChromeEarlGrey simulatePhysicalKeyboardEvent:character flags:0];
   }

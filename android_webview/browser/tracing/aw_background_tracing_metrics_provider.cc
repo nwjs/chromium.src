@@ -8,7 +8,7 @@
 
 #include "android_webview/browser/metrics/aw_metrics_service_client.h"
 #include "base/base_paths_android.h"
-#include "base/i18n/rtl.h"
+#include "base/i18n/icubridge/default_icu_locale.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/task/thread_pool.h"
 #include "components/metrics/drive_metrics_provider.h"
@@ -18,11 +18,8 @@
 #include "components/metrics/metrics_service.h"
 #include "components/metrics/net/network_metrics_provider.h"
 #include "components/metrics/version_utils.h"
-#include "components/tracing/common/background_tracing_utils.h"
-#include "components/tracing/common/tracing_scenarios_config.h"
 #include "components/version_info/android/channel_getter.h"
 #include "content/public/browser/network_service_instance.h"
-#include "services/tracing/public/cpp/trace_startup_config.h"
 #include "third_party/metrics_proto/trace_log.pb.h"
 #include "third_party/zlib/google/compression_utils.h"
 
@@ -35,10 +32,6 @@ AwBackgroundTracingMetricsProvider::~AwBackgroundTracingMetricsProvider() =
     default;
 
 void AwBackgroundTracingMetricsProvider::Init() {
-  tracing::TraceStartupConfig::GetInstance().SetBackgroundStartupTracingEnabled(
-      tracing::kStartupFieldTracing.Get());
-  SetupFieldTracingFromFieldTrial();
-
   android_webview::AwMetricsServiceClient* aw_metrics_service_client =
       android_webview::AwMetricsServiceClient::GetInstance();
   metrics::MetricsService* metrics =
@@ -79,7 +72,8 @@ void AwBackgroundTracingMetricsProvider::RecordCoreSystemProfileMetrics(
   metrics::MetricsLog::RecordCoreSystemProfile(
       metrics::GetVersionString(),
       metrics::AsProtobufChannel(version_info::android::GetChannel()), false,
-      base::i18n::GetConfiguredLocale(), std::string(), &system_profile_proto);
+      std::string(base::i18n::GetDefaultIcuLocale().tag_string()),
+      std::string(), &system_profile_proto);
 }
 
 }  // namespace tracing

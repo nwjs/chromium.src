@@ -8,6 +8,7 @@
 
 #include "base/strings/strcat.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/task/single_thread_task_runner.h"
 #include "build/build_config.h"
 #include "chrome/browser/autocomplete/aim_eligibility_service_factory.h"
 #include "chrome/browser/browser_process.h"
@@ -19,11 +20,14 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/profile_browser_collection.h"
 #include "chrome/browser/ui/chrome_pages.h"
+#include "chrome/browser/ui/omnibox/omnibox_context_menu_controller.h"
 #include "chrome/browser/ui/omnibox/omnibox_everywhere/omnibox_everywhere_prefs.h"
 #include "chrome/browser/ui/omnibox/omnibox_everywhere_service.h"
 #include "chrome/browser/ui/omnibox/omnibox_next_features.h"
 #include "chrome/browser/ui/webui/cr_components/searchbox/searchbox_omnibox_client.h"
 #include "chrome/browser/ui/webui/metrics_reporter/metrics_reporter.h"
+#include "chrome/browser/ui/webui/omnibox_everywhere/omnibox_everywhere_hotkey_bubble_view.h"
+#include "chrome/browser/ui/webui/omnibox_everywhere/omnibox_everywhere_ui.h"
 #include "chrome/browser/ui/webui/webui_embedding_context.h"
 #include "chrome/common/webui_url_constants.h"
 #include "components/omnibox/browser/aim_eligibility_service.h"
@@ -34,9 +38,16 @@
 #include "components/search_engines/template_url.h"
 #include "components/search_engines/template_url_service.h"
 #include "content/public/browser/web_ui.h"
+#include "ui/base/accelerators/accelerator.h"
+#include "ui/base/accelerators/command.h"
+#include "ui/base/l10n/l10n_util.h"
+#include "ui/base/mojom/menu_source_type.mojom.h"
 #include "ui/base/page_transition_types.h"
 #include "ui/base/webui/web_ui_util.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/base/window_open_disposition_utils.h"
+#include "ui/views/view.h"
+#include "ui/views/widget/widget.h"
 
 namespace {
 
@@ -47,10 +58,50 @@ namespace {
 constexpr char kVoiceSearchQueryParameterKey[] = "gs_ivs";
 constexpr char kVoiceSearchQueryParameterValue[] = "1";
 
-bool IsAimEligible(Profile* profile) {
+bool IsFuseboxEligible(Profile* profile) {
+  if (!profile) {
+    return false;
+  }
   auto* aim_eligibility_service =
       AimEligibilityServiceFactory::GetForProfile(profile);
-  return aim_eligibility_service && aim_eligibility_service->IsAimEligible();
+  return aim_eligibility_service &&
+         aim_eligibility_service->IsFuseboxEligible();
+}
+
+bool IsFuseboxEnabled(Profile* profile) {
+  if (!IsFuseboxEligible(profile)) {
+    return false;
+  }
+  return !profile || !profile->GetPrefs() ||
+         profile->GetPrefs()->GetBoolean(
+             omnibox_everywhere::prefs::kOmniboxEverywhereShowAiMode);
+}
+
+omnibox_everywhere::prefs::FreStage MojoFreStageToPrefsFreStage(
+    searchbox::mojom::FreStage stage) {
+  switch (stage) {
+    case searchbox::mojom::FreStage::kNone:
+      return omnibox_everywhere::prefs::FreStage::kNone;
+    case searchbox::mojom::FreStage::kIntroModal:
+      return omnibox_everywhere::prefs::FreStage::kIntroModal;
+    case searchbox::mojom::FreStage::kShortcutSetupChin:
+      return omnibox_everywhere::prefs::FreStage::kShortcutSetupChin;
+    case searchbox::mojom::FreStage::kShortcutReminderChin:
+      return omnibox_everywhere::prefs::FreStage::kShortcutReminderChin;
+  }
+}
+searchbox::mojom::FreStage PrefsFreStageToMojoFreStage(
+    omnibox_everywhere::prefs::FreStage stage) {
+  switch (stage) {
+    case omnibox_everywhere::prefs::FreStage::kNone:
+      return searchbox::mojom::FreStage::kNone;
+    case omnibox_everywhere::prefs::FreStage::kIntroModal:
+      return searchbox::mojom::FreStage::kIntroModal;
+    case omnibox_everywhere::prefs::FreStage::kShortcutSetupChin:
+      return searchbox::mojom::FreStage::kShortcutSetupChin;
+    case omnibox_everywhere::prefs::FreStage::kShortcutReminderChin:
+      return searchbox::mojom::FreStage::kShortcutReminderChin;
+  }
 }
 
 class OmniboxEverywhereClient : public ContextualOmniboxClient {
@@ -108,7 +159,7 @@ OmniboxEverywhereHandler::OmniboxEverywhereHandler(
     content::WebUI* web_ui,
     OmniboxEverywhereService* service,
     GetSessionHandleCallback get_session_callback,
-    ScreenshareDelegate* screenshare_delegate)
+    ContextualSearchboxScreenshareController::Delegate* screenshare_delegate)
     : ContextualSearchboxHandler(
           std::move(pending_page_handler),
           std::move(pending_page),
@@ -124,19 +175,60 @@ OmniboxEverywhereHandler::OmniboxEverywhereHandler(
       base::BindRepeating(&OmniboxEverywhereHandler::GetSuggestInputs,
                           base::Unretained(this)));
   autocomplete_controller_observation_.Observe(autocomplete_controller());
+  if (auto* aim_eligibility_service =
+          AimEligibilityServiceFactory::GetForProfile(profile_)) {
+    aim_eligibility_subscription_ =
+        aim_eligibility_service->RegisterEligibilityChangedCallback(
+            base::BindRepeating(
+                &OmniboxEverywhereHandler::OnAiModeEligibilityOrPrefChanged,
+                base::Unretained(this)));
+  }
   if (profile_ && profile_->GetPrefs()) {
     pref_change_registrar_.Init(profile_->GetPrefs());
     pref_change_registrar_.Add(
         omnibox_everywhere::prefs::kOmniboxEverywhereShowAiMode,
-        base::BindRepeating(&OmniboxEverywhereHandler::OnShowAiModePrefChanged,
+        base::BindRepeating(
+            &OmniboxEverywhereHandler::OnAiModeEligibilityOrPrefChanged,
+            base::Unretained(this)));
+    pref_change_registrar_.Add(
+        omnibox_everywhere::prefs::kFreIntroDismissed,
+        base::BindRepeating(&OmniboxEverywhereHandler::PushFreState,
+                            base::Unretained(this)));
+    pref_change_registrar_.Add(
+        omnibox_everywhere::prefs::kFreShortcutSetupDismissed,
+        base::BindRepeating(&OmniboxEverywhereHandler::PushFreState,
+                            base::Unretained(this)));
+    pref_change_registrar_.Add(
+        omnibox_everywhere::prefs::kFreShortcutReminderDismissed,
+        base::BindRepeating(&OmniboxEverywhereHandler::PushFreState,
+                            base::Unretained(this)));
+    pref_change_registrar_.Add(
+        omnibox_everywhere::prefs::kFreIntroImpressionCount,
+        base::BindRepeating(&OmniboxEverywhereHandler::PushFreState,
+                            base::Unretained(this)));
+    pref_change_registrar_.Add(
+        omnibox_everywhere::prefs::kFreShortcutSetupImpressionCount,
+        base::BindRepeating(&OmniboxEverywhereHandler::PushFreState,
+                            base::Unretained(this)));
+    pref_change_registrar_.Add(
+        omnibox_everywhere::prefs::kFreShortcutReminderImpressionCount,
+        base::BindRepeating(&OmniboxEverywhereHandler::PushFreState,
                             base::Unretained(this)));
     pref_change_registrar_.Add(
         omnibox_everywhere::prefs::kFreDismissed,
-        base::BindRepeating(&OmniboxEverywhereHandler::UpdatePromoState,
+        base::BindRepeating(&OmniboxEverywhereHandler::PushFreState,
                             base::Unretained(this)));
-    pref_change_registrar_.Add(
-        omnibox_everywhere::prefs::kFreImpressionCount,
-        base::BindRepeating(&OmniboxEverywhereHandler::UpdatePromoState,
+  }
+
+  if (g_browser_process && g_browser_process->local_state()) {
+    local_state_pref_change_registrar_.Init(g_browser_process->local_state());
+    local_state_pref_change_registrar_.Add(
+        omnibox_everywhere::prefs::kOmniboxEverywhereHotkey,
+        base::BindRepeating(&OmniboxEverywhereHandler::PushFreState,
+                            base::Unretained(this)));
+    local_state_pref_change_registrar_.Add(
+        omnibox_everywhere::prefs::kHotkeyEnabled,
+        base::BindRepeating(&OmniboxEverywhereHandler::PushFreState,
                             base::Unretained(this)));
   }
 
@@ -144,10 +236,21 @@ OmniboxEverywhereHandler::OmniboxEverywhereHandler(
     profile_attributes_storage_observation_.Observe(
         &g_browser_process->profile_manager()->GetProfileAttributesStorage());
   }
-  UpdatePromoState();
+  PushFreState();
+
+  // Explicitly initialize the `InputStateModel` for the standalone Omnibox
+  // Everywhere searchbox. This ensures that dynamic context menu items and
+  // input tools are available immediately from the classic Omnibox view before
+  // transitioning into Composebox view.
+  InitializeInputStateModel();
 }
 
-OmniboxEverywhereHandler::~OmniboxEverywhereHandler() = default;
+OmniboxEverywhereHandler::~OmniboxEverywhereHandler() {
+  omnibox_everywhere::OmniboxEverywhereHotkeyBubbleView::CloseIfOpen();
+  if (service_) {
+    service_->OnHotkeyDropdownClosed();
+  }
+}
 
 void OmniboxEverywhereHandler::OnDriveUploadClicked(
     OnDriveUploadClickedCallback callback) {
@@ -171,6 +274,28 @@ void OmniboxEverywhereHandler::OnDriveUploadClicked(
   webui::SetBrowserWindowInterface(web_contents_, active_bwi);
 
   ContextualSearchboxHandler::OnDriveUploadClicked(std::move(callback));
+}
+
+void OmniboxEverywhereHandler::StartScreenshare(
+    bool prefer_entire_screen,
+    StartScreenshareCallback callback) {
+  if (!service_ ||
+      !omnibox_everywhere::prefs::IsScreenshotDisclosureAccepted(profile_)) {
+    std::move(callback).Run(std::nullopt);
+    return;
+  }
+  ContextualSearchboxHandler::StartScreenshare(prefer_entire_screen,
+                                               std::move(callback));
+}
+
+void OmniboxEverywhereHandler::CaptureRegionScreenshot(
+    CaptureRegionScreenshotCallback callback) {
+  if (!service_ ||
+      !omnibox_everywhere::prefs::IsScreenshotDisclosureAccepted(profile_)) {
+    std::move(callback).Run(std::nullopt);
+    return;
+  }
+  ContextualSearchboxHandler::CaptureRegionScreenshot(std::move(callback));
 }
 
 void OmniboxEverywhereHandler::CleanupDrivePicker() {
@@ -250,13 +375,10 @@ void OmniboxEverywhereHandler::ActivateKeyword(
   // handled directly by the frontend SearchboxMixin via `onKeywordClick`.
 }
 
-void OmniboxEverywhereHandler::OnShowAiModePrefChanged() {
+void OmniboxEverywhereHandler::OnAiModeEligibilityOrPrefChanged() {
+  InitializeInputStateModel();
   if (page()) {
-    const bool show_ai_mode =
-        !profile_ || !profile_->GetPrefs() ||
-        profile_->GetPrefs()->GetBoolean(
-            omnibox_everywhere::prefs::kOmniboxEverywhereShowAiMode);
-    page()->UpdateAimPopupEligibility(IsAimEligible(profile_) && show_ai_mode);
+    page()->UpdateAimPopupEligibility(IsFuseboxEnabled(profile_));
   }
 }
 
@@ -275,25 +397,98 @@ bool OmniboxEverywhereHandler::SupportsKeywordMode() const {
   return true;
 }
 
-void OmniboxEverywhereHandler::UpdatePromoState() {
-  bool fre_enabled =
-      base::FeatureList::IsEnabled(omnibox::kOmniboxEverywhereFre);
-  bool fre_dismissed = profile_->GetPrefs()->GetBoolean(
-      omnibox_everywhere::prefs::kFreDismissed);
-  int impressions = profile_->GetPrefs()->GetInteger(
-      omnibox_everywhere::prefs::kFreImpressionCount);
-  bool show_fre = fre_enabled && !fre_dismissed &&
-                  (impressions < omnibox_everywhere::prefs::kMaxFreImpressions);
-  page()->SetShowFre(show_fre);
+void OmniboxEverywhereHandler::DismissFre(searchbox::mojom::FreStage stage) {
+  PrefService* local_state =
+      g_browser_process ? g_browser_process->local_state() : nullptr;
+  omnibox_everywhere::prefs::OnFreStageDismissed(
+      profile_, MojoFreStageToPrefsFreStage(stage), local_state);
+  PushFreState();
 }
 
-void OmniboxEverywhereHandler::DismissFre() {
-  profile_->GetPrefs()->SetBoolean(omnibox_everywhere::prefs::kFreDismissed,
-                                   true);
+void OmniboxEverywhereHandler::SetHotkey(const std::string& hotkey_spec) {
+  PrefService* local_state =
+      g_browser_process ? g_browser_process->local_state() : nullptr;
+  if (local_state) {
+    omnibox_everywhere::prefs::SetOmniboxEverywhereHotkey(local_state,
+                                                          hotkey_spec);
+  }
+}
+
+void OmniboxEverywhereHandler::ShowHotkeyDropdown(
+    const gfx::Rect& anchor_bounds,
+    ShowHotkeyDropdownCallback callback) {
+  if (!web_contents_) {
+    std::move(callback).Run();
+    return;
+  }
+
+  views::Widget* widget = views::Widget::GetWidgetForNativeWindow(
+      web_contents_->GetTopLevelNativeWindow());
+  if (!widget) {
+    std::move(callback).Run();
+    return;
+  }
+
+  gfx::Rect screen_anchor_bounds =
+      anchor_bounds + web_contents_->GetContainerBounds().OffsetFromOrigin();
+
+  // Close any existing bubble before notifying the service to avoid re-entrancy
+  // where the old bubble's close callback resets the newly opened state.
+  omnibox_everywhere::OmniboxEverywhereHotkeyBubbleView::CloseIfOpen();
+
+  if (service_) {
+    service_->OnHotkeyDropdownOpened();
+  }
+
+  omnibox_everywhere::OmniboxEverywhereHotkeyBubbleView::Show(
+      widget, screen_anchor_bounds,
+      base::BindRepeating(&OmniboxEverywhereHandler::SetHotkey,
+                          weak_ptr_factory_.GetWeakPtr()),
+      base::BindOnce(&OmniboxEverywhereHandler::OnHotkeyDropdownClosed,
+                     weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
+}
+
+void OmniboxEverywhereHandler::OnHotkeyDropdownClosed(
+    ShowHotkeyDropdownCallback callback) {
+  if (service_) {
+    service_->OnHotkeyDropdownClosed();
+  }
+  std::move(callback).Run();
+}
+
+void OmniboxEverywhereHandler::PushFreState() {
+  if (!page_.is_bound()) {
+    return;
+  }
+  PrefService* local_state =
+      g_browser_process ? g_browser_process->local_state() : nullptr;
+  auto state = searchbox::mojom::FreState::New();
+  bool fre_enabled =
+      base::FeatureList::IsEnabled(omnibox::kOmniboxEverywhereFre);
+  state->stage = PrefsFreStageToMojoFreStage(
+      fre_enabled
+          ? omnibox_everywhere::prefs::GetCurrentFreStage(profile_, local_state)
+          : omnibox_everywhere::prefs::FreStage::kNone);
+  if (omnibox_everywhere::prefs::HasOmniboxEverywhereHotkey(local_state)) {
+    ui::Accelerator current_accelerator =
+        omnibox_everywhere::prefs::GetOmniboxEverywhereHotkey(local_state);
+    state->current_hotkey_tokens =
+        omnibox_everywhere::prefs::GetOmniboxEverywhereHotkeyTokens(
+            current_accelerator);
+  }
+  page()->SetFreState(std::move(state));
 }
 
 void OmniboxEverywhereHandler::OpenHotkeySettings() {
   chrome::ShowSettingsSubPageForProfile(profile_, chrome::kSearchSubPage);
+}
+
+void OmniboxEverywhereHandler::OnEscapePressed() {
+  if (service_) {
+    base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE, base::BindOnce(&OmniboxEverywhereService::HidePopup,
+                                  base::Unretained(service_)));
+  }
 }
 
 void OmniboxEverywhereHandler::OnProfileAvatarChanged(
@@ -346,4 +541,28 @@ void OmniboxEverywhereHandler::PushProfileInfo() {
   page()->UpdateProfileInfo(GURL(profile_avatar_url),
                             base::UTF16ToUTF8(display_name),
                             base::UTF16ToUTF8(entry->GetUserName()));
+}
+
+void OmniboxEverywhereHandler::AddFileContextFromBrowser(
+    base::UnguessableToken token,
+    searchbox::mojom::SelectedFileInfoPtr file_info) {
+  if (auto* omnibox_everywhere_ui =
+          OmniboxContextMenuController::GetOmniboxEverywhereUI(web_contents_)) {
+    omnibox_everywhere_ui->AddFileContext(token, std::move(file_info));
+  }
+}
+
+void OmniboxEverywhereHandler::OnContextUploadStatusChanged(
+    const base::UnguessableToken& context_token,
+    lens::MimeType mime_type,
+    contextual_search::ContextUploadStatus context_upload_status,
+    const std::optional<contextual_search::ContextUploadErrorType>&
+        error_type) {
+  ContextualSearchboxHandler::OnContextUploadStatusChanged(
+      context_token, mime_type, context_upload_status, error_type);
+  if (auto* omnibox_everywhere_ui =
+          OmniboxContextMenuController::GetOmniboxEverywhereUI(web_contents_)) {
+    omnibox_everywhere_ui->OnContextualInputStatusChanged(
+        context_token, context_upload_status, error_type);
+  }
 }

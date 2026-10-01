@@ -77,6 +77,18 @@ struct WebTransportStats {
   uint64 datagrams_lost_outgoing;
 };
 
+// Stats for a WebTransport receive stream.
+// https://w3c.github.io/webtransport/#dictdef-webtransportreceivestreamstats
+struct WebTransportReceiveStreamStats {
+  // Total contiguous application-stream bytes received for this stream.
+  // Retransmitted QUIC data is deduplicated by the sequencer. Maps to
+  // WebTransportReceiveStreamStats.bytesReceived.
+  //
+  // Note: bytesRead (bytes consumed by the application) is tracked by the
+  // renderer's WebTransportReceiveStream.
+  uint64 bytes_received;
+};
+
 // Represents the priority of a WebTransport stream.
 // https://w3c.github.io/webtransport/#dictdef-webtransportsendoptions
 // Default values (null send_group_id, send_order=0) match QUICHE's
@@ -89,6 +101,38 @@ struct WebTransportStreamPriority {
   uint32? send_group_id;
   // https://w3c.github.io/webtransport/#dom-webtransportsendoptions-sendorder
   int64 send_order = 0;
+};
+
+// An outgoing Datagram writable created by
+// WebTransportDatagramDuplexStream.createWritable().
+// https://w3c.github.io/webtransport/#dom-webtransportdatagramduplexstream-createwritable
+// This is typically implemented in the network service, and used by renderer.
+//
+// The writable exists in the network service for exactly as long as this pipe
+// is open. Closing the pipe discards any Datagrams which are still queued and
+// removes the writable from the session's Datagram scheduler; to drain instead,
+// the client keeps the pipe open until every SendDatagram() response has been
+// received.
+interface WebTransportDatagramWritable {
+  // Indicates that the network service refused to create the writable because
+  // of a recoverable resource limit. Pending writes are treated as discarded
+  // Datagrams.
+  const uint32 kCreationRejectedDisconnectReason = 1;
+
+  // Indicates that the writable pipe was closed because its WebTransport
+  // session is terminating. The renderer waits for the session notification
+  // to reject pending writes instead of treating them as ordinary Datagram
+  // discards.
+  const uint32 kSessionClosedDisconnectReason = 2;
+
+  // Sends a Datagram through this writable. The response message represents
+  // whether the peer has sent or discarded the Datagram, with the same
+  // semantics as WebTransport.SendDatagram().
+  SendDatagram(mojo_base.mojom.ReadOnlyBuffer data) => (bool result);
+
+  // Updates the scheduling priority of this writable. Corresponds to the
+  // JavaScript WebTransportDatagramsWritable.sendGroup and .sendOrder setters.
+  SetPriority(WebTransportStreamPriority priority);
 };
 
 // A mojo interface for https://w3c.github.io/web-transport/#web-transport.
@@ -120,6 +164,16 @@ interface WebTransport {
   // A datagram message is sent from the client. The response message represents
   // whether the peer has sent or discarded the datagram.
   SendDatagram(mojo_base.mojom.ReadOnlyBuffer data) => (bool result);
+
+  // Creates an outgoing Datagram writable with the given initial scheduling
+  // priority. Datagrams sent through |writable| are scheduled against the
+  // Datagrams of every other writable of this session, including those sent
+  // with the legacy SendDatagram method, which uses the default priority.
+  // The writable is removed when |writable| is closed, at which point its
+  // queued Datagrams are discarded.
+  CreateDatagramWritable(
+      pending_receiver<WebTransportDatagramWritable> writable,
+      WebTransportStreamPriority priority);
 
   // Stream creation initiated by the client. |succeeded| represents whether
   // the stream is created successfully, and |stream_id| is meaningful only
@@ -161,11 +215,21 @@ interface WebTransport {
 
   // Sets the duration which determines whether an outgoing datagram should be
   // discarded due to being in the queue for too long. A duration of 0 means to
-  // use an implementation-defined default.
+  // use an implementation-defined default. Implementations may clamp large
+  // values to an effectively infinite safe duration.
   SetOutgoingDatagramExpirationDuration(mojo_base.mojom.TimeDelta duration);
 
   // Provides the latest stats for the session.
   GetStats() => (WebTransportStats? stats);
+
+  // Provides the latest stats for a receive (incoming) stream. Final stats for
+  // peer-closed and reset streams are delivered with the corresponding
+  // WebTransportClient notification. During client cancellation, stats remain
+  // available until StopSending() arrives. Returns null if `stream_id`
+  // identifies neither a tracked stream nor a snapshot of a cancelled stream.
+  // https://w3c.github.io/webtransport/#dom-webtransportreceivestream-getstats
+  GetReceiveStreamStats(uint32 stream_id)
+      => (WebTransportReceiveStreamStats? stats);
 
   // https://w3c.github.io/webtransport/#session-terminate
   // This is the last message and it is not allowed to call methods after
@@ -186,9 +250,13 @@ interface WebTransportClient {
 
   // Notifies that the server will not write data to the Stream for |stream_id|.
   // |fin_received| is true when FIN is received from the server.
+  // |bytes_received| is the final number of contiguous application bytes
+  // received for the stream.
   // Note that OnIncomingStreamClosed and OnOutgoingStreamClosed can both be
   // dispatched to the same stream, if it is a bidirectional stream.
-  OnIncomingStreamClosed(uint32 stream_id, bool fin_received);
+  OnIncomingStreamClosed(uint32 stream_id,
+                         bool fin_received,
+                         uint64 bytes_received);
 
   // Notifies that all outstanding data has been received by the server on the
   // Stream for |stream_id| and it is now closed.
@@ -204,7 +272,11 @@ interface WebTransportClient {
   // https://w3c.github.io/webtransport/#stream-signal-reset
   // `stream_error_code` is an error code as described at
   // https://ietf-wg-webtrans.github.io/draft-ietf-webtrans-http3/draft-ietf-webtrans-http3.html#name-resetting-data-streams.
-  OnReceivedResetStream(uint32 stream_id, uint32 stream_error_code);
+  // `bytes_received` is the final number of contiguous application bytes
+  // received before the reset.
+  OnReceivedResetStream(uint32 stream_id,
+                        uint32 stream_error_code,
+                        uint64 bytes_received);
 
   // Called when the session is terminated cleanly.
   // https://w3c.github.io/webtransport/#session-terminated
@@ -236,12 +308,16 @@ interface WebTransportHandshakeClient {
   // strategies.
   OnBeforeConnect(IPEndPoint server_address);
 
-  // Called when the handshake succeeds.
+  // Called when the handshake succeeds. |max_datagram_size| is the largest
+  // outgoing datagram payload supported by the established session. Null means
+  // that the implementation-defined initial value should be retained; 0 means
+  // that no non-empty outgoing Datagram payload fits.
   OnConnectionEstablished(pending_remote<WebTransport> transport,
                           pending_receiver<WebTransportClient> client,
                           HttpResponseHeaders response_headers,
                           string? selected_application_protocol,
-                          WebTransportStats initial_stats);
+                          WebTransportStats initial_stats,
+                          uint32? max_datagram_size);
 
   // Called when the handshake fails.
   // |error| contains the error details. The actual error information issued

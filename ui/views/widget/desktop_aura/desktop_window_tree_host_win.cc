@@ -15,6 +15,7 @@
 #include "base/command_line.h"
 #include "base/containers/flat_set.h"
 #include "base/debug/dump_without_crashing.h"
+#include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/logging.h"
 #include "base/memory/ptr_util.h"
@@ -1126,6 +1127,15 @@ DesktopWindowTreeHostWin::GetParentNativeViewAccessible() {
   }
 
   views::Widget* parent_widget = widget->parent();
+  if (!parent_widget && widget->IsVisible()) {
+    // Context-created popups, such as TooltipAura's widget, can have a Win32
+    // owner without a Widget parent. Resolve the owner's content window to
+    // obtain its Widget.
+    if (HWND owner_hwnd = ::GetWindow(GetHWND(), GW_OWNER)) {
+      parent_widget =
+          Widget::GetWidgetForNativeView(GetContentWindowForHWND(owner_hwnd));
+    }
+  }
   if (!parent_widget) {
     return nullptr;
   }
@@ -1202,6 +1212,10 @@ void DesktopWindowTreeHostWin::HandleCreate() {
 }
 
 void DesktopWindowTreeHostWin::HandleDestroying() {
+  if (called_handle_destroying_) {
+    return;
+  }
+  called_handle_destroying_ = true;
   drag_drop_client_->OnNativeWidgetDestroying(GetHWND());
   if (native_widget_delegate_) {
     native_widget_delegate_->OnNativeWidgetDestroying();
@@ -1213,6 +1227,14 @@ void DesktopWindowTreeHostWin::HandleDestroying() {
 }
 
 void DesktopWindowTreeHostWin::HandleDestroyed() {
+  if (!called_handle_destroying_ &&
+      base::FeatureList::IsEnabled(features::kHandleMissingWmDestroy)) {
+    // In anomalous destruction cases (such as external subclassing or
+    // third-party hooks dropping WM_DESTROY), WM_NCDESTROY may arrive without a
+    // preceding WM_DESTROY. Ensure that HandleDestroying() is called before the
+    // host and widget are destroyed.
+    HandleDestroying();
+  }
   desktop_native_widget_aura_->OnHostClosed();
 }
 

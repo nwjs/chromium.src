@@ -237,24 +237,6 @@ bool IsDictationOfflineAvailable() {
       ash::features::kOnDeviceSpeechRecognition);
 }
 
-BASE_FEATURE(kAccessibilityAccelerator, base::FEATURE_ENABLED_BY_DEFAULT);
-bool IsAccessibilityAcceleratorEnabled() {
-  return base::FeatureList::IsEnabled(::features::kAccessibilityAccelerator);
-}
-
-BASE_FEATURE(kAccessibilityReducedAnimations, base::FEATURE_ENABLED_BY_DEFAULT);
-bool IsAccessibilityReducedAnimationsEnabled() {
-  return base::FeatureList::IsEnabled(
-      ::features::kAccessibilityReducedAnimations);
-}
-
-BASE_FEATURE(kAccessibilityReducedAnimationsInKiosk,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-bool IsAccessibilityReducedAnimationsInKioskEnabled() {
-  return base::FeatureList::IsEnabled(
-      ::features::kAccessibilityReducedAnimationsInKiosk);
-}
-
 BASE_FEATURE(kExperimentalAccessibilityDictationContextChecking,
              base::FEATURE_DISABLED_BY_DEFAULT);
 bool IsExperimentalAccessibilityDictationContextCheckingEnabled() {
@@ -262,37 +244,9 @@ bool IsExperimentalAccessibilityDictationContextCheckingEnabled() {
       ::features::kExperimentalAccessibilityDictationContextChecking);
 }
 
-BASE_FEATURE(kAccessibilityMagnifierFollowsChromeVox,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-bool IsAccessibilityMagnifierFollowsChromeVoxEnabled() {
-  return base::FeatureList::IsEnabled(
-      ::features::kAccessibilityMagnifierFollowsChromeVox);
-}
-
 BASE_FEATURE(kAccessibilityMouseKeys, base::FEATURE_ENABLED_BY_DEFAULT);
 bool IsAccessibilityMouseKeysEnabled() {
   return base::FeatureList::IsEnabled(::features::kAccessibilityMouseKeys);
-}
-
-BASE_FEATURE(kAccessibilityCaptionsOnBrailleDisplay,
-             "CaptionsOnBrailleDisplay",
-             base::FEATURE_ENABLED_BY_DEFAULT);
-bool IsAccessibilityCaptionsOnBrailleDisplayEnabled() {
-  return base::FeatureList::IsEnabled(
-      ::features::kAccessibilityCaptionsOnBrailleDisplay);
-}
-
-BASE_FEATURE(kAccessibilityDisableTouchpad, base::FEATURE_ENABLED_BY_DEFAULT);
-bool IsAccessibilityDisableTouchpadEnabled() {
-  return base::FeatureList::IsEnabled(
-      ::features::kAccessibilityDisableTouchpad);
-}
-
-BASE_FEATURE(kAccessibilityFlashScreenFeature,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-bool IsAccessibilityFlashScreenFeatureEnabled() {
-  return base::FeatureList::IsEnabled(
-      ::features::kAccessibilityFlashScreenFeature);
 }
 
 BASE_FEATURE(kAccessibilityInvertedMouseCursor,
@@ -312,13 +266,6 @@ BASE_FEATURE(kAccessibilityManifestV3ChromeVox,
 bool IsAccessibilityManifestV3EnabledForChromeVox() {
   return base::FeatureList::IsEnabled(
       ::features::kAccessibilityManifestV3ChromeVox);
-}
-
-BASE_FEATURE(kAccessibilityManifestV3EspeakNGTts,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-bool IsAccessibilityManifestV3EnabledForEspeakNGTts() {
-  return base::FeatureList::IsEnabled(
-      ::features::kAccessibilityManifestV3EspeakNGTts);
 }
 
 BASE_FEATURE(kAccessibilityManifestV3GoogleTts,
@@ -364,12 +311,22 @@ bool IsAccessibilityAndroidMathEnabled() {
   return base::FeatureList::IsEnabled(::features::kAccessibilityAndroidMath);
 }
 
-BASE_FEATURE(kReadAloudNative, base::FEATURE_DISABLED_BY_DEFAULT);
+#endif  // BUILDFLAG(IS_ANDROID)
+
 bool IsReadAloudNativeEnabled() {
-  return base::FeatureList::IsEnabled(::features::kReadAloudNative);
+  return base::FeatureList::IsEnabled(ax::mojom::features::kReadAloudNative);
 }
 
-#endif  // BUILDFLAG(IS_ANDROID)
+bool IsReadAloudServerSynthesizerEnabled() {
+  std::optional<bool> override_state = base::FeatureList::GetStateIfOverridden(
+      ax::mojom::features::kReadAloudServerSynthesizer);
+  if (override_state.has_value() && !override_state.value()) {
+    return false;
+  }
+  return base::FeatureList::IsEnabled(
+             ax::mojom::features::kReadAloudServerSynthesizer) ||
+         base::FeatureList::IsEnabled(ax::mojom::features::kReadAloudNative);
+}
 
 #if !BUILDFLAG(IS_ANDROID)
 BASE_FEATURE(kAXTreeFixing, base::FEATURE_DISABLED_BY_DEFAULT);

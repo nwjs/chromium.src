@@ -89,6 +89,33 @@ chromium-metrics-reviews@google.com.
 
 <!-- LINT.ThenChange(//chrome/browser/glic/glic_enums.h:GeminiNavigationCaptureResult) -->
 
+<!-- LINT.IfChange(GlicActorTaskIdMismatchMethod) -->
+
+<enum name="GlicActorTaskIdMismatchMethod">
+  <int value="0" label="PerformActions"/>
+  <int value="1" label="CancelActions"/>
+  <int value="2" label="StopActorTask"/>
+  <int value="3" label="PauseActorTask"/>
+  <int value="4" label="ResumeActorTask"/>
+  <int value="5" label="InterruptActorTask"/>
+  <int value="6" label="UninterruptActorTask"/>
+  <int value="7" label="UpdateActorTaskStepProgress"/>
+  <int value="8" label="CreateActorTab"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/browser/glic/actor/glic_actor_metrics.h:GlicActorTaskIdMismatchMethod) -->
+
+<!-- LINT.IfChange(GlicActorTaskIdMismatchReason) -->
+
+<enum name="GlicActorTaskIdMismatchReason">
+  <int value="0" label="No current task"/>
+  <int value="1" label="Provided task ID null"/>
+  <int value="2" label="Task ID mismatch"/>
+  <int value="3" label="Both null"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/browser/glic/actor/glic_actor_metrics.h:GlicActorTaskIdMismatchReason) -->
+
 <!-- LINT.IfChange(GlicAnchoredDespiteEligibilityReason) -->
 
 <enum name="GlicAnchoredDespiteEligibilityReason">
@@ -416,7 +443,7 @@ chromium-metrics-reviews@google.com.
   <int value="52" label="SubscribeToPinCandidates"/>
   <int value="53" label="(Obsolete) UnsubscribeFromPinCandidates"/>
   <int value="54" label="GetZeroStateSuggestionsForFocusedTab"/>
-  <int value="55" label="(Obsolete) GetZeroStateSuggestionsAndSubscribe"/>
+  <int value="55" label="GetZeroStateSuggestionsAndSubscribe"/>
   <int value="56" label="SetClosedCaptioningSetting"/>
   <int value="57" label="DropScrollToHighlight"/>
   <int value="58" label="MaybeRefreshUserStatus"/>
@@ -465,9 +492,10 @@ chromium-metrics-reviews@google.com.
   <int value="102" label="ActivateTabWithUrl"/>
   <int value="103" label="UpdateActorTaskStepProgress"/>
   <int value="104" label="OpenPinnedTabPicker"/>
+  <int value="105" label="OpenContactInfoSettingsPage"/>
 </enum>
 
-<!-- LINT.ThenChange(//chrome/browser/resources/glic/glic_api_impl/request_types.ts:ApiRequestType) -->
+<!-- LINT.ThenChange(//chrome/browser/glic/public/glic_api_metrics.h:GlicHostApiRequestId) -->
 
 <!-- LINT.IfChange(GlicHotkeyUsage) -->
 
@@ -613,9 +641,10 @@ chromium-metrics-reviews@google.com.
   <int value="40" label="Reshow inactive"/>
   <int value="41" label="Tab context menu"/>
   <int value="42" label="Web Continuity"/>
+  <int value="43" label="History page chat linkout"/>
 </enum>
 
-<!-- LINT.ThenChange(//chrome/browser/glic/host/glic.mojom:InvocationSource) -->
+<!-- LINT.ThenChange(//chrome/common/glic_enums.mojom:InvocationSource) -->
 
 <!-- LINT.IfChange(GlicInvokeResult) -->
 
@@ -642,6 +671,30 @@ chromium-metrics-reviews@google.com.
 </enum>
 
 <!-- LINT.ThenChange(//chrome/browser/glic/public/glic_invoke_options.h:GlicInvokeError) -->
+
+<!-- LINT.IfChange(GlicInvokeTimeoutStage) -->
+
+<enum name="GlicInvokeTimeoutStage">
+  <int value="0" label="Unknown"/>
+  <int value="1" label="SequentialTaskGroup"/>
+  <int value="2" label="ParallelTaskGroup"/>
+  <int value="3" label="WaitForNavigation"/>
+  <int value="4" label="SetTabPendingActuation"/>
+  <int value="5" label="ShowInstance"/>
+  <int value="6" label="SetupHiddenPanel"/>
+  <int value="7" label="MaybeInitializeHiddenClient"/>
+  <int value="8" label="WaitForClientConnected"/>
+  <int value="9" label="PostCallback"/>
+  <int value="10" label="Stabilization"/>
+  <int value="11" label="WaitForFreCompletion"/>
+  <int value="12" label="SendToClient"/>
+  <int value="13" label="WaitForActuation"/>
+  <int value="14" label="ClipboardPolicy"/>
+  <int value="15" label="CopyPolicy"/>
+  <int value="16" label="PastePolicy"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/browser/glic/service/glic_invoke_task.h:GlicTaskType) -->
 
 <!-- LINT.IfChange(GlicResponseError) -->
 
@@ -1084,6 +1137,10 @@ chromium-metrics-reviews@google.com.
   <int value="170" label="Web Continuity, attached, audio mode."/>
   <int value="171" label="Web Continuity, detached, text mode."/>
   <int value="172" label="Web Continuity, detached, audio mode."/>
+  <int value="173" label="History page chat linkout, attached, text mode."/>
+  <int value="174" label="History page chat linkout, attached, audio mode."/>
+  <int value="175" label="History page chat linkout, detached, text mode."/>
+  <int value="176" label="History page chat linkout, detached, audio mode."/>
 </enum>
 
 <!-- LINT.ThenChange(//chrome/browser/glic/service/metrics/metrics_types.h:ResponseSegmentation) -->
@@ -1478,7 +1535,7 @@ chromium-metrics-reviews@google.com.
   <int value="2" label="AutoPlay granted for other RFH"/>
 </enum>
 
-<!-- LINT.ThenChange(//chrome/browser/glic/host/guest_util.cc:WebViewAutoPlayProgress) -->
+<!-- LINT.ThenChange(//chrome/browser/glic/host/glic_guest_observer.cc:WebViewAutoPlayProgress) -->
 
 </enums>
 

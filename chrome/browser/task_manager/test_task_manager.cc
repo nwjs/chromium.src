@@ -7,6 +7,7 @@
 #include <optional>
 
 #include "base/timer/mock_timer.h"
+#include "components/sessions/core/session_id.h"
 
 namespace task_manager {
 
@@ -93,6 +94,10 @@ const gfx::ImageSkia& TestTaskManager::GetIcon(TaskId task_id) const {
   return icon_;
 }
 
+bool TestTaskManager::ShouldThemifyIcon(TaskId task_id) const {
+  return should_themify_icon_;
+}
+
 const base::ProcessHandle& TestTaskManager::GetProcessHandle(
     TaskId task_id) const {
   return handle_;
@@ -154,6 +159,12 @@ std::optional<base::ByteSize> TestTaskManager::GetSqliteMemoryUsed(
 bool TestTaskManager::GetV8Memory(TaskId task_id,
                                   base::ByteSize* allocated,
                                   base::ByteSize* used) const {
+  return false;
+}
+
+bool TestTaskManager::GetCppGCMemory(TaskId task_id,
+                                     base::ByteSize* allocated,
+                                     base::ByteSize* used) const {
   return false;
 }
 

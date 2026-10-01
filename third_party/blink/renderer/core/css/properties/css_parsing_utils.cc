@@ -115,10 +115,8 @@
 #include "third_party/blink/renderer/platform/loader/fetch/cross_origin_attribute_value.h"
 #include "third_party/blink/renderer/platform/loader/fetch/fetch_initiator_type_names.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
-#include "third_party/blink/renderer/platform/wtf/hash_set.h"
 #include "third_party/blink/renderer/platform/wtf/text/atomic_string.h"
 #include "third_party/blink/renderer/platform/wtf/text/format.h"
-#include "third_party/blink/renderer/platform/wtf/text/ignoring_ascii_case_hash.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_builder.h"
 #include "third_party/blink/renderer/platform/wtf/wtf_size_t.h"
 #include "ui/gfx/animation/keyframe/timing_function.h"
@@ -1853,13 +1851,6 @@ bool ConsumeUrlRequestModifiers(CSSParserTokenStream& stream,
                                 const CSSParserContext& context,
                                 CSSUrlRequestModifiers& modifiers) {
   CSSUrlRequestModifiers result;
-  // Unknown modifiers are silently ignored, but the grammar still disallows
-  // duplicates, and that logic applies to unknown modifiers as well. Function
-  // and bare-ident forms are tracked separately, since they're syntactically
-  // distinct, e.g. `foobar foobar(42)` is not a duplicate.
-  HashSet<String, IgnoringAsciiCaseHashTraits<String>> unknown_function_names;
-  HashSet<String, IgnoringAsciiCaseHashTraits<String>> unknown_ident_names;
-
   while (!stream.AtEnd()) {
     CSSValueID function_id = stream.Peek().FunctionId();
     if (function_id == CSSValueID::kCrossOrigin) {
@@ -1940,20 +1931,8 @@ bool ConsumeUrlRequestModifiers(CSSParserTokenStream& stream,
       if (!guard.Release()) {
         return false;  // Trailing junk inside referrer-policy().
       }
-    } else if (stream.Peek().GetType() == kFunctionToken) {
-      if (!unknown_function_names.insert(stream.Peek().Value().ToString())
-               .is_new_entry) {
-        return false;  // Duplicate unknown function modifier.
-      }
-      CSSParserTokenStream::BlockGuard guard(stream);
-    } else if (stream.Peek().GetType() == kIdentToken) {
-      if (!unknown_ident_names.insert(stream.Peek().Value().ToString())
-               .is_new_entry) {
-        return false;  // Duplicate unknown ident modifier.
-      }
-      stream.ConsumeIncludingWhitespace();
     } else {
-      return false;  // Not a valid <url-modifier> shape.
+      return false;  // Unknown modifier.
     }
     stream.ConsumeWhitespace();
   }
@@ -2289,14 +2268,6 @@ CSSValue* ConsumeColorMixFunction(
     if (auto* p2_numeric = DynamicTo<CSSNumericLiteralValue>(p2);
         p2_numeric && (p2_numeric->ComputePercentage() < 0.0 ||
                        p2_numeric->ComputePercentage() > 100.0)) {
-      return nullptr;
-    }
-
-    // If both values are literally zero (and not calc()) reject at parse time
-    if (p1 && p2 && p1->IsNumericLiteralValue() &&
-        To<CSSNumericLiteralValue>(p1)->ComputePercentage() == 0.0f &&
-        p2->IsNumericLiteralValue() &&
-        To<CSSNumericLiteralValue>(p2)->ComputePercentage() == 0.0) {
       return nullptr;
     }
 
@@ -4361,11 +4332,21 @@ bool IsBaselineKeyword(CSSValueID id) {
                       CSSValueID::kBaseline>(id);
 }
 
+namespace {
+
+bool IsFlowAlignmentKeyword(CSSValueID id) {
+  return RuntimeEnabledFeatures::CSSFlowStartAndEndEnabled() &&
+         IdentMatches<CSSValueID::kFlowStart, CSSValueID::kFlowEnd>(id);
+}
+
+}  // namespace
+
 bool IsSelfAlignmentKeyword(CSSValueID id) {
   return IdentMatches<CSSValueID::kStart, CSSValueID::kEnd, CSSValueID::kCenter,
                       CSSValueID::kSelfStart, CSSValueID::kSelfEnd,
                       CSSValueID::kFlexStart, CSSValueID::kFlexEnd,
-                      CSSValueID::kAnchorCenter>(id);
+                      CSSValueID::kAnchorCenter>(id) ||
+         IsFlowAlignmentKeyword(id);
 }
 
 bool IsSelfAlignmentOrLeftOrRightKeyword(CSSValueID id) {
@@ -4375,7 +4356,8 @@ bool IsSelfAlignmentOrLeftOrRightKeyword(CSSValueID id) {
 bool IsDefaultAlignmentKeyword(CSSValueID id) {
   return IdentMatches<CSSValueID::kStart, CSSValueID::kEnd, CSSValueID::kCenter,
                       CSSValueID::kSelfStart, CSSValueID::kSelfEnd,
-                      CSSValueID::kFlexStart, CSSValueID::kFlexEnd>(id);
+                      CSSValueID::kFlexStart, CSSValueID::kFlexEnd>(id) ||
+         IsFlowAlignmentKeyword(id);
 }
 
 bool IsDefaultAlignmentOrLeftOrRightKeyword(CSSValueID id) {
@@ -4384,7 +4366,9 @@ bool IsDefaultAlignmentOrLeftOrRightKeyword(CSSValueID id) {
 
 bool IsContentPositionKeyword(CSSValueID id) {
   return IdentMatches<CSSValueID::kStart, CSSValueID::kEnd, CSSValueID::kCenter,
-                      CSSValueID::kFlexStart, CSSValueID::kFlexEnd>(id);
+                      CSSValueID::kFlowStart, CSSValueID::kFlowEnd,
+                      CSSValueID::kFlexStart, CSSValueID::kFlexEnd>(id) ||
+         IsFlowAlignmentKeyword(id);
 }
 
 bool IsContentPositionOrLeftOrRightKeyword(CSSValueID id) {
@@ -4425,7 +4409,7 @@ bool FontFamilyNeedsQuoting(const AtomicString& string) {
           ? IsCSSTokenizerIdentSequence(string)
           : IsCSSTokenizerIdentifier(string);
   return (IsCSSWideKeyword(string) || IsDefaultKeyword(string) ||
-          FontFamily::InferredTypeFor(string) ==
+          FontFamily::InferredTypeFor(string.ToAsciiLower()) ==
               FontFamily::Type::kGenericFamily ||
           !can_serialize_unquoted);
 }
@@ -6324,14 +6308,6 @@ CSSValue* ConsumePaletteMixFunction(CSSParserTokenStream& stream,
     if (!palette1 || !palette2) {
       return nullptr;
     }
-    // If both values are literally zero (and not calc()) reject at parse time.
-    if (percentage1 && percentage2 && percentage1->IsNumericLiteralValue() &&
-        To<CSSNumericLiteralValue>(percentage1)->ComputePercentage() == 0.0f &&
-        percentage2->IsNumericLiteralValue() &&
-        To<CSSNumericLiteralValue>(percentage2)->ComputePercentage() == 0.0) {
-      return nullptr;
-    }
-
     if (!stream.AtEnd()) {
       return nullptr;
     }

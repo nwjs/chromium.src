@@ -4,7 +4,9 @@
 
 module glic.mojom;
 
+import "chrome/browser/glic/gemini_enterprise/gemini_enterprise.mojom";
 import "chrome/browser/glic/host/glic_features.mojom";
+import "chrome/browser/ui/webui/ai_overlay_dialog/tools/tools.mojom";
 import "chrome/common/actor_webui.mojom";
 import "chrome/common/glic_enums.mojom";
 import "components/content_settings/core/common/content_settings_types.mojom";
@@ -305,6 +307,8 @@ struct WebClientInitialState {
   bool enable_get_tab_by_id;
   // Whether kGlicOpenPasswordManagerSettingsPageApi is enabled.
   bool enable_open_password_manager_settings_page;
+  // Whether kGlicOpenContactInfoSettingsPageApi is enabled.
+  bool enable_open_contact_info_settings_page;
   // Whether kGlicTrustFirstOnboarding is enabled.
   bool enable_trust_first_onboarding;
   // Whether the user has completed the onboarding flow.
@@ -619,6 +623,10 @@ struct SkillPreview {
   string? category;
   // The time when the skill was created.
   mojo_base.mojom.Time? creation_time;
+  // Whether the skill is enabled. If not present, the browser does not support
+  // per-skill enablement.
+  // @glic_optional
+  bool enabled = true;
 };
 
 // @generate glic_api
@@ -1125,6 +1133,7 @@ enum GlicRequestEvent {
 // A single WebClientHandler will provide access to the browser for only
 // a single web client. If the webview navigates or refreshes, a new
 // WebClientHandler is created.
+// Next version: 2
 interface WebClientHandler {
   // Reports API request count metrics from the web client.
   ReportApiRequestCount(int32 request_type_id, GlicRequestEvent event);
@@ -1168,6 +1177,12 @@ interface WebClientHandler {
   CreateZeroStateSuggestionsHandler(
       pending_receiver<ZeroStateSuggestionsHandler> receiver);
 
+  // Creates the AI overlay tools handler. Only one handler can be bound at a
+  // time; calling this again replaces and terminates any previously bound
+  // handler.
+  CreateAiOverlayTools(
+      pending_receiver<ai_overlay_dialog.mojom.AiOverlayTools> receiver);
+
   // Creates a new tab. `url` must have a http or https protocol.
   // `tab_data` is null if the tab could not be created, which may happen if the
   // url or window_id is invalid.
@@ -1188,6 +1203,9 @@ interface WebClientHandler {
 
   // Opens the password manager settings page.
   OpenPasswordManagerSettingsPage();
+
+  // Opens the contact info settings page.
+  OpenContactInfoSettingsPage();
 
   // Set whether the panel can be manually resized.
   EnableDragResize(bool enabled);
@@ -1465,6 +1483,10 @@ interface WebClientHandler {
   // closed, or if the tab is not found.
   SubscribeToTabFavicon(
       int32 tab_id, pending_remote<TabFaviconHandler> receiver);
+
+  // Creates the Gemini Enterprise handler.
+  CreateGeminiEnterpriseHandler(
+      pending_receiver<GeminiEnterpriseHandler> receiver);
 };
 
 // Accesses zero state suggestions from the web client.
@@ -2380,6 +2402,8 @@ enum HostCapability {
   kEnforcesPasteEligibility = 14,
   // Indicates that the host supports autofilling OTPs.
   kAttemptOtpFilling = 15,
+  // Indicates that the host supports exposing Chrome-defined tools.
+  kChromeTools = 16,
 };
 
 // @generate glic_api

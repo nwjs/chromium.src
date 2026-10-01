@@ -63,6 +63,7 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/blob/blob_utils.h"
 #include "third_party/blink/public/common/context_menu_data/untrustworthy_context_menu_params.h"
+#include "third_party/blink/public/common/input/web_gesture_device.h"
 #include "third_party/blink/public/common/input/web_input_event.h"
 #include "third_party/blink/public/common/input/web_mouse_event.h"
 #include "third_party/blink/public/common/input/web_mouse_wheel_event.h"
@@ -349,6 +350,10 @@ void CrashTab(WebContents* web_contents);
 // crashed.
 void SimulateUnresponsivePrimaryMainFrameAndWaitForExit(
     WebContents* web_contents);
+
+// Causes the specified web_contents to crash due to out-of-memory. Blocks until
+// it is crashed.
+void SimulateOOMPrimaryMainFrameAndWaitForExit(WebContents* web_contents);
 
 // Sets up a commit interceptor to alter commits for |target_url| to change
 // their commit URL to |new_url| and origin to |new_origin|. This will happen

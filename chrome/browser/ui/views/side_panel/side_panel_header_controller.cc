@@ -36,7 +36,9 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/models/image_model.h"
 #include "ui/base/mojom/menu_source_type.mojom.h"
+#include "ui/base/page_transition_types.h"
 #include "ui/base/ui_base_features.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/color/color_id.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/controls/button/image_button.h"
@@ -280,7 +282,8 @@ void SidePanelHeaderController::UpdatePinButton() {
           side_panel_entry_->key());
   pin_button_->SetToggled(current_pinned_state);
   pin_button_->SetVisible(
-      !profile->IsIncognitoProfile() && !profile->IsGuestSession() &&
+      !profile->IsPrimaryOTRProfileWithRegularParent() &&
+      !profile->IsGuestSession() &&
       action_item->GetProperty(actions::kActionItemPinnableKey) ==
           static_cast<int>(actions::ActionPinnableState::kPinnable));
 
@@ -336,10 +339,10 @@ void SidePanelHeaderController::OpenInNewTab() {
   base::WeakPtr<SidePanelHeaderController> weak_this =
       weak_pointer_factor_.GetWeakPtr();
   SidePanelMetrics::RecordNewTabButtonClicked(side_panel_entry_->key().id());
-  content::OpenURLParams params(new_tab_url, content::Referrer(),
-                                WindowOpenDisposition::NEW_FOREGROUND_TAB,
-                                ui::PAGE_TRANSITION_AUTO_BOOKMARK,
-                                /*is_renderer_initiated=*/false);
+  content::OpenURLParams params =
+      content::OpenURLParams::CreateBrowserInitiated(
+          new_tab_url, WindowOpenDisposition::NEW_FOREGROUND_TAB,
+          ui::PAGE_TRANSITION_AUTO_BOOKMARK);
   browser_->OpenURL(params, /*navigation_handle_callback=*/{});
 
   // `this` can be destroyed because the side panel might be closed when
@@ -371,7 +374,7 @@ void SidePanelHeaderController::Close() {
     return;
   }
 
-  browser_->GetFeatures().side_panel_ui()->Close();
+  SidePanelUI::From(&browser_.get())->Close();
 }
 
 void SidePanelHeaderController::MaybeQueuePinPromo(SidePanelEntryId id) {

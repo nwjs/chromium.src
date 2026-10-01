@@ -197,6 +197,16 @@ chromium-metrics-reviews@google.com.
   <int value="3" label="Other"/>
 </enum>
 
+<!-- LINT.IfChange(AndroidConfirmQuitResult) -->
+
+<enum name="AndroidConfirmQuitResult">
+  <int value="0" label="Quit via Hold"/>
+  <int value="1" label="Quit via Double-tap"/>
+  <int value="2" label="Canceled"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/android/java/src/org/chromium/chrome/browser/ConfirmQuitHelper.java:ConfirmQuitResult) -->
+
 <!-- LINT.IfChange(AndroidDefaultBrowserState) -->
 
 <enum name="AndroidDefaultBrowserPromoOutcomeType">
@@ -385,21 +395,37 @@ chromium-metrics-reviews@google.com.
   <int value="2" label="Search engine changed"/>
 </enum>
 
+<!-- LINT.IfChange(AndroidSearchEngineChoiceEventsV2) -->
+
 <enum name="AndroidSearchEngineChoiceEventsV2">
   <summary>Events related to Search Engine Choice V2 feature.</summary>
-  <int value="0" label="Request received from play"/>
-  <int value="1"
-      label="User skipped (didn't complete) Search Engine Choice flow"/>
-  <int value="2" label="Play API returned empty list of providers"/>
-  <int value="3" label="User selected valid search provider"/>
-  <int value="4" label="Search engine metadata value was null"/>
-  <int value="5" label="Failed to parse search engine metadata JSON"/>
-  <int value="6"
-      label="Previous attempt to persist search engine metadata failed"/>
-  <int value="7" label="Request success"/>
-  <int value="8" label="Choice was already applied"/>
-  <int value="9" label="Choice renewal was skipped"/>
+  <int value="0" label="CHOICE_REQUEST_RECEIVED">
+    Request received from play
+  </int>
+  <int value="1" label="CHOICE_SKIPPED">
+    User skipped (didn't complete) Search Engine Choice flow
+  </int>
+  <int value="2" label="CHOICE_REQUEST_NO_DATA">
+    Play API returned empty list of providers
+  </int>
+  <int value="3" label="CHOICE_REQUEST_VALID">
+    User selected valid search provider
+  </int>
+  <int value="4" label="CHOICE_REQUEST_METADATA_NULL">
+    Search engine metadata value was null
+  </int>
+  <int value="5" label="CHOICE_REQUEST_PARSE_FAILED">
+    Failed to parse search engine metadata JSON
+  </int>
+  <int value="6" label="PREVIOUS_CHOICE_REQUEST_FAILED">
+    Previous attempt to persist search engine metadata failed
+  </int>
+  <int value="7" label="CHOICE_REQUEST_SUCCESS">Request success</int>
+  <int value="8" label="CHOICE_ALREADY_APPLIED">Choice was already applied</int>
+  <int value="9" label="CHOICE_RENEWAL_SKIPPED">Choice renewal was skipped</int>
 </enum>
+
+<!-- LINT.ThenChange(//chrome/browser/search_engines/android/java/src/org/chromium/chrome/browser/search_engines/SearchEngineChoiceMetrics.java:AndroidSearchEngineChoiceEventsV2) -->
 
 <enum name="AndroidSeccompSandboxStatus">
   <int value="0" label="Not Supported"/>
@@ -603,24 +629,19 @@ chromium-metrics-reviews@google.com.
   <int value="2" label="IOException"/>
 </enum>
 
-<enum name="AndroidWebViewRenderProcessGoneResult">
+<enum name="AndroidWebViewRenderProcessGoneResult3">
   <int value="0" label="Java Exception thrown inside onRenderProcessGone()"/>
-  <int value="1" label="Renderer crash not handled (deprecated)"/>
+  <int value="1" label="Renderer crash was handled for all WebViews"/>
   <int value="2"
-      label="Renderer kill (OOM or update) not handled (deprecated)"/>
-  <int value="3"
-      label="Crash or kill was handled for all WebViews (deprecated)"/>
-  <int value="4" label="Renderer crash was handled for all WebViews"/>
-  <int value="5"
       label="Renderer kill (OOM or update) was handled for all WebViews"/>
-  <int value="6"
-      label="Renderer crash not handled (app process visible to user)"/>
-  <int value="7"
+  <int value="3"
+      label="Renderer crash not handled (app process in foreground)"/>
+  <int value="4"
       label="Renderer crash not handled (app process in background)"/>
-  <int value="8"
-      label="Renderer kill (OOM or update) not handled (app process visible
-             to user)"/>
-  <int value="9"
+  <int value="5"
+      label="Renderer kill (OOM or update) not handled (app process in
+             foreground)"/>
+  <int value="6"
       label="Renderer kill (OOM or update) not handled (app process in
              background)"/>
 </enum>
@@ -1209,16 +1230,6 @@ chromium-metrics-reviews@google.com.
   <int value="2" label="Desktop windowing mode is supported and active."/>
 </enum>
 
-<enum name="DeviceAuthSource">
-  <int value="0" label="Password Manager"/>
-  <int value="1" label="Autofill"/>
-  <int value="2" label="Icognito"/>
-  <int value="3" label="Device Lock Page"/>
-  <int value="4" label="Settings Batch Upload"/>
-  <int value="5" label="Bookmark Batch Upload"/>
-  <int value="6" label="Passwords CSV Download"/>
-</enum>
-
 <enum name="DeviceLockDialogAction">
   <int value="0" label="Create device lock dialog shown"/>
   <int value="1" label="Existing device lock dialog shown"/>
@@ -1233,14 +1244,6 @@ chromium-metrics-reviews@google.com.
   <int value="0" label="START"/>
   <int value="1" label="UPDATE"/>
   <int value="2" label="STOP"/>
-</enum>
-
-<enum name="DownloadNotificationInteractions">
-  <int value="0" label="CLICKED"/>
-  <int value="1" label="OPEN"/>
-  <int value="2" label="CANCEL"/>
-  <int value="3" label="PAUSE"/>
-  <int value="4" label="RESUME"/>
 </enum>
 
 <enum name="DownloadNotificationServiceStopped">
@@ -1695,6 +1698,7 @@ chromium-metrics-reviews@google.com.
   <int value="12" label="Crash recovery"/>
   <int value="13" label="Relaunch"/>
   <int value="14" label="Settings"/>
+  <int value="15" label="Account menu"/>
 </enum>
 
 <enum name="NTPImpressionType">
@@ -3131,6 +3135,10 @@ chromium-metrics-reviews@google.com.
   <int value="142" label="profileGetHttpCacheManager"/>
   <int value="143" label="profileSetCrossOriginIsolatedAllowList"/>
   <int value="144" label="profileGetCrossOriginIsolatedAllowList"/>
+  <int value="145" label="webViewInstanceAddDocumentStartJavaScript"/>
+  <int value="146" label="webViewInstanceAddJavaScriptOnEvent"/>
+  <int value="147" label="webViewInstanceGetJavaScriptWorld"/>
+  <int value="148" label="webViewInstanceGetProfile"/>
 </enum>
 
 <!-- LINT.ThenChange(//base/tracing/protos/chrome_track_event.proto:WebViewStartup,//android_webview/java/src/org/chromium/android_webview/StartupCallSite.java:StartupCallSite) -->

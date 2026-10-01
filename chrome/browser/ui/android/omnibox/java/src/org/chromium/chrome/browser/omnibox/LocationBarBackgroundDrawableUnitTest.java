@@ -5,9 +5,8 @@
 package org.chromium.chrome.browser.omnibox;
 
 import static org.junit.Assert.assertEquals;
-import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
 
 import android.graphics.Canvas;
@@ -19,10 +18,10 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
+import org.mockito.quality.Strictness;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.chrome.browser.omnibox.LocationBarBackgroundDrawable.HairlineBehavior;
@@ -30,7 +29,9 @@ import org.chromium.chrome.browser.omnibox.LocationBarBackgroundDrawable.Hairlin
 /** Unit tests for {@link LocationBarBackgroundDrawable}. */
 @RunWith(BaseRobolectricTestRunner.class)
 public class LocationBarBackgroundDrawableUnitTest {
-    @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
+    @Rule
+    public final MockitoRule mMockitoRule = MockitoJUnit.rule().strictness(Strictness.STRICT_STUBS);
+
     @Mock private GradientDrawable mGradientDrawable;
     @Mock private Canvas mCanvas;
 
@@ -67,14 +68,13 @@ public class LocationBarBackgroundDrawableUnitTest {
         mDrawable.setHairlineBehavior(HairlineBehavior.RAINBOW);
         assertEquals(HairlineBehavior.RAINBOW, mDrawable.getHairlineBehaviorForTesting());
 
-        InOrder inOrder = inOrder(mCanvas);
         mDrawable.draw(mCanvas);
         verify(mGradientDrawable).draw(mCanvas);
-        inOrder.verify(mCanvas).save();
-        inOrder.verify(mCanvas).clipPath(mDrawable.getOuterPathForTesting());
-        inOrder.verify(mCanvas)
+        verify(mCanvas).save();
+        verify(mCanvas).clipPath(mDrawable.getOuterPathForTesting());
+        verify(mCanvas)
                 .drawPath(mDrawable.getHairlinePathForTesting(), mDrawable.getPaintForTesting());
-        inOrder.verify(mCanvas)
+        verify(mCanvas)
                 .drawPath(mDrawable.getBlurPathForTesting(), mDrawable.getBlurPaintForTesting());
     }
 
@@ -110,7 +110,7 @@ public class LocationBarBackgroundDrawableUnitTest {
     @Test
     public void testSetInsets() {
         mDrawable.setBounds(0, 0, 100, 100);
-        reset(mGradientDrawable);
+        clearInvocations(mGradientDrawable);
 
         mDrawable.setInsets(10, 20, 30, 40);
         verify(mGradientDrawable).setBounds(new Rect(10, 20, 70, 60));

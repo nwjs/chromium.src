@@ -43,7 +43,6 @@
 #include "base/path_service.h"
 #include "base/task/current_thread.h"
 #include "base/task/thread_pool.h"
-#include "base/trace_event/named_trigger.h"
 #include "components/crash/content/browser/child_exit_observer_android.h"
 #include "components/crash/core/common/crash_key.h"
 #include "components/embedder_support/origin_trials/component_updater_utils.h"
@@ -56,7 +55,6 @@
 #include "components/metrics/metrics_service.h"
 #include "components/performance_manager/embedder/graph_features.h"
 #include "components/performance_manager/embedder/performance_manager_lifetime.h"
-#include "components/tracing/common/background_tracing_utils.h"
 #include "components/user_prefs/user_prefs.h"
 #include "components/variations/synthetic_trials.h"
 #include "components/variations/synthetic_trials_active_group_id_provider.h"
@@ -83,7 +81,6 @@
 #include "ui/gl/gl_surface.h"
 
 // Must come after all headers that specialize FromJniType() / ToJniType().
-#include "android_webview/browser_jni_headers/AwBrowserMainParts_jni.h"
 #include "android_webview/browser_jni_headers/AwInterfaceRegistrar_jni.h"
 
 namespace {
@@ -282,24 +279,6 @@ void AwBrowserMainParts::RegisterSyntheticTrials() {
   synthetic_trial_syncer_ = content::SyntheticTrialSyncer::Create(
       metrics->GetSyntheticTrialRegistry());
 
-  static constexpr char kWebViewApkTypeTrial[] = "WebViewApkType";
-  ApkType apk_type = AwBrowserProcess::GetApkType();
-  std::string apk_type_string;
-  switch (apk_type) {
-    case ApkType::TRICHROME:
-      apk_type_string = "Trichrome";
-      break;
-    case ApkType::STANDALONE:
-      apk_type_string = "Standalone";
-      break;
-    case ApkType::UNKNOWN:
-      apk_type_string = "Unknown";
-      break;
-  }
-  AwMetricsServiceAccessor::RegisterSyntheticFieldTrial(
-      metrics, kWebViewApkTypeTrial, apk_type_string,
-      variations::SyntheticTrialAnnotationMode::kCurrentLog);
-
   // We use 3393823 as an id reported for all WebView traffic to help analyse data on the
   // server-side for WebView embedders.
   std::vector<std::string> forced_variation_ids = {"3393823"};
@@ -370,18 +349,7 @@ void AwBrowserMainParts::RegisterSyntheticTrials() {
         std::string(PRODUCT_VERSION) + "_" + trial_group,
         variations::SyntheticTrialAnnotationMode::kCurrentLog);
   }
-  JNIEnv* env = base::android::AttachCurrentThread();
-  bool use_webview_context = Java_AwBrowserMainParts_getUseWebViewContext(env);
-  bool partitioned_cookies_enablement_state =
-      Java_AwBrowserMainParts_getPartitionedCookiesDefaultState(env);
-  AwMetricsServiceAccessor::RegisterSyntheticFieldTrial(
-      metrics, "WebViewSeparateResourceContextMetrics",
-      use_webview_context ? "Enabled" : "Control",
-      variations::SyntheticTrialAnnotationMode::kCurrentLog);
-  AwMetricsServiceAccessor::RegisterSyntheticFieldTrial(
-      metrics, "WebViewPartitionedCookiesMetrics",
-      partitioned_cookies_enablement_state ? "Control" : "Disabled",
-      variations::SyntheticTrialAnnotationMode::kCurrentLog);
+  AwMetricsServiceClient::GetInstance()->FlushPendingSyntheticTrialsFromJava();
 
   bool in_seed_experiment =
       android_webview::CachedFlags::IsCachedFeatureOverridden(
@@ -454,7 +422,7 @@ void AwBrowserMainParts::WillRunMainMessageLoop(
   NOTREACHED();
 }
 
-void AwBrowserMainParts::PostCreateThreads() {
+int AwBrowserMainParts::PostCreateThreads() {
   if (base::FeatureList::IsEnabled(features::kWebViewMemoryProfilingClient)) {
     if (auto* snapshot_controller =
             heap_profiling::BrowserProcessSnapshotController::GetInstance()) {
@@ -467,15 +435,9 @@ void AwBrowserMainParts::PostCreateThreads() {
   performance_manager_lifetime_ =
       std::make_unique<performance_manager::PerformanceManagerLifetime>(
           performance_manager::GraphFeatures::WithNone(), base::DoNothing());
-
-  tracing::SetupSystemTracingFromFieldTrial();
-  tracing::SetupBackgroundTracingFromCommandLine();
-  tracing::SetupPresetTracingFromFieldTrial();
-  base::trace_event::EmitNamedTrigger(
-      base::trace_event::kStartupTracingTriggerName);
+  return content::RESULT_CODE_NORMAL_EXIT;
 }
 
 }  // namespace android_webview
 
-DEFINE_JNI(AwBrowserMainParts)
 DEFINE_JNI(AwInterfaceRegistrar)

@@ -118,6 +118,7 @@ ts_modules = [
   "background/output/output_logger.ts",
   "background/output/output_rules.ts",
   "background/output/output_types.ts",
+  "background/panel/candidate_menu_background.ts",
   "background/panel/i_search.ts",
   "background/panel/i_search_handler.ts",
   "background/panel/panel_background.ts",
@@ -329,6 +330,7 @@ template("generate_deps_js") {
   } else {
     rewrite_rules = []
   }
+
   action(target_name) {
     if (defined(invoker.testonly)) {
       testonly = invoker.testonly
@@ -464,6 +466,7 @@ js2gtest("chromevox_extension_js_tests") {
     "background/braille/expanding_braille_translator_test.js",
     "background/braille/pan_strategy_test.js",
     "background/braille/tenji_translator_test.js",
+    "background/braille/wasm_kana_kanji_provider_test.js",
     "background/editing/editable_text_test.js",
     "background/phonetic_data_test.js",
     "common/key_sequence_test.js",

@@ -20,7 +20,6 @@
 #include "content/browser/devtools/protocol/network.h"
 #include "content/browser/devtools/protocol/protocol.h"
 #include "mojo/public/cpp/bindings/receiver.h"
-#include "mojo/public/cpp/bindings/remote.h"
 #include "mojo/public/cpp/system/data_pipe.h"
 #include "net/base/net_errors.h"
 #include "net/cookies/canonical_cookie.h"
@@ -221,6 +220,12 @@ class NetworkHandler : public DevToolsDomainHandler,
   void GetResponseBody(
       const String& request_id,
       std::unique_ptr<GetResponseBodyCallback> callback) override;
+  void SearchInResponseBody(
+      const std::string& request_id,
+      const std::string& query,
+      std::optional<bool> case_sensitive,
+      std::optional<bool> is_regex,
+      std::unique_ptr<SearchInResponseBodyCallback> callback) override;
 
   void ApplyOverrides(net::HttpRequestHeaders* headers,
                       bool* skip_service_worker,

@@ -53,7 +53,6 @@ To run a specific E2E test, use the following command:
 To debug a failing E2E test, try running it with different environment variables:
 
 - Set `HEADLESS` to `true`, `false`, or `old`.
-- Set `CHROMEDRIVER` to `true` or `false`.
 
 Each run should be done with `VERBOSE=true`. Inspect the latest log in the `logs`
 directory for errors.
@@ -70,7 +69,7 @@ Note: WPT tests are very slow, so run only when needed and only the necessary te
 
 ### Fixing the build after a new command is added
 
-When a new command is added to the WebDriver BiDi CDDL (for instance after running `tools/update-bidi-types.sh`), run the following steps to fix the build:
+When a new command is added to the WebDriver BiDi CDDL (for instance after running `tools/update_bidi_types.py`), run the following steps to fix the build:
 
 1.  **Run `autoninja -C ../../out/Default third_party/chromium-bidi:default`**. This will fail with a
     `Switch is not exhaustive` error.

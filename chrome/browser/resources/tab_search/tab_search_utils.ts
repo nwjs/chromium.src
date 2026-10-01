@@ -2,16 +2,12 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import type {Range} from '/tab_search/shared/search.js';
 import {getFaviconForPageURL} from 'chrome://resources/js/icon.js';
 import {highlight} from 'chrome://resources/js/search_highlight_utils.js';
 
 import type {Tab} from './tab_search.mojom-webui.js';
 import {TabAlertState} from './tabs.mojom-webui.js';
-
-export interface Range {
-  start: number;
-  length: number;
-}
 
 export function highlightText(
     container: HTMLElement, text: string, ranges: Range[]|undefined) {

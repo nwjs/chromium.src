@@ -24,14 +24,14 @@ import org.chromium.chrome.browser.tab.Tab;
 public class OmniboxPrerender {
     private final long mNativeOmniboxPrerender;
 
-    /** Constructor for creating a OmniboxPrerender instanace. */
+    /** Constructor for creating an OmniboxPrerender instance. */
     public OmniboxPrerender() {
         mNativeOmniboxPrerender = OmniboxPrerenderJni.get().init(OmniboxPrerender.this);
     }
 
     /**
      * Clears the transitional matches. This should be called when the user stops typing into the
-     * omnibox (e.g. when navigating away, closing the keyboard or changing tabs)
+     * omnibox (e.g. when navigating away, closing the keyboard or changing tabs).
      *
      * @param profile profile instance corresponding to the active profile.
      */
@@ -53,7 +53,8 @@ public class OmniboxPrerender {
     /**
      * Potentially invokes a pre-render or pre-connect given the url typed into the omnibox and a
      * corresponding autocomplete result. This should be invoked every time the omnibox changes
-     * (e.g. As the user types characters this method should be invoked at least once per character)
+     * (e.g. As the user types characters this method should be invoked at least once per
+     * character).
      *
      * @param url url in the omnibox.
      * @param currentUrl url the current tab is displaying.

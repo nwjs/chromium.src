@@ -16,9 +16,9 @@
 #include "chrome/browser/ash/login/quick_unlock/quick_unlock_utils.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/ui/ash/login/user_adding_screen.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/exclusive_access/exclusive_access_manager.h"
 #include "chrome/browser/ui/exclusive_access/fullscreen_controller.h"
 #include "chrome/test/base/in_process_browser_test.h"
@@ -151,9 +151,7 @@ IN_PROC_BROWSER_TEST_F(ScreenLockerTest, TestFullscreenExit) {
     content::WebContents* web_contents =
         browser()->tab_strip_model()->GetActiveWebContents();
     ui_test_utils::FullscreenWaiter waiter(browser(), {.tab_fullscreen = true});
-    browser()
-        ->GetFeatures()
-        .exclusive_access_manager()
+    ExclusiveAccessManager::From(browser())
         ->fullscreen_controller()
         ->EnterFullscreenModeForTab(web_contents->GetPrimaryMainFrame());
     waiter.Wait();

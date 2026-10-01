@@ -1454,6 +1454,8 @@ void WindowPerformance::AddElementTiming(
                entry->ToTracedValue(), "frame",
                GetFrameIdForTracing(DomWindow()->GetFrame()));
   entry->SetPaintTimingInfo(paint_timing_info);
+  UseCounter::Count(GetExecutionContext(),
+                    WebFeature::kElementTimingEntryEmitted);
   if (HasObserverFor(PerformanceEntry::kElement)) {
     NotifyObserversOfEntry(*entry);
   }
@@ -1484,6 +1486,8 @@ void WindowPerformance::AddContainerTiming(
                entry->ToTracedValue(), "frame",
                GetFrameIdForTracing(DomWindow()->GetFrame()));
   entry->SetPaintTimingInfo(paint_timing_info);
+  UseCounter::Count(GetExecutionContext(),
+                    WebFeature::kContainerTimingEntryEmitted);
   if (HasObserverFor(PerformanceEntry::kContainer)) {
     NotifyObserversOfContainerEntry(*entry);
   }
@@ -1612,16 +1616,19 @@ PerformanceSoftNavigation* WindowPerformance::AddSoftNavigation(
     base::TimeTicks timestamp,
     const DOMPaintTimingInfo& paint_timing_info,
     SoftNavigationContext* context) {
-  CHECK(RuntimeEnabledFeatures::SoftNavigationHeuristicsEnabled(
-      GetExecutionContext()));
   PerformanceSoftNavigation* entry =
       MakeGarbageCollected<PerformanceSoftNavigation>(
           MonotonicTimeToDOMHighResTimeStamp(timestamp), paint_timing_info,
           context);
 
+  UseCounter::Count(GetExecutionContext(),
+                    WebFeature::kSoftNavigationEntryEmitted);
+
   if (HasObserverFor(PerformanceEntry::kSoftNavigation)) {
     UseCounter::Count(GetExecutionContext(),
                       WebFeature::kSoftNavigationHeuristics);
+    UseCounter::Count(GetExecutionContext(),
+                      WebFeature::kSoftNavigationObserved);
     NotifyObserversOfEntry(*entry);
   }
 
@@ -1769,9 +1776,11 @@ void WindowPerformance::OnLargestContentfulPaintUpdated(
 
 void WindowPerformance::OnInteractionContentfulPaintUpdated(
     InteractionContentfulPaint* entry) {
-  CHECK(RuntimeEnabledFeatures::SoftNavigationHeuristicsEnabled(
-      GetExecutionContext()));
+  UseCounter::Count(GetExecutionContext(),
+                    WebFeature::kInteractionContentfulPaintEntryEmitted);
   if (HasObserverFor(PerformanceEntry::kInteractionContentfulPaint)) {
+    UseCounter::Count(GetExecutionContext(),
+                      WebFeature::kInteractionContentfulPaintObserved);
     NotifyObserversOfEntry(*entry);
   }
   AddInteractionContentfulPaint(entry);

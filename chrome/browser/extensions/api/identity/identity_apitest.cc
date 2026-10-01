@@ -629,7 +629,7 @@ class IdentityTestWithSignin : public AsyncExtensionBrowserTest {
         email, signin::ConsentLevel::kSignin);
     EXPECT_TRUE(identity_test_env()->identity_manager()->HasPrimaryAccount(
         signin::ConsentLevel::kSignin));
-    return account_info.account_id;
+    return account_info.GetAccountId();
   }
 
   IdentityAPI* id_api() {
@@ -1628,6 +1628,126 @@ IN_PROC_BROWSER_TEST_F(GetAuthTokenFunctionTest, SignedInWebOnlyDeclinePrompt) {
 }
 
 IN_PROC_BROWSER_TEST_F(GetAuthTokenFunctionTest,
+                       SignedInWebOnlyNonInteractiveWithAccount) {
+  const AccountInfo account_info = identity_test_env()->MakeAccountAvailable(
+      "account@gmail.com", {.set_cookie = true});
+  ASSERT_FALSE(identity_test_env()->identity_manager()->HasPrimaryAccount(
+      signin::ConsentLevel::kSignin));
+  ASSERT_FALSE(identity_test_env()
+                   ->identity_manager()
+                   ->GetAccountsWithRefreshTokens()
+                   .empty());
+
+  scoped_refptr<const Extension> extension(CreateExtension(CLIENT_ID | SCOPES));
+  scoped_refptr<FakeGetAuthTokenFunction> func(new FakeGetAuthTokenFunction());
+  func->set_extension(extension.get());
+
+  const std::string args =
+      base::StringPrintf(R"([{"interactive": false, "account": {"id": "%s"}}])",
+                         account_info.GetGaiaId().ToString().c_str());
+  const std::string error =
+      utils::RunFunctionAndReturnError(func.get(), args, profile());
+  EXPECT_EQ(error, std::string(errors::kUserNotSignedIn));
+  EXPECT_FALSE(identity_test_env()->identity_manager()->HasPrimaryAccount(
+      signin::ConsentLevel::kSignin));
+
+  EXPECT_FALSE(func->login_ui_shown());
+  EXPECT_FALSE(func->scope_ui_shown());
+  histogram_tester()->ExpectUniqueSample(
+      kGetAuthTokenResultHistogramName,
+      IdentityGetAuthTokenError::State::kUserNotSignedIn, 1);
+}
+
+IN_PROC_BROWSER_TEST_F(GetAuthTokenFunctionTest,
+                       SignedInWebOnlyAcceptPromptWithAccount) {
+  const AccountInfo account_info = identity_test_env()->MakeAccountAvailable(
+      "account@gmail.com", {.set_cookie = true});
+  ASSERT_FALSE(identity_test_env()->identity_manager()->HasPrimaryAccount(
+      signin::ConsentLevel::kSignin));
+  ASSERT_FALSE(identity_test_env()
+                   ->identity_manager()
+                   ->GetAccountsWithRefreshTokens()
+                   .empty());
+
+  scoped_refptr<const Extension> extension(CreateExtension(CLIENT_ID | SCOPES));
+  scoped_refptr<FakeGetAuthTokenFunction> func(new FakeGetAuthTokenFunction());
+  func->set_extension(extension.get());
+  func->push_mint_token_result(TestOAuth2MintTokenFlow::MINT_TOKEN_SUCCESS);
+
+  views::NamedWidgetShownWaiter widget_waiter(
+      views::test::AnyWidgetTestPasskey{},
+      "ChromeSigninChoiceForExtensionsPrompt");
+
+  const std::string args =
+      base::StringPrintf(R"([{"interactive": true, "account": {"id": "%s"}}])",
+                         account_info.GetGaiaId().ToString().c_str());
+  RunFunctionAsync(func.get(), args);
+  views::Widget* confirmation_prompt = widget_waiter.WaitIfNeededAndGet();
+  ASSERT_NE(confirmation_prompt, nullptr);
+  views::DialogDelegate* dialog_delegate =
+      confirmation_prompt->widget_delegate()->AsDialogDelegate();
+  ASSERT_NE(dialog_delegate, nullptr);
+  dialog_delegate->AcceptDialog();
+
+  std::string access_token;
+  std::set<std::string> granted_scopes;
+  WaitForGetAuthTokenResults(func.get(), &access_token, &granted_scopes);
+  EXPECT_EQ(access_token, std::string(kAccessToken));
+  EXPECT_EQ(granted_scopes, func->GetExtensionTokenKeyForTest()->scopes);
+  EXPECT_EQ(account_info.GetAccountId(),
+            identity_test_env()->identity_manager()->GetPrimaryAccountId(
+                signin::ConsentLevel::kSignin));
+
+  EXPECT_FALSE(func->login_ui_shown());
+  EXPECT_FALSE(func->scope_ui_shown());
+  histogram_tester()->ExpectUniqueSample(
+      kGetAuthTokenResultHistogramName, IdentityGetAuthTokenError::State::kNone,
+      1);
+}
+
+IN_PROC_BROWSER_TEST_F(GetAuthTokenFunctionTest,
+                       SignedInWebOnlyDeclinePromptWithAccount) {
+  const AccountInfo account_info = identity_test_env()->MakeAccountAvailable(
+      "account@gmail.com", {.set_cookie = true});
+  ASSERT_FALSE(identity_test_env()->identity_manager()->HasPrimaryAccount(
+      signin::ConsentLevel::kSignin));
+  ASSERT_FALSE(identity_test_env()
+                   ->identity_manager()
+                   ->GetAccountsWithRefreshTokens()
+                   .empty());
+
+  scoped_refptr<const Extension> extension(CreateExtension(CLIENT_ID | SCOPES));
+  scoped_refptr<FakeGetAuthTokenFunction> func(new FakeGetAuthTokenFunction());
+  func->set_extension(extension.get());
+  func->push_mint_token_result(TestOAuth2MintTokenFlow::MINT_TOKEN_SUCCESS);
+
+  views::NamedWidgetShownWaiter widget_waiter(
+      views::test::AnyWidgetTestPasskey{},
+      "ChromeSigninChoiceForExtensionsPrompt");
+
+  const std::string args =
+      base::StringPrintf(R"([{"interactive": true, "account": {"id": "%s"}}])",
+                         account_info.GetGaiaId().ToString().c_str());
+  RunFunctionAsync(func.get(), args);
+  views::Widget* confirmation_prompt = widget_waiter.WaitIfNeededAndGet();
+  ASSERT_NE(confirmation_prompt, nullptr);
+  views::DialogDelegate* dialog_delegate =
+      confirmation_prompt->widget_delegate()->AsDialogDelegate();
+  ASSERT_NE(dialog_delegate, nullptr);
+  dialog_delegate->CancelDialog();
+
+  EXPECT_EQ(WaitForError(func.get()), std::string(errors::kUserNotSignedIn));
+  EXPECT_FALSE(identity_test_env()->identity_manager()->HasPrimaryAccount(
+      signin::ConsentLevel::kSignin));
+
+  EXPECT_FALSE(func->login_ui_shown());
+  EXPECT_FALSE(func->scope_ui_shown());
+  histogram_tester()->ExpectUniqueSample(
+      kGetAuthTokenResultHistogramName,
+      IdentityGetAuthTokenError::State::kSignInFailed, 1);
+}
+
+IN_PROC_BROWSER_TEST_F(GetAuthTokenFunctionTest,
                        SignedInWebOnlyAcceptPromptMultipleFunctions) {
   identity_test_env()->MakeAccountAvailable("account@gmail.com",
                                             {.set_cookie = true});
@@ -2239,7 +2359,7 @@ IN_PROC_BROWSER_TEST_F(GetAuthTokenFunctionTest,
   // Pre-populate the cache with a token.
   IdentityTokenCacheValue token =
       CreateToken(kAccessToken, base::Seconds(3600));
-  SetCachedTokenForAccount(account_info, token);
+  SetCachedTokenForAccount(account_info.GetCoreAccountInfo(), token);
 
   std::string access_token;
   std::set<std::string> granted_scopes;
@@ -2605,7 +2725,9 @@ IN_PROC_BROWSER_TEST_F(GetAuthTokenFunctionTest,
                        MultiSecondaryUserManuallyIssueToken) {
   SignIn("primary@example.com");
   CoreAccountInfo secondary_account =
-      identity_test_env()->MakeAccountAvailable("secondary@example.com");
+      identity_test_env()
+          ->MakeAccountAvailable("secondary@example.com")
+          .GetCoreAccountInfo();
 
   scoped_refptr<FakeGetAuthTokenFunction> func(new FakeGetAuthTokenFunction());
   scoped_refptr<const Extension> extension(CreateExtension(CLIENT_ID | SCOPES));
@@ -2773,7 +2895,7 @@ IN_PROC_BROWSER_TEST_F(GetAuthTokenFunctionTest,
     func->push_mint_token_result(
         TestOAuth2MintTokenFlow::REMOTE_CONSENT_SUCCESS);
     func->push_mint_token_result(TestOAuth2MintTokenFlow::MINT_TOKEN_SUCCESS);
-    func->set_remote_consent_gaia_id(secondary_account.gaia);
+    func->set_remote_consent_gaia_id(secondary_account.GetGaiaId());
     // Have GetAuthTokenFunction actually make the request for the access token.
     func->set_auto_login_access_token(false);
 
@@ -2799,7 +2921,7 @@ IN_PROC_BROWSER_TEST_F(GetAuthTokenFunctionTest,
     }
 
     std::string secondary_account_access_token =
-        IssueLoginAccessTokenForAccount(secondary_account.account_id);
+        IssueLoginAccessTokenForAccount(secondary_account.GetAccountId());
 
     std::string access_token;
     std::set<std::string> granted_scopes;
@@ -2808,8 +2930,8 @@ IN_PROC_BROWSER_TEST_F(GetAuthTokenFunctionTest,
     EXPECT_EQ(func->GetExtensionTokenKeyForTest()->scopes, granted_scopes);
 
     EXPECT_EQ(IdentityTokenCacheValue::CACHE_STATUS_TOKEN,
-              GetCachedToken(secondary_account).status());
-    EXPECT_EQ(secondary_account.gaia,
+              GetCachedToken(secondary_account.GetCoreAccountInfo()).status());
+    EXPECT_EQ(secondary_account.GetGaiaId(),
               id_api()->GetGaiaIdForExtension(extension->id()));
     EXPECT_THAT(func->login_access_tokens(),
                 testing::ElementsAre(primary_account_access_token,
@@ -2995,14 +3117,14 @@ IN_PROC_BROWSER_TEST_F(GetAuthTokenFunctionTest,
   AccountInfo secondary_account =
       identity_test_env()->MakeAccountAvailable("secondary@example.com");
   identity_test_env()->SetInvalidRefreshTokenForAccount(
-      secondary_account.account_id);
+      secondary_account.GetAccountId());
 
   scoped_refptr<const Extension> extension(CreateExtension(CLIENT_ID | SCOPES));
   scoped_refptr<FakeGetAuthTokenFunction> func(new FakeGetAuthTokenFunction());
   func->set_extension(extension.get());
   func->set_login_ui_result(true);
   func->push_mint_token_result(TestOAuth2MintTokenFlow::REMOTE_CONSENT_SUCCESS);
-  func->set_remote_consent_gaia_id(secondary_account.gaia);
+  func->set_remote_consent_gaia_id(secondary_account.GetGaiaId());
   func->push_mint_token_result(TestOAuth2MintTokenFlow::MINT_TOKEN_SUCCESS);
 
   const char kFunctionParams[] =
@@ -3469,8 +3591,9 @@ IN_PROC_BROWSER_TEST_F(GetAuthTokenFunctionSelectedUserIdTest,
   AccountInfo secondary_account =
       identity_test_env()->MakeAccountAvailable("secondary@example.com");
 
-  SetCachedGaiaId(secondary_account.gaia);
-  RunNewFunctionAndExpectSelectedUserId(extension, secondary_account.gaia);
+  SetCachedGaiaId(secondary_account.GetGaiaId());
+  RunNewFunctionAndExpectSelectedUserId(extension,
+                                        secondary_account.GetGaiaId());
 
   histogram_tester()->ExpectUniqueSample(
       kGetAuthTokenResultHistogramName, IdentityGetAuthTokenError::State::kNone,
@@ -3496,8 +3619,8 @@ IN_PROC_BROWSER_TEST_F(GetAuthTokenFunctionSelectedUserIdTest,
 
   SetCachedGaiaId(primary_account.gaia);
   // Run a new function with an account id specified in the arguments.
-  RunNewFunctionAndExpectSelectedUserId(extension, secondary_account.gaia,
-                                        secondary_account.gaia);
+  RunNewFunctionAndExpectSelectedUserId(
+      extension, secondary_account.GetGaiaId(), secondary_account.GetGaiaId());
 
   histogram_tester()->ExpectUniqueSample(
       kGetAuthTokenResultHistogramName, IdentityGetAuthTokenError::State::kNone,
@@ -4363,12 +4486,12 @@ class OnSignInChangedEventTest : public IdentityTestWithSignin {
 
     // Search for |event| in the set of expected events.
     bool found_event = false;
-    const auto& event_args = event->event_args;
+    const auto& event_args = event->args();
     for (const auto& expected_event : expected_events_) {
       EXPECT_EQ(expected_event->histogram_value, event->histogram_value);
       EXPECT_EQ(expected_event->event_name, event->event_name);
 
-      const auto& expected_event_args = expected_event->event_args;
+      const auto& expected_event_args = expected_event->args();
       if (event_args != expected_event_args) {
         continue;
       }
@@ -4384,7 +4507,7 @@ class OnSignInChangedEventTest : public IdentityTestWithSignin {
       LOG(INFO) << "Was expecting events with these args:";
 
       for (const auto& expected_event : expected_events_) {
-        LOG(INFO) << expected_event->event_args;
+        LOG(INFO) << expected_event->args();
       }
 
       LOG(INFO) << "But received event with different args:";
@@ -4485,7 +4608,7 @@ IN_PROC_BROWSER_TEST_F(OnSignInChangedEventTest, FireForSecondaryAccount) {
   CoreAccountId secondary_account_id =
       identity_test_env()
           ->MakeAccountAvailable("secondary@example.com")
-          .account_id;
+          .GetAccountId();
   EXPECT_FALSE(HasExpectedEvent());
 
   // Revoke the secondary account's refresh token and check that the callback

@@ -11,12 +11,14 @@
 #include "base/strings/to_string.h"
 #include "base/test/bind.h"
 #include "base/test/icu_test_util.h"
+#include "base/test/metrics/histogram_tester.h"
 #include "base/test/mock_log.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/scoped_logging_settings.h"
 #include "base/test/test_future.h"
 #include "base/values.h"
 #include "chrome/browser/enterprise/connectors/connectors_service.h"
+#include "chrome/browser/enterprise/connectors/interstitials/delayed_interstitial_reporter.h"
 #include "chrome/browser/enterprise/connectors/reporting/realtime_reporting_client.h"
 #include "chrome/browser/enterprise/connectors/reporting/realtime_reporting_client_factory.h"
 #include "chrome/browser/enterprise/connectors/test/deep_scanning_test_utils.h"
@@ -46,7 +48,9 @@
 #include "components/safe_browsing/core/browser/realtime/url_lookup_service_base.h"
 #include "components/safe_browsing/core/browser/referring_app_info.h"
 #include "components/safe_browsing/core/common/proto/realtimeapi.pb.h"
+#include "components/sessions/core/session_id.h"
 #include "components/signin/public/identity_manager/identity_test_environment.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "content/public/test/mock_navigation_handle.h"
@@ -338,6 +342,8 @@ TEST_F(DataProtectionNavigationObserverTest, MatchedAuditRuleHasEvent) {
   expected_event.set_profile_identifier(profile()->GetPath().AsUTF8Unsafe());
   *expected_event.add_triggered_rule_info() =
       MakeTriggeredRuleInfo(/*has_watermark=*/false);
+  // kEnterpriseTabTitleReporting is disabled in this test, so `tab_title` must
+  // be left unset.
 
   enterprise_connectors::test::EventReportValidator validator(client_.get());
   base::RunLoop run_loop;
@@ -378,6 +384,39 @@ TEST_F(DataProtectionNavigationObserverTest, MatchedAuditRuleHasEvent) {
       GetPageFromWebContents(web_contents()));
   ASSERT_TRUE(user_data);
   run_loop.Run();
+}
+
+TEST_F(DataProtectionNavigationObserverTest,
+       DelayedInterstitialReporterTrigger) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(
+      enterprise_data_protection::kEnterpriseTabTitleReporting);
+
+  base::HistogramTester histogram_tester;
+
+  lookup_service_.SetShouldHaveMatchedRule(true);
+
+  auto simulator = content::NavigationSimulator::CreateRendererInitiated(
+      GURL("https://example.com/"), web_contents()->GetPrimaryMainFrame());
+
+  base::test::TestFuture<const UrlSettings&> future;
+  FakeDataProtectionNavigationController controller(
+      web_contents(), &lookup_service_, future.GetCallback());
+
+  base::test::TestFuture<void> future_lookup_complete;
+  lookup_service_.set_on_start_lookup_complete(
+      future_lookup_complete.GetCallback());
+
+  simulator->Start();
+  EXPECT_TRUE(future_lookup_complete.Wait());
+  simulator->Commit();
+
+  histogram_tester.ExpectUniqueSample(
+      "Enterprise.DelayedReportingInterstitial.Triggered.UrlFiltering", true,
+      1);
+
+  histogram_tester.ExpectTotalCount(
+      "Enterprise.DelayedReportingInterstitial.Time.UrlFiltering", 1);
 }
 
 TEST_F(DataProtectionNavigationObserverTest,
@@ -863,7 +902,63 @@ enum class ScreenshotProtectionSource {
 
 class DataProtectionNavigationObserverRedirectScreenshotTest
     : public DataProtectionNavigationObserverTest,
-      public testing::WithParamInterface<ScreenshotProtectionSource> {};
+      public testing::WithParamInterface<ScreenshotProtectionSource> {
+ public:
+  void SetUp() override {
+    DataProtectionNavigationObserverTest::SetUp();
+    DataProtectionNavigationObserver::SetLookupServiceForTesting(
+        &lookup_service_);
+
+    switch (GetParam()) {
+      case ScreenshotProtectionSource::kDataControls:
+        data_controls::SetDataControls(profile()->GetPrefs(), {R"(
+              {
+                "name":"block",
+                "rule_id":"1234",
+                "sources":{"urls":["redirect.com"]},
+                "restrictions":[{"class": "SCREENSHOT", "level": "BLOCK"} ]
+              }
+            )"});
+        break;
+      case ScreenshotProtectionSource::kRealTimeUrlLookup:
+        lookup_service_.SetShouldHaveMatchedRule(true);
+        lookup_service_.SetBlockScreenshotForURL(GURL("https://example.com"),
+                                                 false);
+        lookup_service_.SetBlockScreenshotForURL(GURL("https://redirect.com"),
+                                                 true);
+        lookup_service_.SetWatermarkTextForURL(GURL("https://example.com"),
+                                               std::nullopt);
+        lookup_service_.SetWatermarkTextForURL(GURL("https://redirect.com"),
+                                               std::nullopt);
+        break;
+    }
+
+    validator_ =
+        std::make_unique<enterprise_connectors::test::EventReportValidator>(
+            client_.get());
+    validator_->ExpectNoReport();
+
+    SetContents(CreateTestWebContents());
+    simulator_ = content::NavigationSimulator::CreateRendererInitiated(
+        GURL("https://example.com"), web_contents()->GetPrimaryMainFrame());
+    controller_ = std::make_unique<FakeDataProtectionNavigationController>(
+        web_contents(), &lookup_service_, navigation_future_.GetCallback());
+  }
+
+  void TearDown() override {
+    controller_.reset();
+    simulator_.reset();
+    validator_.reset();
+    DataProtectionNavigationObserverTest::TearDown();
+  }
+
+ protected:
+  const GURL redirect_url_ = GURL("https://redirect.com");
+  std::unique_ptr<enterprise_connectors::test::EventReportValidator> validator_;
+  std::unique_ptr<content::NavigationSimulator> simulator_;
+  base::test::TestFuture<const UrlSettings&> navigation_future_;
+  std::unique_ptr<FakeDataProtectionNavigationController> controller_;
+};
 
 INSTANTIATE_TEST_SUITE_P(
     ,
@@ -873,50 +968,13 @@ INSTANTIATE_TEST_SUITE_P(
 
 TEST_P(DataProtectionNavigationObserverRedirectScreenshotTest,
        BlockScreenshot_Redirect) {
-  enterprise_connectors::test::EventReportValidator validator(client_.get());
-  validator.ExpectNoReport();
-  DataProtectionNavigationObserver::SetLookupServiceForTesting(
-      &lookup_service_);
-
-  switch (GetParam()) {
-    case ScreenshotProtectionSource::kDataControls:
-      data_controls::SetDataControls(profile()->GetPrefs(), {R"(
-            {
-              "name":"block",
-              "rule_id":"1234",
-              "sources":{"urls":["redirect.com"]},
-              "restrictions":[{"class": "SCREENSHOT", "level": "BLOCK"} ]
-            }
-          )"});
-      break;
-    case ScreenshotProtectionSource::kRealTimeUrlLookup:
-      lookup_service_.SetShouldHaveMatchedRule(true);
-      lookup_service_.SetBlockScreenshotForURL(GURL("https://example.com"),
-                                               false);
-      lookup_service_.SetBlockScreenshotForURL(GURL("https://redirect.com"),
-                                               true);
-      lookup_service_.SetWatermarkTextForURL(GURL("https://example.com"),
-                                             std::nullopt);
-      lookup_service_.SetWatermarkTextForURL(GURL("https://redirect.com"),
-                                             std::nullopt);
-      break;
-  }
-
-  SetContents(CreateTestWebContents());
-  auto simulator = content::NavigationSimulator::CreateRendererInitiated(
-      GURL("https://example.com"), web_contents()->GetPrimaryMainFrame());
-  base::test::TestFuture<const UrlSettings&> navigation_future;
-  FakeDataProtectionNavigationController controller(
-      web_contents(), &lookup_service_, navigation_future.GetCallback());
-
-  const GURL kRedirectUrl = GURL("https://redirect.com");
 
   // Do initial navigation request which allows screenshots.
   {
     base::test::TestFuture<void> future_lookup_complete;
     lookup_service_.set_on_start_lookup_complete(
         future_lookup_complete.GetCallback());
-    simulator->Start();
+    simulator_->Start();
     EXPECT_TRUE(future_lookup_complete.Wait());
   }
 
@@ -925,15 +983,59 @@ TEST_P(DataProtectionNavigationObserverRedirectScreenshotTest,
     base::test::TestFuture<void> future_lookup_complete;
     lookup_service_.set_on_start_lookup_complete(
         future_lookup_complete.GetCallback());
-    simulator->Redirect(kRedirectUrl);
+    simulator_->Redirect(redirect_url_);
     EXPECT_TRUE(future_lookup_complete.Wait());
   }
 
-  simulator->Commit();
-  EXPECT_TRUE(navigation_future.Wait());
+  simulator_->Commit();
+  EXPECT_TRUE(navigation_future_.Wait());
 
   // The result of the above should be that
   // screenshots are not allowed.
+  base::test::TestFuture<const UrlSettings&> get_settings_future;
+  DataProtectionNavigationObserver::ApplyDataProtectionSettings(
+      Profile::FromBrowserContext(browser_context()), web_contents(),
+      get_settings_future.GetCallback());
+  EXPECT_FALSE(get_settings_future.Get().allow_screenshots);
+
+  // Value should be cached.
+  auto* user_data = DataProtectionPageUserData::GetForPage(
+      GetPageFromWebContents(web_contents()));
+  ASSERT_TRUE(user_data);
+  EXPECT_EQ(user_data->settings(), get_settings_future.Get());
+}
+
+TEST_P(DataProtectionNavigationObserverRedirectScreenshotTest,
+       BlockScreenshot_Redirect_LateVerdict) {
+  // Do initial navigation request which allows screenshots.
+  {
+    base::test::TestFuture<void> future_lookup_complete;
+    lookup_service_.set_on_start_lookup_complete(
+        future_lookup_complete.GetCallback());
+    simulator_->Start();
+    EXPECT_TRUE(future_lookup_complete.Wait());
+  }
+
+  // Redirect to a URL that should not allow screenshots.
+  base::test::TestFuture<void> future_lookup_complete;
+  lookup_service_.set_on_start_lookup_complete(
+      future_lookup_complete.GetCallback());
+  simulator_->Redirect(redirect_url_);
+
+  // Commit the navigation before the lookup for the redirect URL completes.
+  simulator_->Commit();
+
+  // The navigation callback should not have been invoked yet with a stale
+  // verdict.
+  EXPECT_FALSE(navigation_future_.IsReady());
+
+  // Wait for the redirect lookup to complete.
+  EXPECT_TRUE(future_lookup_complete.Wait());
+  EXPECT_TRUE(navigation_future_.Wait());
+
+  // The result of the above should be that screenshots are not allowed.
+  EXPECT_FALSE(navigation_future_.Get().allow_screenshots);
+
   base::test::TestFuture<const UrlSettings&> get_settings_future;
   DataProtectionNavigationObserver::ApplyDataProtectionSettings(
       Profile::FromBrowserContext(browser_context()), web_contents(),
@@ -1270,6 +1372,8 @@ TEST_P(OrderedDataProtectionNavigationObserverTest, TestWatermarkTextUpdated) {
   expected_event.set_profile_identifier(profile()->GetPath().AsUTF8Unsafe());
   *expected_event.add_triggered_rule_info() =
       MakeTriggeredRuleInfo(/*has_watermark=*/true);
+  // kEnterpriseTabTitleReporting is disabled in this test, so `tab_title` must
+  // be left unset.
 
   enterprise_connectors::test::EventReportValidator validator(client_.get());
   base::RunLoop run_loop;

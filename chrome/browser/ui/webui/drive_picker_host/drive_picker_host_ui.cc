@@ -22,6 +22,7 @@
 #include "components/signin/public/identity_manager/accounts_in_cookie_jar_info.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/signin/public/identity_manager/primary_account_access_token_fetcher.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/web_contents.h"
@@ -175,12 +176,20 @@ void DrivePickerHostUI::SetBridge(
   untrusted_bridge_remote_.Bind(std::move(untrusted_bridge));
   untrusted_bridge_remote_.set_disconnect_handler(base::BindOnce(
       [](base::WeakPtr<DrivePickerHostUI> self) {
-        if (self && self->pending_request_ &&
+        if (!self) {
+          return;
+        }
+        if (self->pending_request_ &&
             self->pending_request_->has_result_handler()) {
           mojo::Remote<drive_picker_host::mojom::DrivePickerResultHandler>(
               self->pending_request_->TakeResultHandler())
               ->OnError(drive_picker_host::mojom::DrivePickerError::
                             kMojoDisconnected);
+        }
+        if (self->consent_result_handler_) {
+          self->consent_result_handler_->OnError(
+              drive_picker_host::mojom::DrivePickerError::kMojoDisconnected);
+          self->consent_result_handler_.reset();
         }
       },
       weak_ptr_factory_.GetWeakPtr()));
@@ -337,7 +346,13 @@ void DrivePickerHostUI::HandlePrivacyFlowResult(
       << result.has_flow_completed()
       << ", flow_not_completed: " << result.has_flow_not_completed()
       << ", decisions: " << result.decision_size();
-  if (result.has_flow_id() &&
+  if (!consent_result_handler_.is_bound()) {
+    DLOG(WARNING)
+        << "PrivacyFlowResult received with no outstanding consent flow";
+    return;
+  }
+
+  if (!result.has_flow_id() ||
       result.flow_id() != static_cast<identity_consent::ConsentFlowId>(
                               omnibox::kComposeboxDriveConsentFlowId.Get())) {
     DLOG(WARNING) << "Unexpected or missing flow_id";

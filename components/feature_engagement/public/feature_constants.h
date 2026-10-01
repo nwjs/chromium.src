@@ -106,7 +106,6 @@ extern const base::FeatureParam<std::string>
     kIPHLensOverlayUrlPathMatchBlockPatterns;
 COMPONENT_EXPORT(FEATURE_ENGAGEMENT_FEATURE_CONSTANTS)
 extern const base::FeatureParam<base::TimeDelta> kIPHLensOverlayDelayTime;
-FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHLensOverlayTranslateButtonFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHOmniboxEverywhereLensPromoFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHTabAudioMutingFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHPasswordsSavePrimingPromoFeature);
@@ -132,6 +131,7 @@ FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHReadingListDiscoveryFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHReadingListEntryPointFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHReadingListInSidePanelFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHReadingModeKeyboardShortcutFeature);
+FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHReadingModeLineFocusFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHReadingModePageActionLabelFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHReadingModePresentationModeFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHReadingModeSidePanelFeature);
@@ -198,6 +198,7 @@ FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHAndroidBottomBarGlic);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHAndroidBottomBarNewTab);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHAndroidBottomBarPromoDialog);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHAndroidTabDeclutter);
+FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHAndroidVerticalTabsNewLabel);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHAndroidVerticalTabsPromoFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHAppRatingPromptFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHAppSpecificHistory);
@@ -227,7 +228,6 @@ FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHDownloadInfoBarDownloadsAreFasterFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHDownloadPageFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHDownloadPageScreenshotFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHDownloadSettingsFeature);
-FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHEphemeralTabFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHExploreSitesTileFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHExtensionsManageAppMenuFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHExtensionsManageToolbarFeature);
@@ -268,7 +268,6 @@ FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHReaderModeDistillInAppFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHReadLaterAppMenuBookmarksFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHReadLaterAppMenuBookmarkThisPageFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHReadLaterBottomSheetFeature);
-FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHReadLaterContextMenuFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHRecentTabsFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHRequestDesktopSiteDefaultOnFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHRequestDesktopSiteExceptionsGenericFeature);
@@ -432,6 +431,10 @@ FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHiOSGeminiContextualCueChip);
 // FET feature flag that enables "What can Gemini do" suggestion.
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHiOSGeminiWhatCanGeminiDo);
 
+// FET feature flag that enables contextual default browser promo for Gemini.
+FEATURE_CONSTANTS_DECLARE_FEATURE(
+    kIPHiOSPromoContextualDefaultBrowserGeminiFeature);
+
 // FET feature flag that enables customized sites in the most visited tile.
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHiOSPinMostVisitedSiteFeature);
 
@@ -456,7 +459,6 @@ FEATURE_CONSTANTS_DECLARE_FEATURE(
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHAutofillHomeWorkProfileSuggestionFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(
     kIPHAutofillAccountNameEmailSuggestionFeature);
-FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHAutofillAiOptInFeature);
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHAutofillAiValuablesFeature);
 COMPONENT_EXPORT(FEATURE_ENGAGEMENT_FEATURE_CONSTANTS)
 FEATURE_CONSTANTS_DECLARE_FEATURE(kIPHAutofillVirtualCardCVCSuggestionFeature);
@@ -516,7 +518,8 @@ enum class SearchPromotionAction {
 };
 
 // Target engagement cohorts for the Windows search promotion feature.
-// Defaults to `kAll` if omitted or if an unrecognized cohort is specified.
+// Supports comma-separated lists of cohorts (e.g. "low,medium").
+// Defaults to "all" if omitted or if no recognized cohorts are specified.
 enum class SearchPromotionCohort {
   kAll = 0,
   kLow = 1,
@@ -528,7 +531,7 @@ enum class SearchPromotionCohort {
 COMPONENT_EXPORT(FEATURE_ENGAGEMENT_FEATURE_CONSTANTS)
 BASE_DECLARE_FEATURE_PARAM(SearchPromotionAction, kSearchPromotionAction);
 COMPONENT_EXPORT(FEATURE_ENGAGEMENT_FEATURE_CONSTANTS)
-BASE_DECLARE_FEATURE_PARAM(SearchPromotionCohort, kSearchPromotionCohort);
+BASE_DECLARE_FEATURE_PARAM(std::string, kSearchPromotionCohort);
 COMPONENT_EXPORT(FEATURE_ENGAGEMENT_FEATURE_CONSTANTS)
 BASE_DECLARE_FEATURE_PARAM(std::string, kSearchPromotionStoreUrl);
 COMPONENT_EXPORT(FEATURE_ENGAGEMENT_FEATURE_CONSTANTS)

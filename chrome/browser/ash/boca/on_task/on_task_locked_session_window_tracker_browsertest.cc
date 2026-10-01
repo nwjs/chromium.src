@@ -21,16 +21,17 @@
 #include "chrome/browser/ash/boca/on_task/on_task_locked_controller.h"
 #include "chrome/browser/ash/boca/on_task/on_task_locked_session_window_tracker.h"
 #include "chrome/browser/ash/boca/on_task/on_task_system_web_app_manager_impl.h"
-#include "chrome/browser/ash/browser_delegate/browser_delegate.h"
 #include "chrome/browser/ash/system_web_apps/system_web_app_manager.h"
 #include "chrome/browser/platform_util.h"
 #include "chrome/browser/renderer_context_menu/render_view_context_menu_test_util.h"
 #include "chrome/browser/ui/ash/system_web_apps/system_web_app_ui_utils.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/immersive/immersive_mode_controller.h"
+#include "chrome/browser/ui/tabs/tab_enums.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/web_apps/frame_toolbar/web_app_frame_toolbar_view.h"
 #include "chrome/common/chrome_paths.h"
@@ -41,11 +42,13 @@
 #include "chromeos/ash/components/boca/on_task/on_task_blocklist.h"
 #include "chromeos/ash/components/boca/proto/bundle.pb.h"
 #include "chromeos/ash/components/boca/proto/roster.pb.h"
+#include "chromeos/ash/components/browser_delegate/browser_delegate.h"
 #include "chromeos/ash/components/system_web_apps/system_web_app_type.h"
 #include "chromeos/strings/grit/chromeos_strings.h"
 #include "chromeos/ui/base/window_properties.h"
 #include "components/sessions/content/session_tab_helper.h"
 #include "components/sessions/core/session_id.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/browser_test.h"
@@ -1034,12 +1037,12 @@ IN_PROC_BROWSER_TEST_F(OnTaskLockedSessionWindowTrackerBrowserTest,
   auto* const window_tracker =
       LockedSessionWindowTrackerFactory::GetInstance()->GetForBrowserContext(
           profile());
-  EXPECT_EQ(window_tracker->browser(), boca_app_browser);
+  EXPECT_EQ(&window_tracker->browser()->GetBrowser(), boca_app_browser);
 
   // Override the window tracker to track a different browser instance.
   window_tracker->InitializeBrowserInfoForTracking(
       ash::BrowserController::GetInstance()->GetDelegate(browser()));
-  EXPECT_EQ(window_tracker->browser(), browser());
+  EXPECT_EQ(&window_tracker->browser()->GetBrowser(), browser());
 }
 
 IN_PROC_BROWSER_TEST_F(OnTaskLockedSessionWindowTrackerBrowserTest,
@@ -1665,6 +1668,105 @@ IN_PROC_BROWSER_TEST_F(OnTaskLockedSessionWindowTrackerDownloadURLBrowserTest,
   EXPECT_FALSE(nav_handle_obs.has_committed());
   EXPECT_TRUE(nav_handle_obs.is_download());
   EXPECT_FALSE(url_obs.last_navigation_succeeded());
+}
+
+IN_PROC_BROWSER_TEST_F(OnTaskLockedSessionWindowTrackerBrowserTest,
+                       ActivateBocaHomepageOnPauseEvenWhenNotAtIndexZero) {
+  base::test::TestFuture<bool> launch_future;
+  system_web_app_manager()->LaunchSystemWebAppAsync(
+      launch_future.GetCallback());
+  ASSERT_TRUE(launch_future.Get());
+  BrowserWindowInterface* const boca_app_browser =
+      FindBocaSystemWebAppBrowser();
+  ASSERT_THAT(boca_app_browser, NotNull());
+  ASSERT_TRUE(
+      OnTaskLockedController::From(boca_app_browser)->is_locked_for_on_task());
+
+  const SessionID window_id =
+      system_web_app_manager()->GetActiveSystemWebAppWindowID();
+  ASSERT_TRUE(window_id.is_valid());
+  system_web_app_manager()->SetWindowTrackerForSystemWebAppWindow(
+      window_id, /*observers=*/{});
+
+  TabStripModel* const tab_strip_model = boca_app_browser->GetTabStripModel();
+  ASSERT_EQ(tab_strip_model->count(), 1);
+  content::WebContents* const homepage_tab =
+      tab_strip_model->GetWebContentsAt(0);
+
+  const GURL tab_url = embedded_test_server()->GetURL(kTabUrl1Host, "/");
+  CreateBackgroundTabAndWait(window_id, tab_url,
+                             LockedNavigationOptions::OPEN_NAVIGATION);
+  ASSERT_EQ(tab_strip_model->count(), 2);
+  content::WebContents* const non_homepage_tab =
+      tab_strip_model->GetWebContentsAt(1);
+  ASSERT_NE(homepage_tab, non_homepage_tab);
+
+  // Move the non-homepage tab to index 0 by detaching and inserting it as
+  // pinned at index 0, shifting the Boca homepage tab to index 1.
+  std::unique_ptr<content::WebContents> non_homepage_contents =
+      tab_strip_model->DetachWebContentsAtForInsertion(1);
+  tab_strip_model->InsertWebContentsAt(0, std::move(non_homepage_contents),
+                                       AddTabTypes::ADD_PINNED);
+  EXPECT_EQ(tab_strip_model->GetWebContentsAt(0), non_homepage_tab);
+  EXPECT_EQ(tab_strip_model->GetWebContentsAt(1), homepage_tab);
+
+  tab_strip_model->ActivateTabAt(0);
+  ASSERT_EQ(tab_strip_model->active_index(), 0);
+
+  // Pause the window and verify that the homepage tab at index 1 is activated.
+  system_web_app_manager()->SetPauseStateForSystemWebAppWindow(true, window_id);
+  EXPECT_EQ(tab_strip_model->GetActiveWebContents(), homepage_tab);
+  EXPECT_EQ(tab_strip_model->active_index(), 1);
+}
+
+IN_PROC_BROWSER_TEST_F(
+    OnTaskLockedSessionWindowTrackerBrowserTest,
+    PreserveBocaHomepageWhenClosingBundleContentEvenWhenNotAtIndexZero) {
+  base::test::TestFuture<bool> launch_future;
+  system_web_app_manager()->LaunchSystemWebAppAsync(
+      launch_future.GetCallback());
+  ASSERT_TRUE(launch_future.Get());
+  BrowserWindowInterface* const boca_app_browser =
+      FindBocaSystemWebAppBrowser();
+  ASSERT_THAT(boca_app_browser, NotNull());
+  ASSERT_TRUE(
+      OnTaskLockedController::From(boca_app_browser)->is_locked_for_on_task());
+
+  const SessionID window_id =
+      system_web_app_manager()->GetActiveSystemWebAppWindowID();
+  ASSERT_TRUE(window_id.is_valid());
+  system_web_app_manager()->SetWindowTrackerForSystemWebAppWindow(
+      window_id, /*observers=*/{});
+
+  TabStripModel* const tab_strip_model = boca_app_browser->GetTabStripModel();
+  ASSERT_EQ(tab_strip_model->count(), 1);
+  content::WebContents* const homepage_tab =
+      tab_strip_model->GetWebContentsAt(0);
+
+  const GURL tab_url = embedded_test_server()->GetURL(kTabUrl1Host, "/");
+  CreateBackgroundTabAndWait(window_id, tab_url,
+                             LockedNavigationOptions::OPEN_NAVIGATION);
+  ASSERT_EQ(tab_strip_model->count(), 2);
+  content::WebContents* const non_homepage_tab =
+      tab_strip_model->GetWebContentsAt(1);
+  ASSERT_NE(homepage_tab, non_homepage_tab);
+
+  // Move the non-homepage tab to index 0 by detaching and inserting it as
+  // pinned at index 0, shifting the Boca homepage tab to index 1.
+  std::unique_ptr<content::WebContents> non_homepage_contents =
+      tab_strip_model->DetachWebContentsAtForInsertion(1);
+  tab_strip_model->InsertWebContentsAt(0, std::move(non_homepage_contents),
+                                       AddTabTypes::ADD_PINNED);
+  EXPECT_EQ(tab_strip_model->GetWebContentsAt(0), non_homepage_tab);
+  EXPECT_EQ(tab_strip_model->GetWebContentsAt(1), homepage_tab);
+
+  // Prepare window for OnTask with close_bundle_content=true. Verify that the
+  // non-homepage tab at index 0 is removed and the Boca homepage tab is
+  // preserved.
+  system_web_app_manager()->PrepareSystemWebAppWindowForOnTask(
+      window_id, /*close_bundle_content=*/true);
+  EXPECT_EQ(tab_strip_model->count(), 1);
+  EXPECT_EQ(tab_strip_model->GetWebContentsAt(0), homepage_tab);
 }
 
 }  // namespace

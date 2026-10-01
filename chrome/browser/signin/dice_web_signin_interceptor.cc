@@ -97,6 +97,7 @@
 #include "google_apis/gaia/core_account_id.h"
 #include "google_apis/gaia/gaia_auth_util.h"
 #include "google_apis/gaia/gaia_id.h"
+#include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/mojom/themes.mojom.h"
 
@@ -104,6 +105,11 @@ namespace {
 
 constexpr char kChromeSingInInterceptionSupervisionStateHistogramPrefix[] =
     "Signin.Intercept.Heuristic.SupervisionState";
+
+void RecordLinkedAccountsInterceptionDeferralLatency(base::TimeDelta duration) {
+  base::UmaHistogramTimes(
+      "Signin.Dice.LinkedAccounts.Latency.InterceptionDeferral", duration);
+}
 
 constexpr size_t kMaxChromeSigninInterceptionDismissCount = 5;
 
@@ -693,6 +699,13 @@ void DiceWebSigninInterceptor::OnDiceSigninSessionComplete(
 
   if (state_->waiting_for_dice_signin_session_completion_) {
     state_->waiting_for_dice_signin_session_completion_ = false;
+    if (!state_->secondary_accounts_.empty() &&
+        state_->session_completion_wait_start_time_.has_value()) {
+      RecordLinkedAccountsInterceptionDeferralLatency(
+          base::TimeTicks::Now() -
+          *state_->session_completion_wait_start_time_);
+      state_->session_completion_wait_start_time_.reset();
+    }
     CHECK(state_->deferred_action_callback_);
     std::move(state_->deferred_action_callback_).Run();
   }
@@ -1367,9 +1380,13 @@ void DiceWebSigninInterceptor::OnProfileCreationChoice(
                      base::Unretained(this), account_info, profile_color);
 
   if (state_->dice_signin_session_complete_) {
+    if (!state_->secondary_accounts_.empty()) {
+      RecordLinkedAccountsInterceptionDeferralLatency(base::Milliseconds(0));
+    }
     std::move(proceed_with_profile_creation).Run();
   } else {
     state_->waiting_for_dice_signin_session_completion_ = true;
+    state_->session_completion_wait_start_time_ = base::TimeTicks::Now();
     state_->deferred_action_callback_ =
         std::move(proceed_with_profile_creation);
   }
@@ -1504,9 +1521,13 @@ void DiceWebSigninInterceptor::OnProfileSwitchChoice(
                      base::Unretained(this), profile_path);
 
   if (state_->dice_signin_session_complete_) {
+    if (!state_->secondary_accounts_.empty()) {
+      RecordLinkedAccountsInterceptionDeferralLatency(base::Milliseconds(0));
+    }
     std::move(proceed_with_profile_switch).Run();
   } else {
     state_->waiting_for_dice_signin_session_completion_ = true;
+    state_->session_completion_wait_start_time_ = base::TimeTicks::Now();
     state_->deferred_action_callback_ = std::move(proceed_with_profile_switch);
   }
 }
@@ -1663,8 +1684,9 @@ void DiceWebSigninInterceptor::OnEnterpriseProfileCreationResult(
   } else {
     DCHECK_EQ(SigninInterceptionResult::kDeclined, create)
         << "The user can only accept or decline";
-    if (account_info == identity_manager_->GetPrimaryAccountInfo(
-                            signin::ConsentLevel::kSignin)) {
+    if (account_info.GetCoreAccountInfo() ==
+        identity_manager_->GetPrimaryAccountInfo(
+            signin::ConsentLevel::kSignin)) {
       auto* primary_account_mutator =
           IdentityManagerFactory::GetForProfile(profile_)
               ->GetPrimaryAccountMutator();

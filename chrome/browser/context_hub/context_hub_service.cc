@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "base/barrier_callback.h"
+#include "base/check.h"
 #include "base/check_deref.h"
 #include "base/containers/adapters.h"
 #include "base/containers/flat_map.h"
@@ -18,7 +19,7 @@
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
 #include "base/functional/callback_helpers.h"
-#include "base/logging.h"
+#include "base/power_monitor/power_monitor.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/time/time.h"
@@ -42,15 +43,18 @@
 #include "components/page_content_annotations/core/page_content_extraction_types.h"
 #include "components/personal_context/core/personal_context_service.h"
 #include "components/personal_context/proto/features/auto_todos.pb.h"
+#include "components/personal_context/proto/features/smart_search.pb.h"
 #include "components/saved_tab_groups/public/saved_tab_group.h"
 #include "components/saved_tab_groups/public/tab_group_sync_service.h"
 #include "components/saved_tab_groups/public/types.h"
 #include "components/sessions/content/session_tab_helper.h"
+#include "components/sessions/core/session_id.h"
 #include "components/signin/public/base/persistent_repeating_timer.h"
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/page.h"
 #include "content/public/browser/web_contents.h"
+#include "net/base/backoff_entry.h"
 
 #if !BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/tab_list/tab_removed_reason.h"
@@ -196,6 +200,21 @@ personal_context::proto::AutoTodoItem ToAutoTodoItemProto(
   return proto;
 }
 
+const net::BackoffEntry::Policy* GetFirstPartyAutoTodosBackoffPolicy() {
+  static net::BackoffEntry::Policy policy;
+  policy = {
+      .num_errors_to_ignore = 0,
+      .initial_delay_ms =
+          features::kFirstPartyAutoTodosRetryDelay.Get().InMilliseconds(),
+      .multiply_factor = 2.0,
+      .jitter_factor = 0.0,
+      .maximum_backoff_ms = base::Minutes(10).InMilliseconds(),
+      .entry_lifetime_ms = -1,
+      .always_use_initial_delay = false,
+  };
+  return &policy;
+}
+
 }  // namespace
 
 ContextHubService::ContextHubService(
@@ -221,6 +240,8 @@ ContextHubService::ContextHubService(
           CHECK_DEREF(page_content_extraction_service)),
       tab_group_chat_history_cache_(
           features::kMaxTabGroupChatHistoryTurns.Get()),
+      memory_bank_chat_history_cache_(
+          features::kMaxMemoryBankChatHistoryTurns.Get()),
       todo_feedback_cache_(features::kMaxTodoFeedbackCacheSize.Get()),
       context_hub_backend_(std::move(context_hub_backend)),
       memory_bank_(std::move(memory_bank)),
@@ -230,6 +251,9 @@ ContextHubService::ContextHubService(
   identity_manager_observation_.Observe(&identity_manager_.get());
   if (auto_todos_store_) {
     auto_todos_store_->AddObserver(this);
+    // Observe system suspend and resume events so that sleep duration can be
+    // accounted for, since monotonic timers freeze during suspend.
+    base::PowerMonitor::GetInstance()->AddPowerSuspendObserver(this);
     first_party_auto_todos_timer_.Start(
         FROM_HERE, features::kFirstPartyAutoTodosInterval.Get(),
         base::BindRepeating(
@@ -247,6 +271,7 @@ ContextHubService::ContextHubService(
 
 ContextHubService::~ContextHubService() {
   if (auto_todos_store_) {
+    base::PowerMonitor::GetInstance()->RemovePowerSuspendObserver(this);
     auto_todos_store_->RemoveObserver(this);
   }
   if (pending_tab_todos_callback_) {
@@ -302,8 +327,8 @@ void ContextHubService::MaybeTriggerFirstPartyAutoTodosGeneration() {
     return;
   }
   const base::TimeDelta time_since_last_generation =
-      base::Time::Now() - last_first_party_generation_time_;
-  if (!last_first_party_generation_time_.is_null() &&
+      base::Time::Now() - first_party_generation_metadata_.last_generation_time;
+  if (!first_party_generation_metadata_.last_generation_time.is_null() &&
       time_since_last_generation >= base::TimeDelta() &&
       time_since_last_generation <
           features::kFirstPartyAutoTodosInterval.Get()) {
@@ -348,6 +373,37 @@ void ContextHubService::OnErrorStateOfRefreshTokenUpdatedForAccount(
   }
 }
 
+void ContextHubService::OnResume() {
+  if (!auto_todos_store_) {
+    return;
+  }
+  // RepeatingTimer uses TimeTicks (monotonic clock), which freezes across
+  // system suspend on most platforms. Use Time::Now() (wall-clock time) to
+  // determine the actual elapsed time since the last generation.
+  const base::TimeDelta time_since_last_generation =
+      base::Time::Now() - first_party_generation_metadata_.last_generation_time;
+  if (first_party_generation_metadata_.last_generation_time.is_null() ||
+      time_since_last_generation < base::TimeDelta() ||
+      time_since_last_generation >=
+          features::kFirstPartyAutoTodosInterval.Get()) {
+    // 24+ hours have passed while suspended (or never generated). Clean up
+    // expired entries and trigger generation now.
+    auto_todos_store_->DeleteExpiredEntries(base::DoNothing());
+    MaybeTriggerFirstPartyAutoTodosGeneration();
+  } else {
+    // Less than 24 hours have passed. Adjust the timer delay so that time spent
+    // asleep counts toward the 24-hour interval instead of freezing it.
+    const base::TimeDelta remaining =
+        features::kFirstPartyAutoTodosInterval.Get() -
+        time_since_last_generation;
+    first_party_auto_todos_timer_.Start(
+        FROM_HERE, remaining,
+        base::BindRepeating(
+            &ContextHubService::OnFirstPartyAutoTodosTimerTriggered,
+            weak_factory_.GetWeakPtr()));
+  }
+}
+
 void ContextHubService::AddObserver(Observer* observer) {
   observers_.AddObserver(observer);
 }
@@ -380,6 +436,7 @@ void ContextHubService::GenerateFirstPartyAutoTodos(
     return;
   }
 
+  first_party_generation_metadata_.has_error = false;
   is_generating_first_party_auto_todos_ = true;
   observers_.Notify(&Observer::OnFirstPartyAutoTodosGenerationStateChanged,
                     true);
@@ -405,6 +462,19 @@ void ContextHubService::OnCachedFirstPartyAutoTodosFetched(
     }
   }
 
+  ExecuteFirstPartyAutoTodosFetch(std::move(request_metadata),
+                                  std::make_unique<net::BackoffEntry>(
+                                      GetFirstPartyAutoTodosBackoffPolicy()));
+}
+
+void ContextHubService::ExecuteFirstPartyAutoTodosFetch(
+    personal_context::proto::AutoTodosRequest request_metadata,
+    std::unique_ptr<net::BackoffEntry> backoff) {
+  if (!auto_todos_store_ || !is_generating_first_party_auto_todos_) {
+    FinishFirstPartyAutoTodosGeneration(/*success=*/false);
+    return;
+  }
+
   personal_context::ContextMemoryRequestOptions options;
   options.request_timeout = features::kAutoTodosTimeoutSeconds.Get();
 
@@ -412,19 +482,22 @@ void ContextHubService::OnCachedFirstPartyAutoTodosFetched(
       personal_context::proto::CONTEXT_MEMORY_FEATURE_AUTO_TODOS,
       request_metadata, options,
       base::BindOnce(&ContextHubService::OnFirstPartyAutoTodosFetched,
-                     weak_factory_.GetWeakPtr()));
+                     weak_factory_.GetWeakPtr(), request_metadata,
+                     std::move(backoff)));
 }
 
 bool ContextHubService::IsGeneratingFirstPartyAutoTodos() const {
   return is_generating_first_party_auto_todos_;
 }
 
-base::Time ContextHubService::GetLastFirstPartyGenerationTime() const {
-  return last_first_party_generation_time_;
+AutoTodosGenerationMetadata ContextHubService::GetFirstPartyGenerationMetadata()
+    const {
+  return first_party_generation_metadata_;
 }
 
-base::Time ContextHubService::GetLastThirdPartyGenerationTime() const {
-  return last_third_party_generation_time_;
+AutoTodosGenerationMetadata ContextHubService::GetThirdPartyGenerationMetadata()
+    const {
+  return third_party_generation_metadata_;
 }
 
 void ContextHubService::GenerateTabBasedTodos(
@@ -436,6 +509,8 @@ void ContextHubService::GenerateTabBasedTodos(
     }
     return;
   }
+
+  third_party_generation_metadata_.has_error = false;
 
   auto_todos_store_->GetAllItems(base::BindOnce(
       &ContextHubService::OnAllAutoTodosFetchedForTabBasedTodos,
@@ -471,6 +546,13 @@ void ContextHubService::OnAllAutoTodosFetchedForTabBasedTodos(
     if (tab->GetVisibility() == content::Visibility::VISIBLE) {
       continue;
     }
+    // Only consider unpinned tabs.
+    if (tabs::TabInterface* tab_interface =
+            tabs::TabInterface::MaybeGetFromContents(tab.get())) {
+      if (tab_interface->IsPinned()) {
+        continue;
+      }
+    }
     // Only consider tabs that have a valid last active time.
     // All tabs are sent to the model and filtered out by varying time
     // thresholds based on group type. This will be simplified in the future to
@@ -487,7 +569,8 @@ void ContextHubService::OnAllAutoTodosFetchedForTabBasedTodos(
   }
 
   if (eligible_tabs.empty()) {
-    last_third_party_generation_time_ = base::Time::Now();
+    third_party_generation_metadata_.last_generation_time = base::Time::Now();
+    third_party_generation_metadata_.has_error = false;
     if (callback) {
       // Return early if there are no eligible tabs to process. Return true to
       // indicate that the operation was successful, just with no results.
@@ -646,9 +729,10 @@ void ContextHubService::FinishTabBasedTodosGeneration(bool success) {
   active_tab_todos_requests_ = 0;
   pending_tab_todos_requests_ = {};
   generated_tab_todos_.clear();
+  third_party_generation_metadata_.has_error = !success;
 
   if (success) {
-    last_third_party_generation_time_ = base::Time::Now();
+    third_party_generation_metadata_.last_generation_time = base::Time::Now();
   }
 
   observers_.Notify(&Observer::OnThirdPartyAutoTodosGenerationStateChanged,
@@ -660,8 +744,28 @@ void ContextHubService::FinishTabBasedTodosGeneration(bool success) {
 }
 
 void ContextHubService::OnFirstPartyAutoTodosFetched(
+    personal_context::proto::AutoTodosRequest request_metadata,
+    std::unique_ptr<net::BackoffEntry> backoff,
     personal_context::FetchContextResult result) {
   if (!result.response.has_value()) {
+    const bool is_transient =
+        result.response.error().error() !=
+            personal_context::ContextMemoryError::ExecutionError::kUnknown &&
+        result.response.error().transient();
+    if (is_transient && backoff &&
+        backoff->failure_count() <
+            features::kFirstPartyAutoTodosMaxRetries.Get()) {
+      // Retry the request after exponential backoff if the error is transient
+      // and retries are remaining.
+      backoff->InformOfRequest(/*succeeded=*/false);
+      const base::TimeDelta retry_delay = backoff->GetTimeUntilRelease();
+      first_party_auto_todos_retry_timer_.Start(
+          FROM_HERE, retry_delay,
+          base::BindOnce(&ContextHubService::ExecuteFirstPartyAutoTodosFetch,
+                         weak_factory_.GetWeakPtr(),
+                         std::move(request_metadata), std::move(backoff)));
+      return;
+    }
     FinishFirstPartyAutoTodosGeneration(/*success=*/false);
     return;
   }
@@ -705,9 +809,23 @@ void ContextHubService::OnFirstPartyAutoTodosFetched(
 
 void ContextHubService::FinishFirstPartyAutoTodosGeneration(bool success) {
   is_generating_first_party_auto_todos_ = false;
+  first_party_auto_todos_retry_timer_.Stop();
+  first_party_generation_metadata_.has_error = !success;
   if (success) {
-    last_first_party_generation_time_ = base::Time::Now();
-    first_party_auto_todos_timer_.Reset();
+    first_party_generation_metadata_.last_generation_time = base::Time::Now();
+    // Reset the periodic background timer so the 24-hour countdown restarts
+    // from this generation (whether triggered automatically or manually). This
+    // prevents a manual generation (e.g. 2 hours before the scheduled timer)
+    // from causing the upcoming timer tick to see recent todos and skip,
+    // which would leave them unrefreshed for up to 48 hours.
+    // Use Start() rather than Reset() to ensure the delay is explicitly
+    // restored to the full 24-hour interval even if it was previously shortened
+    // by OnResume().
+    first_party_auto_todos_timer_.Start(
+        FROM_HERE, features::kFirstPartyAutoTodosInterval.Get(),
+        base::BindRepeating(
+            &ContextHubService::OnFirstPartyAutoTodosTimerTriggered,
+            weak_factory_.GetWeakPtr()));
   }
   observers_.Notify(&Observer::OnFirstPartyAutoTodosGenerationStateChanged,
                     false);
@@ -752,7 +870,7 @@ void ContextHubService::ClearFirstPartyAutoTodos(
     std::move(callback).Run(false);
     return;
   }
-  last_first_party_generation_time_ = base::Time();
+  first_party_generation_metadata_ = {};
   auto_todos_store_->ClearFirstPartyTodos(std::move(callback));
 }
 
@@ -762,7 +880,7 @@ void ContextHubService::ClearThirdPartyAutoTodos(
     std::move(callback).Run(false);
     return;
   }
-  last_third_party_generation_time_ = base::Time();
+  third_party_generation_metadata_ = {};
   auto_todos_store_->ClearThirdPartyTodos(std::move(callback));
 }
 
@@ -806,7 +924,7 @@ void ContextHubService::AddTabGroupChatHistoryTurn(
   turn.set_message_content(message_content);
   turn.set_timestamp_ms(base::Time::Now().InMillisecondsSinceUnixEpoch());
   TabGroupChatHistoryTurnId id =
-      TabGroupChatHistoryTurnId::FromUnsafeValue(turn.timestamp_ms());
+      tab_group_chat_history_turn_id_generator_.GenerateNextId();
   tab_group_chat_history_cache_.Put(id, std::move(turn));
 }
 
@@ -822,6 +940,33 @@ ContextHubService::GetTabGroupChatHistory() const {
 
 void ContextHubService::ClearTabGroupChatHistory() {
   tab_group_chat_history_cache_.Clear();
+}
+
+void ContextHubService::AddMemoryBankChatHistoryTurn(
+    optimization_guide::proto::ChatHistoryTurn::Role role,
+    std::string_view message_content) {
+  optimization_guide::proto::ChatHistoryTurn turn;
+  turn.set_role(role);
+  turn.set_message_content(message_content);
+  turn.set_timestamp_ms(base::Time::Now().InMillisecondsSinceUnixEpoch());
+  MemoryBankChatHistoryTurnId id =
+      memory_bank_chat_history_turn_id_generator_.GenerateNextId();
+  memory_bank_chat_history_cache_.Put(id, std::move(turn));
+}
+
+std::vector<optimization_guide::proto::ChatHistoryTurn>
+ContextHubService::GetMemoryBankChatHistory() const {
+  std::vector<optimization_guide::proto::ChatHistoryTurn> history;
+  history.reserve(memory_bank_chat_history_cache_.size());
+  for (const auto& [id, turn] :
+       base::Reversed(memory_bank_chat_history_cache_)) {
+    history.push_back(turn);
+  }
+  return history;
+}
+
+void ContextHubService::ClearMemoryBankChatHistory() {
+  memory_bank_chat_history_cache_.Clear();
 }
 
 void ContextHubService::SetPendingMemoryBankEntry(MemoryBankEntry entry) {
@@ -1104,7 +1249,13 @@ void ContextHubService::OnMemoryBankEntriesFetched(
         ToMemoryBankEntryProto(entry);
   }
 
+  for (const auto& turn : GetMemoryBankChatHistory()) {
+    *request.add_chat_history() = turn;
+  }
+
   request.set_user_command(user_command);
+  AddMemoryBankChatHistoryTurn(
+      optimization_guide::proto::ChatHistoryTurn::ROLE_USER, user_command);
 
   optimization_guide_remote_model_executor_->ExecuteModel(
       optimization_guide::ModelBasedCapabilityKey::kContextHub, request,
@@ -1128,8 +1279,15 @@ void ContextHubService::HandleMemoryBankChatModelExecutionResult(
     return;
   }
 
-  std::move(callback).Run(
-      response->memory_bank_chat_response().text_response());
+  std::string text_response =
+      response->memory_bank_chat_response().text_response();
+  if (!text_response.empty()) {
+    AddMemoryBankChatHistoryTurn(
+        optimization_guide::proto::ChatHistoryTurn::ROLE_ASSISTANT,
+        text_response);
+  }
+
+  std::move(callback).Run(std::move(text_response));
 }
 
 void ContextHubService::HandleTabGroupModelExecutionResult(
@@ -1215,6 +1373,51 @@ void ContextHubService::GroupTabs(std::vector<TabData> tabs,
                                   const std::string& user_command,
                                   GroupTabsCallback callback) {
   GenerateTabGroups(std::move(tabs), user_command, std::move(callback));
+}
+
+void ContextHubService::ExecuteSmartSearch(const std::string& query,
+                                           SmartSearchCallback callback) {
+  personal_context::proto::SmartSearchRequest request_metadata;
+  request_metadata.set_input_query(query);
+
+  personal_context::ContextMemoryRequestOptions options;
+  options.request_timeout = features::kSmartSearchTimeout.Get();
+
+  personal_context_service_->FetchContext(
+      personal_context::proto::CONTEXT_MEMORY_FEATURE_SMART_SEARCH,
+      request_metadata, options,
+      base::BindOnce(&ContextHubService::OnSmartSearchFetched,
+                     weak_factory_.GetWeakPtr(), std::move(callback)));
+}
+
+void ContextHubService::OnSmartSearchFetched(
+    SmartSearchCallback callback,
+    personal_context::FetchContextResult result) {
+  if (!result.response.has_value()) {
+    std::move(callback).Run({});
+    return;
+  }
+
+  personal_context::proto::SmartSearchResponse response;
+  if (!response.ParseFromString(result.response.value().value())) {
+    std::move(callback).Run({});
+    return;
+  }
+
+  std::vector<personal_context::proto::SmartSearchItem> results;
+  results.reserve(response.items_size());
+  for (auto& item : *response.mutable_items()) {
+    personal_context::proto::SmartSearchItem sanitized_item;
+    sanitized_item.set_description(item.description());
+    for (auto& ref : *item.mutable_source_references()) {
+      if (ref.has_drive() || ref.has_gmail() || ref.has_photos()) {
+        *sanitized_item.add_source_references() = std::move(ref);
+      }
+    }
+    results.push_back(std::move(sanitized_item));
+  }
+
+  std::move(callback).Run(results);
 }
 
 }  // namespace context_hub

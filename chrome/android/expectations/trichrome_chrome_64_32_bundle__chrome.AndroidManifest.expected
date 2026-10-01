@@ -22,7 +22,7 @@
   <uses-permission android:name="android.permission.USE_FINGERPRINT"/>
   <uses-permission android:name="com.google.android.apps.aicore.service.BIND_SERVICE"/>
   <uses-permission android:name="com.google.android.c2dm.permission.RECEIVE"/>
-  <uses-sdk android:minSdkVersion="29" android:targetSdkVersion="36"/>
+  <uses-sdk android:minSdkVersion="29" android:targetSdkVersion="37"/>
   <application>
     <activity  # DIFF-ANCHOR: f7a9141e
         android:name="androidx.core.pip.contentpip.ContentPipInternalActivity"
@@ -698,6 +698,18 @@
         android:name="com.google.android.apps.chrome.webapps.WebappManager"
         android:targetActivity="org.chromium.chrome.browser.webapps.WebappLauncherActivity">
     </activity-alias>  # DIFF-ANCHOR: 8e23336d
+    <activity-alias  # DIFF-ANCHOR: ce2724b6
+        android:name="org.chromium.chrome.browser.document.PdfLauncherActivityAlias"
+        android:enabled="false"
+        android:exported="true"
+        android:targetActivity="org.chromium.chrome.browser.document.ChromeLauncherActivity">
+      <intent-filter>  # DIFF-ANCHOR: 13c9b0a8
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <data android:mimeType="application/pdf"/>
+        <data android:scheme="content"/>
+      </intent-filter>  # DIFF-ANCHOR: 13c9b0a8
+    </activity-alias>  # DIFF-ANCHOR: ce2724b6
     <activity-alias  # DIFF-ANCHOR: 5c83a464
         android:name="org.chromium.chrome.browser.download.DownloadActivity"
         android:exported="false"
@@ -777,6 +789,7 @@
       <intent-filter>  # DIFF-ANCHOR: e5bb6a36
         <action android:name="android.intent.action.PACKAGE_DATA_CLEARED"/>
         <action android:name="android.intent.action.PACKAGE_FULLY_REMOVED"/>
+        <action android:name="android.intent.action.PACKAGE_REMOVED"/>
         <data android:scheme="package"/>
       </intent-filter>  # DIFF-ANCHOR: e5bb6a36
     </receiver>  # DIFF-ANCHOR: bb762b77

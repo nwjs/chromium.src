@@ -23,6 +23,7 @@
 #include "content/public/browser/web_contents.h"
 #include "third_party/abseil-cpp/absl/strings/str_format.h"
 #include "ui/base/page_transition_types.h"
+#include "ui/base/window_open_disposition.h"
 #include "url/gurl.h"
 #include "url/origin.h"
 
@@ -76,10 +77,10 @@ void NavigateTool::Invoke(ToolCallback callback) {
 
   // TODO(b/460113906): Legacy code path - remove once the
   // NavigateUsingLoadURL path lands safely.
-  content::OpenURLParams params(
-      url_, content::Referrer(), WindowOpenDisposition::CURRENT_TAB,
-      ::ui::PageTransition::PAGE_TRANSITION_AUTO_TOPLEVEL,
-      false /* is_renderer_initiated */);
+  content::OpenURLParams params =
+      content::OpenURLParams::CreateBrowserInitiated(
+          url_, WindowOpenDisposition::CURRENT_TAB,
+          ::ui::PageTransition::PAGE_TRANSITION_AUTO_TOPLEVEL);
 
   // TODO(b/460113906): Alternate to the NavigateUsingLoadURL path to fix for
   // this bug. Unfortunately, OpenURL has the side effect that a navigation

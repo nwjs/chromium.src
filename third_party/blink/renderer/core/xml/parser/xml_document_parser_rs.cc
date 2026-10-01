@@ -506,10 +506,7 @@ void XMLDocumentParserRs::StartElementNs(
   CreateElementFlags flags =
       parsing_fragment_ ? CreateElementFlags::ByFragmentParser(document_)
                         : CreateElementFlags::ByParser(document_);
-  if (RuntimeEnabledFeatures::DOMParserXmlScriptAlreadyStartedEnabled() &&
-      document_->IsDOMParserDocument() &&
-      (q_name.Matches(html_names::kScriptTag) ||
-       q_name.Matches(svg_names::kScriptTag))) {
+  if (ShouldMarkScriptAlreadyStarted()) {
     flags.SetAlreadyStarted(true);
   }
 
@@ -744,6 +741,11 @@ void XMLDocumentParserRs::EndInternal() {
     PrepareToStopParsing();
   }
   GetDocument()->SetReadyState(Document::kInteractive);
+  // SetReadyState can fire a readystatechange event which can run script and
+  // detach the document.
+  if (IsDetached()) {
+    return;
+  }
   ClearCurrentNodeStack();
   GetDocument()->FinishedParsing();
 }
@@ -841,6 +843,27 @@ void XMLDocumentParserRs::CheckIfBlockingStyleSheetAdded() {
   added_pending_parser_blocking_stylesheet_ = false;
   waiting_for_stylesheets_ = true;
   PauseParsing();
+}
+
+bool XMLDocumentParserRs::ShouldMarkScriptAlreadyStarted() const {
+  if (!RuntimeEnabledFeatures::DOMParserXmlScriptAlreadyStartedEnabled()) {
+    return false;
+  }
+
+  return
+      // DOMParser.parseFromString parses with XML scripting support disabled:
+      // See: https://html.spec.whatwg.org/#dom-domparser-parsefromstring
+      //      step 3, "Otherwise", step 1.
+      document_->IsDOMParserDocument() ||
+      // XMLHTTPRequest.responseXML parses with XML scripting support disabled:
+      // See: https://xhr.spec.whatwg.org/#document-response, step 6
+      document_->IsXHRDocument() ||
+      // All XML parse results created as part of XML fragment parsing:
+      // See:
+      // https://html.spec.whatwg.org/multipage/xhtml.html#xml-scripting-support-disabled,
+      // "If the parser was created as part of the XML fragment parsing
+      // algorithm, then the element's already started must be set to true."
+      parsing_fragment_;
 }
 
 void XMLDocumentParserRs::ExecuteScriptsWaitingForResources() {

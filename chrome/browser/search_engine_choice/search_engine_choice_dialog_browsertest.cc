@@ -60,6 +60,7 @@
 #include "components/version_info/version_info.h"
 #include "components/webapps/common/web_app_id.h"
 #include "content/public/browser/browser_context.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
@@ -67,6 +68,7 @@
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/search_engines_data/resources/definitions/prepopulated_engines.h"
+#include "ui/base/page_transition_types.h"
 #include "ui/base/window_open_disposition.h"
 
 using ::testing::_;
@@ -570,11 +572,8 @@ IN_PROC_BROWSER_TEST_F(SearchEngineChoiceDialogBrowserTest,
       SearchEngineChoiceDialogServiceFactory::GetForProfile(profile));
 
   // Show the profile customization dialog.
-  browser()
-      ->GetFeatures()
-      .signin_view_controller()
-      ->ShowModalProfileCustomizationDialog(
-          /*is_local_profile_creation=*/true);
+  SigninViewController::From(browser())->ShowModalProfileCustomizationDialog(
+      /*is_local_profile_creation=*/true);
 
   // Navigate to a URL
   ASSERT_TRUE(ui_test_utils::NavigateToURLWithDisposition(

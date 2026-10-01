@@ -324,11 +324,6 @@ void TabCollectionNode::MoveChild(base::PassKey<TabCollectionNode> pass_key,
                 children_.begin() + old_index + 1);
   }
 
-  // Move the child view to the top of the z-order to ensure the moved child
-  // appears over the other tabs in its parent container.
-  TabCollectionNode* moved_node = children_[target_index].get();
-  node_view_->ReorderChildView(moved_node->node_view_,
-                               static_cast<int>(children_.size() - 1));
   node_view_->InvalidateLayout();
 
   EnsureFocusOrder(target_index);
@@ -382,14 +377,6 @@ void TabCollectionNode::MoveChild(base::PassKey<TabCollectionNode> pass_key,
   NOTREACHED();
 }
 
-std::vector<views::View*> TabCollectionNode::GetDirectChildren() const {
-  std::vector<views::View*> child_views;
-  child_views.reserve(children_.size());
-  for (const auto& child : children_) {
-    child_views.push_back(child->node_view_);
-  }
-  return child_views;
-}
 
 std::unique_ptr<views::View> TabCollectionNode::CreateAndSetView() {
   auto node_view = CreateViewForNode(this);

@@ -199,17 +199,17 @@ inline const LayoutResult* LayoutWithAlgorithm(
 
 inline MinMaxSizesResult ComputeMinMaxSizesWithAlgorithm(
     const LayoutAlgorithmParams& params,
-    const MinMaxSizesFloatInput& float_input) {
+    const MinMaxSizesInput& input) {
   MinMaxSizesResult result;
-  DetermineAlgorithmAndRun(params, [&result, &float_input]<typename Algorithm>(
-                                       Algorithm* algorithm) {
-    result = algorithm->ComputeMinMaxSizes(float_input);
-  });
+  DetermineAlgorithmAndRun(
+      params, [&result, &input]<typename Algorithm>(Algorithm* algorithm) {
+        result = algorithm->ComputeMinMaxSizes(input);
+      });
   return result;
 }
 
 bool CanUseCachedIntrinsicInlineSizes(const ConstraintSpace& constraint_space,
-                                      const MinMaxSizesFloatInput& float_input,
+                                      const MinMaxSizesInput& input,
                                       const BlockNode& node) {
   // Obviously can't use the cache if our intrinsic logical widths are dirty.
   if (node.GetLayoutBox()->IntrinsicLogicalWidthsDirty())
@@ -217,8 +217,9 @@ bool CanUseCachedIntrinsicInlineSizes(const ConstraintSpace& constraint_space,
 
   // We don't store the float inline sizes for comparison, always skip the
   // cache in this case.
-  if (float_input.float_left_inline_size || float_input.float_right_inline_size)
+  if (input.float_left_inline_size || input.float_right_inline_size) {
     return false;
+  }
 
   // Check if we have any percentage padding.
   const auto& style = node.Style();
@@ -685,7 +686,7 @@ const LayoutResult* BlockNode::SimplifiedLayout(
   // Perform layout on ourselves using the previous constraint space.
   const ConstraintSpace& space =
       previous_result->GetConstraintSpaceForCaching();
-  const LayoutResult* result = Layout(space, /* break_token */ nullptr);
+  const LayoutResult* result = Layout(space);
 
   if (result->Status() != LayoutResult::kSuccess) {
     // TODO(crbug.com/1297864): The optimistic BFC block-offsets aren't being
@@ -940,7 +941,7 @@ MinMaxSizesResult BlockNode::ComputeMinMaxSizes(
     WritingMode container_writing_mode,
     const SizeType type,
     const ConstraintSpace& constraint_space,
-    const MinMaxSizesFloatInput float_input) const {
+    const MinMaxSizesInput& input) const {
   // TODO(layoutng) Can UpdateMarkerTextIfNeeded call be moved
   // somewhere else? List items need up-to-date markers before layout.
   if (IsListItem())
@@ -1043,7 +1044,29 @@ MinMaxSizesResult BlockNode::ComputeMinMaxSizes(
 
   std::optional<MinMaxSizesResult> result;
 
-  if (CanUseCachedIntrinsicInlineSizes(constraint_space, float_input, *this)) {
+  MinMaxSizesInput updated_input = input;
+  if (Style().IsInShrinkToFitSubtree()) {
+    const FragmentGeometry& fragment_geometry = IntrinsicFragmentGeometry();
+    const BoxStrut border_padding =
+        fragment_geometry.border + fragment_geometry.padding;
+    const MinMaxSizes min_max = ComputeMinMaxInlineSizes(
+        constraint_space, *this, border_padding,
+        /* auto_min_length */ nullptr, [](SizeType) -> MinMaxSizesResult {
+          return {{kIndefiniteSize, kIndefiniteSize},
+                  /* depends_on_block_constraints */ false};
+        });
+    const LayoutUnit available_inline_size =
+        constraint_space.AvailableSize().inline_size == kIndefiniteSize
+            ? input.constrained_inline_size
+            : constraint_space.AvailableSize().inline_size;
+    updated_input.constrained_inline_size =
+        (min_max.ClampSizeToMinAndMax(available_inline_size) -
+         (border_padding + fragment_geometry.scrollbar).InlineSum())
+            .ClampNegativeToZero();
+  }
+
+  if (CanUseCachedIntrinsicInlineSizes(constraint_space, updated_input,
+                                       *this)) {
     if (!box_->IntrinsicLogicalWidthsDependsOnBlockConstraints()) {
       // If we don't have a descendant which depends on our block constraints,
       // we can use the cached sizes directly. This means we can avoid
@@ -1071,7 +1094,7 @@ MinMaxSizesResult BlockNode::ComputeMinMaxSizes(
     const FragmentGeometry& fragment_geometry = IntrinsicFragmentGeometry();
     result = ComputeMinMaxSizesWithAlgorithm(
         LayoutAlgorithmParams(*this, fragment_geometry, constraint_space),
-        float_input);
+        updated_input);
 
     const BoxStrut border_padding =
         fragment_geometry.border + fragment_geometry.padding;

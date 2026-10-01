@@ -22,6 +22,7 @@
 #include "chrome/browser/ui/views/toolbar/webui_back_forward_control.h"
 #include "chrome/browser/ui/views/toolbar/webui_battery_saver_control.h"
 #include "chrome/browser/ui/views/toolbar/webui_home_control.h"
+#include "chrome/browser/ui/views/toolbar/webui_media_toolbar_button.h"
 #include "chrome/browser/ui/views/toolbar/webui_overflow_button.h"
 #include "chrome/browser/ui/views/toolbar/webui_performance_intervention_control.h"
 #include "chrome/browser/ui/views/toolbar/webui_pinned_toolbar_actions.h"
@@ -79,6 +80,7 @@ class WebUIToolbarControlDelegate {
   // Returns the internal view that's the actual WebView.
   virtual views::View* GetInternalWebView() = 0;
   virtual content::WebContents* GetWebContents() = 0;
+  virtual WebUIToolbarUI* GetWebUIToolbarUI() const = 0;
 
   // Announces an alert to accessibility screen readers.
   virtual void AnnounceAlert(const std::u16string& announcement) = 0;
@@ -102,7 +104,10 @@ class WebUIToolbarControlDelegate {
       toolbar_ui_api::mojom::PerformanceInterventionControlStatePtr state) = 0;
   virtual void OnAppMenuControlStateChanged(
       toolbar_ui_api::mojom::AppMenuControlStatePtr state) = 0;
-  virtual void OnBatterySaverControlStateChanged(bool is_showing) = 0;
+  virtual void OnOverflowButtonControlStateChanged(
+      toolbar_ui_api::mojom::OverflowButtonControlStatePtr state) = 0;
+  virtual void OnBatterySaverControlStateChanged(
+      toolbar_ui_api::mojom::BatterySaverControlStatePtr state) = 0;
   virtual void OnOmniboxViewStateChanged(
       toolbar_ui_api::mojom::OmniboxViewStatePtr state) = 0;
   virtual void OnLocationBarFlagsChanged(
@@ -123,6 +128,8 @@ class WebUIToolbarControlDelegate {
       std::vector<toolbar_ui_api::mojom::PageActionStatePtr> state) = 0;
   virtual void OnAvatarControlStateChanged(
       toolbar_ui_api::mojom::AvatarControlStatePtr state) = 0;
+  virtual void OnMediaControlStateChanged(
+      toolbar_ui_api::mojom::MediaControlStatePtr state) = 0;
   virtual void OnFocusRequested(
       toolbar_ui_api::mojom::FocusRequestTarget target) = 0;
 
@@ -176,6 +183,9 @@ class WebUIToolbarWebView
   WebUIOverflowButton& overflow_button_for_testing() {
     return overflow_button_;
   }
+  WebUISplitTabsControl& split_tabs_control_for_testing() {
+    return split_tabs_control_;
+  }
 
   void SetIsMaximizedOrFullscreen(bool maximized_or_fullscreen);
   void SetBackForwardEnabled(int command_id, bool enabled);
@@ -205,7 +215,8 @@ class WebUIToolbarWebView
   // ToolbarUIService::ToolbarUIServiceDelegate:
   void HandleContextMenu(toolbar_ui_api::mojom::ContextMenuType menu_type,
                          const gfx::RectF& bounds_in_css_pixels,
-                         ui::mojom::MenuSourceType source) override;
+                         ui::mojom::MenuSourceType source,
+                         std::optional<uint32_t> show_menu_token) override;
   void ShowOverflowMenu(
       std::vector<toolbar_ui_api::mojom::OverflowMenuItemPtr> controls,
       const gfx::RectF& bounds_in_css_pixels,
@@ -271,7 +282,9 @@ class WebUIToolbarWebView
   void SetAvatarButtonFocused(bool focused) override;
   void SetAvatarButtonIPHPromoShowing(bool showing) override;
   void OnAppMenuFocusChanged(bool focused) override;
-  void ExecuteExtensionAction(const std::string& extension_id) override;
+  void ExecuteExtensionAction(const std::string& extension_id,
+                              bool is_pointer_interaction) override;
+  void OnExtensionActionPointerDown(const std::string& extension_id) override;
   void ShowExtensionContextMenu(const std::string& extension_id,
                                 ui::mojom::MenuSourceType source) override;
   base::expected<toolbar_ui_api::mojom::AdjustOmniboxTextForCopyResultPtr,
@@ -281,6 +294,8 @@ class WebUIToolbarWebView
   void OnPerformanceInterventionButtonClicked(
       bool is_mouse_interaction) override;
   void OnPerformanceInterventionButtonMousePressed() override;
+  void OnMediaButtonClicked(bool is_mouse_interaction) override;
+  void OnMediaButtonMousePressed() override;
 
   // BrowserControlsService::BrowserControlsServiceDelegate:
   void PermitLaunchUrl() override;
@@ -380,6 +395,10 @@ class WebUIToolbarWebView
   // enabled.
   int GetLocationBarWidthForTesting() const;
 
+  WebUIToolbarUI* GetWebUIToolbarUIForTesting() const {
+    return GetWebUIToolbarUI();
+  }
+
  private:
   FRIEND_TEST_ALL_PREFIXES(WebUIToolbarWebViewPixelBrowserTest,
                            CheckReloadButtonColor);
@@ -439,7 +458,10 @@ class WebUIToolbarWebView
       override;
   void OnAppMenuControlStateChanged(
       toolbar_ui_api::mojom::AppMenuControlStatePtr state) override;
-  void OnBatterySaverControlStateChanged(bool is_showing) override;
+  void OnOverflowButtonControlStateChanged(
+      toolbar_ui_api::mojom::OverflowButtonControlStatePtr state) override;
+  void OnBatterySaverControlStateChanged(
+      toolbar_ui_api::mojom::BatterySaverControlStatePtr state) override;
   void OnOmniboxViewStateChanged(
       toolbar_ui_api::mojom::OmniboxViewStatePtr state) override;
   void OnLocationBarFlagsChanged(
@@ -463,6 +485,8 @@ class WebUIToolbarWebView
       const override;
   void OnAvatarControlStateChanged(
       toolbar_ui_api::mojom::AvatarControlStatePtr state) override;
+  void OnMediaControlStateChanged(
+      toolbar_ui_api::mojom::MediaControlStatePtr state) override;
   void OnFocusRequested(
       toolbar_ui_api::mojom::FocusRequestTarget target) override;
   std::optional<GURL> ConsumeDroppedUrl(
@@ -495,9 +519,8 @@ class WebUIToolbarWebView
   // Resolves the initial deadline from features and applies it if enabled.
   void ApplyInitialSurfaceSyncDeadline();
 
-  // Returns the active WebUI toolbar controller (const-safe).
-  // Robust against teardown as it uses the observed WebContents.
-  WebUIToolbarUI* GetWebUIToolbarUI() const;
+  // WebUIToolbarControlDelegate:
+  WebUIToolbarUI* GetWebUIToolbarUI() const override;
 
   void OnTouchUiChanged();
   void PostPushNavigationState();
@@ -614,6 +637,7 @@ class WebUIToolbarWebView
   WebUIAppMenuControl app_menu_control_;
   WebUIBatterySaverControl battery_saver_control_;
   WebUIAvatarToolbarButton avatar_control_;
+  WebUIMediaToolbarButton media_control_;
   // This is null if WebUILocationBar is off, or the window is in one of the
   // modes (e.g. popup) that don't use it yet.
   std::unique_ptr<WebUILocationBar> location_bar_;

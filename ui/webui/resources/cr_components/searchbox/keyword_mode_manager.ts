@@ -18,6 +18,7 @@ export enum KeywordModeEntryMethod {
   QUESTION_MARK = 3,
   KEYBOARD_SHORTCUT = 4,
   CLICK = 5,
+  SPACE_IN_MIDDLE = 6,
 }
 
 export interface KeywordClearedEvent {
@@ -47,12 +48,26 @@ export class KeywordModeManager {
       loadTimeData.getBoolean('keywordSpaceTriggeringEnabled') :
       true;
 
+  private availableKeywordModels_: Map<string, InputKeywordModel> = new Map();
   private inputKeywordModel_: InputKeywordModel|null = null;
   private entryMethod_: KeywordModeEntryMethod = KeywordModeEntryMethod.NONE;
   private delegate_: KeywordModeManagerDelegate;
 
   constructor(delegate: KeywordModeManagerDelegate) {
     this.delegate_ = delegate;
+  }
+
+  get entryMethod(): KeywordModeEntryMethod {
+    return this.entryMethod_;
+  }
+
+  get availableKeywordModels(): InputKeywordModel[] {
+    return Array.from(this.availableKeywordModels_.values());
+  }
+
+  set availableKeywordModels(models: InputKeywordModel[]) {
+    this.availableKeywordModels_ =
+        new Map(models.map(model => [model.keyword.toLowerCase(), model]));
   }
 
   get inputKeywordModel(): InputKeywordModel|null {
@@ -79,8 +94,8 @@ export class KeywordModeManager {
    * method.
    */
   enter(
-      keyword: string, displayText: string,
-      entryMethod: KeywordModeEntryMethod): void {
+      keyword: string, displayText: string, entryMethod: KeywordModeEntryMethod,
+      placeholder: string = ''): void {
     // TODO(crbug.com/546826241): To fully support keyword mode entryMethod
     // state needs to be saved/restored across tabs.
     this.entryMethod_ = entryMethod;
@@ -88,6 +103,10 @@ export class KeywordModeManager {
       type: KeywordType.kInKeyword,
       keyword: keyword,
       displayText: displayText,
+      iconPath:
+          this.availableKeywordModels_.get(keyword.toLowerCase())?.iconPath ||
+          '',
+      placeholder: placeholder,
     };
   }
 
@@ -139,7 +158,7 @@ export class KeywordModeManager {
     assert(match.keywordModel);
     this.enter(
         match.keywordModel.keyword, match.keywordModel.chipHint,
-        KeywordModeEntryMethod.CLICK);
+        KeywordModeEntryMethod.CLICK, match.keywordModel.placeholder);
     this.delegate_.onKeywordEntered();
   }
 
@@ -159,7 +178,7 @@ export class KeywordModeManager {
     }
     this.enter(
         match.keywordModel.keyword, match.keywordModel.chipHint,
-        KeywordModeEntryMethod.TAB);
+        KeywordModeEntryMethod.TAB, match.keywordModel.placeholder);
     this.delegate_.onKeywordEntered();
     return true;
   }
@@ -169,51 +188,145 @@ export class KeywordModeManager {
    * keyword mode (e.g. space after instant keyword, or leading '?').
    * If triggered, enters keyword mode and returns true.
    */
-  acceptInputTrigger(input: string, cursorPosition: number|null): boolean {
+  acceptInputTrigger(
+      input: string, cursorPosition: number|null, event: Event|null): boolean {
     if (cursorPosition === null) {
       return false;
     }
-    return this.acceptSpaceAtEnd_(input, cursorPosition) ||
+    return this.acceptSpaceAtEnd_(input, cursorPosition, event) ||
+        this.acceptSpaceInMiddle_(input, cursorPosition, event) ||
         this.acceptQuestionMark_(input, cursorPosition);
   }
 
-  private acceptSpaceAtEnd_(input: string, cursorPosition: number): boolean {
+  private isSpaceEvent_(event: Event|null): boolean {
+    if (event instanceof KeyboardEvent) {
+      return event.key === ' ' || event.key === '\u3000';
+    }
+    if (event instanceof InputEvent) {
+      return (event.data === ' ' || event.data === '\u3000') &&
+          event.inputType !== 'insertFromPaste';
+    }
+    return false;
+  }
+
+  private acceptSpaceAtEnd_(
+      input: string, cursorPosition: number, event: Event|null): boolean {
+    // Space triggering must be enabled.
+    if (!this.keywordSpaceTriggeringEnabled) {
+      return false;
+    }
+
+    // Must not already be in keyword mode.
+    if (this.isInKeywordMode) {
+      return false;
+    }
+
+    // Space must have been typed, not backspaced to a space or pasted.
+    if (!this.isSpaceEvent_(event)) {
+      return false;
+    }
+
     // Cursor must be at end.
     if (cursorPosition !== input.length) {
       return false;
     }
 
     // Input must end in space.
-    if (!input.endsWith(' ') && !input.endsWith('　')) {
+    if (!input.endsWith(' ') && !input.endsWith('\u3000')) {
       return false;
     }
 
-    // Chip must be shown.
-    if (this.inputKeywordModel_?.type !== KeywordType.kChip) {
+    // Keyword candidate is the single word preceding the space.
+    const candidate = input.slice(0, -1);
+    if (!candidate || candidate.includes(' ') || candidate.includes('\u3000')) {
       return false;
     }
 
-    // Input must match keyword.
-    const keyword = this.inputKeywordModel_.keyword;
-    if (!keyword || input.slice(0, -1) !== keyword) {
+    // Must match an available keyword.
+    const lowerCandidate = candidate.toLowerCase();
+    const model = this.availableKeywordModels_.get(lowerCandidate) ||
+        (this.inputKeywordModel_?.keyword.toLowerCase() === lowerCandidate ?
+             this.inputKeywordModel_ :
+             null);
+    if (!model) {
       return false;
     }
 
-    // Space must have been typed, not backspaced to a space. E.g. 'keyword
-    // q<backspace>' should not accept keyword mode.
-    // TODO(b/504669216): this isn't handled yet.
+    const keyword = model.keyword;
+    const displayText = model.displayText || keyword;
+    const placeholder = model.placeholder || '';
 
-    // Space must have been typed, not pasted.
-    // TODO(b/504669216): webUI doesn't track paste state yet.
+    this.enter(
+        keyword, displayText, KeywordModeEntryMethod.SPACE_AT_END, placeholder);
+    return true;
+  }
 
+  private acceptSpaceInMiddle_(
+      input: string, cursorPosition: number, event: Event|null): boolean {
     // Space triggering must be enabled.
     if (!this.keywordSpaceTriggeringEnabled) {
       return false;
     }
 
+    // Must not already be in keyword mode.
+    if (this.isInKeywordMode) {
+      return false;
+    }
+
+    // Space must have been typed, not backspaced to a space or pasted.
+    if (!this.isSpaceEvent_(event)) {
+      return false;
+    }
+
+    // Cursor must be after at least 1 keyword character and the typed space,
+    // with at least 1 character after the space.
+    const spacePosition = cursorPosition - 1;
+    if (spacePosition <= 0 || cursorPosition >= input.length) {
+      return false;
+    }
+
+    // Character at spacePosition must be a space.
+    const spaceChar = input[spacePosition];
+    if (spaceChar !== ' ' && spaceChar !== '\u3000') {
+      return false;
+    }
+
+    // Character preceding the space must not be whitespace.
+    const charBeforeSpace = input[spacePosition - 1];
+    if (charBeforeSpace === ' ' || charBeforeSpace === '\u3000') {
+      return false;
+    }
+
+    // Keyword candidate is the single word preceding the space.
+    const candidate = input.slice(0, spacePosition);
+    if (candidate.includes(' ') || candidate.includes('\u3000')) {
+      return false;
+    }
+
+    // Must match an available keyword.
+    const lowerCandidate = candidate.toLowerCase();
+    const model = this.availableKeywordModels_.get(lowerCandidate) ||
+        (this.inputKeywordModel_?.keyword.toLowerCase() === lowerCandidate ?
+             this.inputKeywordModel_ :
+             null);
+    if (!model) {
+      return false;
+    }
+
+    // Text after the space must not be empty or start with whitespace.
+    const textAfter = input.slice(cursorPosition);
+    if (!textAfter.trim() || textAfter.startsWith(' ') ||
+        textAfter.startsWith('\u3000')) {
+      return false;
+    }
+
+    const keyword = model.keyword;
+    const displayText = model.displayText || keyword;
+    const placeholder = model.placeholder || '';
+
     this.enter(
-        keyword, this.inputKeywordModel_.displayText,
-        KeywordModeEntryMethod.SPACE_AT_END);
+        keyword, displayText, KeywordModeEntryMethod.SPACE_IN_MIDDLE,
+        placeholder);
     return true;
   }
 
@@ -255,12 +368,14 @@ export class KeywordModeManager {
     if (this.isInKeywordMode) {
       const keyword = this.inputKeywordModel_?.keyword;
       if (keyword) {
-        if (match.fillIntoEdit.startsWith(keyword + ' ')) {
+        const lowerKeyword = keyword.toLowerCase();
+        const lowerFill = match.fillIntoEdit.toLowerCase();
+        if (lowerFill.startsWith(lowerKeyword + ' ')) {
           return match.fillIntoEdit.substring(keyword.length + 1);
         }
-        if (match.fillIntoEdit === keyword ||
+        if (lowerFill === lowerKeyword ||
             (match.keywordModel?.type !== KeywordType.kInKeyword &&
-             match.keywordModel?.keyword === keyword)) {
+             match.keywordModel?.keyword.toLowerCase() === lowerKeyword)) {
           return '';
         }
       }
@@ -292,10 +407,12 @@ export class KeywordModeManager {
 
     if (isKeywordChipSelected && selectedMatch.keywordModel) {
       if (!this.isInKeywordMode ||
-          this.activeKeyword !== selectedMatch.keywordModel.keyword) {
+          this.activeKeyword.toLowerCase() !==
+              selectedMatch.keywordModel.keyword.toLowerCase()) {
         this.enter(
             selectedMatch.keywordModel.keyword,
-            selectedMatch.keywordModel.chipHint, KeywordModeEntryMethod.TAB);
+            selectedMatch.keywordModel.chipHint, KeywordModeEntryMethod.TAB,
+            selectedMatch.keywordModel.placeholder);
       }
       return;
     }
@@ -313,6 +430,11 @@ export class KeywordModeManager {
       type: selectedMatch.keywordModel.type,
       keyword: selectedMatch.keywordModel.keyword,
       displayText: selectedMatch.keywordModel.chipHint,
+      iconPath: this.availableKeywordModels_
+                    .get(selectedMatch.keywordModel.keyword.toLowerCase())
+                    ?.iconPath ||
+          '',
+      placeholder: selectedMatch.keywordModel.placeholder,
     };
   }
 }

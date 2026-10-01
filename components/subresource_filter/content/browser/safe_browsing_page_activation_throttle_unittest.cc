@@ -14,6 +14,7 @@
 #include "base/check.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
+#include "base/memory/scoped_refptr.h"
 #include "base/run_loop.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/test/bind.h"
@@ -212,7 +213,8 @@ class SafeBrowsingPageActivationThrottleTest
     ContentSubresourceFilterWebContentsHelper::CreateForWebContents(
         contents, throttle_manager_test_support_->profile_context(),
         /*database_manager=*/nullptr, ruleset_dealer_.get());
-    fake_safe_browsing_database_ = new FakeSafeBrowsingDatabaseManager();
+    fake_safe_browsing_database_ =
+        base::MakeRefCounted<FakeSafeBrowsingDatabaseManager>();
     NavigateAndCommit(GURL("https://test.com"));
 
     observer_ = std::make_unique<TestSubresourceFilterObserver>(contents);
@@ -1153,7 +1155,7 @@ TEST_F(SafeBrowsingPageActivationThrottleTest, GetV5GetHashProtocolManager) {
 
   safe_browsing::V5GetHashProtocolManager v5_protocol_manager(
       /*url_loader_factory=*/nullptr,
-      safe_browsing::V4ProtocolConfig("test", false, "key", "1.0"),
+      safe_browsing::SBProtocolConfig("test", false, "key", "1.0"),
       /*cache=*/nullptr);
 
   delegate()->set_v5_get_hash_protocol_manager(

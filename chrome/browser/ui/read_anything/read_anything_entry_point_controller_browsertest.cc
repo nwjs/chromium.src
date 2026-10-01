@@ -32,6 +32,7 @@
 #include "chrome/browser/ui/side_panel/side_panel_entry_id.h"
 #include "chrome/browser/ui/side_panel/side_panel_ui.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
+#include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
@@ -120,7 +121,7 @@ class ReadAnythingEntryPointControllerBrowserTest
 IN_PROC_BROWSER_TEST_F(ReadAnythingEntryPointControllerBrowserTest,
                        ShowSidePanelFromPinned) {
   base::HistogramTester histogram_tester;
-  auto* side_panel_ui = browser()->GetFeatures().side_panel_ui();
+  auto* side_panel_ui = SidePanelUI::From(browser());
   ASSERT_FALSE(side_panel_ui->IsSidePanelEntryShowing(
       SidePanelEntryKey(SidePanelEntryId::kReadAnything)));
   actions::ActionInvocationContext context;
@@ -140,7 +141,7 @@ IN_PROC_BROWSER_TEST_F(ReadAnythingEntryPointControllerBrowserTest,
 IN_PROC_BROWSER_TEST_F(ReadAnythingEntryPointControllerBrowserTest,
                        ShowSidePanelFromAppMenu) {
   base::HistogramTester histogram_tester;
-  auto* side_panel_ui = browser()->GetFeatures().side_panel_ui();
+  auto* side_panel_ui = SidePanelUI::From(browser());
   ASSERT_FALSE(side_panel_ui->IsSidePanelEntryShowing(
       SidePanelEntryKey(SidePanelEntryId::kReadAnything)));
 
@@ -156,7 +157,7 @@ IN_PROC_BROWSER_TEST_F(ReadAnythingEntryPointControllerBrowserTest,
 IN_PROC_BROWSER_TEST_F(ReadAnythingEntryPointControllerBrowserTest,
                        ShowSidePanelFromContextMenu) {
   base::HistogramTester histogram_tester;
-  auto* side_panel_ui = browser()->GetFeatures().side_panel_ui();
+  auto* side_panel_ui = SidePanelUI::From(browser());
   ASSERT_FALSE(side_panel_ui->IsSidePanelEntryShowing(
       SidePanelEntryKey(SidePanelEntryId::kReadAnything)));
 
@@ -254,7 +255,7 @@ IN_PROC_BROWSER_TEST_F(ReadAnythingEntryPointControllerOmniboxBrowserTest,
 
 IN_PROC_BROWSER_TEST_F(ReadAnythingEntryPointControllerOmniboxBrowserTest,
                        ShowSidePanelFromOmnibox_ResetsIgnoredCount) {
-  auto* side_panel_ui = browser()->GetFeatures().side_panel_ui();
+  auto* side_panel_ui = SidePanelUI::From(browser());
   ASSERT_FALSE(side_panel_ui->IsSidePanelEntryShowing(
       SidePanelEntryKey(SidePanelEntryId::kReadAnything)));
   actions::ActionInvocationContext context;
@@ -319,6 +320,33 @@ IN_PROC_BROWSER_TEST_F(
     UpdatePageActionVisibility_DoesNotShowChipIfIgnoredManyTimes) {
   browser()->GetProfile()->GetPrefs()->SetInteger(
       prefs::kAccessibilityReadAnythingOmniboxChipIgnoredCount, 10);
+  ASSERT_TRUE(embedded_test_server()->Start());
+  GURL url = embedded_test_server()->GetURL("/long_text_page.html");
+  RegisterPageActionObserver();
+  OptimizationGuideKeyedServiceFactory::GetForProfile(browser()->GetProfile())
+      ->AddHintForTesting(
+          url, optimization_guide::proto::READER_MODE_ELIGIBLE,
+          std::optional<optimization_guide::OptimizationMetadata>());
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
+  VerifyPageActionIsShowing(true);
+  VerifyChipIsShowing(false);
+
+  ReadAnythingEntryPointController::UpdatePageActionVisibility(
+      false, browser()->GetActiveTabInterface());
+  VerifyPageActionIsShowing(false);
+  VerifyChipIsShowing(false);
+
+  ReadAnythingEntryPointController::UpdatePageActionVisibility(
+      true, browser()->GetActiveTabInterface());
+  VerifyPageActionIsShowing(true);
+  VerifyChipIsShowing(false);
+}
+
+IN_PROC_BROWSER_TEST_F(ReadAnythingEntryPointControllerOmniboxBrowserTest,
+                       UpdatePageActionVisibility_CollapsesChipOnFourthPage) {
+  // On the 4th page where it would show (ignored 3 times), the chip collapses.
+  browser()->GetProfile()->GetPrefs()->SetInteger(
+      prefs::kAccessibilityReadAnythingOmniboxChipIgnoredCount, 3);
   ASSERT_TRUE(embedded_test_server()->Start());
   GURL url = embedded_test_server()->GetURL("/long_text_page.html");
   RegisterPageActionObserver();
@@ -629,7 +657,7 @@ IN_PROC_BROWSER_TEST_F(ReadAnythingEntryPointControllerOmniboxBrowserTest,
   ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
   VerifyChipIsShowing(true);
   browser()->GetProfile()->GetPrefs()->SetInteger(
-      prefs::kAccessibilityReadAnythingOmniboxChipIgnoredCount, 5);
+      prefs::kAccessibilityReadAnythingOmniboxChipIgnoredCount, 2);
 
   ReadAnythingEntryPointController::OnPageActionIgnored(browser());
 

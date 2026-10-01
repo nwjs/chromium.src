@@ -143,6 +143,7 @@ class PLATFORM_EXPORT DrawingBuffer : public cc::TextureLayerClient,
       PreserveDrawingBuffer,
       Platform::WebGLContextType,
       PredefinedColorSpace,
+      gfx::HDRMetadata,
       gl::GpuPreference);
 
   DrawingBuffer(const DrawingBuffer&) = delete;
@@ -154,9 +155,6 @@ class PLATFORM_EXPORT DrawingBuffer : public cc::TextureLayerClient,
 
   // Issues a glClear() on all framebuffers associated with this DrawingBuffer.
   void ClearFramebuffers(GLbitfield clear_mask);
-
-  // Recreates the back color buffer if it was discarded.
-  void EnsureBackColorBuffer();
 
   // Indicates whether the DrawingBuffer internally allocated a packed
   // depth-stencil renderbuffer in the situation where the end user only asked
@@ -191,10 +189,14 @@ class PLATFORM_EXPORT DrawingBuffer : public cc::TextureLayerClient,
   // Set the color space of the default draw buffer. This will destroy the
   // contents of the drawing buffer.
   void SetColorSpace(PredefinedColorSpace color_space);
+  void SetHdrMetadata(const gfx::HDRMetadata& hdr_metadata);
 
   // Bind the default framebuffer to |target|. |target| must be
   // GL_FRAMEBUFFER, GL_READ_FRAMEBUFFER, or GL_DRAW_FRAMEBUFFER.
   void Bind(GLenum target);
+  // Restore the default framebuffer binding to |target| in the GL context
+  // without ensuring/reallocating discarded buffers.
+  void RestoreDefaultFramebufferBinding(GLenum target = GL_FRAMEBUFFER);
   gfx::Size Size() const { return size_; }
   GLenum StorageFormat() const;
 
@@ -216,14 +218,14 @@ class PLATFORM_EXPORT DrawingBuffer : public cc::TextureLayerClient,
   // Returns false if the contents had previously been marked as changed and
   // have not yet been resolved.
   bool MarkContentsChanged();
+  // Restore buffers if they have been discarded.
+  void EnsureBuffers();
 
   void SetBufferClearNeeded(bool);
   void RequireExplicitBufferClear();
   bool BufferClearNeeded() const;
 
   void SetIsInHiddenPage(bool);
-  void SetHdrMetadata(const gfx::HDRMetadata& hdr_metadata);
-  const gfx::HDRMetadata& GetHdrMetadata() const { return hdr_metadata_; }
 
   // Whether the target for draw operations has format GL_RGBA, but is
   // emulating format GL_RGB. When the target's storage is first
@@ -343,14 +345,20 @@ class PLATFORM_EXPORT DrawingBuffer : public cc::TextureLayerClient,
                 bool wants_depth,
                 bool wants_stencil,
                 PredefinedColorSpace,
+                gfx::HDRMetadata,
                 gl::GpuPreference);
 
   bool Initialize(const gfx::Size&, bool use_multisampling);
 
   void SetSharedImageInterfaceProviderForSoftwareRenderingTest(
       std::unique_ptr<WebGraphicsSharedImageInterfaceProvider> sii_provider);
-
   bool HasBackColorBufferForTesting() const { return !!back_color_buffer_; }
+  bool HasMultisampleRenderbufferForTesting() const {
+    return !!multisample_renderbuffer_;
+  }
+  bool HasDepthStencilBufferForTesting() const {
+    return !!depth_stencil_buffer_;
+  }
 
   struct SoftwareResource {
     SoftwareResource(
@@ -471,6 +479,14 @@ class PLATFORM_EXPORT DrawingBuffer : public cc::TextureLayerClient,
 
   // Clears out newly-allocated framebuffers (really, renderbuffers / textures).
   void ClearNewlyAllocatedFramebuffers(ClearOption clear_option);
+
+  // These two functions are meant to discard buffers when possible upon
+  // entering the background.
+  void DiscardBackBuffer();
+  void DiscardMSAADepthStencilBuffers();
+
+  void EnsureBackColorBuffer();
+  void EnsureMSAADepthStencilBuffers();
 
   // The same as clearFramebuffers(), but leaves GL state dirty.
   void ClearFramebuffersInternal(GLbitfield clear_mask,
@@ -601,6 +617,7 @@ class PLATFORM_EXPORT DrawingBuffer : public cc::TextureLayerClient,
   // Reallocate Multisampled renderbuffer, used by explicit resolve when resize
   // and GPU switch
   bool ReallocateMultisampleRenderbuffer(const gfx::Size&);
+  void ReallocateDepthStencilRenderbuffer(const gfx::Size&);
 
   WebGraphicsSharedImageInterfaceProvider*
   GetSharedImageInterfaceProviderForBitmap();
@@ -686,6 +703,7 @@ class PLATFORM_EXPORT DrawingBuffer : public cc::TextureLayerClient,
 
   // The color space of this buffer.
   gfx::ColorSpace color_space_;
+  gfx::HDRMetadata hdr_metadata_;
 
   AntialiasingMode anti_aliasing_mode_ = kAntialiasingModeNone;
 
@@ -695,8 +713,6 @@ class PLATFORM_EXPORT DrawingBuffer : public cc::TextureLayerClient,
   bool destruction_in_progress_ = false;
   bool is_hidden_ = false;
   bool has_eqaa_support = false;
-
-  gfx::HDRMetadata hdr_metadata_;
 
   GLenum draw_buffer_ = GL_COLOR_ATTACHMENT0;
 

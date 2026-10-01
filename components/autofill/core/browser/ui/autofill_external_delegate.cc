@@ -438,7 +438,8 @@ void AutofillExternalDelegate::OnQuery(
                  .field_datalist_options = field.datalist_options()};
   caret_bounds_ = caret_bounds;
   trigger_source_ = trigger_source;
-  manager_->client().UpdateAutofillDataListValues(field.datalist_options());
+  manager_->client().UpdateAutofillDataListValues(field.global_id().frame_token,
+                                                  field.datalist_options());
 }
 
 const AutofillField* AutofillExternalDelegate::GetQueriedField() const {
@@ -665,7 +666,7 @@ AutofillExternalDelegate::GetDriver_DoNotUse() {
 
 void AutofillExternalDelegate::OnSuggestionsShown(
     base::span<const Suggestion> suggestions,
-    base::optional_ref<const SuggestionMetadata> parent_suggestion_metadata) {
+    const SuggestionUiMetadata& metadata) {
   // Popups are expected to be Autofill or Autocomplete.
   DCHECK(suggestions.empty() ||
          GetFillingProductFromSuggestionType(suggestions[0].type) !=
@@ -673,7 +674,7 @@ void AutofillExternalDelegate::OnSuggestionsShown(
 
   const DenseSet<SuggestionType> shown_suggestion_types(suggestions,
                                                         &Suggestion::type);
-  const bool is_subpopup = parent_suggestion_metadata.has_value();
+  const bool is_subpopup = metadata.is_subpopup();
 
   if (!is_subpopup) {
     if (std::ranges::any_of(shown_suggestion_types,
@@ -709,8 +710,8 @@ void AutofillExternalDelegate::OnSuggestionsShown(
   }
 
   manager_->DidShowSuggestions(
-      suggestions, parent_suggestion_metadata, last_query_.form_id,
-      last_query_.field_id, CreateUpdateSuggestionsCallback(), trigger_source_);
+      suggestions, metadata, last_query_.form_id, last_query_.field_id,
+      CreateUpdateSuggestionsCallback(), trigger_source_);
 }
 
 void AutofillExternalDelegate::OnSuggestionsHidden(
@@ -1155,10 +1156,10 @@ void AutofillExternalDelegate::DidAcceptSuggestion(
     }
     case SuggestionType::kAtMemoryInactivityNudge:
     case SuggestionType::kAutocompleteAtMemoryButton:
-      // TODO(crbug.com/527392582): kAtMemoryTriggerString is the wrong source.
+      // TODO(crbug.com/527392582): kAtMemoryContextMenu is the wrong source.
       manager_->driver().RendererShouldTriggerSuggestions(
           last_query_.field_id,
-          AutofillSuggestionTriggerSource::kAtMemoryTriggerString);
+          AutofillSuggestionTriggerSource::kAtMemoryContextMenu);
       break;
     case SuggestionType::kAtMemorySearchResult: {
       const IsAsync is_async =

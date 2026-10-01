@@ -56,6 +56,14 @@ bool JNI_GlicEnabling_ShouldShowWebActuationToggle(JNIEnv* env,
          glic_service->enabling().ShouldShowWebActuationToggle();
 }
 
+bool JNI_GlicEnabling_ShouldShowExperimentalTriggeringToggle(JNIEnv* env,
+                                                             Profile* profile) {
+  auto* glic_service =
+      glic::GlicKeyedServiceFactory::GetGlicKeyedService(profile);
+  return glic_service &&
+         glic_service->enabling().ShouldShowExperimentalTriggeringToggle();
+}
+
 bool JNI_GlicEnabling_IsDisabledByPolicy(JNIEnv* env, Profile* profile) {
   return GlicEnabling::EnablementForProfile(profile).DisallowedByAdmin();
 }
@@ -85,5 +93,17 @@ void JNI_GlicEnabling_SetBypassEnablementChecksForTesting(JNIEnv* env,
     stack.pop_back();
   }
 }
+
+jboolean JNI_GlicEnabling_ExperimentalOptInIsNeeded(JNIEnv* env,
+                                                    Profile* profile) {
+  CHECK(glic::GlicEnabling::IsEnabledForProfile(profile));
+
+  auto* glic_service =
+      glic::GlicKeyedServiceFactory::GetGlicKeyedService(profile);
+  CHECK(glic_service);
+  return glic_service->enabling().GetRequiredExperimentalOptIn() !=
+         glic::RequiredExperimentalOptIn::kNotNeeded;
+}
+
 }  // namespace glic
 DEFINE_JNI(GlicEnabling)

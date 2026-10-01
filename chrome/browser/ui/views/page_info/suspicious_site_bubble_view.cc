@@ -34,6 +34,8 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/models/image_model.h"
+#include "ui/base/page_transition_types.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/color/color_id.h"
 #include "ui/views/bubble/bubble_frame_view.h"
 #include "ui/views/controls/button/md_text_button.h"
@@ -192,14 +194,33 @@ BrowserWindowInterface* SuspiciousSiteBubbleView::GetBrowser() const {
   return tab ? tab->GetBrowserWindowInterface() : nullptr;
 }
 
+void SuspiciousSiteBubbleView::OnVisibilityChanged(
+    content::Visibility visibility) {
+  if (visibility == content::Visibility::HIDDEN) {
+    is_closing_for_tab_switch_ = true;
+    if (GetWidget()) {
+      GetWidget()->Close();
+    }
+  }
+}
+
 void SuspiciousSiteBubbleView::OnWidgetDestroying(views::Widget* widget) {
   UnblockWebContents();
+  if (!is_closing_for_tab_switch_) {
+    if (web_contents()) {
+      if (auto* controller =
+              safe_browsing::SuspiciousSiteControllerDesktop::FromWebContents(
+                  web_contents())) {
+        controller->OnBubbleDismissed();
+      }
+    }
+  }
   PageInfoBubbleViewBase::OnWidgetDestroying(widget);
 }
 
 SuspiciousSiteBubbleView::~SuspiciousSiteBubbleView() {
   UnblockWebContents();
-  if (web_contents()) {
+  if (!is_closing_for_tab_switch_ && web_contents()) {
     if (auto* controller =
             safe_browsing::SuspiciousSiteControllerDesktop::FromWebContents(
                 web_contents())) {
@@ -283,12 +304,11 @@ void SuspiciousSiteBubbleView::OpenHelpCenter() {
       controller->OnLearnMoreClicked();
       return;
     }
-    web_contents()->OpenURL(
-        content::OpenURLParams(GURL(chrome::kSafeBrowsingHelpCenterURL),
-                               content::Referrer(),
-                               WindowOpenDisposition::NEW_FOREGROUND_TAB,
-                               ui::PAGE_TRANSITION_LINK, false),
-        /*navigation_handle_callback=*/{});
+    web_contents()->OpenURL(content::OpenURLParams::CreateBrowserInitiated(
+                                GURL(chrome::kSafeBrowsingHelpCenterURL),
+                                WindowOpenDisposition::NEW_FOREGROUND_TAB,
+                                ui::PAGE_TRANSITION_LINK),
+                            /*navigation_handle_callback=*/{});
   }
 }
 

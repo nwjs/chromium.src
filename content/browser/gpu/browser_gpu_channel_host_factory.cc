@@ -9,6 +9,8 @@
 #include "base/android/orderfile/orderfile_buildflags.h"
 #include "base/command_line.h"
 #include "base/compiler_specific.h"
+#include "base/feature.h"
+#include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/location.h"
 #include "base/process/process_handle.h"
@@ -40,6 +42,8 @@
 namespace content {
 
 namespace {
+
+BASE_FEATURE(kDefaultDisableGpuLaunchTimeout, base::FEATURE_ENABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_ANDROID)
 
@@ -248,7 +252,7 @@ void BrowserGpuChannelHostFactory::EstablishRequest::RunCallbacksOnMain() {
 }
 
 void BrowserGpuChannelHostFactory::EstablishRequest::Wait() {
-  DCHECK(main_task_runner_->BelongsToCurrentThread());
+  CHECK(main_task_runner_->BelongsToCurrentThread(), base::NotFatalUntil::M159);
   {
     // We're blocking the UI thread, which is generally undesirable.
     // In this case we need to wait for this before we can show any UI
@@ -263,13 +267,13 @@ void BrowserGpuChannelHostFactory::EstablishRequest::Wait() {
 }
 
 void BrowserGpuChannelHostFactory::EstablishRequest::Cancel() {
-  DCHECK(main_task_runner_->BelongsToCurrentThread());
+  CHECK(main_task_runner_->BelongsToCurrentThread(), base::NotFatalUntil::M159);
   finished_ = true;
   established_callbacks_.clear();
 }
 
 void BrowserGpuChannelHostFactory::Initialize(bool establish_gpu_channel) {
-  DCHECK(!instance_);
+  CHECK(!instance_, base::NotFatalUntil::M159);
   instance_ = new BrowserGpuChannelHostFactory();
   if (establish_gpu_channel) {
     instance_->EstablishGpuChannel(gpu::GpuChannelEstablishedCallback());
@@ -277,13 +281,14 @@ void BrowserGpuChannelHostFactory::Initialize(bool establish_gpu_channel) {
 }
 
 void BrowserGpuChannelHostFactory::Terminate() {
-  DCHECK(instance_);
+  CHECK(instance_, base::NotFatalUntil::M159);
   delete instance_;
   instance_ = nullptr;
 }
 
 void BrowserGpuChannelHostFactory::MaybeCloseChannel() {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+  CHECK(BrowserThread::CurrentlyOn(BrowserThread::UI),
+        base::NotFatalUntil::M159);
   if (!gpu_channel_ || !gpu_channel_->HasOneRef())
     return;
 
@@ -301,10 +306,13 @@ void BrowserGpuChannelHostFactory::CloseChannel() {
 BrowserGpuChannelHostFactory::BrowserGpuChannelHostFactory()
     : gpu_client_id_(ChildProcessHostImpl::GenerateChildProcessUniqueId()),
       gpu_client_tracing_id_(
-          memory_instrumentation::mojom::kServiceTracingProcessId) {}
+          memory_instrumentation::mojom::kServiceTracingProcessId),
+      is_visible_(
+          !base::FeatureList::IsEnabled(kDefaultDisableGpuLaunchTimeout)) {}
 
 BrowserGpuChannelHostFactory::~BrowserGpuChannelHostFactory() {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+  CHECK(BrowserThread::CurrentlyOn(BrowserThread::UI),
+        base::NotFatalUntil::M159);
   if (pending_request_.get())
     pending_request_->Cancel();
   if (gpu_channel_) {
@@ -315,7 +323,8 @@ BrowserGpuChannelHostFactory::~BrowserGpuChannelHostFactory() {
 
 void BrowserGpuChannelHostFactory::EstablishGpuChannel(
     gpu::GpuChannelEstablishedCallback callback) {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+  CHECK(BrowserThread::CurrentlyOn(BrowserThread::UI),
+        base::NotFatalUntil::M159);
   EstablishGpuChannel(std::move(callback), false);
 }
 
@@ -341,7 +350,7 @@ void BrowserGpuChannelHostFactory::EstablishGpuChannel(
 // https://crrev.com/c/3174621 to enable it. See go/chrome-dcheck-on-cros
 // or http://crbug.com/1113456 for more details.
 #if !BUILDFLAG(IS_CHROMEOS)
-    DCHECK(!pending_request_.get());
+    CHECK(!pending_request_.get(), base::NotFatalUntil::M159);
 #endif
     // Recreate the channel if it has been lost.
     gpu_channel_->DestroyChannel();
@@ -361,7 +370,7 @@ void BrowserGpuChannelHostFactory::EstablishGpuChannel(
   }
 
   if (pending_request_) {
-    DCHECK(callbacks.empty());
+    CHECK(callbacks.empty(), base::NotFatalUntil::M159);
     if (!callback.is_null())
       pending_request_->AddCallback(std::move(callback));
 
@@ -373,7 +382,7 @@ void BrowserGpuChannelHostFactory::EstablishGpuChannel(
 
   if (!gpu_channel_) {
     // We should only get here if the context was lost.
-    DCHECK(!pending_request_);
+    CHECK(!pending_request_, base::NotFatalUntil::M159);
 
     scoped_refptr<EstablishRequest> request = EstablishRequest::Create(
         gpu_client_id_, gpu_client_tracing_id_, sync, std::move(callbacks));
@@ -391,7 +400,7 @@ void BrowserGpuChannelHostFactory::EstablishGpuChannel(
     return;
   }
 
-  DCHECK(gpu_channel_);
+  CHECK(gpu_channel_, base::NotFatalUntil::M159);
   for (auto& cb : callbacks)
     std::move(cb).Run(gpu_channel_);
 }
@@ -399,7 +408,8 @@ void BrowserGpuChannelHostFactory::EstablishGpuChannel(
 // Ensures that any pending timeout is cancelled when we are backgrounded.
 // Restarts the timeout when we return to the foreground.
 void BrowserGpuChannelHostFactory::SetApplicationVisible(bool is_visible) {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+  CHECK(BrowserThread::CurrentlyOn(BrowserThread::UI),
+        base::NotFatalUntil::M159);
   if (is_visible_ == is_visible)
     return;
 
@@ -420,8 +430,10 @@ gpu::GpuChannelHost* BrowserGpuChannelHostFactory::GetGpuChannel() {
 
 void BrowserGpuChannelHostFactory::GpuChannelEstablished(
     EstablishRequest* request) {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
-  DCHECK(!pending_request_ || pending_request_ == request);
+  CHECK(BrowserThread::CurrentlyOn(BrowserThread::UI),
+        base::NotFatalUntil::M159);
+  CHECK(!pending_request_ || pending_request_ == request,
+        base::NotFatalUntil::M159);
   gpu_channel_ = request->gpu_channel();
   pending_request_ = nullptr;
   timeout_.Stop();
@@ -430,7 +442,8 @@ void BrowserGpuChannelHostFactory::GpuChannelEstablished(
 }
 
 void BrowserGpuChannelHostFactory::RestartTimeout() {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+  CHECK(BrowserThread::CurrentlyOn(BrowserThread::UI),
+        base::NotFatalUntil::M159);
 // Only implement timeout on Android, which does not have a software fallback.
 #if BUILDFLAG(IS_ANDROID)
   base::CommandLine* cl = base::CommandLine::ForCurrentProcess();

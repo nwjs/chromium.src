@@ -305,7 +305,7 @@ void PeerSessionImplTest::CreatePeerSession() {
   std::unique_ptr<protocol::FakeConnectionToClient> connection(
       new protocol::FakeConnectionToClient());
   connection->set_client_stub(&client_stub_);
-  connection_ = connection->GetWeakPtr();
+  connection_ = connection->GetWeakPtrForTest();
 
   peer_session_ = std::make_unique<PeerSessionImpl>(
       std::move(connection), desktop_environment_factory_.get(),
@@ -520,11 +520,11 @@ TEST_F(PeerSessionImplTest, LocalInputTest) {
   connection_->input_stub()->InjectMouseEvent(MakeFractionalMouseMoveEvent(
       100, 101, kDisplay1Id, kDisplay1Width, kDisplay1Height));
 
-#if !BUILDFLAG(IS_WIN) && !BUILDFLAG(IS_CHROMEOS)
+#if !BUILDFLAG(IS_WIN) && !BUILDFLAG(IS_CHROMEOS) && !BUILDFLAG(IS_MAC)
   // The OS echoes the injected event back.
   peer_session_->OnLocalPointerMoved(webrtc::DesktopVector(100, 101),
                                      ui::EventType::kMouseMoved);
-#endif  // !BUILDFLAG(IS_WIN)
+#endif  // !BUILDFLAG(IS_WIN) && !BUILDFLAG(IS_CHROMEOS) && !BUILDFLAG(IS_MAC)
 
   // This one should get through as well.
   connection_->input_stub()->InjectMouseEvent(MakeFractionalMouseMoveEvent(

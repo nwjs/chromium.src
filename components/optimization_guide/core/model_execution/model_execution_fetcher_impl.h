@@ -35,16 +35,10 @@ class IdentityManager;
 
 namespace optimization_guide {
 
-// Adds header to indicate to return debug logging data from the model execution
-// service via response header.
-inline constexpr char kModelExecutionEnableRemoteDebugLoggingSwitch[] =
-    "optimization-guide-model-execution-enable-remote-debug-logging";
-
 class ModelExecutionFetcherImpl : public ModelExecutionFetcher {
  public:
   ModelExecutionFetcherImpl(
       scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
-      const GURL& optimization_guide_service_url,
       OptimizationGuideLogger* optimization_guide_logger);
 
   ModelExecutionFetcherImpl(const ModelExecutionFetcherImpl&) = delete;

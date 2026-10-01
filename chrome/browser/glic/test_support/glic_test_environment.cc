@@ -153,12 +153,15 @@ class TestCookieSynchronizer : public glic::GlicCookieSynchronizer {
   static TestCookieSynchronizer* InjectForProfile(Profile* profile) {
     GlicKeyedService* service =
         GlicKeyedServiceFactory::GetGlicKeyedService(profile, true);
+    auto* auth_controller = service->GetAuthController();
+    if (!auth_controller) {
+      return nullptr;
+    }
     auto cookie_synchronizer = std::make_unique<TestCookieSynchronizer>(
         profile, IdentityManagerFactory::GetForProfile(profile));
     TestCookieSynchronizer* ptr = cookie_synchronizer.get();
-    service->GetAuthController().SetCookieSynchronizerForTesting(
+    auth_controller->SetCookieSynchronizerForTesting(
         std::move(cookie_synchronizer));
-
     return ptr;
   }
 
@@ -314,25 +317,34 @@ void GlicTestEnvironment::OnProfileInitializationComplete(Profile* profile) {
 }
 
 bool GlicTestEnvironment::StartTestServerIfNeeded(
-    net::test_server::EmbeddedTestServer* http_server) {
-  if (http_server->Started()) {
+    net::test_server::EmbeddedTestServer* server,
+    net::test_server::EmbeddedTestServerHandle& handle) {
+  if (server->Started()) {
     return true;
   }
 
-  test_server_handle_ = http_server->StartAndReturnHandle();
-  return static_cast<bool>(test_server_handle_);
+  handle = server->StartAndReturnHandle();
+  return static_cast<bool>(handle);
 }
 
 bool GlicTestEnvironment::SetupEmbeddedTestServers(
     net::test_server::EmbeddedTestServer* http_server,
-    net::test_server::EmbeddedTestServer* https_server) {
+    net::test_server::EmbeddedTestServer* https_server,
+    bool use_https_for_glic_url) {
   CHECK(guest_url_.is_empty()) << "SetupEmbeddedTestServers called twice";
   CHECK(http_server);
+  if (use_https_for_glic_url) {
+    CHECK(https_server);
+  }
 
   ServeGlicFiles(http_server, "HTTP test server");
   ServeGlicFiles(https_server, "HTTPS test server");
 
-  if (!StartTestServerIfNeeded(http_server)) {
+  if (!StartTestServerIfNeeded(http_server, test_server_handle_)) {
+    return false;
+  }
+  if (use_https_for_glic_url &&
+      !StartTestServerIfNeeded(https_server, https_test_server_handle_)) {
     return false;
   }
 
@@ -353,10 +365,10 @@ bool GlicTestEnvironment::SetupEmbeddedTestServers(
     }
   }
 
+  auto* effective_server = use_https_for_glic_url ? https_server : http_server;
+  guest_url_ = effective_server->GetURL(path.str());
   auto* command_line = base::CommandLine::ForCurrentProcess();
-  guest_url_ = http_server->GetURL(path.str());
   command_line->AppendSwitchASCII(::switches::kGlicGuestURL, guest_url_.spec());
-
 
   return true;
 }
@@ -384,7 +396,9 @@ GlicTestEnvironmentService::GlicTestEnvironmentService(Profile* profile)
   internal::TestCookieSynchronizer* cookie_synchronizer =
       internal::TestCookieSynchronizer::InjectForProfile(profile);
 
-  cookie_synchronizer_ = cookie_synchronizer->GetWeakPtr();
+  if (cookie_synchronizer) {
+    cookie_synchronizer_ = cookie_synchronizer->GetWeakPtr();
+  }
   const GlicTestEnvironmentConfig& config = internal::GetConfig();
   if (config.fre_status) {
     SetFRECompletion(*config.fre_status);
@@ -442,7 +456,9 @@ GlicKeyedService* GlicTestEnvironmentService::GetService() {
 }
 
 void GlicTestEnvironmentService::SetResultForFutureCookieSync(bool result) {
-  cookie_synchronizer_->set_copy_cookies_result(result);
+  if (cookie_synchronizer_) {
+    cookie_synchronizer_->set_copy_cookies_result(result);
+  }
 }
 
 void GlicTestEnvironmentService::SetFRECompletion(prefs::FreStatus fre_status) {

@@ -117,14 +117,12 @@
 }
 
 #icon {
-  background-color: currentColor;
-  display: inline-block;
+  --iron-icon-height: var(--location-bar-chip-icon-size);
+  --iron-icon-width: var(--location-bar-chip-icon-size);
+  display: inline-flex;
   flex-shrink: 0;
   height: var(--location-bar-chip-icon-size);
   margin-inline-end: 0;
-  mask-position: center;
-  mask-repeat: no-repeat;
-  mask-size: contain;
   width: var(--location-bar-chip-icon-size);
   transition: margin-inline-end var(--chip-expand-duration)
       var(--ease-out-cubic-bezier);
@@ -143,7 +141,16 @@
 #message {
   display: inline-block;
   interpolate-size: allow-keywords;
-  overflow: hidden;
+  /* text-box: trim-both removes half-leading to properly center the text with
+   * the icon due to how CSS lays out text with font-metric leading. Trimming
+   * the box down to cap height and baseline causes glyph ascenders and
+   * descenders to extend outside it. We clip horizontally (overflow-x: clip) to
+   * contain text during width collapse animations, while keeping vertical
+   * overflow visible (overflow-y: visible) so those glyphs are not clipped. */
+  overflow-x: clip;
+  overflow-y: visible;
+  text-box: trim-both cap alphabetic;
+
   /* TODO(crbug.com/502598627): Native Views uses
    * SetElideBehavior(gfx::ElideBehavior::FADE_TAIL). We currently use
    * ellipsis. Probably implement a CSS linear-gradient mask if we want to

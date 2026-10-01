@@ -123,14 +123,15 @@ void EmptyLocalFrameClient::BeginNavigation(
     base::TimeTicks,
     const String&,
     const LocalFrameToken* initiator_frame_token,
-    const base::UnguessableToken& initiator_state_token,
+    const InitiatorStateToken& initiator_state_token,
     const DocumentToken& initiator_document_token,
     SourceLocation*,
     mojo::PendingRemote<mojom::blink::NavigationStateKeepAliveHandle>,
     bool is_container_initiated,
     bool has_rel_opener,
     mojo::PendingReceiver<mojom::blink::NavigationResumeDeferredCommitListener>,
-    std::optional<base::UnguessableToken> script_tool_invocation_id) {}
+    std::optional<base::UnguessableToken> script_tool_invocation_id,
+    const String&) {}
 
 void EmptyLocalFrameClient::DispatchWillSendSubmitEvent(HTMLFormElement*) {}
 

@@ -401,7 +401,21 @@ bool HasGuid(const Suggestion::Payload& payload) {
   }
 
   if (suggestion.type == SuggestionType::kAutocompleteAtMemoryButton) {
-    [self.delegate showAtMemory];
+    if (_webState) {
+      web::WebFrame* frame =
+          AutofillJavaScriptFeature::GetInstance()
+              ->GetWebFramesManager(_webState)
+              ->GetFrameWithId(base::SysNSStringToUTF8(frameID));
+      if (frame &&
+          GURL::SchemeIsCryptographic(frame->GetSecurityOrigin().scheme())) {
+        if (autofill::AutofillDriverIOS* driver =
+                autofill::AutofillDriverIOS::FromWebStateAndWebFrame(_webState,
+                                                                     frame)) {
+          FieldGlobalId fieldId(driver->GetFrameToken(), fieldRendererID);
+          [self.delegate showAtMemoryForField:fieldId];
+        }
+      }
+    }
     if (SuggestionHandledCompletion c =
             std::exchange(_suggestionHandledCompletion, nil)) {
       c();
@@ -814,7 +828,7 @@ bool HasGuid(const Suggestion::Payload& payload) {
   // TODO(crbug.com/363958046): Pass the actually shown suggestions instead of
   // `popup_suggestions`.
   if (delegate) {
-    delegate->OnSuggestionsShown(popup_suggestions, std::nullopt);
+    delegate->OnSuggestionsShown(popup_suggestions, /*metadata=*/{});
   }
 }
 

@@ -137,6 +137,12 @@ class TaskManagerInterface {
   // Returns the favicon of the task with |task_id|.
   virtual const gfx::ImageSkia& GetIcon(TaskId task_id) const = 0;
 
+  // Returns true if the favicon of the task with |task_id| is a themeable
+  // favicon the UI must recolor to keep it visible against the background it's
+  // painted on, e.g. the monochrome favicon of the NTP in dark mode. See
+  // Task::should_themify_icon().
+  virtual bool ShouldThemifyIcon(TaskId task_id) const = 0;
+
   // Returns the ID and handle of the process on which the task with |task_id|
   // is running.
   virtual const base::ProcessHandle& GetProcessHandle(TaskId task_id) const = 0;
@@ -198,6 +204,12 @@ class TaskManagerInterface {
   virtual bool GetV8Memory(TaskId task_id,
                            base::ByteSize* allocated,
                            base::ByteSize* used) const = 0;
+
+  // Returns the allocated and used CppGC memory for the task with |task_id|.
+  // A return value of false means no valid value is currently available.
+  virtual bool GetCppGCMemory(TaskId task_id,
+                              base::ByteSize* allocated,
+                              base::ByteSize* used) const = 0;
 
   // Gets the Blink resource cache stats for the task with |task_id|.
   // A return value of false means that task does NOT report WebCache stats.

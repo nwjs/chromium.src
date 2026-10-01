@@ -257,6 +257,7 @@
         "test_id_prefix": "ninja://third_party/boringssl:boringssl_ssl_tests/"
       },
       {
+        "enable_rts_filtering": true,
         "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -275,7 +276,7 @@
             }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
-          "shards": 129
+          "shards": 142
         },
         "test": "browser_tests",
         "test_id_prefix": "ninja://chrome/test:browser_tests/"
@@ -946,6 +947,7 @@
         "test_id_prefix": "ninja://chrome/installer/util:installer_util_unittests/"
       },
       {
+        "enable_rts_filtering": true,
         "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"
@@ -1598,6 +1600,7 @@
         "test_id_prefix": "ninja://storage:storage_unittests/"
       },
       {
+        "enable_rts_filtering": true,
         "isolate_profile_data": true,
         "merge": {
           "script": "//testing/merge_scripts/standard_gtest_merge.py"

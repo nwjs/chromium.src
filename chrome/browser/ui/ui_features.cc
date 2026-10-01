@@ -14,6 +14,7 @@
 #include "components/variations/service/variations_service.h"
 #include "components/webui/flags/feature_entry.h"
 #include "content/public/common/content_features.h"
+#include "extensions/buildflags/buildflags.h"
 #include "ui/base/ui_base_features.h"
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -48,7 +49,7 @@ BASE_FEATURE(kCtrlTabMru, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kImportExportFlags, base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kInfoBarInlineLinks, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kInfoBarInlineLinks, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kTabStripDeclutter, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kToolbarGlowUp, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -61,6 +62,11 @@ BASE_FEATURE_PARAM(bool,
                    kToolbarGlowUpBackForwardEnabled,
                    &kToolbarGlowUp,
                    "back-forward",
+                   true);
+BASE_FEATURE_PARAM(bool,
+                   kToolbarGlowUpBookmarkEnabled,
+                   &kToolbarGlowUp,
+                   "bookmark",
                    true);
 BASE_FEATURE(kMenuSimplification, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kTabGroupColorRefresh, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -89,6 +95,10 @@ bool IsToolbarGlowUpBackForwardEnabled() {
   return IsToolbarGlowUpEnabled() && kToolbarGlowUpBackForwardEnabled.Get();
 }
 
+bool IsToolbarGlowUpBookmarkEnabled() {
+  return IsToolbarGlowUpEnabled() && kToolbarGlowUpBookmarkEnabled.Get();
+}
+
 bool IsMenuSimplificationEnabled() {
   return base::FeatureList::IsEnabled(kDesktopGlowUp) ||
          base::FeatureList::IsEnabled(kMenuSimplification);
@@ -102,6 +112,17 @@ bool IsTabGroupColorRefreshEnabled() {
 bool IsWebuiRefresh2026Enabled() {
   return base::FeatureList::IsEnabled(kDesktopGlowUp) ||
          base::FeatureList::IsEnabled(kWebuiRefresh2026);
+}
+
+bool IsSettingsRefresh2026Enabled() {
+  return (base::FeatureList::IsEnabled(kDesktopGlowUp) ||
+          base::FeatureList::IsEnabled(kWebuiRefresh2026)) &&
+         base::FeatureList::IsEnabled(kSettingsRefresh2026);
+}
+
+bool ShouldUseActionsForBrowserCommands() {
+  return base::FeatureList::IsEnabled(kUseActionsForBrowserCommands) ||
+         base::FeatureList::IsEnabled(kAppMenuGlowUp);
 }
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
@@ -187,8 +208,6 @@ BASE_FEATURE(kProcessIsolationSettings, base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_WIN)
 
 BASE_FEATURE(kRealboxVirtualFocusNavigation, base::FEATURE_DISABLED_BY_DEFAULT);
-BASE_FEATURE(kOmniboxPopupVirtualFocusNavigation,
-             base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kLensOverlayVirtualFocusNavigation,
              base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kOmniboxEverywhereVirtualFocusNavigation,
@@ -290,12 +309,6 @@ BASE_FEATURE(kUseDefaultDeadlineWhenAnimatingBounds,
 #endif
 );
 
-// Enables enterprise profile badging for managed profiles on the toolbar avatar
-// and in the profile menu. On managed profiles, a building icon will be used as
-// a badge in the profile menu.
-BASE_FEATURE(kEnterpriseProfileBadgingForMenu,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // Enables the management notice in the NTP footer if the custom policies are
 // set. This acts as a kill switch for "EnterpriseCustomLabelForBrowser" and
 // "EnterpriseLogoUrlForBrowser".
@@ -356,9 +369,11 @@ BASE_FEATURE(kTabsFromOtherDevicesSidePanelPinnedByDefault,
 
 BASE_FEATURE(kNonMilestoneUpdateToast, base::FEATURE_ENABLED_BY_DEFAULT);
 
-
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX)
-BASE_FEATURE(kSessionRestoreInfobar, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kRespectShouldTriggerSessionRestoreOnDesktop,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kSessionRestoreInfobar, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE_PARAM(bool,
                    kSetDefaultToContinueSession,
@@ -517,6 +532,11 @@ BASE_FEATURE_PARAM(bool,
                    kAiOverlayDialogUsesActor,
                    &kAiOverlayDialog,
                    "ai_overlay_dialog_uses_actor",
+                   false);
+BASE_FEATURE_PARAM(bool,
+                   kAiOverlayDialogUseMes,
+                   &kAiOverlayDialog,
+                   "use_mes",
                    false);
 BASE_FEATURE(kAiOverlayDisableNavigationContext,
              base::FEATURE_DISABLED_BY_DEFAULT);

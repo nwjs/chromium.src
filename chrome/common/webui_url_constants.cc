@@ -128,7 +128,6 @@ base::span<const base::cstring_view> ChromeURLHosts() {
 #endif
       kChromeUIAutofillInternalsHost,
       kChromeUIBluetoothInternalsHost,
-      kChromeUIChromeFindsInternalsHost,
       kChromeUIChromeURLsHost,
       kChromeUIComponentsHost,
       commerce::kChromeUICommerceInternalsHost,
@@ -138,6 +137,9 @@ base::span<const base::cstring_view> ChromeURLHosts() {
 #endif
       kChromeUICrashesHost,
       kChromeUICreditsHost,
+#if !BUILDFLAG(IS_ANDROID)
+      kChromeUICriticalActionsInternalsHost,
+#endif
       kChromeUICrossDeviceSigninQrBubbleHost,
       kChromeUIDeviceLogHost,
       kChromeUIDownloadInternalsHost,
@@ -235,6 +237,7 @@ base::span<const base::cstring_view> ChromeURLHosts() {
 #endif
 #endif
 #if BUILDFLAG(IS_ANDROID)
+      kChromeUIChromeFindsInternalsHost,
       kChromeUISnippetsInternalsHost,
       kChromeUIWebApksHost,
 #endif

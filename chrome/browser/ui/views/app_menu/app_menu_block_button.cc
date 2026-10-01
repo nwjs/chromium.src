@@ -1,0 +1,142 @@
+// Copyright 2026 The Chromium Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#include "chrome/browser/ui/views/app_menu/app_menu_block_button.h"
+
+#include <memory>
+#include <string_view>
+
+#include "base/memory/raw_ptr.h"
+#include "chrome/browser/ui/color/chrome_color_id.h"
+#include "chrome/browser/ui/views/chrome_layout_provider.h"
+#include "ui/actions/actions.h"
+#include "ui/base/metadata/metadata_impl_macros.h"
+#include "ui/base/models/image_model.h"
+#include "ui/color/color_id.h"
+#include "ui/gfx/geometry/size.h"
+#include "ui/views/accessibility/accessibility_paint_checks.h"
+#include "ui/views/accessibility/view_accessibility.h"
+#include "ui/views/animation/ink_drop.h"
+#include "ui/views/animation/ink_drop_host.h"
+#include "ui/views/background.h"
+#include "ui/views/border.h"
+#include "ui/views/controls/button/button.h"
+#include "ui/views/controls/highlight_path_generator.h"
+#include "ui/views/controls/image_view.h"
+#include "ui/views/controls/label.h"
+#include "ui/views/layout/box_layout.h"
+#include "ui/views/style/typography.h"
+#include "ui/views/view_class_properties.h"
+
+AppMenuBlockButton::AppMenuBlockButton(PressedCallback callback)
+    : views::Button(std::move(callback)) {
+  const auto* provider = ChromeLayoutProvider::Get();
+  const int width =
+      provider->GetDistanceMetric(DISTANCE_ACTION_APP_MENU_BLOCK_ENTRY_WIDTH);
+  const int height =
+      provider->GetDistanceMetric(DISTANCE_ACTION_APP_MENU_BLOCK_ENTRY_HEIGHT);
+  const int icon_size = provider->GetDistanceMetric(
+      DISTANCE_ACTION_APP_MENU_BLOCK_ENTRY_ICON_SIZE);
+  const int between_spacing = provider->GetDistanceMetric(
+      DISTANCE_ACTION_APP_MENU_BLOCK_ENTRY_BETWEEN_CHILD_SPACING);
+  const int corner_radius = provider->GetDistanceMetric(
+      DISTANCE_ACTION_APP_MENU_BLOCK_ENTRY_CORNER_RADIUS);
+
+  auto layout = std::make_unique<views::BoxLayout>(
+      views::BoxLayout::Orientation::kVertical,
+      provider->GetInsetsMetric(INSETS_ACTION_APP_MENU_BLOCK_ENTRY_BUTTON),
+      between_spacing);
+  layout->set_main_axis_alignment(views::BoxLayout::MainAxisAlignment::kCenter);
+  layout->set_cross_axis_alignment(
+      views::BoxLayout::CrossAxisAlignment::kCenter);
+  SetLayoutManager(std::move(layout));
+
+  SetPreferredSize(gfx::Size(width, height));
+  SetBackground(views::CreateRoundedRectBackground(
+      kColorAppMenuBlockButtonBackground, corner_radius));
+  SetBorder(views::CreateRoundedRectBorder(1, corner_radius,
+                                           kColorAppMenuBlockButtonBorder));
+
+  // Enable keyboard navigation and focus highlighting.
+  SetFocusBehavior(views::View::FocusBehavior::ALWAYS);
+
+  auto* const ink_drop = views::InkDrop::Get(this);
+  ink_drop->SetMode(views::InkDropHost::InkDropMode::ON);
+  ink_drop->SetLayerRegion(views::LayerRegion::kAbove);
+  ink_drop->SetBaseColor(kColorAppMenuBlockButtonBackgroundHovered);
+  ink_drop->SetVisibleOpacity(1.0f);
+  ink_drop->SetHighlightOpacity(1.0f);
+  SetShowInkDropWhenHotTracked(true);
+  views::InstallRoundRectHighlightPathGenerator(this, gfx::Insets(),
+                                                corner_radius);
+
+  icon_view_ = AddChildView(std::make_unique<views::ImageView>());
+  icon_view_->SetImageSize(gfx::Size(icon_size, icon_size));
+  icon_view_->GetViewAccessibility().SetIsIgnored(true);
+  icon_view_->SetProperty(views::kSkipAccessibilityPaintChecks, true);
+
+  label_ = AddChildView(std::make_unique<views::Label>());
+  label_->SetEnabledColor(kColorAppMenuBlockButtonForeground);
+  label_->SetHorizontalAlignment(gfx::ALIGN_CENTER);
+  label_->SetTextStyle(views::style::STYLE_BODY_5);
+  label_->SetElideBehavior(gfx::ELIDE_TAIL);
+  label_->GetViewAccessibility().SetIsIgnored(true);
+  label_->SetProperty(views::kSkipAccessibilityPaintChecks, true);
+}
+
+AppMenuBlockButton::~AppMenuBlockButton() = default;
+
+void AppMenuBlockButton::SetText(std::u16string_view text) {
+  label_->SetText(std::u16string(text));
+  if (!text.empty()) {
+    GetViewAccessibility().SetName(std::u16string(text));
+    SetTooltipText(std::u16string(text));
+  }
+}
+
+void AppMenuBlockButton::SetImageModel(const ui::ImageModel& image_model) {
+  const int icon_size = ChromeLayoutProvider::Get()->GetDistanceMetric(
+      DISTANCE_ACTION_APP_MENU_BLOCK_ENTRY_ICON_SIZE);
+  if (image_model.IsVectorIcon()) {
+    icon_view_->SetImage(ui::ImageModel::FromVectorIcon(
+        *image_model.GetVectorIcon().vector_icon(),
+        kColorAppMenuBlockButtonForeground, icon_size));
+  } else {
+    icon_view_->SetImage(image_model);
+  }
+}
+
+class AppMenuBlockButtonActionViewInterface
+    : public views::ButtonActionViewInterface {
+ public:
+  explicit AppMenuBlockButtonActionViewInterface(
+      AppMenuBlockButton* action_view)
+      : views::ButtonActionViewInterface(action_view),
+        action_view_(action_view) {}
+
+  void ActionItemChangedImpl(actions::ActionItem* action_item) override {
+    views::ButtonActionViewInterface::ActionItemChangedImpl(action_item);
+    const std::u16string* short_text =
+        action_item->GetProperty(actions::kShortTitleTextKey);
+    if (short_text && !short_text->empty()) {
+      action_view_->SetText(*short_text);
+    } else {
+      action_view_->SetText(action_item->GetText());
+    }
+    if (!action_item->GetImage().IsEmpty()) {
+      action_view_->SetImageModel(action_item->GetImage());
+    }
+  }
+
+ private:
+  raw_ptr<AppMenuBlockButton> action_view_;
+};
+
+std::unique_ptr<views::ActionViewInterface>
+AppMenuBlockButton::GetActionViewInterface() {
+  return std::make_unique<AppMenuBlockButtonActionViewInterface>(this);
+}
+
+BEGIN_METADATA(AppMenuBlockButton)
+END_METADATA

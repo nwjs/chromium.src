@@ -154,7 +154,7 @@ TEST_F(ContextualTasksWebContentsUserDataTest,
       identity_test_env_adaptor_->identity_test_env()->MakePrimaryAccountAvailable(
           "primary@example.com", signin::ConsentLevel::kSignin);
   identity_test_env_adaptor_->identity_test_env()->SetCookieAccounts(
-      {{account_info.email, account_info.gaia}});
+      {{std::string(account_info.GetEmail()), account_info.GetGaiaId()}});
 
   ContextualTasksWebContentsUserData::CreateForWebContents(web_contents_);
   auto* user_data =
@@ -188,7 +188,7 @@ TEST_F(ContextualTasksWebContentsUserDataTest,
       identity_test_env_adaptor_->identity_test_env()->MakePrimaryAccountAvailable(
           "primary@example.com", signin::ConsentLevel::kSignin);
   identity_test_env_adaptor_->identity_test_env()->SetCookieAccounts(
-      {{account_info.email, account_info.gaia}});
+      {{std::string(account_info.GetEmail()), account_info.GetGaiaId()}});
 
   ContextualTasksWebContentsUserData::CreateForWebContents(web_contents_);
   auto* user_data =
@@ -245,7 +245,7 @@ TEST_F(ContextualTasksWebContentsUserDataTest,
 
 TEST_F(
     ContextualTasksWebContentsUserDataTest,
-    GetOrCreateInputStateModel_InvalidatesStaleEmptyConfigWhenValidConfigAvailable) {
+    GetOrCreateInputStateModel_UpdatesStaleEmptyConfigWhenValidConfigAvailable) {
   // Prepare a valid searchbox config containing active tool definitions.
   omnibox::SearchboxConfig valid_config;
   valid_config.mutable_rule_set();
@@ -286,16 +286,76 @@ TEST_F(
   // A non-empty searchbox configuration becomes available.
   current_config = &valid_config;
 
-  // Calling `GetOrCreateInputStateModel` again should invalidate the stale
-  // empty cached model and create a new valid one.
+  // Calling `GetOrCreateInputStateModel` again should update the existing
+  // cached model in-place rather than invalidating it, preserving
+  // subscriptions.
   auto model_updated = user_data->GetOrCreateInputStateModel(*mock_handle);
   ASSERT_TRUE(model_updated);
   EXPECT_TRUE(model_updated->has_valid_config());
-  // The old initial weak pointer should now be null/invalidated.
-  EXPECT_FALSE(model_initial);
+  // The existing instance is updated in-place without destroying weak pointers.
+  EXPECT_TRUE(model_initial);
+  EXPECT_EQ(model_initial.get(), model_updated.get());
 
   // Reset testing factory to prevent dangling references to stack variables.
   AimEligibilityServiceFactory::GetInstance()->SetTestingFactory(
+      profile_.get(), base::NullCallback());
+}
+
+TEST_F(ContextualTasksWebContentsUserDataTest,
+       GetOrCreateInputStateModel_UpdatesIdentityStateOnCacheHit) {
+  class ConfigurableUiService : public FakeUiService {
+   public:
+    ConfigurableUiService(Profile* profile, bool* signed_in, bool* url_match)
+        : FakeUiService(profile),
+          signed_in_(signed_in),
+          url_match_(url_match) {}
+    bool IsSignedInToBrowserWithValidCredentials() override {
+      return *signed_in_;
+    }
+    bool IsUrlForPrimaryAccount(const GURL& url) override {
+      return *url_match_;
+    }
+
+   private:
+    raw_ptr<bool> signed_in_;
+    raw_ptr<bool> url_match_;
+  };
+
+  bool is_signed_in = true;
+  bool is_url_for_primary = true;
+  ContextualTasksUiServiceFactory::GetInstance()->SetTestingFactory(
+      profile_.get(),
+      base::BindRepeating(
+          [](bool* signed_in, bool* url_match, content::BrowserContext* context)
+              -> std::unique_ptr<KeyedService> {
+            return std::make_unique<ConfigurableUiService>(
+                Profile::FromBrowserContext(context), signed_in, url_match);
+          },
+          &is_signed_in, &is_url_for_primary));
+
+  ContextualTasksWebContentsUserData::CreateForWebContents(web_contents_);
+  auto* user_data =
+      ContextualTasksWebContentsUserData::FromWebContents(web_contents_);
+  auto mock_handle =
+      std::make_shared<contextual_search::MockContextualSearchSessionHandle>();
+
+  auto model_initial = user_data->GetOrCreateInputStateModel(*mock_handle);
+  ASSERT_TRUE(model_initial);
+  EXPECT_TRUE(model_initial->is_signed_in_for_testing());
+  EXPECT_TRUE(
+      model_initial->browser_identity_matches_aim_identity_for_testing());
+
+  // Simulate signing out and retrieving the cached InputStateModel again.
+  is_signed_in = false;
+  is_url_for_primary = false;
+  auto model_updated = user_data->GetOrCreateInputStateModel(*mock_handle);
+  ASSERT_TRUE(model_updated);
+  EXPECT_EQ(model_initial.get(), model_updated.get());
+  EXPECT_FALSE(model_updated->is_signed_in_for_testing());
+  EXPECT_FALSE(
+      model_updated->browser_identity_matches_aim_identity_for_testing());
+
+  ContextualTasksUiServiceFactory::GetInstance()->SetTestingFactory(
       profile_.get(), base::NullCallback());
 }
 

@@ -6,6 +6,7 @@ import("//media/media_options.gni")
 import("//mojo/public/tools/bindings/mojom.gni")
 
 mojom("mojom") {
+  generate_blink = true
   generate_java = true
 
   # TODO(crbug.com/40499115): Conditionally add source files in this list when
@@ -73,7 +74,7 @@ mojom("mojom") {
     ]
   }
 
-  if (allow_oop_video_decoder) {
+  if (enable_oop_video_decoder) {
     sources += [
       "cdm_context_for_oopvd.mojom",
       "video_decoder_factory_process.mojom",
@@ -105,7 +106,7 @@ mojom("mojom") {
     "//url/mojom:url_mojom_origin",
   ]
 
-  if (allow_oop_video_decoder) {
+  if (enable_oop_video_decoder) {
     public_deps += [ "//services/viz/public/mojom" ]
   }
 
@@ -119,8 +120,8 @@ mojom("mojom") {
   if (chrome_wide_echo_cancellation_supported) {
     enabled_features += [ "chrome_wide_echo_cancellation" ]
   }
-  if (allow_oop_video_decoder) {
-    enabled_features += [ "allow_oop_video_decoder" ]
+  if (enable_oop_video_decoder) {
+    enabled_features += [ "enable_oop_video_decoder" ]
   }
 
   if (use_linux_video_acceleration) {
@@ -140,6 +141,10 @@ mojom("mojom") {
 
   if (enable_cast_renderer) {
     enabled_features += [ "enable_cast_renderer" ]
+  }
+
+  if (enable_cdm_provision_fetcher) {
+    enabled_features += [ "enable_cdm_provision_fetcher" ]
   }
 
   shared_typemaps = [
@@ -354,7 +359,7 @@ mojom("mojom") {
     ]
   }
 
-  if (is_chromeos && allow_oop_video_decoder) {
+  if (enable_oop_video_decoder) {
     shared_typemaps += [
       {
         types = [
@@ -425,6 +430,7 @@ mojom("mojom") {
 }
 
 mojom("media_types") {
+  generate_blink = true
   generate_java = true
   sources = [
     "channel_layout.mojom",
@@ -837,11 +843,13 @@ mojom("media_types") {
 }
 
 mojom("audio_data") {
+  generate_blink = true
   generate_java = true
   sources = [ "audio_data.mojom" ]
 }
 
 mojom("encryption_pattern") {
+  generate_blink = true
   generate_java = true
   sources = [ "encryption_pattern.mojom" ]
   cpp_typemaps = [
@@ -863,6 +871,7 @@ mojom("encryption_pattern") {
 }
 
 mojom("speech_recognition_audio_forwarder") {
+  generate_blink = true
   generate_java = true
   sources = [ "speech_recognition_audio_forwarder.mojom" ]
   public_deps = [ ":audio_data" ]
@@ -871,6 +880,7 @@ mojom("speech_recognition_audio_forwarder") {
 # Speech recognition API used between renderer/browser/service and between
 # LaCrOS/Ash.
 mojom("speech_recognition") {
+  generate_blink = true
   generate_java = true
   sources = [ "speech_recognition.mojom" ]
   cpp_typemaps = [
@@ -916,6 +926,7 @@ mojom("speech_recognition") {
 }
 
 mojom("speech_recognition_recognition_context") {
+  generate_blink = true
   generate_java = true
   sources = [ "speech_recognition_recognition_context.mojom" ]
   cpp_typemaps = [
@@ -948,12 +959,14 @@ mojom("speech_recognition_recognition_context") {
 }
 
 mojom("media_log") {
+  generate_blink = true
   generate_java = true
   sources = [ "media_log.mojom" ]
   public_deps = [ ":media_types" ]
 }
 
 mojom("video_encode") {
+  generate_blink = true
   generate_java = true
   sources = [
     "video_encode_accelerator.mojom",
@@ -1157,6 +1170,7 @@ source_set("unit_tests") {
 }
 
 mojom("web_speech_recognition") {
+  generate_blink = true
   generate_java = true
 
   sources = [

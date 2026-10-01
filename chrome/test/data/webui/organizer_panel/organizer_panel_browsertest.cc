@@ -18,6 +18,18 @@ IN_PROC_BROWSER_TEST_F(OrganizerPanelTest, ListSectionItem) {
   RunTest("organizer_panel/organizer_list_section_item_test.js", "mocha.run()");
 }
 
+IN_PROC_BROWSER_TEST_F(OrganizerPanelTest, ListSectionItemDescription) {
+  set_test_loader_host(chrome::kChromeUIOrganizerPanelHost);
+  RunTest("organizer_panel/organizer_list_section_item_description_test.js",
+          "mocha.run()");
+}
+
+IN_PROC_BROWSER_TEST_F(OrganizerPanelTest, ListSectionItemTitle) {
+  set_test_loader_host(chrome::kChromeUIOrganizerPanelHost);
+  RunTest("organizer_panel/organizer_list_section_item_title_test.js",
+          "mocha.run()");
+}
+
 IN_PROC_BROWSER_TEST_F(OrganizerPanelTest, ListSection) {
   set_test_loader_host(chrome::kChromeUIOrganizerPanelHost);
   RunTest("organizer_panel/organizer_list_section_test.js", "mocha.run()");
@@ -31,4 +43,19 @@ IN_PROC_BROWSER_TEST_F(OrganizerPanelTest, List) {
 IN_PROC_BROWSER_TEST_F(OrganizerPanelTest, OpenTabsDelegate) {
   set_test_loader_host(chrome::kChromeUIOrganizerPanelHost);
   RunTest("organizer_panel/open_tabs_delegate_test.js", "mocha.run()");
+}
+
+IN_PROC_BROWSER_TEST_F(OrganizerPanelTest, RecentTabsDelegate) {
+  set_test_loader_host(chrome::kChromeUIOrganizerPanelHost);
+  RunTest("organizer_panel/recent_tabs_delegate_test.js", "mocha.run()");
+}
+
+IN_PROC_BROWSER_TEST_F(OrganizerPanelTest, TabGroupsDelegate) {
+  set_test_loader_host(chrome::kChromeUIOrganizerPanelHost);
+  RunTest("organizer_panel/tab_groups_delegate_test.js", "mocha.run()");
+}
+
+IN_PROC_BROWSER_TEST_F(OrganizerPanelTest, StackedFavicons) {
+  set_test_loader_host(chrome::kChromeUIOrganizerPanelHost);
+  RunTest("organizer_panel/stacked_favicons_test.js", "mocha.run()");
 }

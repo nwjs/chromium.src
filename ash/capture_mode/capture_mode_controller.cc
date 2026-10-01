@@ -76,6 +76,8 @@
 #include "capture_mode_util.h"
 #include "components/prefs/pref_registry_simple.h"
 #include "components/prefs/pref_service.h"
+#include "components/session_manager/core/session.h"
+#include "components/session_manager/core/session_manager.h"
 #include "components/user_manager/user_type.h"
 #include "components/vector_icons/vector_icons.h"
 #include "components/viz/host/host_frame_sink_manager.h"
@@ -297,7 +299,6 @@ void ShowNotification(
       CreateSystemNotificationPtr(
           type, notification_id, l10n_util::GetStringUTF16(title_id), message,
           l10n_util::GetStringUTF16(IDS_ASH_SCREEN_CAPTURE_DISPLAY_SOURCE),
-          GURL(),
           message_center::NotifierId(
               message_center::NotifierType::SYSTEM_COMPONENT,
               kScreenCaptureNotifierId,
@@ -331,7 +332,7 @@ void ShowGifProgressNotification() {
       message_center::NOTIFICATION_TYPE_PROGRESS, kScreenCaptureNotificationId,
       l10n_util::GetStringUTF16(IDS_ASH_SCREEN_CAPTURE_GIF_PROGRESS_TITLE),
       l10n_util::GetStringUTF16(IDS_ASH_SCREEN_CAPTURE_GIF_PROGRESS_MESSAGE),
-      l10n_util::GetStringUTF16(IDS_ASH_SCREEN_CAPTURE_DISPLAY_SOURCE), GURL(),
+      l10n_util::GetStringUTF16(IDS_ASH_SCREEN_CAPTURE_DISPLAY_SOURCE),
       message_center::NotifierId(message_center::NotifierType::SYSTEM_COMPONENT,
                                  kScreenCaptureNotifierId,
                                  NotificationCatalogName::kScreenCapture),
@@ -2104,12 +2105,23 @@ void CaptureModeController::OnImageCapturedForSearch(
     return;
   }
 
+  // TODO(crbug.com/546860700): Thread the desk/session owner's account
+  // instead of assuming the active session, once available.
+  const session_manager::Session* active_session =
+      session_manager::SessionManager::Get()->GetActiveSession();
+  if (!active_session) {
+    OnLensWebError(image_search_token,
+                   CaptureModeImageSearchResult::kFailureIdentityManager,
+                   CaptureModeTextDetectionResult::kUnreached);
+    return;
+  }
+
     const gfx::Image image = gfx::Image::CreateFrom1xBitmap(bitmap);
     const bool is_standalone_session =
         capture_mode_session_->active_behavior()->behavior_type() ==
         BehaviorType::kSunfish;
     delegate_->SendLensWebRegionSearch(
-        image, is_standalone_session,
+        image, is_standalone_session, active_session->account_id(),
         base::BindRepeating(&CaptureModeController::OnSearchUrlFetched,
                             weak_ptr_factory_.GetWeakPtr(),
                             user_capture_region_, gfx::ImageSkia()),

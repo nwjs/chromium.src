@@ -25,9 +25,11 @@
 #include "base/test/bind.h"
 #include "base/test/test_future.h"
 #include "build/build_config.h"
+#include "chrome/browser/ash/browser_delegate/browser_controller_impl.h"
 #include "chrome/browser/ash/login/users/fake_chrome_user_manager.h"
 #include "chrome/browser/chromeos/extensions/telemetry/api/common/hardware_info_delegate.h"
 #include "chrome/browser/extensions/extension_management_test_util.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/web_applications/test/isolated_web_app_test_utils.h"
 #include "chrome/browser/web_applications/test/web_app_install_test_utils.h"
 #include "chrome/common/chromeos/extensions/chromeos_system_extension_info.h"  // nogncheck
@@ -41,6 +43,7 @@
 #include "components/sync_preferences/testing_pref_service_syncable.h"
 #include "components/user_manager/scoped_user_manager.h"
 #include "components/user_manager/user.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/ssl_status.h"
 #include "content/public/browser/web_contents_observer.h"
@@ -247,6 +250,7 @@ class ApiGuardDelegateTest
             .Build();
   }
 
+  ash::BrowserControllerImpl browser_controller_;
   ash::mojo_service_manager::FakeMojoServiceManager fake_service_manager_;
   scoped_refptr<const extensions::Extension> extension_;
 };
@@ -594,9 +598,9 @@ class ApiGuardDelegateShimlessRMAAppTest : public ApiGuardDelegateTest {
   // creating a desktop `Browser` for `ShimlessRmaAppProfile`. This profile does
   // not instantiate regular user services like `WaapUIMetricsService`, which
   // `BrowserWindowFeatures` expects for normal browser windows.
-  std::unique_ptr<Browser> CreateBrowser(
+  std::unique_ptr<BrowserWindowInterface> CreateBrowser(
       Profile* profile,
-      Browser::Type browser_type,
+      BrowserWindowInterface::Type browser_type,
       bool hosted_app,
       BrowserWindow* browser_window) override {
     return nullptr;

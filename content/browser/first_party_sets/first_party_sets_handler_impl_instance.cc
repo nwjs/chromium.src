@@ -32,7 +32,6 @@
 #include "net/first_party_sets/first_party_set_metadata.h"
 #include "net/first_party_sets/first_party_sets_context_config.h"
 #include "net/first_party_sets/global_first_party_sets.h"
-#include "net/first_party_sets/local_set_declaration.h"
 #include "net/first_party_sets/sets_mutation.h"
 
 namespace net {
@@ -145,8 +144,7 @@ FirstPartySetsHandlerImplInstance::GetSets(
 }
 
 void FirstPartySetsHandlerImplInstance::Init(
-    const base::FilePath& user_data_dir,
-    const net::LocalSetDeclaration& local_set) {
+    const base::FilePath& user_data_dir) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   if (initialized_) {
     return;
@@ -154,10 +152,6 @@ void FirstPartySetsHandlerImplInstance::Init(
 
   initialized_ = true;
   SetDatabase(user_data_dir);
-
-  if (sets_loader_) {
-    sets_loader_->SetManuallySpecifiedSet(local_set);
-  }
 }
 
 bool FirstPartySetsHandlerImplInstance::IsEnabled() const {

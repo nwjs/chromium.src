@@ -23,7 +23,6 @@
 #include "components/content_settings/core/common/content_settings_types.h"
 #include "components/content_settings/core/common/features.h"
 #include "components/privacy_sandbox/privacy_sandbox_features.h"
-#include "net/base/features.h"
 #include "net/base/net_errors.h"
 #include "net/base/schemeful_site.h"
 #include "net/base/url_util.h"
@@ -117,14 +116,12 @@ CookieSettingsBase::CookieSettingWithMetadata::CookieSettingWithMetadata(
     bool allow_partitioned_cookies,
     bool is_explicit_setting,
     ThirdPartyCookieAllowMechanism third_party_cookie_allow_mechanism,
-    bool is_third_party_request,
-    AllowedByStorageAccessType allowed_by_storage_access_type)
+    bool is_third_party_request)
     : cookie_setting_(cookie_setting),
       allow_partitioned_cookies_(allow_partitioned_cookies),
       is_explicit_setting_(is_explicit_setting),
       third_party_cookie_allow_mechanism_(third_party_cookie_allow_mechanism),
-      is_third_party_request_(is_third_party_request),
-      allowed_by_storage_access_type_(allowed_by_storage_access_type) {}
+      is_third_party_request_(is_third_party_request) {}
 
 bool CookieSettingsBase::CookieSettingWithMetadata::
     BlockedByThirdPartyCookieBlocking() const {
@@ -338,9 +335,7 @@ bool CookieSettingsBase::IsAllowedBySandboxValue(
     const GURL& first_party_url,
     net::CookieSettingOverrides overrides) const {
   if (!overrides.Has(
-          net::CookieSettingOverride::kAllowSameSiteNoneCookiesInSandbox) ||
-      !base::FeatureList::IsEnabled(
-          net::features::kAllowSameSiteNoneCookiesInSandbox)) {
+          net::CookieSettingOverride::kAllowSameSiteNoneCookiesInSandbox)) {
     return false;
   }
 
@@ -383,14 +378,12 @@ CookieSettingsBase::DecideAccess(const GURL& url,
   if (IsAllowedByTopLevelStorageAccessGrant(url, first_party_url, overrides)) {
     return AllowAllCookies{
         ThirdPartyCookieAllowMechanism::kAllowByTopLevelStorageAccess,
-        IsAllowedByStorageAccessGrant(url, first_party_url, overrides)
-            ? AllowedByStorageAccessType::kTopLevelAndStorageAccess
-            : AllowedByStorageAccessType::kTopLevelOnly};
+    };
   }
   if (IsAllowedByStorageAccessGrant(url, first_party_url, overrides)) {
     return AllowAllCookies{
         ThirdPartyCookieAllowMechanism::kAllowByStorageAccess,
-        AllowedByStorageAccessType::kStorageAccessOnly};
+    };
   }
   if (IsAllowedBySandboxValue(url, first_party_url, overrides)) {
     return AllowAllCookies{
@@ -487,7 +480,6 @@ CookieSettingsBase::GetCookieSettingInternal(
         is_explicit_setting,
         /*third_party_cookie_allow_mechanism=*/allow_cookies->mechanism,
         is_third_party_request,
-        allow_cookies->allowed_by_storage_access_type,
     };
     CHECK(!out.BlockedByThirdPartyCookieBlocking());
     CHECK(out.allow_partitioned_cookies());

@@ -12,6 +12,7 @@
 #include "base/run_loop.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
+#include "base/threading/thread_restrictions.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
@@ -19,6 +20,7 @@
 #include "chrome/browser/ui/location_bar/location_bar.h"
 #include "chrome/browser/ui/omnibox/omnibox_controller.h"
 #include "chrome/browser/ui/omnibox/omnibox_edit_model.h"
+#include "chrome/browser/ui/omnibox/omnibox_next_features.h"
 #include "chrome/browser/ui/omnibox/omnibox_popup_state_manager.h"
 #include "chrome/browser/ui/omnibox/omnibox_popup_view.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
@@ -95,6 +97,26 @@ IN_PROC_BROWSER_TEST_F(OmniboxPopupFileSelectorBrowserTest,
 
   EXPECT_CALL(mock_edit_model, OpenAiMode(testing::_)).Times(0);
   file_selector.FileSelectionCanceled();
+}
+
+IN_PROC_BROWSER_TEST_F(OmniboxPopupFileSelectorBrowserTest,
+                       DestructionWithOpenDialogCallsListenerDestroyed) {
+  auto* omnibox_controller = BrowserWindow::FromBrowser(browser())
+                                 ->GetLocationBar()
+                                 ->GetOmniboxController();
+  MockOmniboxEditModel mock_edit_model(omnibox_controller);
+
+  auto file_selector = std::make_unique<OmniboxPopupFileSelector>(
+      browser()->GetWindow()->GetNativeWindow());
+
+  file_selector->OpenFileUploadDialog(
+      browser()->GetTabStripModel()->GetActiveWebContents(),
+      /*is_image=*/true, &mock_edit_model, std::nullopt,
+      /*was_ai_mode_open=*/true);
+
+  // Destroy the file selector while the dialog is open.
+  // This must call ListenerDestroyed() on the dialog and not crash.
+  file_selector.reset();
 }
 
 IN_PROC_BROWSER_TEST_F(OmniboxPopupFileSelectorBrowserTest,

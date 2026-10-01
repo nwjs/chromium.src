@@ -48,6 +48,8 @@
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/infobars/infobar_container_view.h"
 #include "chrome/browser/ui/views/site_data/page_specific_site_data_dialog_controller.h"
+#include "extensions/buildflags/buildflags.h"
+#include "ui/base/window_open_disposition.h"
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 #include "chrome/browser/ui/views/session_restore_infobar/session_restore_infobar_manager.h"
@@ -73,8 +75,9 @@
 #include "sandbox/policy/switches.h"
 #include "ui/base/l10n/l10n_util.h"
 
-#if BUILDFLAG(ENABLE_PLUGINS)
-#include "chrome/browser/plugins/reload_plugin_infobar_delegate.h"
+#if BUILDFLAG(ENABLE_EXTENSIONS)
+#include "chrome/browser/extensions/api/identity/web_auth_flow.h"
+#include "chrome/browser/extensions/api/identity/web_auth_flow_info_bar_delegate.h"
 #endif
 
 #if !BUILDFLAG(IS_CHROMEOS)
@@ -175,10 +178,12 @@ class InfoBarUiTest : public TestInfoBar,
           {{"MigratedCollectedCookies", "true"},
            {"MigratedPageInfo", "true"},
            {"MigratedGoogleApiKeys", "true"},
+           {"MigratedKeystonePromotion", "true"},
            {"MigratedObsoleteSystem", "true"},
            {"MigratedThemeInstalled", "true"},
            {"MigratedExtensionDevTools", "true"},
-           {"MigratedAutomation", "true"}});
+           {"MigratedAutomation", "true"},
+           {"MigratedBadFlags", "true"}});
     } else {
       feature_list_.InitAndDisableFeature(
           infobars::kCentralizedInfoBarFramework);
@@ -235,14 +240,14 @@ void InfoBarUiTest::ShowUi(const std::string& name) {
           {"page_info", IBD::PAGE_INFO_INFOBAR_DELEGATE},
           {"automation", IBD::AUTOMATION_INFOBAR_DELEGATE},
           {"tab_sharing", IBD::TAB_SHARING_INFOBAR_DELEGATE},
+#if BUILDFLAG(ENABLE_EXTENSIONS)
+          {"web_auth_flow", IBD::EXTENSIONS_WEB_AUTH_FLOW_INFOBAR_DELEGATE},
+#endif
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
           {"session_restore", IBD::SESSION_RESTORE_INFOBAR_DELEGATE},
 #endif
 
-#if BUILDFLAG(ENABLE_PLUGINS)
-          {"reload_plugin", IBD::RELOAD_PLUGIN_INFOBAR_DELEGATE},
-#endif  // BUILDFLAG(ENABLE_PLUGINS)
       });
   const auto id_entry = kIdentifiers.find(name);
   if (id_entry == kIdentifiers.end()) {
@@ -302,22 +307,23 @@ void InfoBarUiTest::ShowUi(const std::string& name) {
       }
       break;
 
-#if BUILDFLAG(ENABLE_PLUGINS)
-    case IBD::RELOAD_PLUGIN_INFOBAR_DELEGATE:
-      ReloadPluginInfoBarDelegate::Create(
-          GetInfoBarManager(), nullptr,
-          l10n_util::GetStringFUTF16(IDS_PLUGIN_CRASHED_PROMPT,
-                                     u"Test Plugin"));
-      break;
-#endif  // BUILDFLAG(ENABLE_PLUGINS)
-
     case IBD::FILE_ACCESS_DISABLED_INFOBAR_DELEGATE:
       ChromeSelectFilePolicy(GetWebContents()).SelectFileDenied();
       break;
 
     case IBD::KEYSTONE_PROMOTION_INFOBAR_DELEGATE_MAC:
 #if BUILDFLAG(IS_MAC) && BUILDFLAG(ENABLE_UPDATER)
-      KeystonePromotionInfoBarDelegate::Create(GetWebContents());
+      if (infobars::IsInfoBarMigrated(
+              infobars::InfoBarDelegate::
+                  KEYSTONE_PROMOTION_INFOBAR_DELEGATE_MAC)) {
+        auto* browser_infobar_manager =
+            infobars::BrowserInfoBarManager::From(g_browser_process);
+        CHECK(browser_infobar_manager);
+        browser_infobar_manager->ShowGlobally(
+            infobars::InfoBarDelegate::KEYSTONE_PROMOTION_INFOBAR_DELEGATE_MAC);
+      } else {
+        KeystonePromotionInfoBarDelegate::Create(GetWebContents());
+      }
 #else
       ADD_FAILURE() << "This infobar is not supported on this OS.";
 #endif
@@ -462,6 +468,24 @@ void InfoBarUiTest::ShowUi(const std::string& name) {
       break;
 #endif
 
+#if BUILDFLAG(ENABLE_EXTENSIONS)
+    case IBD::EXTENSIONS_WEB_AUTH_FLOW_INFOBAR_DELEGATE:
+      if (infobars::IsInfoBarMigrated(
+              infobars::InfoBarDelegate::
+                  EXTENSIONS_WEB_AUTH_FLOW_INFOBAR_DELEGATE)) {
+        auto* browser_infobar_manager =
+            infobars::BrowserInfoBarManager::From(g_browser_process);
+        CHECK(browser_infobar_manager);
+        browser_infobar_manager->Show(
+            GetTab(), infobars::InfoBarDelegate::
+                          EXTENSIONS_WEB_AUTH_FLOW_INFOBAR_DELEGATE);
+      } else {
+        extensions::WebAuthFlowInfoBarDelegate::Create(GetWebContents(),
+                                                       "Test Extension");
+      }
+      break;
+#endif  // BUILDFLAG(ENABLE_EXTENSIONS)
+
     default:
       ADD_FAILURE() << "Unhandled infobar " << name;
       break;
@@ -505,12 +529,6 @@ IN_PROC_BROWSER_TEST_P(InfoBarUiTest, InvokeUi_incognito_connectability) {
 IN_PROC_BROWSER_TEST_P(InfoBarUiTest, InvokeUi_theme_installed) {
   ShowAndVerifyUi();
 }
-
-#if BUILDFLAG(ENABLE_PLUGINS)
-IN_PROC_BROWSER_TEST_P(InfoBarUiTest, InvokeUi_reload_plugin) {
-  ShowAndVerifyUi();
-}
-#endif  // BUILDFLAG(ENABLE_PLUGINS)
 
 IN_PROC_BROWSER_TEST_P(InfoBarUiTest, InvokeUi_file_access_disabled) {
   ShowAndVerifyUi();
@@ -592,6 +610,12 @@ IN_PROC_BROWSER_TEST_P(InfoBarUiTest, MAYBE_InvokeUi_tab_sharing) {
 IN_PROC_BROWSER_TEST_P(InfoBarUiTest, MAYBE_InvokeUi_multiple_infobars) {
   ShowAndVerifyUi();
 }
+
+#if BUILDFLAG(ENABLE_EXTENSIONS)
+IN_PROC_BROWSER_TEST_P(InfoBarUiTest, InvokeUi_web_auth_flow) {
+  ShowAndVerifyUi();
+}
+#endif
 
 INSTANTIATE_TEST_SUITE_P(All,
                          InfoBarUiTest,

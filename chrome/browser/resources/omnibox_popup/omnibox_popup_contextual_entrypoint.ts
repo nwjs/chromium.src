@@ -58,7 +58,6 @@ export class OmniboxPopupContextualEntrypointElement extends CrLitElement {
       applyContextButtonBackground_: {type: Boolean},
       usePecApi_: {type: Boolean},
       isOblongShape_: {type: Boolean},
-      showContextButtonSuggestionLabel_: {type: Boolean},
     };
   }
 
@@ -81,8 +80,6 @@ export class OmniboxPopupContextualEntrypointElement extends CrLitElement {
       loadTimeData.getBoolean('contextualMenuUsePecApi');
   protected accessor isOblongShape_: boolean =
       loadTimeData.getBoolean('contextButtonShapeIsOblong');
-  protected accessor showContextButtonSuggestionLabel_: boolean =
-      loadTimeData.getBoolean('omniboxShowContextButtonSuggestionLabel');
 
   private isComposeboxChipEnabled_: boolean =
       loadTimeData.getBoolean('composeboxShowChip');
@@ -184,10 +181,10 @@ export class OmniboxPopupContextualEntrypointElement extends CrLitElement {
         changedProps.has('inputState')) {
       this.isCurrentTabChipShown_ = this.isContentSharingEnabled &&
           this.isLensSearchEligible && this.computeShowCurrentTabChip_();
-      this.isLensIconShown_ =
-          this.isContentSharingEnabled && this.isLensIconEligible;
       this.isLensChipShown_ = this.isContentSharingEnabled &&
           this.isLensSearchEligible && !this.isCurrentTabChipShown_;
+      this.isLensIconShown_ = this.isContentSharingEnabled &&
+          this.isLensIconEligible && !this.isLensChipShown_;
       this.applyContextButtonBackground_ =
           this.contextButtonHasBackground_ && !this.isLensChipShown_;
     }
@@ -237,14 +234,19 @@ export class OmniboxPopupContextualEntrypointElement extends CrLitElement {
         tabs.find(tab => tab.showInCurrentTabChip) || null;
   }
 
-  protected onAddTabContext_(e: CustomEvent<{
+  protected async onAddTabContext_(e: CustomEvent<{
     id: number,
     title: string,
     url: Url,
   }>) {
-    this.searchboxBrowserProxy_.handler.addTabContext(
-        e.detail.id, /*delayUpload=*/ false,
-        TabAttachmentSource.kCurrentTabChip);
+    try {
+      await this.searchboxBrowserProxy_.handler.addTabContext(
+          e.detail.id, /*delayUpload=*/ false,
+          TabAttachmentSource.kCurrentTabChip);
+    } catch {
+      // TODO (b/563357265) - Surface addTabContext failures for the current-tab
+      // chip so they are visible to the user in the omnibox popup.
+    }
   }
 
   protected computeShowCurrentTabChip_() {

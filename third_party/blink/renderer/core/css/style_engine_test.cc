@@ -773,6 +773,45 @@ TEST_F(StyleEngineTest, AnalyzedInject) {
       t11->GetComputedStyle()->VisitedDependentColor(GetCSSPropertyColor()));
 }
 
+TEST_F(StyleEngineTest, HoverActiveNotMatchedWhilePrinting) {
+  SetBodyInnerHTML(R"HTML(
+    <style>
+      #target { color: rgb(0, 0, 0); }
+      #target:hover { color: rgb(255, 0, 0); }
+      #target:active { color: rgb(0, 255, 0); }
+    </style>
+    <div id="target"></div>
+  )HTML");
+
+  Element* target = GetElementById("target");
+
+  target->SetHovered(true);
+  UpdateAllLifecyclePhasesForTest();
+  EXPECT_EQ(
+      Color::FromRGB(255, 0, 0),
+      target->GetComputedStyle()->VisitedDependentColor(GetCSSPropertyColor()));
+
+  gfx::SizeF page_size(400, 400);
+  GetDocument().GetFrame()->StartPrinting(WebPrintParams(page_size));
+  EXPECT_EQ(
+      Color::FromRGB(0, 0, 0),
+      target->GetComputedStyle()->VisitedDependentColor(GetCSSPropertyColor()));
+  GetDocument().GetFrame()->EndPrinting();
+
+  target->SetHovered(false);
+  target->SetActive(true);
+  UpdateAllLifecyclePhasesForTest();
+  EXPECT_EQ(
+      Color::FromRGB(0, 255, 0),
+      target->GetComputedStyle()->VisitedDependentColor(GetCSSPropertyColor()));
+
+  GetDocument().GetFrame()->StartPrinting(WebPrintParams(page_size));
+  EXPECT_EQ(
+      Color::FromRGB(0, 0, 0),
+      target->GetComputedStyle()->VisitedDependentColor(GetCSSPropertyColor()));
+  GetDocument().GetFrame()->EndPrinting();
+}
+
 TEST_F(StyleEngineTest, InjectedUserNoAuthorFontFace) {
   UpdateAllLifecyclePhases();
 
@@ -1061,29 +1100,112 @@ TEST_F(StyleEngineTest, RuleSetInvalidationHostContext) {
   EXPECT_EQ(1u, after_count - before_count);
 }
 
-TEST_F(StyleEngineTest, HasViewportDependentMediaQueries) {
+TEST_F(StyleEngineTest, MayHaveViewportDependentMediaQueries) {
   GetDocument().body()->SetInnerHTMLWithoutTrustedTypes(R"HTML(
     <style>div {}</style>
     <style id='sheet' media='(min-width: 200px)'>
       div {}
     </style>
   )HTML");
+  UpdateAllLifecyclePhases();
 
+  EXPECT_TRUE(GetStyleEngine().MayHaveViewportDependentMediaQueries());
+
+  // The dependency is sticky for the lifetime of the StyleEngine: removing
+  // the stylesheet that introduced it does not clear the flag.
   Element* style_element = GetDocument().getElementById(AtomicString("sheet"));
-
-  for (unsigned i = 0; i < 10; i++) {
-    GetDocument().body()->RemoveChild(style_element);
-    UpdateAllLifecyclePhases();
-    GetDocument().body()->AppendChild(style_element);
-    UpdateAllLifecyclePhases();
-  }
-
-  EXPECT_TRUE(GetStyleEngine().HasViewportDependentMediaQueries());
-
   GetDocument().body()->RemoveChild(style_element);
   UpdateAllLifecyclePhases();
 
-  EXPECT_FALSE(GetStyleEngine().HasViewportDependentMediaQueries());
+  EXPECT_TRUE(GetStyleEngine().MayHaveViewportDependentMediaQueries());
+}
+
+TEST_F(StyleEngineTest,
+       NonMatchingMediaMutationStaysStickyAfterUnrelatedRebuild) {
+  GetDocument().body()->SetInnerHTMLWithoutTrustedTypes(R"HTML(
+    <style id="sheet" media="(min-width: 9000px)">div {}</style>
+  )HTML");
+  UpdateAllLifecyclePhases();
+
+  EXPECT_TRUE(GetStyleEngine().MayHaveViewportDependentMediaQueries());
+
+  // Mutating the non-matching stylesheet's media attribute to another
+  // non-matching, but no longer viewport-dependent, query does not clear the
+  // sticky dependency recorded on the StyleEngine.
+  Element* style_element = GetDocument().getElementById(AtomicString("sheet"));
+  style_element->setAttribute(html_names::kMediaAttr, AtomicString("print"));
+  UpdateAllLifecyclePhases();
+
+  EXPECT_TRUE(GetStyleEngine().MayHaveViewportDependentMediaQueries());
+
+  // An unrelated change to the active style sheets forces a CSSGlobalRuleSet
+  // rebuild. The sticky dependency must survive the rebuild rather than being
+  // recomputed from the (now non-viewport-dependent) live style sheets.
+  Element* unrelated_style =
+      GetDocument().CreateElementForBinding(AtomicString("style"));
+  unrelated_style->SetInnerHTMLWithoutTrustedTypes("span {}");
+  GetDocument().body()->appendChild(unrelated_style);
+  UpdateAllLifecyclePhases();
+
+  EXPECT_TRUE(GetStyleEngine().MayHaveViewportDependentMediaQueries());
+}
+
+TEST_F(StyleEngineTest, NonMatchingMediaMutationAddsViewportDependency) {
+  GetDocument().body()->SetInnerHTMLWithoutTrustedTypes(R"HTML(
+    <style id="sheet" media="print">div {}</style>
+  )HTML");
+  UpdateAllLifecyclePhases();
+
+  EXPECT_FALSE(GetStyleEngine().MayHaveViewportDependentMediaQueries());
+
+  Element* style_element = GetDocument().getElementById(AtomicString("sheet"));
+  style_element->setAttribute(html_names::kMediaAttr,
+                              AtomicString("(min-width: 9000px)"));
+  UpdateAllLifecyclePhases();
+
+  EXPECT_TRUE(GetStyleEngine().MayHaveViewportDependentMediaQueries());
+}
+
+TEST_F(StyleEngineTest, ShadowTreeNonMatchingMediaQuerySetsStickyDependency) {
+  GetDocument().body()->SetInnerHTMLWithoutTrustedTypes("<div id=host></div>");
+  Element* host = GetDocument().getElementById(AtomicString("host"));
+  ASSERT_TRUE(host);
+
+  ShadowRoot& shadow_root =
+      host->AttachShadowRootForTesting(ShadowRootMode::kOpen);
+  shadow_root.SetInnerHTMLWithoutTrustedTypes(R"HTML(
+    <style id="sheet" media="print">div {}</style>
+  )HTML");
+  UpdateAllLifecyclePhases();
+
+  EXPECT_FALSE(GetStyleEngine().MayHaveViewportDependentMediaQueries());
+
+  // Mutating the shadow tree's stylesheet media attribute to a
+  // viewport-dependent, still non-matching query sets the sticky flag on the
+  // StyleEngine, even though the TreeScope's active RuleSets don't change
+  // (the media query doesn't match either before or after).
+  Element* style_element = shadow_root.getElementById(AtomicString("sheet"));
+  ASSERT_TRUE(style_element);
+  style_element->setAttribute(html_names::kMediaAttr,
+                              AtomicString("(min-width: 9000px)"));
+  UpdateAllLifecyclePhases();
+
+  EXPECT_TRUE(GetStyleEngine().MayHaveViewportDependentMediaQueries());
+
+  // The dependency stays sticky across an unrelated CSSGlobalRuleSet rebuild
+  // and after the stylesheet that introduced it is removed.
+  Element* unrelated_style =
+      GetDocument().CreateElementForBinding(AtomicString("style"));
+  unrelated_style->SetInnerHTMLWithoutTrustedTypes("span {}");
+  GetDocument().body()->appendChild(unrelated_style);
+  UpdateAllLifecyclePhases();
+
+  EXPECT_TRUE(GetStyleEngine().MayHaveViewportDependentMediaQueries());
+
+  style_element->remove();
+  UpdateAllLifecyclePhases();
+
+  EXPECT_TRUE(GetStyleEngine().MayHaveViewportDependentMediaQueries());
 }
 
 TEST_F(StyleEngineTest, StyleMediaAttributeStyleChange) {
@@ -4255,6 +4377,42 @@ TEST_F(StyleEngineTest, MediaQueriesChangeResizable) {
                 GetCSSPropertyBackgroundColor()));
 
   // resizable: false
+  GetFrame().GetSettings()->SetResizable(false);
+  UpdateAllLifecyclePhases();
+  EXPECT_EQ(Color::FromRGB(/*cyan*/ 0, 255, 255),
+            GetDocument().body()->GetComputedStyle()->VisitedDependentColor(
+                GetCSSPropertyBackgroundColor()));
+}
+
+TEST_F(StyleEngineTest, MediaQueriesChangeResizableBooleanContext) {
+  ScopedDesktopPWAsAdditionalWindowingControlsForTest scoped_feature(true);
+  GetDocument().body()->SetInnerHTMLWithoutTrustedTypes(R"HTML(
+    <style>
+      body {
+        background-color: white;
+      }
+      @media (resizable) {
+        body {
+          background-color: yellow;
+        }
+      }
+      @media not (resizable) {
+        body {
+          background-color: cyan;
+        }
+      }
+    </style>
+    <body></body>
+  )HTML");
+
+  // resizable
+  // Default is set in /third_party/blink/renderer/core/frame/settings.json5.
+  UpdateAllLifecyclePhases();
+  EXPECT_EQ(Color::FromRGB(/*yellow*/ 255, 255, 0),
+            GetDocument().body()->GetComputedStyle()->VisitedDependentColor(
+                GetCSSPropertyBackgroundColor()));
+
+  // not resizable
   GetFrame().GetSettings()->SetResizable(false);
   UpdateAllLifecyclePhases();
   EXPECT_EQ(Color::FromRGB(/*cyan*/ 0, 255, 255),

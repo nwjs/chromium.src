@@ -33,6 +33,7 @@
 #include "media/base/media_switches.h"
 #include "media/capture/video_capture_types.h"
 #include "mojo/public/cpp/bindings/receiver.h"
+#include "mojo/public/cpp/test_support/test_utils.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/mediastream/media_devices.h"
@@ -341,6 +342,17 @@ class VideoCaptureTest : public testing::Test,
     base::RunLoop().RunUntilIdle();
   }
 
+  VideoCaptureHost* host() const { return host_.get(); }
+  mojo::Remote<media::mojom::VideoCaptureHost>& host_remote() {
+    return host_remote_;
+  }
+  const base::UnguessableToken& opened_session_id() const {
+    return opened_session_id_;
+  }
+  const scoped_refptr<base::SingleThreadTaskRunner>& task_runner() const {
+    return task_runner_;
+  }
+
   MediaStreamManager* media_stream_manager() const {
     return media_stream_manager_.get();
   }
@@ -404,6 +416,26 @@ TEST_F(VideoCaptureTest, StartAndErrorAndStop) {
 
 TEST_F(VideoCaptureTest, StartWithInvalidSessionId) {
   StartCaptureWithInvalidSession();
+  StopCapture();
+}
+
+TEST_F(VideoCaptureTest, StartWithDuplicateDeviceIdReportsError) {
+  StartCapture();
+
+  base::RunLoop run_loop;
+  mojo::Receiver<media::mojom::VideoCaptureObserver> duplicate_receiver(this);
+  EXPECT_CALL(*this,
+              DoOnVideoCaptureError(
+                  media::VideoCaptureError::kVideoCaptureHostDuplicateDeviceId))
+      .WillOnce(ExitMessageLoop(task_runner(), run_loop.QuitClosure()));
+
+  media::VideoCaptureParams params;
+  params.requested_format = media::VideoCaptureFormat(gfx::Size(352, 288), 30,
+                                                      media::PIXEL_FORMAT_I420);
+  host_remote()->Start(DeviceId(), opened_session_id(), params,
+                       duplicate_receiver.BindNewPipeAndPassRemote());
+  run_loop.Run();
+
   StopCapture();
 }
 

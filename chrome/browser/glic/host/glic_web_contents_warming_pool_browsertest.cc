@@ -15,7 +15,7 @@
 #include "chrome/browser/glic/glic_warming_checks.h"
 #include "chrome/browser/glic/host/glic_ui.h"
 #include "chrome/browser/glic/host/glic_web_client_manager.h"
-#include "chrome/browser/glic/host/webui_contents_container.h"
+#include "chrome/browser/glic/host/glic_web_contents_manager.h"
 #include "chrome/browser/glic/public/glic_keyed_service.h"
 #include "chrome/browser/glic/service/glic_instance_coordinator_impl.h"
 #include "chrome/browser/glic/test_support/glic_browser_test.h"
@@ -58,8 +58,7 @@ class GlicWarmingPoolBrowserTest
  public:
   GlicWarmingPoolBrowserTest() {
     std::vector<base::test::FeatureRefAndParams> enabled_features = {
-        {features::kGlicWarming,
-         {{"glic-warming-delay-ms", "100"}, {"glic-warming-jitter-ms", "0"}}},
+        {features::kGlicWarming, {{"glic-warming-delay-ms", "100"}}},
         {features::kGlicWebContentsWarming,
          {{"glic-web-contents-warming-delay", "100ms"}}},
     };
@@ -100,7 +99,7 @@ IN_PROC_BROWSER_TEST_F(GlicWarmingPoolBrowserTest, MAYBE_BackfillWarming) {
 
   // Take the container, which should clear it and schedule a new delayed
   // preload.
-  std::unique_ptr<WebUIContentsContainer> container = pool().TakeContainer();
+  std::unique_ptr<GlicWebContentsManager> container = pool().TakeContainer();
   EXPECT_TRUE(container);
   EXPECT_FALSE(pool().HasWarmedContainerForTesting());
 
@@ -168,13 +167,11 @@ IN_PROC_BROWSER_TEST_F(GlicManualWarmingPoolBrowserTest,
   // 2. Verify that guest is created and loaded.
   auto* warmed_container = pool().GetWarmedContainerForTesting();
   ASSERT_TRUE(warmed_container);
-  auto* glic_ui = GlicUI::From(warmed_container->web_contents());
-  ASSERT_TRUE(glic_ui);
 
   ASSERT_TRUE(RunUntil(
-      [glic_ui]() -> bool {
+      [warmed_container]() -> bool {
         auto* guest_contents =
-            glic_ui->web_client_manager()->web_client_contents();
+            warmed_container->web_client_manager().web_client_contents();
         return guest_contents != nullptr && !guest_contents->IsLoading();
       },
       "Wait for guest web contents to load"));
@@ -215,7 +212,7 @@ IN_PROC_BROWSER_TEST_F(GlicManualWarmingPoolBrowserTest,
       "Wait for initial cold warming"));
   auto* warmed_container = warming_pool.GetWarmedContainerForTesting();
   ASSERT_TRUE(warmed_container);
-  content::WaitForLoadStop(warmed_container->web_contents());
+  content::WaitForLoadStop(warmed_container->active_web_contents());
 
   ProfileDestructionWaiter profile_destruction_waiter(new_profile);
   profile_manager->GetDeleteProfileHelper().MaybeScheduleProfileForDeletion(

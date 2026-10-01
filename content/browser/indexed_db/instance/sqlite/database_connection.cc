@@ -17,6 +17,7 @@
 #include "base/files/file_enumerator.h"
 #include "base/files/file_util.h"
 #include "base/functional/callback.h"
+#include "base/functional/callback_helpers.h"
 #include "base/functional/function_ref.h"
 #include "base/memory/ptr_util.h"
 #include "base/metrics/histogram_functions.h"
@@ -1082,7 +1083,12 @@ void DatabaseConnection::CloseDatabase(
     std::optional<std::set<int64_t>> known_legacy_blob_ids,
     bool force_closing) {
   if (should_delete) {
-    db->CloseAndDelete();
+    if (!(db->is_open() ? db->CloseAndDelete()
+                        : sql::Database::Delete(db_path))) {
+      base::UmaHistogramEnumeration(
+          "IndexedDB.SQLite.SpecificEvent.OnDisk",
+          DatabaseConnection::SpecificEvent::kDatabaseDeletionFailed);
+    }
     if (!base::DeletePathRecursively(legacy_blob_directory)) {
       base::UmaHistogramEnumeration(
           "IndexedDB.SQLite.SpecificEvent.OnDisk",
@@ -1187,16 +1193,13 @@ base::OnceCallback<void(bool)> DatabaseConnection::GetCleanupTask() && {
     // `Transaction`s, `Connection`s and `Database`s. When the last
     // `BackingStore::Database` is deleted, `this` is deleted, at which point
     // recovery is attempted if `sql_error_` warrants it.
-#if BUILDFLAG(IS_FUCHSIA)
-    // Recovery is not supported with WAL mode DBs in Fuchsia.
-    if (had_sql_error && sql::IsErrorCatastrophic(*sql_error_)) {
-      should_delete_db = true;
-    }
-#else
     should_attempt_recovery =
         had_sql_error &&
         sql::Recovery::ShouldAttemptRecovery(db_.get(), *sql_error_);
-#endif
+    if (!should_attempt_recovery && had_sql_error &&
+        sql::IsErrorCatastrophic(*sql_error_)) {
+      should_delete_db = true;
+    }
 
     // Determine whether to vacuum.
     if (!had_sql_error && !should_delete_db) {
@@ -1221,6 +1224,12 @@ base::OnceCallback<void(bool)> DatabaseConnection::GetCleanupTask() && {
 
   // The error callback is no longer needed since `this` will be deleted soon.
   db_->reset_error_callback();
+
+  if (in_memory()) {
+    db_.reset();
+    return base::DoNothing();
+  }
+
   db_->DetachFromSequence();
   return base::BindOnce(&DatabaseConnection::CloseDatabase, std::move(db_),
                         path_, GetLegacyBlobDirectory(), should_delete_db,
@@ -1452,7 +1461,11 @@ uint64_t DatabaseConnection::GetSize() const {
     // Can only happen if one of the pragmas failed. Log under a common bucket.
     LogEvent(SpecificEvent::kPragmaPageCountFailed);
   }
-  return used_size.InBytes();
+  if (in_memory()) {
+    return used_size.InBytes();
+  }
+  return used_size.InBytes() +
+         base::ComputeDirectorySize(GetLegacyBlobDirectory());
 }
 
 bool DatabaseConnection::ReportMemoryUsage(
@@ -2153,15 +2166,10 @@ StatusOr<BackingStore::RecordIdentifier> DatabaseConnection::PutRecord(
 
     static constexpr base::ByteSize kMinimumCompressionSize(64);
     static constexpr float kMinimumCompressionRatio = 0.8f;
-    if (value.bits.storage_type() ==
-        mojo_base::BigBuffer::StorageType::kSharedMemory) {
-      // Make a copy of the bits if they are in shared memory before attempting
-      // to compress. See BigBuffer docs re: TOCTOU bugs.
-      bits_copy = base::ToVector(std::move(value.bits));
-      bits_span = base::span(bits_copy);
-    } else {
-      bits_span = base::span(value.bits);
-    }
+    // Should have already been copied to private memory in `Transaction`.
+    CHECK_EQ(value.bits.storage_type(),
+             mojo_base::BigBuffer::StorageType::kBytes);
+    bits_span = base::span(value.bits);
 
     // Maybe compress, updating `bits_span` and `bits_copy` as appropriate.
     if (bits_span.size() >= kMinimumCompressionSize.InBytes()) {
@@ -2886,9 +2894,16 @@ std::set<int64_t> DatabaseConnection::SnapshotLegacyBlobFiles() {
 }
 
 base::FilePath DatabaseConnection::GetLegacyBlobDirectory() const {
+  return GetLegacyBlobDirectory(path_);
+}
+
+// static
+base::FilePath DatabaseConnection::GetLegacyBlobDirectory(
+    const base::FilePath& db_path) {
+  CHECK(!db_path.empty());
   // For the sake of avoiding path length limits, the directory is given a short
   // name instead of a descriptive name.
-  return path_.InsertBeforeExtensionASCII("_");
+  return db_path.InsertBeforeExtensionASCII("_");
 }
 
 base::FilePath DatabaseConnection::GetBlobFilePath(int64_t blob_id) const {

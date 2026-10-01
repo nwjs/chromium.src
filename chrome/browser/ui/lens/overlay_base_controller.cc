@@ -107,12 +107,20 @@ OverlayBaseController::GetLensOverlayBlurLayerDelegateForTesting() {
   return overlay_blur_layer_delegate_.get();
 }
 
+views::WebView* OverlayBaseController::GetOverlayWebView() const {
+  if (IsOverlayViewShared()) {
+    return overlay_web_view_.get();
+  }
+  return overlay_web_view_ ? overlay_web_view_.get()
+                           : owned_overlay_web_view_.get();
+}
+
 views::View* OverlayBaseController::GetOverlayViewForTesting() {
   return overlay_view_.get();
 }
 
 views::WebView* OverlayBaseController::GetOverlayWebViewForTesting() {
-  return overlay_web_view_.get();
+  return GetOverlayWebView();
 }
 
 void OverlayBaseController::OnViewBoundsChanged(views::View* observed_view) {
@@ -569,7 +577,7 @@ void OverlayBaseController::ShowModalUI() {
     return;
   }
   auto* const side_panel_ui =
-      tab_->GetBrowserWindowInterface()->GetFeatures().side_panel_ui();
+      SidePanelUI::From(tab_->GetBrowserWindowInterface());
   CHECK(side_panel_ui);
 
   // Setup observer to be notified of side panel opens and closes.
@@ -856,13 +864,7 @@ void OverlayBaseController::HideOverlayAndSetHiddenState() {
 }
 
 void OverlayBaseController::SetOverlayRoundedCorner() {
-  views::WebView* overlay_web_view = nullptr;
-  if (IsOverlayViewShared()) {
-    overlay_web_view = overlay_web_view_.get();
-  } else {
-    overlay_web_view = !!overlay_web_view_ ? overlay_web_view_.get()
-                                           : owned_overlay_web_view_.get();
-  }
+  views::WebView* overlay_web_view = GetOverlayWebView();
   CHECK(overlay_web_view);
 
   // Only tab-scoped overlays (where `!IsOverlayViewShared()`) live inside a
@@ -888,11 +890,10 @@ void OverlayBaseController::SetOverlayRoundedCorner() {
       pref_service_->GetBoolean(prefs::kSidePanelHorizontalAlignment);
   const base::DictValue& overrides =
       pref_service_->GetDict(prefs::kSidePanelAlignmentOverrides);
-  auto* side_panel_ui = tab_ && tab_->GetBrowserWindowInterface()
-                            ? tab_->GetBrowserWindowInterface()
-                                  ->GetFeatures()
-                                  .side_panel_ui()
-                            : nullptr;
+  auto* side_panel_ui =
+      tab_ && tab_->GetBrowserWindowInterface()
+          ? SidePanelUI::From(tab_->GetBrowserWindowInterface())
+          : nullptr;
   if (side_panel_ui) {
     if (auto current_entry_id = side_panel_ui->GetCurrentEntryId()) {
       if (auto override_val = overrides.FindBool(

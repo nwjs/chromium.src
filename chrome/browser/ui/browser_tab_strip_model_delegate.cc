@@ -21,17 +21,18 @@
 #include "chrome/browser/reading_list/reading_list_model_factory.h"
 #include "chrome/browser/sessions/tab_restore_service_factory.h"
 #include "chrome/browser/tab_group_sync/tab_group_sync_service_factory.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_live_tab_context.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_web_contents_delegate/browser_web_contents_delegate.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/ui/tab_helpers.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/saved_tab_group_utils.h"
 #include "chrome/browser/ui/tabs/split_tab_metrics.h"
+#include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/browser/ui/tabs/tab_group_deletion_dialog_controller.h"
 #include "chrome/browser/ui/tabs/tab_group_model.h"
 #include "chrome/browser/ui/tabs/tab_menu_model_delegate.h"
@@ -63,6 +64,11 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_delegate.h"
 #include "ui/base/mojom/window_show_state.mojom.h"
+
+#if BUILDFLAG(IS_CHROMEOS)
+#include "chrome/browser/ui/chromeos/locked_state/locked_state_controller.h"
+#include "chrome/common/chrome_features.h"
+#endif
 
 namespace {
 
@@ -435,7 +441,13 @@ void BrowserTabStripModelDelegate::CloseTab(
 #if BUILDFLAG(IS_CHROMEOS)
   // Tabs cannot be closed when the app is in locked fullscreen, which is
   // available only on ChromeOS.
-  if (platform_util::IsBrowserLockedFullscreen(browser_)) {
+  if (features::IsUseUnifiedLockedStateControllerEnabled()) {
+    if (!chromeos::LockedStateController::From(browser_)
+             ->GetCapabilities()
+             .allow_tab_modification) {
+      return;
+    }
+  } else if (platform_util::IsBrowserLockedFullscreen(browser_)) {
     return;
   }
 #endif

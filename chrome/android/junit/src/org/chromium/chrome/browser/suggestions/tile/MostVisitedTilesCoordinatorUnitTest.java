@@ -6,6 +6,8 @@ package org.chromium.chrome.browser.suggestions.tile;
 
 import static org.junit.Assert.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.never;
@@ -16,6 +18,8 @@ import android.app.Activity;
 import android.content.res.Resources;
 import android.view.View;
 import android.view.ViewGroup.MarginLayoutParams;
+
+import androidx.annotation.DimenRes;
 
 import org.junit.Before;
 import org.junit.Rule;
@@ -32,6 +36,10 @@ import org.chromium.chrome.R;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.lifecycle.ActivityLifecycleDispatcher;
 import org.chromium.chrome.browser.ntp.NewTabPageUtils.PaddingStyle;
+import org.chromium.components.browser_ui.widget.displaystyle.HorizontalDisplayStyle;
+import org.chromium.components.browser_ui.widget.displaystyle.UiConfig;
+import org.chromium.components.browser_ui.widget.displaystyle.UiConfig.DisplayStyle;
+import org.chromium.components.browser_ui.widget.displaystyle.VerticalDisplayStyle;
 
 /** Unit tests for {@link MostVisitedTilesCoordinator}. */
 @RunWith(BaseRobolectricTestRunner.class)
@@ -47,6 +55,7 @@ public class MostVisitedTilesCoordinatorUnitTest {
     @Mock private View mMvTilesContainerLayout;
     @Mock private MostVisitedTilesLayout mMvTilesLayout;
     @Mock private MostVisitedTilesMediator mMediator;
+    @Mock private UiConfig mUiConfig;
 
     private Activity mActivity;
     private MostVisitedTilesCoordinator mCoordinator;
@@ -58,11 +67,16 @@ public class MostVisitedTilesCoordinatorUnitTest {
 
         when(mMvTilesContainerLayout.findViewById(R.id.mv_tiles_layout)).thenReturn(mMvTilesLayout);
         when(mMvTilesLayout.getContext()).thenReturn(mActivity);
+        when(mUiConfig.getCurrentDisplayStyle())
+                .thenReturn(
+                        new DisplayStyle(
+                                HorizontalDisplayStyle.REGULAR, VerticalDisplayStyle.REGULAR));
         mCoordinator =
                 new MostVisitedTilesCoordinator(
                         mActivity,
                         mActivityLifecycleDispatcher,
                         mMvTilesContainerLayout,
+                        mUiConfig,
                         null,
                         null);
         mCoordinator.setMediatorForTesting(mMediator);
@@ -76,15 +90,16 @@ public class MostVisitedTilesCoordinatorUnitTest {
 
     @Test
     public void testUpdateMvtWidth_WithWidth() {
-        int totalWidth = 1000;
+        int widthMvt = 1000;
+        int lateralMargin = 48;
         when(mMvTilesContainerLayout.getVisibility()).thenReturn(View.VISIBLE);
-        mCoordinator.updateMvtWidth(totalWidth);
-        verify(mMediator).updateMvtWidth(eq(totalWidth));
+        mCoordinator.updateMvtWidth(widthMvt, lateralMargin);
+        verify(mMediator).updateMvtWidth(eq(widthMvt), eq(lateralMargin));
 
         clearInvocations(mMediator);
         when(mMvTilesContainerLayout.getVisibility()).thenReturn(View.GONE);
-        mCoordinator.updateMvtWidth(totalWidth);
-        verify(mMediator, never()).updateMvtWidth(any(Integer.class));
+        mCoordinator.updateMvtWidth(widthMvt, lateralMargin);
+        verify(mMediator, never()).updateMvtWidth(anyInt(), anyInt());
     }
 
     @Test
@@ -125,6 +140,38 @@ public class MostVisitedTilesCoordinatorUnitTest {
                 R.dimen.mvt_container_top_margin_large);
     }
 
+    /**
+     * Verifies that the Aurora top margin is re-applied, rather than the logo-based one, when the
+     * margins are updated, e.g. after the default search engine changes.
+     */
+    @Test
+    public void testUpdateTilesLayoutMargins_withAuroraPaddingStyleSmall() {
+        testUpdateTilesLayoutMarginsWithAuroraImpl(
+                PaddingStyle.SMALL, R.dimen.mvt_container_top_margin_medium);
+    }
+
+    @Test
+    public void testUpdateTilesLayoutMargins_withAuroraPaddingStyleLarge() {
+        testUpdateTilesLayoutMarginsWithAuroraImpl(
+                PaddingStyle.LARGE, R.dimen.mvt_container_top_margin_large);
+    }
+
+    private void testUpdateTilesLayoutMarginsWithAuroraImpl(
+            @PaddingStyle int paddingStyle, @DimenRes int expectedTopMarginDimen) {
+        FeatureOverrides.overrideParam(
+                ChromeFeatureList.NTP_AURORA, PADDING_STYLE_PARAM, paddingStyle);
+        MarginLayoutParams marginLayoutParams = new MarginLayoutParams(100, 100);
+        when(mMvTilesContainerLayout.getLayoutParams()).thenReturn(marginLayoutParams);
+
+        mCoordinator.updateTilesLayoutMargins(/* shouldShowLogo= */ false, /* isLff= */ false);
+
+        verify(mMediator, never()).updateTilesLayoutMargins(anyBoolean(), anyBoolean());
+        verify(mMvTilesContainerLayout).setLayoutParams(marginLayoutParams);
+        assertEquals(
+                mActivity.getResources().getDimensionPixelSize(expectedTopMarginDimen),
+                marginLayoutParams.topMargin);
+    }
+
     private void verifyMvtPaddingsAndTopMargin(
             @PaddingStyle int paddingStyle, boolean expectPaddingSet, int expectedTopMarginDimen) {
         Resources res = mActivity.getResources();
@@ -139,7 +186,12 @@ public class MostVisitedTilesCoordinatorUnitTest {
         }
 
         new MostVisitedTilesCoordinator(
-                mActivity, mActivityLifecycleDispatcher, mMvTilesContainerLayout, null, null);
+                mActivity,
+                mActivityLifecycleDispatcher,
+                mMvTilesContainerLayout,
+                mUiConfig,
+                null,
+                null);
 
         if (expectPaddingSet) {
             int expectedTopPadding =

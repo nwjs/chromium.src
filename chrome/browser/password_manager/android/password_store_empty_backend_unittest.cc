@@ -4,21 +4,27 @@
 
 #include "chrome/browser/password_manager/android/password_store_empty_backend.h"
 
-#include <variant>
 #include <vector>
 
 #include "base/functional/callback_helpers.h"
+#include "base/test/gmock_expected_support.h"
 #include "base/test/mock_callback.h"
 #include "base/test/task_environment.h"
 #include "base/test/test_future.h"
+#include "base/types/expected.h"
 #include "chrome/browser/password_manager/android/password_store_android_account_backend.h"
 #include "chrome/browser/password_manager/android/password_store_android_backend.h"
 #include "components/password_manager/core/browser/password_store/password_store_consumer.h"
+#include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace password_manager {
 
 namespace {
+
+using base::test::ValueIs;
+using testing::IsEmpty;
+using testing::Optional;
 
 constexpr char kTestUrl[] = "https://example.com";
 
@@ -61,41 +67,53 @@ TEST_F(PasswordStoreEmptyBackendTest, NotAbleToSavePasswords) {
 
 TEST_F(PasswordStoreEmptyBackendTest, GetAllLoginsAsyncReturnsEmpty) {
   PasswordStoreBackend* backend = CreateAndInitBackend();
-  base::test::TestFuture<LoginsResultOrError> future;
+  base::test::TestFuture<
+      base::expected<std::vector<StoredCredential>, PasswordStoreBackendError>>
+      future;
   backend->GetAllLoginsAsync(future.GetCallback());
-  const LoginsResultOrError& result = future.Get();
-  EXPECT_TRUE(std::get<LoginsResult>(result).empty());
+  const base::expected<std::vector<StoredCredential>,
+                       PasswordStoreBackendError>& result = future.Get();
+  EXPECT_TRUE(result->empty());
 }
 
 TEST_F(PasswordStoreEmptyBackendTest,
        GetAllLoginsWithAffiliationAndBrandingAsyncReturnsEmpty) {
   PasswordStoreBackend* backend = CreateAndInitBackend();
-  base::test::TestFuture<LoginsResultOrError> future;
+  base::test::TestFuture<
+      base::expected<std::vector<StoredCredential>, PasswordStoreBackendError>>
+      future;
   backend->GetAllLoginsWithAffiliationAndBrandingAsync(future.GetCallback());
-  const LoginsResultOrError& result = future.Get();
-  EXPECT_TRUE(std::get<LoginsResult>(result).empty());
+  const base::expected<std::vector<StoredCredential>,
+                       PasswordStoreBackendError>& result = future.Get();
+  EXPECT_TRUE(result->empty());
 }
 
 TEST_F(PasswordStoreEmptyBackendTest, FillMatchingLoginsAsyncReturnsEmpty) {
   PasswordStoreBackend* backend = CreateAndInitBackend();
-  base::test::TestFuture<LoginsResultOrError> future;
+  base::test::TestFuture<
+      base::expected<std::vector<StoredCredential>, PasswordStoreBackendError>>
+      future;
   std::vector<PasswordFormDigest> forms = {PasswordFormDigest(
       PasswordForm::Scheme::kHtml, kTestUrl, GURL(kTestUrl))};
   backend->FillMatchingLoginsAsync(future.GetCallback(),
                                    /*include_psl=*/false, forms);
-  const LoginsResultOrError& result = future.Get();
-  EXPECT_TRUE(std::get<LoginsResult>(result).empty());
+  const base::expected<std::vector<StoredCredential>,
+                       PasswordStoreBackendError>& result = future.Get();
+  EXPECT_TRUE(result->empty());
 }
 
 TEST_F(PasswordStoreEmptyBackendTest,
        GetGroupedMatchingLoginsAsyncReturnsEmpty) {
   PasswordStoreBackend* backend = CreateAndInitBackend();
-  base::test::TestFuture<LoginsResultOrError> future;
+  base::test::TestFuture<
+      base::expected<std::vector<StoredCredential>, PasswordStoreBackendError>>
+      future;
   PasswordFormDigest form_digest(PasswordForm::Scheme::kHtml, kTestUrl,
                                  GURL(kTestUrl));
   backend->GetGroupedMatchingLoginsAsync(form_digest, future.GetCallback());
-  const LoginsResultOrError& result = future.Get();
-  EXPECT_TRUE(std::get<LoginsResult>(result).empty());
+  const base::expected<std::vector<StoredCredential>,
+                       PasswordStoreBackendError>& result = future.Get();
+  EXPECT_TRUE(result->empty());
 }
 
 TEST_F(PasswordStoreEmptyBackendTest,
@@ -104,12 +122,15 @@ TEST_F(PasswordStoreEmptyBackendTest,
 
   base::Time delete_begin = base::Time::FromTimeT(1000);
   base::Time delete_end = base::Time::FromTimeT(2000);
-  base::test::TestFuture<PasswordChangesOrError> future;
+  base::test::TestFuture<base::expected<std::optional<PasswordStoreChangeList>,
+                                        PasswordStoreBackendError>>
+      future;
   backend->RemoveLoginsCreatedBetweenAsync(FROM_HERE, delete_begin, delete_end,
                                            future.GetCallback());
 
-  const PasswordChangesOrError& result = future.Get();
-  EXPECT_TRUE(std::get<PasswordChanges>(result).value().empty());
+  const base::expected<std::optional<PasswordStoreChangeList>,
+                       PasswordStoreBackendError>& result = future.Get();
+  EXPECT_THAT(result, ValueIs(Optional(IsEmpty())));
 }
 
 TEST_F(PasswordStoreEmptyBackendTest,

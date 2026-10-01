@@ -11,7 +11,6 @@
 // The SBUpdateProtocolManager handles formatting and making requests of, and
 // handling responses from, Google's SafeBrowsing servers. The purpose of this
 // class is to get hash prefixes from the SB server for the given set of lists.
-// TODO(crbug.com/362791941): Update/extract v4-specific parts of this file.
 
 #include <memory>
 #include <optional>
@@ -21,8 +20,8 @@
 #include "base/sequence_checker.h"
 #include "base/time/time.h"
 #include "base/timer/timer.h"
+#include "components/safe_browsing/core/browser/db/sb_protocol_config.h"
 #include "components/safe_browsing/core/browser/db/sb_protocol_manager_util.h"
-#include "components/safe_browsing/core/browser/db/v4_protocol_config.h"
 #include "components/safe_browsing/core/common/proto/webui.pb.h"
 
 namespace network {
@@ -58,11 +57,11 @@ class SBUpdateProtocolManager {
   virtual ~SBUpdateProtocolManager();
 
   // Constructs a SBUpdateProtocolManager that issues network requests using
-  // |url_loader_factory|. It schedules updates to get the hash prefixes for
+  // `url_loader_factory`. It schedules updates to get the hash prefixes for
   // SafeBrowsing lists.
   SBUpdateProtocolManager(
       scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
-      const V4ProtocolConfig& config);
+      const SBProtocolConfig& config);
 
   // Schedule the next update without backoff.
   virtual void ScheduleNextUpdate(
@@ -121,11 +120,11 @@ class SBUpdateProtocolManager {
   base::TimeDelta next_update_interval_;
 
   // The time when the next update is scheduled to be requested. This is valid
-  // only when |update_timer_| is running.
+  // only when `update_timer_` is running.
   std::optional<base::Time> next_update_time_ = std::nullopt;
 
   // The config of the client making Pver4 requests.
-  const V4ProtocolConfig config_;
+  const SBProtocolConfig config_;
 
   // The URLLoaderFactory we use to issue network requests.
   scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory_;
@@ -144,12 +143,10 @@ class SBUpdateProtocolManager {
  private:
   // The number of HTTP response errors since the the last successful HTTP
   // response, used for request backoff timing.
-  // TODO(crbug.com/362791941): Initialize (feedback from crrev.com/c/7791276).
-  size_t update_error_count_;
+  size_t update_error_count_ = 0;
 
   // Multiplier for the backoff error after the second.
-  // TODO(crbug.com/362791941): Initialize (feedback from crrev.com/c/7791276).
-  size_t update_back_off_mult_;
+  size_t update_back_off_mult_ = 1;
 };
 
 }  // namespace safe_browsing

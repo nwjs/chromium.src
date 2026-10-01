@@ -12,6 +12,7 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "testing/platform_test.h"
 #include "url/gurl.h"
+#include "url/origin.h"
 
 namespace {
 
@@ -61,7 +62,7 @@ TEST_F(ReferrerUtilTest, AlwaysPolicy) {
 }
 
 // Tests that the Default policy works as expected, and matches
-// NoReferrerWhenDowngrade.
+// StrictOriginWhenCrossOrigin.
 TEST_F(ReferrerUtilTest, DefaultPolicy) {
   for (std::string_view source : kTestUrls) {
     for (std::string_view dest : base::span(kTestUrls).subspan(1u)) {
@@ -70,16 +71,19 @@ TEST_F(ReferrerUtilTest, DefaultPolicy) {
       Referrer referrer(source_url, ReferrerPolicyDefault);
       std::string value = ReferrerHeaderValueForNavigation(dest_url, referrer);
 
-      // All but secure->insecure should have a full referrer.
+      // Default policy now behaves as StrictOriginWhenCrossOrigin.
       if (source_url.SchemeIsCryptographic() &&
           !dest_url.SchemeIsCryptographic()) {
         EXPECT_EQ("", value);
-      } else {
+      } else if (url::Origin::Create(source_url) ==
+                 url::Origin::Create(dest_url)) {
         EXPECT_EQ(source_url.GetAsReferrer().spec(), value);
+      } else {
+        EXPECT_EQ(url::Origin::Create(source_url).GetURL().spec(), value);
       }
 
-      // Default should match NoReferrerWhenDowngrade in all cases.
-      referrer.policy = ReferrerPolicyNoReferrerWhenDowngrade;
+      // Default should match StrictOriginWhenCrossOrigin in all cases.
+      referrer.policy = ReferrerPolicyStrictOriginWhenCrossOrigin;
       EXPECT_EQ(value, ReferrerHeaderValueForNavigation(dest_url, referrer));
     }
   }
@@ -110,7 +114,7 @@ TEST_F(ReferrerUtilTest, OriginPolicy) {
       std::string value = ReferrerHeaderValueForNavigation(dest_url, referrer);
 
       // Origin should be sent in all cases, even secure->insecure.
-      EXPECT_EQ(source_url.DeprecatedGetOriginAsURL().spec(), value);
+      EXPECT_EQ(url::Origin::Create(source_url).GetURL().spec(), value);
     }
   }
 }
@@ -126,11 +130,11 @@ TEST_F(ReferrerUtilTest, OriginWhenCrossOriginPolicy) {
 
       // Full URL for the same origin, and origin for all other cases (even
       // secure->insecure).
-      if (source_url.DeprecatedGetOriginAsURL() ==
-          dest_url.DeprecatedGetOriginAsURL()) {
+      url::Origin source_origin = url::Origin::Create(source_url);
+      if (source_origin.IsSameOriginWith(dest_url)) {
         EXPECT_EQ(source_url.GetAsReferrer().spec(), value);
       } else {
-        EXPECT_EQ(source_url.DeprecatedGetOriginAsURL().spec(), value);
+        EXPECT_EQ(source_origin.GetURL().spec(), value);
       }
     }
   }
@@ -146,8 +150,7 @@ TEST_F(ReferrerUtilTest, SameOriginPolicy) {
       std::string value = ReferrerHeaderValueForNavigation(dest_url, referrer);
 
       // Full URL for the same origin, and nothing for all other cases.
-      if (source_url.DeprecatedGetOriginAsURL() ==
-          dest_url.DeprecatedGetOriginAsURL()) {
+      if (url::Origin::Create(source_url).IsSameOriginWith(dest_url)) {
         EXPECT_EQ(source_url.GetAsReferrer().spec(), value);
       } else {
         EXPECT_EQ(std::string(), value);
@@ -170,7 +173,7 @@ TEST_F(ReferrerUtilTest, StrictOriginPolicy) {
           !dest_url.SchemeIsCryptographic()) {
         EXPECT_EQ("", value);
       } else {
-        EXPECT_EQ(source_url.DeprecatedGetOriginAsURL().spec(), value);
+        EXPECT_EQ(url::Origin::Create(source_url).GetURL().spec(), value);
       }
     }
   }
@@ -187,14 +190,14 @@ TEST_F(ReferrerUtilTest, StrictOriginWhenCrossOriginPolicy) {
 
       // No referrer when downgrading, origin when cross-origin but not
       // downgrading, and full referrer otherwise.
+      url::Origin source_origin = url::Origin::Create(source_url);
       if (source_url.SchemeIsCryptographic() &&
           !dest_url.SchemeIsCryptographic()) {
         EXPECT_EQ("", value);
-      } else if (source_url.DeprecatedGetOriginAsURL() ==
-                 dest_url.DeprecatedGetOriginAsURL()) {
+      } else if (source_origin.IsSameOriginWith(dest_url)) {
         EXPECT_EQ(source_url.GetAsReferrer().spec(), value);
       } else {
-        EXPECT_EQ(source_url.DeprecatedGetOriginAsURL().spec(), value);
+        EXPECT_EQ(source_origin.GetURL().spec(), value);
       }
     }
   }
@@ -215,13 +218,12 @@ TEST_F(ReferrerUtilTest, PolicyForNavigation) {
     // incorrect mappings.
     switch (net_request_policy) {
       case net::ReferrerPolicy::CLEAR_ON_TRANSITION_FROM_SECURE_TO_INSECURE:
-        // This corresponds directly to ReferrerPolicyNoReferrerWhenDowngrade,
-        // which is also how Default works on iOS.
-        EXPECT_TRUE(policy == ReferrerPolicyDefault ||
-                    policy == ReferrerPolicyNoReferrerWhenDowngrade);
+        // This corresponds directly to ReferrerPolicyNoReferrerWhenDowngrade.
+        EXPECT_EQ(ReferrerPolicyNoReferrerWhenDowngrade, policy);
         break;
       case net::ReferrerPolicy::REDUCE_GRANULARITY_ON_TRANSITION_CROSS_ORIGIN:
-        EXPECT_EQ(ReferrerPolicyStrictOriginWhenCrossOrigin, policy);
+        EXPECT_TRUE(policy == ReferrerPolicyDefault ||
+                    policy == ReferrerPolicyStrictOriginWhenCrossOrigin);
         break;
       case net::ReferrerPolicy::ORIGIN_ONLY_ON_TRANSITION_CROSS_ORIGIN:
         EXPECT_EQ(ReferrerPolicyOriginWhenCrossOrigin, policy);

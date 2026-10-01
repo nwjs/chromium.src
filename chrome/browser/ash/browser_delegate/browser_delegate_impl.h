@@ -6,7 +6,7 @@
 #define CHROME_BROWSER_ASH_BROWSER_DELEGATE_BROWSER_DELEGATE_IMPL_H_
 
 #include "base/memory/raw_ref.h"
-#include "chrome/browser/ash/browser_delegate/browser_delegate.h"
+#include "chromeos/ash/components/browser_delegate/browser_delegate.h"
 
 class BrowserWindowInterface;
 
@@ -29,6 +29,9 @@ class BrowserDelegateImpl : public BrowserDelegate {
   content::WebContents* GetActiveWebContents() const override;
   size_t GetWebContentsCount() const override;
   content::WebContents* GetWebContentsAt(size_t index) const override;
+  std::optional<size_t> GetIndexOfWebContents(
+      const content::WebContents* contents) const override;
+  content::WebContents* GetOpenerOfTabAt(size_t index) const override;
   tabs::TabIteratorRange GetTabIterator() const override;
   content::WebContents* GetInspectedWebContents() const override;
   ui::BaseWindow* GetWindow() const override;
@@ -49,11 +52,13 @@ class BrowserDelegateImpl : public BrowserDelegate {
   void Activate() override;
   void Minimize() override;
   void Close() override;
+  void CloseAllTabs() override;
   void SetSkipWarningUserOnClose(bool skip) override;
   void AddTab(const GURL& url,
               std::optional<size_t> index,
               TabDisposition disposition) override;
   void CloseWebContentsAt(size_t index, UserGesture user_gesture) override;
+  void ForceCloseWebContentsAt(size_t index) override;
   content::WebContents* NavigateWebApp(
       const GURL& url,
       TabPinning pin_tab,

@@ -2661,7 +2661,7 @@ bool SelectorChecker::CheckPseudoClass(const SelectorCheckingContext& context,
       if (force_pseudo_state) {
         return true;
       }
-      return element.IsHovered();
+      return element.IsHovered() && !element.GetDocument().Printing();
     case CSSSelector::kPseudoActive:
       if (mode_ == kResolvingStyle) {
         if (context.is_inside_has_pseudo_class) [[unlikely]] {
@@ -2681,7 +2681,7 @@ bool SelectorChecker::CheckPseudoClass(const SelectorCheckingContext& context,
       if (force_pseudo_state) {
         return true;
       }
-      return element.IsActive();
+      return element.IsActive() && !element.GetDocument().Printing();
     case CSSSelector::kPseudoEnabled: {
       probe::ForcePseudoState(&element, CSSSelector::kPseudoEnabled,
                               &force_pseudo_state);
@@ -2881,6 +2881,16 @@ bool SelectorChecker::CheckPseudoClass(const SelectorCheckingContext& context,
       }
       // html anchor scroll marker case.
       if (auto* anchor_element = DynamicTo<HTMLAnchorElement>(element)) {
+        if (mode_ == kQueryingRules) {
+          // Recomputing the slot assignment can update scroll targets. If we do
+          // not recalc slot assignments before we get the active scroll marker,
+          // the LayoutTreeBuilderTraversal below may change the active scroll
+          // marker while traversing.
+          Document& document = element.GetDocument();
+          if (document.IsSlotAssignmentDirty()) {
+            document.GetSlotAssignmentEngine().RecalcSlotAssignments();
+          }
+        }
         if (ScrollMarkerGroupData* data =
                 anchor_element->GetScrollTargetGroupContainerData()) {
           scroll_marker = anchor_element;
@@ -3274,6 +3284,26 @@ bool SelectorChecker::CheckPseudoAutofill(CSSSelector::PseudoType pseudo_type,
   }
 }
 
+static bool MatchesHighlightName(const AtomicString& selector_highlight_name,
+                                 const String& request_highlight_name) {
+  if (selector_highlight_name == CSSSelector::UniversalSelectorAtom()) {
+    return true;
+  }
+  return selector_highlight_name.Impl() == request_highlight_name;
+}
+bool SelectorChecker::MatchAllHighlightRules(
+    const SelectorCheckingContext& context) const {
+  if (mode_ == SelectorChecker::Mode::kResolvingStyle) {
+    // Match all ::highlight() rules if we are matching rules for the
+    // originating element, tracking the existence of any ::highlight() styles
+    // via dynamic_pseudo.
+    return context.pseudo_id != kPseudoIdHighlight;
+  }
+  // We are collecting rules for other purposes, either for a specific
+  // ::highlight() name, or for ::highlight() rules in general.
+  return !pseudo_argument_;
+}
+
 bool SelectorChecker::CheckPseudoElement(const SelectorCheckingContext& context,
                                          MatchResult& result) const {
   const CSSSelector& selector = *context.selector;
@@ -3368,15 +3398,16 @@ bool SelectorChecker::CheckPseudoElement(const SelectorCheckingContext& context,
     }
     case CSSSelector::kPseudoHighlight: {
       result.dynamic_pseudo = PseudoId::kPseudoIdHighlight;
-      // A null pseudo_argument_ means we are matching rules on the originating
-      // element. We keep track of which pseudo-elements may match for the
-      // element through result.dynamic_pseudo. For ::highlight() pseudo-
-      // elements we have a single flag for tracking whether an element may
-      // match _any_ ::highlight() element (kPseudoIdHighlight).
-      if (!pseudo_argument_ || pseudo_argument_ == selector.Argument()) {
+      // We keep track of which pseudo-elements may match for the element
+      // through result.dynamic_pseudo. For ::highlight() pseudo-elements we
+      // have a single flag for tracking whether an element may match _any_
+      // ::highlight() element (kPseudoIdHighlight).
+      if (MatchAllHighlightRules(context) ||
+          MatchesHighlightName(selector.Argument(), pseudo_argument_)) {
         result.custom_highlight_name = selector.Argument().Impl();
         return true;
       }
+
       return false;
     }
     case CSSSelector::kPseudoViewTransition:
@@ -3824,16 +3855,14 @@ bool SelectorChecker::MatchesFocusVisiblePseudoClass(const Element& element) {
 
   const Settings* settings = document.GetSettings();
   const FocusOptions* focus_options = element.GetDocument().GetFocusOptions();
-  const bool force_focus_invisible =
-      !settings->GetAccessibilityAlwaysShowFocus() && focus_options &&
-      focus_options->hasFocusVisible() && !focus_options->focusVisible();
-  if (force_focus_invisible) {
-    return false;
+  bool always_show_focus = settings->GetAccessibilityAlwaysShowFocus();
+  if (focus_options && focus_options->hasFocusVisible()) {
+    if (!always_show_focus && !focus_options->focusVisible()) {
+      return false;
+    }
+    return true;
   }
 
-  bool always_show_focus = settings->GetAccessibilityAlwaysShowFocus() ||
-                           (focus_options && focus_options->hasFocusVisible() &&
-                            focus_options->focusVisible());
   bool is_text_input = element.MayTriggerVirtualKeyboard();
   bool last_focus_from_mouse =
       document.GetFrame() &&

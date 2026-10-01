@@ -5024,6 +5024,55 @@ TEST_P(PaintPropertyTreeBuilderTest, TransformOriginWithAndWithoutMotionPath) {
   EXPECT_EQ(gfx::Point3F(), will_change_properties->Transform()->Origin());
 }
 
+TEST_P(PaintPropertyTreeBuilderTest, MotionPathCoordBoxFollowsCornerShape) {
+  SetBodyInnerHTML(R"HTML(
+    <style>
+      body { margin: 0 }
+      .container {
+        position: absolute;
+        width: 100px;
+        height: 100px;
+        border-radius: 50px;
+      }
+      #bevel { corner-shape: bevel; }
+      #square { corner-shape: square; }
+      .child {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 10px;
+        height: 10px;
+        offset-path: border-box;
+        offset-distance: 12.5%;
+        offset-rotate: 0deg;
+      }
+    </style>
+    <div id='bevel' class='container'>
+      <div id='bevel-child' class='child'></div>
+    </div>
+    <div id='square' class='container'>
+      <div id='square-child' class='child'></div>
+    </div>
+  )HTML");
+
+  // The 50px border-radius combined with corner-shape: bevel turns the
+  // 100x100 border box into a diamond with vertices at the edge midpoints.
+  // The offset path starts at (50, 0), and 12.5% along the perimeter leads to
+  // (75, 25). Accounting for the child's transform-origin yields (70, 20).
+  const auto bevel_translation =
+      PaintPropertiesForElement("bevel-child")->Offset()->Get2dTranslation();
+  EXPECT_NEAR(70.f, bevel_translation.x(), 0.1f);
+  EXPECT_NEAR(20.f, bevel_translation.y(), 0.1f);
+
+  // corner-shape: square produces a plain 100x100 rect. The path starts at
+  // (0, 0), and 12.5% along the perimeter leads to (50, 0). Accounting for
+  // the child's transform-origin yields (45, -5).
+  const auto square_translation =
+      PaintPropertiesForElement("square-child")->Offset()->Get2dTranslation();
+  EXPECT_NEAR(45.f, square_translation.x(), 0.1f);
+  EXPECT_NEAR(-5.f, square_translation.y(), 0.1f);
+}
+
 TEST_P(PaintPropertyTreeBuilderTest, ChangePositionUpdateDescendantProperties) {
   SetBodyInnerHTML(R"HTML(
     <style>
@@ -8213,6 +8262,58 @@ TEST_P(PaintPropertyTreeBuilderTest, ElementCanvasTransformPropertyTree) {
                  .Transform(),
             canvas_transform->Parent());
   EXPECT_EQ(canvas_transform, properties->Translate()->Parent());
+}
+
+TEST_P(PaintPropertyTreeBuilderTest, LineClampFloatClipping) {
+  ScopedCSSLineClampForTest feature_(true);
+
+  SetBodyInnerHTML(R"HTML(
+    <style>
+      body {
+        margin: 0;
+      }
+      #clamp {
+        line-height: 12px;
+        line-clamp: 3;
+        padding: 5px;
+      }
+      #float {
+        float: left;
+        height: 500px;
+        width: 50px;
+      }
+    </style>
+    <div id="clamp">
+      <div id="float"></div>
+      Line 1 <br>
+      Line 2 <br>
+      Line 3 <br>
+      Line 4
+    </div>
+  )HTML");
+
+  const auto& float_frag =
+      To<LayoutBoxModelObject>(GetLayoutObjectByElementId("float"))
+          ->FirstFragment();
+
+  const auto* float_clip = float_frag.PaintProperties()->LineClampFloatClip();
+  EXPECT_TRUE(float_clip);
+
+  EXPECT_EQ(float_clip, &float_frag.LocalBorderBoxProperties().Clip());
+  EXPECT_FALSE(float_clip->ClipPath());
+
+  const auto& paint_clip_rect = float_clip->PaintClipRect();
+  EXPECT_FALSE(paint_clip_rect.IsRounded());
+  EXPECT_EQ(paint_clip_rect.Rect().x(), InfiniteIntRect().x());
+  EXPECT_EQ(paint_clip_rect.Rect().y(), InfiniteIntRect().y());
+  EXPECT_EQ(paint_clip_rect.Rect().width(), InfiniteIntRect().width());
+  EXPECT_EQ(paint_clip_rect.Rect().bottom(), 12 * 3 + 5);
+
+  const auto& layout_clip_rect = float_clip->LayoutClipRect();
+  EXPECT_FALSE(layout_clip_rect.HasRadius());
+  EXPECT_EQ(paint_clip_rect.Rect(), layout_clip_rect.Rect());
+
+  EXPECT_EQ(float_clip->PreciseLayoutClipRect(), layout_clip_rect);
 }
 
 }  // namespace blink

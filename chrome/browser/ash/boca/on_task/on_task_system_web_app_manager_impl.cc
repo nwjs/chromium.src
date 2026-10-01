@@ -6,14 +6,13 @@
 
 #include "ash/system/privacy_hub/camera_privacy_switch_controller.h"
 #include "ash/wm/window_pin_util.h"
+#include "base/check_op.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/location.h"
 #include "base/memory/weak_ptr.h"
 #include "chrome/browser/ash/boca/on_task/locked_session_window_tracker_factory.h"
 #include "chrome/browser/ash/boca/on_task/on_task_locked_session_window_tracker.h"
-#include "chrome/browser/ash/browser_delegate/browser_controller.h"
-#include "chrome/browser/ash/browser_delegate/browser_delegate.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/ash/system_web_apps/system_web_app_ui_utils.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
@@ -25,17 +24,34 @@
 #include "chromeos/ash/components/audio/cras_audio_handler.h"
 #include "chromeos/ash/components/boca/on_task/activity/active_tab_tracker.h"
 #include "chromeos/ash/components/boca/on_task/on_task_blocklist.h"
+#include "chromeos/ash/components/browser_delegate/browser_controller.h"
+#include "chromeos/ash/components/browser_delegate/browser_delegate.h"
 #include "chromeos/ui/base/window_properties.h"
 #include "components/services/app_service/public/cpp/launch_result.h"
 #include "components/sessions/content/session_tab_helper.h"
+#include "components/sessions/core/session_id.h"
 #include "content/public/browser/browser_thread.h"
+#include "content/public/common/url_constants.h"
 #include "ui/aura/window.h"
+#include "ui/base/page_transition_types.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/views/widget/widget.h"
 #include "ui/views/widget/widget_delegate.h"
 #include "url/gurl.h"
 
 namespace ash::boca {
 namespace {
+
+bool IsBocaHomePageTab(content::WebContents* tab) {
+  if (!tab) {
+    return false;
+  }
+  const GURL tab_url = tab->GetLastCommittedURL().is_empty()
+                           ? tab->GetVisibleURL()
+                           : tab->GetLastCommittedURL();
+  return tab_url.SchemeIs(content::kChromeUIUntrustedScheme) &&
+         tab_url.host() == ash::boca::kChromeBocaAppHost;
+}
 
 // Returns a pointer to the browser window with the specified id. Returns
 // nullptr if there is no match.
@@ -70,14 +86,13 @@ OnTaskSystemWebAppManagerImpl::OnTaskSystemWebAppManagerImpl(Profile* profile)
 OnTaskSystemWebAppManagerImpl::~OnTaskSystemWebAppManagerImpl() = default;
 
 void OnTaskSystemWebAppManagerImpl::LaunchSystemWebAppAsync(
-    base::OnceCallback<void(bool)> callback,
-    const GURL& url) {
+    base::OnceCallback<void(bool)> callback) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
 
   // Include Boca URL in the SWA launch params so the downstream helper triggers
   // the specified callback on launch.
   SystemAppLaunchParams launch_params;
-  launch_params.url = url;
+  launch_params.url = GURL(kChromeBocaAppUntrustedIndexURL);
   ash::LaunchSystemWebAppAsync(
       profile_, SystemWebAppType::BOCA, launch_params,
       /*window_info=*/nullptr,
@@ -106,8 +121,6 @@ void OnTaskSystemWebAppManagerImpl::CloseSystemWebAppWindow(
     window_tracker->InitializeBrowserInfoForTracking(nullptr);
   }
   if (browser) {
-    // Skips the tab unload process so that browser closes immediately.
-    browser->SetSkipWarningUserOnClose(true);
     browser->Close();
   }
 }
@@ -140,10 +153,9 @@ void OnTaskSystemWebAppManagerImpl::SetPinStateForSystemWebAppWindow(
   // If the window is not pinned, and we don't want it pinned, check if we need
   // to exit standard fullscreen mode (e.g. after a session restore).
   if (!currently_pinned && !pinned) {
-    auto* const fullscreen_controller = browser->GetBrowser()
-                                            .GetFeatures()
-                                            .exclusive_access_manager()
-                                            ->fullscreen_controller();
+    auto* const fullscreen_controller =
+        ExclusiveAccessManager::From(&browser->GetBrowser())
+            ->fullscreen_controller();
     if (fullscreen_controller->IsFullscreenForBrowser()) {
       fullscreen_controller->ToggleBrowserFullscreenMode(
           /*user_initiated=*/false);
@@ -176,7 +188,15 @@ void OnTaskSystemWebAppManagerImpl::SetPauseStateForSystemWebAppWindow(
 
   if (paused) {
     // Focus on the boca homepage in pause mode.
-    browser->ActivateWebContentsAt(0);
+    DCHECK_GT(browser->GetWebContentsCount(), 0u);
+    size_t activation_index = 0;
+    for (size_t idx = 0; idx < browser->GetWebContentsCount(); ++idx) {
+      if (IsBocaHomePageTab(browser->GetWebContentsAt(idx))) {
+        activation_index = idx;
+        break;
+      }
+    }
+    browser->ActivateWebContentsAt(activation_index);
 
     // Cache current camera and microphone states before pausing, only if not
     // already cached.
@@ -331,8 +351,7 @@ void OnTaskSystemWebAppManagerImpl::RemoveTabsWithTabIds(
     content::WebContents* const tab = browser->GetWebContentsAt(idx);
     const SessionID tab_id = sessions::SessionTabHelper::IdForTab(tab);
     if (tab_ids_to_remove.contains(tab_id)) {
-      browser->GetBrowser().GetTabStripModel()->DetachAndDeleteWebContentsAt(
-          idx);
+      browser->ForceCloseWebContentsAt(idx);
     }
   }
   window_tracker->set_can_start_navigation_throttle(true);
@@ -360,11 +379,14 @@ void OnTaskSystemWebAppManagerImpl::PrepareSystemWebAppWindowForOnTask(
   // de-dupe content and ensure that the tabs are set up for locked mode.
   if (close_bundle_content) {
     std::set<SessionID> tab_ids_to_remove;
-    for (size_t idx = browser->GetWebContentsCount(); idx-- > 1;) {
+    for (size_t idx = 0; idx < browser->GetWebContentsCount(); ++idx) {
       content::WebContents* const tab = browser->GetWebContentsAt(idx);
-      const SessionID tab_id = sessions::SessionTabHelper::IdForTab(tab);
-      tab_ids_to_remove.insert(tab_id);
+      if (!IsBocaHomePageTab(tab)) {
+        const SessionID tab_id = sessions::SessionTabHelper::IdForTab(tab);
+        tab_ids_to_remove.insert(tab_id);
+      }
     }
+    DCHECK_NE(tab_ids_to_remove.size(), browser->GetWebContentsCount());
     RemoveTabsWithTabIds(window_id, tab_ids_to_remove);
   }
 }

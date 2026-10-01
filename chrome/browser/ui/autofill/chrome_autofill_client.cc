@@ -29,6 +29,7 @@
 #include "chrome/browser/account_settings/account_setting_service_factory.h"
 #include "chrome/browser/actor/actor_keyed_service.h"
 #include "chrome/browser/actor/actor_task.h"
+#include "chrome/browser/affiliations/affiliation_service_factory.h"
 #include "chrome/browser/autofill/address_normalizer_factory.h"
 #include "chrome/browser/autofill/android/save_update_address_profile_prompt_mode.h"
 #include "chrome/browser/autofill/at_memory/at_memory_query_service_factory.h"
@@ -165,6 +166,7 @@
 #include "components/profile_metrics/browser_profile_type.h"
 #include "components/security_state/core/security_state.h"
 #include "components/sessions/content/session_tab_helper.h"
+#include "components/sessions/core/session_id.h"
 #include "components/signin/public/base/signin_metrics.h"
 #include "components/signin/public/identity_manager/account_info.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
@@ -264,7 +266,7 @@ std::string GetStringRepresentatioOfSavedEntitiesTypes(
 const base::Feature& GetFeature(AutofillClient::IphFeature iph_feature) {
   switch (iph_feature) {
     case AutofillClient::IphFeature::kAutofillAi:
-      return feature_engagement::kIPHAutofillAiOptInFeature;
+      return feature_engagement::kIPHAutofillAiValuablesFeature;
     case AutofillClient::IphFeature::kWalletDirectOffers:
       return feature_engagement::kIPHAutofillWalletDirectOffersFeature;
   }
@@ -274,13 +276,12 @@ const base::Feature& GetFeature(AutofillClient::IphFeature iph_feature) {
 ui::ElementIdentifier GetElementId(AutofillClient::IphFeature iph_feature) {
   switch (iph_feature) {
     case AutofillClient::IphFeature::kAutofillAi:
-      return PopupViewViews::kAutofillAiOptInIphElementId;
+      return PopupViewViews::kAutofillAiValuablesElementId;
     case AutofillClient::IphFeature::kWalletDirectOffers:
       return PopupViewViews::kAutofillWalletDirectOffersIphElementId;
   }
   NOTREACHED();
 }
-
 #endif  // !BUILDFLAG(IS_ANDROID)
 
 }  // namespace
@@ -515,6 +516,12 @@ ChromeAutofillClient::GetPersonalContextFirstRunService() {
 
 SingleFieldFillRouter& ChromeAutofillClient::GetSingleFieldFillRouter() {
   return single_field_fill_router_;
+}
+
+affiliations::AffiliationService*
+ChromeAutofillClient::GetAffiliationService() {
+  Profile* profile = GetProfile();
+  return AffiliationServiceFactory::GetForProfile(profile);
 }
 
 AutocompleteHistoryManager*
@@ -901,8 +908,10 @@ ChromeAutofillClient::ShowAutofillSuggestions(
 }
 
 void ChromeAutofillClient::UpdateAutofillDataListValues(
+    const LocalFrameToken& frame_token,
     base::span<const SelectOption> options) {
-  if (suggestion_controller_) {
+  if (suggestion_controller_ &&
+      suggestion_controller_->GetFrameToken() == frame_token) {
     suggestion_controller_->UpdateDataListValues(options);
   }
 }
@@ -1330,8 +1339,10 @@ ChromeAutofillClient::ChromeAutofillClient(content::WebContents* web_contents)
       critical_actions::CriticalActionFactory::GetForProfile(GetProfile()));
 
 #if !BUILDFLAG(IS_ANDROID)
-  otp_metrics_tracker_ =
-      std::make_unique<OtpMetricsTracker>(GetOneTimeTokenService());
+  if (OtpMetricsTracker::IsEligibleForGmailOtps(GetIdentityManager())) {
+    otp_metrics_tracker_ =
+        std::make_unique<OtpMetricsTracker>(GetOneTimeTokenService(), *this);
+  }
 #endif
 
   // Notify the EntityDataManager about the availability of device re-auth.
@@ -1546,13 +1557,18 @@ void ChromeAutofillClient::ShowEntityImportBubble(
 #if BUILDFLAG(IS_ANDROID)
   if (autofill_ai_save_update_entity_flow_manager_) {
     autofill_ai_save_update_entity_flow_manager_->OfferSave(
-        new_entity, std::move(old_entity), std::move(prompt_result_callback));
+        new_entity, std::move(old_entity), std::move(prompt_result_callback),
+        /*public_passes_notice=*/{});
   }
 #else
   if (auto* controller = AutofillAiImportDataController::GetOrCreate(
           web_contents(), GetAppLocale())) {
+    // TODO(crbug.com/553442816): Add the legal message lines.
+    // TODO(crbug.com/556588522): Rename legal_message_lines to
+    // public_passes_notice.
     controller->ShowPrompt(std::move(new_entity), std::move(old_entity),
                            /*close_on_accept=*/save_is_synchronous,
+                           /*legal_message_lines=*/{},
                            std::move(prompt_result_callback));
   } else {
     std::move(prompt_result_callback)
@@ -1680,8 +1696,7 @@ ToastController* ChromeAutofillClient::GetToastController() {
   }
   BrowserWindowInterface* window_interface =
       tab_interface->GetBrowserWindowInterface();
-  return window_interface ? window_interface->GetFeatures().toast_controller()
-                          : nullptr;
+  return window_interface ? ToastController::From(window_interface) : nullptr;
 #endif  // BUILDFLAG(IS_ANDROID)
 }
 

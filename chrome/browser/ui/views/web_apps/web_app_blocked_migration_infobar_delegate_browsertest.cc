@@ -9,6 +9,7 @@
 #include "base/time/default_clock.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/test/test_browser_ui.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/infobars/confirm_infobar.h"
@@ -44,8 +45,7 @@ namespace web_app {
 class WebAppBlockedMigrationInfoBarDelegateBrowserTest
     : public WebAppBrowserTestBase {
  public:
-  WebAppBlockedMigrationInfoBarDelegateBrowserTest()
-      : WebAppBrowserTestBase({blink::features::kWebAppMigrationApi}, {}) {}
+  WebAppBlockedMigrationInfoBarDelegateBrowserTest() = default;
   WebAppBlockedMigrationInfoBarDelegateBrowserTest(
       const WebAppBlockedMigrationInfoBarDelegateBrowserTest&) = delete;
   WebAppBlockedMigrationInfoBarDelegateBrowserTest& operator=(
@@ -327,11 +327,7 @@ IN_PROC_BROWSER_TEST_F(WebAppBlockedMigrationInfoBarDelegateBrowserTest,
 class WebAppBlockedMigrationInfoBarDelegateUiTest
     : public SupportsTestUi<WebAppBrowserTestBase, TestBrowserUi> {
  public:
-  WebAppBlockedMigrationInfoBarDelegateUiTest()
-      : SupportsTestUi<WebAppBrowserTestBase, TestBrowserUi>(
-            std::vector<base::test::FeatureRef>{
-                blink::features::kWebAppMigrationApi},
-            std::vector<base::test::FeatureRef>{}) {}
+  WebAppBlockedMigrationInfoBarDelegateUiTest() = default;
 
   void ShowUi(const std::string& name) override {
     ASSERT_TRUE(embedded_test_server()->Start());

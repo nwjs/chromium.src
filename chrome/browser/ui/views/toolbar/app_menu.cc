@@ -87,6 +87,7 @@
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/base/themed_vector_icon.h"
 #include "ui/base/ui_base_features.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/base/window_open_disposition_utils.h"
 #include "ui/color/color_id.h"
 #include "ui/color/color_provider.h"
@@ -445,7 +446,7 @@ void AddSignedInChipToProfileMenuItem(
     std::vector<base::CallbackListSubscription>&
         profile_menu_subscription_list) {
   if (!profile->GetPrefs()->GetBoolean(prefs::kSigninAllowed) ||
-      profile->IsIncognitoProfile()) {
+      profile->IsPrimaryOTRProfileWithRegularParent()) {
     return;
   }
   constexpr int profile_chip_corner_radii = 100;
@@ -474,9 +475,8 @@ void AddSignedInChipToProfileMenuItem(
                           : ui::kColorAppMenuProfileRowChipBackground,
                       profile_chip_corner_radii))
                   .SetBorder(views::CreateEmptyBorder(
-                      ChromeLayoutProvider::Get()
-                          ->GetInsetsMetric(
-                              INSETS_PROFILE_SIGNIN_STATUS_CHIP))))
+                      ChromeLayoutProvider::Get()->GetInsetsMetric(
+                          INSETS_APP_MENU_CHIP))))
           .Build();
 
   // MenuItemView has specific layout logic for child views which does not work
@@ -930,9 +930,7 @@ class AppMenu::ZoomView : public AppMenuView, public views::WidgetObserver {
   void UpdateFullScreenButton() {
     const bool is_fullscreen = menu()->browser_->GetWindow() &&
                                menu()->browser_->GetWindow()->IsFullscreen();
-    const bool can_fullscreen = menu()
-                                    ->browser_->GetFeatures()
-                                    .exclusive_access_manager()
+    const bool can_fullscreen = ExclusiveAccessManager::From(menu()->browser_)
                                     ->context()
                                     ->CanUserEnterFullscreen();
     fullscreen_button_->UpdateState(is_fullscreen, can_fullscreen);

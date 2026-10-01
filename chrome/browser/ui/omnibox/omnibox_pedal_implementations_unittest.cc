@@ -17,6 +17,7 @@
 #include "components/omnibox/common/omnibox_features.h"
 #include "components/sync/base/features.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "ui/base/page_transition_types.h"
 #include "ui/base/window_open_disposition.h"
 
 class OmniboxPedalImplementationsTest : public testing::Test {
@@ -39,7 +40,8 @@ class OmniboxPedalImplementationsTest : public testing::Test {
         std::make_unique<OmniboxPedalProvider>(
             autocomplete_provider_client_,
             GetPedalImplementations(
-                autocomplete_provider_client_.IsIncognitoProfile(),
+                autocomplete_provider_client_
+                    .IsPrimaryOTRProfileWithRegularParent(),
                 autocomplete_provider_client_.IsGuestSession(),
                 /*testing=*/true)));
   }
@@ -50,7 +52,8 @@ class OmniboxPedalImplementationsTest : public testing::Test {
 
   void SetIncognitoProfile() {
     // This macro mutates the client state to go off the record.
-    EXPECT_CALL(autocomplete_provider_client_, IsIncognitoProfile())
+    EXPECT_CALL(autocomplete_provider_client_,
+                IsPrimaryOTRProfileWithRegularParent())
         .WillOnce(testing::Return(true));
     InitPedals();
   }

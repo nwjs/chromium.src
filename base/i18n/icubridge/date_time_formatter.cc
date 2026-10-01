@@ -12,6 +12,7 @@
 #include "base/check.h"
 #include "base/containers/fixed_flat_map.h"
 #include "base/i18n/bcp47_extensions.h"
+#include "base/i18n/icu4c_tag_converter.h"  // nogncheck
 #include "base/i18n/icubridge/icu_bridge.h"
 #include "base/i18n/icubridge/icu_bridge_helpers.h"
 #include "base/i18n/language_tag.h"
@@ -254,15 +255,15 @@ std::u16string GetYearSkeleton(const std::string& skeleton,
 
 std::u16string GetMonthSkeleton(const icu::UnicodeString& icu_initial_pattern,
                                 const std::string& skeleton,
-                                DateTimeFormatterOptions::ItemLength length,
-                                SkeletonOptions options) {
-  if (!options.has_month) {
+                                DateTimeFormatterOptions options,
+                                SkeletonOptions skeleton_options) {
+  if (!skeleton_options.has_month) {
     return u"";
   }
 
   // If there is no day or year, a separated logic is applied.
-  if (!options.has_day && !options.has_year) {
-    switch (length) {
+  if (!skeleton_options.has_day && !skeleton_options.has_year) {
+    switch (options.length) {
       case DateTimeFormatterOptions::ItemLength::kNone:
       case DateTimeFormatterOptions::ItemLength::kShort:
         return u"M";
@@ -274,16 +275,25 @@ std::u16string GetMonthSkeleton(const icu::UnicodeString& icu_initial_pattern,
   }
 
   size_t month_count = std::ranges::count(skeleton, 'M');
-  if (length == DateTimeFormatterOptions::ItemLength::kLong) {
+  if (options.length == DateTimeFormatterOptions::ItemLength::kLong) {
     month_count = std::max(month_count, static_cast<size_t>(4));
   }
-  // If there is weekday in the initial skeleton and the length is medium, the
-  // month (M) count is set to a minimum of 3.
-  if (length == DateTimeFormatterOptions::ItemLength::kMedium &&
+  // For medium-length formatting with format identifiers kMD or kMDE (month/day
+  // or month/day/weekday), force the month 'M' count to be at least 3 (i.e.
+  // 'MMM') to ensure a textual month representation (such as "Jan" or "Januar")
+  // is used rather than a numeric format (e.g. "01" or "1"). For other formats,
+  // we check if '年' (year character) is in the initial ICU pattern to
+  // similarly force textual representation.
+  if (options.length == DateTimeFormatterOptions::ItemLength::kMedium &&
       month_count < 3) {
-    // This is a special character that if present in the initial pattern, we
-    // can force it to appear again by increasing the number of 'M' symbols.
-    if (icu_initial_pattern.indexOf(u'年') != -1) {
+    if (options.format_identifier ==
+            DateTimeFormatterOptions::FormatIdentifier::kMD ||
+        options.format_identifier ==
+            DateTimeFormatterOptions::FormatIdentifier::kMDE) {
+      month_count = 3;
+    } else if (icu_initial_pattern.indexOf(u'年') != -1) {
+      // This is a special character that if present in the initial pattern, we
+      // can force it to appear again by increasing the number of 'M' symbols.
       month_count = 3;
     }
   }
@@ -389,7 +399,7 @@ icu::UnicodeString GetFormattedSkeleton(
   }
   if (skeleton_options.has_month) {
     output_skeleton.append(GetMonthSkeleton(icu_initial_pattern, skeleton,
-                                            options.length, skeleton_options));
+                                            options, skeleton_options));
   }
   if (skeleton_options.has_day) {
     output_skeleton.append(
@@ -580,7 +590,7 @@ std::u16string FormatWithLocale(base::Time time,
 std::u16string IcuBridge::DateTimeFormatter::Format(
     base::Time time,
     const DateTimeFormatterOptions& options) const {
-  LanguageTag default_tag = LanguageTagConverter::GetInstance().FromIcuLocale(
+  LanguageTag default_tag = IcuLocaleConverter::GetInstance().ToLanguageTag(
       icu::Locale::getDefault());
   return FormatWithLocale(time, options, default_tag);
 }

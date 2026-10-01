@@ -62,8 +62,6 @@ bool ShowComposeboxAdditionalAdvancedTools() {
   return base::FeatureList::IsEnabled(kComposeboxAdditionalAdvancedTools);
 }
 
-BASE_FEATURE(kComposeboxCompactMode, base::FEATURE_ENABLED_BY_DEFAULT);
-
 bool ShowDeepSearchTool() {
   // Launched by default on phones.
   if (ui::GetDeviceFormFactor() != ui::DEVICE_FORM_FACTOR_TABLET) {
@@ -91,15 +89,6 @@ bool IsComposeboxVerbatimSuggestionInAIMEnabled() {
 BASE_FEATURE(kComposeboxVerbatimSuggestionInAIM,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-bool IsComposeboxCompactModeEnabled() {
-  return base::FeatureList::IsEnabled(kComposeboxCompactMode);
-}
-
-BASE_FEATURE(kComposeboxForceTop, base::FEATURE_ENABLED_BY_DEFAULT);
-
-bool IsComposeboxForceTopEnabled() {
-  return base::FeatureList::IsEnabled(kComposeboxForceTop);
-}
 
 BASE_FEATURE(kComposeboxAIMNudge, base::FEATURE_DISABLED_BY_DEFAULT);
 

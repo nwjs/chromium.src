@@ -42,9 +42,6 @@ PrefService* ReportSchedulerIOS::GetPrefService() {
                   : GetApplicationContext()->GetLocalState();
 }
 
-void ReportSchedulerIOS::OnInitializationCompleted() {
-  // No-op.
-}
 
 void ReportSchedulerIOS::StartWatchingUpdatesIfNeeded(
     base::Time last_upload,
@@ -81,8 +78,12 @@ policy::DMToken ReportSchedulerIOS::GetProfileDMToken() {
     return policy::DMToken::CreateEmptyToken();
   }
   CHECK(profile_);
-  return profile_->GetUserCloudPolicyManager()->GetDMToken().value_or(
-      policy::DMToken::CreateEmptyToken());
+  policy::UserCloudPolicyManager* manager =
+      profile_->GetUserCloudPolicyManager();
+  if (!manager) {
+    return policy::DMToken::CreateEmptyToken();
+  }
+  return manager->GetDMToken().value_or(policy::DMToken::CreateEmptyToken());
 }
 
 std::string ReportSchedulerIOS::GetProfileClientId() {
@@ -92,8 +93,12 @@ std::string ReportSchedulerIOS::GetProfileClientId() {
     return std::string();
   }
   CHECK(profile_);
-  return profile_->GetUserCloudPolicyManager()->GetClientId().value_or(
-      std::string());
+  policy::UserCloudPolicyManager* manager =
+      profile_->GetUserCloudPolicyManager();
+  if (!manager) {
+    return std::string();
+  }
+  return manager->GetClientId().value_or(std::string());
 }
 
 }  // namespace enterprise_reporting

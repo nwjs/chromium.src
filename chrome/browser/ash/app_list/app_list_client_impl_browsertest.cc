@@ -12,6 +12,7 @@
 
 #include "ash/app_list/apps_collections_controller.h"
 #include "ash/constants/ash_switches.h"
+#include "ash/constants/chrome_switches.h"
 #include "ash/constants/web_app_id_constants.h"
 #include "ash/public/cpp/app_list/app_list_features.h"
 #include "ash/public/cpp/app_list/app_list_metrics.h"
@@ -78,15 +79,13 @@
 #include "chrome/browser/ui/ash/login/user_adding_screen.h"
 #include "chrome/browser/ui/ash/shelf/shelf_controller_helper.h"
 #include "chrome/browser/ui/ash/system_web_apps/system_web_app_ui_utils.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/profile_browser_collection.h"
 #include "chrome/browser/ui/settings_window_manager_chromeos.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/web_applications/test/web_app_install_test_utils.h"
-#include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_paths.h"
-#include "chrome/common/chrome_switches.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/testing_profile.h"
 #include "chrome/test/base/ui_test_utils.h"
@@ -112,11 +111,13 @@
 #include "extensions/common/constants.h"
 #include "google_apis/gaia/gaia_id.h"
 #include "ui/aura/window.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/display/display.h"
 #include "ui/display/manager/display_manager.h"
 #include "ui/display/scoped_display_for_new_windows.h"
 #include "ui/display/screen.h"
 #include "ui/display/test/display_manager_test_api.h"
+#include "ui/display/types/display_constants.h"
 #include "ui/menus/simple_menu_model.h"
 #include "ui/message_center/test/message_center_waiter.h"
 #include "ui/wm/core/window_util.h"
@@ -1104,7 +1105,7 @@ void AppListClientGuestModeBrowserTest::SetUpCommandLine(
                                   user_manager::kGuestUserName);
   command_line->AppendSwitchASCII(ash::switches::kLoginProfile,
                                   TestingProfile::kTestUserProfileDir);
-  command_line->AppendSwitch(switches::kIncognito);
+  command_line->AppendSwitch(ash::chrome_switches::kIncognito);
 }
 
 // Test creating the initial app list in guest mode.

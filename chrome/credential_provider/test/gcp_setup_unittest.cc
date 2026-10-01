@@ -20,7 +20,9 @@
 #include "base/files/file.h"
 #include "base/files/file_enumerator.h"
 #include "base/files/file_util.h"
+#include "base/files/memory_mapped_file.h"
 #include "base/files/scoped_temp_dir.h"
+#include "base/path_service.h"
 #include "base/process/launch.h"
 #include "base/strings/strcat.h"
 #include "base/strings/strcat_win.h"
@@ -31,6 +33,7 @@
 #include "base/test/scoped_path_override.h"
 #include "base/test/test_reg_util_win.h"
 #include "base/win/atl.h"
+#include "base/win/pe_image.h"
 #include "base/win/registry.h"
 #include "base/win/scoped_bstr.h"
 #include "base/win/scoped_com_initializer.h"
@@ -62,6 +65,7 @@ class GcpSetupTest : public ::testing::Test {
   void CreateSentinelFileToSimulateCrash(const std::wstring& product_version);
 
   void ExpectAllFilesToExist(bool exist, const std::wstring& product_version);
+  void WaitUntilAllFilesDeleted(const std::wstring& product_version);
   void ExpectSentinelFileToNotExist(const std::wstring& product_version);
   void ExpectCredentialProviderToBeRegistered(
       bool registered,
@@ -261,16 +265,34 @@ void GcpSetupTest::ExpectSentinelFileToNotExist(
 void GcpSetupTest::ExpectAllFilesToExist(bool exist,
                                          const std::wstring& product_version) {
   base::FilePath root = installed_path_for_version(product_version);
-  EXPECT_EQ(exist, base::PathExists(root));
+  bool root_exists = false;
+  for (int i = 0; i < 25; ++i) {
+    root_exists = base::PathExists(root);
+    if (root_exists == exist) {
+      break;
+    }
+    base::PlatformThread::Sleep(base::Milliseconds(100));
+  }
+  EXPECT_EQ(exist, root_exists);
 
   bool extension_found = false;
   auto install_files = GCPWFiles::Get()->GetEffectiveInstallFiles();
 
   for (auto& install_file : install_files) {
     if (kCredentialProviderExtensionExe.find(install_file) !=
-        base::FilePath::StringType::npos)
+        base::FilePath::StringType::npos) {
       extension_found = true;
-    EXPECT_EQ(exist, base::PathExists(root.Append(install_file)));
+    }
+    base::FilePath path = root.Append(install_file);
+    bool path_exists = false;
+    for (int i = 0; i < 25; ++i) {
+      path_exists = base::PathExists(path);
+      if (path_exists == exist) {
+        break;
+      }
+      base::PlatformThread::Sleep(base::Milliseconds(100));
+    }
+    EXPECT_EQ(exist, path_exists);
   }
 
   EXPECT_EQ(extension::IsGCPWExtensionEnabled(), extension_found);
@@ -458,6 +480,18 @@ class GcpInstallOverOldInstallTest : public GcpSetupTest,
 #else
 #define MAYBE_DoInstallOverOldInstall DoInstallOverOldInstall
 #endif
+void GcpSetupTest::WaitUntilAllFilesDeleted(
+    const std::wstring& product_version) {
+  base::FilePath root = installed_path_for_version(product_version);
+  for (int i = 0; i < 50; ++i) {
+    if (!base::PathExists(root)) {
+      return;
+    }
+    base::PlatformThread::Sleep(base::Milliseconds(100));
+  }
+  EXPECT_FALSE(base::PathExists(root));
+}
+
 TEST_P(GcpInstallOverOldInstallTest, MAYBE_DoInstallOverOldInstall) {
   logging::ResetEventSourceForTesting();
 
@@ -499,7 +533,7 @@ TEST_P(GcpInstallOverOldInstallTest, MAYBE_DoInstallOverOldInstall) {
 
   // Make sure newer version exists and old version is gone.
   ExpectAllFilesToExist(true, product_version());
-  ExpectAllFilesToExist(false, old_version);
+  WaitUntilAllFilesDeleted(old_version);
   ExpectSentinelFileToNotExist(old_version);
 
   // Make sure kGaiaAccountName info and private data are unchanged.
@@ -910,6 +944,31 @@ TEST_F(GcpSetupTest, DoInstallWritesUninstallStrings) {
   expected_uninstall_arguments.AppendSwitch(switches::kUninstall);
   EXPECT_EQ(uninstall_arguments,
             expected_uninstall_arguments.GetCommandLineString());
+}
+
+TEST_F(GcpSetupTest, SetupExeDllSecurityHardening) {
+  base::FilePath exe_path;
+  ASSERT_TRUE(base::PathService::Get(base::DIR_EXE, &exe_path));
+  exe_path = exe_path.Append(kCredentialProviderSetupExe);
+
+  if (!base::PathExists(exe_path)) {
+    GTEST_SKIP() << "gcp_setup.exe not found in build directory";
+  }
+
+  base::MemoryMappedFile module_mmap;
+  ASSERT_TRUE(module_mmap.Initialize(exe_path));
+
+  base::win::PEImageAsData pe_image(
+      reinterpret_cast<HMODULE>(module_mmap.mutable_bytes().data()));
+
+  // Verify DependentLoadFlags has LOAD_LIBRARY_SEARCH_SYSTEM32 (0x800).
+  const auto* load_config =
+      reinterpret_cast<const IMAGE_LOAD_CONFIG_DIRECTORY*>(
+          pe_image.GetImageDirectoryEntryAddr(
+              IMAGE_DIRECTORY_ENTRY_LOAD_CONFIG));
+  ASSERT_NE(load_config, nullptr);
+  EXPECT_EQ(load_config->DependentLoadFlags,
+            static_cast<WORD>(LOAD_LIBRARY_SEARCH_SYSTEM32));
 }
 
 // This test checks the expect success / failure of DLL registration when

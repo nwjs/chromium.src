@@ -308,6 +308,9 @@ void ScrollMarkerGroupData::AddToFocusGroup(Element& scroll_marker) {
 }
 
 void ScrollMarkerGroupData::RemoveFromFocusGroup(Element& scroll_marker) {
+  if (scroll_marker == pending_selected_marker_) {
+    pending_selected_marker_ = nullptr;
+  }
   if (wtf_size_t index = focus_group_.Find(scroll_marker); index != kNotFound) {
     focus_group_.EraseAt(index);
     // We need to update scrollers map for this scroll marker group if we
@@ -369,6 +372,7 @@ void ScrollMarkerGroupData::ApplyPendingScrollMarker() {
         CSSSelector::PseudoType::kPseudoTargetCurrent);
   }
   selected_marker_ = pending_selected_marker_;
+  CHECK(!selected_marker_ || selected_marker_->isConnected());
 
   // Notify the newly selected marker.
   if (auto* scroll_marker_pseudo =
@@ -587,15 +591,6 @@ Element* ScrollMarkerGroupData::ChooseMarkerRecursively() {
     // group.
     if (targets.empty()) {
       break;
-    }
-    // Form controls in autofill preview state may have been scrolled to bring
-    // the previewed value into view. Keep the current selection so that the
-    // suggested value cannot be observed via the selected scroll marker.
-    if (!RuntimeEnabledFeatures::SelectAutofillPopoverPreviewEnabled()) {
-      if (auto* form_control = DynamicTo<HTMLFormControlElement>(scroller);
-          form_control && form_control->IsPreviewed()) {
-        return selected_marker_;
-      }
     }
     LayoutBox* scroller_box = scroller->GetLayoutBox();
     DCHECK(scroller_box);

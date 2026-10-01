@@ -30,7 +30,6 @@
 #include "net/first_party_sets/first_party_sets_context_config.h"
 #include "net/first_party_sets/first_party_sets_validator.h"
 #include "net/first_party_sets/global_first_party_sets.h"
-#include "net/first_party_sets/local_set_declaration.h"
 #include "net/first_party_sets/sets_mutation.h"
 #include "url/gurl.h"
 #include "url/origin.h"
@@ -589,22 +588,6 @@ net::GlobalFirstPartySets FirstPartySetParser::ParseSetsFromStream(
   }
   return net::GlobalFirstPartySets(std::move(version),
                                    std::move(public_config).value());
-}
-
-// static
-net::LocalSetDeclaration FirstPartySetParser::ParseFromCommandLine(
-    const std::string& switch_value) {
-  std::istringstream stream(switch_value);
-
-  SetsAndAliases parsed =
-      ParseSetsFromStreamInternal(stream, /*emit_errors=*/true);
-
-  SetsMap entries = std::move(parsed.first);
-  Aliases aliases = std::move(parsed.second);
-
-  return net::LocalSetDeclaration::Create(
-             std::move(entries), std::move(aliases), /*emit_errors=*/true)
-      .value_or(net::LocalSetDeclaration());
 }
 
 }  // namespace content

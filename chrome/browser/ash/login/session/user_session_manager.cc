@@ -19,6 +19,7 @@
 #include "ash/constants/ash_login_pref_names.h"
 #include "ash/constants/ash_pref_names.h"
 #include "ash/constants/ash_switches.h"
+#include "ash/constants/chrome_switches.h"
 #include "ash/metrics/login_unlock_throughput_recorder.h"
 #include "ash/public/cpp/token_handle_store.h"
 #include "ash/shell.h"
@@ -61,7 +62,6 @@
 #include "chrome/browser/ash/arc/arc_util.h"
 #include "chrome/browser/ash/base/locale_util.h"
 #include "chrome/browser/ash/boot_times_recorder/boot_times_recorder.h"
-#include "chrome/browser/ash/browser_delegate/browser_controller.h"
 #include "chrome/browser/ash/child_accounts/child_policy_observer.h"
 #include "chrome/browser/ash/drive/file_system_util.h"
 #include "chrome/browser/ash/eol/eol_notification.h"
@@ -129,12 +129,11 @@
 #include "chrome/browser/ui/ash/system/system_tray_client_impl.h"
 #include "chrome/browser/ui/startup/startup_browser_creator.h"
 #include "chrome/common/chrome_constants.h"
-#include "chrome/common/chrome_features.h"
-#include "chrome/common/chrome_switches.h"
 #include "chrome/common/logging_chrome.h"
 #include "chromeos/ash/components/account_manager/account_manager_factory.h"
 #include "chromeos/ash/components/browser_context_helper/browser_context_flusher.h"
 #include "chromeos/ash/components/browser_context_helper/browser_context_helper.h"
+#include "chromeos/ash/components/browser_delegate/browser_controller.h"
 #include "chromeos/ash/components/cryptohome/cryptohome_parameters.h"
 #include "chromeos/ash/components/dbus/dbus_thread_manager.h"
 #include "chromeos/ash/components/dbus/session_manager/session_manager_client.h"
@@ -199,6 +198,7 @@
 #include "crypto/obsolete/sha1.h"
 #include "google_apis/gaia/gaia_id.h"
 #include "rlz/buildflags/buildflags.h"
+#include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "third_party/cros_system_api/switches/chrome_switches.h"
 #include "third_party/perfetto/include/perfetto/tracing/track.h"
 #include "ui/aura/window.h"
@@ -1572,7 +1572,7 @@ void UserSessionManager::InitProfilePreferences(
               user_context.GetAccountId().GetUserEmail());
 
       DCHECK(!account_info.IsEmpty() || IsRunningTest());
-      gaia_id = account_info.gaia;
+      gaia_id = account_info.GetGaiaId();
       used_extended_account_info = true;
 
       // Use a fake gaia id for tests that do not have it.
@@ -1990,7 +1990,7 @@ void UserSessionManager::MaybeLaunchHelpAppForFirstRun(Profile* profile) const {
     // app. Because we don't want the first-run app to be hidden in the
     // background.
     base::CommandLine::ForCurrentProcess()->AppendSwitch(
-        ::switches::kSilentLaunch);
+        ash::chrome_switches::kSilentLaunch);
     first_run::LaunchHelpApp(profile);
   }
 }

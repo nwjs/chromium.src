@@ -41,7 +41,6 @@
 #include "chrome/browser/ash/app_mode/kiosk_app_types.h"
 #include "chrome/browser/ash/base/locale_util.h"
 #include "chrome/browser/ash/boot_times_recorder/boot_times_recorder.h"
-#include "chrome/browser/ash/browser_delegate/browser_controller.h"
 #include "chrome/browser/ash/first_run/first_run.h"
 #include "chrome/browser/ash/login/existing_user_controller.h"
 #include "chrome/browser/ash/login/helper.h"
@@ -77,8 +76,8 @@
 #include "chrome/browser/ui/webui/ash/login/os_install_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/welcome_screen_handler.h"
 #include "chrome/common/chrome_constants.h"
-#include "chrome/common/chrome_switches.h"
 #include "chromeos/ash/components/audio/sounds.h"
+#include "chromeos/ash/components/browser_delegate/browser_controller.h"
 #include "chromeos/ash/components/dbus/session_manager/session_manager_client.h"
 #include "chromeos/ash/components/install_attributes/install_attributes.h"
 #include "chromeos/ash/components/language_preferences/language_preferences.h"
@@ -104,6 +103,7 @@
 #include "content/public/browser/web_ui.h"
 #include "services/audio/public/cpp/sounds/global_sounds_manager.h"
 #include "services/audio/public/cpp/sounds/sounds_manager.h"
+#include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "third_party/perfetto/include/perfetto/tracing/track.h"
 #include "ui/aura/window.h"
 #include "ui/base/ime/ash/extension_ime_util.h"
@@ -654,6 +654,8 @@ void LoginDisplayHostWebUI::StartWizard(OobeScreenId first_screen) {
         &application_locale_storage_.get(), shared_url_loader_factory_.get(),
         &browser_policy_connector_ash_.get(),
         g_browser_process->platform_part()->component_manager_ash(),
+        g_browser_process->platform_part()
+            ->device_restriction_schedule_controller(),
         GetWizardContext());
     NotifyWizardCreated();
     wizard_controller_->Init(first_screen);
@@ -727,6 +729,8 @@ void LoginDisplayHostWebUI::OnStartAppLaunch() {
         &application_locale_storage_.get(), shared_url_loader_factory_.get(),
         &browser_policy_connector_ash_.get(),
         g_browser_process->platform_part()->component_manager_ash(),
+        g_browser_process->platform_part()
+            ->device_restriction_schedule_controller(),
         GetWizardContext());
     NotifyWizardCreated();
   }

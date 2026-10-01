@@ -43,13 +43,17 @@ _ROBO_URL_FILES = {
         'https://repo1.maven.org/maven2/org/robolectric/android-all-instrumented/7.1.0_r7-robolectric-r1-i7/android-all-instrumented-7.1.0_r7-robolectric-r1-i7.jar',
     'android-all-instrumented-7.0.0_r1-robolectric-r1-i7.jar':
         'https://repo1.maven.org/maven2/org/robolectric/android-all-instrumented/7.0.0_r1-robolectric-r1-i7/android-all-instrumented-7.0.0_r1-robolectric-r1-i7.jar',
+    'nativeruntime-dist-compat-1.0.19.jar':
+        'https://repo1.maven.org/maven2/org/robolectric/nativeruntime-dist-compat/1.0.19/nativeruntime-dist-compat-1.0.19.jar',
 }
 
 
 def do_latest():
-  # Make the version change every time this file changes.
+  # Make the version change every time any file in this directory changes.
   md5 = hashlib.md5()
-  md5.update(pathlib.Path(__file__).read_bytes())
+  for p in sorted(pathlib.Path(__file__).parent.glob('*')):
+    if p.is_file() and p.suffix in ('.py', '.pb', '.sh'):
+      md5.update(p.read_bytes())
   file_hash = md5.hexdigest()[:10]
   # Prefix with the first version from the dict, which should be the
   # non-instrumented .jar, to make the version string not entirely random.

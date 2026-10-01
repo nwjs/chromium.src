@@ -69,6 +69,7 @@
 #include "remoting/base/logging.h"
 #include "remoting/base/oauth_token_getter_impl.h"
 #include "remoting/base/oauth_token_getter_proxy.h"
+#include "remoting/base/protobuf_http_client.h"
 #include "remoting/base/rsa_key_pair.h"
 #include "remoting/base/service_urls.h"
 #include "remoting/base/session_policies.h"
@@ -109,6 +110,9 @@
 #endif
 #include "remoting/host/mojom/remoting_host.mojom.h"
 #include "remoting/host/pairing_registry_delegate.h"
+#if BUILDFLAG(IS_WIN)
+#include "remoting/host/remote_client_cert_store.h"
+#endif
 #include "remoting/host/peer_session_impl.h"
 #include "remoting/host/pin_hash.h"
 #include "remoting/host/policy_watcher.h"
@@ -515,6 +519,10 @@ class HostProcess : public ConfigWatcher::Delegate,
   void SetRequiredUsernameOnDaemonProcess();
 #endif
 
+#if BUILDFLAG(IS_WIN)
+  std::unique_ptr<net::ClientCertStore> CreateRemoteClientCertStore();
+#endif
+
   std::unique_ptr<ChromotingHostContext> context_;
 
 #if BUILDFLAG(IS_MAC)
@@ -761,6 +769,10 @@ bool HostProcess::InitWithCommandLine(const base::CommandLine* cmd_line) {
             cmd_line->GetSwitchValueASCII(kMojoPipeToken)),
         IPC::Channel::MODE_CLIENT, this, context_->network_task_runner(),
         base::SingleThreadTaskRunner::GetCurrentDefault());
+#if BUILDFLAG(IS_WIN)
+    context_->set_create_client_cert_store_callback(base::BindRepeating(
+        &HostProcess::CreateRemoteClientCertStore, base::Unretained(this)));
+#endif
   } else {  // Single-process
     if (cmd_line->HasSwitch(kHostConfigSwitchName)) {
       host_config_path_ = cmd_line->GetSwitchValuePath(kHostConfigSwitchName);
@@ -916,6 +928,9 @@ void HostProcess::StartOnNetworkThread() {
     return;
   }
 
+  ProtobufHttpClient::SetCreateClientCertStoreCallback(
+      context_->create_client_cert_store_callback());
+
   if (!multi_process_) {
     if (host_config_path_ == base::FilePath(kStdinConfigPath)) {
       // Process config we've read from stdin.
@@ -941,6 +956,7 @@ void HostProcess::StartOnNetworkThread() {
 
 void HostProcess::ShutdownOnNetworkThread() {
   DCHECK(context_->network_task_runner()->BelongsToCurrentThread());
+  ProtobufHttpClient::SetCreateClientCertStoreCallback({});
   config_watcher_.reset();
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
   cert_watcher_.reset();
@@ -1045,9 +1061,8 @@ void HostProcess::CreateAuthenticatorFactory() {
              (is_corp_host_ && !allow_pin_auth_.value_or(false))) {
     auth_config->AddSessionAuthzAuth(
         base::MakeRefCounted<CorpSessionAuthzServiceClientFactory>(
-            context_->url_loader_factory(),
-            context_->create_client_cert_store_callback(),
-            service_account_email_, oauth_refresh_token_));
+            context_->url_loader_factory(), service_account_email_,
+            oauth_refresh_token_));
 
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
     if (!cert_watcher_) {
@@ -1945,9 +1960,7 @@ void HostProcess::InitializeSignaling() {
   const base::CommandLine* cmd_line = base::CommandLine::ForCurrentProcess();
   if (cmd_line->HasSwitch(kEnableCorpMessaging)) {
     corp_signal_strategy_ = std::make_unique<CorpSignalStrategy>(
-        context_->url_loader_factory(),
-        context_->create_client_cert_store_callback(), GetUsername(),
-        key_pair_);
+        context_->url_loader_factory(), GetUsername(), key_pair_);
     corp_signaling_connector_ =
         std::make_unique<CorpSignalingConnector>(corp_signal_strategy_.get());
     corp_signaling_connector_->Start();
@@ -2120,9 +2133,8 @@ void HostProcess::StartHost() {
     desktop_environment_options_.set_enable_user_interface(
         enable_user_interface_);
     corp_host_status_logger_ = CorpHostStatusLogger::CreateForRemoteAccess(
-        context_->url_loader_factory(), context_->CreateClientCertStore(),
-        &local_session_policies_provider_, service_account_email_,
-        oauth_refresh_token_);
+        context_->url_loader_factory(), &local_session_policies_provider_,
+        service_account_email_, oauth_refresh_token_);
     corp_host_status_logger_->StartObserving(*session_manager);
   }
 
@@ -2390,6 +2402,24 @@ void HostProcess::CrashProcess(const std::string& function_name,
                                int line_number) {
   // The daemon requested us to crash the process.
   ::remoting::CrashProcess(function_name, file_name, line_number);
+}
+#endif
+
+#if BUILDFLAG(IS_WIN)
+std::unique_ptr<net::ClientCertStore>
+HostProcess::CreateRemoteClientCertStore() {
+  DCHECK(context_->network_task_runner()->BelongsToCurrentThread());
+  mojo::PendingAssociatedRemote<mojom::CertificateBroker> broker_remote;
+  // `daemon_channel_` is initialized in multi-process mode on the UI thread and
+  // accessed on the network thread (IPC::ChannelProxy is thread-safe). It will
+  // be null in single-process mode or if the host is shutting down. In that
+  // case, `broker_remote` remains invalid and RemoteClientCertStore will
+  // return an empty list of certificates.
+  if (daemon_channel_) {
+    daemon_channel_->GetRemoteAssociatedInterface(
+        broker_remote.InitWithNewEndpointAndPassReceiver());
+  }
+  return std::make_unique<RemoteClientCertStore>(std::move(broker_remote));
 }
 #endif
 

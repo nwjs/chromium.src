@@ -10,6 +10,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doAnswer;
@@ -84,6 +85,7 @@ import org.chromium.chrome.browser.omnibox.suggestions.OmniboxLoadUrlParams;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.searchwidget.SearchUiCoordinator;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tab.TabObscuringHandler;
 import org.chromium.chrome.browser.tab.TabSelectionType;
 import org.chromium.chrome.browser.tab_group_sync.TabGroupSyncServiceFactory;
@@ -106,6 +108,7 @@ import org.chromium.ui.base.PageTransition;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.modaldialog.ModalDialogManager;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -174,6 +177,11 @@ public class TabSearchOverlayCoordinatorUnitTest {
         mTabGroupUiActionHandlerSupplier.set(mTabGroupUiActionHandler);
         when(mTabModelSelector.getModel(false)).thenReturn(mTabModel);
         when(mTabModelSelector.getModel(true)).thenReturn(mTabModel);
+        when(mTabModelSelector.getCurrentTabModelSupplier())
+                .thenReturn(ObservableSuppliers.createNonNull(mTabModel));
+        when(mTabModelSelector.getModels()).thenReturn(List.of(mTabModel));
+        when(mTabModel.getComprehensiveModel()).thenReturn(mTabModel);
+        when(mTabModel.iterator()).thenReturn(Collections.emptyIterator());
 
         when(mSearchUiCoordinator.getLocationBarCoordinator()).thenReturn(mLocationBarCoordinator);
         when(mLocationBarCoordinator.getUrlBarCoordinator()).thenReturn(mUrlBarCoordinator);
@@ -417,6 +425,7 @@ public class TabSearchOverlayCoordinatorUnitTest {
 
     @Test
     public void testLoadUrl_regular() {
+        when(mTabModel.getCount()).thenReturn(3);
         showOverlay();
         verifySearchUiCoordinatorInitialized();
 
@@ -441,10 +450,16 @@ public class TabSearchOverlayCoordinatorUnitTest {
         assertTrue(
                 intent.getBooleanExtra(WebappConstants.REUSE_URL_MATCHING_TAB_ELSE_NEW_TAB, false));
         assertFalse(intent.getBooleanExtra(IntentHandler.EXTRA_OPEN_NEW_INCOGNITO_TAB, false));
+        assertEquals(
+                3, intent.getIntExtra(IntentHandler.EXTRA_TAB_INDEX, TabModel.INVALID_TAB_INDEX));
+        assertEquals(
+                Integer.valueOf(TabLaunchType.FROM_OMNIBOX),
+                IntentHandler.getTabLaunchType(intent));
     }
 
     @Test
     public void testLoadUrl_incognito() {
+        when(mTabModel.getCount()).thenReturn(5);
         showOverlay();
         verifySearchUiCoordinatorInitialized();
 
@@ -469,6 +484,36 @@ public class TabSearchOverlayCoordinatorUnitTest {
         assertTrue(
                 intent.getBooleanExtra(WebappConstants.REUSE_URL_MATCHING_TAB_ELSE_NEW_TAB, false));
         assertTrue(intent.getBooleanExtra(IntentHandler.EXTRA_OPEN_NEW_INCOGNITO_TAB, false));
+        assertEquals(
+                5, intent.getIntExtra(IntentHandler.EXTRA_TAB_INDEX, TabModel.INVALID_TAB_INDEX));
+        assertEquals(
+                Integer.valueOf(TabLaunchType.FROM_OMNIBOX),
+                IntentHandler.getTabLaunchType(intent));
+    }
+
+    @Test
+    public void testLoadUrl_nullModel() {
+        when(mTabModelSelector.getModel(false)).thenReturn(null);
+        showOverlay();
+        verifySearchUiCoordinatorInitialized();
+
+        OverrideUrlLoadingDelegate delegate = mOverrideUrlLoadingDelegateCaptor.getValue();
+        OmniboxLoadUrlParams params =
+                new OmniboxLoadUrlParams.Builder(
+                                "https://www.google.com/search?q=test", PageTransition.TYPED)
+                        .build();
+        boolean handled = delegate.willHandleLoadUrlWithPostData(params, /* incognito= */ false);
+        assertTrue(handled);
+        assertFalse(mCoordinator.isVisible());
+
+        Intent intent = Shadows.shadowOf(mActivity).getNextStartedActivity();
+        assertNotNull(intent);
+        assertEquals(
+                TabModel.INVALID_TAB_INDEX,
+                intent.getIntExtra(IntentHandler.EXTRA_TAB_INDEX, TabModel.INVALID_TAB_INDEX));
+        assertEquals(
+                Integer.valueOf(TabLaunchType.FROM_OMNIBOX),
+                IntentHandler.getTabLaunchType(intent));
     }
 
     @Test
@@ -1362,5 +1407,61 @@ public class TabSearchOverlayCoordinatorUnitTest {
         KeyEvent downEvent = new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_DPAD_DOWN);
         closeButton.dispatchKeyEvent(downEvent);
         verify(mUrlBar, times(2)).requestFocus();
+    }
+
+    @Test
+    public void testMaybeReassertFocus_whenVisibleAndUnfocused_reassertsFocusAndQuery() {
+        showOverlay();
+        clearInvocations(mSearchUiCoordinator);
+
+        // Simulate UrlBar losing focus while overlay is still visible (e.g. background tab load
+        // event).
+        when(mOmniboxStub.isUrlBarFocused()).thenReturn(false);
+        when(mUrlBarCoordinator.getTextWithoutAutocomplete()).thenReturn("");
+
+        mCoordinator.maybeReassertFocus();
+
+        verify(mSearchUiCoordinator)
+                .beginQuery(eq(IntentOrigin.HUB), eq(SearchType.TEXT), eq(""), eq(mWindowAndroid));
+    }
+
+    @Test
+    public void testMaybeReassertFocus_preservesUserTextWhenRefocusing() {
+        showOverlay();
+        clearInvocations(mSearchUiCoordinator);
+
+        when(mOmniboxStub.isUrlBarFocused()).thenReturn(false);
+        when(mUrlBarCoordinator.getTextWithoutAutocomplete()).thenReturn("github");
+
+        mCoordinator.maybeReassertFocus();
+
+        verify(mSearchUiCoordinator)
+                .beginQuery(
+                        eq(IntentOrigin.HUB),
+                        eq(SearchType.TEXT),
+                        eq("github"),
+                        eq(mWindowAndroid));
+    }
+
+    @Test
+    public void testMaybeReassertFocus_whenHidden_noOp() {
+        // Overlay is hidden by default.
+        when(mOmniboxStub.isUrlBarFocused()).thenReturn(false);
+
+        mCoordinator.maybeReassertFocus();
+
+        verify(mSearchUiCoordinator, never()).beginQuery(anyInt(), anyInt(), any(), any());
+    }
+
+    @Test
+    public void testMaybeReassertFocus_whenAlreadyFocused_noOp() {
+        showOverlay();
+        clearInvocations(mSearchUiCoordinator);
+
+        when(mOmniboxStub.isUrlBarFocused()).thenReturn(true);
+
+        mCoordinator.maybeReassertFocus();
+
+        verify(mSearchUiCoordinator, never()).beginQuery(anyInt(), anyInt(), any(), any());
     }
 }

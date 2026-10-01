@@ -17,6 +17,7 @@
 #include "components/autofill/core/browser/metrics/autofill_metrics.h"
 #include "components/autofill/core/browser/suggestions/suggestion.h"
 #include "components/autofill/core/common/aliases.h"
+#include "components/autofill/core/common/unique_ids.h"
 
 namespace content {
 class WebContents;
@@ -65,11 +66,8 @@ class AutofillSuggestionController : public AutofillPopupViewDelegate {
   // Unselect currently selected suggestion, noop if nothing is selected.
   virtual void UnselectSuggestion() = 0;
 
-  // Removes the suggestion at the given `index`. `removal_method`specifies the
-  // UI entry point for removal, e.g. clicking on a delete button.
-  virtual bool RemoveSuggestion(
-      int index,
-      AutofillMetrics::SingleEntryRemovalMethod removal_method) = 0;
+  // Removes the suggestion at the given `index`.
+  virtual bool RemoveSuggestion(int index) = 0;
 
   // Returns the number of lines of data that there are.
   virtual int GetLineCount() const = 0;
@@ -108,6 +106,9 @@ class AutofillSuggestionController : public AutofillPopupViewDelegate {
 
   // Updates the data list values currently shown.
   virtual void UpdateDataListValues(base::span<const SelectOption> options) = 0;
+
+  // Returns the token of the frame that this controller is associated with.
+  virtual const LocalFrameToken& GetFrameToken() const = 0;
 
   // Returns true if the controller can be reused for the given parameters.
   virtual bool MayRecycle(

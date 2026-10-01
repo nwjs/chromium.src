@@ -45,6 +45,7 @@
 #include "components/autofill/core/browser/integrators/autofill_ai/mock_autofill_ai_manager.h"
 #include "components/autofill/core/browser/integrators/compose/autofill_compose_delegate.h"
 #include "components/autofill/core/browser/integrators/identity_credential/identity_credential_delegate.h"
+#include "components/autofill/core/browser/integrators/one_time_tokens/otp_field_detector.h"
 #include "components/autofill/core/browser/integrators/one_time_tokens/otp_metrics_tracker.h"
 #include "components/autofill/core/browser/integrators/one_time_tokens/otp_phish_guard_delegate.h"
 #include "components/autofill/core/browser/integrators/optimization_guide/mock_autofill_optimization_guide_decider.h"
@@ -356,6 +357,14 @@ class TestAutofillClientTemplate : public T {
     password_ml_prediction_model_handler_ = std::move(handler);
   }
 
+  affiliations::AffiliationService* GetAffiliationService() override {
+    return affiliation_service_;
+  }
+
+  void set_affiliation_service(affiliations::AffiliationService* service) {
+    affiliation_service_ = service;
+  }
+
   const GURL& GetLastCommittedPrimaryMainFrameURL() const override {
     return last_committed_primary_main_frame_url_;
   }
@@ -401,6 +410,7 @@ class TestAutofillClientTemplate : public T {
   }
 
   void UpdateAutofillDataListValues(
+      const LocalFrameToken& frame_token,
       base::span<const SelectOption> options) override {}
 
   void SetAutofillSuggestions(std::vector<Suggestion> suggestions) {
@@ -892,6 +902,15 @@ class TestAutofillClientTemplate : public T {
     otp_metrics_tracker_ = std::move(otp_metrics_tracker);
   }
 
+  OtpFieldDetector* GetOtpFieldDetector() override {
+    return otp_field_detector_.get();
+  }
+
+  void set_otp_field_detector(
+      std::unique_ptr<OtpFieldDetector> otp_field_detector) {
+    otp_field_detector_ = std::move(otp_field_detector);
+  }
+
  private:
   ukm::TestAutoSetUkmRecorder test_ukm_recorder_;
   signin::IdentityTestEnvironment identity_test_env_;
@@ -908,6 +927,7 @@ class TestAutofillClientTemplate : public T {
 #endif
   std::unique_ptr<OtpPhishGuardDelegate> otp_phish_guard_delegate_;
   std::unique_ptr<OtpMetricsTracker> otp_metrics_tracker_;
+  std::unique_ptr<OtpFieldDetector> otp_field_detector_;
   std::unique_ptr<AtMemoryQueryService> at_memory_query_service_;
   std::unique_ptr<AtMemoryManager> at_memory_manager_;
   personal_context::PersonalContextEligibilityState
@@ -1050,6 +1070,7 @@ class TestAutofillClientTemplate : public T {
   std::unique_ptr<TestVotesUploader> votes_uploader_;
 
   std::unique_ptr<FormPredictionsTracker> form_predictions_tracker_;
+  raw_ptr<affiliations::AffiliationService> affiliation_service_ = nullptr;
 
   base::WeakPtrFactory<TestAutofillClientTemplate> weak_ptr_factory_{this};
 };

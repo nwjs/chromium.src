@@ -33,14 +33,11 @@
 #include "chrome/browser/extensions/chrome_test_extension_loader.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/common/chrome_constants.h"
 #include "chrome/common/chrome_paths.h"
-#include "chrome/common/chrome_switches.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chromeos/ash/components/browser_context_helper/browser_context_helper.h"
 #include "chromeos/ash/components/dbus/session_manager/fake_session_manager_client.h"
-#include "chromeos/constants/chromeos_features.h"
 #include "components/ownership/owner_key_util.h"
 #include "components/policy/core/browser/browser_policy_connector.h"
 #include "components/policy/core/common/cloud/cloud_policy_client.h"
@@ -522,8 +519,6 @@ class LockExtensionsDeviceCloudPolicyBrowserTest
 
  private:
   ash::LoginManagerMixin login_manager_mixin_{&mixin_host_};
-  base::test::ScopedFeatureList scoped_feature_list_{
-      chromeos::features::kLockScreenBadgeAuth};
 };
 
 // Test that fetches the component policy and verifies that the fetched

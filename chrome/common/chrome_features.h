@@ -25,13 +25,6 @@ namespace features {
 // All features in alphabetical order. The features should be documented
 // alongside the definition of their values in the .cc file.
 
-COMPONENT_EXPORT(CHROME_FEATURES)
-extern const base::FeatureParam<base::TimeDelta>(
-    kActorPaintStabilityIntialPaintTimeout);
-COMPONENT_EXPORT(CHROME_FEATURES)
-extern const base::FeatureParam<base::TimeDelta>(
-    kActorPaintStabilitySubsequentPaintTimeout);
-
 #if BUILDFLAG(IS_WIN)
 COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kAppSpecificNotifications);
@@ -82,17 +75,12 @@ COMPONENT_EXPORT(CHROME_FEATURES)
 extern const char kBoardingPassDetectorUrlParamName[];
 #endif  // BUILDFLAG(IS_ANDROID)
 
-#if BUILDFLAG(IS_CHROMEOS)
-COMPONENT_EXPORT(CHROME_FEATURES) BASE_DECLARE_FEATURE(kBorealis);
-#endif  // BUILDFLAG(IS_CHROMEOS)
-
 #if !BUILDFLAG(IS_ANDROID)
 COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kCaptureHandleForStandalonePwasAndIwas);
 #endif  // !BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(IS_CHROMEOS)
-COMPONENT_EXPORT(CHROME_FEATURES) BASE_DECLARE_FEATURE(kCrostini);
 COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kUseUnifiedLockedStateController);
 COMPONENT_EXPORT(CHROME_FEATURES)
@@ -214,6 +202,8 @@ BASE_DECLARE_FEATURE(kGlicExperimentalTriggeringOptInBypass);
 COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kGlicExperimentalTriggeringOpenWindowIfNone);
 COMPONENT_EXPORT(CHROME_FEATURES)
+BASE_DECLARE_FEATURE(kGlicExperimentalTriggeringOsNotification);
+COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kGlicBackgroundTriggering);
 COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::FeatureParam<std::string>
@@ -232,6 +222,7 @@ extern const base::FeatureParam<base::TimeDelta> kGlicActorPageToolTimeout;
 COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::FeatureParam<base::TimeDelta> kGlicActorClickDelay;
 COMPONENT_EXPORT(CHROME_FEATURES) BASE_DECLARE_FEATURE(kGlicActorUi);
+COMPONENT_EXPORT(CHROME_FEATURES) BASE_DECLARE_FEATURE(kGlicActorUiNewIcon);
 COMPONENT_EXPORT(CHROME_FEATURES) BASE_DECLARE_FEATURE(kGlicConfirmTabClose);
 COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kGlicActorUiTabIndicatorSpinnerIgnoreReducedMotion);
@@ -296,19 +287,6 @@ extern const base::FeatureParam<base::TimeDelta>(kGlicActorUiDebounceTimer);
 COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::FeatureParam<int>(
     kGlicActorUiCompletedTaskExpiryDelaySeconds);
-
-COMPONENT_EXPORT(CHROME_FEATURES)
-extern const base::FeatureParam<base::TimeDelta>(
-    kGlicActorPageStabilityTimeout);
-COMPONENT_EXPORT(CHROME_FEATURES)
-extern const base::FeatureParam<base::TimeDelta> kGlicActorPageStabilityMinWait;
-COMPONENT_EXPORT(CHROME_FEATURES)
-extern const base::FeatureParam<base::TimeDelta>(kActorObservationDelayTimeout);
-COMPONENT_EXPORT(CHROME_FEATURES)
-extern const base::FeatureParam<base::TimeDelta>(kActorObservationDelayLcp);
-COMPONENT_EXPORT(CHROME_FEATURES)
-BASE_DECLARE_FEATURE_PARAM(base::TimeDelta,
-                           kActorObservationDelayAutofillPredictionsTimeout);
 
 COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kGlicActorObservationDelayExcludeAdFrameLoading);
@@ -576,10 +554,6 @@ extern const base::FeatureParam<int> kGlicMultiInstanceFloatyWidth;
 COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::FeatureParam<int> kGlicMultiInstanceFloatyHeight;
 
-COMPONENT_EXPORT(CHROME_FEATURES)
-
-COMPONENT_EXPORT(CHROME_FEATURES) BASE_DECLARE_FEATURE(kGlicZOrderChanges);
-
 COMPONENT_EXPORT(CHROME_FEATURES) BASE_DECLARE_FEATURE(kGlicDebugWebview);
 
 COMPONENT_EXPORT(CHROME_FEATURES) BASE_DECLARE_FEATURE(kGlicScrollTo);
@@ -597,8 +571,6 @@ COMPONENT_EXPORT(CHROME_FEATURES) BASE_DECLARE_FEATURE(kGlicWarming);
 
 COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::FeatureParam<int> kGlicWarmingDelayMs;
-COMPONENT_EXPORT(CHROME_FEATURES)
-extern const base::FeatureParam<int> kGlicWarmingJitterMs;
 COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::FeatureParam<size_t> kGlicWarmingMinRequiredRamMb;
 
@@ -668,6 +640,8 @@ COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kGlicGetTabByIdApi);
 COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kGlicOpenPasswordManagerSettingsPageApi);
+COMPONENT_EXPORT(CHROME_FEATURES)
+BASE_DECLARE_FEATURE(kGlicOpenContactInfoSettingsPageApi);
 
 COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kGlicAssetsV2);
@@ -930,6 +904,8 @@ BASE_DECLARE_FEATURE(kIndigo);
 COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kIndigoContextualCueingV2);
 COMPONENT_EXPORT(CHROME_FEATURES)
+BASE_DECLARE_FEATURE(kIndigoWatermark);
+COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::FeatureParam<bool> kIndigoRequireGlicEnabling;
 COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::FeatureParam<bool> kIndigoAllowForEnterprise;
@@ -950,6 +926,10 @@ COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::FeatureParam<std::string> kIndigoSavedUrl;
 COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::FeatureParam<std::string> kIndigoScopes;
+
+COMPONENT_EXPORT(CHROME_FEATURES)
+extern const base::FeatureParam<bool>
+    kIndigoContextualCueingV2OverrideUcbScoring;
 
 COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kIndigoMetadataKeywordHeuristic);
@@ -996,12 +976,12 @@ BASE_DECLARE_FEATURE(kIsolatedWebAppFastUpdateCheck);
 
 #if BUILDFLAG(IS_CHROMEOS)
 COMPONENT_EXPORT(CHROME_FEATURES)
-BASE_DECLARE_FEATURE(kIsolatedWebAppManagedGuestSessionInstall);
-COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kIsolatedWebAppBundleCache);
 #endif
 
 #if BUILDFLAG(IS_LINUX) && !BUILDFLAG(IS_CHROMEOS)
+COMPONENT_EXPORT(CHROME_FEATURES)
+BASE_DECLARE_FEATURE(kLinuxLogindShutdownInhibitor);
 COMPONENT_EXPORT(CHROME_FEATURES) BASE_DECLARE_FEATURE(kLinuxLowMemoryMonitor);
 COMPONENT_EXPORT(CHROME_FEATURES)
 extern const base::FeatureParam<int> kLinuxLowMemoryMonitorModerateLevel;
@@ -1019,10 +999,17 @@ COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE_PARAM(bool,
                            kLazyKeyedServiceInstantiationAutofillAndPassword);
 COMPONENT_EXPORT(CHROME_FEATURES)
+BASE_DECLARE_FEATURE_PARAM(bool, kLazyKeyedServiceInstantiationCommerceAndUI);
+COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE_PARAM(bool,
                            kLazyKeyedServiceInstantiationOptimizationGuide);
 COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE_PARAM(bool, kLazyKeyedServiceInstantiationExtensions);
+COMPONENT_EXPORT(CHROME_FEATURES)
+BASE_DECLARE_FEATURE_PARAM(bool, kLazyKeyedServiceInstantiationSafeBrowsing);
+COMPONENT_EXPORT(CHROME_FEATURES)
+BASE_DECLARE_FEATURE_PARAM(bool,
+                           kLazyKeyedServiceInstantiationVisitedUrlRanking);
 
 COMPONENT_EXPORT(CHROME_FEATURES) BASE_DECLARE_FEATURE(kNativeNotifications);
 
@@ -1201,11 +1188,6 @@ BASE_DECLARE_FEATURE(kProcessPerSiteSkipDevtoolsUsers);
 COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kProcessPerSiteSkipEnterpriseUsers);
 COMPONENT_EXPORT(CHROME_FEATURES) BASE_DECLARE_FEATURE(kProcessPerSiteForDSE);
-
-#if BUILDFLAG(IS_CHROMEOS)
-COMPONENT_EXPORT(CHROME_FEATURES) BASE_DECLARE_FEATURE(kCameraCloudStorage);
-COMPONENT_EXPORT(CHROME_FEATURES) BASE_DECLARE_FEATURE(kSkyVault);
-#endif  // BUILDFLAG(IS_CHROMEOS)
 
 COMPONENT_EXPORT(CHROME_FEATURES)
 BASE_DECLARE_FEATURE(kTreatUnsafeDownloadsAsActive);

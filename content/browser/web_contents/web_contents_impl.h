@@ -746,7 +746,9 @@ class CONTENT_EXPORT WebContentsImpl
       RenderFrameHostImpl* render_frame_host) override;
   void WebAuthnAssertionRequestSucceeded(
       RenderFrameHostImpl* render_frame_host) override;
-  void OnFedCmFederatedLogin(webid::FederatedLoginResult result) override;
+  void OnFedCmFederatedLogin(
+      webid::FederatedLoginResult result,
+      const std::optional<url::Origin>& idp_origin) override;
   void BindDisplayCutoutHost(
       RenderFrameHostImpl* render_frame_host,
       mojo::PendingAssociatedReceiver<blink::mojom::DisplayCutoutHost> receiver)
@@ -833,7 +835,7 @@ class CONTENT_EXPORT WebContentsImpl
       const mojom::CreateNewWindowParams& params,
       bool is_new_browsing_instance,
       bool has_user_gesture,
-      SessionStorageNamespace* session_storage_namespace) override;
+      SessionStorageNamespaceHandle* session_storage_namespace) override;
   WebContents* ShowCreatedWindow(
       RenderFrameHostImpl* opener,
       int main_frame_widget_route_id,
@@ -1017,6 +1019,7 @@ class CONTENT_EXPORT WebContentsImpl
                          int widget_route_id,
                          const gfx::Rect& initial_rect,
                          const gfx::Rect& initial_anchor_rect) override;
+  gfx::Rect ConstrainPopupBounds(const gfx::Rect& bounds) override;
   void CreateMediaPlayerHostForRenderFrameHost(
       RenderFrameHostImpl* frame_host,
       mojo::PendingAssociatedReceiver<media::mojom::MediaPlayerHost> receiver)
@@ -1540,7 +1543,7 @@ class CONTENT_EXPORT WebContentsImpl
   // directory.
   void EnumerateDirectory(
       base::WeakPtr<FileChooserImpl> file_chooser,
-      RenderFrameHost* render_frame_host,
+      RenderFrameHostImpl* render_frame_host,
       scoped_refptr<FileChooserImpl::FileSelectListenerImpl> listener,
       const base::FilePath& directory_path);
 

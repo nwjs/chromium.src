@@ -5,6 +5,7 @@
 package org.chromium.chrome.browser.settings;
 
 import android.content.Context;
+import android.os.Build;
 
 import org.chromium.base.ApplicationStatus;
 import org.chromium.base.ContextUtils;
@@ -16,18 +17,30 @@ import org.chromium.ui.base.DeviceFormFactor;
 /** Utility class for checking if Settings in Tab feature is enabled. */
 @NullMarked
 public class SettingsInTab {
-    /** Returns true if the feature flag is enabled and the device form factor is tablet/desktop. */
+    /**
+     * Returns true if the feature flag is enabled and the device form factor is tablet/desktop.
+     * Desktop uses SettingsInTabDesktop; tablet uses SettingsInTab.
+     */
     public static boolean isEnabled() {
-        if (!ChromeFeatureList.sSettingsInTab.isEnabled()) return false;
-
         // SettingsInTab requires SettingsMultiColumn, which is disabled by some tests.
         if (!ChromeFeatureList.sSettingsMultiColumn.isEnabled()) return false;
 
-        // Settings in a tab is supported on desktop and tablet form factors.
         // DeviceInfo.isDesktop() is checked in addition to isNonMultiDisplayContextOnTablet()
         // because desktop windows can be resized to narrow widths (< 600dp).
         if (DeviceInfo.isDesktop()) {
-            return true;
+            return ChromeFeatureList.sSettingsInTabDesktop.isEnabled();
+        }
+
+        // Tablets and foldables use the SettingsInTab flag.
+        if (!ChromeFeatureList.sSettingsInTab.isEnabled()) return false;
+
+        // Foldables must be explicitly checked because they act as tablets while unfolded, but if
+        // the user has settings open and folds the device, we must continue to display settings.
+        // This is consistent with other native pages like Downloads, History, and Bookmarks.
+        // Android 13 system images may falsely report a hinge angle sensor and therefore we do not
+        // support SettingsInTab on this circa-2022 OS version.
+        if (DeviceInfo.isFoldable()) {
+            return Build.VERSION.SDK_INT != Build.VERSION_CODES.TIRAMISU;
         }
 
         // Use an Activity context when available because theme changes reset application-level

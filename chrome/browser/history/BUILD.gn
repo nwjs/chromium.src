@@ -46,6 +46,7 @@ source_set("impl") {
   ]
   deps = [
     "//base",
+    "//chrome/browser:after_startup_task_utils",
     "//chrome/browser/actor",
     "//chrome/browser/bookmarks",
     "//chrome/browser/complex_tasks",
@@ -97,7 +98,10 @@ source_set("impl") {
       "//chrome/browser/ui/android/tab_model:impl",
     ]
   } else {
-    deps += [ "//chrome/browser/ui/browser_window" ]
+    deps += [
+      "//chrome/browser/ui/browser_window",
+      "//components/webapps/isolated_web_apps:scheme",
+    ]
   }
 }
 
@@ -196,7 +200,10 @@ source_set("test_support") {
 
 source_set("unit_tests") {
   testonly = true
-  sources = [ "history_tab_helper_unittest.cc" ]
+  sources = [
+    "history_tab_helper_unittest.cc",
+    "history_utils_unittest.cc",
+  ]
   deps = [
     ":history",
     "//base",
@@ -220,6 +227,8 @@ source_set("unit_tests") {
       "//components/feed/core/v2:feed_core_stubs",
       "//components/feed/core/v2:feed_core_v2",
     ]
+  } else {
+    deps += [ "//components/webapps/isolated_web_apps:scheme" ]
   }
 }
 

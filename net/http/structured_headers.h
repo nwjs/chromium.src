@@ -8,6 +8,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include "base/feature.h"
 #include "net/base/net_export.h"
@@ -26,6 +27,7 @@ using ParameterisedList = quiche::structured_headers::ParameterisedList;
 using ListOfLists = quiche::structured_headers::ListOfLists;
 using List = quiche::structured_headers::List;
 using Parameters = quiche::structured_headers::Parameters;
+using InnerList = quiche::structured_headers::InnerList;
 
 // See crbug.com/377941140 for details of this migration.
 NET_EXPORT BASE_DECLARE_FEATURE(kStructuredHeadersInRust);

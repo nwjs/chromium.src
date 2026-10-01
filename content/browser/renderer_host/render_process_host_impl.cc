@@ -17,6 +17,7 @@
 #include <utility>
 #include <vector>
 
+#include "base/atomicops.h"
 #include "base/base_switches.h"
 #include "base/byte_size.h"
 #include "base/clang_profiling_buildflags.h"
@@ -121,7 +122,6 @@
 #include "content/browser/push_messaging/push_messaging_manager.h"
 #include "content/browser/quota/quota_context.h"
 #include "content/browser/renderer_host/embedded_frame_sink_provider_impl.h"
-#include "content/browser/renderer_host/indexed_db_client_state_checker_factory.h"
 #include "content/browser/renderer_host/media/media_stream_track_metrics_host.h"
 #include "content/browser/renderer_host/recently_destroyed_hosts.h"
 #include "content/browser/renderer_host/render_frame_host_delegate.h"
@@ -208,7 +208,9 @@
 #include "third_party/blink/public/common/page/launching_process_state.h"
 #include "third_party/blink/public/common/storage_key/storage_key.h"
 #include "third_party/blink/public/common/switches.h"
+#include "third_party/blink/public/common/tokens/tokens.h"
 #include "third_party/blink/public/mojom/blob/file_backed_blob_factory.mojom.h"
+#include "third_party/blink/public/mojom/crash/crash_memory_metrics_reporter.mojom.h"
 #include "third_party/blink/public/mojom/disk_allocator.mojom.h"
 #include "third_party/blink/public/mojom/origin_trials/origin_trials_settings.mojom.h"
 #include "third_party/blink/public/mojom/plugins/plugin_registry.mojom.h"
@@ -241,7 +243,7 @@
 #include "content/common/thread_type_switcher.mojom.h"
 #endif
 
-#if BUILDFLAG(ALLOW_OOP_VIDEO_DECODER)
+#if BUILDFLAG(ENABLE_OOP_VIDEO_DECODER)
 #include "content/public/browser/oop_video_decoder_factory.h"
 #endif
 
@@ -1263,7 +1265,7 @@ void LogDelayReasonForCleanup(
                             reason);
 }
 
-#if BUILDFLAG(ALLOW_OOP_VIDEO_DECODER)
+#if BUILDFLAG(ENABLE_OOP_VIDEO_DECODER)
 RenderProcessHostImpl::VideoDecoderFactoryCreationCB&
 GetVideoDecoderFactoryCreationCB() {
   CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M152);
@@ -1288,7 +1290,7 @@ void InvokeVideoDecoderEventCB(RenderProcessHostImpl::VideoDecoderEvent event) {
     callback.Run(event);
   }
 }
-#endif  // BUILDFLAG(ALLOW_OOP_VIDEO_DECODER)
+#endif  // BUILDFLAG(ENABLE_OOP_VIDEO_DECODER)
 
 #if !BUILDFLAG(IS_ANDROID)
 // Enables kUserVisible process priority. Otherwise when feature is disabled,
@@ -1447,7 +1449,7 @@ size_t GetOutermostMainFrameCountForFastShutdown(RenderProcessHost* process) {
         RenderFrameHostImpl* const outermost_rfh =
             static_cast<RenderFrameHostImpl*>(rfh)->GetOutermostMainFrame();
         if (outermost_rfh->lifecycle_state() ==
-            RenderFrameHostImpl::LifecycleStateImpl::kActive) {
+            RenderFrameHostLifecycleStateImpl::kActive) {
           outermost_main_frames.insert(outermost_rfh);
         }
       });
@@ -1747,11 +1749,11 @@ RenderProcessHostImpl::RenderProcessHostImpl(
   TRACE_EVENT_BEGIN("shutdown", "Browser.RenderProcessHostImpl", tracing_track_,
                     ChromeTrackEvent::kRenderProcessHost, *this);
 
-#if BUILDFLAG(ALLOW_OOP_VIDEO_DECODER)
+#if BUILDFLAG(ENABLE_OOP_VIDEO_DECODER)
   video_decoder_trackers_.set_disconnect_handler(
       base::BindRepeating(&RenderProcessHostImpl::OnVideoDecoderDisconnected,
                           instance_weak_factory_.GetWeakPtr()));
-#endif  // BUILDFLAG(ALLOW_OOP_VIDEO_DECODER)
+#endif  // BUILDFLAG(ENABLE_OOP_VIDEO_DECODER)
 
   widget_helper_ = new RenderWidgetHelper();
   resolve_proxy_helper_ = new ResolveProxyHelper(GetDeprecatedID());
@@ -1946,8 +1948,9 @@ bool RenderProcessHostImpl::Init() {
 #endif
 
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
-  int flags = renderer_prefix.empty() ? ChildProcessHost::CHILD_ALLOW_SELF
-                                      : ChildProcessHost::CHILD_NORMAL;
+  int flags = renderer_prefix.empty() ? (ChildProcessHost::CHILD_ALLOW_SELF |
+                                         ChildProcessHost::CHILD_RENDERER)
+                                      : ChildProcessHost::CHILD_RENDERER;
 #elif BUILDFLAG(IS_MAC)
   int flags = ChildProcessHost::CHILD_RENDERER;
 #else
@@ -2025,6 +2028,7 @@ bool RenderProcessHostImpl::Init() {
   CreateMessageFilters();
   RegisterMojoInterfaces();
   CreateMetricsAllocator();
+  CreateCrashMemoryMetricsBuffer();
 
   // Calculate the CPU performance tier, allowing for overrides.
   content::cpu_performance::Tier cpu_tier;
@@ -2370,17 +2374,9 @@ void RenderProcessHostImpl::BindIndexedDB(
     return;
   }
 
-  storage::BucketClientInfo client_info = bucket_context.GetBucketClientInfo();
-  auto state_checker =
-      IndexedDBClientStateCheckerFactory::InitializePendingRemote(client_info);
-  if (!state_checker) {
-    // The client is not in a valid state to use IndexedDB.
-    return;
-  }
-
   storage_partition_impl_->BindIndexedDB(
-      storage::BucketLocator::ForDefaultBucket(storage_key), client_info,
-      std::move(state_checker), std::move(receiver));
+      storage::BucketLocator::ForDefaultBucket(storage_key),
+      bucket_context.GetBucketClientInfo(), std::move(receiver));
 }
 
 void RenderProcessHostImpl::BindBucketManagerHost(
@@ -2392,7 +2388,8 @@ void RenderProcessHostImpl::BindBucketManagerHost(
       mojo::GetBadMessageCallback());
 }
 
-void RenderProcessHostImpl::ForceCrash() {
+void RenderProcessHostImpl::CrashHungProcess() {
+  shutdown_exit_code_ = RESULT_CODE_HUNG;
   child_process_->CrashHungProcess();
 }
 
@@ -2433,7 +2430,7 @@ void RenderProcessHostImpl::BindFileBackedBlobFactory(
   if (!file_backed_blob_factory_) {
     file_backed_blob_factory_ =
         std::make_unique<FileBackedBlobFactoryWorkerImpl>(browser_context_,
-                                                          GetDeprecatedID());
+                                                          GetID());
   }
   file_backed_blob_factory_->BindReceiver(std::move(receiver), origin.GetURL());
 }
@@ -2575,7 +2572,7 @@ void RenderProcessHostImpl::SetBatterySaverMode(
   child_process_->SetBatterySaverMode(battery_saver_mode_enabled);
 }
 
-#if BUILDFLAG(ALLOW_OOP_VIDEO_DECODER)
+#if BUILDFLAG(ENABLE_OOP_VIDEO_DECODER)
 void RenderProcessHostImpl::CreateOOPVideoDecoder(
     mojo::PendingReceiver<media::mojom::VideoDecoder> receiver) {
   CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M152);
@@ -2677,7 +2674,7 @@ void RenderProcessHostImpl::SetVideoDecoderEventCBForTesting(
   CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M152);
   GetVideoDecoderEventCB() = callback;
 }
-#endif  // BUILDFLAG(ALLOW_OOP_VIDEO_DECODER)
+#endif  // BUILDFLAG(ENABLE_OOP_VIDEO_DECODER)
 
 base::ScopedClosureRunner RenderProcessHostImpl::DelayProcessShutdown(
     const base::TimeDelta& subframe_shutdown_timeout,
@@ -3105,7 +3102,7 @@ void RenderProcessHostImpl::ForEachRenderFrameHost(
     // Speculative RFHs are not exposed to //content embedders, so we have to
     // explicitly check them here to avoid leaks.
     if (rfh->lifecycle_state() ==
-        RenderFrameHostImpl::LifecycleStateImpl::kSpeculative) {
+        RenderFrameHostLifecycleStateImpl::kSpeculative) {
       continue;
     }
     on_render_frame_host(rfh);
@@ -3898,6 +3895,7 @@ void RenderProcessHostImpl::PropagateBrowserCommandLineToRenderer(
       sandbox::policy::switches::kEnableSandboxLogging,
 #endif
       switches::kAllowCommandLinePlugins,
+      switches::kAllowFileAccessFromFiles,
       switches::kEnableNodeWorker,
       switches::kDisableRAFThrottling,
       switches::kEnableSpellChecking,
@@ -4166,6 +4164,18 @@ RenderProcessHostImpl::GetUnresponsiveDocumentJavascriptCallStack() const {
 const blink::LocalFrameToken&
 RenderProcessHostImpl::GetUnresponsiveDocumentToken() const {
   return unresponsive_document_token_;
+}
+
+std::optional<blink::OomInterventionMetrics>
+RenderProcessHostImpl::GetCrashMemoryMetrics() const {
+  if (!crash_memory_metrics_mapping_.IsValid()) {
+    return std::nullopt;
+  }
+  blink::OomInterventionMetrics memory_metrics;
+  base::subtle::RelaxedAtomicWriteMemcpy(
+      base::byte_span_from_ref(memory_metrics),
+      crash_memory_metrics_mapping_.GetMemoryAsSpan<uint8_t>());
+  return memory_metrics;
 }
 
 void RenderProcessHostImpl::SetUnresponsiveDocumentJSCallStackAndToken(
@@ -5672,6 +5682,22 @@ void RenderProcessHostImpl::CreateMetricsAllocator() {
   }
 }
 
+void RenderProcessHostImpl::CreateCrashMemoryMetricsBuffer() {
+  base::UnsafeSharedMemoryRegion shared_metrics_buffer =
+      base::UnsafeSharedMemoryRegion::Create(
+          sizeof(blink::OomInterventionMetrics));
+  if (shared_metrics_buffer.IsValid()) {
+    crash_memory_metrics_mapping_ = shared_metrics_buffer.Map();
+    if (crash_memory_metrics_mapping_.IsValid()) {
+      std::ranges::fill(
+          crash_memory_metrics_mapping_.GetMemoryAsSpan<uint8_t>(), 0);
+      mojo::Remote<blink::mojom::CrashMemoryMetricsReporter> reporter;
+      BindReceiver(reporter.BindNewPipeAndPassReceiver());
+      reporter->SetSharedMemory(shared_metrics_buffer.Duplicate());
+    }
+  }
+}
+
 void RenderProcessHostImpl::ShareMetricsMemoryRegion() {
   // If passing the shared memory region on the command line is NOT enabled
   // then we pass it here via the renderer's HistogramController; otherwise,
@@ -5829,9 +5855,9 @@ void RenderProcessHostImpl::ResetIPC() {
   coordinator_connector_receiver_.reset();
   tracing_registration_.reset();
 
-#if BUILDFLAG(ALLOW_OOP_VIDEO_DECODER)
+#if BUILDFLAG(ENABLE_OOP_VIDEO_DECODER)
   ResetVideoDecoderFactory();
-#endif  // BUILDFLAG(ALLOW_OOP_VIDEO_DECODER)
+#endif  // BUILDFLAG(ENABLE_OOP_VIDEO_DECODER)
 
   // Destroy all embedded CompositorFrameSinks.
   embedded_frame_sink_provider_.reset();
@@ -6289,10 +6315,12 @@ void RenderProcessHostImpl::OnProcessLaunched() {
   aec_dump_manager_.set_pid(GetProcess().Pid());
   aec_dump_manager_.AutoStart();
 
-  tracing_registration_ = TracingServiceController::Get().RegisterClient(
-      GetProcess().Pid(),
-      base::BindRepeating(&RenderProcessHostImpl::BindTracedProcess,
-                          instance_weak_factory_.GetWeakPtr()));
+  if (!run_renderer_in_process()) {
+    tracing_registration_ = TracingServiceController::Get().RegisterClient(
+        GetProcess().Pid(),
+        base::BindRepeating(&RenderProcessHostImpl::BindTracedProcess,
+                            instance_weak_factory_.GetWeakPtr()));
+  }
 
 #if BUILDFLAG(IS_POSIX) && !BUILDFLAG(IS_ANDROID)
   system_tracing_service_ = std::make_unique<tracing::SystemTracingService>();

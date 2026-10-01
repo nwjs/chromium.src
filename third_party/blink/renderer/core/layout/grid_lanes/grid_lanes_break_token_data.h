@@ -14,22 +14,28 @@ namespace blink {
 struct GridLanesBreakTokenData final : BreakTokenAlgorithmData {
   GridLanesBreakTokenData(const GridLanesDataVector& grid_lanes,
                           const GridLayoutSubtree* grid_layout_subtree,
-                          LayoutUnit total_intrinsic_block_size)
+                          LayoutUnit total_intrinsic_block_size,
+                          const HeapVector<Member<LayoutBox>>& oof_children)
       : BreakTokenAlgorithmData(kGridLanesData),
         total_intrinsic_block_size(total_intrinsic_block_size),
         grid_layout_subtree(grid_layout_subtree),
-        grid_lanes(grid_lanes) {}
+        grid_lanes(grid_lanes),
+        oof_children(oof_children) {}
 
-  void Trace(Visitor* visitor) const override {
+  // Traces references after the type tag is checked.
+  void TraceAfterDispatch(Visitor* visitor) const {
     visitor->Trace(grid_lanes);
     visitor->Trace(grid_layout_subtree);
-    BreakTokenAlgorithmData::Trace(visitor);
+    visitor->Trace(oof_children);
+    BreakTokenAlgorithmData::TraceAfterDispatch(visitor);
   }
 
   LayoutUnit total_intrinsic_block_size;
 
   Member<const GridLayoutSubtree> grid_layout_subtree;
   GridLanesDataVector grid_lanes;
+
+  HeapVector<Member<LayoutBox>> oof_children;
 };
 
 template <>

@@ -184,13 +184,6 @@ constexpr std::string_view kMaskedBankAccountsMetadataTable =
 // kInstrumentId = "instrument_id"
 // kUseCount = "use_count"
 // kUseDate = "use_date"
-constexpr std::initializer_list<
-    const std::pair<const std::string_view, const std::string_view>>
-    kMaskedBankAccountsMetadataColumnNamesAndTypes = {
-        {kInstrumentId, "INTEGER NOT NULL"},
-        {kUseCount, "INTEGER NOT NULL DEFAULT 0"},
-        {kUseDate, "INTEGER NOT NULL DEFAULT 0"}};
-
 constexpr std::string_view kMaskedBankAccountsTable = "masked_bank_accounts";
 // kInstrumentId = "instrument_id"
 // kBankName = "bank_name"
@@ -198,15 +191,6 @@ constexpr std::string_view kAccountNumberSuffix = "account_number_suffix";
 constexpr std::string_view kAccountType = "account_type";
 // kNickname = "nickname"
 constexpr std::string_view kDisplayIconUrl = "display_icon_url";
-constexpr std::initializer_list<
-    const std::pair<const std::string_view, const std::string_view>>
-    kMaskedBankAccountsColumnNamesAndTypes = {
-        {kInstrumentId, "INTEGER PRIMARY KEY NOT NULL"},
-        {kBankName, "VARCHAR"},
-        {kAccountNumberSuffix, "VARCHAR"},
-        {kAccountType, "INTEGER DEFAULT 0"},
-        {kDisplayIconUrl, "VARCHAR"},
-        {kNickname, "VARCHAR"}};
 
 constexpr std::string_view kMaskedCreditCardBenefitsTable =
     "masked_credit_card_benefits";
@@ -217,37 +201,17 @@ constexpr std::string_view kBenefitCategory = "benefit_category";
 constexpr std::string_view kBenefitDescription = "benefit_description";
 constexpr std::string_view kStartTime = "start_time";
 constexpr std::string_view kEndTime = "end_time";
-constexpr std::initializer_list<
-    const std::pair<const std::string_view, const std::string_view>>
-    kMaskedCreditCardBenefitsColumnNamesAndTypes = {
-        {kBenefitId, "VARCHAR PRIMARY KEY NOT NULL"},
-        {kInstrumentId, "INTEGER NOT NULL DEFAULT 0"},
-        {kBenefitType, "INTEGER NOT NULL DEFAULT 0"},
-        {kBenefitCategory, "INTEGER NOT NULL DEFAULT 0"},
-        {kBenefitDescription, "VARCHAR NOT NULL"},
-        {kStartTime, "INTEGER"},
-        {kEndTime, "INTEGER"}};
 
 constexpr std::string_view kBenefitMerchantDomainsTable =
     "benefit_merchant_domains";
 // kBenefitId = "benefit_id"
 // kMerchantDomain = "merchant_domain";
-constexpr std::initializer_list<
-    const std::pair<const std::string_view, const std::string_view>>
-    kBenefitMerchantDomainsColumnNamesAndTypes = {
-        {kBenefitId, "VARCHAR NOT NULL"},
-        {kMerchantDomain, "VARCHAR NOT NULL"}};
 
 constexpr std::string_view kGenericPaymentInstrumentsTable =
     "generic_payment_instruments";
 // kInstrumentId = "instrument_id"
 constexpr std::string_view kSerializedValueEncrypted =
     "serialized_value_encrypted";
-constexpr std::initializer_list<
-    const std::pair<const std::string_view, const std::string_view>>
-    kGenericPaymentInstrumentsColumnNamesAndTypes = {
-        {kInstrumentId, "INTEGER PRIMARY KEY NOT NULL"},
-        {kSerializedValueEncrypted, "VARCHAR NOT NULL"}};
 
 constexpr std::string_view kPaymentInstrumentCreationOptionsTable =
     "payment_instrument_creation_options";
@@ -625,6 +589,9 @@ bool PaymentsAutofillTable::MigrateToVersion(int version,
     case 153:
       *update_compatible_version = true;
       return MigrateToVersion153ReplaceOriginWithIsUserConfirmed();
+    case 156:
+      *update_compatible_version = false;
+      return MigrateToVersion156ClearLegacyOffers();
   }
   return true;
 }
@@ -2158,9 +2125,16 @@ bool PaymentsAutofillTable::
          sql::AddColumn(*db(), kMaskedCreditCardsTable, kProductTermsUrl,
                         "VARCHAR") &&
          sql::CreateTable(*db(), kMaskedCreditCardBenefitsTable,
-                          kMaskedCreditCardBenefitsColumnNamesAndTypes) &&
+                          {{kBenefitId, "VARCHAR PRIMARY KEY NOT NULL"},
+                           {kInstrumentId, "INTEGER NOT NULL DEFAULT 0"},
+                           {kBenefitType, "INTEGER NOT NULL DEFAULT 0"},
+                           {kBenefitCategory, "INTEGER NOT NULL DEFAULT 0"},
+                           {kBenefitDescription, "VARCHAR NOT NULL"},
+                           {kStartTime, "INTEGER"},
+                           {kEndTime, "INTEGER"}}) &&
          sql::CreateTable(*db(), kBenefitMerchantDomainsTable,
-                          kBenefitMerchantDomainsColumnNamesAndTypes) &&
+                          {{kBenefitId, "VARCHAR NOT NULL"},
+                           {kMerchantDomain, "VARCHAR NOT NULL"}}) &&
          transaction.Commit();
 }
 
@@ -2173,9 +2147,16 @@ bool PaymentsAutofillTable::
          DropTableIfExists(db(), "bank_accounts") &&
          DropTableIfExists(db(), "payment_instrument_supported_rails") &&
          sql::CreateTable(*db(), kMaskedBankAccountsTable,
-                          kMaskedBankAccountsColumnNamesAndTypes) &&
+                          {{kInstrumentId, "INTEGER PRIMARY KEY NOT NULL"},
+                           {kBankName, "VARCHAR"},
+                           {kAccountNumberSuffix, "VARCHAR"},
+                           {kAccountType, "INTEGER DEFAULT 0"},
+                           {kDisplayIconUrl, "VARCHAR"},
+                           {kNickname, "VARCHAR"}}) &&
          sql::CreateTable(*db(), kMaskedBankAccountsMetadataTable,
-                          kMaskedBankAccountsMetadataColumnNamesAndTypes) &&
+                          {{kInstrumentId, "INTEGER NOT NULL"},
+                           {kUseCount, "INTEGER NOT NULL DEFAULT 0"},
+                           {kUseDate, "INTEGER NOT NULL DEFAULT 0"}}) &&
          transaction.Commit();
 }
 
@@ -2186,7 +2167,8 @@ bool PaymentsAutofillTable::MigrateToVersion125DeleteFullServerCardsTable() {
 bool PaymentsAutofillTable::
     MigrateToVersion129AddGenericPaymentInstrumentsTable() {
   return sql::CreateTable(*db(), kGenericPaymentInstrumentsTable,
-                          kGenericPaymentInstrumentsColumnNamesAndTypes);
+                          {{kInstrumentId, "INTEGER PRIMARY KEY NOT NULL"},
+                           {kSerializedValueEncrypted, "VARCHAR NOT NULL"}});
 }
 
 bool PaymentsAutofillTable::
@@ -2250,6 +2232,20 @@ bool PaymentsAutofillTable::
     return false;
   }
 
+  return transaction.Commit();
+}
+
+bool PaymentsAutofillTable::MigrateToVersion156ClearLegacyOffers() {
+  sql::Transaction transaction(db());
+  if (!transaction.Begin()) {
+    return false;
+  }
+  for (std::string_view table : {kOfferDataTable, kOfferEligibleInstrumentTable,
+                                 kOfferMerchantDomainTable}) {
+    if (db()->DoesTableExist(table) && !sql::DeleteAllRows(*db(), table)) {
+      return false;
+    }
+  }
   return transaction.Commit();
 }
 
@@ -2459,28 +2455,46 @@ bool PaymentsAutofillTable::InitVirtualCardUsageDataTable() {
 }
 
 bool PaymentsAutofillTable::InitMaskedBankAccountsTable() {
-  return CreateTableIfNotExists(db(), kMaskedBankAccountsTable,
-                                kMaskedBankAccountsColumnNamesAndTypes);
+  return CreateTableIfNotExists(
+      db(), kMaskedBankAccountsTable,
+      {{kInstrumentId, "INTEGER PRIMARY KEY NOT NULL"},
+       {kBankName, "VARCHAR"},
+       {kAccountNumberSuffix, "VARCHAR"},
+       {kAccountType, "INTEGER DEFAULT 0"},
+       {kDisplayIconUrl, "VARCHAR"},
+       {kNickname, "VARCHAR"}});
 }
 
 bool PaymentsAutofillTable::InitMaskedBankAccountsMetadataTable() {
   return CreateTableIfNotExists(db(), kMaskedBankAccountsMetadataTable,
-                                kMaskedBankAccountsMetadataColumnNamesAndTypes);
+                                {{kInstrumentId, "INTEGER NOT NULL"},
+                                 {kUseCount, "INTEGER NOT NULL DEFAULT 0"},
+                                 {kUseDate, "INTEGER NOT NULL DEFAULT 0"}});
 }
 
 bool PaymentsAutofillTable::InitMaskedCreditCardBenefitsTable() {
-  return CreateTableIfNotExists(db(), kMaskedCreditCardBenefitsTable,
-                                kMaskedCreditCardBenefitsColumnNamesAndTypes);
+  return CreateTableIfNotExists(
+      db(), kMaskedCreditCardBenefitsTable,
+      {{kBenefitId, "VARCHAR PRIMARY KEY NOT NULL"},
+       {kInstrumentId, "INTEGER NOT NULL DEFAULT 0"},
+       {kBenefitType, "INTEGER NOT NULL DEFAULT 0"},
+       {kBenefitCategory, "INTEGER NOT NULL DEFAULT 0"},
+       {kBenefitDescription, "VARCHAR NOT NULL"},
+       {kStartTime, "INTEGER"},
+       {kEndTime, "INTEGER"}});
 }
 
 bool PaymentsAutofillTable::InitBenefitMerchantDomainsTable() {
   return CreateTableIfNotExists(db(), kBenefitMerchantDomainsTable,
-                                kBenefitMerchantDomainsColumnNamesAndTypes);
+                                {{kBenefitId, "VARCHAR NOT NULL"},
+                                 {kMerchantDomain, "VARCHAR NOT NULL"}});
 }
 
 bool PaymentsAutofillTable::InitGenericPaymentInstrumentsTable() {
-  return CreateTableIfNotExists(db(), kGenericPaymentInstrumentsTable,
-                                kGenericPaymentInstrumentsColumnNamesAndTypes);
+  return CreateTableIfNotExists(
+      db(), kGenericPaymentInstrumentsTable,
+      {{kInstrumentId, "INTEGER PRIMARY KEY NOT NULL"},
+       {kSerializedValueEncrypted, "VARCHAR NOT NULL"}});
 }
 
 bool PaymentsAutofillTable::InitPaymentInstrumentCreationOptionsTable() {

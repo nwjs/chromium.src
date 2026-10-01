@@ -38,6 +38,14 @@ BASE_FEATURE(kAccessibilityExposeNonAtomicTextFieldChildren,
 BASE_FEATURE(kAllowContentInitiatedDataUrlNavigations,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Enables forwarding WebKeyboardEvent of type kKeyDown from confirmed physical
+// keyboards to KeyPressEventCallback listeners in RenderWidgetHostImpl on
+// Android.
+// Owner: lkuba@google.com, piotrkotynia@google.com
+// Removal: Check after 2026-11-01
+BASE_FEATURE(kAllowKeyDownInKeyPressListeners,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // When enabled, AncestorThrottle evaluates redirect responses using the source
 // URL of the redirect rather than the target URL.
 BASE_FEATURE(kAncestorThrottleEvaluateRedirectSource,
@@ -132,18 +140,11 @@ BASE_FEATURE(kBeforeUnloadBrowserResponseQueue,
 BASE_FEATURE(kHidePastePopupOnGSB, base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
-
 #if BUILDFLAG(IS_MAC)
-// If enabled, handle more cache misses by falling back to the selection.
-BASE_FEATURE(kCachedFirstRectMoreSelectionFallbacks,
-             base::FEATURE_ENABLED_BY_DEFAULT);
 // If true, whenever the cache lookup falls back to the selection, allow the
-// fallback even if the requested range is outside the selection.
+// fallback even if the requested range is outside the selection. If the
+// selection is invalid, returns an empty result.
 BASE_FEATURE(kCachedFirstRectAllowRangeOutsideSelection,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-// If true, whenever the cache lookup falls back to the selection, return an
-// empty result instead of an error when there's no valid selection.
-BASE_FEATURE(kCachedFirstRectAllowInvalidSelection,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kCancelCompositionWhenWindowLosesFocus,
@@ -166,6 +167,15 @@ BASE_FEATURE(kCopyFromSurfaceAlwaysCallCallback,
 // Enables support for the `Critical-CH` response header.
 // https://github.com/WICG/client-hints-infrastructure/blob/master/reliability.md#critical-ch
 BASE_FEATURE(kCriticalClientHint, base::FEATURE_ENABLED_BY_DEFAULT);
+
+#if BUILDFLAG(USE_ZYGOTE)
+// When enabled, the browser does not wait for the sandboxed zygote to finish
+// booting (and report its sandbox status) during early startup; the handshake
+// completes when the zygote is first needed instead. When disabled it is
+// completed on the main thread right after the FeatureList is available,
+// before BrowserMain.
+BASE_FEATURE(kDeferZygoteHandshake, base::FEATURE_DISABLED_BY_DEFAULT);
+#endif
 
 // This feature controls whether Dev Tools supports debugging Device Bound
 // Sessions.
@@ -397,6 +407,10 @@ BASE_FEATURE(kKeepChildProcessAfterIPCReset, base::FEATURE_DISABLED_BY_DEFAULT);
 // When enabled, the renderer process will be killed if it provides
 // invalid (non-allowlisted) headers in a navigation request.
 BASE_FEATURE(kKillOnInvalidNavigationHeaders, base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Kill switch for crbug.com/424995036. When enabled, the top of a
+// PopupWidgetHost is constrained to be at or below the line of death.
+BASE_FEATURE(kLimitPopupWidgetHostPosition, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables Local Network Access checks for all types of web workers.
 //

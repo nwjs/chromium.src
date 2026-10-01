@@ -11,6 +11,7 @@
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/notreached.h"
 #include "services/network/public/mojom/device_bound_sessions.mojom.h"
 
 namespace {
@@ -20,18 +21,15 @@ namespace {
 // - The fallback interval when the session manager is unavailable.
 constexpr base::TimeDelta kMinPrewarmInterval = base::Seconds(60);
 
-// The prewarm timer interval when the URL provider callback returns an empty or
-// invalid URL.
-constexpr base::TimeDelta kLongPrewarmInterval = base::Minutes(10);
-
-// The maximum number of times to retry prewarming with an invalid URL.
-constexpr int kMaxInvalidUrlRetries = 5;
-
 }  // namespace
 
 DeviceBoundSessionPrewarmer::DeviceBoundSessionPrewarmer(
+    GURL prewarm_url,
     SessionManagerProvider session_manager_provider)
-    : session_manager_provider_(std::move(session_manager_provider)) {
+    : prewarm_url_(std::move(prewarm_url)),
+      session_manager_provider_(std::move(session_manager_provider)) {
+  CHECK(prewarm_url_.is_valid());
+  CHECK(prewarm_url_.SchemeIs(url::kHttpsScheme));
   CHECK(session_manager_provider_);
 }
 
@@ -39,12 +37,7 @@ DeviceBoundSessionPrewarmer::~DeviceBoundSessionPrewarmer() {
   Stop();
 }
 
-void DeviceBoundSessionPrewarmer::Start(
-    PrewarmUrlProvider url_provider_callback,
-    bool is_startup_prewarm) {
-  CHECK(url_provider_callback);
-  url_provider_callback_ = std::move(url_provider_callback);
-  invalid_url_consecutive_retries_ = 0;
+void DeviceBoundSessionPrewarmer::Start(bool is_startup_prewarm) {
   is_startup_prewarm_ = is_startup_prewarm;
 
   Stop();
@@ -57,34 +50,39 @@ void DeviceBoundSessionPrewarmer::Start(
 void DeviceBoundSessionPrewarmer::Stop() {
   timer_.Stop();
   weak_ptr_factory_.InvalidateWeakPtrs();
+  receiver_.reset();
 }
 
-void DeviceBoundSessionPrewarmer::DoPrewarm() {
-  // If the URL provider callback returns an empty or invalid URL, we should
-  // skip the prewarming entirely and schedule the next prewarm at a long
-  // interval up to a maximum number of consecutive failures.
-  GURL target_url = url_provider_callback_.Run();
-  const bool invalid_url =
-      !target_url.is_valid() || !target_url.SchemeIs(url::kHttpsScheme);
-  if (invalid_url) {
-    invalid_url_consecutive_retries_++;
-    base::UmaHistogramCounts100(
-        "Net.DeviceBoundSessions.PrewarmInvalidUrlConsecutiveFailures",
-        invalid_url_consecutive_retries_);
-    if (invalid_url_consecutive_retries_ <= kMaxInvalidUrlRetries) {
-      timer_.Start(FROM_HERE, kLongPrewarmInterval, this,
-                   &DeviceBoundSessionPrewarmer::DoPrewarm);
-    }
+void DeviceBoundSessionPrewarmer::EnsureObserverBound(
+    network::mojom::DeviceBoundSessionManager* session_manager) {
+  if (receiver_.is_bound()) {
     return;
   }
 
-  // Reset the retry count if the URL is valid.
-  invalid_url_consecutive_retries_ = 0;
+  session_manager->AddObserver(prewarm_url_,
+                               receiver_.BindNewPipeAndPassRemote());
+  receiver_.set_disconnect_handler(
+      base::BindOnce(&DeviceBoundSessionPrewarmer::OnObserverDisconnected,
+                     base::Unretained(this)));
+}
+
+void DeviceBoundSessionPrewarmer::OnObserverDisconnected() {
+  receiver_.reset();
+  // The network service disconnected (e.g. crash). Schedule DoPrewarm()
+  // after `kMinPrewarmInterval` to re-establish the observer and refresh
+  // session state.
+  timer_.Start(FROM_HERE, kMinPrewarmInterval, this,
+               &DeviceBoundSessionPrewarmer::DoPrewarm);
+}
+
+void DeviceBoundSessionPrewarmer::DoPrewarm() {
+  timer_.Stop();
 
   if (network::mojom::DeviceBoundSessionManager* session_manager =
           session_manager_provider_.Run()) {
+    EnsureObserverBound(session_manager);
     session_manager->PrewarmSessionsForUrl(
-        target_url,
+        prewarm_url_,
         base::BindOnce(&DeviceBoundSessionPrewarmer::OnPrewarmComplete,
                        weak_ptr_factory_.GetWeakPtr()));
   } else {
@@ -125,16 +123,23 @@ void DeviceBoundSessionPrewarmer::OnPrewarmComplete(
     }
   }
 
-  if (!earliest_next_refresh_time) {
-    if (std::ranges::none_of(results,
-                             &DeviceBoundSessionPrewarmer::IsTransientError)) {
-      // If there is no transient error and no next refresh time, we can stop
-      // prewarming.
-      return;
-    }
-
+  if (std::ranges::any_of(results,
+                          &DeviceBoundSessionPrewarmer::IsTransientError)) {
+    // If a session failed to refresh due to a transient error, retry after a
+    // short delay regardless of what `earliest_next_refresh_time` is.
+    // `earliest_next_refresh_time` only reflects the next refresh time of
+    // sessions that rotated successfully or didn't need refresh, so it could
+    // be set far in the future even if another session failed.
+    // TODO(crbug.com/544602741): Revisit whether earliest_next_refresh_time
+    // should account for failed sessions.
     timer_.Start(FROM_HERE, kMinPrewarmInterval, this,
                  &DeviceBoundSessionPrewarmer::DoPrewarm);
+    return;
+  }
+
+  if (!earliest_next_refresh_time) {
+    // If there is no transient error and no next refresh time, we can stop
+    // prewarming.
     return;
   }
 
@@ -144,4 +149,25 @@ void DeviceBoundSessionPrewarmer::OnPrewarmComplete(
   base::TimeDelta delay = std::max(
       *earliest_next_refresh_time - base::Time::Now(), kMinPrewarmInterval);
   timer_.Start(FROM_HERE, delay, this, &DeviceBoundSessionPrewarmer::DoPrewarm);
+}
+
+// network::mojom::DeviceBoundSessionAccessObserver:
+void DeviceBoundSessionPrewarmer::OnDeviceBoundSessionAccessed(
+    const net::device_bound_sessions::SessionAccess& access) {
+  if (access.access_type !=
+      net::device_bound_sessions::SessionAccess::AccessType::kCreation) {
+    return;
+  }
+  // TODO(crbug.com/544602741): Consider passing next refresh time in
+  // SessionAccess to avoid triggering an immediate prewarm IPC solely to
+  // discover `earliest_next_refresh_time`.
+  DoPrewarm();
+}
+
+void DeviceBoundSessionPrewarmer::Clone(
+    mojo::PendingReceiver<network::mojom::DeviceBoundSessionAccessObserver>
+        observer) {
+  // The `Clone` method is only called for observers that are part of network
+  // requests, so it is not expected to be called here.
+  NOTREACHED();
 }

@@ -51,6 +51,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
 
 /** Preference container implementation for SettingsActivity in multi-column mode. */
 @NullMarked
@@ -104,13 +105,23 @@ public class MultiColumnSettings extends PreferenceHeaderFragmentCompat
 
     private final ObserverList<Observer> mObservers = new ObserverList<>();
 
-    private final FragmentTracker mFragmentTracker = new FragmentTracker(mObservers);
-
     private @Nullable Profile mProfile;
+
+    private final FragmentTracker mFragmentTracker =
+            new FragmentTracker(mObservers, () -> mProfile);
 
     private @Nullable Context mThemedContext;
 
     private @Nullable String mInitialUrl;
+
+    /**
+     * Tracks whether an asynchronous back stack clearing was initiated specifically to return to
+     * root settings in single-column mode (e.g. via {@link #onCreateInitialDetailFragment}). When
+     * true, {@link #onBackStackEmpty} removes any remaining un-backstacked detail fragment and
+     * closes the sliding pane. When false, normal back navigation from a child detail fragment
+     * retains the base detail fragment.
+     */
+    private boolean mClearingBackStackForRoot;
 
     @Override
     public void onAttach(Context context) {
@@ -185,11 +196,11 @@ public class MultiColumnSettings extends PreferenceHeaderFragmentCompat
         // Otherwise fallback to the original logic, i.e. use the first item in the main menu.
         FragmentData processed = processPendingFragmentIntent();
         if (processed != null) {
-            // Sliding panel layout can be null in tests.
-            if (getSlidingPaneLayout() != null
+            SlidingPaneLayout slidingPane = getSlidingPaneLayoutOrNull();
+            if (slidingPane != null
                     && processed.fragment != null
                     && !(processed.fragment instanceof MainSettings)) {
-                getSlidingPaneLayout().openPane();
+                slidingPane.openPane();
             }
             return processed.fragment;
         }
@@ -208,8 +219,9 @@ public class MultiColumnSettings extends PreferenceHeaderFragmentCompat
                 Fragment initialDetailFragment =
                         Fragment.instantiate(requireContext(), fragmentClass.getName(), args);
 
-                if (getSlidingPaneLayout() != null) {
-                    getSlidingPaneLayout().openPane();
+                SlidingPaneLayout slidingPane = getSlidingPaneLayoutOrNull();
+                if (slidingPane != null) {
+                    slidingPane.openPane();
                 }
                 return initialDetailFragment;
             }
@@ -225,16 +237,31 @@ public class MultiColumnSettings extends PreferenceHeaderFragmentCompat
             // Remove any existing stale detail fragments (e.g. after a sign-out or when returning
             // to root settings in single-column mode) and clear the back stack so that stale
             // detail fragments are not resurrected when transitioning to two-column mode.
-            getChildFragmentManager()
-                    .popBackStackImmediate(null, FragmentManager.POP_BACK_STACK_INCLUSIVE);
-            Fragment currentDetail =
-                    getChildFragmentManager().findFragmentById(R.id.preferences_detail);
-            if (currentDetail != null) {
-                getChildFragmentManager()
-                        .beginTransaction()
-                        .remove(currentDetail)
-                        .commitAllowingStateLoss();
+            //
+            // If there are entries in the back stack, asynchronously pop them. We must not use
+            // popBackStackImmediate() because this method can be invoked while FragmentManager is
+            // already executing transactions (e.g. during onStart() lifecycle dispatch when an
+            // account was removed in the background). Once the pop transactions complete and the
+            // back stack becomes empty, onBackStackEmpty() will remove any remaining detail
+            // fragment, close the pane, and update focusability.
+            //
+            // If the back stack is already empty, directly remove any current detail fragment.
+            FragmentManager fragmentManager = getChildFragmentManager();
+            if (fragmentManager.getBackStackEntryCount() > 0) {
+                mClearingBackStackForRoot = true;
+                fragmentManager.popBackStack(null, FragmentManager.POP_BACK_STACK_INCLUSIVE);
+            } else {
+                Fragment currentDetail = fragmentManager.findFragmentById(R.id.preferences_detail);
+                if (currentDetail != null) {
+                    fragmentManager
+                            .beginTransaction()
+                            .remove(currentDetail)
+                            .commitAllowingStateLoss();
+                }
             }
+            // Root settings has no detail fragment, so drop any titles tracked for the detail
+            // fragments being removed above. See clearTitles(). https://crbug.com/559531378
+            mFragmentTracker.clearTitles();
             return null;
         }
 
@@ -260,8 +287,9 @@ public class MultiColumnSettings extends PreferenceHeaderFragmentCompat
     /**
      * Handles back stack becoming empty after FragmentManager finishes executing transactions. In
      * two-column mode, populates the initial detail fragment so the detail pane does not remain
-     * blank. In single-column mode, closes the sliding pane and restores header focusability when
-     * no detail fragment remains.
+     * blank. In single-column mode, removes any remaining detail fragment (if SettingsInTab is
+     * enabled and we are clearing the back stack to return to root), closes the sliding pane,
+     * restores header focusability, and clears the now-stale detail pane titles.
      */
     private void onBackStackEmpty() {
         if (getView() == null) return;
@@ -269,11 +297,40 @@ public class MultiColumnSettings extends PreferenceHeaderFragmentCompat
         FragmentManager fragmentManager = getChildFragmentManager();
         if (fragmentManager.getBackStackEntryCount() != 0) return;
 
+        boolean clearingForRoot = mClearingBackStackForRoot;
+        mClearingBackStackForRoot = false;
+
+        // Whether the detail pane is left without a fragment.
+        boolean detailPaneEmptied = false;
+
         if (isTwoColumn()) {
             ensureInitialDetailFragment();
-        } else if (fragmentManager.findFragmentById(R.id.preferences_detail) == null) {
+        } else if (clearingForRoot) {
+            assert SettingsInTab.isEnabled();
+            // When SettingsInTab is enabled in single-column mode, there should be no detail
+            // fragment when at the root settings level. If any detail fragment remains (e.g.
+            // an un-backstacked base fragment after popping all back stack entries), remove it
+            // and close the sliding pane.
+            Fragment currentDetail = fragmentManager.findFragmentById(R.id.preferences_detail);
+            if (currentDetail != null) {
+                fragmentManager.beginTransaction().remove(currentDetail).commitAllowingStateLoss();
+            }
             getSlidingPaneLayout().closePane();
             updateHeaderPaneFocusability();
+            detailPaneEmptied = true;
+        } else if (fragmentManager.findFragmentById(R.id.preferences_detail) == null) {
+            // When SettingsInTab is disabled, single-column mode (e.g. portrait on a tablet)
+            // retains an initial detail fragment. Only close the sliding pane and restore
+            // header focusability if no detail fragment remains (e.g. after exiting search).
+            getSlidingPaneLayout().closePane();
+            updateHeaderPaneFocusability();
+            detailPaneEmptied = true;
+        }
+
+        // The detail pane no longer has a fragment, so the tracked titles are stale. Drop them
+        // and refresh the breadcrumb. See clearTitles(). https://crbug.com/559531378
+        if (detailPaneEmptied && mFragmentTracker.clearTitles()) {
+            for (Observer o : mObservers) o.onTitleUpdated();
         }
     }
 
@@ -281,8 +338,21 @@ public class MultiColumnSettings extends PreferenceHeaderFragmentCompat
         mPendingFragmentIntent = intent;
     }
 
-    void setOnCreateViewRunnable(Runnable runnable) {
+    void setOnCreateViewRunnable(@Nullable Runnable runnable) {
         mOnCreateViewRunnable = runnable;
+    }
+
+    /**
+     * Returns {@link SlidingPaneLayout} if the fragment's view is created, or null.
+     *
+     * <p>{@link PreferenceHeaderFragmentCompat#getSlidingPaneLayout()} internally calls {@link
+     * Fragment#requireView()}, which throws {@link IllegalStateException} if called before {@code
+     * onCreateView()} returns or after {@code onDestroyView()} (e.g. during tab closure or view
+     * teardown). Callers should use this method when accessing the sliding pane layout
+     * asynchronously or during lifecycle transitions to safely handle the null view case.
+     */
+    public @Nullable SlidingPaneLayout getSlidingPaneLayoutOrNull() {
+        return getView() != null ? getSlidingPaneLayout() : null;
     }
 
     View getDetailView() {
@@ -399,7 +469,12 @@ public class MultiColumnSettings extends PreferenceHeaderFragmentCompat
         transaction.commit();
         // Execute the transaction synchronously so the detail fragment is attached to
         // R.id.preferences_detail before updateHeaderPaneFocusability() evaluates isLayoutOpen().
-        fragmentManager.executePendingTransactions();
+        // During lifecycle startup (e.g. onStart()), FragmentManager is already executing
+        // transactions and will execute the committed transaction automatically; attempting
+        // synchronous execution then throws an IllegalStateException.
+        if (isResumed()) {
+            fragmentManager.executePendingTransactions();
+        }
         getSlidingPaneLayout().open();
         updateHeaderPaneFocusability();
 
@@ -582,7 +657,10 @@ public class MultiColumnSettings extends PreferenceHeaderFragmentCompat
                 () -> {
                     updateHeaderPaneFocusability();
                     for (Observer o : mObservers) o.onHeaderLayoutUpdated();
-                    if (mOnCreateViewRunnable != null) mOnCreateViewRunnable.run();
+                    if (mOnCreateViewRunnable != null) {
+                        mOnCreateViewRunnable.run();
+                        mOnCreateViewRunnable = null;
+                    }
                 });
         mDetailView = detailView;
         return view;
@@ -660,8 +738,13 @@ public class MultiColumnSettings extends PreferenceHeaderFragmentCompat
 
     /** Returns whether the current layout is in two-column mode. */
     boolean isTwoColumn() {
-        // getView() may be null in tests before the fragment's view is created.
-        SlidingPaneLayout slidingPane = getView() != null ? getSlidingPaneLayout() : null;
+        // The fragment may already be detached from its host when this is called, for example from
+        // a pending layout pass on the old view hierarchy while the activity is being recreated by
+        // a theme change. Nothing is visible in that case, so report single-column mode instead of
+        // letting getResources() throw. https://crbug.com/561275965
+        if (getContext() == null) return false;
+
+        SlidingPaneLayout slidingPane = getSlidingPaneLayoutOrNull();
         // If SlidingPaneLayout has already completed layout, use its computed slideable state.
         if (slidingPane != null
                 && ViewCompat.isLaidOut(slidingPane)
@@ -907,9 +990,16 @@ public class MultiColumnSettings extends PreferenceHeaderFragmentCompat
         private boolean mTitleInitialized;
 
         private final ObserverList<Observer> mObservers;
+        private final Supplier<@Nullable Profile> mProfileSupplier;
 
         FragmentTracker(ObserverList<Observer> observers) {
+            this(observers, () -> null);
+        }
+
+        FragmentTracker(
+                ObserverList<Observer> observers, Supplier<@Nullable Profile> profileSupplier) {
             mObservers = observers;
+            mProfileSupplier = profileSupplier;
         }
 
         private static final String TAG = "FragmentTracker";
@@ -993,7 +1083,7 @@ public class MultiColumnSettings extends PreferenceHeaderFragmentCompat
                 if (index < 0) {
                     // Enter into more detailed page.
                     mTitles.add(
-                            new Title(uuid, titleSupplier, backStackCount, page.getMainMenuKey()));
+                            new Title(uuid, titleSupplier, backStackCount, getMainMenuKey(page)));
                     updated = true;
                 } else {
                     // Move back from the detailed page.
@@ -1019,6 +1109,24 @@ public class MultiColumnSettings extends PreferenceHeaderFragmentCompat
                 for (Observer o : mObservers) o.onTitleUpdated();
                 mTitleInitialized = true;
             }
+        }
+
+        /**
+         * Clears the tracked detail pane titles.
+         *
+         * <p>Titles are only ever added by {@link #onFragmentResumed}, so nothing removes them when
+         * the detail pane is emptied without another detail fragment taking over (e.g. returning to
+         * root settings in single-column mode under SettingsInTab). The leftover titles then
+         * describe a fragment that no longer exists, which breaks the breadcrumb and previously
+         * crashed {@code MultiColumnTitleUpdater.initTitlesList()}. See https://crbug.com/559531378
+         *
+         * @return Whether any title was removed. Callers are responsible for notifying observers.
+         */
+        boolean clearTitles() {
+            if (mTitles.isEmpty()) return false;
+
+            mTitles.clear();
+            return true;
         }
 
         void saveTitles(Bundle outState) {
@@ -1067,7 +1175,7 @@ public class MultiColumnSettings extends PreferenceHeaderFragmentCompat
                                     uuid,
                                     page.getPageTitle(),
                                     backStackCount,
-                                    page.getMainMenuKey());
+                                    getMainMenuKey(page));
                 } else {
                     unmatchedIndices.add(i);
                 }
@@ -1088,7 +1196,7 @@ public class MultiColumnSettings extends PreferenceHeaderFragmentCompat
                                     uuid,
                                     page.getPageTitle(),
                                     backStackCount,
-                                    page.getMainMenuKey());
+                                    getMainMenuKey(page));
                 }
             }
 
@@ -1097,6 +1205,39 @@ public class MultiColumnSettings extends PreferenceHeaderFragmentCompat
                     mTitles.add(title);
                 }
             }
+        }
+
+        private @Nullable String getMainMenuKey(EmbeddableSettingsPage page) {
+            String mainMenuKey = page.getMainMenuKey();
+
+            // Building the index is expensive, so only consult the breadcrumb trail when the page
+            // doesn't already declare a main menu key.
+            if (!ChromeFeatureList.sSettingsInTabUrlNav.isEnabled() || mainMenuKey != null) {
+                return mainMenuKey;
+            }
+
+            // The index needs a profile, and a context that only an attached fragment can supply.
+            Profile profile = mProfileSupplier.get();
+            if (!(page instanceof Fragment fragment) || profile == null) {
+                return mainMenuKey;
+            }
+            Context context = fragment.getContext();
+            if (context == null) {
+                return mainMenuKey;
+            }
+
+            String fragmentClassName = fragment.getClass().getName();
+            Bundle args = fragment.getArguments();
+
+            // Build the index and attempt to retrieve the main menu key from the breadcrumb trail.
+            SettingsIndexData indexData =
+                    SettingsSearchCoordinator.ensureIndexBuilt(context, profile);
+            List<SettingsIndexData.Entry> path =
+                    indexData.getBreadcrumbEntries(fragmentClassName, args);
+            if (path != null && !path.isEmpty()) {
+                return path.get(0).key;
+            }
+            return mainMenuKey;
         }
     }
 
@@ -1227,14 +1368,20 @@ public class MultiColumnSettings extends PreferenceHeaderFragmentCompat
 
     @Override
     public void onDestroyView() {
-        if (mSlideStateTracker != null) {
-            getSlidingPaneLayout().removeOnLayoutChangeListener(mSlideStateTracker);
-            getSlidingPaneLayout().removePanelSlideListener(mSlideStateTracker);
+        SlidingPaneLayout slidingPane = getSlidingPaneLayoutOrNull();
+        if (slidingPane != null) {
+            if (mSlideStateTracker != null) {
+                slidingPane.removeOnLayoutChangeListener(mSlideStateTracker);
+                slidingPane.removePanelSlideListener(mSlideStateTracker);
+            }
+            if (mOnBackPressedCallback != null) {
+                slidingPane.removePanelSlideListener(mOnBackPressedCallback);
+            }
         }
         if (mOnBackPressedCallback != null) {
-            getSlidingPaneLayout().removePanelSlideListener(mOnBackPressedCallback);
             mOnBackPressedCallback.remove();
         }
+        mOnCreateViewRunnable = null;
         super.onDestroyView();
     }
 

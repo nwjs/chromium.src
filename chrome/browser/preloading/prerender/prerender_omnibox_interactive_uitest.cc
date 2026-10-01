@@ -38,6 +38,8 @@
 #include "chrome/browser/ui/omnibox/omnibox_controller.h"
 #include "chrome/browser/ui/omnibox/omnibox_edit_model.h"
 #include "chrome/browser/ui/omnibox/omnibox_tab_helper.h"
+#include "chrome/browser/ui/tabs/tab_enums.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/test/base/chrome_test_utils.h"
 #include "chrome/test/base/in_process_browser_test.h"
@@ -50,6 +52,7 @@
 #include "components/safe_browsing/core/common/safe_browsing_prefs.h"
 #include "components/search_engines/template_url_data.h"
 #include "components/search_engines/template_url_service.h"
+#include "components/sessions/core/session_id.h"
 #include "content/public/browser/global_routing_id.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/web_contents_observer.h"
@@ -66,6 +69,7 @@
 #include "services/metrics/public/cpp/ukm_recorder.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/features.h"
+#include "ui/base/page_transition_types.h"
 
 namespace {
 
@@ -264,14 +268,13 @@ class PrerenderOmniboxUIBrowserTest : public InProcessBrowserTest,
   }
 
   void PressEnter() {
-    base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
-        FROM_HERE,
-        base::BindOnce(
-            [](const BrowserWindowInterface* browser, bool ctrl_key) {
-              EXPECT_TRUE(ui_test_utils::SendKeyPressSync(
-                  browser, ui::VKEY_RETURN, ctrl_key, false, false, false));
-            },
-            browser(), false));
+    BrowserWindow::FromBrowser(browser())
+        ->GetLocationBar()
+        ->GetOmniboxController()
+        ->edit_model()
+        ->OpenCurrentSelection(base::TimeTicks::Now(),
+                               WindowOpenDisposition::CURRENT_TAB,
+                               /*via_keyboard=*/true);
   }
 
   // Presses enter and waits for Activation

@@ -74,9 +74,12 @@
 #include "net/quic/quic_chromium_alarm_factory.h"
 #include "net/quic/quic_chromium_client_session.h"
 #include "net/quic/quic_chromium_client_session_peer.h"
+#include "net/quic/quic_chromium_packet_reader.h"
+#include "net/quic/quic_chromium_packet_writer.h"
 #include "net/quic/quic_context.h"
 #include "net/quic/quic_http_stream.h"
 #include "net/quic/quic_http_utils.h"
+#include "net/quic/quic_migration_attempt_context.h"
 #include "net/quic/quic_server_info.h"
 #include "net/quic/quic_session_alias_key.h"
 #include "net/quic/quic_session_key.h"
@@ -6963,7 +6966,12 @@ TEST_P(QuicSessionPoolTest,
       ConstructGetRequestPacket(
           packet_num++, GetNthClientInitiatedBidirectionalStreamId(0), true));
   quic_data.AddReadPauseForever();
+
+  MockQuicData quic_data2(version_);
+  quic_data2.AddReadPauseForever();
+
   quic_data.AddSocketDataToFactory(socket_factory_.get());
+  quic_data2.AddSocketDataToFactory(socket_factory_.get());
 
   // Create request and QuicHttpStream.
   RequestBuilder builder(this);
@@ -6994,9 +7002,19 @@ TEST_P(QuicSessionPoolTest,
                                     callback_.callback()));
   session->CloseSessionOnErrorLater(
       0, quic::QUIC_TOO_MANY_RTOS, quic::ConnectionCloseBehavior::SILENT_CLOSE);
-  session->MigrateToSocket(
-      quic::QuicSocketAddress(), quic::QuicSocketAddress(), nullptr,
-      std::make_unique<QuicChromiumPacketWriter>(nullptr, task_runner.get()));
+  std::unique_ptr<DatagramClientSocket> socket(pool_->CreateSocket(
+      handles::kInvalidNetworkHandle, net_log_.net_log(), net_log_.source()));
+  auto writer = std::make_unique<QuicChromiumPacketWriter>(socket.get(),
+                                                           task_runner.get());
+  auto reader = std::make_unique<QuicChromiumPacketReader>(
+      std::move(socket), session->connection()->clock(), session,
+      /*yield_after_packets=*/100, quic::QuicTime::Delta::Infinite(),
+      session->net_log());
+  auto context = std::make_unique<QuicMigrationAttemptContext>(
+      UNKNOWN_CAUSE, session->GetCurrentNetwork(),
+      handles::kInvalidNetworkHandle, quic::QuicSocketAddress(),
+      std::move(reader), std::move(writer));
+  session->CommitMigration(std::move(context));
 }
 
 // Regression test for https://crbug.com/1465889
@@ -7065,20 +7083,32 @@ TEST_P(QuicSessionPoolTest,
   std::unique_ptr<DatagramClientSocket> socket(pool_->CreateSocket(
       handles::kInvalidNetworkHandle, net_log_.net_log(), net_log_.source()));
   DatagramClientSocket* socket_ptr = socket.get();
+  auto context = std::make_unique<QuicMigrationAttemptContext>(
+      ON_NETWORK_CONNECTED, session->GetCurrentNetwork(), kNewNetworkForTests,
+      session->connection()->peer_address(),
+      std::make_unique<QuicChromiumPacketReader>(
+          std::move(socket), session->connection()->clock(), session,
+          /*yield_after_packets=*/kQuicYieldAfterPacketsRead,
+          quic::QuicTime::Delta::FromMilliseconds(
+              kQuicYieldAfterDurationMilliseconds),
+          session->net_log()),
+      std::make_unique<QuicChromiumPacketWriter>(
+          socket_ptr, base::SingleThreadTaskRunner::GetCurrentDefault().get()));
   pool_->ConnectAndConfigureSocket(
-      base::BindLambdaForTesting([&session, &socket](int rv) {
-        session->CloseSessionOnErrorLater(
-            0, quic::QUIC_TOO_MANY_RTOS,
-            quic::ConnectionCloseBehavior::SILENT_CLOSE);
-        // The QuicSession is closed so FinishMigrate will fail to migrate the
-        // socket. Hence the callback should never be called.
-        session->FinishMigrate(
-            std::move(socket),
-            ToIPEndPoint(session->connection()->peer_address()), true,
-            base::BindLambdaForTesting(
-                [](MigrationResult result) { NOTREACHED(); }),
-            /* RV = OK */ 0);
-      }),
+      base::BindLambdaForTesting(
+          [&session, context = std::move(context)](int rv) mutable {
+            session->CloseSessionOnErrorLater(
+                0, quic::QUIC_TOO_MANY_RTOS,
+                quic::ConnectionCloseBehavior::SILENT_CLOSE);
+            // The QuicSession is closed so FinishMigrateWithoutProbing will
+            // fail to migrate the socket. Hence the callback should never be
+            // called.
+            session->FinishMigrateWithoutProbing(
+                std::move(context), true,
+                base::BindLambdaForTesting(
+                    [](MigrationResult result) { NOTREACHED(); }),
+                /* RV = OK */ 0);
+          }),
       socket_ptr, ToIPEndPoint(session->connection()->peer_address()),
       kNewNetworkForTests, SocketTag());
   base::RunLoop().RunUntilIdle();
@@ -16871,11 +16901,6 @@ TEST_P(QuicSessionPoolTest, ConfigureSSLCompliancePolicy) {
 // Test for https://crbug.com/454787716.
 TEST_P(QuicSessionPoolTest,
        SuccessfullyMigratedToServerPreferredAddressBeforeHandshakeConfirmed) {
-  // Enable register connection close payload feature.
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndEnableFeature(
-      net::features::kQuicRegisterConnectionClosePayload);
-
   FLAGS_quic_enable_chaos_protection = false;
   quic_params_->allow_server_migration = true;
   socket_factory_ = std::make_unique<TestPortMigrationSocketFactory>();

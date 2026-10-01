@@ -39,6 +39,8 @@ import org.chromium.chrome.browser.task_manager.RefreshType;
 import org.chromium.chrome.browser.task_manager.TaskManagerObserver;
 import org.chromium.chrome.browser.task_manager.TaskManagerServiceBridge;
 import org.chromium.chrome.browser.task_manager.TaskManagerServiceBridgeJni;
+import org.chromium.chrome.browser.task_manager.TaskType;
+import org.chromium.chrome.browser.task_manager.ui.TaskManagerProperties.Category;
 import org.chromium.chrome.browser.task_manager.ui.TaskManagerProperties.RowType;
 import org.chromium.ui.modelutil.MVCListAdapter.ModelList;
 import org.chromium.ui.modelutil.PropertyKey;
@@ -270,5 +272,68 @@ public class TaskManagerMediatorTest {
         assertTrue(mMediator.toggleColumnFiltering(TASK_NAME));
 
         assertArrayEquals(new PropertyKey[] {TASK_NAME, MEMORY_FOOTPRINT}, mHeader.get(COLUMNS));
+    }
+
+    @Test
+    @SmallTest
+    public void testCategoryFiltering() {
+        when(mBridge.getTitle(1)).thenReturn("Tab: Google");
+        when(mBridge.getType(1)).thenReturn(TaskType.RENDERER);
+        when(mBridge.getTitle(2)).thenReturn("Browser");
+        when(mBridge.getType(2)).thenReturn(TaskType.BROWSER);
+        when(mBridge.getTitle(3)).thenReturn("Extension: AdBlock");
+        when(mBridge.getType(3)).thenReturn(TaskType.EXTENSION);
+        when(mBridge.getTitle(4)).thenReturn("Dedicated Worker: worker.js");
+        when(mBridge.getType(4)).thenReturn(TaskType.DEDICATED_WORKER);
+        when(mBridge.getTitle(5)).thenReturn("GPU Process");
+        when(mBridge.getType(5)).thenReturn(TaskType.GPU);
+
+        mObserver.onTaskAdded(1);
+        mObserver.onTaskAdded(2);
+        mObserver.onTaskAdded(3);
+        mObserver.onTaskAdded(4);
+        mObserver.onTaskAdded(5);
+
+        // Default category is ALL_TASKS: all 5 tasks should be visible.
+        assertEquals(5, mTasks.size());
+
+        // Switch to TABS_AND_EXTENSIONS category.
+        mMediator.setSelectedCategory(Category.TABS_AND_EXTENSIONS);
+        assertEquals(3, mTasks.size());
+        assertEquals("Tab: Google", mTasks.get(0).model.get(TASK_NAME));
+        assertEquals("Extension: AdBlock", mTasks.get(1).model.get(TASK_NAME));
+        assertEquals("Dedicated Worker: worker.js", mTasks.get(2).model.get(TASK_NAME));
+
+        // Switch to BROWSER category.
+        mMediator.setSelectedCategory(Category.BROWSER);
+        assertEquals(2, mTasks.size());
+        assertEquals("Browser", mTasks.get(0).model.get(TASK_NAME));
+        assertEquals("GPU Process", mTasks.get(1).model.get(TASK_NAME));
+    }
+
+    @Test
+    @SmallTest
+    public void testSearchQueryFiltering() {
+        when(mBridge.getTitle(1)).thenReturn("Tab: Wikipedia");
+        when(mBridge.getProcessId(1)).thenReturn(1001L);
+        when(mBridge.getTitle(2)).thenReturn("Tab: GitHub");
+        when(mBridge.getProcessId(2)).thenReturn(1002L);
+
+        mObserver.onTaskAdded(1);
+        mObserver.onTaskAdded(2);
+
+        // Search by task name substring.
+        mMediator.setSearchQuery("Wiki");
+        assertEquals(1, mTasks.size());
+        assertEquals("Tab: Wikipedia", mTasks.get(0).model.get(TASK_NAME));
+
+        // Search by PID substring.
+        mMediator.setSearchQuery("1002");
+        assertEquals(1, mTasks.size());
+        assertEquals("Tab: GitHub", mTasks.get(0).model.get(TASK_NAME));
+
+        // Clear search query.
+        mMediator.setSearchQuery("");
+        assertEquals(2, mTasks.size());
     }
 }

@@ -134,6 +134,7 @@
 #include "ui/base/l10n/time_format.h"
 #include "ui/base/ui_base_features.h"
 #include "ui/base/webui/web_ui_util.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/strings/grit/ui_strings.h"
 #include "ui/webui/webui_util.h"
 
@@ -607,6 +608,8 @@ void AddAppearanceStrings(content::WebUIDataSource* html_source,
        IDS_SETTINGS_VERTICAL_TABS_EXPAND_ON_HOVER},
       {"allowSplitViewDragAndDrop",
        IDS_SETTINGS_ALLOW_SPLIT_VIEW_DRAG_AND_DROP},
+      {"allowSplitViewDragAndDropHorizontal",
+       IDS_SETTINGS_ALLOW_SPLIT_VIEW_DRAG_AND_DROP_HORIZONTAL},
       {"showTabGroupsInBookmarksBar",
        IDS_SETTINGS_SHOW_TAB_GROUPS_IN_BOOKMARKS_BAR},
       {"autoPinNewTabGroups", IDS_SETTINGS_AUTO_PIN_NEW_TAB_GROUPS},
@@ -687,6 +690,9 @@ void AddAppearanceStrings(content::WebUIDataSource* html_source,
   html_source->AddBoolean(
       "tabStripUnificationEnabled",
       base::FeatureList::IsEnabled(tabs::kTabStripUnification));
+  html_source->AddBoolean(
+      "splitViewHorizontalEnabled",
+      base::FeatureList::IsEnabled(tabs::kSplitViewHorizontal));
 
   std::string configurable_alignments_json;
   base::JSONWriter::Write(
@@ -1612,6 +1618,24 @@ void AddAutofillStrings(content::WebUIDataSource* html_source,
        IDS_SETTINGS_AUTOFILL_AT_MEMORY_TRIGGER_SETTING_EDIT_BUTTON_LABEL},
       {"atMemoryTriggerSettingClearButtonLabel",
        IDS_SETTINGS_AUTOFILL_AT_MEMORY_TRIGGER_SETTING_CLEAR_BUTTON_LABEL},
+#if BUILDFLAG(IS_MAC)
+      {"atMemoryTriggerLabel",
+       IDS_SETTINGS_AUTOFILL_AT_MEMORY_TRIGGER_LABEL_MAC},
+#else
+      {"atMemoryTriggerLabel",
+       IDS_SETTINGS_AUTOFILL_AT_MEMORY_TRIGGER_LABEL_NON_MAC},
+#endif
+      {"atMemoryTriggerSubLabel",
+       IDS_SETTINGS_AUTOFILL_AT_MEMORY_TRIGGER_SUB_LABEL},
+      {"atMemoryShortcutLabel", IDS_SETTINGS_AUTOFILL_AT_MEMORY_SHORTCUT_LABEL},
+      {"atMemoryShortcutSubLabel",
+       IDS_SETTINGS_AUTOFILL_AT_MEMORY_SHORTCUT_SUB_LABEL},
+      {"atMemoryShortcutInputAreaLabel",
+       IDS_SETTINGS_AUTOFILL_AT_MEMORY_SHORTCUT_INPUT_AREA_LABEL},
+      {"atMemoryShortcutEditButtonLabel",
+       IDS_SETTINGS_AUTOFILL_AT_MEMORY_SHORTCUT_EDIT_BUTTON_LABEL},
+      {"atMemoryShortcutClearButtonLabel",
+       IDS_SETTINGS_AUTOFILL_AT_MEMORY_SHORTCUT_CLEAR_BUTTON_LABEL},
       {"autofillPageTitle", IDS_SETTINGS_AUTOFILL_AND_PASSWORDS},
       {"yourSavedInfoPageDescription",
        IDS_SETTINGS_YOUR_SAVED_INFO_DESCRIPTION},
@@ -1942,20 +1966,20 @@ void AddAutofillStrings(content::WebUIDataSource* html_source,
        IDS_SETTINGS_WALLETABLE_PASS_DETECTION_TO_CONSIDER_DATA_STORAGE},
       {"autofillAiSaveOrUpdateLocalEntitySourceNotice",
        IDS_AUTOFILL_AI_SAVE_OR_UPDATE_LOCAL_ENTITY_SOURCE_NOTICE},
-      {"personalContextAutofillSettingsTitle",
-       IDS_PERSONAL_CONTEXT_AUTOFILL_SETTINGS_TITLE},
-      {"personalContextAutofillSettingsSummary",
-       IDS_PERSONAL_CONTEXT_AUTOFILL_SETTINGS_SUMMARY},
-      {"personalContextAutofillSettingsSubpageSummary",
-       IDS_PERSONAL_CONTEXT_AUTOFILL_SETTINGS_SUBPAGE_SUMMARY},
-      {"personalContextAutofillSettingsSwitchTitle",
-       IDS_PERSONAL_CONTEXT_AUTOFILL_SETTINGS_SWITCH_TITLE},
-      {"personalContextAutofillSettingsSwitchSummary",
-       IDS_PERSONAL_CONTEXT_AUTOFILL_SETTINGS_SWITCH_SUMMARY},
-      {"personalContextAutofillSettingsManageConnectedAppsTitle",
-       IDS_PERSONAL_CONTEXT_AUTOFILL_SETTINGS_MANAGE_CONNECTED_APPS_TITLE},
-      {"personalContextAutofillSettingsManageConnectedAppsSummary",
-       IDS_PERSONAL_CONTEXT_AUTOFILL_SETTINGS_MANAGE_CONNECTED_APPS_SUMMARY}};
+      {"autofillPersonalContextSettingsToggleTitle",
+       IDS_AUTOFILL_PERSONAL_CONTEXT_SETTINGS_TOGGLE_TITLE},
+      {"autofillPersonalContextSettingsTitle",
+       IDS_AUTOFILL_PERSONAL_CONTEXT_SETTINGS_TITLE},
+      {"autofillPersonalContextSettingsSummary",
+       IDS_AUTOFILL_PERSONAL_CONTEXT_SETTINGS_SUMMARY},
+      {"autofillPersonalContextSettingsSubpageSummary",
+       IDS_AUTOFILL_PERSONAL_CONTEXT_SETTINGS_SUBPAGE_SUMMARY},
+      {"autofillPersonalContextSettingsToggleSummary",
+       IDS_AUTOFILL_PERSONAL_CONTEXT_SETTINGS_TOGGLE_SUMMARY},
+      {"autofillPersonalContextSettingsManageConnectedAppsTitle",
+       IDS_AUTOFILL_PERSONAL_CONTEXT_SETTINGS_MANAGE_CONNECTED_APPS_TITLE},
+      {"autofillPersonalContextSettingsManageConnectedAppsSummary",
+       IDS_AUTOFILL_PERSONAL_CONTEXT_SETTINGS_MANAGE_CONNECTED_APPS_SUMMARY}};
 
   html_source->AddString("manageAddressesUrl",
                          autofill::payments::GetManageAddressesUrl().spec());
@@ -2841,6 +2865,8 @@ void AddPrivacyStrings(content::WebUIDataSource* html_source,
                          chrome::kSyncAndGoogleServicesLearnMoreURL);
   html_source->AddString("doNotTrackLearnMoreURL",
                          chrome::kDoNotTrackLearnMoreURL);
+  html_source->AddString("universalOptOutLearnMoreURL",
+                         chrome::kUniversalOptOutLearnMoreURL);
   html_source->AddString("exceptionsLearnMoreURL",
                          chrome::kContentSettingsExceptionsLearnMoreURL);
   html_source->AddString("enhancedProtectionHelpCenterURL",

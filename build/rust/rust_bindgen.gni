@@ -81,6 +81,7 @@ template("rust_bindgen") {
   if (defined(invoker.crate_name)) {
     _crate_name = invoker.crate_name
   }
+
   rust_bindgen_generator(_rust_bindgen_generator_target_name) {
     forward_variables_from(invoker,
                            "*",
@@ -143,6 +144,10 @@ template("rust_bindgen") {
       "-Anon_snake_case",
       "-Anon_camel_case_types",
       "-Anon_upper_case_globals",
+
+      # Bindgen-generated bitfields use transmute between integer types.
+      # TODO(b/560179125): Remove once supported natively.
+      "-Aunnecessary-transmutes",
     ]
 
     # The generated crate doesn't need these dependencies.

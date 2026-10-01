@@ -31,6 +31,7 @@ import org.chromium.chrome.R;
 import org.chromium.chrome.browser.app.tabmodel.ArchivedTabModelOrchestrator;
 import org.chromium.chrome.browser.back_press.BackPressManager;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
+import org.chromium.chrome.browser.crypto.CipherFactory;
 import org.chromium.chrome.browser.hub.PaneManager;
 import org.chromium.chrome.browser.layouts.LayoutStateProvider;
 import org.chromium.chrome.browser.layouts.LayoutStateProvider.LayoutStateObserver;
@@ -40,7 +41,6 @@ import org.chromium.chrome.browser.tab.TabArchiveSettings;
 import org.chromium.chrome.browser.tab_ui.OnTabSelectingListener;
 import org.chromium.chrome.browser.tab_ui.RecyclerViewPosition;
 import org.chromium.chrome.browser.tab_ui.TabContentManager;
-import org.chromium.chrome.browser.tab_ui.TabListMode;
 import org.chromium.chrome.browser.tabmodel.TabCreator;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tasks.tab_management.MessageCardView.ServiceDismissActionProvider;
@@ -75,9 +75,6 @@ public class ArchivedTabsMessageService
         }
     }
 
-    private final ArchivedTabModelOrchestrator.Observer mArchivedTabModelOrchestratorObserver =
-            this::tabModelCreated;
-
     private final Callback<Integer> mTabCountObserver =
             (tabCount) -> {
                 updateModelProperties(tabCount);
@@ -104,7 +101,6 @@ public class ArchivedTabsMessageService
     private final ArchivedTabModelOrchestrator mArchivedTabModelOrchestrator;
     private final BrowserControlsStateProvider mBrowserControlsStateProvider;
     private final TabContentManager mTabContentManager;
-    private final @TabListMode int mTabListMode;
     private final ViewGroup mRootView;
     private final SnackbarManager mSnackbarManager;
     private final TabCreator mRegularTabCreator;
@@ -131,9 +127,8 @@ public class ArchivedTabsMessageService
                 }
             };
 
-    private TabArchiveSettings mTabArchiveSettings;
+    private final TabArchiveSettings mTabArchiveSettings;
     private @Nullable ArchivedTabsDialogCoordinator mArchivedTabsDialogCoordinator;
-    private TabModel mArchivedTabModel;
     private final PropertyModel mModel;
     private boolean mMessageSentToQueue;
     private OnTabSelectingListener mOnTabSelectingListener;
@@ -144,7 +139,6 @@ public class ArchivedTabsMessageService
             ArchivedTabModelOrchestrator archivedTabModelOrchestrator,
             BrowserControlsStateProvider browserControlStateProvider,
             TabContentManager tabContentManager,
-            @TabListMode int tabListMode,
             ViewGroup rootView,
             SnackbarManager snackbarManager,
             TabCreator regularTabCreator,
@@ -169,7 +163,6 @@ public class ArchivedTabsMessageService
         mArchivedTabModelOrchestrator = archivedTabModelOrchestrator;
         mBrowserControlsStateProvider = browserControlStateProvider;
         mTabContentManager = tabContentManager;
-        mTabListMode = tabListMode;
         mRootView = rootView;
         mSnackbarManager = snackbarManager;
         mRegularTabCreator = regularTabCreator;
@@ -214,27 +207,10 @@ public class ArchivedTabsMessageService
         // of the 2-step IPH.
         mShowTwoStepIph = TabArchiveSettings.getIphShownThisSession();
 
-        mTabCountSupplier = mArchivedTabModelOrchestrator.getTabCountSupplier();
-
-        if (mArchivedTabModelOrchestrator.isTabModelInitialized()) {
-            mArchivedTabModelOrchestratorObserver.onTabModelCreated(
-                    assumeNonNull(mArchivedTabModelOrchestrator.getTabModelSelector())
-                            .getModel(/* incognito= */ false));
-        } else {
-            mArchivedTabModelOrchestrator.addObserver(mArchivedTabModelOrchestratorObserver);
-        }
-    }
-
-    @Initializer
-    private void tabModelCreated(TabModel archivedTabModel) {
-        mArchivedTabModelOrchestrator.removeObserver(mArchivedTabModelOrchestratorObserver);
         mTabArchiveSettings = mArchivedTabModelOrchestrator.getTabArchiveSettings();
         mTabArchiveSettings.addObserver(mTabArchiveSettingsObserver);
-        assert mTabArchiveSettings != null;
-
-        mArchivedTabModel = archivedTabModel;
+        mTabCountSupplier = mTabArchiveSettings.getArchivedTabCountSupplier();
         mTabCountSupplier.addSyncObserverAndPostIfNonNull(mTabCountObserver);
-
         mModel.set(ICON_HIGHLIGHTED, mShowTwoStepIph);
     }
 
@@ -302,7 +278,6 @@ public class ArchivedTabsMessageService
     @VisibleForTesting
     void maybeSendMessageToQueue(int tabCount) {
         if (mMessageSentToQueue) return;
-        if (mArchivedTabModel == null) return;
         if (mTabGroupSyncService == null) return;
         if (tabCount <= 0) return;
         updateModelProperties(tabCount);
@@ -319,6 +294,10 @@ public class ArchivedTabsMessageService
     }
 
     private void openArchivedTabsDialog() {
+        if (!mArchivedTabModelOrchestrator.isTabModelInitialized()) {
+            mArchivedTabModelOrchestrator.maybeCreateAndInitTabModels(
+                    mTabContentManager, new CipherFactory());
+        }
         if (mArchivedTabsDialogCoordinator == null) {
             createArchivedTabsDialogCoordinator();
         }
@@ -335,7 +314,6 @@ public class ArchivedTabsMessageService
                         mArchivedTabModelOrchestrator,
                         mBrowserControlsStateProvider,
                         mTabContentManager,
-                        mTabListMode,
                         mRootView,
                         mRootView.findViewById(R.id.tab_switcher_view_holder),
                         mSnackbarManager,
@@ -370,10 +348,6 @@ public class ArchivedTabsMessageService
 
     PropertyModel getCustomCardModelForTesting() {
         return mModel;
-    }
-
-    ArchivedTabModelOrchestrator.Observer getArchivedTabModelOrchestratorObserverForTesting() {
-        return mArchivedTabModelOrchestratorObserver;
     }
 
     void setArchivedTabsDialogCoordiantorForTesting(

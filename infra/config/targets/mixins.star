@@ -127,6 +127,13 @@ targets.mixin(
 )
 
 targets.mixin(
+    name = "android_extra_verbosity",
+    android_args = [
+        "-v",
+    ],
+)
+
+targets.mixin(
     name = "arm64",
     swarming = targets.swarming(
         dimensions = {
@@ -519,14 +526,6 @@ targets.mixin(
     ],
 )
 
-# TODO(fxbug.dev/370067428): Remove once Netstack2 no longer exists.
-targets.mixin(
-    name = "fuchsia-netstack2-x64",
-    args = [
-        "--product=terminal_with_netstack2.x64",
-    ],
-)
-
 # TODO(b/300509814): Large device spec should be the default choice.
 # Choose virtual_device_large spec for more ram. This mixin works on emulators
 # only.
@@ -592,6 +591,39 @@ targets.mixin(
     android_args = [
         targets.magic_args.ANDROID_DESKTOP_FORCE_MAIN_USER,
     ],
+)
+
+targets.mixin(
+    # TODO(crbug.com/554055689): Remove this mixin and use an anonymous mixin
+    # in the test definition once V8 uses Starlark test specs.
+    name = "legacy_gpu_vulkan_pixel_skia_gold_test_args",
+    args = [
+        "--extra-browser-args=--use-vulkan=native --disable-vulkan-fallback-to-gl-for-testing --enable-features=Vulkan --use-gl=angle --use-angle=gl --use-cmd-decoder=passthrough",
+    ],
+)
+
+targets.mixin(
+    # TODO(crbug.com/554055689): Remove this mixin and use an anonymous mixin
+    # in the test definition once V8 uses Starlark test specs.
+    name = "legacy_gpu_webgl_conformance_shards",
+    swarming = targets.swarming(
+        shards = 2,
+    ),
+    android_swarming = targets.swarming(
+        shards = 6,
+    ),
+    chromeos_swarming = targets.swarming(
+        shards = 6,
+    ),
+)
+
+targets.mixin(
+    # TODO(crbug.com/554055689): Remove this mixin and use an anonymous mixin
+    # in the test definition once V8 uses Starlark test specs.
+    name = "legacy_gpu_webgl2_conformance_shards",
+    swarming = targets.swarming(
+        shards = 5,
+    ),
 )
 
 targets.mixin(
@@ -730,6 +762,19 @@ targets.mixin(
             "device_os": "CP1A.260405.005",
             "device_os_type": "userdebug",
             "pool": "chromium.tests.gpu",
+        },
+    ),
+)
+
+targets.mixin(
+    name = "gpu_pixel_11_experimental",
+    swarming = targets.swarming(
+        dimensions = {
+            "device_os_type": "userdebug",
+            "device_os": "CD1A.260714.001.A9",
+            "device_type": "kodiak",
+            "os": "Android",
+            "pool": "chromium.tests.gpu.experimental",
         },
     ),
 )
@@ -1739,6 +1784,13 @@ targets.mixin(
 )
 
 targets.mixin(
+    name = "no_xvfb_for_real_hardware",
+    linux_args = [
+        targets.magic_args.GPU_NO_XVFB_FOR_REAL_HARDWARE,
+    ],
+)
+
+targets.mixin(
     name = "nougat",
     swarming = targets.swarming(
         dimensions = {
@@ -1911,6 +1963,11 @@ targets.mixin(
     args = [
         "--use-simulator-cache",
     ],
+)
+
+targets.mixin(
+    name = "use_isolated_scripts_api",
+    use_isolated_scripts_api = True,
 )
 
 targets.mixin(
@@ -2273,12 +2330,12 @@ targets.mixin(
     name = "xcode_27_beta",
     args = [
         "--xcode-build-version",
-        "27a5252f",
+        "27a266a",
     ],
     swarming = targets.swarming(
         named_caches = [
             swarming.cache(
-                name = "xcode_ios_27a5252f",
+                name = "xcode_ios_27a266a",
                 path = "Xcode.app",
             ),
         ],
@@ -2289,12 +2346,12 @@ targets.mixin(
     name = "xcode_27_main",
     args = [
         "--xcode-build-version",
-        "27a5252f",
+        "27a266a",
     ],
     swarming = targets.swarming(
         named_caches = [
             swarming.cache(
-                name = "xcode_ios_27a5252f",
+                name = "xcode_ios_27a266a",
                 path = "Xcode.app",
             ),
         ],

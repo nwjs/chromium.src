@@ -94,6 +94,7 @@ source_set("test_support") {
     "//ios/components/security_interstitials/safe_browsing:test_support",
     "//ios/components/webui:url_constants",
     "//ios/public/provider/chrome/browser/additional_features:additional_features_api",
+    "//ios/public/provider/chrome/browser/device_attestation:device_attestation_api",
     "//ios/public/provider/chrome/browser/push_notification:push_notification_api",
     "//ios/public/provider/chrome/browser/signin:signin_identity_api",
     "//ios/public/provider/chrome/browser/signin:signin_sso_api",
@@ -211,6 +212,7 @@ test("ios_chrome_unittests") {
     "//ios/chrome/app:unit_tests",
     "//ios/chrome/app/application_delegate:unit_tests",
     "//ios/chrome/app/background_refresh:unit_tests",
+    "//ios/chrome/app/background_task:features_unit_tests",
     "//ios/chrome/app/profile:unit_tests",
     "//ios/chrome/app/spotlight:unit_tests",
     "//ios/chrome/app/startup:unit_tests",
@@ -229,6 +231,7 @@ test("ios_chrome_unittests") {
     "//ios/chrome/browser/authentication/age_mismatch_signout/coordinator:unit_tests",
     "//ios/chrome/browser/authentication/age_mismatch_signout/ui:unit_tests",
     "//ios/chrome/browser/authentication/consistency_promo_signin/coordinator:unit_tests",
+    "//ios/chrome/browser/authentication/fullscreen_signin_screen/coordinator:unit_tests",
     "//ios/chrome/browser/authentication/history_sync/model:unit_tests",
     "//ios/chrome/browser/authentication/signin/fullscreen_promo/model:unit_tests",
     "//ios/chrome/browser/authentication/signin/non_modal_promo/coordinator:unit_tests",
@@ -295,6 +298,7 @@ test("ios_chrome_unittests") {
     "//ios/chrome/browser/commerce/model/push_notification:unit_tests",
     "//ios/chrome/browser/complex_tasks/model:unit_tests",
     "//ios/chrome/browser/composebox/coordinator:unit_tests",
+    "//ios/chrome/browser/composebox/menu/ui:unit_tests",
     "//ios/chrome/browser/composebox/shared/coordinator:unit_tests",
     "//ios/chrome/browser/composebox/ui:unit_tests",
     "//ios/chrome/browser/content_notification/model:unit_tests",
@@ -348,7 +352,7 @@ test("ios_chrome_unittests") {
     "//ios/chrome/browser/enterprise/cloud_content_scanning/model:unit_tests",
     "//ios/chrome/browser/enterprise/connectors:unit_tests",
     "//ios/chrome/browser/enterprise/connectors/analysis:unit_tests",
-    "//ios/chrome/browser/enterprise/connectors/device_trust:unit_tests",
+    "//ios/chrome/browser/enterprise/connectors/device_trust/model:unit_tests",
     "//ios/chrome/browser/enterprise/connectors/reporting:unit_tests",
     "//ios/chrome/browser/enterprise/data_protection/coordinator:unit_tests",
     "//ios/chrome/browser/enterprise/data_protection/model:unit_tests",
@@ -404,6 +408,7 @@ test("ios_chrome_unittests") {
     "//ios/chrome/browser/intelligence/on_device_category_classifier:unit_tests",
     "//ios/chrome/browser/intelligence/page_action_menu/coordinator:unit_tests",
     "//ios/chrome/browser/intelligence/page_action_menu/ui:unit_tests",
+    "//ios/chrome/browser/intelligence/page_classification:unit_tests",
     "//ios/chrome/browser/intelligence/persist_tab_context/model:unit_tests",
     "//ios/chrome/browser/intelligence/proto_wrappers:unit_tests",
     "//ios/chrome/browser/intelligence/smart_tab_grouping/model:unit_tests",
@@ -448,6 +453,7 @@ test("ios_chrome_unittests") {
     "//ios/chrome/browser/omnibox/model/placeholder_service:unit_tests",
     "//ios/chrome/browser/omnibox/model/suggestions:unit_tests",
     "//ios/chrome/browser/omnibox/ui:unit_tests",
+    "//ios/chrome/browser/omnibox/ui/keyboard_assist:unit_tests",
     "//ios/chrome/browser/omnibox/ui/popup:unit_tests",
     "//ios/chrome/browser/omnibox/ui/popup/carousel:unit_tests",
     "//ios/chrome/browser/optimization_guide/model:unit_tests",
@@ -559,6 +565,8 @@ test("ios_chrome_unittests") {
     "//ios/chrome/browser/settings/manage_sync/coordinator:unit_tests",
     "//ios/chrome/browser/settings/model/sync/utils:unit_tests",
     "//ios/chrome/browser/settings/personalize_google_services/ui:unit_tests",
+    "//ios/chrome/browser/settings/site_settings/coordinator:unit_tests",
+    "//ios/chrome/browser/settings/site_settings/ui:unit_tests",
     "//ios/chrome/browser/settings/ui_bundled:unit_tests",
     "//ios/chrome/browser/settings/ui_bundled/autofill:unit_tests",
     "//ios/chrome/browser/settings/ui_bundled/autofill/cells:unit_tests",
@@ -632,9 +640,10 @@ test("ios_chrome_unittests") {
     "//ios/chrome/browser/sync/model/prefs:unit_tests",
     "//ios/chrome/browser/synced_sessions/model:unit_tests",
     "//ios/chrome/browser/synced_set_up/coordinator:unit_tests",
+    "//ios/chrome/browser/synced_set_up/public:unit_tests",
     "//ios/chrome/browser/synced_set_up/ui:unit_tests",
-    "//ios/chrome/browser/synced_set_up/utils:unit_tests",
     "//ios/chrome/browser/tab_insertion/model:unit_tests",
+    "//ios/chrome/browser/tab_picker/coordinator:unit_tests",
     "//ios/chrome/browser/tab_switcher/tab_grid/base_grid/coordinator:unit_tests",
     "//ios/chrome/browser/tab_switcher/tab_grid/base_grid/suggested_actions:unit_tests",
     "//ios/chrome/browser/tab_switcher/tab_strip/coordinator:unit_tests",
@@ -684,6 +693,7 @@ test("ios_chrome_unittests") {
     "//ios/chrome/browser/webauthn/public:unit_tests",
     "//ios/chrome/browser/webauthn/ui:unit_tests",
     "//ios/chrome/browser/webui/model:unit_tests",
+    "//ios/chrome/browser/webui/ui_bundled/connectors_internals:unit_tests",
     "//ios/chrome/browser/welcome_back/coordinator:unit_tests",
     "//ios/chrome/browser/whats_new/coordinator/promo:unit_tests",
     "//ios/chrome/browser/whats_new/ui/cells:unit_tests",
@@ -722,6 +732,10 @@ test("ios_chrome_unittests") {
 
   if (ios_enable_credential_provider_extension) {
     deps += [ "//ios/chrome/browser/credential_provider/model:unit_tests" ]
+  }
+
+  if (ios_enable_background_continued_processing) {
+    deps += [ "//ios/chrome/app/background_task:unit_tests" ]
   }
 
   assert_no_deps = ios_assert_no_deps

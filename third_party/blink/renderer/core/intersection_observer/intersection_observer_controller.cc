@@ -52,15 +52,12 @@ DOMHighResTimeStamp ComputeIntersectionsContext::GetTimeStamp(
 std::optional<IntersectionGeometry::RootGeometry>&
 ComputeIntersectionsContext::GetRootGeometry(
     const IntersectionObserver& observer,
-    unsigned flags) {
+    const Vector<Length>& root_margin) {
   if (observer.RootIsImplicit()) {
     if (&observer != implicit_root_geometry_observer_) {
       implicit_root_geometry_observer_ = &observer;
       if (implicit_root_geometry_) {
-        implicit_root_geometry_->UpdateMargin(
-            flags & IntersectionGeometry::kShouldReportRootBounds
-                ? observer.RootMargin()
-                : Vector<Length>());
+        implicit_root_geometry_->UpdateMargin(root_margin);
       }
     }
     return implicit_root_geometry_;
@@ -149,9 +146,8 @@ void IntersectionObserverController::UpdateIntersectionObserverStatus() {
 }
 
 void IntersectionObserverController::ComputeIntersections(
-    unsigned flags,
+    IntersectionObservation::ComputeFlags flags,
     LocalFrameView& frame_view,
-    gfx::Vector2dF accumulated_scroll_delta_since_last_update,
     ComputeIntersectionsContext& context) {
   if (!GetExecutionContext()) {
     return;
@@ -163,8 +159,9 @@ void IntersectionObserverController::ComputeIntersections(
   int64_t internal_observation_count = 0;
   int64_t javascript_observation_count = 0;
 
-  std::optional<LocalFrameUkmAggregator::IterativeTimer> metrics_timer;
-  LocalFrameUkmAggregator* metrics_aggregator = frame_view.GetUkmAggregator();
+  std::optional<LocalFrameMetricsAggregator::IterativeTimer> metrics_timer;
+  LocalFrameMetricsAggregator* metrics_aggregator =
+      frame_view.GetMetricsAggregator();
   if (metrics_aggregator) {
     metrics_timer.emplace(*metrics_aggregator);
   }
@@ -176,8 +173,7 @@ void IntersectionObserverController::ComputeIntersections(
     }
     int64_t count = 0;
     for (auto& observation : observations) {
-      count += observation->ComputeIntersection(
-          flags, accumulated_scroll_delta_since_last_update, context);
+      count += observation->ComputeIntersection(flags, context);
     }
     if (observer.IsInternal()) {
       internal_observation_count += count;
@@ -186,7 +182,7 @@ void IntersectionObserverController::ComputeIntersections(
     }
   };
 
-  bool update_tracking = flags & IntersectionObservation::kUpdateTracking;
+  bool update_tracking = flags.Has(IntersectionObservation::kUpdateTracking);
   if (update_tracking) {
     // If the root has disappeared, then this observer is toast. If the
     // root is in another document, that document will take over updates.
@@ -238,10 +234,10 @@ void IntersectionObserverController::ComputeIntersections(
 
   if (metrics_aggregator) {
     metrics_aggregator->RecordCountSample(
-        LocalFrameUkmAggregator::kIntersectionObservationInternalCount,
+        LocalFrameMetricsAggregator::kIntersectionObservationInternalCount,
         internal_observation_count);
     metrics_aggregator->RecordCountSample(
-        LocalFrameUkmAggregator::kIntersectionObservationJavascriptCount,
+        LocalFrameMetricsAggregator::kIntersectionObservationJavascriptCount,
         javascript_observation_count);
   }
 

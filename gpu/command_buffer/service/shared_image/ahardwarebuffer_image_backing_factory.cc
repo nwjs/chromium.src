@@ -29,7 +29,6 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/trace_event/trace_event.h"
 #include "build/build_config.h"
-#include "components/viz/common/gpu/vulkan_context_provider.h"
 #include "components/viz/common/resources/shared_image_format_utils.h"
 #include "gpu/command_buffer/common/gles2_cmd_utils.h"
 #include "gpu/command_buffer/common/shared_image_usage.h"
@@ -51,6 +50,7 @@
 #include "gpu/command_buffer/service/shared_image/skia_vk_android_image_representation.h"
 #include "gpu/command_buffer/service/skia_utils.h"
 #include "gpu/command_buffer/service/texture_manager.h"
+#include "gpu/command_buffer/service/vulkan_context_provider.h"
 #include "gpu/config/gpu_finch_features.h"
 #include "gpu/vulkan/vulkan_function_pointers.h"
 #include "gpu/vulkan/vulkan_image.h"
@@ -329,7 +329,7 @@ class AHardwareBufferImageBacking : public AndroidImageBacking {
 
   // SharedImageBacking implementation.
   SharedImageBackingType GetType() const override;
-  void Update(std::unique_ptr<gfx::GpuFence> in_fence) override;
+  void Update(gfx::GpuFenceHandle in_fence) override;
   gfx::Rect ClearedRect() const override;
   void SetClearedRect(const gfx::Rect& cleared_rect) override;
   base::android::ScopedHardwareBufferHandle GetAhbHandle() const;
@@ -563,11 +563,9 @@ void AHardwareBufferImageBacking::SetClearedRect(
   SetClearedRectInternal(cleared_rect);
 }
 
-void AHardwareBufferImageBacking::Update(
-    std::unique_ptr<gfx::GpuFence> in_fence) {
-  if (in_fence) {
-    gfx::GpuFenceHandle handle = in_fence->GetGpuFenceHandle().Clone();
-    write_sync_fd_ = handle.Release();
+void AHardwareBufferImageBacking::Update(gfx::GpuFenceHandle in_fence) {
+  if (!in_fence.is_null()) {
+    write_sync_fd_ = in_fence.Release();
   }
 }
 
@@ -854,12 +852,11 @@ void AHardwareBufferImageBacking::EndOverlayAccess() {
 AHardwareBufferImageBackingFactory::AHardwareBufferImageBackingFactory(
     const gles2::FeatureInfo* feature_info,
     const GpuPreferences& gpu_preferences,
-    const scoped_refptr<viz::VulkanContextProvider>& vulkan_context_provider)
+    const scoped_refptr<VulkanContextProvider>& vulkan_context_provider)
     : SharedImageBackingFactory(kSupportedUsage),
       vulkan_context_provider_(vulkan_context_provider),
       use_passthrough_(gpu_preferences.use_passthrough_cmd_decoder),
       gl_format_caps_(GLFormatCaps(feature_info)) {
-
   // Build the feature info for all the supported formats.
   for (auto format : kSupportedFormats) {
     if (IsFormatSupportedForGL(format, feature_info->validators(),

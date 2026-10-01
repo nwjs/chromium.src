@@ -25,6 +25,7 @@
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
+#include "chrome/browser/ui/page_action/page_action_icon_type.h"
 #include "chrome/browser/ui/singleton_tabs.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/grit/browser_resources.h"
@@ -33,6 +34,7 @@
 #include "components/autofill/core/browser/foundations/autofill_client.h"
 #include "components/autofill/core/browser/integrators/autofill_ai/autofill_ai_import_util.h"
 #include "components/autofill/core/browser/integrators/autofill_ai/autofill_ai_manager.h"
+#include "components/autofill/core/browser/integrators/autofill_ai/autofill_ai_wallet_util.h"
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/strings/grit/components_strings.h"
@@ -98,6 +100,7 @@ void AutofillAiImportDataControllerImpl::ShowPrompt(
     EntityInstance new_entity,
     std::optional<EntityInstance> old_entity,
     bool close_on_accept,
+    LegalMessageLines legal_message_lines,
     AutofillClient::EntityImportPromptResultCallback prompt_result_callback) {
   // Don't show the bubble if it's already visible.
   if (bubble_view() || !MaySetUpBubble()) {
@@ -111,7 +114,8 @@ void AutofillAiImportDataControllerImpl::ShowPrompt(
 
   was_bubble_shown_ = false;
   state_ = SaveUpdateState(std::move(new_entity), std::move(old_entity),
-                           close_on_accept, std::move(prompt_result_callback));
+                           close_on_accept, std::move(legal_message_lines),
+                           std::move(prompt_result_callback));
   QueueOrShowBubble();
 }
 
@@ -172,19 +176,14 @@ bool AutofillAiImportDataControllerImpl::IsWalletableEntity() const {
 }
 
 void AutofillAiImportDataControllerImpl::OnGoToWalletLinkClicked() {
-  if (BrowserWindowInterface* browser =
-          GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(
-              web_contents())) {
-    reopen_bubble_when_web_contents_becomes_visible_ = true;
-    const EntityInstance& new_entity = GetSaveUpdateState().new_entity;
-    EntityInstance::WalletPassType pass_type =
-        GetWalletPassType(new_entity.type(), new_entity.record_type());
-    CHECK_NE(pass_type, EntityInstance::WalletPassType::kUnsupported);
-    GURL wallet_url(pass_type == EntityInstance::WalletPassType::kPublic
-                        ? chrome::kWalletPassesPageURL
-                        : chrome::kWalletPrivatePassHelpCenterURL);
-    ShowSingletonTab(browser, wallet_url);
-  }
+  const EntityInstance& new_entity = GetSaveUpdateState().new_entity;
+  EntityInstance::WalletPassType pass_type =
+      GetWalletPassType(new_entity.type(), new_entity.record_type());
+  CHECK_NE(pass_type, EntityInstance::WalletPassType::kUnsupported);
+  GURL wallet_url(pass_type == EntityInstance::WalletPassType::kPublic
+                      ? chrome::kWalletPassesPageURL
+                      : chrome::kWalletPrivatePassHelpCenterURL);
+  OpenUrlAndReopenBubbleOnReturn(wallet_url);
 }
 
 void AutofillAiImportDataControllerImpl::OnVisibilityChanged(
@@ -329,7 +328,7 @@ int AutofillAiImportDataControllerImpl::GetNoticeStringId() const {
   if (IsWalletableEntity()) {
     if (IsSavePrompt() && base::FeatureList::IsEnabled(
                               features::kAutofillAiWalletPrivatePasses)) {
-      return IDS_AUTOFILL_AI_SAVE_ENTITY_TO_WALLET_DIALOG_SUBTITLE_NEW;
+      return GetSaveEntityToWalletNoticeStringId();
     }
     return IsSavePrompt()
                ? IDS_AUTOFILL_AI_SAVE_ENTITY_TO_WALLET_DIALOG_SUBTITLE
@@ -339,15 +338,37 @@ int AutofillAiImportDataControllerImpl::GetNoticeStringId() const {
                         : IDS_AUTOFILL_AI_UPDATE_ENTITY_DIALOG_SUBTITLE;
 }
 
+const LegalMessageLines&
+AutofillAiImportDataControllerImpl::GetLegalMessageLines() const {
+  return GetSaveUpdateState().legal_message_lines;
+}
+
+void AutofillAiImportDataControllerImpl::OnLegalMessageLinkClicked(
+    const GURL& url) {
+  OpenUrlAndReopenBubbleOnReturn(url);
+}
+
+void AutofillAiImportDataControllerImpl::OpenUrlAndReopenBubbleOnReturn(
+    const GURL& url) {
+  if (BrowserWindowInterface* browser =
+          GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(
+              web_contents())) {
+    reopen_bubble_when_web_contents_becomes_visible_ = true;
+    ShowSingletonTab(browser, url);
+  }
+}
+
 AutofillAiImportDataControllerImpl::SaveUpdateState::SaveUpdateState(
     EntityInstance new_entity,
     std::optional<EntityInstance> old_entity,
     bool close_on_accept,
+    LegalMessageLines legal_message_lines,
     AutofillClient::EntityImportPromptResultCallback prompt_result_callback)
     : new_entity(std::move(new_entity)),
       old_entity(std::move(old_entity)),
       close_on_accept(close_on_accept),
-      prompt_result_callback(std::move(prompt_result_callback)) {}
+      prompt_result_callback(std::move(prompt_result_callback)),
+      legal_message_lines(std::move(legal_message_lines)) {}
 
 AutofillAiImportDataControllerImpl::SaveUpdateState::SaveUpdateState(
     SaveUpdateState&&) = default;

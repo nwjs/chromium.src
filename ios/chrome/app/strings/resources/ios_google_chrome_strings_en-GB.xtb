@@ -1,7 +1,6 @@
 <?xml version="1.0" ?>
 <!DOCTYPE translationbundle>
 <translationbundle lang="en-GB">
-<translation id="1035560095760914532">Place Chrome in the bottom area to access it at any time</translation>
 <translation id="1076643793026027628">Chrome automatically opens YouTube Incognito links in Incognito.</translation>
 <translation id="1081114897601629648">The following passwords were not imported to Google Password Manager, because they don't match with the requirements.</translation>
 <translation id="1086486568852410168">Search with Google Lens</translation>
@@ -41,6 +40,7 @@ Things to consider:
 <translation id="1580570086594302477">Opens a new Chrome Incognito tab.</translation>
 <translation id="1605168141396675642">Avoid the hassle of copying. Launch links straight into Chrome.</translation>
 <translation id="1646463005043273333">Opens the Chrome setting to set Chrome as default browser.</translation>
+<translation id="1665695109862533986">Set Chrome as your default browser to open links in one tap</translation>
 <translation id="1668930590094369898">Use Chrome as default</translation>
 <translation id="1670609221633730681">Chrome tip: Choose your address bar position</translation>
 <translation id="1683863426423719967">To receive Tab Reminders from Chrome, turn on notifications in your iOS Settings.</translation>
@@ -92,7 +92,6 @@ Things to consider:
 <translation id="288992067439702510">You reached Google Chrome's limit of <ph name="LIMIT" /> bookmarks, so some of your bookmarks haven't been saved in your Google Account yet.
 
 New bookmarks can't be saved in your account until you delete some. If you sign out now, unsaved bookmarks will be deleted.</translation>
-<translation id="2901621928549457170">Open Chrome instantly when you're on your iPad</translation>
 <translation id="2922914028977213693">Tap here to get the most out of Chrome on your iPad.</translation>
 <translation id="292371311537977079">Chrome settings</translation>
 <translation id="2923827943290349720">Lock incognito tabs when you close Chrome</translation>
@@ -151,6 +150,7 @@ New bookmarks can't be saved in your account until you delete some. If you sign 
 <translation id="4523886039239821078">Some add-ons cause Chrome to crash. Please uninstall:</translation>
 <translation id="4568024439284012497">Access Chrome faster from your iPhone's Home Screen.</translation>
 <translation id="4574806550936185355">Turn on 'Lock Incognito tabs when you close Chrome'</translation>
+<translation id="457825396414281646">Make Chrome your default browser to open links in one tap</translation>
 <translation id="4633328489441962921">Chrome can't check for updates</translation>
 <translation id="4636900170638246267">Sign in to this site and Chrome.</translation>
 <translation id="4647910807533196601">Open my latest tab in Chrome.</translation>
@@ -177,8 +177,6 @@ New bookmarks can't be saved in your account until you delete some. If you sign 
 <translation id="5119391094379141756">Select Chrome</translation>
 <translation id="5123188916260706415">Search with voice in Chrome</translation>
 <translation id="5162467219239570114">Chrome is out of date. If no update is available in the <ph name="BEGIN_LINK" />app store<ph name="END_LINK" />, it's possible that your device doesn't support new versions of Chrome anymore.</translation>
-<translation id="5172049865623113551">Open Chrome instantly when you're on your iPhone</translation>
-<translation id="5179095426828744632">Access Chrome faster from your dock</translation>
 <translation id="5184329579814168207">Open in Chrome</translation>
 <translation id="5190139289262548459">Your organisation, <ph name="DOMAIN" />, manages the account you're signed in to and how Chrome is used.</translation>
 <translation id="5209238444239954363">Chrome couldn't check for updates. Please try again later.</translation>
@@ -242,7 +240,6 @@ Try waiting a few minutes before switching accounts. If you switch accounts now,
 <translation id="6484712497741564393">Signed in as <ph name="EMAIL" />.
 
 Your data is encrypted with your passphrase. Enter it to use and save Chrome data in your Google Account.</translation>
-<translation id="6511034852811155835">Take your Chrome with you</translation>
 <translation id="6533470733797826516">Sign in faster with Chrome autofill</translation>
 <translation id="6536544321553662809">Set Chrome as your default browser to easily share and open links</translation>
 <translation id="6545449117344801102">Chrome detects addresses and uses Google Maps to give you directions and local info.</translation>
@@ -266,7 +263,6 @@ For more settings that use data to improve your Chrome experience, go to <ph nam
 <translation id="6924922227983877439">Open links in Chrome by default</translation>
 <translation id="6926395711547387358">Set Chrome as default</translation>
 <translation id="6975725306479268850">Choose Chrome for auto-fill</translation>
-<translation id="7001031184470316752">Move Chrome to your Dock</translation>
 <translation id="7038674195294813388">Open Default Apps settings in iOS, then tap on 'Browser App' and select Chrome.</translation>
 <translation id="7056826488869329999">Opens and Runs Safety Check in Chrome.</translation>
 <translation id="7061455974939528301">Press and hold the Chrome icon and click 'Edit home screen'</translation>
@@ -363,6 +359,7 @@ Your data was encrypted with your passphrase on <ph name="TIME" />. Enter it to 
 <translation id="8610372330814566250">Use your Safari passwords, history, bookmarks and credit cards in Chrome</translation>
 <translation id="8630122478628016441">Turn on 'Lock Incognito tabs when you close Chrome'.</translation>
 <translation id="8673726683583791503">Shop with Google Lens</translation>
+<translation id="869525545193934083">Full-screen video of how to set Chrome as default: Open Chrome settings in iOS, tap on 'Default Browser App' and select Chrome.</translation>
 <translation id="8765470054473112089">When you type in the address bar or search box, Chrome sends what you type to your default search engine to get better suggestions. This is off in Incognito.</translation>
 <translation id="8772179140489533211">Shows prompts to sign in to Chrome.</translation>
 <translation id="8788269841521769222">You won't need to remember this password. It will be saved to Google Password Manager for <ph name="EMAIL" /></translation>

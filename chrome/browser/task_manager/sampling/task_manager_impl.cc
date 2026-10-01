@@ -31,6 +31,7 @@
 #include "chrome/browser/task_manager/providers/web_contents/web_contents_task_provider.h"
 #include "chrome/browser/task_manager/providers/worker_task_provider.h"
 #include "chrome/browser/task_manager/sampling/shared_sampler.h"
+#include "components/sessions/core/session_id.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/child_process_host.h"
 #include "content/public/browser/gpu_data_manager.h"
@@ -255,6 +256,10 @@ const gfx::ImageSkia& TaskManagerImpl::GetIcon(TaskId task_id) const {
   return GetTaskByTaskId(task_id)->icon();
 }
 
+bool TaskManagerImpl::ShouldThemifyIcon(TaskId task_id) const {
+  return GetTaskByTaskId(task_id)->should_themify_icon();
+}
+
 const base::ProcessHandle& TaskManagerImpl::GetProcessHandle(
     TaskId task_id) const {
   return GetTaskGroupByTaskId(task_id)->process_handle();
@@ -317,8 +322,31 @@ bool TaskManagerImpl::GetV8Memory(TaskId task_id,
   const Task* task = GetTaskByTaskId(task_id);
   const std::optional<base::ByteSize> allocated_memory =
       task->GetV8MemoryAllocated();
+  if (!allocated_memory.has_value()) {
+    return false;
+  }
   const std::optional<base::ByteSize> used_memory = task->GetV8MemoryUsed();
-  if (!allocated_memory.has_value() || !used_memory.has_value()) {
+  if (!used_memory.has_value()) {
+    return false;
+  }
+
+  *allocated = allocated_memory.value();
+  *used = used_memory.value();
+
+  return true;
+}
+
+bool TaskManagerImpl::GetCppGCMemory(TaskId task_id,
+                                     base::ByteSize* allocated,
+                                     base::ByteSize* used) const {
+  const Task* task = GetTaskByTaskId(task_id);
+  const std::optional<base::ByteSize> allocated_memory =
+      task->GetCppGCMemoryAllocated();
+  if (!allocated_memory.has_value()) {
+    return false;
+  }
+  const std::optional<base::ByteSize> used_memory = task->GetCppGCMemoryUsed();
+  if (!used_memory.has_value()) {
     return false;
   }
 

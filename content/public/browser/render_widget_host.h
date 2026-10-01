@@ -19,10 +19,7 @@
 #include "components/input/input_event_source.h"
 #include "components/input/native_web_keyboard_event.h"
 #include "content/common/content_export.h"
-#include "content/public/browser/tracked_element_observer.h"
 #include "content/public/common/drop_data.h"
-#include "third_party/blink/public/common/input/web_gesture_event.h"
-#include "third_party/blink/public/common/input/web_input_event.h"
 #include "third_party/blink/public/common/page/drag_operation.h"
 #include "third_party/blink/public/mojom/input/input_event_result.mojom-shared.h"
 #include "third_party/perfetto/include/perfetto/tracing/traced_value_forward.h"
@@ -31,6 +28,8 @@
 #include "ui/display/screen_infos.h"
 
 namespace blink {
+class WebGestureEvent;
+class WebInputEvent;
 class WebMouseEvent;
 class WebMouseWheelEvent;
 }
@@ -371,6 +370,8 @@ class CONTENT_EXPORT RenderWidgetHost {
       base::OnceClosure on_complete) = 0;
 
   // Commits composition text. See `SetExternallySourcedComposition`.
+  // Additionally, if `target_dom_node_id` is not a null value, the caret is
+  // kept in view in the element after the commit.
   virtual void CommitExternallySourcedComposition(
       const std::u16string& text,
       const GlobalDOMNodeId& target_dom_node_id,

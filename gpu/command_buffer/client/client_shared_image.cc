@@ -63,7 +63,7 @@ namespace gpu {
 
 namespace {
 
-#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_OZONE) || BUILDFLAG(IS_ANDROID)
+#if BUILDFLAG(IS_OZONE) || BUILDFLAG(IS_ANDROID)
 bool GMBIsNative(gfx::GpuMemoryBufferType gmb_type) {
   return gmb_type != gfx::EMPTY_BUFFER && gmb_type != gfx::SHARED_MEMORY_BUFFER;
 }
@@ -88,28 +88,9 @@ bool GMBIsNative(gfx::GpuMemoryBufferType gmb_type) {
 //   supported in Chromium only on Ozone).
 uint32_t ComputeTextureTargetForSharedImage(
     SharedImageMetadata metadata,
-    gfx::GpuMemoryBufferType client_gmb_type,
-    scoped_refptr<SharedImageInterface> sii) {
-  CHECK(sii);
-#if !BUILDFLAG(IS_MAC) && !BUILDFLAG(IS_OZONE) && !BUILDFLAG(IS_ANDROID)
+    gfx::GpuMemoryBufferType client_gmb_type) {
+#if !BUILDFLAG(IS_OZONE) && !BUILDFLAG(IS_ANDROID)
   return GL_TEXTURE_2D;
-#elif BUILDFLAG(IS_MAC)
-  // Check for IOSurfaces being used. We infer IOSurface based on scanout or
-  // WebGPU usage, but that's not strictly correct e.g. with Graphite, WebGL
-  // canvas back buffers will also use IOSurfaces always regardless of scanout.
-  // However, in those cases we would be using GL_TEXTURE_2D anyway due to ANGLE
-  // Metal (or Swiftshader for tests) being used.
-  // Note that iOS uses GL_TEXTURE_2D even though it uses IOSurfaces -
-  // GL_TEXTURE_RECTANGLE_ARB is in CGL which is Mac only.
-  constexpr gpu::SharedImageUsageSet kUsagesRequiringNativeBuffer =
-      SHARED_IMAGE_USAGE_SCANOUT | SHARED_IMAGE_USAGE_WEBGPU_READ |
-      SHARED_IMAGE_USAGE_WEBGPU_WRITE;
-  const bool uses_native_buffer =
-      GMBIsNative(client_gmb_type) ||
-      metadata.usage.HasAny(kUsagesRequiringNativeBuffer);
-  return uses_native_buffer
-             ? sii->GetCapabilities().texture_target_for_io_surfaces
-             : GL_TEXTURE_2D;
 #else  // Ozone or Android
   // Check for external sampling being used.
   if (!metadata.format.PrefersExternalSampler()) {
@@ -379,8 +360,8 @@ ClientSharedImage::ClientSharedImage(
                : nullptr) {
   CHECK(!mailbox.IsZero());
   CHECK(sii_holder_);
-  texture_target_ = ComputeTextureTargetForSharedImage(
-      metadata_, gmb_type, GetSharedImageInterface());
+  texture_target_ = ComputeTextureTargetForSharedImage(metadata_, gmb_type);
+  StoreSyncTokenInternal(sync_token);
 }
 
 ClientSharedImage::ClientSharedImage(
@@ -421,6 +402,7 @@ ClientSharedImage::ClientSharedImage(
 #if !BUILDFLAG(IS_FUCHSIA)
   CHECK(texture_target);
 #endif
+  StoreSyncTokenInternal(sync_token);
 }
 
 ClientSharedImage::ClientSharedImage(
@@ -454,9 +436,8 @@ ClientSharedImage::ClientSharedImage(ExportedSharedImage exported_si)
   CHECK(texture_target_);
 #endif
 
-  for (auto& sync_token : exported_si.managed_sync_tokens_) {
-    sync_token_map_.emplace(sync_token.GetClientId(), sync_token);
-  }
+  StoreSyncTokenVectorInternal(exported_si.managed_sync_tokens_);
+  StoreSyncTokenInternal(exported_si.creation_sync_token_);
 }
 
 ClientSharedImage::ClientSharedImage(
@@ -487,7 +468,8 @@ ClientSharedImage::ClientSharedImage(
   CHECK(sii_holder_);
   CHECK(mappable_buffer_);
   texture_target_ = ComputeTextureTargetForSharedImage(
-      metadata_, mappable_buffer_->GetType(), GetSharedImageInterface());
+      metadata_, mappable_buffer_->GetType());
+  StoreSyncTokenInternal(sync_token);
 }
 
 ClientSharedImage::ClientSharedImage(const Mailbox& mailbox,
@@ -553,12 +535,20 @@ uint64_t ClientSharedImage::SignalLatestSyncToken(
         continue;
       }
       base::AutoLock auto_lock(shared_image->lock_);
-      CHECK_LE(shared_image->sync_token_map_.size(), 1u);
+      unsigned int effective_sync_token_count = 0;
       for (const auto& [_, sync_token] : shared_image->sync_token_map_) {
-        if (sync_token.release_count() > latest_sync_token.release_count()) {
-          latest_sync_token = sync_token;
+        if (sync_token.GetClientId() ==
+            shared_image->creation_sync_token().GetClientId()) {
+          continue;
+        }
+        if (sync_token.HasData()) {
+          if (sync_token.release_count() > latest_sync_token.release_count()) {
+            latest_sync_token = sync_token;
+          }
+          effective_sync_token_count++;
         }
       }
+      CHECK_LE(effective_sync_token_count, 1u);
     }
   } else {
     for (const auto& sync_token : sync_tokens) {
@@ -596,11 +586,19 @@ void ClientSharedImage::SignalLatestSyncToken(
         continue;
       }
       base::AutoLock auto_lock(shared_image->lock_);
+      unsigned int effective_sync_token_count = 0;
       for (const auto& [_, sync_token] : shared_image->sync_token_map_) {
+        if (sync_token.GetClientId() ==
+            shared_image->creation_sync_token().GetClientId()) {
+          continue;
+        }
+
         if (sync_token.HasData()) {
           sync_tokens.push_back(sync_token);
+          effective_sync_token_count++;
         }
       }
+      CHECK_LE(effective_sync_token_count, 1u);
     }
     has_valid_token = !sync_tokens.empty();
   } else {
@@ -616,6 +614,57 @@ void ClientSharedImage::SignalLatestSyncToken(
     std::move(callback).Run();
   } else {
     sii->SignalSyncToken(std::move(sync_tokens), std::move(callback));
+  }
+}
+
+bool ClientSharedImage::IsSyncTokenSignaled(
+    ContextSupport* context_support,
+    const SyncToken& resource_sync_token) {
+  CHECK(context_support);
+  if (base::FeatureList::IsEnabled(
+          features::kUseAutomaticSyncTokenManagement)) {
+    base::AutoLock auto_lock(lock_);
+    for (const auto& [_, sync_token] : sync_token_map_) {
+      if (sync_token == creation_sync_token_) {
+        continue;
+      }
+      if (sync_token.HasData() &&
+          !context_support->IsSyncTokenSignaled(sync_token)) {
+        return false;
+      }
+    }
+  } else {
+    // This SyncToken should have been set by calling OrderingBarrier() before
+    // calling this.
+    DCHECK(resource_sync_token.HasData());
+
+    // IsSyncTokenSignaled is thread-safe, no need for worker context lock.
+    return context_support->IsSyncTokenSignaled(resource_sync_token);
+  }
+  return true;
+}
+
+std::vector<SyncToken> ClientSharedImage::GetSyncTokensForDisplayCompositor(
+    const SyncToken& sync_token) {
+  if (base::FeatureList::IsEnabled(
+          features::kUseAutomaticSyncTokenManagement)) {
+    std::vector<SyncToken> sync_tokens;
+    sync_tokens.reserve(sync_token_map_.size());
+    base::AutoLock auto_lock(lock_);
+    for (const auto& [_, token] : sync_token_map_) {
+      sync_tokens.push_back(token);
+    }
+    return sync_tokens;
+  } else {
+    return {sync_token};
+  }
+}
+
+void ClientSharedImage::EndDisplayCompositorAccess(
+    const SyncToken& sync_token) {
+  if (base::FeatureList::IsEnabled(
+          features::kUseAutomaticSyncTokenManagement)) {
+    StoreSyncTokenInternal(sync_token);
   }
 }
 
@@ -1163,8 +1212,14 @@ SyncToken ClientSharedImage::EndExport(SharedImageExportResult&& result) {
   if (result.sync_tokens_.empty()) {
     return SyncToken();
   }
-  CHECK(result.sync_tokens_.size() == 1);
-  return StoreSyncTokenInternal(result.sync_tokens_[0]);
+  if (base::FeatureList::IsEnabled(
+          features::kUseAutomaticSyncTokenManagement)) {
+    auto tokens = StoreSyncTokenVectorInternal(std::move(result.sync_tokens_));
+    return tokens.empty() ? SyncToken() : tokens.back();
+  } else {
+    CHECK(result.sync_tokens_.size() == 1);
+    return StoreSyncTokenInternal(result.sync_tokens_[0]);
+  }
 }
 
 std::vector<SyncToken> ClientSharedImage::EndExportAsVector(

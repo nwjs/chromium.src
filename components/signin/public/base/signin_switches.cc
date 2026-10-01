@@ -112,10 +112,6 @@ const base::FeatureParam<std::string>
         "7087030#zippy=%2Ciphone-and-ipad"};
 #endif
 
-#if BUILDFLAG(IS_IOS)
-BASE_FEATURE(kCacheIdentityListInChrome, base::FEATURE_ENABLED_BY_DEFAULT);
-#endif
-
 #if BUILDFLAG(IS_ANDROID)
 BASE_FEATURE(kCctSignInPrompt, base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_ANDROID)
@@ -280,6 +276,10 @@ const base::FeatureParam<std::string> kCrossDeviceSigninUrl{
     &kCrossDeviceSignin, "url", "https://www.google.com/chrome/go-mobile"};
 #endif  // BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
 
+#if BUILDFLAG(IS_IOS)
+BASE_FEATURE(kCrossDeviceSigninDismissModals, base::FEATURE_ENABLED_BY_DEFAULT);
+#endif  // BUILDFLAG(IS_IOS)
+
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 BASE_FEATURE(kCrossDeviceSigninFromDesktop, base::FEATURE_DISABLED_BY_DEFAULT);
 const base::FeatureParam<std::string> kCrossDeviceSigninFromDesktopUrl{
@@ -309,7 +309,7 @@ BASE_FEATURE(kDontIncludeSIDUnsecureCookiesInGaiaAuthFetcher,
 
 // Enables fetching sync preview data from the server for accounts with refresh
 // tokens.
-BASE_FEATURE(kEnableAccountPreviewData, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kEnableAccountPreviewData, base::FEATURE_ENABLED_BY_DEFAULT);
 const base::FeatureParam<base::TimeDelta>
     kAccountPreviewDataPeriodicRefreshTiming{
         &kEnableAccountPreviewData, "AccountPreviewDataPeriodicRefreshTiming",
@@ -326,7 +326,7 @@ const base::FeatureParam<bool> kAccountPreviewDataPersistAccounts{
 // method). This flag has no effect if `kEnableAccountPreviewData` is not
 // enabled.
 BASE_FEATURE(kEnableAccountPreviewEntityPreviews,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Controls whether computing and storing the preferred account is enabled.
 // This flag has no effect if `kEnableAccountPreviewData` is not enabled.
@@ -380,11 +380,43 @@ BASE_FEATURE_PARAM(size_t,
                    kAutofillWalletMetadataQ3Threshold,
                    &kEnableAccountPreviewPreferredAccount,
                    3);
+BASE_FEATURE_PARAM(size_t,
+                   kReadingListQ1Threshold,
+                   &kEnableAccountPreviewPreferredAccount,
+                   1);
+BASE_FEATURE_PARAM(size_t,
+                   kReadingListMedianThreshold,
+                   &kEnableAccountPreviewPreferredAccount,
+                   2);
+BASE_FEATURE_PARAM(size_t,
+                   kReadingListQ3Threshold,
+                   &kEnableAccountPreviewPreferredAccount,
+                   3);
+#if BUILDFLAG(ENABLE_DICE_SUPPORT)
+BASE_FEATURE_PARAM(size_t,
+                   kExtensionsQ1Threshold,
+                   &kEnableAccountPreviewPreferredAccount,
+                   2);
+BASE_FEATURE_PARAM(size_t,
+                   kExtensionsMedianThreshold,
+                   &kEnableAccountPreviewPreferredAccount,
+                   3);
+BASE_FEATURE_PARAM(size_t,
+                   kExtensionsQ3Threshold,
+                   &kEnableAccountPreviewPreferredAccount,
+                   6);
+#endif
 BASE_FEATURE_PARAM(
     base::TimeDelta,
     kAccountPreviewPreferredAccountSingleAccountPromoFetchTimeout,
     &kEnableAccountPreviewPreferredAccount,
     base::Seconds(1));
+
+// Controls followup features for preferred account preview (new promos, and
+// updated strings). This flag has no effect if
+// `kEnableAccountPreviewPreferredAccount` is not enabled.
+BASE_FEATURE(kEnableAccountPreviewPreferredAccountFollowup,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_ANDROID)
 // This flag controls whether the CCT captures the account name of the 1p app
@@ -504,11 +536,6 @@ BASE_FEATURE_PARAM(std::string,
                    "sidts_session");
 #endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 
-#if !defined(NDEBUG) && !BUILDFLAG(IS_ANDROID)
-BASE_FEATURE(kEnableFakeCapabilityForTesting,
-             base::FEATURE_DISABLED_BY_DEFAULT);
-#endif
-
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
 // Enables mTLS token binding in the identity stack. This allows binding tokens
 // to an mTLS certificate upon receiving the `mtl_token_binding` indicator in
@@ -624,11 +651,6 @@ const base::FeatureParam<base::TimeDelta> kSearchAIModePromoFrequency{
 #if BUILDFLAG(IS_ANDROID)
 BASE_FEATURE(kEnableWebSigninLoadingDialog, base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_ANDROID)
-
-#if BUILDFLAG(IS_IOS)
-BASE_FEATURE(kEnforceCanSignInToChromeCapability,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-#endif
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
 // Enables the management disclaimer for managed signed profiles. All signed in
@@ -792,7 +814,7 @@ BASE_FEATURE(kMigrateAccountManagerDelegate, base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(IS_IOS)
-BASE_FEATURE(kNoAccountWebSignin, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kNoAccountWebSignin, base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_IOS)
 
 BASE_FEATURE(kNonDefaultGaiaOriginCheck, base::FEATURE_ENABLED_BY_DEFAULT);
@@ -832,17 +854,6 @@ BASE_FEATURE(kProfileDiscOnAllPages, base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_ANDROID)
 
 BASE_FEATURE(kProfilesReordering, base::FEATURE_DISABLED_BY_DEFAULT);
-
-#if BUILDFLAG(IS_IOS)
-BASE_FEATURE(kReadContextualAccountCapabilities,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-#endif
-
-BASE_FEATURE(kReadIsSubjectToUniversalOptOutCapability,
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-BASE_FEATURE(kReadSupportsWalletPrivatePassesInAutofillCapability,
-             base::FEATURE_DISABLED_BY_DEFAULT);
 
 #if !BUILDFLAG(IS_ANDROID)
 BASE_FEATURE(kRestrictDeviceManagementServiceOAuthScope,
@@ -985,6 +996,10 @@ BASE_FEATURE(kSyncEnableBookmarksInTransportMode,
 BASE_FEATURE(kUndoChromeOsUseConsentLevelSignin,
              base::FEATURE_DISABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_CHROMEOS)
+
+#if BUILDFLAG(ENABLE_DESKTOP_ANDROID_EXTENSIONS)
+BASE_FEATURE(kUnifyWaitForCookies, base::FEATURE_DISABLED_BY_DEFAULT);
+#endif  // BUILDFLAG(ENABLE_DESKTOP_ANDROID_EXTENSIONS)
 
 #if BUILDFLAG(IS_ANDROID)
 BASE_FEATURE(kUserPolicyFetchRequiresAcceptance,

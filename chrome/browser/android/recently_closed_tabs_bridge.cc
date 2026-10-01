@@ -4,9 +4,6 @@
 
 #include "chrome/browser/android/recently_closed_tabs_bridge.h"
 
-#include <optional>
-#include <vector>
-
 #include "base/android/jni_array.h"
 #include "base/android/jni_string.h"
 #include "base/android/token_android.h"
@@ -22,8 +19,12 @@
 #include "chrome/browser/ui/android/tab_model/tab_model.h"
 #include "chrome/browser/ui/android/tab_model/tab_model_jni_bridge.h"
 #include "components/sessions/core/live_tab.h"
+#include "components/sessions/core/session_id.h"
 #include "components/sessions/core/tab_restore_service.h"
+#include "components/tab_groups/tab_group_id.h"
+#include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/web_contents.h"
+#include "ui/base/window_open_disposition.h"
 #include "url/android/gurl_android.h"
 
 // Must come after all headers that specialize FromJniType() / ToJniType().
@@ -332,11 +333,11 @@ bool RecentlyClosedTabsBridge::OpenRecentlyClosedTab(JNIEnv* env,
   }
 
   AndroidLiveTabContextRestoreWrapper restore_context(model);
-  std::optional<std::vector<sessions::LiveTab*>> restored_tabs =
+  std::vector<sessions::LiveTab*> restored_tabs =
       tab_restore_service_->RestoreEntryById(
           &restore_context, entry_id,
           static_cast<WindowOpenDisposition>(j_disposition));
-  return !restored_tabs.value_or({}).empty();
+  return !restored_tabs.empty();
 }
 
 bool RecentlyClosedTabsBridge::OpenRecentlyClosedEntry(
@@ -354,12 +355,12 @@ bool RecentlyClosedTabsBridge::OpenRecentlyClosedEntry(
   }
 
   AndroidLiveTabContextRestoreWrapper restore_context(model);
-  std::optional<std::vector<sessions::LiveTab*>> restored_tabs =
+  std::vector<sessions::LiveTab*> restored_tabs =
       tab_restore_service_->RestoreEntryById(
           &restore_context, SessionID::FromSerializedValue(entry_session_id),
           WindowOpenDisposition::NEW_BACKGROUND_TAB);
   RestoreAndroidTabGroups(env, model, restore_context.GetTabGroups());
-  return !restored_tabs.value_or({}).empty();
+  return !restored_tabs.empty();
 }
 
 bool RecentlyClosedTabsBridge::OpenMostRecentlyClosedEntry(JNIEnv* env,
@@ -380,12 +381,12 @@ bool RecentlyClosedTabsBridge::OpenMostRecentlyClosedEntry(JNIEnv* env,
   // AndroidLiveTabContext. `restore_context` is required to rebuild groups
   // information. To avoid this just use the first entry in entries when
   // restoring.
-  std::optional<std::vector<sessions::LiveTab*>> restored_tabs =
+  std::vector<sessions::LiveTab*> restored_tabs =
       tab_restore_service_->RestoreEntryById(
           &restore_context, tab_restore_service_->entries().front()->id,
           WindowOpenDisposition::NEW_BACKGROUND_TAB);
   RestoreAndroidTabGroups(env, model, restore_context.GetTabGroups());
-  return !restored_tabs.value_or({}).empty();
+  return !restored_tabs.empty();
 }
 
 void RecentlyClosedTabsBridge::ClearRecentlyClosedEntries(JNIEnv* env) {

@@ -119,6 +119,7 @@ source_set("impl") {
     "//chrome/browser/ui/views/bookmarks/saved_tab_groups",
     "//chrome/browser/ui/views/bookmarks/saved_tab_groups:impl",
     "//chrome/browser/ui/views/commerce",
+    "//chrome/browser/ui/views/frame:themed_background",
     "//chrome/browser/ui/views/toolbar",
     "//chrome/common:constants",
     "//chrome/common:non_code_constants",
@@ -228,6 +229,7 @@ source_set("browser_tests") {
     "//components/commerce/core:shopping_service_test_support",
     "//components/saved_tab_groups/test_support",
     "//components/user_education/views",
+    "//ui/base/clipboard:clipboard_test_support",
     "//ui/events:test_support",
   ]
 }
@@ -261,6 +263,7 @@ if (!is_chromeos_device) {
       "//chrome/browser/gcm",
       "//chrome/browser/tab_group_sync:factories",
       "//chrome/browser/ui",
+      "//chrome/browser/ui:ui_controller_factory",
       "//chrome/browser/ui/actions",
       "//chrome/browser/ui/tabs:tab_menu",
       "//chrome/browser/ui/views/commerce",

@@ -27,6 +27,7 @@
 #include "content/public/browser/web_contents.h"
 #include "media/base/audio_parameters.h"
 #include "mojo/public/cpp/base/big_buffer.h"
+#include "mojo/public/cpp/bindings/message.h"
 
 namespace readaloud {
 
@@ -139,14 +140,15 @@ void ReadAloudService::PreviewVoice(std::string_view voice_id) {
   // Pause active article playback while previewing a voice.
   Pause();
 
-  // TODO(b/522835686): Implement actual voice preview audio synthesis via the
-  // utility process player.
-
-  // Notify the UI/client delegate that voice preview playback has started.
+  // Notify the UI/client delegate that voice preview playback is buffering.
   if (delegate_) {
     delegate_->OnVoicePreviewPlaybackStateChanged(voice_id,
-                                                  PlaybackState::kPlaying);
+                                                  PlaybackState::kBuffering);
   }
+
+  // TODO(b/522835686): Implement actual voice preview audio synthesis via the
+  // utility process player and notify the delegate when playback transitions to
+  // PlaybackState::kPlaying.
 }
 
 void ReadAloudService::StopVoicePreview() {
@@ -286,9 +288,12 @@ void ReadAloudService::OnArticleReady(
   std::vector<read_aloud::mojom::TextSegmentPtr> segments;
   segments.reserve(article_proto->pages_size());
   for (int i = 0; i < article_proto->pages_size(); ++i) {
+    const dom_distiller::DistilledPageProto& page = article_proto->pages(i);
     auto segment = read_aloud::mojom::TextSegment::New();
     segment->segment_index = static_cast<uint32_t>(i);
-    segment->text = base::UTF8ToUTF16(article_proto->pages(i).html());
+    if (page.has_text_content()) {
+      segment->text = base::UTF8ToUTF16(page.text_content());
+    }
     segments.push_back(std::move(segment));
   }
   utility_player_->SetTextContent(std::move(segments));
@@ -345,7 +350,8 @@ void ReadAloudService::EnsurePlaybackControllerConnected() {
     utility_player_.reset();
     utility_observer_receiver_.reset();
     controller_binder_.Run(
-        utility_player_.BindNewPipeAndPassReceiver());
+        utility_player_.BindNewPipeAndPassReceiver(),
+        utility_observer_receiver_.BindNewPipeAndPassRemote());
     utility_player_.set_disconnect_handler(base::BindOnce(
         &ReadAloudService::OnUtilityDisconnect, weak_factory_.GetWeakPtr()));
     return;
@@ -456,6 +462,18 @@ void ReadAloudService::OnWordBoundaryReached(uint32_t segment_index,
   base::TimeDelta clamped_elapsed =
       std::clamp(audio_timestamp, base::Seconds(0), current_duration_);
   delegate_->OnPlaybackProgressUpdated(clamped_elapsed, current_duration_);
+}
+
+void ReadAloudService::OnTextChunked(
+    const std::vector<std::u16string>& chunks) {
+  if (chunks.size() > readaloud::kMaxTextChunks) {
+    mojo::ReportBadMessage("Received invalid chunk payload");
+    return;
+  }
+
+  if (delegate_) {
+    delegate_->OnTextChunked(chunks);
+  }
 }
 
 void ReadAloudService::RequestSpeechSynthesis(

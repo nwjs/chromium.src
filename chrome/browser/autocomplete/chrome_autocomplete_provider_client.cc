@@ -104,6 +104,7 @@
 #include "extensions/buildflags/buildflags.h"
 #include "net/base/url_util.h"
 #include "net/traffic_annotation/network_traffic_annotation.h"
+#include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "third_party/blink/public/common/storage_key/storage_key.h"
 #include "third_party/blink/public/mojom/permissions/permission_status.mojom.h"
 #include "url/origin.h"
@@ -259,7 +260,7 @@ ChromeAutocompleteProviderClient::ChromeAutocompleteProviderClient(
           std::make_unique<OmniboxTriggeredFeatureService>()) {
   pedal_provider_ = std::make_unique<OmniboxPedalProvider>(
       *this,
-      GetPedalImplementations(profile_->IsIncognitoProfile(),
+      GetPedalImplementations(profile_->IsPrimaryOTRProfileWithRegularParent(),
                               profile_->IsGuestSession(), /*testing=*/false));
 }
 
@@ -515,6 +516,11 @@ bool ChromeAutocompleteProviderClient::IsOffTheRecord() const {
   return profile_->IsOffTheRecord();
 }
 
+bool ChromeAutocompleteProviderClient::IsPrimaryOTRProfileWithRegularParent()
+    const {
+  return profile_->IsPrimaryOTRProfileWithRegularParent();
+}
+
 bool ChromeAutocompleteProviderClient::IsIncognitoProfile() const {
   return profile_->IsIncognitoProfile();
 }
@@ -649,7 +655,8 @@ bool ChromeAutocompleteProviderClient::IsLensEnabled() const {
   if (base::FeatureList::IsEnabled(lens::features::kLensOverlayAndroid)) {
     JNIEnv* env = base::android::AttachCurrentThread();
     return Java_LensSupportStatusHelper_isLensSearchSupported(
-        env, profile_->GetJavaObject(), profile_->IsIncognitoProfile());
+        env, profile_->GetJavaObject(),
+        profile_->IsPrimaryOTRProfileWithRegularParent());
   }
 
 #else
@@ -704,15 +711,6 @@ bool ChromeAutocompleteProviderClient::ShouldSendPageTitleSuggestParam() const {
   return IsContextualSearchFeatureEnabled(
       omnibox_feature_configs::ContextualSearch::kSendPageTitleSuggestParam,
       GetAimEligibilityService());
-}
-
-bool ChromeAutocompleteProviderClient::IsOmniboxNextLensSearchChipEnabled()
-    const {
-#if !BUILDFLAG(IS_ANDROID)
-  return IsOmniboxNextAimPopupEnabled() && omnibox::kShowLensSearchChip.Get();
-#else
-  return false;
-#endif  // !BUILDFLAG(IS_ANDROID)
 }
 
 bool ChromeAutocompleteProviderClient::IsAskGShowChipEnabled() const {
@@ -787,7 +785,7 @@ void ChromeAutocompleteProviderClient::OpenIncognitoClearBrowsingDataDialog() {
 
 void ChromeAutocompleteProviderClient::CloseIncognitoWindows() {
 #if !BUILDFLAG(IS_ANDROID)
-  if (profile_->IsIncognitoProfile()) {
+  if (profile_->IsPrimaryOTRProfileWithRegularParent()) {
     chrome::CloseAllBrowsersWithIncognitoProfile(profile_);
   }
 #endif  // !BUILDFLAG(IS_ANDROID)
@@ -815,27 +813,12 @@ bool ChromeAutocompleteProviderClient::OpenJourneys(const std::string& query) {
 
 bool ChromeAutocompleteProviderClient::ShouldOpenCoBrowsePanel() const {
 #if !BUILDFLAG(IS_ANDROID)
-  if (!lens::features::IsLensSidePanelUnificationEnabled() ||
-      !contextual_tasks::IsContextualTasksUIEnabled()) {
+  if (!omnibox::AreContextualTasksEligible(profile_)) {
     return false;
   }
 
-  if (!omnibox::kAskGCoBrowse.Get() &&
-      !omnibox::kAskGCoBrowseWithVisualSelection.Get()) {
-    return false;
-  }
-
-  if (!lens::features::IsLensSidePanelUnificationAllowSignedOut()) {
-    auto* ui_service =
-        contextual_tasks::ContextualTasksUiServiceFactory::GetForBrowserContext(
-            profile_);
-    if (!ui_service || !ui_service->IsSignedInToBrowserWithValidCredentials() ||
-        !ui_service->CookieJarContainsPrimaryAccount()) {
-      return false;
-    }
-  }
-
-  return true;
+  return omnibox::kAskGCoBrowse.Get() ||
+         omnibox::kAskGCoBrowseWithVisualSelection.Get();
 #else
   return false;
 #endif
@@ -972,6 +955,10 @@ void ChromeAutocompleteProviderClient::PromptPageTranslation() {
 
 bool ChromeAutocompleteProviderClient::ShouldOpenComposeboxForAskG() const {
 #if !BUILDFLAG(IS_ANDROID)
+  if (!omnibox::AreContextualTasksEligible(profile_)) {
+    return false;
+  }
+
   return omnibox::IsAimPopupFeatureEnabled() && omnibox::kAskGComposeBox.Get();
 #else
   return false;

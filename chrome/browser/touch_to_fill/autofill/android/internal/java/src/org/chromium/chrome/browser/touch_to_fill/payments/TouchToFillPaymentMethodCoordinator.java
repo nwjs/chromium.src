@@ -40,6 +40,7 @@ import org.chromium.chrome.browser.autofill.AutofillImageFetcher;
 import org.chromium.chrome.browser.autofill.PersonalDataManager.Iban;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.touch_to_fill.common.BottomSheetFocusHelper;
+import org.chromium.chrome.browser.touch_to_fill.common.TouchToFillCommonViewBinder;
 import org.chromium.components.autofill.AutofillSuggestion;
 import org.chromium.components.autofill.LoyaltyCard;
 import org.chromium.components.autofill.payments.BnplIssuerContext;
@@ -58,31 +59,40 @@ import java.util.List;
  * credit card to be filled into the focused form.
  */
 public class TouchToFillPaymentMethodCoordinator implements TouchToFillPaymentMethodComponent {
-    private final TouchToFillPaymentMethodMediator mMediator =
-            new TouchToFillPaymentMethodMediator();
-    private PropertyModel mTouchToFillPaymentMethodModel;
-    private TouchToFillPaymentMethodView mView;
+    private final TouchToFillPaymentMethodMediator mMediator;
+    private final PropertyModel mTouchToFillPaymentMethodModel;
+    private final TouchToFillPaymentMethodView mView;
 
-    @Override
-    public void initialize(
+    /**
+     * Constructs a new {@link TouchToFillPaymentMethodCoordinator}.
+     *
+     * @param context The {@link Context} for accessing string resources and creating the view.
+     * @param profile The user's browser profile.
+     * @param imageFetcher The image fetcher used to display the icons in the bottom sheet.
+     * @param sheetController The {@link BottomSheetController} used to display and manage the
+     *     bottom sheet.
+     * @param delegate The {@link Delegate} handling the interaction callbacks from the view.
+     * @param bottomSheetFocusHelper The {@link BottomSheetFocusHelper} used to manage and restore
+     *     accessibility focus for the bottom sheet.
+     */
+    public TouchToFillPaymentMethodCoordinator(
             Context context,
             Profile profile,
             AutofillImageFetcher imageFetcher,
             BottomSheetController sheetController,
             Delegate delegate,
             BottomSheetFocusHelper bottomSheetFocusHelper) {
-        mTouchToFillPaymentMethodModel = createModel(mMediator);
-        mMediator.initialize(
-                context,
-                profile,
-                imageFetcher,
-                delegate,
-                mTouchToFillPaymentMethodModel,
-                bottomSheetFocusHelper);
+        mTouchToFillPaymentMethodModel = createModel();
+        mMediator =
+                new TouchToFillPaymentMethodMediator(
+                        context,
+                        profile,
+                        imageFetcher,
+                        delegate,
+                        mTouchToFillPaymentMethodModel,
+                        bottomSheetFocusHelper);
         mView = new TouchToFillPaymentMethodView(context, sheetController);
-        setUpModelChangeProcessors(
-                mTouchToFillPaymentMethodModel,
-                mView);
+        setUpModelChangeProcessors(mTouchToFillPaymentMethodModel, mView);
     }
 
     @Override
@@ -182,16 +192,16 @@ public class TouchToFillPaymentMethodCoordinator implements TouchToFillPaymentMe
                 TouchToFillPaymentMethodViewBinder::bindAllLoyaltyCardsItemView);
         adapter.registerType(
                 HEADER,
-                TouchToFillPaymentMethodViewBinder::createHeaderItemView,
-                TouchToFillPaymentMethodViewBinder::bindHeaderView);
+                TouchToFillCommonViewBinder::createHeaderItemView,
+                TouchToFillCommonViewBinder::bindHeaderView);
         adapter.registerType(
                 FILL_BUTTON,
-                TouchToFillPaymentMethodViewBinder::createFillButtonView,
-                TouchToFillPaymentMethodViewBinder::bindButtonView);
+                TouchToFillCommonViewBinder::createFillButtonView,
+                TouchToFillCommonViewBinder::bindButtonView);
         adapter.registerType(
                 WALLET_SETTINGS_BUTTON,
                 TouchToFillPaymentMethodViewBinder::createWalletSettingsButtonView,
-                TouchToFillPaymentMethodViewBinder::bindButtonView);
+                TouchToFillCommonViewBinder::bindButtonView);
         adapter.registerType(
                 FOOTER,
                 TouchToFillPaymentMethodViewBinder::createFooterItemView,
@@ -234,8 +244,8 @@ public class TouchToFillPaymentMethodCoordinator implements TouchToFillPaymentMe
                 TouchToFillPaymentMethodViewBinder::bindLegalMessageItemView);
         adapter.registerType(
                 TEXT_BUTTON,
-                TouchToFillPaymentMethodViewBinder::createTextButtonView,
-                TouchToFillPaymentMethodViewBinder::bindButtonView);
+                TouchToFillCommonViewBinder::createTextButtonView,
+                TouchToFillCommonViewBinder::bindButtonView);
         adapter.registerType(
                 TOS_HEADER,
                 TouchToFillPaymentMethodViewBinder::createBnplTosHeaderView,
@@ -243,15 +253,15 @@ public class TouchToFillPaymentMethodCoordinator implements TouchToFillPaymentMe
         view.setSheetItemListAdapter(adapter);
     }
 
-    PropertyModel createModel(TouchToFillPaymentMethodMediator mediator) {
+    PropertyModel createModel() {
         return new PropertyModel.Builder(TouchToFillPaymentMethodProperties.ALL_KEYS)
                 .with(VISIBLE, false)
                 .with(CURRENT_SCREEN, HOME_SCREEN)
                 .with(FOCUSED_VIEW_ID_FOR_ACCESSIBILITY, 0)
                 .with(SHEET_ITEMS, new ModelList())
-                .with(BACK_PRESS_HANDLER, mediator::onBackButtonPressed)
-                .with(DISMISS_HANDLER, mediator::onDismissed)
-                .with(TAB_SELECTION_HANDLER, mediator::onTabSelected)
+                .with(BACK_PRESS_HANDLER, () -> mMediator.onBackButtonPressed())
+                .with(DISMISS_HANDLER, (reason) -> mMediator.onDismissed(reason))
+                .with(TAB_SELECTION_HANDLER, (tab) -> mMediator.onTabSelected(tab))
                 .build();
     }
 

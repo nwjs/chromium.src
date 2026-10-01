@@ -15,6 +15,7 @@
 #include "build/build_config.h"
 #include "chrome/browser/actor/actor_task.h"
 #include "chrome/browser/actor/tab_observation_strategy.h"
+#include "chrome/browser/glic/actor/glic_actor_metrics.h"
 #include "chrome/browser/glic/actor/glic_actor_policy_checker.h"
 #include "chrome/browser/glic/host/glic.mojom.h"
 #include "chrome/common/actor.mojom-forward.h"
@@ -256,6 +257,8 @@ class GlicActorClientSession : public GlicActorClientSessionInterface {
   void NotifyActorTaskStateChanged(actor::ActorTask& task);
   void StopTaskImpl(actor::TaskId task_id,
                     actor::ActorTask::StoppedReason reason);
+  bool ValidateTaskIdMatchesCurrent(actor::TaskId task_id,
+                                    GlicActorTaskIdMismatchMethod method);
   actor::ActorKeyedService& actor_keyed_service() const;
   GlicActorPolicyChecker& actor_policy_checker() const;
   GlicInstanceMetrics& instance_metrics() const;

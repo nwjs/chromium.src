@@ -29,8 +29,6 @@
 #include "components/variations/variations_associated_data.h"
 #include "content/public/browser/site_instance.h"
 #include "extensions/browser/disable_reason.h"
-#include "extensions/browser/extension_mojo_binder_registry.h"
-#include "extensions/browser/extension_mojo_binder_registry_factory.h"
 #include "extensions/browser/extension_prefs.h"
 #include "extensions/browser/extension_registrar.h"
 #include "extensions/browser/extension_registry.h"
@@ -51,7 +49,6 @@
 #include "extensions/common/manifest_handlers/incognito_info.h"
 #include "extensions/common/permissions/permissions_data.h"
 #include "extensions/common/switches.h"
-#include "net/base/url_util.h"
 #include "url/gurl.h"
 
 #if BUILDFLAG(IS_CHROMEOS)
@@ -375,16 +372,6 @@ GURL GetExtensionsPageUrl(const ExtensionId& extension_id) {
   return url;
 }
 
-bool IsMojoJsEnabledForExtension(const Extension* extension,
-                                 content::BrowserContext* context) {
-  if (!extension) {
-    return false;
-  }
-  auto* registry =
-      ExtensionMojoBinderRegistryFactory::GetForBrowserContext(context);
-  return registry && registry->IsMojoJsEnabled(*extension);
-}
-
 DseNtpOverrideType GetDseNtpOverrideType(const Extension& extension) {
   enum Flags {
     kNone = 0,
@@ -426,20 +413,19 @@ GURL GetCWSWritingReviewUrl(const ExtensionId& extension_id,
   const char* source_str = nullptr;
   switch (source) {
     case CWSReviewSource::kExtensionsMenu:
-      source_str = "extensions_menu";
+      source_str = extension_urls::kReviewExtensionsMenuUtmSource;
       break;
     case CWSReviewSource::kExtensionsPage:
-      source_str = "extensions_page";
+      source_str = extension_urls::kReviewExtensionsPageUtmSource;
       break;
     case CWSReviewSource::kContextMenu:
-      source_str = "context_menu";
+      source_str = extension_urls::kReviewContextMenuUtmSource;
       break;
   }
 
   GURL review_url = extension_urls::GetNewWebstoreLaunchURL().Resolve(
-      base::StrCat({"detail/", extension_id, "/reviews"}));
-  review_url = net::AppendQueryParameter(review_url, "action", "write");
-  return net::AppendQueryParameter(review_url, "source", source_str);
+      base::StrCat({"detail/", extension_id, "/reviews/my-review"}));
+  return extension_urls::AppendUtmSource(review_url, source_str);
 }
 
 }  // namespace extensions::util

@@ -50,6 +50,7 @@
 #include "services/metrics/public/cpp/metrics_utils.h"
 #include "services/metrics/public/cpp/ukm_builders.h"
 #include "services/metrics/public/cpp/ukm_recorder.h"
+#include "ui/base/page_transition_types.h"
 #include "url/gurl.h"
 
 #if BUILDFLAG(IS_ANDROID)
@@ -467,6 +468,11 @@ void SupervisedUserNavigationObserver::FilterRenderFrame(
 supervised_user::SupervisedUserInterstitial*
 SupervisedUserNavigationObserver::GetInterstitialForFrame() {
   content::RenderFrameHost& target_frame = receivers_.CurrentTargetFrame();
+
+  if (!target_frame.IsActive()) {
+    return nullptr;
+  }
+
   content::FrameTreeNodeId frame_id = target_frame.GetFrameTreeNodeId();
 
   if (auto it = supervised_user_interstitials_.find(frame_id);

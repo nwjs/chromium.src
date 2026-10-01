@@ -18,6 +18,7 @@
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/browser/test/test_browser.h"
 #import "ios/chrome/browser/shared/model/profile/test/test_profile_ios.h"
+#import "ios/chrome/browser/shared/model/profile/test/test_profile_manager_ios.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
 #import "ios/chrome/browser/shared/public/commands/snackbar_commands.h"
@@ -62,12 +63,12 @@ class GeminiEntryFlowCoordinatorTest : public PlatformTest {
               return std::make_unique<FakeGeminiService>();
             }));
 
-    profile_ = std::move(builder).Build();
+    profile_ = profile_manager_.AddProfileWithBuilder(std::move(builder));
     fake_gemini_service_ = static_cast<FakeGeminiService*>(
-        GeminiServiceFactory::GetForProfile(profile_.get()));
-    auth_service_ = AuthenticationServiceFactory::GetForProfile(profile_.get());
+        GeminiServiceFactory::GetForProfile(profile_));
+    auth_service_ = AuthenticationServiceFactory::GetForProfile(profile_);
 
-    browser_ = std::make_unique<TestBrowser>(profile_.get());
+    browser_ = std::make_unique<TestBrowser>(profile_);
 
     root_view_controller_ = [[UIViewController alloc] init];
     scoped_key_window_.Get().rootViewController = root_view_controller_;
@@ -79,7 +80,7 @@ class GeminiEntryFlowCoordinatorTest : public PlatformTest {
 
     auto web_state = std::make_unique<web::FakeWebState>();
     web_state_ = web_state.get();
-    web_state_->SetBrowserState(profile_.get());
+    web_state_->SetBrowserState(profile_);
     web_state_->WasShown();
     web_state_->SetCurrentURL(GURL("https://www.google.com"));
     GeminiTabHelper::CreateForWebState(web_state_);
@@ -88,7 +89,15 @@ class GeminiEntryFlowCoordinatorTest : public PlatformTest {
         WebStateList::InsertionParams::Automatic().Activate());
   }
 
-  ~GeminiEntryFlowCoordinatorTest() override { [coordinator_ stop]; }
+  ~GeminiEntryFlowCoordinatorTest() override {
+    [coordinator_ stop];
+    coordinator_ = nil;
+    web_state_ = nullptr;
+    browser_.reset();
+    auth_service_ = nullptr;
+    fake_gemini_service_ = nullptr;
+    profile_ = nullptr;
+  }
 
   void SignIn(id<SystemIdentity> identity) {
     FakeSystemIdentityManager* system_identity_manager =
@@ -97,7 +106,7 @@ class GeminiEntryFlowCoordinatorTest : public PlatformTest {
     system_identity_manager->AddIdentity(identity);
 
     signin::IdentityManager* identity_manager =
-        IdentityManagerFactory::GetForProfile(profile_.get());
+        IdentityManagerFactory::GetForProfile(profile_);
     signin::AccountAvailabilityOptionsBuilder builder;
     builder.WithGaiaId(identity.gaiaId)
         .AsPrimary(signin::ConsentLevel::kSignin);
@@ -122,11 +131,12 @@ class GeminiEntryFlowCoordinatorTest : public PlatformTest {
   web::WebTaskEnvironment task_environment_;
   IOSChromeScopedTestingLocalState scoped_testing_local_state_;
   base::test::ScopedFeatureList feature_list_;
-  std::unique_ptr<TestProfileIOS> profile_;
+  TestProfileManagerIOS profile_manager_;
+  raw_ptr<TestProfileIOS> profile_ = nullptr;
   std::unique_ptr<TestBrowser> browser_;
-  raw_ptr<FakeGeminiService> fake_gemini_service_;
-  raw_ptr<AuthenticationService> auth_service_;
-  raw_ptr<web::FakeWebState> web_state_;
+  raw_ptr<FakeGeminiService> fake_gemini_service_ = nullptr;
+  raw_ptr<AuthenticationService> auth_service_ = nullptr;
+  raw_ptr<web::FakeWebState> web_state_ = nullptr;
   UIViewController* root_view_controller_;
   ScopedKeyWindow scoped_key_window_;
   id mock_snackbar_handler_;
@@ -165,6 +175,47 @@ TEST_F(GeminiEntryFlowCoordinatorTest, ColdStartPolicyCheckPending) {
   fake_gemini_service_->SetIsEligible(true);
 
   // Evaluation completes with success once policy check completes.
+  EXPECT_TRUE(flow_completed_);
+  EXPECT_EQ(kGeminiEntryFlowResultSuccess, flow_result_);
+}
+
+// Tests that intermediate capability updates while the policy check is
+// still pending do not cause re-entrant routing or complete prematurely.
+TEST_F(GeminiEntryFlowCoordinatorTest,
+       IntermediateUpdateWhilePolicyCheckPendingDoesNotComplete) {
+  SignIn([FakeSystemIdentity fakeIdentity1]);
+  fake_gemini_service_->SetIsEligible(true);
+  fake_gemini_service_->SetWorkspacePolicyCheckPending(true);
+
+  GeminiStartupState* startup_state = [[GeminiStartupState alloc]
+      initWithEntryPoint:gemini::EntryPoint::ExternalAppStoreEvent];
+
+  coordinator_ = [[GeminiEntryFlowCoordinator alloc]
+      initWithBaseViewController:root_view_controller_
+                         browser:browser_.get()
+                    startupState:startup_state
+        showSnackbarOnCompletion:YES
+                      completion:^(GeminiEntryFlowResult result) {
+                        flow_result_ = result;
+                        flow_completed_ = true;
+                      }];
+
+  [coordinator_ start];
+
+  EXPECT_FALSE(flow_completed_);
+
+  // Trigger an intermediate eligibility change (e.g. from account capability
+  // update) while the enterprise check is still pending.
+  fake_gemini_service_->SetIsEligible(false);
+
+  // The coordinator should ignore the intermediate change while pending and
+  // not complete.
+  EXPECT_FALSE(flow_completed_);
+
+  // Now resolve the enterprise policy check.
+  fake_gemini_service_->SetIsEligible(true);
+  fake_gemini_service_->SetWorkspacePolicyCheckPending(false);
+
   EXPECT_TRUE(flow_completed_);
   EXPECT_EQ(kGeminiEntryFlowResultSuccess, flow_result_);
 }

@@ -38,12 +38,14 @@
 #include "components/sessions/content/content_live_tab.h"
 #include "components/sessions/core/live_tab_context.h"
 #include "components/sessions/core/serialized_navigation_entry.h"
+#include "components/sessions/core/session_id.h"
 #include "components/sessions/core/tab_restore_service.h"
 #include "components/sync_sessions/open_tabs_ui_delegate.h"
 #include "components/sync_sessions/session_sync_service.h"
 #include "components/sync_sessions/synced_session.h"
 #include "components/tab_groups/tab_group_color.h"
 #include "components/url_formatter/url_formatter.h"
+#include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/web_contents.h"
 #include "extensions/browser/extension_function_dispatcher.h"
 #include "extensions/browser/extension_function_registry.h"
@@ -52,6 +54,7 @@
 #include "extensions/common/error_utils.h"
 #include "extensions/common/mojom/context_type.mojom.h"
 #include "ui/base/mojom/window_show_state.mojom.h"
+#include "ui/base/window_open_disposition.h"
 
 #if BUILDFLAG(IS_ANDROID)
 #include "base/android/callback_android.h"
@@ -749,9 +752,7 @@ SessionsRestoreFunction::RestoreMostRecentlyClosed(
   }
   std::vector<sessions::LiveTab*> restored_tabs =
       tab_restore_service->RestoreMostRecentEntry(context);
-  if (restored_tabs.empty()) {
-    return RespondNow(Error(kNoActiveTabError));
-  }
+  DCHECK(restored_tabs.size());
 
   sessions::ContentLiveTab* first_tab =
       static_cast<sessions::ContentLiveTab*>(restored_tabs[0]);
@@ -928,19 +929,17 @@ ExtensionFunction::ResponseAction SessionsRestoreFunction::RestoreLocalSession(
   if (!context) {
     return RespondNow(Error(kNoLiveTabContextError));
   }
-  std::optional<std::vector<sessions::LiveTab*>> restored_tabs =
+  std::vector<sessions::LiveTab*> restored_tabs =
       tab_restore_service->RestoreEntryById(
           context, SessionID::FromSerializedValue(session_id.id()),
           WindowOpenDisposition::UNKNOWN);
-  if (!restored_tabs.has_value()) {
+  // If the ID is invalid, restored_tabs will be empty.
+  if (restored_tabs.empty()) {
     return RespondNow(Error(kInvalidSessionIdError, session_id.ToString()));
-  }
-  if (restored_tabs->empty()) {
-    return RespondNow(Error(kNoActiveTabError));
   }
 
   sessions::ContentLiveTab* first_tab =
-      static_cast<sessions::ContentLiveTab*>((*restored_tabs)[0]);
+      static_cast<sessions::ContentLiveTab*>(restored_tabs[0]);
 
   // Retrieve the window through any of the tabs in restored_tabs.
   if (is_window) {

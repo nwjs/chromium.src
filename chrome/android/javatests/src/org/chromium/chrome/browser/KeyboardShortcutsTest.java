@@ -640,17 +640,26 @@ public class KeyboardShortcutsTest {
 
     @Test
     @SmallTest
-    public void testTabSearch() {
-        assertTrue(
-                keyDown(KeyEvent.KEYCODE_A, KeyEvent.META_CTRL_ON | KeyEvent.META_SHIFT_ON, true));
+    public void testFocusSwitch_Reverse() {
+        assertTrue(dispatchKeyEvent(KeyEvent.KEYCODE_F6, KeyEvent.META_SHIFT_ON));
         verify(mMenuOrKeyboardActionController, times(1))
-                .onMenuOrKeyboardAction(/* id= */ eq(R.id.tab_search), /* fromMenu= */ eq(false));
+                .onMenuOrKeyboardAction(
+                        /* id= */ eq(R.id.switch_keyboard_focus_row_reverse),
+                        /* fromMenu= */ eq(false));
     }
 
     @Test
     @SmallTest
     @Features.DisableFeatures({ChromeFeatureList.TAB_SEARCH_FOR_DESKTOP})
     public void testTabSearchSideUI_disabled() {
+        // Primary shortcut: Ctrl+Shift+A
+        assertTrue(
+                keyDown(KeyEvent.KEYCODE_A, KeyEvent.META_CTRL_ON | KeyEvent.META_SHIFT_ON, true));
+        verify(mMenuOrKeyboardActionController, times(1))
+                .onMenuOrKeyboardAction(/* id= */ eq(R.id.tab_search), /* fromMenu= */ eq(false));
+
+        // Alternate shortcut: Alt+Shift+A
+        clearInvocations(mMenuOrKeyboardActionController);
         assertTrue(
                 keyDown(KeyEvent.KEYCODE_A, KeyEvent.META_ALT_ON | KeyEvent.META_SHIFT_ON, true));
         verify(mMenuOrKeyboardActionController, times(1))
@@ -661,6 +670,15 @@ public class KeyboardShortcutsTest {
     @SmallTest
     @Features.EnableFeatures({ChromeFeatureList.TAB_SEARCH_FOR_DESKTOP})
     public void testTabSearchSideUI_enabled() {
+        // Primary shortcut: Ctrl+Shift+A
+        assertTrue(
+                keyDown(KeyEvent.KEYCODE_A, KeyEvent.META_CTRL_ON | KeyEvent.META_SHIFT_ON, true));
+        verify(mMenuOrKeyboardActionController, times(1))
+                .onMenuOrKeyboardAction(
+                        /* id= */ eq(R.id.tab_search_side_ui), /* fromMenu= */ eq(false));
+
+        // Alternate shortcut: Alt+Shift+A
+        clearInvocations(mMenuOrKeyboardActionController);
         assertTrue(
                 keyDown(KeyEvent.KEYCODE_A, KeyEvent.META_ALT_ON | KeyEvent.META_SHIFT_ON, true));
         verify(mMenuOrKeyboardActionController, times(1))

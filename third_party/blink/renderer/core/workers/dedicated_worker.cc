@@ -54,6 +54,7 @@
 #include "third_party/blink/renderer/core/inspector/main_thread_debugger.h"
 #include "third_party/blink/renderer/core/loader/document_loader.h"
 #include "third_party/blink/renderer/core/loader/frame_loader.h"
+#include "third_party/blink/renderer/core/loader/resource_initiator_helper.h"
 #include "third_party/blink/renderer/core/loader/worker_fetch_context.h"
 #include "third_party/blink/renderer/core/origin_trials/origin_trial_context.h"
 #include "third_party/blink/renderer/core/page/page.h"
@@ -73,6 +74,7 @@
 #include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource_fetcher.h"
 #include "third_party/blink/renderer/platform/loader/fetch/resource_fetcher_properties.h"
+#include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/runtime_feature_state/runtime_feature_state_override_context.h"
 #include "third_party/blink/renderer/platform/weborigin/security_origin.h"
 #include "third_party/blink/renderer/platform/weborigin/security_policy.h"
@@ -91,6 +93,15 @@ DedicatedWorker* DedicatedWorker::Create(
     exception_state.ThrowDOMException(DOMExceptionCode::kInvalidAccessError,
                                       "The context provided is invalid.");
     return nullptr;
+  }
+
+  if (auto* window = DynamicTo<LocalDOMWindow>(context)) {
+    if (window->GetFrame() && window->GetFrame()->Client() &&
+        window->GetFrame()->Client()->AreDedicatedWorkersDisabled()) {
+      exception_state.ThrowSecurityError(
+          "Dedicated workers are not supported in this document.");
+      return nullptr;
+    }
   }
 
   String compliant_url = TrustedTypesCheckForScriptURL(
@@ -295,6 +306,17 @@ void DedicatedWorker::Start() {
 
   start_time_ = base::TimeTicks::Now();
 
+  // Capture the initiator URL and propagate it to DedicatedWorkerGlobalScope
+  // via GlobalScopeCreationParams. Link to the initiator URL feature:
+  // https://github.com/MicrosoftEdge/MSEdgeExplainers/blob/main/ResourceTimingInitiatorInfo/explainer.md
+  if (RuntimeEnabledFeatures::ResourceTimingInitiatorEnabled()) {
+    // Since we are starting a worker, JavaScript is running and initiating the
+    // worker script resource.
+    v8::Isolate* isolate = GetExecutionContext()->GetIsolate();
+    worker_script_initiator_url_ =
+        ResourceInitiatorHelper::GetScriptInitiatorUrl(*isolate);
+  }
+
   // This needs to be done after the UpdateStateIfNeeded is called as
   // calling into the debugger can cause a breakpoint.
   v8_stack_trace_id_ = ThreadDebugger::From(GetExecutionContext()->GetIsolate())
@@ -325,8 +347,7 @@ void DedicatedWorker::Start() {
   factory_client_->CreateWorkerHost(
       token_, script_request_url_, credentials_mode,
       WebFetchClientSettingsObject(*outside_fetch_client_settings_object_),
-      std::move(blob_url_token),
-      GetExecutionContext()->GetStorageAccessApiStatus());
+      std::move(blob_url_token));
   // Continue in OnScriptLoadStarted() or OnScriptLoadStartFailed().
 }
 
@@ -625,6 +646,7 @@ DedicatedWorker::CreateGlobalScopeCreationParams(
   // TODO(crbug.com/40786013): Inherit report-only Document-Policy once worker
   // global scopes support Document-Policy violation reporting.
 
+  params->dedicated_worker_script_initiator_url = worker_script_initiator_url_;
   return params;
 }
 

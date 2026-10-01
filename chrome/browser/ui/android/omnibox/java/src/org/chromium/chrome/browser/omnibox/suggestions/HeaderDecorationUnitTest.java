@@ -9,6 +9,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyFloat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
@@ -19,7 +20,6 @@ import android.graphics.Rect;
 import android.view.View;
 
 import androidx.recyclerview.widget.RecyclerView;
-import androidx.test.filters.SmallTest;
 
 import org.junit.After;
 import org.junit.Before;
@@ -29,6 +29,7 @@ import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
+import org.mockito.quality.Strictness;
 import org.robolectric.Robolectric;
 import org.robolectric.android.controller.ActivityController;
 
@@ -41,7 +42,9 @@ import org.chromium.ui.modelutil.SimpleRecyclerViewAdapter;
 /** Tests for {@link HeaderDecoration}. */
 @RunWith(BaseRobolectricTestRunner.class)
 public class HeaderDecorationUnitTest {
-    @Rule public final MockitoRule mockitoRule = MockitoJUnit.rule();
+    @Rule
+    public final MockitoRule mMockitoRule = MockitoJUnit.rule().strictness(Strictness.STRICT_STUBS);
+
     @Mock private RecyclerView mRecyclerView;
     @Mock private View mChildViewWithHeader;
     @Mock private View mChildViewWithNoHeader;
@@ -92,16 +95,18 @@ public class HeaderDecorationUnitTest {
         mShowHeaderViewHolder.model = mShowHeaderModel;
         mNoHeaderViewHolder.model = mNoHeaderModel;
 
-        doReturn(mShowHeaderViewHolder)
+        lenient()
+                .doReturn(mShowHeaderViewHolder)
                 .when(mRecyclerView)
                 .getChildViewHolder(mChildViewWithHeader);
-        doReturn(mNoHeaderViewHolder)
+        lenient()
+                .doReturn(mNoHeaderViewHolder)
                 .when(mRecyclerView)
                 .getChildViewHolder(mChildViewWithNoHeader);
 
-        doReturn(2).when(mRecyclerView).getChildCount();
-        doReturn(mChildViewWithHeader).when(mRecyclerView).getChildAt(0);
-        doReturn(mChildViewWithNoHeader).when(mRecyclerView).getChildAt(1);
+        lenient().doReturn(2).when(mRecyclerView).getChildCount();
+        lenient().doReturn(mChildViewWithHeader).when(mRecyclerView).getChildAt(0);
+        lenient().doReturn(mChildViewWithNoHeader).when(mRecyclerView).getChildAt(1);
     }
 
     @After
@@ -110,7 +115,6 @@ public class HeaderDecorationUnitTest {
     }
 
     @Test
-    @SmallTest
     public void testGetItemOffsets_withHeader() {
         Rect outRect = new Rect();
         mDecoration.getItemOffsets(outRect, mChildViewWithHeader, mRecyclerView, mState);
@@ -121,7 +125,6 @@ public class HeaderDecorationUnitTest {
     }
 
     @Test
-    @SmallTest
     public void testGetItemOffsets_noHeader() {
         Rect outRect = new Rect();
         mDecoration.getItemOffsets(outRect, mChildViewWithNoHeader, mRecyclerView, mState);
@@ -132,7 +135,6 @@ public class HeaderDecorationUnitTest {
     }
 
     @Test
-    @SmallTest
     public void testDraw_withHeader() {
         doReturn(0).when(mChildViewWithHeader).getTop();
         doReturn(0.0f).when(mChildViewWithHeader).getTranslationY();
@@ -146,7 +148,6 @@ public class HeaderDecorationUnitTest {
     }
 
     @Test
-    @SmallTest
     public void testDraw_noHeader() {
         doReturn(1).when(mRecyclerView).getChildCount();
         doReturn(mChildViewWithNoHeader).when(mRecyclerView).getChildAt(0);

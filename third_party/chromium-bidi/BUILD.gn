@@ -40,9 +40,7 @@ if (is_win) {
 
 group("default") {
   testonly = true
-  deps = [
-    "src:all",
-  ]
+  deps = [ "src:all" ]
 }
 
 script_test("webdriver_bidi_unittests") {
@@ -62,15 +60,14 @@ script_test("webdriver_bidi_unittests") {
   ]
 
   data = [
+    "tools/test_runner_utils.py",
     "tools/unit-resultsink-reporter.mjs",
     "//third_party/node/",
     "node_modules/",
     "package.json",
   ]
 
-  data_deps = [
-    "src:unit_tests",
-  ]
+  data_deps = [ "src:unit_tests" ]
 }
 
 script_test("webdriver_bidi_e2e_tests") {
@@ -88,7 +85,8 @@ script_test("webdriver_bidi_e2e_tests") {
   ]
 
   data = [
-    ".vpython3",
+    "vpython.toml",
+    "vpython.toml.uv.lock",
     "pytest.ini",
     "tests/",
     "tools/",

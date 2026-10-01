@@ -47,6 +47,7 @@ source_set("omnibox") {
       "//chrome/browser/page_content_annotations:extraction_service",
       "//chrome/browser/ui/color:color_headers",
       "//chrome/browser/ui/page_action",
+      "//chrome/browser/ui/webui/omnibox_everywhere/mojom:mojo_bindings",
       "//chrome/browser/ui/webui/top_chrome",
       "//chrome/common",
       "//components/infobars/core",
@@ -97,6 +98,7 @@ source_set("impl") {
     "//chrome/browser/bookmarks",
     "//chrome/browser/contextual_search",
     "//chrome/browser/contextual_tasks",
+    "//chrome/browser/contextual_tasks:ui",
     "//chrome/browser/favicon",
     "//chrome/browser/feedback",
     "//chrome/browser/feedback:feedback_enum",
@@ -111,6 +113,7 @@ source_set("impl") {
     "//components/contextual_tasks/public",
     "//components/favicon/core",
     "//components/history/core/browser",
+    "//components/lens:features",
     "//components/navigation_metrics",
     "//components/omnibox/browser",
     "//components/omnibox/browser:vector_icons",
@@ -394,6 +397,7 @@ if (!is_android) {
       defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
       sources = [ "ai_mode_page_action_controller_interactive_uitest.cc" ]
       deps = [
+        ":omnibox",
         "//base/test:test_support",
         "//chrome/browser/autocomplete",
         "//chrome/browser/autocomplete:aim_eligibility_service",

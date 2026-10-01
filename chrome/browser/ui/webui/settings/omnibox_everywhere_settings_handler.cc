@@ -5,8 +5,8 @@
 #include "chrome/browser/ui/webui/settings/omnibox_everywhere_settings_handler.h"
 
 #include "base/functional/bind.h"
-#include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/browser_process.h"
+#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/omnibox/omnibox_everywhere/omnibox_everywhere_prefs.h"
 #include "components/prefs/pref_service.h"
 #include "ui/base/accelerators/accelerator.h"
@@ -61,10 +61,8 @@ void OmniboxEverywhereSettingsHandler::HandleGetOmniboxEverywhereShortcut(
   const ui::Accelerator shortcut =
       omnibox_everywhere::prefs::GetOmniboxEverywhereHotkey(local_state);
 
-  // Return the localized accelerator text (e.g. "Alt+Space" or
-  // "Ctrl+Shift+Space").
   ResolveJavascriptCallback(
-      callback_id, base::Value(base::UTF16ToUTF8(shortcut.GetShortcutText())));
+      callback_id, base::Value(ui::Command::AcceleratorToString(shortcut)));
 }
 
 void OmniboxEverywhereSettingsHandler::HandleSetOmniboxEverywhereShortcut(
@@ -98,6 +96,16 @@ void OmniboxEverywhereSettingsHandler::HandleSetOmniboxEverywhereShortcut(
           omnibox_everywhere::prefs::kOmniboxEverywhereHotkey,
           accelerator_string);
     }
+
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
+    Profile* profile = Profile::FromWebUI(web_ui());
+    if (profile &&
+        omnibox_everywhere::prefs::GetCurrentFreStage(profile) ==
+            omnibox_everywhere::prefs::FreStage::kShortcutSetupChin) {
+      omnibox_everywhere::prefs::MarkFreStageCompleted(
+          profile, omnibox_everywhere::prefs::FreStage::kShortcutSetupChin);
+    }
+#endif
   }
 
   ResolveJavascriptCallback(callback_id, base::Value(is_valid));

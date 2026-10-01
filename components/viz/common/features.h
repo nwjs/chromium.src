@@ -21,6 +21,7 @@ namespace features {
 
 #if BUILDFLAG(IS_ANDROID)
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kAndroidDumpForBadCompositedUiState);
+VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kAndroidSurfaceControlHdrOverlays);
 #endif  // BUILDFLAG(IS_ANDROID)
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kBufferQueuePerRenderPass);
 
@@ -70,6 +71,7 @@ VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kUseDrmBlackFullscreenOptimization);
 #if BUILDFLAG(IS_ANDROID)
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(
     kUseFrameIntervalDeciderAdaptiveFrameRate);
+VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kAndroidFrameIntervalContinuousRange);
 VIZ_COMMON_EXPORT BASE_DECLARE_FEATURE(kCalculateDeadlineDerivedInterval);
 VIZ_COMMON_EXPORT extern const base::FeatureParam<double>
     kCalculateDeadlineDerivedIntervalSnapToleranceParam;

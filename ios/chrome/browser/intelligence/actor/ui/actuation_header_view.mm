@@ -63,6 +63,14 @@ UIImage* DefaultGeminiLogo() {
   return self;
 }
 
+- (void)reset {
+  self.title = nil;
+  self.subtitle = nil;
+  self.actuating = NO;
+  self.primaryAccessoryButton = nil;
+  self.secondaryAccessoryButton = nil;
+}
+
 // TODO(crbug.com/552512657): Add helper for textual capsule/pill buttons.
 + (UIButton*)createCircularIconButtonWithIcon:(UIImage*)icon
                                        action:(UIAction*)action {
@@ -136,7 +144,7 @@ UIImage* DefaultGeminiLogo() {
 
   _titleLabel = [[UILabel alloc] init];
   _titleLabel.font =
-      CreateDynamicFont(UIFontTextStyleSubheadline, UIFontWeightBold);
+      PreferredFontForTextStyle(UIFontTextStyleSubheadline, UIFontWeightBold);
   _titleLabel.textColor = [UIColor colorNamed:kTextPrimaryColor];
 
   _subtitleLabel = [[UILabel alloc] init];

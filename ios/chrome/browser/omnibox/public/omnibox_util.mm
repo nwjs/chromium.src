@@ -6,6 +6,7 @@
 
 #import "base/notreached.h"
 #import "base/strings/utf_string_conversions.h"
+#import "ios/chrome/browser/omnibox/public/omnibox_icon_type.h"
 #import "ios/chrome/browser/omnibox/public/omnibox_ui_features.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/ui/symbols/symbols.h"
@@ -15,6 +16,32 @@ namespace {
 
 // The size of symbol images.
 const CGFloat kSymbolLocationBarPointSize = 10;
+
+// Returns the asset with "always template" rendering mode.
+UIImage* GetLocationBarSecurityIcon(LocationBarSecurityIconType iconType) {
+  Symbol symbol = GetLocationBarSecuritySymbol(iconType);
+  if (symbol == SymbolNone) {
+    return nil;
+  }
+  return SymbolTemplateWithPointSize(symbol, kSymbolLocationBarPointSize);
+}
+
+// Converts the `security_level` to an appropriate security icon type.
+LocationBarSecurityIconType GetLocationBarSecurityIconTypeForSecurityState(
+    security_state::SecurityLevel security_level) {
+  switch (security_level) {
+    case security_state::NONE:
+      return LocationBarSecurityIconType::INFO;
+    case security_state::DANGEROUS:
+      return LocationBarSecurityIconType::DANGEROUS;
+    case security_state::WARNING:
+      return LocationBarSecurityIconType::NOT_SECURE_WARNING;
+    case security_state::SECURE:
+      return LocationBarSecurityIconType::NONE;
+    case security_state::SECURITY_LEVEL_COUNT:
+      NOTREACHED();
+  }
+}
 
 }  // namespace
 
@@ -86,7 +113,7 @@ GetOmniboxSuggestionIconTypeForSuggestTemplateInfoIconType(
     omnibox::SuggestTemplateInfo::IconType type) {
   // Update this assertion and the switch below whenever values are added.
   static_assert(omnibox::SuggestTemplateInfo::IconType_MAX ==
-                omnibox::SuggestTemplateInfo::BOLT);
+                omnibox::SuggestTemplateInfo::IMAGE_CREATE);
   switch (type) {
     case omnibox::SuggestTemplateInfo_IconType_HISTORY:
       return OmniboxSuggestionIconType::kSearchHistory;
@@ -113,6 +140,7 @@ GetOmniboxSuggestionIconTypeForSuggestTemplateInfoIconType(
     case omnibox::SuggestTemplateInfo_IconType_TAB:
     case omnibox::SuggestTemplateInfo_IconType_PHOTO_SPARK:
     case omnibox::SuggestTemplateInfo_IconType_BOLT:
+    case omnibox::SuggestTemplateInfo_IconType_IMAGE_CREATE:
       // TODO(crbug.com/486698515): Replace with the correct symbol when it's
       // available.
       return OmniboxSuggestionIconType::kSearch;
@@ -133,32 +161,6 @@ UIImage* GetOmniboxSuggestionIconForSuggestTemplateInfoIconType(
 }
 
 #pragma mark - Security icons.
-
-// Returns the asset with "always template" rendering mode.
-UIImage* GetLocationBarSecurityIcon(LocationBarSecurityIconType iconType) {
-  Symbol symbol = GetLocationBarSecuritySymbol(iconType);
-  if (symbol == SymbolNone) {
-    return nil;
-  }
-  return SymbolTemplateWithPointSize(symbol, kSymbolLocationBarPointSize);
-}
-
-// Converts the `security_level` to an appropriate security icon type.
-LocationBarSecurityIconType GetLocationBarSecurityIconTypeForSecurityState(
-    security_state::SecurityLevel security_level) {
-  switch (security_level) {
-    case security_state::NONE:
-      return LocationBarSecurityIconType::INFO;
-    case security_state::DANGEROUS:
-      return LocationBarSecurityIconType::DANGEROUS;
-    case security_state::WARNING:
-      return LocationBarSecurityIconType::NOT_SECURE_WARNING;
-    case security_state::SECURE:
-      return LocationBarSecurityIconType::NONE;
-    case security_state::SECURITY_LEVEL_COUNT:
-      NOTREACHED();
-  }
-}
 
 // Converts the `security_level` to an appropriate icon in "always template"
 // rendering mode.

@@ -6,26 +6,40 @@
 
 #include <string>
 
+#include "base/i18n/rtl.h"
+#include "base/strings/strcat.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/gmock_callback_support.h"
+#include "base/test/icu_test_util.h"
+#include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/time/time.h"
 #include "chrome/browser/autofill/ui/ui_util.h"
 #include "chrome/browser/ui/autofill/autofill_suggestion_controller_test_base.h"
 #include "chrome/browser/ui/autofill/test_autofill_keyboard_accessory_controller_autofill_client.h"
 #include "components/autofill/core/browser/data_manager/addresses/address_data_manager.h"
+#include "components/autofill/core/browser/data_manager/autofill_ai/entity_data_manager.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_profile_test_api.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_instance.h"
+#include "components/autofill/core/browser/integrators/autofill_ai/autofill_ai_labels.h"
 #include "components/autofill/core/browser/suggestions/suggestion_hiding_reason.h"
 #include "components/autofill/core/browser/suggestions/suggestion_type.h"
+#include "components/autofill/core/browser/test_utils/entity_data_test_util.h"
+#include "components/autofill/core/browser/webdata/autofill_ai/entity_table.h"
+#include "components/autofill/core/browser/webdata/autofill_webdata_service_test_helper.h"
+#include "components/autofill/core/common/autofill_features.h"
 #include "components/strings/grit/components_strings.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/pointer/pointer_device.h"
 
 namespace autofill {
 namespace {
 
+using ::base::Bucket;
+using ::base::BucketsAre;
+using base::test::RunOnceCallback;
 using ::testing::_;
 using ::testing::ElementsAre;
 using ::testing::ElementsAreArray;
@@ -42,13 +56,13 @@ using RemovalConfirmationText =
 
 auto MatchesConfirmationText(const std::u16string& title,
                              const std::u16string& body,
-                             const std::u16string& button_text,
+                             const std::u16string& confirm_button_text,
                              bool is_body_link_empty) {
   return AllOf(
       Field("title", &RemovalConfirmationText::title, title),
       Field("body", &RemovalConfirmationText::body, body),
       Field("confirm_button_text",
-            &RemovalConfirmationText::confirm_button_text, button_text),
+            &RemovalConfirmationText::confirm_button_text, confirm_button_text),
       Field("body_link", &RemovalConfirmationText::body_link,
             Property(&std::u16string::empty, is_body_link_empty)));
 }
@@ -78,6 +92,17 @@ class AutofillKeyboardAccessoryControllerImplTest
     : public AutofillSuggestionControllerTestBase<
           TestAutofillKeyboardAccessoryControllerAutofillClient<>> {
  protected:
+  void SetUp() override {
+    AutofillSuggestionControllerTestBase::SetUp();
+    client().set_entity_data_manager(std::make_unique<EntityDataManager>(
+        client().GetPrefs(), client().GetIdentityManager(),
+        client().GetSyncService(), webdata_helper_.autofill_webdata_service(),
+        /*history_service=*/nullptr,
+        /*pcontext_manager=*/nullptr,
+        /*strike_database=*/nullptr,
+        /*variation_country_code=*/GeoIpCountryCode("US")));
+  }
+
   void ShowAutofillProfileSuggestion(AutofillProfile complete_profile) {
     personal_data().address_data_manager().AddProfile(complete_profile);
     ShowSuggestions(
@@ -98,7 +123,34 @@ class AutofillKeyboardAccessoryControllerImplTest
     return local_card;
   }
 
+  AutofillKeyboardAccessoryControllerImpl& suggestion_controller() {
+    return client().suggestion_controller(manager());
+  }
+
+  EntityInstance CreatePassport() {
+    return test::GetPassportEntityInstance({
+        .guid = "00000000-0000-4000-8000-000000000000",
+        .record_type =
+            EntityInstance::PersonalContextRecordTypePayload{
+                .sources = {{EntityInstance::PersonalContextRecordTypePayload::
+                                 Source::Type::kGmail,
+                             "https://mail.google.com"}}},
+    });
+  }
+
+  void SetEntitiesInClient(std::vector<EntityInstance> entities) {
+    client().GetEntityDataManager()->SetPersonalContextEntitiesForTesting(
+        std::move(entities));
+  }
+
+  void AddLocalEntity(const EntityInstance& entity) {
+    client().GetEntityDataManager()->AddOrUpdateEntityInstance(entity);
+    webdata_helper_.WaitUntilIdle();
+  }
+
  private:
+  AutofillWebDataServiceTestHelper webdata_helper_{
+      std::make_unique<EntityTable>()};
   base::test::ScopedFeatureList feature_list_{
       features::kAutofillAndroidKeyboardAccessoryHoverPreview};
 };
@@ -409,6 +461,156 @@ TEST_F(AutofillKeyboardAccessoryControllerImplTest,
           /*is_body_link_empty=*/true));
 }
 
+TEST_F(AutofillKeyboardAccessoryControllerImplTest,
+       ShowAutofillAiSuggestionDetails) {
+  base::test::ScopedFeatureList scoped_feature_list{
+      features::kAutofillAmbientAutofillSuppressionUI};
+  EntityInstance passport = CreatePassport();
+  SetEntitiesInClient({passport});
+
+  Suggestion suggestion(u"Passport", SuggestionType::kFillAutofillAi);
+  suggestion.payload = Suggestion::AutofillAiPayload(passport.guid());
+  ShowSuggestions(manager(), {suggestion});
+  EXPECT_EQ(suggestion_controller().GetMainFillingProduct(),
+            FillingProduct::kAutofillAi);
+
+  // Autofill AI suggestions cannot be deleted via standard
+  // GetRemovalConfirmationText.
+  EXPECT_FALSE(suggestion_controller().GetRemovalConfirmationText(0, nullptr));
+
+  // Trigger Autofill AI suggestion details dialog.
+  EXPECT_CALL(
+      *client().popup_view(),
+      ShowAutofillAiSuggestionDetails(
+          base::StrCat({passport.type().GetNameForI18n(),
+                        autofill::kLabelSeparator, u"Pippi Långstrump"}),
+          l10n_util::GetStringUTF16(IDS_AUTOFILL_AI_SUPPRESSION_DIALOG_BODY),
+          l10n_util::GetStringUTF16(
+              IDS_AUTOFILL_AI_SUPPRESSION_DIALOG_SECONDARY_BUTTON),
+          l10n_util::GetStringUTF16(
+              IDS_AUTOFILL_AI_SUPPRESSION_DIALOG_PRIMARY_BUTTON),
+          _))
+      .WillOnce(RunOnceCallback<4>(/*confirmed=*/true));
+  EXPECT_CALL(manager().external_delegate(), RemoveSuggestion).Times(0);
+
+  EXPECT_TRUE(suggestion_controller().ShowAutofillAiSuggestionDetails(0));
+  EXPECT_TRUE(suggestion_controller().GetSuggestions().empty());
+}
+
+TEST_F(AutofillKeyboardAccessoryControllerImplTest,
+       ShowAutofillAiSuggestionDetails_Dismissed) {
+  base::test::ScopedFeatureList scoped_feature_list{
+      features::kAutofillAmbientAutofillSuppressionUI};
+  EntityInstance passport = CreatePassport();
+  SetEntitiesInClient({passport});
+
+  Suggestion suggestion(u"Passport", SuggestionType::kFillAutofillAi);
+  suggestion.payload = Suggestion::AutofillAiPayload(passport.guid());
+  ShowSuggestions(manager(), {suggestion});
+
+  EXPECT_CALL(
+      *client().popup_view(),
+      ShowAutofillAiSuggestionDetails(
+          base::StrCat({passport.type().GetNameForI18n(),
+                        autofill::kLabelSeparator, u"Pippi Långstrump"}),
+          l10n_util::GetStringUTF16(IDS_AUTOFILL_AI_SUPPRESSION_DIALOG_BODY),
+          l10n_util::GetStringUTF16(
+              IDS_AUTOFILL_AI_SUPPRESSION_DIALOG_SECONDARY_BUTTON),
+          l10n_util::GetStringUTF16(
+              IDS_AUTOFILL_AI_SUPPRESSION_DIALOG_PRIMARY_BUTTON),
+          _))
+      .WillOnce(RunOnceCallback<4>(/*confirmed=*/false));
+  EXPECT_CALL(manager().external_delegate(), RemoveSuggestion).Times(0);
+
+  EXPECT_TRUE(suggestion_controller().ShowAutofillAiSuggestionDetails(0));
+}
+
+TEST_F(AutofillKeyboardAccessoryControllerImplTest,
+       ShowAutofillAiSuggestionDetails_Rtl) {
+  base::test::ScopedRestoreICUDefaultLocale scoped_locale("ar");
+  base::test::ScopedFeatureList scoped_feature_list{
+      features::kAutofillAmbientAutofillSuppressionUI};
+  EntityInstance passport = CreatePassport();
+  SetEntitiesInClient({passport});
+
+  Suggestion suggestion(u"Passport", SuggestionType::kFillAutofillAi);
+  suggestion.payload = Suggestion::AutofillAiPayload(passport.guid());
+  ShowSuggestions(manager(), {suggestion});
+
+  EXPECT_CALL(
+      *client().popup_view(),
+      ShowAutofillAiSuggestionDetails(
+          base::StrCat({u"Pippi Långstrump", autofill::kLabelSeparator,
+                        passport.type().GetNameForI18n()}),
+          l10n_util::GetStringUTF16(IDS_AUTOFILL_AI_SUPPRESSION_DIALOG_BODY),
+          l10n_util::GetStringUTF16(
+              IDS_AUTOFILL_AI_SUPPRESSION_DIALOG_SECONDARY_BUTTON),
+          l10n_util::GetStringUTF16(
+              IDS_AUTOFILL_AI_SUPPRESSION_DIALOG_PRIMARY_BUTTON),
+          _));
+
+  EXPECT_TRUE(suggestion_controller().ShowAutofillAiSuggestionDetails(0));
+}
+
+TEST_F(AutofillKeyboardAccessoryControllerImplTest,
+       ShowAutofillAiSuggestionDetails_FeatureDisabled) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndDisableFeature(
+      features::kAutofillAmbientAutofillSuppressionUI);
+  EntityInstance passport = CreatePassport();
+  SetEntitiesInClient({passport});
+
+  Suggestion suggestion(u"Passport", SuggestionType::kFillAutofillAi);
+  suggestion.payload = Suggestion::AutofillAiPayload(passport.guid());
+  ShowSuggestions(manager(), {suggestion});
+
+  EXPECT_CALL(*client().popup_view(), ShowAutofillAiSuggestionDetails).Times(0);
+  EXPECT_FALSE(suggestion_controller().ShowAutofillAiSuggestionDetails(0));
+}
+
+TEST_F(AutofillKeyboardAccessoryControllerImplTest,
+       ShowAutofillAiSuggestionDetails_NonAiSuggestionReturnsFalse) {
+  base::test::ScopedFeatureList scoped_feature_list{
+      features::kAutofillAmbientAutofillSuppressionUI};
+  const auto suggestion =
+      Suggestion(u"Autocomplete entry", SuggestionType::kAutocompleteEntry);
+  ShowSuggestions(manager(), {suggestion});
+
+  EXPECT_CALL(*client().popup_view(), ShowAutofillAiSuggestionDetails).Times(0);
+  EXPECT_FALSE(suggestion_controller().ShowAutofillAiSuggestionDetails(0));
+}
+
+TEST_F(AutofillKeyboardAccessoryControllerImplTest,
+       ShowAutofillAiSuggestionDetails_NonExistentEntityReturnsFalse) {
+  base::test::ScopedFeatureList scoped_feature_list{
+      features::kAutofillAmbientAutofillSuppressionUI};
+  Suggestion suggestion(u"Passport", SuggestionType::kFillAutofillAi);
+  suggestion.payload = Suggestion::AutofillAiPayload(
+      EntityInstance::EntityId(base::Uuid::GenerateRandomV4()));
+  ShowSuggestions(manager(), {suggestion});
+
+  EXPECT_CALL(*client().popup_view(), ShowAutofillAiSuggestionDetails).Times(0);
+  EXPECT_FALSE(suggestion_controller().ShowAutofillAiSuggestionDetails(0));
+}
+
+TEST_F(AutofillKeyboardAccessoryControllerImplTest,
+       ShowAutofillAiSuggestionDetails_NonPersonalContextEntityReturnsFalse) {
+  base::test::ScopedFeatureList scoped_feature_list{
+      features::kAutofillAmbientAutofillSuppressionUI};
+  EntityInstance local_passport = test::GetPassportEntityInstance({
+      .guid = "00000000-0000-4000-8000-000000000001",
+      .record_type = EntityInstance::RecordType::kLocal,
+  });
+  AddLocalEntity(local_passport);
+
+  Suggestion suggestion(u"Passport", SuggestionType::kFillAutofillAi);
+  suggestion.payload = Suggestion::AutofillAiPayload(local_passport.guid());
+  ShowSuggestions(manager(), {suggestion});
+
+  EXPECT_CALL(*client().popup_view(), ShowAutofillAiSuggestionDetails).Times(0);
+  EXPECT_FALSE(suggestion_controller().ShowAutofillAiSuggestionDetails(0));
+}
+
 // Tests that a call to `RemoveSuggestion()` leads to a deletion confirmation
 // dialog and, on accepting that dialog, to the deletion of the suggestion and
 // the a11y announcement that it was deleted.
@@ -426,8 +628,7 @@ TEST_F(AutofillKeyboardAccessoryControllerImplTest, RemoveAfterConfirmation) {
       .WillOnce(Return(true));
 
   EXPECT_TRUE(client().suggestion_controller(manager()).RemoveSuggestion(
-      /*index=*/0,
-      AutofillMetrics::SingleEntryRemovalMethod::kKeyboardAccessory));
+      /*index=*/0));
 }
 
 // Tests that if suggestions are updated while a deletion confirmation dialog is
@@ -456,8 +657,7 @@ TEST_F(AutofillKeyboardAccessoryControllerImplTest,
 
   // User long-presses suggestion at index 0
   EXPECT_TRUE(client().suggestion_controller(manager()).RemoveSuggestion(
-      /*index=*/0,
-      AutofillMetrics::SingleEntryRemovalMethod::kKeyboardAccessory));
+      /*index=*/0));
   ASSERT_FALSE(captured_deletion_callback.is_null());
 
   // While dialog is pending, suggestions list changes
@@ -648,9 +848,7 @@ TEST_F(AutofillKeyboardAccessoryControllerImplTest,
   // Simulate user accepting deletion dialog.
   EXPECT_CALL(*client().popup_view(), ConfirmDeletion)
       .WillOnce(base::test::RunOnceCallback<4>(/*confirmed=*/true));
-  client().suggestion_controller(manager()).RemoveSuggestion(
-      /*index=*/0,
-      AutofillMetrics::SingleEntryRemovalMethod::kKeyboardAccessory);
+  client().suggestion_controller(manager()).RemoveSuggestion(/*index=*/0);
 
   histogram_tester.ExpectUniqueSample(
       "Autofill.ProfileDeleted.KeyboardAccessory.Total", 1, 1);
@@ -674,9 +872,7 @@ TEST_F(AutofillKeyboardAccessoryControllerImplTest,
   // Simulate user cancelling deletion dialog.
   EXPECT_CALL(*client().popup_view(), ConfirmDeletion)
       .WillOnce(base::test::RunOnceCallback<4>(/*confirmed=*/false));
-  client().suggestion_controller(manager()).RemoveSuggestion(
-      /*index=*/0,
-      AutofillMetrics::SingleEntryRemovalMethod::kKeyboardAccessory);
+  client().suggestion_controller(manager()).RemoveSuggestion(/*index=*/0);
 
   histogram_tester.ExpectUniqueSample(
       "Autofill.ProfileDeleted.KeyboardAccessory.Total", 0, 1);
@@ -793,6 +989,186 @@ TEST_F(AutofillKeyboardAccessoryControllerImplTest, HidingClearsPreview) {
   client().suggestion_controller(manager()).SelectSuggestion(0);
   client().suggestion_controller(manager()).Hide(
       SuggestionHidingReason::kUserAborted);
+}
+
+// Tests that shown, selected, and accepted milestones are logged when a mouse
+// is attached.
+TEST_F(AutofillKeyboardAccessoryControllerImplTest,
+       MouseMetricsLogsShownSelectedAndAccepted) {
+  ui::ScopedSetPointerAndHoverTypesForTesting scoped_pointer_types(
+      ui::POINTER_TYPE_FINE, ui::HOVER_TYPE_HOVER);
+  base::HistogramTester histogram_tester;
+
+  ShowSuggestions(manager(), {test::CreateAutofillSuggestion(
+                                 SuggestionType::kAddressEntry, u"Address")});
+  client().suggestion_controller(manager()).SelectSuggestion(0);
+  task_environment()->FastForwardBy(
+      AutofillSuggestionController::kIgnoreEarlyClicksOnSuggestionsDuration);
+  client().suggestion_controller(manager()).AcceptSuggestion(
+      0, AutofillMetrics::SuggestionAcceptedMethod::kMouse);
+
+  EXPECT_THAT(
+      histogram_tester.GetAllSamples(
+          "Autofill.KeyboardAccessoryInteraction.WithMouse"),
+      BucketsAre(Bucket(AutofillMetrics::AutofillKeyboardAccessoryInteraction::
+                            kAccessoryShown,
+                        1),
+                 Bucket(AutofillMetrics::AutofillKeyboardAccessoryInteraction::
+                            kSuggestionSelected,
+                        1),
+                 Bucket(AutofillMetrics::AutofillKeyboardAccessoryInteraction::
+                            kSuggestionAccepted,
+                        1)));
+
+  EXPECT_THAT(
+      histogram_tester.GetAllSamples(
+          "Autofill.KeyboardAccessoryInteraction.WithMouse.Address"),
+      BucketsAre(Bucket(AutofillMetrics::AutofillKeyboardAccessoryInteraction::
+                            kAccessoryShown,
+                        1),
+                 Bucket(AutofillMetrics::AutofillKeyboardAccessoryInteraction::
+                            kSuggestionSelected,
+                        1),
+                 Bucket(AutofillMetrics::AutofillKeyboardAccessoryInteraction::
+                            kSuggestionAccepted,
+                        1)));
+}
+
+// Tests that multiple SelectSuggestion calls within the same session emit
+// kSuggestionSelected only once.
+TEST_F(AutofillKeyboardAccessoryControllerImplTest,
+       MouseMetricsDeduplicatesSelection) {
+  ui::ScopedSetPointerAndHoverTypesForTesting scoped_pointer_types(
+      ui::POINTER_TYPE_FINE, ui::HOVER_TYPE_HOVER);
+  base::HistogramTester histogram_tester;
+
+  ShowSuggestions(manager(),
+                  {test::CreateAutofillSuggestion(SuggestionType::kAddressEntry,
+                                                  u"Address 1"),
+                   test::CreateAutofillSuggestion(SuggestionType::kAddressEntry,
+                                                  u"Address 2")});
+  client().suggestion_controller(manager()).SelectSuggestion(0);
+  client().suggestion_controller(manager()).SelectSuggestion(1);
+
+  EXPECT_THAT(
+      histogram_tester.GetAllSamples(
+          "Autofill.KeyboardAccessoryInteraction.WithMouse"),
+      BucketsAre(Bucket(AutofillMetrics::AutofillKeyboardAccessoryInteraction::
+                            kAccessoryShown,
+                        1),
+                 Bucket(AutofillMetrics::AutofillKeyboardAccessoryInteraction::
+                            kSuggestionSelected,
+                        1)));
+}
+
+// Tests that multiple ShowSuggestions calls within the same session emit
+// kAccessoryShown only once.
+TEST_F(AutofillKeyboardAccessoryControllerImplTest,
+       MouseMetricsDeduplicatesShown) {
+  ui::ScopedSetPointerAndHoverTypesForTesting scoped_pointer_types(
+      ui::POINTER_TYPE_FINE, ui::HOVER_TYPE_HOVER);
+  base::HistogramTester histogram_tester;
+
+  ShowSuggestions(manager(), {test::CreateAutofillSuggestion(
+                                 SuggestionType::kAddressEntry, u"Address")});
+  ShowSuggestions(manager(), {test::CreateAutofillSuggestion(
+                                 SuggestionType::kAddressEntry, u"Address 2")});
+
+  EXPECT_THAT(
+      histogram_tester.GetAllSamples(
+          "Autofill.KeyboardAccessoryInteraction.WithMouse"),
+      BucketsAre(Bucket(AutofillMetrics::AutofillKeyboardAccessoryInteraction::
+                            kAccessoryShown,
+                        1)));
+}
+
+// Tests that accepting directly via touch (without prior selection) logs Shown
+// and Accepted, but not Selected.
+TEST_F(AutofillKeyboardAccessoryControllerImplTest,
+       MouseMetricsDirectTouchAcceptLogsShownAndAcceptedWithoutSelected) {
+  ui::ScopedSetPointerAndHoverTypesForTesting scoped_pointer_types(
+      ui::POINTER_TYPE_FINE, ui::HOVER_TYPE_HOVER);
+  base::HistogramTester histogram_tester;
+
+  ShowSuggestions(manager(), {test::CreateAutofillSuggestion(
+                                 SuggestionType::kAddressEntry, u"Address")});
+  task_environment()->FastForwardBy(
+      AutofillSuggestionController::kIgnoreEarlyClicksOnSuggestionsDuration);
+  client().suggestion_controller(manager()).AcceptSuggestion(
+      0, AutofillMetrics::SuggestionAcceptedMethod::kTap);
+
+  EXPECT_THAT(
+      histogram_tester.GetAllSamples(
+          "Autofill.KeyboardAccessoryInteraction.WithMouse"),
+      BucketsAre(Bucket(AutofillMetrics::AutofillKeyboardAccessoryInteraction::
+                            kAccessoryShown,
+                        1),
+                 Bucket(AutofillMetrics::AutofillKeyboardAccessoryInteraction::
+                            kSuggestionAccepted,
+                        1)));
+}
+
+// Tests that Recycle() resets the session state so that subsequent Show and
+// Select calls emit new metrics.
+TEST_F(AutofillKeyboardAccessoryControllerImplTest,
+       MouseMetricsRecycleResetsSession) {
+  ui::ScopedSetPointerAndHoverTypesForTesting scoped_pointer_types(
+      ui::POINTER_TYPE_FINE, ui::HOVER_TYPE_HOVER);
+  base::HistogramTester histogram_tester;
+
+  ShowSuggestions(manager(), {test::CreateAutofillSuggestion(
+                                 SuggestionType::kAddressEntry, u"Address")});
+  client().suggestion_controller(manager()).SelectSuggestion(0);
+
+  EXPECT_THAT(
+      histogram_tester.GetAllSamples(
+          "Autofill.KeyboardAccessoryInteraction.WithMouse"),
+      BucketsAre(Bucket(AutofillMetrics::AutofillKeyboardAccessoryInteraction::
+                            kAccessoryShown,
+                        1),
+                 Bucket(AutofillMetrics::AutofillKeyboardAccessoryInteraction::
+                            kSuggestionSelected,
+                        1)));
+
+  client().suggestion_controller(manager()).Recycle(
+      PopupControllerCommon(manager().driver().GetFrameToken(), {},
+                            base::i18n::UNKNOWN_DIRECTION),
+      /*form_control_ax_id=*/0);
+
+  ShowSuggestions(manager(), {test::CreateAutofillSuggestion(
+                                 SuggestionType::kAddressEntry, u"Address 2")});
+  client().suggestion_controller(manager()).SelectSuggestion(0);
+
+  EXPECT_THAT(
+      histogram_tester.GetAllSamples(
+          "Autofill.KeyboardAccessoryInteraction.WithMouse"),
+      BucketsAre(Bucket(AutofillMetrics::AutofillKeyboardAccessoryInteraction::
+                            kAccessoryShown,
+                        2),
+                 Bucket(AutofillMetrics::AutofillKeyboardAccessoryInteraction::
+                            kSuggestionSelected,
+                        2)));
+}
+
+// Tests that no mouse metrics are logged when no mouse is connected.
+TEST_F(AutofillKeyboardAccessoryControllerImplTest,
+       MouseMetricsNotLoggedWithoutMouse) {
+  ui::ScopedSetPointerAndHoverTypesForTesting scoped_pointer_types(
+      ui::POINTER_TYPE_COARSE, ui::HOVER_TYPE_NONE);
+  base::HistogramTester histogram_tester;
+
+  ShowSuggestions(manager(), {test::CreateAutofillSuggestion(
+                                 SuggestionType::kAddressEntry, u"Address")});
+  client().suggestion_controller(manager()).SelectSuggestion(0);
+  task_environment()->FastForwardBy(
+      AutofillSuggestionController::kIgnoreEarlyClicksOnSuggestionsDuration);
+  client().suggestion_controller(manager()).AcceptSuggestion(
+      0, AutofillMetrics::SuggestionAcceptedMethod::kTap);
+
+  histogram_tester.ExpectTotalCount(
+      "Autofill.KeyboardAccessoryInteraction.WithMouse", 0);
+  histogram_tester.ExpectTotalCount(
+      "Autofill.KeyboardAccessoryInteraction.WithMouse.Address", 0);
 }
 
 // TODO(crbug.com/542535472): Add renderer test for preview on Android.

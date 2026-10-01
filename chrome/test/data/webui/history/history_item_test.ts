@@ -262,6 +262,7 @@ suite('<history-item> integration test', function() {
     const endActorIcon =
         items[1]!.shadowRoot.querySelector<HTMLElement>('#icons #actor-icon');
     assertTrue(isVisible(startActorIcon));
+    assertEquals('CR-ICON', startActorIcon!.tagName);
     assertFalse(isVisible(endActorIcon));
 
     // Verify expand button for actor visit item.
@@ -274,6 +275,11 @@ suite('<history-item> integration test', function() {
     assertTrue(isVisible(actorExpandBtn));
     assertEquals(
         'cr:keyboard-arrow-down', actorExpandBtn!.getAttribute('iron-icon'));
+    const menuBtn =
+        items[1]!.shadowRoot.querySelector<HTMLElement>('#menuButton');
+    assertEquals(
+        menuBtn!.getAttribute('aria-describedby'),
+        actorExpandBtn!.getAttribute('aria-describedby'));
 
     const collapse =
         items[1]!.shadowRoot.querySelector<HTMLElement>('#collapse');
@@ -311,16 +317,23 @@ suite('<history-item> integration test', function() {
       assertEquals('listitem', row.getAttribute('role'));
       assertEquals('critical-action', row.getAttribute('focus-type'));
       assertEquals(expectedAction.label, row.getAttribute('aria-label'));
+      assertEquals(
+          `critical-action-icon-${i}`, row.getAttribute('aria-describedby'));
 
       const label = row.querySelector('.critical-action-label');
       assertTrue(!!label);
       assertEquals(expectedAction.label, label.textContent.trim());
 
-      const button = row.querySelector<HTMLElement>('.critical-action-button');
-      assertTrue(!!button);
-      assertEquals('cr:open-in-new', button.getAttribute('iron-icon'));
-      assertEquals(expectedAction.tooltip, button.getAttribute('title'));
-      assertEquals(expectedAction.tooltip, button.getAttribute('aria-label'));
+      const icon = row.querySelector<HTMLElement>('.critical-action-button');
+      assertTrue(!!icon);
+      assertEquals('CR-ICON', icon.tagName);
+      assertEquals(`critical-action-icon-${i}`, icon.id);
+      assertEquals('cr:open-in-new', icon.getAttribute('icon'));
+      assertEquals('img', icon.getAttribute('role'));
+      assertEquals(expectedAction.tooltip, icon.getAttribute('title'));
+      assertEquals(
+          `${expectedAction.tooltip}, opens in a new tab`,
+          icon.getAttribute('aria-label'));
     });
 
     let openedUrl = '';

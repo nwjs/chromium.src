@@ -20,8 +20,19 @@ BASE_DECLARE_FEATURE_PARAM(base::TimeDelta, kAutoTodosTimeoutSeconds);
 // Overrides the inactivity threshold for tab-based todos generation.
 BASE_DECLARE_FEATURE_PARAM(base::TimeDelta, kTabBasedTodosInactivityThreshold);
 
+// Overrides the timeout for waiting for a tab to finish loading before
+// extracting page content for tab-based todos.
+BASE_DECLARE_FEATURE_PARAM(base::TimeDelta, kTabLoadTimeout);
+
 // The interval at which the first-party AutoTodos background job runs.
 BASE_DECLARE_FEATURE_PARAM(base::TimeDelta, kFirstPartyAutoTodosInterval);
+
+// The maximum number of retries for first-party AutoTodos generation on
+// transient errors.
+BASE_DECLARE_FEATURE_PARAM(int, kFirstPartyAutoTodosMaxRetries);
+
+// The initial delay between retries for first-party AutoTodos generation.
+BASE_DECLARE_FEATURE_PARAM(base::TimeDelta, kFirstPartyAutoTodosRetryDelay);
 
 // The maximum number of items stored in the todo feedback cache.
 BASE_DECLARE_FEATURE_PARAM(size_t, kMaxTodoFeedbackCacheSize);
@@ -34,6 +45,9 @@ BASE_DECLARE_FEATURE(kMemoryBanks);
 
 // The maximum number of entries to keep in Memory Banks storage.
 BASE_DECLARE_FEATURE_PARAM(size_t, kMaxMemoryBankEntries);
+
+// The maximum number of turns stored in the memory bank chat history cache.
+BASE_DECLARE_FEATURE_PARAM(size_t, kMaxMemoryBankChatHistoryTurns);
 
 // The maximum number of tab groups stored in the in-memory tab group store.
 BASE_DECLARE_FEATURE_PARAM(int, kMaxTabGroups);
@@ -51,6 +65,10 @@ BASE_DECLARE_FEATURE(kContextHubDatabaseStorage);
 // TabContextSyncMemoryBank. If Memory Banks is enabled but this flag is false,
 // the impl will proceed to check the kContextHubDatabaseStorage flag above.
 BASE_DECLARE_FEATURE(kContextHubTabContextSyncStorage);
+
+// Overrides the timeout of the Context Memory Service FetchContext call for
+// smart search.
+BASE_DECLARE_FEATURE_PARAM(base::TimeDelta, kSmartSearchTimeout);
 
 }  // namespace context_hub::features
 

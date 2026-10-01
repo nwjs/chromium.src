@@ -16,6 +16,7 @@
 #include "chrome/browser/media/webrtc/webrtc_browsertest_base.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/web_applications/test/isolated_web_app_test_utils.h"
 #include "chrome/browser/ui/web_applications/test/web_app_browsertest_util.h"
 #include "chrome/browser/web_applications/isolated_web_apps/test/isolated_web_app_builder.h"
@@ -30,6 +31,7 @@
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/permissions/permission_request_manager.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/page.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "content/public/common/content_switches.h"
@@ -47,10 +49,10 @@
 #endif
 
 #if BUILDFLAG(IS_CHROMEOS)
-#include "chrome/browser/ash/browser_delegate/browser_delegate.h"
 #include "chrome/browser/ash/system_web_apps/system_web_app_manager.h"
 #include "chrome/browser/ash/system_web_apps/test_support/system_web_app_browsertest_base.h"
 #include "chrome/browser/ui/ash/system_web_apps/system_web_app_ui_utils.h"
+#include "chromeos/ash/components/browser_delegate/browser_delegate.h"
 #endif
 
 using content::WebContents;

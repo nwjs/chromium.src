@@ -1221,7 +1221,7 @@ void ExtensionsToolbarDesktop::UpdateControlsVisibility() {
 }
 
 void ExtensionsToolbarDesktop::CloseSidePanelButtonPressed() {
-  browser_->GetFeatures().side_panel_ui()->Close();
+  SidePanelUI::From(browser_)->Close();
 }
 
 void ExtensionsToolbarDesktop::CollapseConfirmation() {
@@ -1262,6 +1262,10 @@ views::BubbleAnchor ExtensionsToolbarDesktop::GetReferenceButtonForPopup(
 
 views::BubbleAnchor ExtensionsToolbarDesktop::GetExtensionsButtonAnchor() {
   return views::BubbleAnchor(GetExtensionsButton());
+}
+
+views::BubbleBorder::Arrow ExtensionsToolbarDesktop::GetPopupArrow() const {
+  return views::BubbleBorder::TOP_RIGHT;
 }
 
 void ExtensionsToolbarDesktop::OnMouseExited(const ui::MouseEvent& event) {

@@ -119,14 +119,16 @@ class InterceptingHandshakeClient final : public WebTransportHandshakeClient {
       mojo::PendingReceiver<network::mojom::WebTransportClient> client,
       const scoped_refptr<net::HttpResponseHeaders>& response_headers,
       const std::optional<std::string>& selected_applicaton_protocol,
-      network::mojom::WebTransportStatsPtr initial_stats) override {
+      network::mojom::WebTransportStatsPtr initial_stats,
+      std::optional<uint32_t> max_datagram_size) override {
     if (tracker_) {
       tracker_->OnHandshakeEstablished();
     }
 
     remote_->OnConnectionEstablished(
         std::move(transport), std::move(client), response_headers,
-        selected_applicaton_protocol, std::move(initial_stats));
+        selected_applicaton_protocol, std::move(initial_stats),
+        max_datagram_size);
   }
   void OnHandshakeFailed(
       const std::optional<net::WebTransportError>& error) override {
@@ -192,7 +194,8 @@ void WebTransportConnectorImpl::Connect(
     std::vector<net::HttpRequestHeaders::HeaderKeyValuePair> additional_headers,
     mojo::PendingRemote<network::mojom::WebTransportHandshakeClient>
         handshake_client) {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+  CHECK(BrowserThread::CurrentlyOn(BrowserThread::UI),
+        base::NotFatalUntil::M159);
 
   // For document-scoped contexts (e.g., RenderFrame or DedicatedWorker), abort
   // the connection if the original document is no longer active (including
@@ -321,7 +324,8 @@ void WebTransportConnectorImpl::OnWillCreateWebTransportCompleted(
     mojo::PendingRemote<network::mojom::WebTransportHandshakeClient>
         handshake_client,
     std::optional<network::mojom::WebTransportErrorPtr> error) {
-  DCHECK(BrowserThread::CurrentlyOn(BrowserThread::UI));
+  CHECK(BrowserThread::CurrentlyOn(BrowserThread::UI),
+        base::NotFatalUntil::M159);
 
   RenderProcessHost* process = RenderProcessHost::FromID(process_id_);
   if (!process) {

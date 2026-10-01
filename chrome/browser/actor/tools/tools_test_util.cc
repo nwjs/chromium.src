@@ -21,8 +21,10 @@
 #include "chrome/test/base/chrome_test_utils.h"
 #include "chrome/test/base/platform_browser_test.h"
 #include "components/optimization_guide/core/filters/optimization_hints_component_update_listener.h"
+#include "components/password_manager/core/browser/actor_login/actor_login_quality_logger_interface.h"
 #include "components/password_manager/core/browser/actor_login/internal/actor_login_delegate_client.h"
 #include "components/tabs/public/tab_interface.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/webid/federated_embedder_login_request.h"
 #include "content/public/test/browser_test_utils.h"
@@ -32,6 +34,9 @@
 #include "ui/gfx/geometry/rect_f.h"
 
 namespace actor {
+
+MockToolDelegate::MockToolDelegate() = default;
+MockToolDelegate::~MockToolDelegate() = default;
 
 actor_login::Credential MakeTestCredential(
     const std::u16string& username,
@@ -77,7 +82,7 @@ MockActorLoginService::~MockActorLoginService() = default;
 void MockActorLoginService::GetCredentials(
     actor_login::ActorLoginDelegateClient* client,
     bool has_sign_in_with_google_button,
-    base::WeakPtr<actor_login::ActorLoginQualityLoggerInterface> mqls_logger,
+    scoped_refptr<actor_login::ActorLoginQualityLoggerInterface> mqls_logger,
     actor_login::CredentialsOrErrorReply callback) {
   std::move(callback).Run(credentials_);
 }
@@ -86,7 +91,7 @@ void MockActorLoginService::AttemptLogin(
     actor_login::ActorLoginDelegateClient* client,
     const actor_login::Credential& credential,
     bool should_store_permission,
-    base::WeakPtr<actor_login::ActorLoginQualityLoggerInterface> mqls_logger,
+    scoped_refptr<actor_login::ActorLoginQualityLoggerInterface> mqls_logger,
     base::TimeTicks attempt_login_tool_start_time,
     actor_login::FrameFillingStartedCallback frame_filling_started_cb,
     actor_login::LoginStatusResultOrErrorReply callback,

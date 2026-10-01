@@ -33,10 +33,10 @@
 #import "ios/chrome/browser/shared/model/prefs/browser_prefs.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
 #import "ios/chrome/browser/shared/model/profile/test/test_profile_ios.h"
+#import "ios/chrome/browser/shared/model/profile/test/test_profile_manager_ios.h"
 #import "ios/chrome/browser/signin/model/authentication_service.h"
 #import "ios/chrome/browser/signin/model/authentication_service_factory.h"
 #import "ios/chrome/browser/signin/model/chrome_account_manager_service_factory.h"
-#import "ios/chrome/browser/signin/model/fake_authentication_service_delegate.h"
 #import "ios/chrome/browser/signin/model/fake_system_identity.h"
 #import "ios/chrome/browser/signin/model/fake_system_identity_manager.h"
 #import "ios/chrome/browser/signin/model/identity_manager_factory.h"
@@ -71,8 +71,7 @@ class SigninUtilsTest : public PlatformTest {
     builder.SetPrefService(CreatePrefService());
     builder.AddTestingFactory(
         AuthenticationServiceFactory::GetInstance(),
-        AuthenticationServiceFactory::GetFactoryWithDelegateForTesting(
-            std::make_unique<FakeAuthenticationServiceDelegate>()));
+        AuthenticationServiceFactory::GetDefaultFactory());
     builder.AddTestingFactory(SyncServiceFactory::GetInstance(),
                               SyncServiceFactory::GetDefaultFactory());
     builder.AddTestingFactory(
@@ -80,18 +79,23 @@ class SigninUtilsTest : public PlatformTest {
         base::BindRepeating(&BuildFeatureEngagementMockTracker));
     feature_list_.InitAndDisableFeature(
         switches::kFullscreenSignInPromoUseDate);
-    profile_ = std::move(builder).Build();
-    identity_manager_ = IdentityManagerFactory::GetForProfile(profile_.get());
-    sync_service_ = SyncServiceFactory::GetForProfile(profile_.get());
+    profile_ = profile_manager_.AddProfileWithBuilder(std::move(builder));
+    identity_manager_ = IdentityManagerFactory::GetForProfile(profile_);
+    sync_service_ = SyncServiceFactory::GetForProfile(profile_);
     account_manager_service_ =
-        ChromeAccountManagerServiceFactory::GetForProfile(profile_.get());
+        ChromeAccountManagerServiceFactory::GetForProfile(profile_);
     mock_tracker_ = static_cast<feature_engagement::test::MockTracker*>(
-        feature_engagement::TrackerFactory::GetForProfile(profile_.get()));
+        feature_engagement::TrackerFactory::GetForProfile(profile_));
     time_in_past_ = base::Time::Now();
     task_environment_.FastForwardBy(base::Days(2));
   }
 
   void TearDown() override {
+    mock_tracker_ = nullptr;
+    identity_manager_ = nullptr;
+    sync_service_ = nullptr;
+    account_manager_service_ = nullptr;
+    profile_ = nullptr;
     NSUserDefaults* standardDefaults = [NSUserDefaults standardUserDefaults];
     [standardDefaults removeObjectForKey:kDisplayedSSORecallForMajorVersionKey];
     [standardDefaults removeObjectForKey:kLastShownAccountGaiaIdVersionKey];
@@ -114,7 +118,7 @@ class SigninUtilsTest : public PlatformTest {
     return GetApplicationContext()->GetLocalState();
   }
 
-  PrefService* GetProfilePrefs() { return profile_.get()->GetPrefs(); }
+  PrefService* GetProfilePrefs() { return profile_->GetPrefs(); }
 
   FakeSystemIdentityManager* fake_system_identity_manager() {
     return FakeSystemIdentityManager::FromSystemIdentityManager(
@@ -126,11 +130,12 @@ class SigninUtilsTest : public PlatformTest {
       base::test::TaskEnvironment::TimeSource::MOCK_TIME};
   IOSChromeScopedTestingLocalState scoped_testing_local_state_;
   base::test::ScopedFeatureList feature_list_;
-  std::unique_ptr<TestProfileIOS> profile_;
-  raw_ptr<feature_engagement::test::MockTracker> mock_tracker_;
-  raw_ptr<signin::IdentityManager> identity_manager_;
-  raw_ptr<syncer::SyncService> sync_service_;
-  raw_ptr<ChromeAccountManagerService> account_manager_service_;
+  TestProfileManagerIOS profile_manager_;
+  raw_ptr<TestProfileIOS> profile_ = nullptr;
+  raw_ptr<feature_engagement::test::MockTracker> mock_tracker_ = nullptr;
+  raw_ptr<signin::IdentityManager> identity_manager_ = nullptr;
+  raw_ptr<syncer::SyncService> sync_service_ = nullptr;
+  raw_ptr<ChromeAccountManagerService> account_manager_service_ = nullptr;
   base::Time time_in_past_;
 };
 
@@ -145,8 +150,7 @@ TEST_F(SigninUtilsTest, TestWillNotDisplayNoLastShownTime) {
   fake_system_identity_manager()->AddIdentity(fake_identity2);
   const base::Version version_1_0("1.0");
 
-  EXPECT_FALSE(
-      signin::ShouldPresentUserSigninUpgrade(profile_.get(), version_1_0));
+  EXPECT_FALSE(signin::ShouldPresentUserSigninUpgrade(profile_, version_1_0));
   ExpectNextShowTimeInRange(GetLocalState()->GetTime(
       prefs::kSigninStartupPromoLastShownTimeWithRandomOffset));
 }
@@ -166,8 +170,7 @@ TEST_F(SigninUtilsTest, TestWillRecordLastShowTimeAgain) {
       prefs::kSigninStartupPromoLastShownTimeWithRandomOffset,
       base::Time::Now() + base::Days(10));
 
-  EXPECT_FALSE(
-      signin::ShouldPresentUserSigninUpgrade(profile_.get(), version_1_0));
+  EXPECT_FALSE(signin::ShouldPresentUserSigninUpgrade(profile_, version_1_0));
   ExpectNextShowTimeInRange(GetLocalState()->GetTime(
       prefs::kSigninStartupPromoLastShownTimeWithRandomOffset));
 }
@@ -186,8 +189,7 @@ TEST_F(SigninUtilsTest, TestWillNotDisplayNextShowTimeNotReached) {
   signin::RecordFullscreenSigninPromoStarted(
       identity_manager_, account_manager_service_, version_1_0);
 
-  EXPECT_FALSE(
-      signin::ShouldPresentUserSigninUpgrade(profile_.get(), version_1_0));
+  EXPECT_FALSE(signin::ShouldPresentUserSigninUpgrade(profile_, version_1_0));
   ExpectNextShowTimeInRange(GetLocalState()->GetTime(
       prefs::kSigninStartupPromoLastShownTimeWithRandomOffset));
 }
@@ -209,8 +211,7 @@ TEST_F(SigninUtilsTest, TestWillDisplayNextShowTimeReached) {
       prefs::kSigninStartupPromoLastShownTimeWithRandomOffset);
   task_environment_.FastForwardBy(base::Days(100));
 
-  EXPECT_TRUE(
-      signin::ShouldPresentUserSigninUpgrade(profile_.get(), version_1_0));
+  EXPECT_TRUE(signin::ShouldPresentUserSigninUpgrade(profile_, version_1_0));
   EXPECT_EQ(GetLocalState()->GetTime(
                 prefs::kSigninStartupPromoLastShownTimeWithRandomOffset),
             next_show_time);
@@ -225,8 +226,7 @@ TEST_F(SigninUtilsTest, TestWillNotDisplaySameVersion) {
   const base::Version version_1_0("1.0");
   signin::RecordFullscreenSigninPromoStarted(
       identity_manager_, account_manager_service_, version_1_0);
-  EXPECT_FALSE(
-      signin::ShouldPresentUserSigninUpgrade(profile_.get(), version_1_0));
+  EXPECT_FALSE(signin::ShouldPresentUserSigninUpgrade(profile_, version_1_0));
   EXPECT_FALSE(
       GetLocalState()
           ->GetTime(prefs::kSigninStartupPromoLastShownTimeWithRandomOffset)
@@ -243,8 +243,7 @@ TEST_F(SigninUtilsTest, TestWillNotDisplayOneMinorVersion) {
   const base::Version version_1_1("1.1");
   signin::RecordFullscreenSigninPromoStarted(
       identity_manager_, account_manager_service_, version_1_0);
-  EXPECT_FALSE(
-      signin::ShouldPresentUserSigninUpgrade(profile_.get(), version_1_1));
+  EXPECT_FALSE(signin::ShouldPresentUserSigninUpgrade(profile_, version_1_1));
   EXPECT_FALSE(
       GetLocalState()
           ->GetTime(prefs::kSigninStartupPromoLastShownTimeWithRandomOffset)
@@ -261,8 +260,7 @@ TEST_F(SigninUtilsTest, TestWillNotDisplayTwoMinorVersions) {
   const base::Version version_1_2("1.2");
   signin::RecordFullscreenSigninPromoStarted(
       identity_manager_, account_manager_service_, version_1_0);
-  EXPECT_FALSE(
-      signin::ShouldPresentUserSigninUpgrade(profile_.get(), version_1_2));
+  EXPECT_FALSE(signin::ShouldPresentUserSigninUpgrade(profile_, version_1_2));
   EXPECT_FALSE(
       GetLocalState()
           ->GetTime(prefs::kSigninStartupPromoLastShownTimeWithRandomOffset)
@@ -279,8 +277,7 @@ TEST_F(SigninUtilsTest, TestWillNotDisplayOneMajorVersion) {
   const base::Version version_2_0("2.0");
   signin::RecordFullscreenSigninPromoStarted(
       identity_manager_, account_manager_service_, version_1_0);
-  EXPECT_FALSE(
-      signin::ShouldPresentUserSigninUpgrade(profile_.get(), version_2_0));
+  EXPECT_FALSE(signin::ShouldPresentUserSigninUpgrade(profile_, version_2_0));
   EXPECT_FALSE(
       GetLocalState()
           ->GetTime(prefs::kSigninStartupPromoLastShownTimeWithRandomOffset)
@@ -297,8 +294,7 @@ TEST_F(SigninUtilsTest, TestWillDisplayTwoMajorVersions) {
   const base::Version version_3_0("3.0");
   signin::RecordFullscreenSigninPromoStarted(
       identity_manager_, account_manager_service_, version_1_0);
-  EXPECT_TRUE(
-      signin::ShouldPresentUserSigninUpgrade(profile_.get(), version_3_0));
+  EXPECT_TRUE(signin::ShouldPresentUserSigninUpgrade(profile_, version_3_0));
   EXPECT_FALSE(
       GetLocalState()
           ->GetTime(prefs::kSigninStartupPromoLastShownTimeWithRandomOffset)
@@ -326,8 +322,7 @@ TEST_F(SigninUtilsTest, TestWillShowTwoTimesOnlyLegacy) {
       identity_manager_, account_manager_service_, version_1_0);
   signin::RecordFullscreenSigninPromoStarted(
       identity_manager_, account_manager_service_, version_3_0);
-  EXPECT_FALSE(
-      signin::ShouldPresentUserSigninUpgrade(profile_.get(), version_5_0));
+  EXPECT_FALSE(signin::ShouldPresentUserSigninUpgrade(profile_, version_5_0));
   EXPECT_FALSE(
       GetLocalState()
           ->GetTime(prefs::kSigninStartupPromoLastShownTimeWithRandomOffset)
@@ -366,8 +361,7 @@ TEST_F(SigninUtilsTest, TestWillShowTwoTimesOnly) {
       identity_manager_, account_manager_service_, version_1_0);
   signin::RecordFullscreenSigninPromoStarted(
       identity_manager_, account_manager_service_, version_3_0);
-  EXPECT_FALSE(
-      signin::ShouldPresentUserSigninUpgrade(profile_.get(), version_5_0));
+  EXPECT_FALSE(signin::ShouldPresentUserSigninUpgrade(profile_, version_5_0));
   EXPECT_FALSE(
       GetLocalState()
           ->GetTime(prefs::kSigninStartupPromoLastShownTimeWithRandomOffset)
@@ -389,8 +383,7 @@ TEST_F(SigninUtilsTest, TestWillShowForNewAccountAdded) {
       identity_manager_, account_manager_service_, version_3_0);
   FakeSystemIdentity* fake_identity = [FakeSystemIdentity fakeIdentity1];
   fake_system_identity_manager()->AddIdentity(fake_identity);
-  EXPECT_TRUE(
-      signin::ShouldPresentUserSigninUpgrade(profile_.get(), version_5_0));
+  EXPECT_TRUE(signin::ShouldPresentUserSigninUpgrade(profile_, version_5_0));
   EXPECT_FALSE(
       GetLocalState()
           ->GetTime(prefs::kSigninStartupPromoLastShownTimeWithRandomOffset)
@@ -420,8 +413,7 @@ TEST_F(SigninUtilsTest, TestWillNotShowWithAccountRemovedLegacy) {
       identity_manager_, account_manager_service_, version_3_0);
   fake_system_identity_manager()->ForgetIdentity(fake_identity,
                                                  base::DoNothing());
-  EXPECT_FALSE(
-      signin::ShouldPresentUserSigninUpgrade(profile_.get(), version_5_0));
+  EXPECT_FALSE(signin::ShouldPresentUserSigninUpgrade(profile_, version_5_0));
   EXPECT_FALSE(
       GetLocalState()
           ->GetTime(prefs::kSigninStartupPromoLastShownTimeWithRandomOffset)
@@ -462,8 +454,7 @@ TEST_F(SigninUtilsTest, TestWillNotShowWithAccountRemoved) {
                   feature_engagement::kIPHiOSPromoSigninFullscreenFeature)))
       .WillRepeatedly(testing::Return(event_list));
 
-  EXPECT_FALSE(
-      signin::ShouldPresentUserSigninUpgrade(profile_.get(), version_5_0));
+  EXPECT_FALSE(signin::ShouldPresentUserSigninUpgrade(profile_, version_5_0));
   EXPECT_FALSE(
       GetLocalState()
           ->GetTime(prefs::kSigninStartupPromoLastShownTimeWithRandomOffset)
@@ -485,8 +476,7 @@ TEST_F(SigninUtilsTest, TestWillNotShowNewAccountUntilTwoVersion) {
       identity_manager_, account_manager_service_, version_3_0);
   FakeSystemIdentity* fake_identity = [FakeSystemIdentity fakeIdentity1];
   fake_system_identity_manager()->AddIdentity(fake_identity);
-  EXPECT_FALSE(
-      signin::ShouldPresentUserSigninUpgrade(profile_.get(), version_4_0));
+  EXPECT_FALSE(signin::ShouldPresentUserSigninUpgrade(profile_, version_4_0));
   EXPECT_FALSE(
       GetLocalState()
           ->GetTime(prefs::kSigninStartupPromoLastShownTimeWithRandomOffset)
@@ -505,8 +495,7 @@ TEST_F(SigninUtilsTest, TestWillNotShowNewAccountUntilTwoVersionBis) {
       identity_manager_, account_manager_service_, version_1_0);
   FakeSystemIdentity* fake_identity = [FakeSystemIdentity fakeIdentity1];
   fake_system_identity_manager()->AddIdentity(fake_identity);
-  EXPECT_FALSE(
-      signin::ShouldPresentUserSigninUpgrade(profile_.get(), version_2_0));
+  EXPECT_FALSE(signin::ShouldPresentUserSigninUpgrade(profile_, version_2_0));
   EXPECT_FALSE(
       GetLocalState()
           ->GetTime(prefs::kSigninStartupPromoLastShownTimeWithRandomOffset)
@@ -524,15 +513,13 @@ TEST_F(SigninUtilsTest, TestWillNotShowIfFirstRunAfterPostRestore) {
   task_environment_.FastForwardBy(base::Days(100));
   FakeSystemIdentity* fake_identity = [FakeSystemIdentity fakeIdentity1];
   fake_system_identity_manager()->AddIdentity(fake_identity);
-  ASSERT_TRUE(
-      signin::ShouldPresentUserSigninUpgrade(profile_.get(), version_1_0));
+  ASSERT_TRUE(signin::ShouldPresentUserSigninUpgrade(profile_, version_1_0));
 
   AccountInfo accountInfo =
       AccountInfo::Builder(GaiaId("gaia"), "foo@bar.com").Build();
   StorePreRestoreIdentity(GetProfilePrefs(), accountInfo,
                           /*history_sync_enabled=*/false);
-  EXPECT_FALSE(
-      signin::ShouldPresentUserSigninUpgrade(profile_.get(), version_1_0));
+  EXPECT_FALSE(signin::ShouldPresentUserSigninUpgrade(profile_, version_1_0));
 }
 
 // Should not show the sign-in upgrade if sign-in is disabled by policy.
@@ -549,8 +536,7 @@ TEST_F(SigninUtilsTest, TestWillNotShowIfDisabledByPolicy) {
   GetLocalState()->SetInteger(prefs::kBrowserSigninPolicy,
                               static_cast<int>(BrowserSigninMode::kDisabled));
 
-  EXPECT_FALSE(
-      signin::ShouldPresentUserSigninUpgrade(profile_.get(), version_1_0));
+  EXPECT_FALSE(signin::ShouldPresentUserSigninUpgrade(profile_, version_1_0));
 }
 
 // Should show if the user is signed-in without history opt-in.
@@ -561,7 +547,7 @@ TEST_F(SigninUtilsTest, TestWillShowIfSignedInWithoutHistoryOptIn) {
   FakeSystemIdentity* identity = [FakeSystemIdentity fakeIdentity1];
   fake_system_identity_manager()->AddIdentity(identity);
   AuthenticationService* authentication_service =
-      AuthenticationServiceFactory::GetForProfile(profile_.get());
+      AuthenticationServiceFactory::GetForProfile(profile_);
   authentication_service->SignIn(identity,
                                  signin_metrics::AccessPoint::kStartPage);
 
@@ -573,8 +559,7 @@ TEST_F(SigninUtilsTest, TestWillShowIfSignedInWithoutHistoryOptIn) {
   GetLocalState()->SetTime(
       prefs::kSigninStartupPromoLastShownTimeWithRandomOffset, time_in_past_);
 
-  EXPECT_TRUE(
-      signin::ShouldPresentUserSigninUpgrade(profile_.get(), version_1_0));
+  EXPECT_TRUE(signin::ShouldPresentUserSigninUpgrade(profile_, version_1_0));
   EXPECT_FALSE(
       GetLocalState()
           ->GetTime(prefs::kSigninStartupPromoLastShownTimeWithRandomOffset)
@@ -589,7 +574,7 @@ TEST_F(SigninUtilsTest, TestWillNotShowIfSignedInWithHistoryOptIn) {
   FakeSystemIdentity* identity = [FakeSystemIdentity fakeIdentity1];
   fake_system_identity_manager()->AddIdentity(identity);
   AuthenticationService* authentication_service =
-      AuthenticationServiceFactory::GetForProfile(profile_.get());
+      AuthenticationServiceFactory::GetForProfile(profile_);
   authentication_service->SignIn(identity,
                                  signin_metrics::AccessPoint::kStartPage);
   const base::Version version_1_0("1.0");
@@ -606,8 +591,7 @@ TEST_F(SigninUtilsTest, TestWillNotShowIfSignedInWithHistoryOptIn) {
                                       true);
   sync_user_settings->SetSelectedType(syncer::UserSelectableType::kTabs, true);
 
-  EXPECT_FALSE(
-      signin::ShouldPresentUserSigninUpgrade(profile_.get(), version_1_0));
+  EXPECT_FALSE(signin::ShouldPresentUserSigninUpgrade(profile_, version_1_0));
 }
 
 }  // namespace

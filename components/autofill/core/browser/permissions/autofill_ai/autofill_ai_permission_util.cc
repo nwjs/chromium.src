@@ -99,23 +99,6 @@ void MaybeOutputReason(std::string* out, std::string_view message) {
 #endif
 }
 
-// Returns the set of supported entity types configured by the feature parameter
-// for Ambient Autofill.
-DenseSet<EntityType> GetAutofillAmbientAutofillSupportedEntityTypes() {
-  const std::string type_list =
-      features::kAutofillAmbientAutofillSupportedEntityTypes.Get();
-
-  const std::vector<std::string_view> type_pieces = base::SplitStringPiece(
-      type_list, ",", base::TRIM_WHITESPACE, base::SPLIT_WANT_NONEMPTY);
-  DenseSet<EntityType> supported_types;
-  for (std::string_view piece : type_pieces) {
-    if (std::optional<EntityType> type = StringToEntityType(piece)) {
-      supported_types.insert(*type);
-    }
-  }
-  return supported_types;
-}
-
 // Checks whether `country_code` belongs to a country where Wallet is
 // supported.
 [[nodiscard]] bool IsWalletSupportedCountry(
@@ -224,7 +207,6 @@ DenseSet<EntityType> GetAutofillAmbientAutofillSupportedEntityTypes() {
     case AutofillAiAction::kCrowdsourcingVote:
     case AutofillAiAction::kFilling:
     case AutofillAiAction::kImport:
-    case AutofillAiAction::kIphForOptIn:
     case AutofillAiAction::kLogToMqls:
     case AutofillAiAction::kOptIn:
     case AutofillAiAction::kEnableOrDisable:
@@ -281,8 +263,6 @@ DenseSet<EntityType> GetAutofillAmbientAutofillSupportedEntityTypes() {
   };
 
   switch (action) {
-    case AutofillAiAction::kIphForOptIn:
-      return is_enabled(feature_engagement::kIPHAutofillAiOptInFeature);
     case AutofillAiAction::kServerClassificationModel:
       return is_enabled(features::kAutofillAiServerModel);
     case AutofillAiAction::kUseCachedServerClassificationModelResults:
@@ -327,7 +307,6 @@ DenseSet<EntityType> GetAutofillAmbientAutofillSupportedEntityTypes() {
              sync_service->GetUserSettings()->GetSelectedTypes().Has(
                  syncer::UserSelectableType::kPayments) &&
              sync_service->GetActiveDataTypes().Has(syncer::AUTOFILL_VALUABLE);
-    case AutofillAiAction::kIphForOptIn:
     case AutofillAiAction::kServerClassificationModel:
     case AutofillAiAction::kUseCachedServerClassificationModelResults:
     case AutofillAiAction::kAddLocalEntityInstanceInSettings:
@@ -382,6 +361,7 @@ DenseSet<EntityType> GetAutofillAmbientAutofillSupportedEntityTypes() {
       !IsAutofillAiDisabledByEnterprisePolicy(prefs);
   const bool personal_context_pref_enabled = prefs->GetBoolean(
       personal_context::prefs::kPersonalContextInAutofillSettingsToggleStatus);
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
   const bool autofill_ai_available =
       GetAutofillAiOptInStatus(prefs, identity_manager) ||
       IsAutofillAiDefaultAvailabilityEnabled();
@@ -389,6 +369,9 @@ DenseSet<EntityType> GetAutofillAmbientAutofillSupportedEntityTypes() {
   const bool is_allowed_by_opt_in_or_default =
       IsAutofillAiDefaultAvailabilityEnabled() ||
       (policy_pref_enabled && autofill_ai_available);
+#else
+  const bool is_allowed_by_opt_in_or_default = true;
+#endif
   switch (action) {
     case AutofillAiAction::kLogToMqls:
     case AutofillAiAction::kServerClassificationModel:
@@ -434,10 +417,6 @@ DenseSet<EntityType> GetAutofillAmbientAutofillSupportedEntityTypes() {
         return false;
       }
       return is_allowed_by_opt_in_or_default;
-    case AutofillAiAction::kIphForOptIn:
-      // The IPH should only show if the user has not opted in yet.
-      return policy_pref_enabled && !autofill_ai_available &&
-             EntityTypeIsEnabledInSettings(*prefs, *entity_type);
     case AutofillAiAction::kOptIn:
       if (!policy_pref_enabled) {
         MaybeOutputReason(debug_message, "Enterprise policy is not enabled.");
@@ -562,7 +541,6 @@ base::flat_set<int32_t> GetAutofillAmbientAutofillEligibleTiers() {
     case AutofillAiAction::kEditAndDeleteEntityInstanceInSettings:
     case AutofillAiAction::kFilling:
     case AutofillAiAction::kImport:
-    case AutofillAiAction::kIphForOptIn:
     case AutofillAiAction::kListEntityInstancesInSettings:
     case AutofillAiAction::kLogToMqls:
     case AutofillAiAction::kEnableOrDisable:
@@ -592,7 +570,6 @@ base::flat_set<int32_t> GetAutofillAmbientAutofillEligibleTiers() {
     case AutofillAiAction::kCrowdsourcingVote:
     case AutofillAiAction::kEditAndDeleteEntityInstanceInSettings:
     case AutofillAiAction::kImport:
-    case AutofillAiAction::kIphForOptIn:
     case AutofillAiAction::kListEntityInstancesInSettings:
     case AutofillAiAction::kLogToMqls:
     case AutofillAiAction::kOptIn:
@@ -627,7 +604,6 @@ base::flat_set<int32_t> GetAutofillAmbientAutofillEligibleTiers() {
     case AutofillAiAction::kCrowdsourcingVote:
     case AutofillAiAction::kEditAndDeleteEntityInstanceInSettings:
     case AutofillAiAction::kImport:
-    case AutofillAiAction::kIphForOptIn:
     case AutofillAiAction::kListEntityInstancesInSettings:
     case AutofillAiAction::kLogToMqls:
     case AutofillAiAction::kOptIn:
@@ -649,7 +625,6 @@ base::flat_set<int32_t> GetAutofillAmbientAutofillEligibleTiers() {
     case AutofillAiAction::kCrowdsourcingVote:
     case AutofillAiAction::kEditAndDeleteEntityInstanceInSettings:
     case AutofillAiAction::kImport:
-    case AutofillAiAction::kIphForOptIn:
     case AutofillAiAction::kListEntityInstancesInSettings:
     case AutofillAiAction::kLogToMqls:
     case AutofillAiAction::kOptIn:
@@ -701,7 +676,6 @@ base::flat_set<int32_t> GetAutofillAmbientAutofillEligibleTiers() {
     case AutofillAiAction::kCrowdsourcingVote:
     case AutofillAiAction::kEditAndDeleteEntityInstanceInSettings:
     case AutofillAiAction::kImport:
-    case AutofillAiAction::kIphForOptIn:
     case AutofillAiAction::kListEntityInstancesInSettings:
     case AutofillAiAction::kLogToMqls:
     case AutofillAiAction::kOptIn:
@@ -991,6 +965,21 @@ bool IsAutofillAiDefaultAvailabilityEnabled() {
       GetAutofillAmbientAutofillEligibleTiers().contains(
           subscription_eligibility_service->GetAiSubscriptionTier());
   return tier_eligible || IsAndroidDeviceEligibleForAmbientAutofill();
+}
+
+DenseSet<EntityType> GetAutofillAmbientAutofillSupportedEntityTypes() {
+  const std::string type_list =
+      features::kAutofillAmbientAutofillSupportedEntityTypes.Get();
+
+  const std::vector<std::string_view> type_pieces = base::SplitStringPiece(
+      type_list, ",", base::TRIM_WHITESPACE, base::SPLIT_WANT_NONEMPTY);
+  DenseSet<EntityType> supported_types;
+  for (std::string_view piece : type_pieces) {
+    if (std::optional<EntityType> type = StringToEntityType(piece)) {
+      supported_types.insert(*type);
+    }
+  }
+  return supported_types;
 }
 
 }  // namespace autofill

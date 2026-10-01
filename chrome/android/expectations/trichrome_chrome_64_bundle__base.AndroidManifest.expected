@@ -33,6 +33,7 @@
   <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
   <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
   <uses-permission android:name="android.permission.ACCESS_HID"/>
+  <uses-permission android:name="android.permission.ACCESS_LOCAL_NETWORK"/>
   <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
   <uses-permission android:name="android.permission.CAMERA"/>
   <uses-permission android:name="android.permission.CAPTURE_KEYBOARD"/>
@@ -46,6 +47,7 @@
   <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK"/>
   <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION"/>
   <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE"/>
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SHORT_SERVICE"/>
   <uses-permission android:name="android.permission.GET_ACCOUNTS"/>
   <uses-permission android:name="android.permission.INTERNET"/>
   <uses-permission android:name="android.permission.MANAGE_ACCOUNTS"/>
@@ -84,7 +86,7 @@
   <uses-permission-sdk-23 android:name="android.permission.SCENE_UNDERSTANDING_FINE"/>
   <uses-permission-sdk-23 android:name="android.permission.USE_BIOMETRIC"/>
   <uses-permission-sdk-23 android:name="android.permission.USE_FINGERPRINT"/>
-  <uses-sdk android:minSdkVersion="29" android:targetSdkVersion="36"/>
+  <uses-sdk android:minSdkVersion="29" android:targetSdkVersion="37"/>
   <application
       android:name="org.chromium.chrome.browser.base.SplitChromeApplication"
       android:allowBackup="false"

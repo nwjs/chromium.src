@@ -11,7 +11,6 @@ import org.junit.runner.RunWith;
 import org.robolectric.ParameterizedRobolectricTestRunner;
 import org.robolectric.ParameterizedRobolectricTestRunner.Parameter;
 import org.robolectric.ParameterizedRobolectricTestRunner.Parameters;
-import org.robolectric.annotation.Config;
 
 import org.chromium.base.test.BaseRobolectricTestRule;
 import org.chromium.components.signin.AccountCapabilitiesConstants;
@@ -24,7 +23,6 @@ import java.util.Map;
 
 /** Test class for {@link AccountCapabilities}. */
 @RunWith(ParameterizedRobolectricTestRunner.class)
-@Config(manifest = Config.NONE)
 public final class AccountCapabilitiesTest {
 
     @Rule public BaseRobolectricTestRule mBaseRule = new BaseRobolectricTestRule();
@@ -78,6 +76,9 @@ public final class AccountCapabilitiesTest {
                 return capabilities.isSubjectToEnterpriseFeatures();
             case AccountCapabilitiesConstants.IS_SUBJECT_TO_PARENTAL_CONTROLS_CAPABILITY_NAME:
                 return capabilities.isSubjectToParentalControls();
+            case AccountCapabilitiesConstants
+                    .IS_SUBJECT_TO_PARENTAL_CONTROLS_VIA_BUNDLE_CAPABILITY_NAME:
+                return capabilities.isSubjectToParentalControlsViaBundle();
             case AccountCapabilitiesConstants.IS_SUBJECT_TO_UNIVERSAL_OPT_OUT_CAPABILITY_NAME:
                 return capabilities.isSubjectToUniversalOptOut();
             case AccountCapabilitiesConstants.SUPPORTS_WALLET_PRIVATE_PASSES_IN_AUTOFILL_NAME:

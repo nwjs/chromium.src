@@ -19,6 +19,7 @@
 @protocol EnhancedCalendarCommands;
 @protocol MiniMapCommands;
 @protocol UnitConversionCommands;
+@protocol CountryCodePickerCommands;
 
 // Wraps information to add/show to/in a context menu
 @interface ElementsToAddToContextMenu : NSObject
@@ -28,6 +29,16 @@
 
 // List of elements to add to a context menu. Can be nil.
 @property(nonatomic, copy) NSMutableArray<UIMenuElement*>* elements;
+
+@end
+
+// Holder object containing command handlers that context menu items may invoke.
+@interface ContextMenuHandlers : NSObject
+
+@property(nonatomic, weak) id<MiniMapCommands> miniMapHandler;
+@property(nonatomic, weak) id<UnitConversionCommands> unitConversionHandler;
+@property(nonatomic, weak) id<EnhancedCalendarCommands> enhancedCalendarHandler;
+@property(nonatomic, weak) id<CountryCodePickerCommands> countryCodeHandler;
 
 @end
 
@@ -43,9 +54,7 @@ ElementsToAddToContextMenu* GetContextMenuElementsToAdd(
     web::WebState* web_state,
     web::ContextMenuParams params,
     UIViewController* presenting_view_controller,
-    id<MiniMapCommands> mini_map_handler,
-    id<UnitConversionCommands> unit_conversion_handler,
-    id<EnhancedCalendarCommands> enhanced_calendar_handler);
+    ContextMenuHandlers* context_menu_handlers);
 
 // Returns a default context menu configuration.
 UIContextMenuConfiguration* GetDefaultContextMenuConfiguration();

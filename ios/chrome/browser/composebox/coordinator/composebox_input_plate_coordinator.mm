@@ -200,26 +200,23 @@ contextual_search::ContextualSearchSource ContextualSearchSourceFromEntrypoint(
   _voiceSearchController =
       ios::provider::CreateVoiceSearchController(self.browser);
 
+  auto query_controller_config_params = std::make_unique<
+      contextual_search::ContextualSearchContextController::ConfigParams>();
+  query_controller_config_params->send_lns_surface = false;
+  query_controller_config_params->enable_viewport_images = true;
+  query_controller_config_params
+      ->prioritize_suggestions_for_the_first_attached_document = true;
+
+  _contextualService =
+      ContextualSearchServiceFactory::GetForProfile(self.profile);
+
   std::unique_ptr<contextual_search::ContextualSearchSessionHandle>
-      contextualSearchSession = nullptr;
-  if (!IsComposeboxAIMDisabled()) {
-    auto query_controller_config_params = std::make_unique<
-        contextual_search::ContextualSearchContextController::ConfigParams>();
-    query_controller_config_params->send_lns_surface = false;
-    query_controller_config_params->enable_viewport_images = true;
-    query_controller_config_params
-        ->prioritize_suggestions_for_the_first_attached_document = true;
-
-    _contextualService =
-        ContextualSearchServiceFactory::GetForProfile(self.profile);
-
-    contextualSearchSession = _contextualService->CreateSession(
-        std::move(query_controller_config_params),
-        ContextualSearchSourceFromEntrypoint(_entrypoint),
-        lens::LensOverlayInvocationSource::kOmniboxContextualQuery);
-    _metricsRecorder.contextualSearchMetricsRecorder =
-        contextualSearchSession->GetMetricsRecorder();
-  }
+      contextualSearchSession = _contextualService->CreateSession(
+          std::move(query_controller_config_params),
+          ContextualSearchSourceFromEntrypoint(_entrypoint),
+          lens::LensOverlayInvocationSource::kOmniboxContextualQuery);
+  _metricsRecorder.contextualSearchMetricsRecorder =
+      contextualSearchSession->GetMetricsRecorder();
 
   FaviconLoader* faviconLoader =
       IOSChromeFaviconLoaderFactory::GetForProfile(self.profile);
@@ -375,6 +372,11 @@ contextual_search::ContextualSearchSource ContextualSearchSourceFromEntrypoint(
                                             title:(NSString*)title {
   CHECK(_entrypoint == ComposeboxEntrypoint::kCobrowse);
   [_mediator processContextLibraryWebpageSignalWithURL:url title:title];
+}
+
+- (void)updateTheme:(ComposeboxTheme*)theme {
+  _theme = theme;
+  [_viewController updateTheme:theme];
 }
 
 #pragma mark - ComposeboxInputPlateViewControllerDelegate
@@ -774,6 +776,8 @@ contextual_search::ContextualSearchSource ContextualSearchSourceFromEntrypoint(
 - (void)composeboxPickerPresenter:(ComposeboxPickerPresenter*)presenter
                     didPickImages:
                         (NSArray<ComposeboxPickerImageResult*>*)results {
+  [presenter dismissPicker];
+
   // Gallery picker results (PHPickerViewController) return the complete set of
   // selected gallery items. Reconcile preselected asset IDs so that any gallery
   // photo deselected by the user is removed from attachments. Camera picker
@@ -867,6 +871,16 @@ contextual_search::ContextualSearchSource ContextualSearchSourceFromEntrypoint(
   [self focusComposebox];
 }
 
+- (void)composeboxPickerPresenterDidCancelDrivePicker:
+    (ComposeboxPickerPresenter*)presenter {
+  [self focusComposebox];
+}
+
+- (void)composeboxPickerPresenterDidCancelTabPicker:
+    (ComposeboxPickerPresenter*)presenter {
+  [self focusComposebox];
+}
+
 - (void)composeboxPickerPresenter:(ComposeboxPickerPresenter*)presenter
     handleSelectedTabsWithWebStateIDs:
         (std::set<web::WebStateID>)selectedWebStateIDs
@@ -879,9 +893,6 @@ contextual_search::ContextualSearchSource ContextualSearchSourceFromEntrypoint(
 
   if (diff.added.size() > 0) {
     [_metricsRecorder recordTabPickerTabsAttached:diff.added.size()];
-    [_metricsRecorder
-        recordPickerOutcome:MobileFuseboxPickerOutcome::kAttachmentAdded
-          forAttachmentType:MobileFuseboxPickerAttachmentType::kTabs];
   }
 
   [_mediator attachSelectedTabsWithWebStateIDs:selectedWebStateIDs
@@ -896,9 +907,6 @@ contextual_search::ContextualSearchSource ContextualSearchSourceFromEntrypoint(
   }
 
   [_metricsRecorder recordDriveFilesAttached:results.count];
-  [_metricsRecorder
-      recordPickerOutcome:MobileFuseboxPickerOutcome::kAttachmentAdded
-        forAttachmentType:MobileFuseboxPickerAttachmentType::kDrive];
 
   for (ComposeboxPickerDriveResult* result in results) {
     [_mediator processDriveFileWithIdentifier:result.identifier

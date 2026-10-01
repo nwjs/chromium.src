@@ -166,8 +166,10 @@ source_set("attempt_login_tool") {
     ":actor_tool_interface",
     "//base",
     "//components/optimization_guide/proto:optimization_guide_proto",
+    "//components/password_manager/core/browser",
     "//components/password_manager/core/browser/actor_login:actor_login_service_impl",
     "//components/password_manager/core/browser/actor_login:common",
+    "//components/password_manager/ios",
     "//ios/chrome/browser/intelligence/actor/tools/public",
     "//ios/chrome/browser/intelligence/actor/tools/utils:profile_context_resolver",
     "//ios/chrome/browser/optimization_guide/model",
@@ -226,7 +228,10 @@ source_set("history_tool") {
 }
 
 compile_ts("actor_tool_utils_ts") {
-  sources = [ "resources/actor_tool_utils.ts" ]
+  sources = [
+    "resources/actor_tool_utils.ts",
+    "resources/safe_dom_utils.ts",
+  ]
 }
 
 optimize_ts("action_target_ts") {
@@ -248,6 +253,25 @@ optimize_ts("click_tool_ts") {
     ":actor_tool_utils_ts",
     "//ios/chrome/browser/intelligence/proto_wrappers:dom_node_ids_ts",
     "//ios/web/public/js_messaging:gcrweb",
+  ]
+}
+
+optimize_ts("drag_and_release_tool_ts") {
+  sources = [ "resources/drag_and_release_tool.ts" ]
+  output_name = "drag_and_release_tool"
+
+  deps = [
+    ":actor_tool_utils_ts",
+    "//ios/chrome/browser/intelligence/proto_wrappers:dom_node_ids_ts",
+    "//ios/web/public/js_messaging:gcrweb",
+  ]
+}
+
+bundle_data("drag_html_bundle_data") {
+  testonly = true
+  sources = [ "//components/test/data/actor/drag.html" ]
+  outputs = [
+    "{{bundle_resources_dir}}/components/test/data/actor/{{source_file_part}}",
   ]
 }
 
@@ -428,6 +452,8 @@ source_set("java_script_features") {
     "attempt_form_filling_tool_java_script_feature.mm",
     "click_tool_java_script_feature.h",
     "click_tool_java_script_feature.mm",
+    "drag_and_release_tool_java_script_feature.h",
+    "drag_and_release_tool_java_script_feature.mm",
     "page_stability_java_script_feature.h",
     "page_stability_java_script_feature.mm",
     "scroll_tool_java_script_feature.h",
@@ -444,6 +470,7 @@ source_set("java_script_features") {
     ":actor_tool_interface",
     ":attempt_form_filling_tool_ts",
     ":click_tool_ts",
+    ":drag_and_release_tool_ts",
     ":page_stability_ts",
     ":scroll_tool_ts",
     ":select_tool_ts",
@@ -518,6 +545,7 @@ source_set("actor_tool_java_script_feature_test_base") {
     "actor_tool_java_script_feature_test_base.h",
     "actor_tool_java_script_feature_test_base.mm",
   ]
+  public_deps = [ ":action_target" ]
   deps = [
     "//base",
     "//base/test:test_support",
@@ -545,6 +573,8 @@ source_set("unit_tests") {
     "click_tool_java_script_feature_unittest.mm",
     "click_tool_js_unittest.mm",
     "click_tool_unittest.mm",
+    "drag_and_release_tool_java_script_feature_unittest.mm",
+    "drag_and_release_tool_js_unittest.mm",
     "fake_tool_delegate.h",
     "fake_tool_delegate.mm",
     "history_tool_unittest.mm",
@@ -580,6 +610,8 @@ source_set("unit_tests") {
     ":attempt_login_tool",
     ":click_tool",
     ":click_tool_ts",
+    ":drag_and_release_tool_ts",
+    ":drag_html_bundle_data",
     ":history_tool",
     ":java_script_features",
     ":navigate_tool",
@@ -609,6 +641,7 @@ source_set("unit_tests") {
     "//components/optimization_guide/proto:optimization_guide_proto",
     "//components/password_manager/core/browser/actor_login:actor_login_service_impl",
     "//components/password_manager/core/browser/actor_login:common",
+    "//components/password_manager/ios",
     "//components/tab_groups",
     "//ios/chrome/browser/intelligence/actor/public:actor_task_ui_protocols",
     "//ios/chrome/browser/intelligence/actor/public:actor_types",
@@ -617,6 +650,7 @@ source_set("unit_tests") {
     "//ios/chrome/browser/intelligence/actor/tools/utils:profile_context_resolver",
     "//ios/chrome/browser/intelligence/actor/util:test_support",
     "//ios/chrome/browser/intelligence/features",
+    "//ios/chrome/browser/passwords/model",
     "//ios/chrome/browser/passwords/model/actor_login",
     "//ios/chrome/browser/shared/coordinator/scene:scene_state_header",
     "//ios/chrome/browser/shared/model/browser",
@@ -637,5 +671,7 @@ source_set("unit_tests") {
     "//net:test_support",
     "//testing/gmock",
     "//testing/gtest",
+    "//third_party/ocmock",
+    "//url",
   ]
 }

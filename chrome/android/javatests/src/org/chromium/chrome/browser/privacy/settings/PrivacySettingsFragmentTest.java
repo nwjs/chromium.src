@@ -67,9 +67,8 @@ import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
 import org.chromium.chrome.browser.preferences.Pref;
 import org.chromium.chrome.browser.privacy_guide.PrivacyGuideInteractions;
 import org.chromium.chrome.browser.profiles.ProfileManager;
-import org.chromium.chrome.browser.settings.SettingsTestRule;
 import org.chromium.chrome.browser.settings.SettingsNavigationFactory;
-import org.chromium.chrome.browser.signin.SigninCheckerProvider;
+import org.chromium.chrome.browser.settings.SettingsTestRule;
 import org.chromium.chrome.browser.sync.settings.GoogleServicesSettings;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.util.AdvancedProtectionTestRule;
@@ -348,9 +347,6 @@ public class PrivacySettingsFragmentTest {
     @LargeTest
     @DisabledTest(message = "crbug.com/40265353")
     public void testPrivacyGuideNotDisplayedWhenUserIsChild() {
-        // TODO(crbug.com/40264499): Remove once SigninChecker is automatically created.
-        ThreadUtils.runOnUiThreadBlocking(
-                () -> SigninCheckerProvider.get(ProfileManager.getLastUsedRegularProfile()));
         mSigninTestRule.addChildTestAccountThenWaitForSignin();
         mSettingsActivityTestRule.startSettingsActivity();
         onView(withText(R.string.privacy_guide_pref_summary)).check(doesNotExist());
@@ -598,7 +594,10 @@ public class PrivacySettingsFragmentTest {
 
     @Test
     @LargeTest
-    @EnableFeatures(ChromeFeatureList.UNIVERSAL_OPT_OUT_SETTINGS)
+    @EnableFeatures({
+        ChromeFeatureList.UNIVERSAL_OPT_OUT_SETTINGS,
+        ChromeFeatureList.UNIVERSAL_OPT_OUT
+    })
     public void testUniversalOptOutSettingsVisible_EligibleAndTurnedOn() {
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
@@ -612,7 +611,10 @@ public class PrivacySettingsFragmentTest {
 
     @Test
     @LargeTest
-    @EnableFeatures(ChromeFeatureList.UNIVERSAL_OPT_OUT_SETTINGS)
+    @EnableFeatures({
+        ChromeFeatureList.UNIVERSAL_OPT_OUT_SETTINGS,
+        ChromeFeatureList.UNIVERSAL_OPT_OUT
+    })
     public void testUniversalOptOutSettingsVisible_EligibleAndTurnedOff() {
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
@@ -626,7 +628,10 @@ public class PrivacySettingsFragmentTest {
 
     @Test
     @LargeTest
-    @EnableFeatures(ChromeFeatureList.UNIVERSAL_OPT_OUT_SETTINGS)
+    @EnableFeatures({
+        ChromeFeatureList.UNIVERSAL_OPT_OUT_SETTINGS,
+        ChromeFeatureList.UNIVERSAL_OPT_OUT
+    })
     public void testUniversalOptOutSettingsVisible_NotEligibleAndTurnedOn() {
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
@@ -640,7 +645,10 @@ public class PrivacySettingsFragmentTest {
 
     @Test
     @LargeTest
-    @EnableFeatures(ChromeFeatureList.UNIVERSAL_OPT_OUT_SETTINGS)
+    @EnableFeatures({
+        ChromeFeatureList.UNIVERSAL_OPT_OUT_SETTINGS,
+        ChromeFeatureList.UNIVERSAL_OPT_OUT
+    })
     public void testUniversalOptOutSettingsHidden_NotEligibleAndTurnedOff() {
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
@@ -665,7 +673,10 @@ public class PrivacySettingsFragmentTest {
 
     @Test
     @MediumTest
-    @EnableFeatures(ChromeFeatureList.UNIVERSAL_OPT_OUT_SETTINGS)
+    @EnableFeatures({
+        ChromeFeatureList.UNIVERSAL_OPT_OUT_SETTINGS,
+        ChromeFeatureList.UNIVERSAL_OPT_OUT
+    })
     public void testSearchableIndex_UniversalOptOutSettings_RemovedWhenNonEligible() {
         var indexProvider = PrivacySettings.SEARCH_INDEX_DATA_PROVIDER;
         ThreadUtils.runOnUiThreadBlocking(

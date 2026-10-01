@@ -35,7 +35,6 @@
 #import "ios/chrome/browser/signin/model/authentication_service_factory.h"
 #import "ios/chrome/browser/signin/model/chrome_account_manager_service.h"
 #import "ios/chrome/browser/signin/model/chrome_account_manager_service_factory.h"
-#import "ios/chrome/browser/signin/model/fake_authentication_service_delegate.h"
 #import "ios/chrome/browser/signin/model/fake_system_identity.h"
 #import "ios/chrome/browser/signin/model/fake_system_identity_manager.h"
 #import "ios/chrome/browser/signin/model/identity_manager_factory.h"
@@ -147,13 +146,13 @@ class MockDriveFilePickerImageFetcher : public DriveFilePickerImageFetcher {
 }
 - (void)setDriveFilePickerSelectedIdentity:(id<SystemIdentity>)identity {
 }
-- (void)showDriveFilePickerWithComposeboxDelegate:
-            (id<ComposeboxPickerPresenterDelegate>)delegate
-                               baseViewController:
-                                   (UIViewController*)baseViewController
-                               maxAttachmentCount:(NSUInteger)maxAttachmentCount
-                                snackbarPresenter:(ComposeboxSnackbarPresenter*)
-                                                      snackbarPresenter {
+- (void)
+    showDriveFilePickerWithResponseHandler:
+        (id<DriveFilePickerResponseCommands>)responseHandler
+                        baseViewController:(UIViewController*)baseViewController
+                        maxAttachmentCount:(NSUInteger)maxAttachmentCount
+                         snackbarPresenter:
+                             (ComposeboxSnackbarPresenter*)snackbarPresenter {
 }
 @end
 
@@ -299,8 +298,7 @@ class DriveFilePickerMediatorTest : public PlatformTest {
     TestProfileIOS::Builder builder;
     builder.AddTestingFactory(
         AuthenticationServiceFactory::GetInstance(),
-        AuthenticationServiceFactory::GetFactoryWithDelegateForTesting(
-            std::make_unique<FakeAuthenticationServiceDelegate>()));
+        AuthenticationServiceFactory::GetDefaultFactory());
     builder.AddTestingFactory(SyncServiceFactory::GetInstance(),
                               base::BindRepeating(&CreateTestSyncService));
     builder.AddTestingFactory(
@@ -531,6 +529,38 @@ TEST_F(DriveFilePickerMediatorTest, SelectCollectionItemBrowsesCollection) {
   EXPECT_EQ(DriveFilePickerCollectionType::kFolder,
             fake_delegate_.collectionType);
   EXPECT_NSEQ(folder_to_browse.identifier, fake_delegate_.folderIdentifier);
+}
+
+// Tests that leaving search at root cancels any pending query and does not
+// forward stale items to the consumer or trigger a crash.
+TEST_F(DriveFilePickerMediatorTest, LeavingSearchAtRootCancelsQuery) {
+  InitializeMediator(DriveFilePickerCollectionType::kRoot);
+
+  DriveItem drive_item;
+  drive_item.identifier = @"item_id";
+  drive_item.name = @"item_name";
+  drive_item.is_folder = NO;
+  drive_item.can_download = YES;
+  DriveListResult fake_result;
+  fake_result.items = {drive_item};
+  drive_list_->SetDriveListResult(fake_result);
+
+  // Focus search bar to initiate search query at root.
+  [mediator_ setSearchBarFocused:YES];
+  EXPECT_TRUE(drive_list_->IsExecutingQuery());
+
+  // Immediately dismiss search before query returns.
+  [mediator_ setSearchBarFocused:NO];
+  EXPECT_FALSE(drive_list_->IsExecutingQuery());
+
+  // Fast forward mock time to allow any posted callbacks to execute.
+  task_environment_.FastForwardBy(base::Days(1));
+
+  // Ensure consumer has root collection items rather than Drive items.
+  EXPECT_NE(nil, fake_consumer_.primaryItems);
+  for (DriveFilePickerItem* item in fake_consumer_.primaryItems) {
+    EXPECT_NE(DriveItemType::kFile, item.type);
+  }
 }
 
 // Tests that setting the sorting criteria and direction updates the consumer

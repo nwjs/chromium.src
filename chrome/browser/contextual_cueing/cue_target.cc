@@ -21,6 +21,14 @@ bool CueTarget::SupportsEditPrompt() const {
   return false;
 }
 
+bool CueTarget::OverridesUcbScoring() const {
+  return false;
+}
+
+bool CueTarget::DowngradesToQuietOnDismiss() const {
+  return false;
+}
+
 const char* GetName(CueTargetType type) {
   switch (type) {
     case CueTargetType::kGlic:
@@ -39,6 +47,10 @@ const char* GetName(CueIntrusiveness intrusiveness) {
     case CueIntrusiveness::kQuiet:
       return "Quiet";
   }
+}
+
+bool CueTarget::IsPersistent() const {
+  return false;
 }
 
 bool CueTarget::SupportsIntrusiveness(CueIntrusiveness intrusiveness) const {

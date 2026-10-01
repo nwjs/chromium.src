@@ -8,7 +8,6 @@
 #include "base/gtest_prod_util.h"
 #include "base/memory/weak_ptr.h"
 #include "content/public/browser/navigation_throttle.h"
-#include "mojo/public/cpp/bindings/remote.h"
 #include "services/network/public/mojom/url_loader_factory.mojom.h"
 #include "url/origin.h"
 
@@ -53,6 +52,7 @@ class IsolatedWebAppThrottle : public content::NavigationThrottle {
 
   Profile* profile() const;
   bool is_isolated_web_app_navigation() const;
+  bool IsAuthorizedIwaNavigation(const IwaOrigin& iwa_origin) const;
 
   base::WeakPtrFactory<IsolatedWebAppThrottle> weak_ptr_factory_{this};
 };

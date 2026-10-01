@@ -579,7 +579,8 @@ Response BrowserHandler::DoSetDownloadBehavior(
     std::optional<std::string> download_path) {
   if (!allow_set_download_behavior_)
     return Response::ServerError("Not allowed");
-  if (behavior == Browser::SetDownloadBehavior::BehaviorEnum::Allow &&
+  if ((behavior == Browser::SetDownloadBehavior::BehaviorEnum::Allow ||
+       behavior == Browser::SetDownloadBehavior::BehaviorEnum::AllowAndName) &&
       !download_path.has_value()) {
     return Response::InvalidParams("downloadPath not provided");
   }
@@ -643,13 +644,13 @@ Response BrowserHandler::GetHistograms(
     const std::optional<std::string> in_query,
     const std::optional<bool> in_delta,
     std::unique_ptr<Array<Browser::Histogram>>* const out_histograms) {
-  DCHECK(out_histograms);
+  CHECK(out_histograms, base::NotFatalUntil::M159);
   bool get_deltas = in_delta.value_or(false);
   *out_histograms = std::make_unique<Array<Browser::Histogram>>();
   for (base::HistogramBase* const h :
        base::StatisticsRecorder::Sort(base::StatisticsRecorder::WithName(
            base::StatisticsRecorder::GetHistograms(), in_query.value_or("")))) {
-    DCHECK(h);
+    CHECK(h, base::NotFatalUntil::M159);
     (*out_histograms)->emplace_back(GetHistogramData(*h, get_deltas));
   }
 
@@ -666,7 +667,7 @@ Response BrowserHandler::GetHistogram(
   if (!in_histogram)
     return Response::InvalidParams("Cannot find histogram: " + in_name);
 
-  DCHECK(out_histogram);
+  CHECK(out_histogram, base::NotFatalUntil::M159);
   *out_histogram = GetHistogramData(*in_histogram, in_delta.value_or(false));
 
   return Response::Success();

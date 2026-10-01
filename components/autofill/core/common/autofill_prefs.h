@@ -91,6 +91,13 @@ inline constexpr char kAutofillAmountExtractionAiTermsSeen[] =
 //                     to trigger the popup. Default: `@@`.
 inline constexpr char kAutofillAtMemoryTriggerInfo[] =
     "autofill.at_memory.trigger_info";
+// Boolean that is true if the Double Ctrl / Double Command trigger for
+// AtMemory is enabled.
+inline constexpr char kAutofillAtMemoryDoubleCtrlTriggerEnabled[] =
+    "autofill.at_memory.double_ctrl_trigger_enabled";
+// String representing the keyboard shortcut configured for AtMemory.
+inline constexpr char kAutofillAtMemoryShortcut[] =
+    "autofill.at_memory.shortcut";
 // Boolean that is true if Autofill is enabled and allowed to save credit card
 // data.
 inline constexpr char kAutofillCreditCardEnabled[] =
@@ -127,8 +134,10 @@ inline constexpr char kAutofillLastVersionDeduped[] =
 
 // Boolean that is true if the user enabled fetching OTPs from the signed in
 // Gmail account.
+// LINT.IfChange(AutofillGmailOtpFillingPref)
 inline constexpr char kAutofillGmailOtpFillingEnabled[] =
     "autofill.gmail_otp_filling.enabled";
+// LINT.ThenChange(//chrome/browser/resources/settings/autofill_page/contact_info/contact_info_page.ts:AutofillGmailOtpFillingPref)
 // Timestamp the user dismissed the activation dialog to enable fetching Gmail
 // OTPs the last time.
 inline constexpr char kAutofillGmailOtpFillingActivationDismissalTimestamp[] =

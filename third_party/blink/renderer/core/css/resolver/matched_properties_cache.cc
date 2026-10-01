@@ -43,7 +43,7 @@
 #include "third_party/blink/renderer/core/dom/shadow_root.h"
 #include "third_party/blink/renderer/core/style/computed_style.h"
 #include "third_party/blink/renderer/platform/heap/visitor.h"
-#include "third_party/blink/renderer/platform/wtf/text/string_hasher.h"
+#include "third_party/blink/renderer/platform/wtf/hash_functions_memory.h"
 
 namespace blink {
 
@@ -54,8 +54,8 @@ constexpr double kCollisionSamplingRate = 0.01;
 
 }  // namespace
 
-static unsigned ComputeMatchedPropertiesHash(const MatchResult& result,
-                                             unsigned additional_hash) {
+static uint32_t ComputeMatchedPropertiesHash(const MatchResult& result,
+                                             uint32_t additional_hash) {
   DCHECK(result.IsCacheable());
   const MatchedPropertiesHashVector& hashes = result.GetMatchedPropertiesHash();
   DCHECK(!std::any_of(hashes.begin(), hashes.end(),
@@ -64,7 +64,7 @@ static unsigned ComputeMatchedPropertiesHash(const MatchResult& result,
                                HashTraits<unsigned>::DeletedValue();
                       }))
       << "This should have been checked in AddMatchedProperties()";
-  unsigned hash = StringHasher::HashMemory32(base::as_byte_span(hashes));
+  uint32_t hash = HashMemory32(base::as_byte_span(hashes));
   return EnsureValidHash(HashInts(hash, additional_hash));
 }
 

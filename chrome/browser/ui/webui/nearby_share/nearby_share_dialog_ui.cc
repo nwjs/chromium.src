@@ -30,7 +30,6 @@
 #include "chrome/grit/nearby_share_dialog_resources_map.h"
 #include "chrome/grit/theme_resources.h"
 #include "chromeos/components/sharesheet/constants.h"
-#include "chromeos/constants/chromeos_features.h"
 #include "content/public/browser/url_data_source.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui.h"
@@ -38,6 +37,7 @@
 #include "mojo/public/cpp/bindings/self_owned_receiver.h"
 #include "net/base/url_util.h"
 #include "services/network/public/mojom/content_security_policy.mojom.h"
+#include "ui/base/page_transition_types.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/base/webui/web_ui_util.h"
 #include "ui/views/controls/webview/webview.h"
@@ -125,8 +125,8 @@ NearbyShareDialogUI::NearbyShareDialogUI(content::WebUI* web_ui)
   const GURL& url = web_ui->GetWebContents()->GetVisibleURL();
   SetAttachmentFromQueryParameter(url);
 
-  html_source->AddBoolean("isQuickShareV2Enabled",
-                          chromeos::features::IsQuickShareV2Enabled());
+  // TODO(crbug.com/350547931): Remove the feature for WebUI.
+  html_source->AddBoolean("isQuickShareV2Enabled", true);
 }
 
 NearbyShareDialogUI::~NearbyShareDialogUI() = default;

@@ -10,6 +10,7 @@
 #include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
 #include "build/build_config.h"
+#include "chrome/browser/pwc/privileged_web_contents.h"
 #include "content/public/browser/web_contents_delegate.h"
 #include "third_party/skia/include/core/SkRegion.h"
 #include "ui/base/interaction/element_identifier.h"
@@ -22,9 +23,14 @@
 
 class Profile;
 
+namespace url {
+class Origin;
+}  // namespace url
+
 namespace glic {
 
-class GlicView : public views::WebView {
+class GlicView : public views::WebView,
+                 public pwc::PrivilegedWebContents::EmbedderDelegate {
   METADATA_HEADER(GlicView, views::WebView)
 
  public:
@@ -42,26 +48,30 @@ class GlicView : public views::WebView {
     zoom_changed_callback_ = std::move(callback);
   }
 
-  // content::WebContentsDelegate:
+  // content::WebContentsDelegate and
+  // pwc::PrivilegedWebContents::EmbedderDelegate:
   bool HandleKeyboardEvent(content::WebContents* source,
                            const input::NativeWebKeyboardEvent& event) override;
+  void ContentsZoomChange(bool zoom_in) override;
   void RequestMediaAccessPermission(
       content::WebContents* web_contents,
       const content::MediaStreamRequest& request,
       content::MediaResponseCallback callback) override;
+  bool CheckMediaAccessPermission(content::RenderFrameHost* render_frame_host,
+                                  const url::Origin& security_origin,
+                                  blink::mojom::MediaStreamType type) override;
   void RunFileChooser(content::RenderFrameHost* render_frame_host,
                       scoped_refptr<content::FileSelectListener> listener,
                       const blink::mojom::FileChooserParams& params) override;
   bool CanDragEnter(content::WebContents* source,
                     const content::DropData& data,
                     blink::DragOperationsMask operations_allowed) override;
-  void ContentsZoomChange(bool zoom_in) override;
-
-  // views::WebView:
-  void SetWebContents(content::WebContents* web_contents) override;
   void DraggableRegionsChanged(
       const std::vector<blink::mojom::DraggableRegionPtr>& regions,
       content::WebContents* contents) override;
+
+  // views::WebView:
+  void SetWebContents(content::WebContents* web_contents) override;
 
   // views::View:
   void OnThemeChanged() override;

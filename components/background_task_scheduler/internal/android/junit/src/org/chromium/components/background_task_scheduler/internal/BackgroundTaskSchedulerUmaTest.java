@@ -24,7 +24,6 @@ import org.mockito.ArgumentMatchers;
 import org.mockito.Spy;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
-import org.robolectric.annotation.Config;
 
 import org.chromium.base.ContextUtils;
 import org.chromium.base.test.BaseRobolectricTestRunner;
@@ -37,7 +36,6 @@ import java.util.Set;
 
 /** Unit tests for {@link BackgroundTaskSchedulerUma}. */
 @RunWith(BaseRobolectricTestRunner.class)
-@Config(manifest = Config.NONE)
 public class BackgroundTaskSchedulerUmaTest {
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
     @Spy private BackgroundTaskSchedulerUma mUmaSpy;
@@ -291,30 +289,6 @@ public class BackgroundTaskSchedulerUmaTest {
                         eq("Android.BackgroundTaskScheduler.TaskScheduled.Failure"),
                         ArgumentMatchers.eq(
                                 BackgroundTaskSchedulerUma.BACKGROUND_TASK_OFFLINE_PAGES));
-    }
-
-    @Test
-    @Feature({"BackgroundTaskScheduler"})
-    public void testReportTaskScheduledWithExpiration() {
-        doNothing().when(mUmaSpy).cacheEvent(anyString(), anyInt());
-        BackgroundTaskSchedulerUma.getInstance()
-                .reportTaskCreatedAndExpirationState(TaskIds.TEST, /* expires= */ true);
-        verify(mUmaSpy, times(1))
-                .cacheEvent(
-                        eq("Android.BackgroundTaskScheduler.TaskCreated.WithExpiration"),
-                        ArgumentMatchers.eq(BackgroundTaskSchedulerUma.BACKGROUND_TASK_TEST));
-    }
-
-    @Test
-    @Feature({"BackgroundTaskScheduler"})
-    public void testReportTaskScheduledWithoutExpiration() {
-        doNothing().when(mUmaSpy).cacheEvent(anyString(), anyInt());
-        BackgroundTaskSchedulerUma.getInstance()
-                .reportTaskCreatedAndExpirationState(TaskIds.TEST, /* expires= */ false);
-        verify(mUmaSpy, times(1))
-                .cacheEvent(
-                        eq("Android.BackgroundTaskScheduler.TaskCreated.WithoutExpiration"),
-                        ArgumentMatchers.eq(BackgroundTaskSchedulerUma.BACKGROUND_TASK_TEST));
     }
 
     @Test

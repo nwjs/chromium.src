@@ -62,7 +62,6 @@
 #import "ios/chrome/browser/default_browser/model/default_browser_interest_signals.h"
 #import "ios/chrome/browser/default_browser/model/promo_source.h"
 #import "ios/chrome/browser/default_browser/promo/public/features.h"
-#import "ios/chrome/browser/docking_promo/model/docking_promo_scene_agent.h"
 #import "ios/chrome/browser/enterprise/data_protection/coordinator/data_protection_scene_agent.h"
 #import "ios/chrome/browser/enterprise/model/idle/idle_service.h"
 #import "ios/chrome/browser/enterprise/model/idle/idle_service_factory.h"
@@ -71,6 +70,7 @@
 #import "ios/chrome/browser/geolocation/model/geolocation_manager.h"
 #import "ios/chrome/browser/google_one/shared/google_one_deep_link_util.h"
 #import "ios/chrome/browser/incognito_reauth/ui_bundled/incognito_reauth_scene_agent.h"
+#import "ios/chrome/browser/intelligence/bwg/metrics/gemini_metrics.h"
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_tab_helper.h"
 #import "ios/chrome/browser/intelligence/bwg/utils/gemini_constants.h"
 #import "ios/chrome/browser/intelligence/bwg/utils/gemini_prefs.h"
@@ -167,6 +167,7 @@
 #import "ios/chrome/browser/whats_new/coordinator/promo/whats_new_scene_agent.h"
 #import "ios/chrome/browser/window_activities/model/window_activity_helpers.h"
 #import "ios/chrome/common/app_group/app_group_constants.h"
+#import "ios/chrome/common/app_group/app_group_utils.h"
 #import "ios/chrome/common/ui/reauthentication/reauthentication_module.h"
 #import "ios/chrome/grit/ios_strings.h"
 #import "ios/components/webui/web_ui_url_constants.h"
@@ -277,6 +278,27 @@ bool IsProfileUnmanaged(ProfileIOS* profile) {
   }
   // Otherwise, the profile is unmanaged if it is not managed.
   return !service->IsManaged();
+}
+
+// Returns the account alignment status given the external app and client app
+// hashed Gaia IDs.
+GeminiAppSwitcherAccountStatus GetAppSwitcherAccountStatus(
+    NSString* external_app_hashed_gaia_id,
+    NSString* client_app_hashed_gaia_id) {
+  if (external_app_hashed_gaia_id.length && client_app_hashed_gaia_id.length) {
+    if ([external_app_hashed_gaia_id
+            isEqualToString:client_app_hashed_gaia_id]) {
+      return GeminiAppSwitcherAccountStatus::kMatching;
+    }
+    return GeminiAppSwitcherAccountStatus::kMismatched;
+  }
+  if (external_app_hashed_gaia_id.length) {
+    return GeminiAppSwitcherAccountStatus::kExternalAppOnlySignedIn;
+  }
+  if (client_app_hashed_gaia_id.length) {
+    return GeminiAppSwitcherAccountStatus::kClientAppOnlySignedIn;
+  }
+  return GeminiAppSwitcherAccountStatus::kBothSignedOut;
 }
 
 }  // namespace
@@ -672,7 +694,7 @@ UrlLoadParams UpdateParamsForDinoGame(UrlLoadParams params) {
         NOTREACHED() << "Credential import is available on iOS 26+ only.";
       }
     case TRIGGER_GEMINI_PROMO:
-      if (IsAppStoreInAppEventsEnabled()) {
+      if (IsPageActionMenuEnabled()) {
         return ^{
           [weakSelf triggerGeminiFlowFromAppStoreEvent];
         };
@@ -1386,11 +1408,7 @@ UrlLoadParams UpdateParamsForDinoGame(UrlLoadParams params) {
 }
 
 - (BOOL)shareExtensionURLEligibleForAccountChange:(NSURL*)URL {
-  return [URL.path
-      isEqualToString:
-          [NSString
-              stringWithFormat:@"/%s",
-                               app_group::kChromeAppGroupXCallbackCommand]];
+  return app_group::IsShareExtensionCommandURL(URL);
 }
 
 - (URLContext*)findContextRequiringAccountChange:
@@ -1897,7 +1915,7 @@ UrlLoadParams UpdateParamsForDinoGame(UrlLoadParams params) {
   }
 
   if (IsSigninForcedByPolicy()) {
-    if (self.mainCoordinator.isSigninInProgress) {
+    if (self.sceneState.signinInProgress) {
       // Return NO because intents cannot be handled when a sign-in is in
       // progress.
       return NO;
@@ -2052,11 +2070,6 @@ UrlLoadParams UpdateParamsForDinoGame(UrlLoadParams params) {
 
   if (IsLevelUpEnabled()) {
     [sceneState addAgent:[[LevelUpSceneAgent alloc] init]];
-  }
-
-  if (IsDockingPromoV2Enabled()) {
-    [sceneState addAgent:[[DockingPromoSceneAgent alloc]
-                             initWithPromosManager:promosManager]];
   }
 
   if (IsDefaultBrowserPictureInPictureEnabled()) {
@@ -2468,19 +2481,17 @@ UrlLoadParams UpdateParamsForDinoGame(UrlLoadParams params) {
   // the dismissal logic must be explicitly addressed here.
   //
   // Refer to crbug.com/470968439 for additional context.
-  if (IsComposeboxIOSEnabled()) {
-    BOOL alreadyInIncognito = self.currentInterface.profile->IsOffTheRecord();
-    BOOL targetModeIncognito =
-        targetMode == ApplicationModeForTabOpening::INCOGNITO;
-    // The composebox UI and its dependencies are browser-scoped and
-    // instantiated upon creation.
-    //
-    // When the context changes (e.g., transitioning to Incognito mode), any
-    // preexisting Composebox UI must be dismissed and recreated to ensure its
-    // underlying dependencies remain synchronized with the new environment.
-    if (alreadyInIncognito != targetModeIncognito) {
-      dismissOmnibox = YES;
-    }
+  BOOL alreadyInIncognito = self.currentInterface.profile->IsOffTheRecord();
+  BOOL targetModeIncognito =
+      targetMode == ApplicationModeForTabOpening::INCOGNITO;
+  // The composebox UI and its dependencies are browser-scoped and
+  // instantiated upon creation.
+  //
+  // When the context changes (e.g., transitioning to Incognito mode), any
+  // preexisting Composebox UI must be dismissed and recreated to ensure its
+  // underlying dependencies remain synchronized with the new environment.
+  if (alreadyInIncognito != targetModeIncognito) {
+    dismissOmnibox = YES;
   }
 
   BOOL dismissGemini = YES;
@@ -2505,17 +2516,15 @@ UrlLoadParams UpdateParamsForDinoGame(UrlLoadParams params) {
   __weak SceneController* weakSelf = self;
   std::vector<GURL> copyURLs = URLs;
 
-  if (IsComposeboxIOSEnabled()) {
-    BOOL alreadyInIncognito = self.currentInterface.profile->IsOffTheRecord();
-    // The composebox UI and its dependencies are browser-scoped and
-    // instantiated upon creation.
-    //
-    // When the context changes (e.g., transitioning to Incognito mode), any
-    // preexisting Composebox UI must be dismissed and recreated to ensure its
-    // underlying dependencies remain synchronized with the new environment.
-    if (alreadyInIncognito != incognitoMode) {
-      dismissOmnibox = YES;
-    }
+  BOOL alreadyInIncognito = self.currentInterface.profile->IsOffTheRecord();
+  // The composebox UI and its dependencies are browser-scoped and
+  // instantiated upon creation.
+  //
+  // When the context changes (e.g., transitioning to Incognito mode), any
+  // preexisting Composebox UI must be dismissed and recreated to ensure its
+  // underlying dependencies remain synchronized with the new environment.
+  if (alreadyInIncognito != incognitoMode) {
+    dismissOmnibox = YES;
   }
 
   [self
@@ -2703,10 +2712,12 @@ UrlLoadParams UpdateParamsForDinoGame(UrlLoadParams params) {
       authService ? authService->GetPrimaryIdentity() : nil;
   NSString* activeHashedGaiaID = identity ? identity.hashedGaiaID : nil;
   NSString* targetHashedGaiaID = self.startupParameters.appSwitcherHashedUserID;
-  if (targetHashedGaiaID.length && activeHashedGaiaID.length &&
-      ![targetHashedGaiaID isEqualToString:activeHashedGaiaID]) {
+  GeminiAppSwitcherAccountStatus accountStatus =
+      GetAppSwitcherAccountStatus(targetHashedGaiaID, activeHashedGaiaID);
+  if (accountStatus == GeminiAppSwitcherAccountStatus::kMismatched) {
     startupState.isMismatchedAccount = YES;
   }
+  RecordGeminiAppSwitcherAccountStatus(accountStatus);
 
   id<GeminiCommands> geminiHandler =
       HandlerForProtocol(browser->GetCommandDispatcher(), GeminiCommands);

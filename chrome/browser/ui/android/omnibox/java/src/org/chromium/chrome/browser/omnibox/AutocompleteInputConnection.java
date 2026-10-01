@@ -9,6 +9,7 @@ import android.text.Editable;
 import android.view.KeyEvent;
 import android.view.inputmethod.CompletionInfo;
 import android.view.inputmethod.CorrectionInfo;
+import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.ExtractedText;
 import android.view.inputmethod.ExtractedTextRequest;
 import android.view.inputmethod.InputConnectionWrapper;
@@ -105,15 +106,15 @@ class AutocompleteInputConnection extends InputConnectionWrapper {
         /** Notifies that the autocomplete text state has changed. */
         void notifyAutocompleteTextStateChanged();
 
-        /** Updates the selection, primarily for testing purposes. */
-        void updateSelectionForTesting();
-
         /**
          * Determines if the composition should be finished upon deletion.
          *
          * @return True if the composition should be finished on deletion, false otherwise.
          */
         boolean shouldFinishCompositionOnDeletion();
+
+        /** Updates the selection, primarily for testing purposes. */
+        void updateSelectionForTesting();
     }
 
     /**
@@ -386,6 +387,12 @@ class AutocompleteInputConnection extends InputConnectionWrapper {
     @Override
     public boolean performEditorAction(final int editorAction) {
         if (DEBUG) Log.i(TAG, "performEditorAction: " + editorAction);
+        // Swallow NEXT and PREVIOUS actions to avoid triggering TextView focusSearch.
+        // The Omnibox does not support form field navigation.
+        if (editorAction == EditorInfo.IME_ACTION_NEXT
+                || editorAction == EditorInfo.IME_ACTION_PREVIOUS) {
+            return true;
+        }
         onBeginImeCommand();
         commitAutocomplete();
         boolean retVal = super.performEditorAction(editorAction);

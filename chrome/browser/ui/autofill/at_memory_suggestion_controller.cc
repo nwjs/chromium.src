@@ -105,9 +105,7 @@ void AtMemorySuggestionController::UnselectSuggestion() {
   NOTREACHED();
 }
 
-bool AtMemorySuggestionController::RemoveSuggestion(
-    int index,
-    AutofillMetrics::SingleEntryRemovalMethod removal_method) {
+bool AtMemorySuggestionController::RemoveSuggestion(int index) {
   NOTREACHED();
 }
 
@@ -152,7 +150,7 @@ void AtMemorySuggestionController::Show(
   bridge_->RequestShowContent(suggestions_);
 
   if (delegate_) {
-    delegate_->OnSuggestionsShown(suggestions_, std::nullopt);
+    delegate_->OnSuggestionsShown(suggestions_, /*metadata=*/{});
   }
 }
 
@@ -169,6 +167,10 @@ void AtMemorySuggestionController::SetKeepPopupOpenForTesting(
 void AtMemorySuggestionController::UpdateDataListValues(
     base::span<const SelectOption> options) {
   NOTREACHED();
+}
+
+const LocalFrameToken& AtMemorySuggestionController::GetFrameToken() const {
+  return controller_common_.frame_token;
 }
 
 void AtMemorySuggestionController::HideViewAndDie() {
@@ -263,7 +265,7 @@ void AtMemorySuggestionController::OnChildSuggestionsShown(
   if (delegate_) {
     delegate_->OnSuggestionsShown(
         parent_suggestion.children,
-        AutofillSuggestionDelegate::SuggestionMetadata{
+        AutofillSuggestionDelegate::SuggestionUiMetadata{
             .multi_index = {static_cast<size_t>(parent_position)}});
   }
 }

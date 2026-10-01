@@ -37,9 +37,6 @@ namespace extensions_features {
 // NOTE(devlin): If there are consistently enough of these in flux, it might
 // make sense to have their own file.
 
-// Controls the limit for action.setBadgeText() API input.
-BASE_DECLARE_FEATURE(kApiActionSetBadgeTextByteLimit);
-
 // Controls the availability of SplitView Extension APIs.
 BASE_DECLARE_FEATURE(kApiTabsSplitView);
 
@@ -174,6 +171,16 @@ BASE_DECLARE_FEATURE_PARAM(size_t, kMaxScriptSizeForBackgroundCompilation);
 // in incognito mode are short-circuited and automatically rejected without
 // prompting the user.
 BASE_DECLARE_FEATURE(kExtensionAutoRejectIncognitoConnectability);
+
+// If enabled (the default), extensions calling chrome.debugger.attach are
+// rejected upfront when enterprise policy configures runtime_blocked_hosts or
+// disables/restricts screenshots. If disabled (kill switch), extension debugger
+// attachment reverts to the pre-existing behavior prior to M155: falling back
+// to per-URL IsPolicyBlockedHost checks and allowing attachment when
+// screenshots are disabled. Note that disabling this feature has security
+// implications.
+// See https://developer.chrome.com/blog/debugger-enterprise-policy-restrictions.
+BASE_DECLARE_FEATURE(kExtensionDebuggerStrictPolicyRestrictions);
 
 // If enabled, disables unpacked extensions if developer mode is off.
 BASE_DECLARE_FEATURE(kExtensionDisableUnsupportedDeveloper);
@@ -317,6 +324,12 @@ BASE_DECLARE_FEATURE_PARAM(bool,
 // When enabled, all search extensions will unconditionally get the search
 // engine override dialog.
 BASE_DECLARE_FEATURE(kSearchEngineUnconditionalDialog);
+
+// When enabled, Event argument ref-counting is used to share arguments across
+// dispatched events instead of deep-cloning. Behind a feature to assess impact
+// (go/chrome-performance-work-should-be-finched).
+// TODO(crbug.com/424432184): Clean up when experiment is complete.
+BASE_DECLARE_FEATURE(kShareEventArgsOnDispatch);
 
 // Enables the securityInfo in chrome.webRequest API for extensions.
 // Allowing them to retrieve certificate information from web requests.

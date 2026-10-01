@@ -34,7 +34,7 @@ namespace glic {
 class GlicKeyedService;
 class GlicPageHandler;
 class GlicWebClientManager;
-class WebUIContentsContainer;
+class GlicWebContentsManager;
 class GlicInstanceMetrics;
 class GlicInstanceMetricsBackwardsCompatibility;
 
@@ -61,7 +61,7 @@ class Host : public GlicSharingManagerProvider {
     // Allows the user to manually resize the widget by dragging. If the widget
     // hasn't been created yet, apply this setting when it is created. No effect
     // if the widget doesn't exist or the feature flag is disabled.
-    virtual void EnableDragResize(bool enabled);
+    virtual void SetDragResizeEnabled(bool enabled);
 
     // Attaches glic to the last focused Chrome window.
     virtual void Attach() = 0;
@@ -108,6 +108,9 @@ class Host : public GlicSharingManagerProvider {
     virtual void CreateZeroStateSuggestionsHandler(
         mojo::PendingReceiver<mojom::ZeroStateSuggestionsHandler> receiver) = 0;
 
+    virtual void CreateGeminiEnterpriseHandler(
+        mojo::PendingReceiver<mojom::GeminiEnterpriseHandler> receiver) = 0;
+
     virtual void RegisterConversation(
         glic::mojom::ConversationInfoPtr info,
         mojom::WebClientHandler::RegisterConversationCallback callback) = 0;
@@ -124,8 +127,8 @@ class Host : public GlicSharingManagerProvider {
 
     virtual GlicSkillsManager& skills_manager() = 0;
 
-    virtual std::unique_ptr<WebUIContentsContainer>
-    CreateWebUIContentsContainer() = 0;
+    virtual std::unique_ptr<GlicWebContentsManager>
+    CreateWebContentsManager() = 0;
     virtual GlicExperimentalTriggeringManager*
     GetExperimentalTriggeringManager() = 0;
   };
@@ -151,6 +154,10 @@ class Host : public GlicSharingManagerProvider {
     virtual void WebClientInitializeFailed() {}
     // The webview reached a login page.
     virtual void LoginPageCommitted() {}
+    // Called when the active WebContents in the host changes (e.g. in
+    // NoWebview mode when swapping between the overlay WebUI and guest).
+    virtual void ActiveWebContentsChanged(content::WebContents* new_contents) {}
+
     // Called when the WebUI state changes in the glic WebUI.
     // If the glic WebUI is destroyed, the webUI state is returned to
     // kUninitialized.
@@ -254,9 +261,7 @@ class Host : public GlicSharingManagerProvider {
 
   void OnGuestWebClientCleared(bool had_web_client);
 
-  WebUIContentsContainer* contents_container() { return contents_.get(); }
-  std::unique_ptr<content::WebContents> ReleaseWebContents();
-  void ReclaimWebContents(std::unique_ptr<content::WebContents> web_contents);
+  GlicWebContentsManager* contents_manager() { return contents_.get(); }
   // Returns the WebUI web contents. May be null.
   content::WebContents* webui_contents() const;
 
@@ -368,7 +373,7 @@ class Host : public GlicSharingManagerProvider {
   // Allows the user to manually resize the widget by dragging. If the widget
   // hasn't been created yet, apply this setting when it is created. No effect
   // if the widget doesn't exist or the feature flag is disabled.
-  void EnableDragResize(bool enabled);
+  void SetDragResizeEnabled(bool enabled);
   void HibernateImpl(bool is_destroying);
   void AttachPanel();
   void DetachPanel();
@@ -416,32 +421,15 @@ class Host : public GlicSharingManagerProvider {
   GlicPageHandler* page_handler() const;
   bool IsGlicWebUiHost(content::RenderProcessHost* host) const;
 
-  // Information about the page handler which is cleared when the page handler
-  // goes away.
-  struct PageHandlerInfo {
-    PageHandlerInfo();
-    ~PageHandlerInfo();
-    PageHandlerInfo(PageHandlerInfo&&);
-    PageHandlerInfo& operator=(PageHandlerInfo&&);
-
-    raw_ptr<GlicPageHandler> page_handler = nullptr;
+  struct ClientState {
     // True if the response to PanelWillOpen was received. Cleared when
-    // PanelWasClosed() is called.
+    // PanelWasClosed() is called or when the web client is disconnected.
     bool open_complete = false;
     bool context_access_indicator_enabled = false;
   };
 
   void PanelWillOpenComplete(GlicWebClientAccess* client,
                              mojom::OpenPanelInfoPtr open_info);
-  PageHandlerInfo* FindInfo(GlicPageHandler* handler);
-  const PageHandlerInfo* FindInfo(GlicPageHandler* handler) const {
-    return const_cast<Host*>(this)->FindInfo(handler);
-  }
-  PageHandlerInfo* FindInfoForWebUiContents(content::WebContents* web_contents);
-  const PageHandlerInfo* FindInfoForWebUiContents(
-      content::WebContents* web_contents) const {
-    return const_cast<Host*>(this)->FindInfoForWebUiContents(web_contents);
-  }
   GlicWebClientManager* web_client_manager();
   const GlicWebClientManager* web_client_manager() const;
   content::Visibility GetExpectedVisibility() const;
@@ -470,9 +458,14 @@ class Host : public GlicSharingManagerProvider {
       pending_additional_contexts_;
   mojom::WebUiState primary_webui_state_ = mojom::WebUiState::kUninitialized;
   std::optional<mojom::PanelState> pending_panel_state_;
+  ClientState client_state_;
+  bool drag_resize_enabled_ = false;
 
-  std::unique_ptr<WebUIContentsContainer> contents_;
-  std::optional<PageHandlerInfo> handler_info_;
+  void OnActiveWebContentsChanged(content::WebContents* new_contents);
+
+  std::unique_ptr<GlicWebContentsManager> contents_;
+  base::CallbackListSubscription contents_changed_subscription_;
+  raw_ptr<GlicPageHandler> page_handler_ = nullptr;
 
   raw_ptr<GlicSharingManagerProvider> sharing_manager_provider_;
 
@@ -491,7 +484,7 @@ class EmptyEmbedderDelegate : public Host::EmbedderDelegate {
   void Resize(const gfx::Size& size,
               base::TimeDelta duration,
               base::OnceClosure callback) override;
-  void EnableDragResize(bool enabled) override {}
+  void SetDragResizeEnabled(bool enabled) override {}
   void Attach() override {}
   void Detach() override {}
   void ClosePanel() override {}

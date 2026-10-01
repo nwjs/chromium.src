@@ -15,6 +15,7 @@
 #include "chrome/browser/glic/test_support/interactive_test_util.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "components/actor/core/actor_features.h"
 #include "components/favicon/core/test/mock_favicon_service.h"
 #include "components/password_manager/core/browser/features/password_features.h"
@@ -346,7 +347,6 @@ IN_PROC_BROWSER_TEST_P(AttemptLoginToolInteractiveUiTest, MAYBE_SmokeTest) {
 
   const std::string expected_request_origin =
       url::Origin::Create(url).Serialize();
-  const std::string expected_display_origin = "example.com:12345";
   auto expected_request =
       base::DictValue()
           .Set("taskId", actor_task().id().value())
@@ -360,7 +360,6 @@ IN_PROC_BROWSER_TEST_P(AttemptLoginToolInteractiveUiTest, MAYBE_SmokeTest) {
                           .Set("username", "username1")
                           .Set("sourceSiteOrApp", url.GetWithEmptyPath().spec())
                           .Set("requestOrigin", expected_request_origin)
-                          .Set("displayOrigin", expected_display_origin)
                           .Set("icon", kRedIconDataUrl.spec())
                           .Set("type", actor_login::CredentialType::kPassword))
                   .Append(
@@ -369,7 +368,6 @@ IN_PROC_BROWSER_TEST_P(AttemptLoginToolInteractiveUiTest, MAYBE_SmokeTest) {
                           .Set("username", "username2")
                           .Set("sourceSiteOrApp", url.GetWithEmptyPath().spec())
                           .Set("requestOrigin", expected_request_origin)
-                          .Set("displayOrigin", expected_display_origin)
                           .Set("icon", kRedIconDataUrl.spec())
                           .Set("type",
                                actor_login::CredentialType::kPassword)));
@@ -513,7 +511,6 @@ IN_PROC_BROWSER_TEST_P(AttemptLoginToolInteractiveUiTest,
 
   const std::string expected_request_origin =
       url::Origin::Create(url).Serialize();
-  const std::string expected_display_origin = "example.com:12345";
   auto expected_request =
       base::DictValue()
           .Set("taskId", actor_task().id().value())
@@ -527,7 +524,6 @@ IN_PROC_BROWSER_TEST_P(AttemptLoginToolInteractiveUiTest,
                           .Set("username", "username1")
                           .Set("sourceSiteOrApp", url.host())
                           .Set("requestOrigin", expected_request_origin)
-                          .Set("displayOrigin", expected_display_origin)
                           .Set("type", actor_login::CredentialType::kFederated))
                   .Append(
                       base::DictValue()
@@ -535,7 +531,6 @@ IN_PROC_BROWSER_TEST_P(AttemptLoginToolInteractiveUiTest,
                           .Set("username", "username2")
                           .Set("sourceSiteOrApp", url.host())
                           .Set("requestOrigin", expected_request_origin)
-                          .Set("displayOrigin", expected_display_origin)
                           .Set("type", actor_login::CredentialType::kFederated))
                   .Append(
                       base::DictValue()
@@ -543,7 +538,6 @@ IN_PROC_BROWSER_TEST_P(AttemptLoginToolInteractiveUiTest,
                           .Set("username", "username3")
                           .Set("sourceSiteOrApp", url.GetWithEmptyPath().spec())
                           .Set("requestOrigin", expected_request_origin)
-                          .Set("displayOrigin", expected_display_origin)
                           .Set("icon", kRedIconDataUrl.spec())
                           .Set("type", actor_login::CredentialType::kPassword))
                   .Append(
@@ -552,7 +546,6 @@ IN_PROC_BROWSER_TEST_P(AttemptLoginToolInteractiveUiTest,
                           .Set("username", "username1")
                           .Set("sourceSiteOrApp", url.GetWithEmptyPath().spec())
                           .Set("requestOrigin", expected_request_origin)
-                          .Set("displayOrigin", expected_display_origin)
                           .Set("icon", kRedIconDataUrl.spec())
                           .Set("type",
                                actor_login::CredentialType::kPassword)));
@@ -621,7 +614,6 @@ IN_PROC_BROWSER_TEST_P(AttemptLoginToolInteractiveUiTest,
 
   const std::string expected_request_origin =
       url::Origin::Create(url).Serialize();
-  const std::string expected_display_origin = "example.com:12345";
   auto expected_request =
       base::DictValue()
           .Set("taskId", actor_task().id().value())
@@ -633,7 +625,6 @@ IN_PROC_BROWSER_TEST_P(AttemptLoginToolInteractiveUiTest,
                                .Set("username", "username1")
                                .Set("sourceSiteOrApp", url.host())
                                .Set("requestOrigin", expected_request_origin)
-                               .Set("displayOrigin", expected_display_origin)
                                .Set("accountPicture", kBlueIconDataUrl.spec())
                                .Set("icon", kRedIconDataUrl.spec())
                                .Set("type",
@@ -643,7 +634,6 @@ IN_PROC_BROWSER_TEST_P(AttemptLoginToolInteractiveUiTest,
                                .Set("username", "username2")
                                .Set("sourceSiteOrApp", url.host())
                                .Set("requestOrigin", expected_request_origin)
-                               .Set("displayOrigin", expected_display_origin)
                                .Set("accountPicture", kRedIconDataUrl.spec())
                                .Set("icon", kRedIconDataUrl.spec())
                                .Set("type",

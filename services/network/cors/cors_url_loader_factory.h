@@ -107,6 +107,9 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) CorsURLLoaderFactory final
   const std::optional<url::Origin>& request_initiator_origin_lock() const {
     return request_initiator_origin_lock_;
   }
+  const std::optional<url::Origin>& isolated_world_origin_lock() const {
+    return isolated_world_origin_lock_;
+  }
 
   mojom::CrossOriginEmbedderPolicyReporter* coep_reporter() {
     return coep_reporter_ ? coep_reporter_.get() : nullptr;
@@ -192,6 +195,7 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) CorsURLLoaderFactory final
   const OriginatingProcessId process_id_;
   const std::optional<url::Origin> request_initiator_origin_lock_;
   const bool ignore_isolated_world_origin_;
+  const std::optional<url::Origin> isolated_world_origin_lock_;
   const mojom::TrustTokenOperationPolicyVerdict trust_token_issuance_policy_;
   const mojom::TrustTokenOperationPolicyVerdict trust_token_redemption_policy_;
   net::IsolationInfo isolation_info_;
@@ -210,6 +214,7 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) CorsURLLoaderFactory final
   const net::CookieSettingOverrides devtools_cookie_setting_overrides_;
   const bool is_main_frame_origin_recently_accessed_;
   const bool is_outermost_main_frame_;
+  const bool renderer_accessible_http_cache_write_enabled_;
 
   // Relative order of `network_loader_factory_` and `loaders_` matters -
   // URLLoaderFactory needs to live longer than URLLoaders created using the

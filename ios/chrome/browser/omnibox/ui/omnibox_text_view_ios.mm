@@ -25,10 +25,8 @@
 #import "ios/chrome/browser/omnibox/public/omnibox_util.h"
 #import "ios/chrome/browser/omnibox/ui/omnibox_text_input.h"
 #import "ios/chrome/browser/omnibox/ui/omnibox_text_input_delegate.h"
-#import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/public/features/system_flags.h"
 #import "ios/chrome/browser/shared/ui/util/animation_util.h"
-#import "ios/chrome/browser/shared/ui/util/reversed_animation.h"
 #import "ios/chrome/browser/shared/ui/util/rtl_geometry.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
 #import "ios/chrome/browser/toolbar/legacy/ui_bundled/public/toolbar_constants.h"
@@ -1206,9 +1204,7 @@ const CGFloat kVerticalOffset = 1;
 }
 
 - (void)updateTextContainerInset {
-  BOOL isComposeboxIpad =
-      IsComposeboxIpadEnabled() &&
-      ui::GetDeviceFormFactor() != ui::DEVICE_FORM_FACTOR_PHONE;
+  BOOL isComposeboxIpad = IsRegularXRegularSizeClass(self.traitCollection);
   CGFloat minVerticalInset =
       isComposeboxIpad ? kOmniboxTextViewMinVerticalInsetIPadComposebox
                        : kOmniboxTextViewMinVerticalInset;
@@ -1282,6 +1278,10 @@ const CGFloat kVerticalOffset = 1;
 }
 
 - (void)forceDisableReturnKey:(BOOL)forceDisable {
+  if (_forceDisableReturnKey == forceDisable) {
+    return;
+  }
+
   _forceDisableReturnKey = forceDisable;
   [self reloadInputViews];
 }

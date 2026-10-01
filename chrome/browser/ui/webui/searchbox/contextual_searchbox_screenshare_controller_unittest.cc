@@ -177,9 +177,15 @@ class ControlledDesktopMediaPickerFactory : public DesktopMediaPickerFactory {
 class ContextualSearchboxScreenshareControllerTest
     : public ChromeRenderViewHostTestHarness {
  public:
+  ContextualSearchboxScreenshareControllerTest()
+      : ChromeRenderViewHostTestHarness(
+            base::test::TaskEnvironment::TimeSource::MOCK_TIME) {}
+
   void SetUp() override {
     ChromeRenderViewHostTestHarness::SetUp();
 #if BUILDFLAG(IS_MAC)
+    scoped_feature_list_.InitAndDisableFeature(
+        kOmniboxEverywhereNativeScreenPicker);
     default_picker_test_flags_.expect_screens = true;
     default_picker_test_flags_.expect_windows = false;
     default_picker_test_flags_.picker_result =
@@ -194,12 +200,18 @@ class ContextualSearchboxScreenshareControllerTest
 
   void TearDown() override {
     controller_.reset();
+#if BUILDFLAG(IS_MAC)
+    scoped_feature_list_.Reset();
+#endif
     ChromeRenderViewHostTestHarness::TearDown();
   }
 
   void CreateController(DesktopMediaPickerFactory* picker_factory = nullptr) {
     controller_ = std::make_unique<ContextualSearchboxScreenshareController>(
         web_contents(), &mock_host_, &mock_delegate_, picker_factory);
+#if !BUILDFLAG(IS_ANDROID)
+    controller_->set_screen_capture_delay_for_testing(base::TimeDelta());
+#endif
   }
 
   MockScreenshareHost& host() { return mock_host_; }
@@ -246,6 +258,7 @@ class ContextualSearchboxScreenshareControllerTest
   std::unique_ptr<ContextualSearchboxScreenshareController> controller_;
   ntp_composebox::ScopedFeatureConfigForTesting scoped_config_;
 #if BUILDFLAG(IS_MAC)
+  base::test::ScopedFeatureList scoped_feature_list_;
   FakeDesktopMediaPickerFactory default_picker_factory_;
   FakeDesktopMediaPickerFactory::TestFlags default_picker_test_flags_;
 #endif
@@ -691,7 +704,10 @@ TEST_F(ContextualSearchboxScreenshareControllerTest,
   }
 
   base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndEnableFeature(media::kUseSCContentSharingPicker);
+  scoped_feature_list.InitWithFeatures(
+      /*enabled_features=*/{media::kUseSCContentSharingPicker,
+                            kOmniboxEverywhereNativeScreenPicker},
+      /*disabled_features=*/{});
   SetupScreenshotUploadConfig();
 
   EXPECT_CALL(delegate(), OnScreensharePickerOpened());
@@ -741,7 +757,10 @@ TEST_F(ContextualSearchboxScreenshareControllerTest,
   }
 
   base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndEnableFeature(media::kUseSCContentSharingPicker);
+  scoped_feature_list.InitWithFeatures(
+      /*enabled_features=*/{media::kUseSCContentSharingPicker,
+                            kOmniboxEverywhereNativeScreenPicker},
+      /*disabled_features=*/{});
 
   EXPECT_CALL(delegate(), OnScreensharePickerOpened());
   EXPECT_CALL(delegate(), OnScreensharePickerClosed());
@@ -763,7 +782,10 @@ TEST_F(ContextualSearchboxScreenshareControllerTest,
   }
 
   base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndEnableFeature(media::kUseSCContentSharingPicker);
+  scoped_feature_list.InitWithFeatures(
+      /*enabled_features=*/{media::kUseSCContentSharingPicker,
+                            kOmniboxEverywhereNativeScreenPicker},
+      /*disabled_features=*/{});
   SetupScreenshotUploadConfig();
 
   EXPECT_CALL(delegate(), OnScreensharePickerOpened());
@@ -815,6 +837,40 @@ TEST_F(ContextualSearchboxScreenshareControllerTest,
   EXPECT_TRUE(future.Get().has_value());
   EXPECT_EQ(*future.Get(), expected_token);
 }
+
+TEST_F(ContextualSearchboxScreenshareControllerTest,
+       CancelChromeDefaultPicker_CancelsPickerAndNotifiesClosed) {
+  base::RepeatingClosure on_destroying;
+  DesktopMediaPicker::DoneCallback done_callback;
+  ControlledDesktopMediaPickerFactory picker_factory(&on_destroying,
+                                                     &done_callback);
+  CreateController(&picker_factory);
+
+  EXPECT_CALL(delegate(), OnScreensharePickerOpened());
+  EXPECT_CALL(delegate(), OnScreensharePickerClosed());
+
+  base::test::TestFuture<const std::optional<base::UnguessableToken>&> future;
+  controller().StartScreenshare(/*prefer_entire_screen=*/false,
+                                future.GetCallback());
+  EXPECT_TRUE(controller().screenshare_picker_controller_for_testing());
+  EXPECT_TRUE(controller().IsScreenshareInProgressForTesting());
+
+  EXPECT_TRUE(controller().CancelChromeDefaultPicker());
+  EXPECT_FALSE(controller().screenshare_picker_controller_for_testing());
+  EXPECT_FALSE(controller().IsScreenshareInProgressForTesting());
+  EXPECT_FALSE(future.Get().has_value());
+}
+
+TEST_F(ContextualSearchboxScreenshareControllerTest,
+       CancelChromeDefaultPicker_NoOpWhenNoPickerOpen) {
+  CreateController();
+  EXPECT_CALL(delegate(), OnScreensharePickerClosed()).Times(0);
+
+  EXPECT_FALSE(controller().IsScreenshareInProgressForTesting());
+  EXPECT_FALSE(controller().CancelChromeDefaultPicker());
+  EXPECT_FALSE(controller().IsScreenshareInProgressForTesting());
+}
+
 TEST_F(ContextualSearchboxScreenshareControllerTest,
        CaptureRegionScreenshot_NativePicker_Success) {
   if (base::mac::MacOSMajorVersion() < 14) {
@@ -823,7 +879,10 @@ TEST_F(ContextualSearchboxScreenshareControllerTest,
   }
 
   base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndEnableFeature(media::kUseSCContentSharingPicker);
+  scoped_feature_list.InitWithFeatures(
+      /*enabled_features=*/{media::kUseSCContentSharingPicker,
+                            kOmniboxEverywhereNativeScreenPicker},
+      /*disabled_features=*/{});
   SetupScreenshotUploadConfig();
 
   EXPECT_CALL(delegate(), OnScreensharePickerOpened());
@@ -881,7 +940,10 @@ TEST_F(ContextualSearchboxScreenshareControllerTest,
   }
 
   base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndEnableFeature(media::kUseSCContentSharingPicker);
+  scoped_feature_list.InitWithFeatures(
+      /*enabled_features=*/{media::kUseSCContentSharingPicker,
+                            kOmniboxEverywhereNativeScreenPicker},
+      /*disabled_features=*/{});
 
   EXPECT_CALL(delegate(), OnScreensharePickerOpened());
   EXPECT_CALL(delegate(), OnScreensharePickerClosed());
@@ -910,5 +972,57 @@ TEST_F(ContextualSearchboxScreenshareControllerTest,
   controller().CaptureRegionScreenshot(future.GetCallback());
 
   EXPECT_FALSE(future.Get().has_value());
+}
+
+TEST_F(ContextualSearchboxScreenshareControllerTest,
+       StartScreenshare_UseSCContentSharingPickerDisabled_UsesDefaultPicker) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeatures(
+      /*enabled_features=*/{kOmniboxEverywhereNativeScreenPicker},
+      /*disabled_features=*/{media::kUseSCContentSharingPicker});
+  SetupScreenshotUploadConfig();
+
+  EXPECT_CALL(delegate(), OnScreensharePickerOpened());
+  EXPECT_CALL(delegate(), OnScreensharePickerClosed());
+
+  FakeDesktopMediaPickerFactory picker_factory;
+  CreateController(&picker_factory);
+
+  FakeDesktopMediaPickerFactory::TestFlags test_flags;
+  test_flags.expect_screens = true;
+  test_flags.expect_windows = true;
+  test_flags.picker_result =
+      content::DesktopMediaID(content::DesktopMediaID::TYPE_WINDOW, 42);
+  picker_factory.SetTestFlags(base::span_from_ref(test_flags));
+
+  content::desktop_capture::ScopedDesktopCapturerForTesting scoped_capturer(
+      std::make_unique<FakeDesktopCapturer>());
+
+  base::UnguessableToken expected_token = base::UnguessableToken::Create();
+  EXPECT_CALL(host(), UploadScreenshot)
+      .WillOnce([&](std::string file_name, std::string mime_type,
+                    mojo_base::BigBuffer file_bytes,
+                    std::optional<lens::ImageEncodingOptions> image_options,
+                    MockScreenshareHost::AddFileContextCallback callback) {
+        EXPECT_EQ(file_name, "Screenshot.png");
+        EXPECT_EQ(mime_type, "image/png");
+        EXPECT_TRUE(image_options.has_value());
+        std::move(callback).Run(expected_token);
+      });
+
+  EXPECT_CALL(host(), AddFileContextToPage(expected_token, testing::_))
+      .WillOnce([&](const base::UnguessableToken& token,
+                    searchbox::mojom::SelectedFileInfoPtr file_info) {
+        EXPECT_EQ(file_info->file_name, "Screenshot.png");
+        EXPECT_EQ(file_info->mime_type, "image/png");
+        EXPECT_TRUE(file_info->image_data_url.has_value());
+      });
+
+  base::test::TestFuture<const std::optional<base::UnguessableToken>&> future;
+  controller().StartScreenshare(/*prefer_entire_screen=*/false,
+                                future.GetCallback());
+
+  EXPECT_TRUE(future.Get().has_value());
+  EXPECT_EQ(*future.Get(), expected_token);
 }
 #endif

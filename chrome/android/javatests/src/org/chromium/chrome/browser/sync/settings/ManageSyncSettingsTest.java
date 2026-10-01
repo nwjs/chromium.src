@@ -29,6 +29,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import static org.chromium.chrome.browser.settings.SettingsSearchTestUtils.assertNoSearchResultsFound;
+import static org.chromium.chrome.browser.settings.SettingsSearchTestUtils.assertPreferenceScreenMatchesIndex;
 import static org.chromium.chrome.browser.settings.SettingsSearchTestUtils.clickSearchResult;
 import static org.chromium.chrome.browser.settings.SettingsSearchTestUtils.highlighted;
 import static org.chromium.chrome.browser.settings.SettingsSearchTestUtils.typeSearchQuery;
@@ -297,6 +298,10 @@ public class ManageSyncSettingsTest {
         }
 
         onView(withText(R.string.account_section_header)).check(matches(isDisplayed()));
+        Preference accountSectionHeader =
+                fragment.findPreference(ManageSyncSettings.PREF_ACCOUNT_SECTION_HEADER);
+        Assert.assertNotNull(accountSectionHeader);
+        Assert.assertFalse(accountSectionHeader.isIconSpaceReserved());
 
         scrollToAndVerifyPresence(R.string.account_section_history_toggle);
 
@@ -325,6 +330,10 @@ public class ManageSyncSettingsTest {
         onView(withText(R.string.account_advanced_header)).check(matches(isDisplayed()));
         onView(withText(R.string.sign_in_personalize_google_services_summary))
                 .check(matches(isDisplayed()));
+        Preference accountAdvancedHeader =
+                fragment.findPreference(ManageSyncSettings.PREF_ACCOUNT_ADVANCED_HEADER);
+        Assert.assertNotNull(accountAdvancedHeader);
+        Assert.assertFalse(accountAdvancedHeader.isIconSpaceReserved());
 
         scrollToAndVerifyPresence(R.string.sync_encryption);
 
@@ -1699,30 +1708,34 @@ public class ManageSyncSettingsTest {
 
     @Test
     @SmallTest
-    public void testSearchPersonalizationAndLinkingTitle_signedIn_nonEea() {
+    public void testPreferenceScreenMatchesSearchIndex_signedIn_nonEea() {
         when(mRegionalCapabilities.isInEeaCountry()).thenReturn(false);
-        mSettingsSearchTestRule.startSettingsActivity();
         mSyncTestRule.setUpAccountAndSignInForTesting();
+        ManageSyncSettings fragment = startManageSyncPreferences();
 
-        typeSearchQuery("personalization");
-
-        onViewWaiting(withText(R.string.sign_in_personalize_google_services_title))
-                .check(matches(isDisplayed()));
+        assertPreferenceScreenMatchesIndex(fragment);
     }
 
     @Test
     @SmallTest
-    public void testSearchPersonalizationAndLinkingTitle_signedIn_eea() {
+    public void testPreferenceScreenMatchesSearchIndex_signedIn_eea() {
         when(mRegionalCapabilities.isInEeaCountry()).thenReturn(true);
-        mSettingsSearchTestRule.startSettingsActivity();
         mSyncTestRule.setUpAccountAndSignInForTesting();
+        ManageSyncSettings fragment = startManageSyncPreferences();
 
-        typeSearchQuery("linking");
-
-        onViewWaiting(withText(R.string.sign_in_personalize_google_services_title_eea))
-                .check(matches(isDisplayed()));
+        assertPreferenceScreenMatchesIndex(fragment);
     }
 
+    @Test
+    @SmallTest
+    @EnableFeatures(SigninFeatures.SIGN_OUT_OF_CHROME)
+    public void testPreferenceScreenMatchesSearchIndex_signedIn_desktop() {
+        DeviceInfo.setIsDesktopForTesting(true);
+        mSyncTestRule.setUpAccountAndSignInForTesting();
+        ManageSyncSettings fragment = startManageSyncPreferences();
+
+        assertPreferenceScreenMatchesIndex(fragment);
+    }
 
     private void assertOpensIncognitoSession(
             boolean openAsWindow, Matcher<Intent> expectedIntentMatcher) {

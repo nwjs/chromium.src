@@ -40,6 +40,7 @@
 #include "chrome/browser/extensions/blocklist_factory.h"
 #include "chrome/browser/extensions/chrome_component_extension_resource_manager.h"
 #include "chrome/browser/extensions/chrome_content_browser_client_extensions_part.h"
+#include "chrome/browser/extensions/chrome_extension_function_details.h"
 #include "chrome/browser/extensions/chrome_extension_host_delegate.h"
 #include "chrome/browser/extensions/chrome_extension_system_factory.h"
 #include "chrome/browser/extensions/chrome_extension_web_contents_observer.h"
@@ -80,6 +81,8 @@
 #include "chrome/browser/safe_browsing/safe_browsing_service.h"
 #include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/browser/task_manager/web_contents_tags.h"
+#include "extensions/buildflags/buildflags.h"
+#include "ui/base/page_transition_types.h"
 #if !BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/profile_browser_collection.h"
@@ -264,9 +267,6 @@ bool RegisterTransformers() {
       std::make_unique<PrivacySandboxTransformer>());
   pref_mapping->RegisterPrefTransformer(
       prefs::kPrivacySandboxM1AdMeasurementEnabled,
-      std::make_unique<PrivacySandboxTransformer>());
-  pref_mapping->RegisterPrefTransformer(
-      prefs::kPrivacySandboxRelatedWebsiteSetsEnabled,
       std::make_unique<PrivacySandboxTransformer>());
 
   return true;
@@ -1040,12 +1040,12 @@ ChromeExtensionsBrowserClient::GetSafeBrowsingDatabaseManager() const {
 #endif
 }
 
-std::optional<safe_browsing::V4ProtocolConfig>
-ChromeExtensionsBrowserClient::GetV4ProtocolConfig() const {
+std::optional<safe_browsing::SBProtocolConfig>
+ChromeExtensionsBrowserClient::GetSBProtocolConfig() const {
 #if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
   return g_browser_process && g_browser_process->safe_browsing_service()
              ? std::optional(g_browser_process->safe_browsing_service()
-                                 ->GetV4ProtocolConfig())
+                                 ->GetSBProtocolConfig())
              : std::nullopt;
 #else
   return std::nullopt;
@@ -1324,6 +1324,21 @@ ChromeExtensionsBrowserClient::CreateInstallPrompt(
     std::unique_ptr<InstallPromptData> prompt) {
   return std::make_unique<ExtensionInstallPrompt>(web_contents,
                                                   std::move(prompt));
+}
+
+std::unique_ptr<ExtensionInstallPromptClient>
+ChromeExtensionsBrowserClient::CreateInstallPromptForNativeWindow(
+    gfx::NativeWindow native_window,
+    content::BrowserContext& browser_context,
+    std::unique_ptr<InstallPromptData> prompt) {
+  return std::make_unique<ExtensionInstallPrompt>(
+      Profile::FromBrowserContext(&browser_context), native_window,
+      std::move(prompt));
+}
+
+gfx::NativeWindow ChromeExtensionsBrowserClient::GetNativeWindowForFunction(
+    ExtensionFunction& function) {
+  return ChromeExtensionFunctionDetails(&function).GetNativeWindowForUI();
 }
 
 void ChromeExtensionsBrowserClient::SetAPIClientForTest(

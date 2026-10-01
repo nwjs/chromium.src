@@ -18,6 +18,7 @@ import android.widget.FrameLayout;
 
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -37,6 +38,7 @@ import org.chromium.base.supplier.SettableNonNullObservableSupplier;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.Features.EnableFeatures;
+import org.chromium.chrome.browser.app.tabmodel.ArchivedTabModelOrchestrator;
 import org.chromium.chrome.browser.back_press.BackPressManager;
 import org.chromium.chrome.browser.bookmarks.BookmarkModel;
 import org.chromium.chrome.browser.bookmarks.TabBookmarker;
@@ -59,13 +61,13 @@ import org.chromium.chrome.browser.price_tracking.PriceTrackingFeatures;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.profiles.ProfileProvider;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab.TabArchiveSettings;
 import org.chromium.chrome.browser.tab_group_sync.TabGroupSyncServiceFactory;
 import org.chromium.chrome.browser.tab_ui.TabContentManager;
 import org.chromium.chrome.browser.tab_ui.TabListMode;
 import org.chromium.chrome.browser.tabmodel.TabCreatorManager;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
-import org.chromium.chrome.browser.tabmodel.TabModelSelectorObserver;
 import org.chromium.chrome.browser.tabmodel.TabUiUnitTestUtils;
 import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeController;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
@@ -128,8 +130,9 @@ public class TabSwitcherPaneCoordinatorFactoryUnitTest {
     @Mock private Supplier<PaneManager> mPaneManagerSupplier;
     @Mock private Supplier<TabGroupUiActionHandler> mTabGroupUiActionHandlerSupplier;
     @Mock private Supplier<LayoutStateProvider> mLayoutStateProviderSupplier;
+    @Mock private ArchivedTabModelOrchestrator mArchivedTabModelOrchestrator;
+    @Mock private TabArchiveSettings mTabArchiveSettings;
 
-    @Captor private ArgumentCaptor<TabModelSelectorObserver> mTabModelSelectorObserverCaptor;
     @Captor private ArgumentCaptor<LifecycleObserver> mLifecycleObserverCaptor;
 
     private final OneshotSupplierImpl<ProfileProvider> mProfileProviderSupplier =
@@ -146,6 +149,8 @@ public class TabSwitcherPaneCoordinatorFactoryUnitTest {
             ObservableSuppliers.createNonNull(false);
     private final SettableMonotonicObservableSupplier<TabBookmarker> mTabBookmarkerSupplier =
             ObservableSuppliers.createMonotonic();
+    private final SettableNonNullObservableSupplier<Integer> mArchivedTabCountSupplier =
+            ObservableSuppliers.createNonNull(0);
     private FrameLayout mParentView;
     private TabSwitcherPaneCoordinatorFactory mFactory;
 
@@ -160,6 +165,10 @@ public class TabSwitcherPaneCoordinatorFactoryUnitTest {
         DataSharingServiceFactory.setForTesting(new TestDataSharingService());
         CollaborationServiceFactory.setForTesting(mCollaborationService);
         TabGroupSyncServiceFactory.setForTesting(mTabGroupSyncService);
+        ArchivedTabModelOrchestrator.setInstanceForTesting(mArchivedTabModelOrchestrator);
+        when(mArchivedTabModelOrchestrator.getTabArchiveSettings()).thenReturn(mTabArchiveSettings);
+        when(mTabArchiveSettings.getArchivedTabCountSupplier())
+                .thenReturn(mArchivedTabCountSupplier);
         when(mCollaborationService.getServiceStatus())
                 .thenReturn(
                         new ServiceStatus(
@@ -188,6 +197,11 @@ public class TabSwitcherPaneCoordinatorFactoryUnitTest {
 
         mActivityScenarioRule.getScenario().onActivity(this::onActivityReady);
         BookmarkModel.setInstanceForTesting(mBookmarkModel);
+    }
+
+    @After
+    public void tearDown() {
+        ArchivedTabModelOrchestrator.setInstanceForTesting(null);
     }
 
     private void onActivityReady(Activity activity) {

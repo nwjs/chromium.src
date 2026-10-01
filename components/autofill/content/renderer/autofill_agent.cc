@@ -69,7 +69,6 @@
 #include "mojo/public/cpp/bindings/remote.h"
 #include "services/service_manager/public/cpp/interface_provider.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"
-#include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/input/web_keyboard_event.h"
 #include "third_party/blink/public/common/renderer_preferences/renderer_preferences.h"
 #include "third_party/blink/public/common/webid/email_verification_state.h"
@@ -1292,7 +1291,6 @@ void AutofillAgent::TriggerSuggestions(
       case kAtMemoryContextMenu:
       case kAtMemoryDoubleCtrl:
       case kAtMemoryKeyboardShortcut:
-      case kAtMemoryTriggerString:
         return true;
       case kUnspecified:
       case kFormControlElementClicked:
@@ -1306,6 +1304,7 @@ void AutofillAgent::TriggerSuggestions(
       case kManualFallbackPasswords:
       case kPasswordManagerProcessedFocusedField:
       case kProactivePasswordRecovery:
+      case kGmailOneTimePasswordAvailable:
       case kGlic:
       case kAtMemoryInactivityNudge:
         return false;
@@ -1441,13 +1440,7 @@ void AutofillAgent::SetSuggestionAvailability(
     return;
   }
 
-  if (base::FeatureList::IsEnabled(
-          blink::features::kSelectAutofillPopoverPreview)) {
-    SetAutofillSuggestionAvailability(form_control, suggestion_availability);
-  } else {
-    SetAutofillSuggestionAvailability(form_control.DynamicTo<WebInputElement>(),
-                                      suggestion_availability);
-  }
+  SetAutofillSuggestionAvailability(form_control, suggestion_availability);
 }
 
 void AutofillAgent::AcceptDataListSuggestion(
@@ -1529,12 +1522,12 @@ bool AutofillAgent::ShouldThrottleAskForValuesToFill(
       case kAtMemoryDoubleCtrl:
       case kAtMemoryInactivityNudge:
       case kAtMemoryKeyboardShortcut:
-      case kAtMemoryTriggerString:
       case kComposeDelayedProactiveNudge:
       case kComposeDialogLostFocus:
       case kManualFallbackPasswords:
       case kGlic:
       case kProactivePasswordRecovery:
+      case kGmailOneTimePasswordAvailable:
         // These sources are used for explicit user actions or by the browser
         // process. To maximize their reliability, we do not throttle them.
         if (base::FeatureList::IsEnabled(

@@ -97,6 +97,7 @@ group("resources") {
       "support_tool:resources",
       "tab_group_home:resources",
       "tab_search:resources",
+      "tab_search/shared:resources",
       "web_app_internals:resources",
       "webnn_internals:resources",
       "webui_browser:resources",
@@ -411,7 +412,7 @@ group("dev_ui_resources") {
   public_deps = [
     "accessibility:resources",
     "bluetooth_internals:resources",
-    "chrome_finds_internals:resources",
+    "browser_actuator_internals:resources",
     "components:resources",
     "content_settings:resources",
     "context_hub:resources",
@@ -464,6 +465,7 @@ group("dev_ui_resources") {
 
   if (is_android) {
     public_deps += [
+      "//chrome/browser/resources/chrome_finds_internals:resources",
       "//chrome/browser/resources/feed_internals:resources",
       "//chrome/browser/resources/notifications_internals:resources",
       "//chrome/browser/resources/webapks:resources",
@@ -471,6 +473,7 @@ group("dev_ui_resources") {
   } else {
     public_deps += [
       "color_pipeline_internals:resources",
+      "critical_actions:resources",
       "indigo_internals:resources",
       "infobar_internals:resources",
       "media_router/internals:resources",
@@ -502,7 +505,7 @@ repack("dev_ui_paks") {
   sources = [
     "$root_gen_dir/chrome/accessibility_resources.pak",
     "$root_gen_dir/chrome/bluetooth_internals_resources.pak",
-    "$root_gen_dir/chrome/chrome_finds_internals_resources.pak",
+    "$root_gen_dir/chrome/browser_actuator_internals_resources.pak",
     "$root_gen_dir/chrome/components_resources.pak",
     "$root_gen_dir/chrome/content_settings_resources.pak",
     "$root_gen_dir/chrome/context_hub_resources.pak",
@@ -555,6 +558,7 @@ repack("dev_ui_paks") {
 
   if (is_android) {
     sources += [
+      "$root_gen_dir/chrome/chrome_finds_internals_resources.pak",
       "$root_gen_dir/chrome/feed_internals_resources.pak",
       "$root_gen_dir/chrome/notifications_internals_resources.pak",
       "$root_gen_dir/chrome/webapks_resources.pak",
@@ -562,6 +566,7 @@ repack("dev_ui_paks") {
   } else {
     sources += [
       "$root_gen_dir/chrome/color_pipeline_internals_resources.pak",
+      "$root_gen_dir/chrome/critical_actions_resources.pak",
       "$root_gen_dir/chrome/indigo_internals_resources.pak",
       "$root_gen_dir/chrome/infobar_internals_resources.pak",
       "$root_gen_dir/chrome/media_router_internals_resources.pak",

@@ -9,23 +9,23 @@
 
 namespace features {
 
-BASE_FEATURE(kLaunchOnStartup, base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kLaunchOnStartup, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE_ENUM_PARAM(LaunchOnStartupMode,
                         kLaunchOnStartupModeParam,
                         &kLaunchOnStartup,
-                        "mode",
+                        kLaunchOnStartupModeParamName,
                         LaunchOnStartupMode::kForeground,
                         kLaunchOnStartupModeOptions);
 
 BASE_FEATURE_ENUM_PARAM(LaunchOnStartupDefaultPreference,
                         kLaunchOnStartupDefaultPreferenceParam,
                         &kLaunchOnStartup,
-                        "default_preference",
+                        kLaunchOnStartupDefaultPreferenceParamName,
                         LaunchOnStartupDefaultPreference::kDisabled,
                         kLaunchOnStartupTrialGroupOptions);
 
-BASE_FEATURE(kLaunchOnStartupInfoBar, base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kLaunchOnStartupInfoBar, base::FEATURE_DISABLED_BY_DEFAULT);
 
 bool IsForegroundLaunchEnabled() {
   // Do not consider instances with user-data-dir flag as part of the

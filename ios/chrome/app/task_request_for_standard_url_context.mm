@@ -6,14 +6,22 @@
 
 #import <UIKit/UIKit.h>
 
+#import "base/check_deref.h"
 #import "base/metrics/histogram_functions.h"
 #import "base/metrics/histogram_macros.h"
 #import "base/metrics/user_metrics.h"
-#import "base/strings/sys_string_conversions.h"
+#import "components/prefs/pref_service.h"
+#import "ios/chrome/app/profile/profile_state.h"
 #import "ios/chrome/app/startup/app_launch_metrics.h"
 #import "ios/chrome/app/task_request_url_context_private.h"
 #import "ios/chrome/browser/default_browser/model/utils.h"
 #import "ios/chrome/browser/intelligence/features/features.h"
+#import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
+#import "ios/chrome/browser/shared/model/prefs/pref_names.h"
+#import "ios/chrome/browser/shared/model/profile/profile_ios.h"
+#import "ios/chrome/browser/shared/model/url/chrome_url_constants.h"
+#import "net/base/apple/url_conversions.h"
+#import "url/gurl.h"
 
 namespace {
 
@@ -24,6 +32,17 @@ NSString* const kExternalActionOpenNTP = @"OpenNTP";
 NSString* const kExternalActionAppStoreGeminiPromo = @"appstoregeminipromo";
 NSString* const kExternalActionAppSwitcherTesting = @"appswitchertesting";
 
+// Returns the single path component of `url` if it has the format
+// "/<component>", or nil if the path is invalid or has multiple segments.
+NSString* ExtractSinglePathComponent(NSURL* url) {
+  NSArray<NSString*>* path_components = url.pathComponents;
+  if ([path_components count] != 2 ||
+      ![path_components[0] isEqualToString:@"/"]) {
+    return nil;
+  }
+  return path_components[1];
+}
+
 // Records metrics and user actions for external action URLs.
 void RecordExternalActionMetrics(NSURL* url) {
   base::RecordAction(base::UserMetricsAction("MobileExternalActionURLOpened"));
@@ -33,11 +52,7 @@ void RecordExternalActionMetrics(NSURL* url) {
   base::UmaHistogramEnumeration(kAppLaunchSource,
                                 AppLaunchSource::EXTERNAL_ACTION);
 
-  NSArray<NSString*>* pathComponents = url.pathComponents;
-  NSString* path = nil;
-  if ([pathComponents count] == 2 && [pathComponents[0] isEqualToString:@"/"]) {
-    path = pathComponents[1];
-  }
+  NSString* path = ExtractSinglePathComponent(url);
   IOSExternalAction action = IOSExternalAction::ACTION_INVALID;
   if ([path isEqualToString:kExternalActionOpenNTP]) {
     base::RecordAction(
@@ -52,8 +67,7 @@ void RecordExternalActionMetrics(NSURL* url) {
     } else {
       action = IOSExternalAction::ACTION_DEFAULT_BROWSER_SETTINGS;
     }
-  } else if (IsAppStoreInAppEventsEnabled() &&
-             [path isEqualToString:kExternalActionAppStoreGeminiPromo]) {
+  } else if ([path isEqualToString:kExternalActionAppStoreGeminiPromo]) {
     base::RecordAction(base::UserMetricsAction(
         "MobileExternalActionURLOpenedWithAppStoreGeminiPromo"));
     action = IOSExternalAction::ACTION_APP_STORE_GEMINI_PROMO;
@@ -115,7 +129,70 @@ void RecordExternalActionMetrics(NSURL* url) {
 }
 
 - (void)handleCommandWithSceneState:(SceneState*)sceneState {
-  // TODO(crbug.com/493816082): Add implementation.
+  NSURL* url = self.URLContext.URL;
+  if (!url) {
+    return;
+  }
+
+  GURL externalGURL = net::GURLWithNSURL(url);
+  GURL virtualGURL;
+  TabOpeningPostOpeningAction postOpeningAction =
+      TabOpeningPostOpeningAction::NO_ACTION;
+  ApplicationModeForTabOpening targetMode =
+      ApplicationModeForTabOpening::UNDETERMINED;
+
+  NSString* host = url.host;
+
+  if ([host isEqualToString:kExternalActionURLHost]) {
+    NSString* path = ExtractSinglePathComponent(url);
+
+    if ([path isEqualToString:kExternalActionOpenNTP]) {
+      externalGURL = GURL(kChromeUINewTabURL);
+    } else if ([path isEqualToString:kExternalActionDefaultBrowserSettings]) {
+      // If Chrome is already set as default browser, just open the NTP.
+      if (IsChromeLikelyDefaultBrowser()) {
+        externalGURL = GURL(kChromeUINewTabURL);
+      } else {
+        externalGURL = GURL();
+        postOpeningAction =
+            TabOpeningPostOpeningAction::EXTERNAL_ACTION_SHOW_BROWSER_SETTINGS;
+      }
+    } else if ([path isEqualToString:kExternalActionAppStoreGeminiPromo]) {
+      externalGURL = GURL(kGeminiAppStorePromoURL);
+      postOpeningAction = TabOpeningPostOpeningAction::TRIGGER_GEMINI_PROMO;
+      ProfileIOS* profile = sceneState.profileState.profile;
+      CHECK_DEREF(profile).GetPrefs()->SetBoolean(
+          prefs::kAppStoreGeminiPromoTriggered, true);
+    } else if (IsAppSwitcherAISummarizationEnabled() &&
+               [path isEqualToString:kExternalActionAppSwitcherTesting]) {
+      // TODO(crbug.com/493816082): Add implementation.
+    } else {
+      // An unrecognized or invalid external action is discarded without opening
+      // a tab.
+      return;
+    }
+  } else if (externalGURL.SchemeIsFile()) {
+    GURL::Replacements replacements;
+    std::string filename = externalGURL.ExtractFileName();
+    replacements.SetPathStr(filename);
+    replacements.SetSchemeStr(kChromeUIScheme);
+    replacements.SetHostStr(kChromeUIExternalFileHost);
+    virtualGURL = externalGURL.ReplaceComponents(replacements);
+    if (!virtualGURL.is_valid()) {
+      return;
+    }
+    targetMode = ApplicationModeForTabOpening::NORMAL;
+  } else {
+    // Other schemes.
+    // TODO(crbug.com/493816082): Add implementation.
+  }
+
+  [self openTabWithSceneState:sceneState
+                  externalURL:externalGURL
+                   virtualURL:virtualGURL
+                   targetMode:targetMode
+            postOpeningAction:postOpeningAction
+             fromWidgetOrSiri:NO];
 }
 
 @end

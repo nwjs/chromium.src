@@ -17,7 +17,7 @@
 #include "base/test/scoped_feature_list.h"
 #include "base/test/test_future.h"
 #include "build/build_config.h"
-#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
@@ -1323,6 +1323,9 @@ IN_PROC_BROWSER_TEST_F(IframeInfoMultiSourcePageContextFetcherBrowserTest,
     ASSERT_TRUE(sub_future.Wait());
   }
 
+  // Ensure the compositor has caught up with the current web contents.
+  content::WaitForCopyableViewInWebContents(web_contents());
+
   FetchPageContextOptions options;
   options.screenshot_options = ScreenshotOptions::ViewportOnly(
       /*paint_preview_options=*/std::nullopt,
@@ -1415,6 +1418,9 @@ IN_PROC_BROWSER_TEST_F(
         sub_future.GetCallback());
     ASSERT_TRUE(sub_future.Wait());
   }
+
+  // Ensure the compositor has caught up with the current web contents.
+  content::WaitForCopyableViewInWebContents(web_contents());
 
   FetchPageContextOptions options;
   options.screenshot_options = ScreenshotOptions::ViewportOnly(

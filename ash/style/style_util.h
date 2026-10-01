@@ -9,7 +9,7 @@
 
 #include "ash/ash_export.h"
 #include "ui/color/color_id.h"
-#include "ui/compositor_extra/shadow.h"
+#include "ui/decoration/shadow.h"
 #include "ui/gfx/color_palette.h"
 #include "ui/gfx/geometry/insets.h"
 
@@ -48,7 +48,21 @@ class ASH_EXPORT StyleUtil {
   static constexpr float kLightInkDropOpacity = 0.08f;
   static constexpr float kDarkInkDropOpacity = 0.06f;
 
+  // Blur sigma for system UI layers.
+  static constexpr float kBackgroundBlurSigma = 30.f;
+
+  // The default blur quality for background blur. Using a value less than 1
+  // improves performance.
+  static constexpr float kBackgroundBlurQuality = 0.33f;
+
+  // Returns the color provider for native theme.
+  static ui::ColorProvider* GetColorProviderForNativeTheme();
+
   static float GetInkDropOpacity();
+
+  // Gets the ink drop base color and opacity based on `background_color`.
+  static std::pair<SkColor, float> GetInkDropBaseColorAndOpacity(
+      SkColor background_color = gfx::kPlaceholderColor);
 
   // Creates an InkDrop instance for `host`. All styles are configured to show
   // the highlight when the ripple is visible.

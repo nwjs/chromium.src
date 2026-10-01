@@ -26,6 +26,7 @@ import androidx.window.layout.WindowMetricsCalculator;
 
 import org.chromium.base.Callback;
 import org.chromium.base.CallbackController;
+import org.chromium.base.DeviceInfo;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.supplier.OneshotSupplier;
 import org.chromium.build.annotations.NullMarked;
@@ -80,6 +81,20 @@ final class SideUiCoordinatorImpl
 
     /** Maps {@link AnchorSide} to {@link ViewGroup} where {@link SideUiContainer} is attached. */
     private final Map<@AnchorSide Integer, ViewGroup> mAnchorContainers = new ArrayMap<>();
+
+    /**
+     * Maps {@link AnchorSide} to the currently committed {@link HeightType}.
+     *
+     * <p>This explicit tracking is necessary because the current {@link HeightType} cannot be
+     * reliably inferred from the anchor container's {@code topMargin} and {@link
+     * TopControlsStacker}. External events (e.g. switching between horizontal and vertical tabs)
+     * can update top control heights before {@link #updateUi} is invoked. Inferring {@link
+     * HeightType} dynamically would compare the container's existing {@code topMargin} against the
+     * newly updated top control heights, causing it to misidentify the current {@link HeightType}
+     * and fail to notify {@link SideUiContainer}s of height type transitions.
+     */
+    private final Map<@AnchorSide Integer, @HeightType Integer> mCurrentHeightTypes =
+            new ArrayMap<>();
 
     /** List of registered {@link SideUiContainer} objects. */
     private final List<SideUiContainer> mSideUiContainers = new ArrayList<>();
@@ -151,6 +166,8 @@ final class SideUiCoordinatorImpl
         assert mAnchorContainerParent == rightAnchorContainer.getParent();
         mAnchorContainers.put(AnchorSide.LEFT, leftAnchorContainer);
         mAnchorContainers.put(AnchorSide.RIGHT, rightAnchorContainer);
+        mCurrentHeightTypes.put(AnchorSide.LEFT, HeightType.NOT_APPLICABLE);
+        mCurrentHeightTypes.put(AnchorSide.RIGHT, HeightType.NOT_APPLICABLE);
 
         webContentHairlineContainerStub.setLayoutResource(
                 R.layout.side_ui_web_content_hairline_container);
@@ -161,7 +178,8 @@ final class SideUiCoordinatorImpl
                         browserControlVisibilityManager,
                         /* sideUiStateProvider= */ this,
                         webContentHairlineContainer,
-                        incognitoStateProvider);
+                        incognitoStateProvider,
+                        topControlsStacker);
 
         // TODO(crbug.com/540566058): Investigate if we need to recolor the anchor containers when
         //  toggling Incognito state.
@@ -233,6 +251,7 @@ final class SideUiCoordinatorImpl
         }
         mCallbackController.destroy();
         mSideUiContainers.clear();
+        mCurrentHeightTypes.clear();
         mBrowserControlsVisibilityManager.removeObserver(this);
         mFullscreenManager.removeObserver(this);
         mWebContentsHairlineManager.destroy();
@@ -387,6 +406,20 @@ final class SideUiCoordinatorImpl
         return null;
     }
 
+    private void notifyContainersOnUiUpdateStarting(
+            SideUiSpecs oldSideUiSpecs, SideUiSpecs newSideUiSpecs) {
+        for (var container : mSideUiContainers) {
+            @AnchorSide int anchorSide = container.getAnchorSide();
+            @Px int oldWidth = oldSideUiSpecs.getWidth(anchorSide);
+            @Px int newWidth = newSideUiSpecs.getWidth(anchorSide);
+            @HeightType int oldHeightType = oldSideUiSpecs.getHeightType(anchorSide);
+            @HeightType int newHeightType = newSideUiSpecs.getHeightType(anchorSide);
+            if (newWidth != oldWidth || oldHeightType != newHeightType) {
+                container.onUiUpdateStarting(oldWidth, newWidth, oldHeightType, newHeightType);
+            }
+        }
+    }
+
     private void notifyContainersOnUiUpdateCompleted(
             SideUiSpecs oldSideUiSpecs, SideUiSpecs newSideUiSpecs) {
         for (var container : mSideUiContainers) {
@@ -515,7 +548,7 @@ final class SideUiCoordinatorImpl
         return switch (heightType) {
             case HeightType.TOOLBAR ->
                     mTopControlsStacker.getHeightFromLayerBottomToTop(TopControlType.TABSTRIP);
-            case HeightType.WEB_CONTENTS -> mTopControlsStacker.getVisibleTopControlsTotalHeight();
+            case HeightType.WEB_CONTENTS -> getTopMarginForWebContentsHeightType();
             default ->
                     // includes HeightType.NOT_APPLICABLE
                     throw new IllegalStateException(
@@ -523,14 +556,31 @@ final class SideUiCoordinatorImpl
         };
     }
 
-    private @HeightType int getCurrentHeightType(@AnchorSide int anchorSide) {
-        var anchorContainerTopMargins = getCurrentAnchorContainerTopMargins();
-        Integer topMargin = anchorContainerTopMargins.get(anchorSide);
-        if (topMargin == null) return HeightType.NOT_APPLICABLE;
+    private @Px int getTopMarginForWebContentsHeightType() {
+        int totalHeight = mTopControlsStacker.getVisibleTopControlsTotalHeight();
+        // When the bookmarks bar is showing, its layer bakes in the hairline height, causing the
+        // total height to extend past the top of the hairline. Subtract the hairline height so the
+        // container aligns with the top of the hairline stroke. This caused a bug where the rounded
+        // corner was not aligned with the top controls hairline. See crbug.com/539662382.
+        // TODO(crbug.com/532218047): Once the toolbar refactor is complete, this logic should
+        //  be safe to remove.
+        if (!ChromeFeatureList.sToolbarProgressBarRefactor.isEnabled()
+                && mTopControlsStacker.isLayerAtBottom(TopControlType.BOOKMARK_BAR)) {
+            int hairlineHeight = mBrowserControlsVisibilityManager.getTopControlsHairlineHeight();
+            totalHeight = Math.max(0, totalHeight - hairlineHeight);
+        }
+        return totalHeight;
+    }
 
-        return topMargin.equals(getTopMarginForHeightType(HeightType.TOOLBAR))
-                ? HeightType.TOOLBAR
-                : HeightType.WEB_CONTENTS;
+    private @HeightType int getCurrentHeightType(@AnchorSide int anchorSide) {
+        ViewGroup anchorContainer = mAnchorContainers.get(anchorSide);
+        if (anchorContainer == null
+                || anchorContainer.getVisibility() == View.GONE
+                || anchorContainer.getWidth() == 0) {
+            return HeightType.NOT_APPLICABLE;
+        }
+
+        return mCurrentHeightTypes.getOrDefault(anchorSide, HeightType.NOT_APPLICABLE);
     }
 
     private AnchorContainerTopMargins getCurrentAnchorContainerTopMargins() {
@@ -714,18 +764,28 @@ final class SideUiCoordinatorImpl
      */
     private void commitNewSideUiSpecs(
             SideUiUpdateSpecs uiUpdateSpecs, @Nullable TransitionSet transitionSet) {
+        notifyContainersOnUiUpdateStarting(uiUpdateSpecs.mCurrentSpecs, uiUpdateSpecs.mNewSpecs);
+
         // Whether both the width and height gets updated. The animation will be suppressed if true.
         boolean willUpdateBothWidthHeight = false;
         for (var marginDiff : uiUpdateSpecs.mTopMarginDiff.entrySet()) {
             @AnchorSide int side = marginDiff.getKey();
             @Px int topMargin = marginDiff.getValue();
 
-            // Currently, only the SidePanel can be anchored on the right side. If not in
-            // fullscreen, assert that we have a nonzero top margin for SidePanel.
-            if (side == AnchorSide.RIGHT && !mFullscreenManager.getPersistentFullscreenMode()) {
-                assert topMargin != 0
-                        : "Right anchor container topMargin should be non-zero. See"
-                                + " crbug.com/544876870";
+            // The following check is for catching crbug.com/544876870.
+            // Side panel's anchor container should always have a positive top margin, if the window
+            // isn't in fullscreen or on Android Automotive.
+            // The symptom of crbug.com/544876870 is that side panel's anchor container has 0 top
+            // margin. The bug was hard to reproduce so we only landed a speculative fix. The
+            // check here will catch the bug if it happens again.
+            var sideUiContainer = assumeNonNull(getSideUiContainerBySide(side));
+            if (sideUiContainer.getSideUiId() == SideUiId.SIDE_PANEL
+                    && !mFullscreenManager.getPersistentFullscreenMode()
+                    && !DeviceInfo.isAutomotive()
+                    && topMargin <= 0) {
+                throw new IllegalStateException(
+                        "Side panel's anchor container should have a positive top margin. See"
+                                + " crbug.com/544876870");
             }
 
             boolean willUpdateWidth =
@@ -795,6 +855,11 @@ final class SideUiCoordinatorImpl
                                 detachSideUiContainerView(sideUiContainer);
                                 sideUiContainer.setWidth(0);
                             }
+                        }
+
+                        for (Map.Entry<@AnchorSide Integer, SideUiSize> entry :
+                                uiUpdateSpecs.mNewSpecs.entrySet()) {
+                            mCurrentHeightTypes.put(entry.getKey(), entry.getValue().mHeightType);
                         }
 
                         notifyContainersOnUiUpdateCompleted(
@@ -874,6 +939,10 @@ final class SideUiCoordinatorImpl
         // pass just does the work sooner, and the subsequent asynchronous pass scheduled by the
         // Android framework will skip this subtree.
         ViewUtils.triggerSynchronousMeasureAndLayout(mAnchorContainerParent);
+
+        for (Map.Entry<@AnchorSide Integer, SideUiSize> entry : newSideUiSpecs.entrySet()) {
+            mCurrentHeightTypes.put(entry.getKey(), entry.getValue().mHeightType);
+        }
 
         notifyContainersOnUiUpdateCompleted(currentSideUiSpecs, newSideUiSpecs);
         mSideUiObserverNotifier.notifySideUiSpecsChanged(newSideUiSpecs);

@@ -28,8 +28,9 @@ class GeminiService;
 @protocol LensOverlayCommands;
 @class LensOverlayStateNotifier;
 class PrefService;
-@class SceneLayoutState;
+class ProfileIOS;
 @protocol SceneCommands;
+@class SceneLayoutState;
 @protocol SettingsCommands;
 @protocol TabGridCommands;
 @class TabGridState;
@@ -45,6 +46,9 @@ class WebStateList;
 
 // Indicates to the delegate to show the sign-in flow anchored to `anchorView`.
 - (void)showSignin:(UIView*)anchorView;
+
+// Notifies the delegate that the assistant button was tapped in Incognito mode.
+- (void)appBarMediatorDidTapAssistantInIncognito;
 
 @end
 
@@ -107,6 +111,7 @@ class WebStateList;
                regularActionFactory:(BrowserActionFactory*)regularActionFactory
              incognitoActionFactory:
                  (BrowserActionFactory*)incognitoActionFactory
+                            profile:(ProfileIOS*)profile
                         prefService:(PrefService*)prefService
                  templateURLService:(TemplateURLService*)templateURLService
               authenticationService:

@@ -69,8 +69,6 @@ def __step_config(ctx, step_config):
         "third_party/dawn/webgpu-cts/scripts/copy_files.py",
         "third_party/dawn/webgpu-cts/scripts/gen_ts_dep_lists.py",
         "third_party/devtools-frontend/src/scripts/build/build_inspector_overlay.py",
-        "third_party/devtools-frontend/src/scripts/build/run_with_restat.py",
-        "third_party/devtools-frontend/src/scripts/build/run_with_stamp.py",
         "third_party/devtools-frontend/src/scripts/build/typescript/generate_indexer_tsconfig.py",
         "third_party/inspector_protocol/check_protocol_compatibility.py",
         "third_party/inspector_protocol/code_generator.py",
@@ -100,6 +98,11 @@ def __step_config(ctx, step_config):
         "ui/webui/resources/tools/bundle_js.py",
         "ui/webui/resources/tools/generate_code_cache.py",
         "v8/third_party/inspector_protocol/code_generator.py",
+        # metagen.py executes `gn desc` at action runtime to query compile flags,
+        # which requires `.gn` and repository build files. Additionally, it
+        # parses C++ headers via libclang without declaring them as action inputs
+        # (relying on depfiles instead), making it incompatible with RBE sandboxes.
+        "v8/tools/metagen/metagen.py",
     ]
 
     for py_file in python_scripts:
@@ -114,6 +117,7 @@ def __step_config(ctx, step_config):
         "third_party/devtools-frontend/src/front_end/core/i18n/generate-locales-js.js",
         "third_party/devtools-frontend/src/node_modules/rollup/dist/bin/rollup",
         "third_party/devtools-frontend/src/scripts/build/build_ai_skills.mjs",
+        "third_party/devtools-frontend/src/scripts/build/compress_files.js",
         "third_party/devtools-frontend/src/scripts/build/generate_devtools_json.mjs",
         "third_party/devtools-frontend/src/scripts/build/generate_html_entrypoint.js",
         "third_party/devtools-frontend/src/scripts/component_docs/generate_docs.mjs",

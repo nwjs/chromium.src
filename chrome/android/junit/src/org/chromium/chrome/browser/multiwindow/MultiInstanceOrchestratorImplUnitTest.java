@@ -65,6 +65,7 @@ import org.chromium.chrome.browser.incognito.IncognitoUtils;
 import org.chromium.chrome.browser.multiwindow.MultiInstanceManager.NewWindowAppSource;
 import org.chromium.chrome.browser.multiwindow.MultiInstanceManager.PersistedInstanceType;
 import org.chromium.chrome.browser.multiwindow.MultiInstanceManager.SessionStartupPolicy;
+import org.chromium.chrome.browser.multiwindow.TabbedStartupWindowPolicyDelegate.StartupMode;
 import org.chromium.chrome.browser.price_tracking.PriceTrackingFeatures;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
@@ -251,7 +252,8 @@ public class MultiInstanceOrchestratorImplUnitTest {
     }
 
     @Test
-    public void testCreateNewWindowFromWebContents_instanceLimit_showsMessage() {
+    public void
+            testCreateNewWindowFromWebContents_instanceLimit_showsMessageAndDestroysWebContents() {
         // Setup.
         MultiWindowUtils.setMultiInstanceApi31EnabledForTesting(true);
         MultiWindowUtils.setMaxInstancesForTesting(2);
@@ -271,6 +273,29 @@ public class MultiInstanceOrchestratorImplUnitTest {
         // Verify.
         assertFalse(result);
         verify(mMultiInstanceManager1).showInstanceCreationLimitMessage();
+        verify(webContents).destroy();
+    }
+
+    @Test
+    public void testCreateNewWindowFromWebContents_api31Disabled_destroysWebContents() {
+        // Setup.
+        MultiWindowUtils.setMultiInstanceApi31EnabledForTesting(false);
+        Profile profile = mock(Profile.class);
+        WebContents webContents = mock(WebContents.class);
+
+        // Act.
+        boolean result =
+                mMultiInstanceOrchestrator.createNewWindowFromWebContents(
+                        mTabbedActivity1,
+                        profile,
+                        webContents,
+                        /* additionalIntentExtras= */ null,
+                        /* startActivityOptions= */ null,
+                        NewWindowAppSource.BROWSER_WINDOW_CREATOR);
+
+        // Verify.
+        assertFalse(result);
+        verify(webContents).destroy();
     }
 
     @Test
@@ -1182,6 +1207,8 @@ public class MultiInstanceOrchestratorImplUnitTest {
                 /* instanceId= */ 1, "https://www.google.com", /* tabCount= */ 1, /* taskId= */ 1);
         ChromeMultiInstancePersistentStore.writeSessionStartupPolicy(
                 SessionStartupPolicy.RESTORE_ALL);
+        TabbedStartupWindowPolicyDelegate.getInstance()
+                .claimStartupPolicy(/* isIncognito= */ false, StartupMode.UNMAPPED_TASK);
 
         ActivityManager activityManager = mock(ActivityManager.class);
         doReturn(activityManager).when(mTabbedActivity1).getSystemService(Context.ACTIVITY_SERVICE);

@@ -231,6 +231,12 @@ class SearchSuggestionParser {
     void ClassifyMatchContents(const bool allow_bolding_all,
                                const std::u16string& input_text);
 
+    // Returns the classifications describing how `annotation_` should be
+    // displayed and bolded, based on the fragments the server sent in the
+    // suggest template's secondary text. Falls back to dimming the whole
+    // annotation.
+    ACMatchClassifications ClassifyAnnotation() const;
+
     // Result:
     int CalculateRelevance(const AutocompleteInput& input,
                            bool keyword_provider_requested) const override;

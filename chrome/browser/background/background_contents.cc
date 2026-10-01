@@ -10,11 +10,12 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/task_manager/web_contents_tags.h"
 #include "chrome/common/url_constants.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/render_view_host.h"
-#include "content/public/browser/session_storage_namespace.h"
+#include "content/public/browser/session_storage_namespace_handle.h"
 #include "content/public/browser/site_instance.h"
 #include "content/public/browser/web_contents.h"
 #include "extensions/browser/extension_host_delegate.h"
@@ -25,6 +26,8 @@
 #include "ipc/constants.mojom.h"
 #include "services/metrics/public/cpp/ukm_builders.h"
 #include "services/metrics/public/cpp/ukm_recorder.h"
+#include "ui/base/page_transition_types.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/gfx/geometry/rect.h"
 
 using content::SiteInstance;
@@ -36,7 +39,7 @@ BackgroundContents::BackgroundContents(
     bool is_new_browsing_instance,
     Delegate* delegate,
     const content::StoragePartitionConfig& partition_config,
-    content::SessionStorageNamespace* session_storage_namespace)
+    content::SessionStorageNamespaceHandle* session_storage_namespace)
     : delegate_(delegate),
       extension_host_delegate_(extensions::ExtensionsBrowserClient::Get()
                                    ->CreateExtensionHostDelegate()) {
@@ -50,7 +53,7 @@ BackgroundContents::BackgroundContents(
   }
 
   if (session_storage_namespace) {
-    content::SessionStorageNamespaceMap session_storage_namespace_map;
+    content::SessionStorageNamespaceHandleMap session_storage_namespace_map;
     session_storage_namespace_map.insert(
         std::make_pair(partition_config, session_storage_namespace));
     web_contents_ = WebContents::CreateWithSessionStorage(

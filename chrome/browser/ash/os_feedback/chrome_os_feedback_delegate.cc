@@ -25,11 +25,8 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/time/time.h"
 #include "base/values.h"
-#include "chrome/browser/ash/browser_delegate/browser_controller.h"
-#include "chrome/browser/ash/browser_delegate/browser_delegate.h"
 #include "chrome/browser/ash/multidevice_setup/multidevice_setup_client_factory.h"
 #include "chrome/browser/ash/os_feedback/os_feedback_screenshot_manager.h"
-#include "chrome/browser/browser_process.h"
 #include "chrome/browser/feedback/feedback_uploader_chrome.h"
 #include "chrome/browser/feedback/feedback_uploader_factory_chrome.h"
 #include "chrome/browser/profiles/profile.h"
@@ -38,6 +35,8 @@
 #include "chrome/browser/ui/webui/ash/diagnostics_dialog/diagnostics_dialog.h"
 #include "chrome/browser/ui/webui/ash/os_feedback_dialog/os_feedback_dialog.h"
 #include "chromeos/ash/components/browser_context_helper/annotated_account_id.h"
+#include "chromeos/ash/components/browser_delegate/browser_controller.h"
+#include "chromeos/ash/components/browser_delegate/browser_delegate.h"
 #include "chromeos/ash/components/signin/identity_manager_provider.h"
 #include "chromeos/ash/components/system_web_apps/system_web_app_type.h"
 #include "chromeos/ash/services/multidevice_setup/public/cpp/multidevice_setup_client.h"
@@ -185,10 +184,6 @@ ChromeOsFeedbackDelegate::~ChromeOsFeedbackDelegate() {
   if (screenshot_manager) {
     screenshot_manager->DeleteScreenshotData();
   }
-}
-
-std::string ChromeOsFeedbackDelegate::GetApplicationLocale() {
-  return g_browser_process->GetApplicationLocale();
 }
 
 std::optional<GURL> ChromeOsFeedbackDelegate::GetLastActivePageUrl() {

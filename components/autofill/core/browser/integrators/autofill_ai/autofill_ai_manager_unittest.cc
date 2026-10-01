@@ -396,49 +396,6 @@ TEST_F(AutofillAiManagerTest,
   manager().OnAfterLoadedServerPredictions(autofill_manager(), {form_id});
 }
 
-// Tests that IPH should not be displayed if the user is opted into AutofillAI
-// already.
-TEST_F(AutofillAiManagerTest, ShouldNotDisplayIphWhenOptedIn) {
-  test::FormDescription form_description = {.fields = {{}}};
-  FormData form = test::GetFormData(form_description);
-  FormStructure form_structure = FormStructure(form);
-  AddPredictionsToFormStructure(form_structure, {{PASSPORT_NUMBER}});
-  AddAutofillProfile();
-  SetAutofillAiOptInStatus(autofill_client(), AutofillAiOptInStatus::kOptedIn);
-
-  EXPECT_FALSE(
-      manager().ShouldDisplayIph(form_structure, form.fields()[0].global_id()));
-}
-
-// Tests that IPH should not be displayed if the page does not contain enough
-// information for an import.
-TEST_F(AutofillAiManagerTest,
-       ShouldNotDisplayIphWhenInsufficientDataForImport) {
-  test::FormDescription form_description = {.fields = {{}}};
-  FormData form = test::GetFormData(form_description);
-  FormStructure form_structure = FormStructure(form);
-  AddPredictionsToFormStructure(form_structure, {{PASSPORT_ISSUE_DATE}});
-  AddAutofillProfile();
-  SetAutofillAiOptInStatus(autofill_client(), AutofillAiOptInStatus::kOptedOut);
-
-  EXPECT_FALSE(
-      manager().ShouldDisplayIph(form_structure, form.fields()[0].global_id()));
-}
-
-// Tests that IPH is not displayed on a field without AutofillAI predictions.
-TEST_F(AutofillAiManagerTest, ShouldNotDisplayIphOnUnrelatedField) {
-  test::FormDescription form_description = {.fields = {{}, {}}};
-  FormData form = test::GetFormData(form_description);
-  FormStructure form_structure = FormStructure(form);
-  AddPredictionsToFormStructure(
-      form_structure, {{PASSPORT_NUMBER}, {PHONE_HOME_CITY_AND_NUMBER}});
-  AddAutofillProfile();
-  SetAutofillAiOptInStatus(autofill_client(), AutofillAiOptInStatus::kOptedOut);
-
-  EXPECT_FALSE(
-      manager().ShouldDisplayIph(form_structure, form.fields()[1].global_id()));
-}
-
 TEST_F(AutofillAiManagerTest,
        FillingMomentSurvey_SuggestionAccepted_ShowSurvey) {
   EntityInstance passport_entity = test::GetPassportEntityInstance(
@@ -2165,29 +2122,6 @@ TEST_F(AutofillAiManagerUpstreamTest, LocalEntity_ShowsMigrationPrompt) {
 
   EXPECT_CALL(autofill_client(), ShowEntityImportBubble);
   EXPECT_TRUE(manager().OnFormSubmitted(*form, /*ukm_source_id=*/{}));
-}
-
-TEST_F(AutofillAiManagerUpstreamTest,
-       TestGetEntityUpstreamCandidateTimingMetric) {
-  std::unique_ptr<FormStructure> form = CreateTestForm();
-  EntityInstance local_entity = GetVehicleEntityInstance();
-  AddOrUpdateEntityInstance(local_entity);
-
-  form->field(0)->set_value(
-      local_entity.attribute(AttributeType(AttributeTypeName::kVehicleOwner))
-          ->GetRawInfo(NAME_FULL));
-  form->field(1)->set_value(
-      local_entity.attribute(AttributeType(AttributeTypeName::kVehicleVin))
-          ->GetRawInfo(VEHICLE_VIN));
-  form->field(2)->set_value(
-      local_entity
-          .attribute(AttributeType(AttributeTypeName::kVehiclePlateNumber))
-          ->GetRawInfo(VEHICLE_LICENSE_PLATE));
-
-  base::HistogramTester histogram_tester;
-  ASSERT_TRUE(manager().OnFormSubmitted(*form, /*ukm_source_id=*/{}));
-  histogram_tester.ExpectTotalCount(
-      "Autofill.Ai.Timing.GetEntityUpstreamCandidateFromSubmittedForm", 1);
 }
 
 // Tests that a migration prompt is not shown for flight reservations.

@@ -102,12 +102,8 @@ _STRUCTURED_TEST_ID_SUITES = {
   'resource_sizes_trichrome_google': _ModuleArgs(
     '//clank/java:resource_sizes_trichrome_google', 'single'
   ),
-  'performance_test_suite_android_trichrome_chrome_google_64_32_bundle': _ModuleArgs(
-    '//chrome/test:performance_test_suite_android_trichrome_chrome_google_64_32_bundle',
-    'flat',
-  ),
-  'performance_test_suite_android_trichrome_chrome_google_bundle': _ModuleArgs(
-    '//chrome/test:performance_test_suite_android_trichrome_chrome_google_bundle',
+  'performance_test_suite_android_chrome_google_bundle': _ModuleArgs(
+    '//chrome/test:performance_test_suite_android_chrome_google_bundle',
     'flat',
   ),
   'performance_test_suite': _ModuleArgs(
@@ -476,26 +472,27 @@ BUILDERS = {
     'pinpoint_additional_compile_targets': [],
   },
   'linux-arm-builder-perf': {
-      'additional_compile_targets': [
-          'chromedriver_group',
-          'chrome/installer/linux',
-      ],
-      'pinpoint_additional_compile_targets': [],
-      'tests': [{
-          'name': 'chrome_sizes',
-          'isolate': 'chrome_sizes',
-          'type': TEST_TYPES.GENERIC,
-          'resultdb': {
-              'has_native_resultdb_integration': True,
-          },
-      }],
-      'dimension': {
-          'cpu': 'arm64',
-          'os': 'Ubuntu-22.04',
-          'pool': 'chrome.tests',
-      },
-      'perf_trigger':
-      False,
+    'additional_compile_targets': [
+      'chromedriver_group',
+      'chrome/installer/linux',
+    ],
+    'pinpoint_additional_compile_targets': [],
+    'tests': [
+      {
+        'name': 'chrome_sizes',
+        'isolate': 'chrome_sizes',
+        'type': TEST_TYPES.GENERIC,
+        'resultdb': {
+          'has_native_resultdb_integration': True,
+        },
+      }
+    ],
+    'dimension': {
+      'cpu': 'x86-64',
+      'os': 'Ubuntu-22.04',
+      'pool': 'chrome.tests',
+    },
+    'perf_trigger': False,
   },
   'linux-builder-perf': {
     'additional_compile_targets': [
@@ -644,15 +641,23 @@ BUILDERS = {
     },
   },
   'android-desktop-arm-builder-perf': {
-    'additional_compile_targets': ['trichrome_google_64_32_minimal_apks'],
+    'additional_compile_targets': [
+      'trichrome_google_64_32_minimal_apks',
+      'system_webview_apk',
+      'system_webview_google_apk',
+    ],
   },
   'android-desktop-x64-builder-perf': {
-    'additional_compile_targets': ['trichrome_google_64_minimal_apks'],
+    'additional_compile_targets': [
+      'trichrome_google_64_minimal_apks',
+      'system_webview_apk',
+      'system_webview_google_apk',
+    ],
   },
   'android-brya-kano-i5-8gb-perf': {
     'tests': [
       {
-        'isolate': 'performance_test_suite_android_trichrome_chrome_google_64_32_bundle',
+        'isolate': 'performance_test_suite_android_chrome_google_bundle',
         'extra_args': [
           '--device',
           'variable_lab_dut_hostname',
@@ -660,7 +665,7 @@ BUILDERS = {
         ],
       }
     ],
-    'platform': 'android-trichrome-chrome-google-64-32-bundle',
+    'platform': 'android-chrome-bundle',
     'dimension': {
       'dut_state': 'ready',
       'pool': 'chrome',
@@ -675,7 +680,7 @@ BUILDERS = {
   'android-corsola-steelix-8gb-perf': {
     'tests': [
       {
-        'isolate': 'performance_test_suite_android_trichrome_chrome_google_64_32_bundle',
+        'isolate': 'performance_test_suite_android_chrome_google_bundle',
         'extra_args': [
           '--device',
           'variable_lab_dut_hostname',
@@ -683,7 +688,7 @@ BUILDERS = {
         ],
       }
     ],
-    'platform': 'android-trichrome-chrome-google-64-32-bundle',
+    'platform': 'android-chrome-bundle',
     'dimension': {
       'dut_state': 'ready',
       'pool': 'chrome',
@@ -698,7 +703,7 @@ BUILDERS = {
   'android-nissa-uldren-8gb-perf': {
     'tests': [
       {
-        'isolate': 'performance_test_suite_android_trichrome_chrome_google_64_32_bundle',
+        'isolate': 'performance_test_suite_android_chrome_google_bundle',
         'extra_args': [
           '--device',
           'variable_lab_dut_hostname',
@@ -706,7 +711,7 @@ BUILDERS = {
         ],
       }
     ],
-    'platform': 'android-trichrome-chrome-google-64-32-bundle',
+    'platform': 'android-chrome-bundle',
     'dimension': {
       'dut_state': 'ready',
       'pool': 'chrome',
@@ -721,10 +726,10 @@ BUILDERS = {
   'android-pixel4-perf': {
     'tests': [
       {
-        'isolate': 'performance_test_suite_android_trichrome_chrome_google_64_32_bundle',
+        'isolate': 'performance_test_suite_android_chrome_google_bundle',
       }
     ],
-    'platform': 'android-trichrome-chrome-google-64-32-bundle',
+    'platform': 'android-chrome-bundle',
     'dimension': {
       'pool': 'chrome.tests.perf',
       'os': 'Android',
@@ -736,10 +741,10 @@ BUILDERS = {
   'android-pixel4-perf-pgo': {
     'tests': [
       {
-        'isolate': 'performance_test_suite_android_trichrome_chrome_google_64_32_bundle',
+        'isolate': 'performance_test_suite_android_chrome_google_bundle',
       }
     ],
-    'platform': 'android-trichrome-chrome-google-64-32-bundle',
+    'platform': 'android-chrome-bundle',
     'dimension': {
       'pool': 'chrome.tests.perf',
       'os': 'Android',
@@ -751,12 +756,12 @@ BUILDERS = {
   'android-pixel6-perf-pgo': {
     'tests': [
       {
-        'isolate': 'performance_test_suite_android_trichrome_chrome_google_64_32_bundle',
+        'isolate': 'performance_test_suite_android_chrome_google_bundle',
         'extra_args': ['--benchmark-max-runs=3'],
         'remove_args': ['--ignore-benchmark-exit-code'],
       }
     ],
-    'platform': 'android-trichrome-chrome-google-64-32-bundle',
+    'platform': 'android-chrome-bundle',
     'dimension': {
       'pool': 'chrome.tests.perf-pgo',
       'os': 'Android',
@@ -768,10 +773,10 @@ BUILDERS = {
   'android-pixel-fold-perf': {
     'tests': [
       {
-        'isolate': 'performance_test_suite_android_trichrome_chrome_google_64_32_bundle',
+        'isolate': 'performance_test_suite_android_chrome_google_bundle',
       }
     ],
-    'platform': 'android-trichrome-chrome-google-64-32-bundle',
+    'platform': 'android-chrome-bundle',
     'dimension': {
       'pool': 'chrome.tests.perf',
       'os': 'Android',
@@ -783,10 +788,10 @@ BUILDERS = {
   'android-pixel-tangor-perf': {
     'tests': [
       {
-        'isolate': 'performance_test_suite_android_trichrome_chrome_google_64_32_bundle',
+        'isolate': 'performance_test_suite_android_chrome_google_bundle',
       }
     ],
-    'platform': 'android-trichrome-chrome-google-64-32-bundle',
+    'platform': 'android-chrome-bundle',
     'dimension': {
       'pool': 'chrome.tests.perf',
       'os': 'Android',
@@ -797,10 +802,10 @@ BUILDERS = {
   'android-pixel6-pro-perf-pgo': {
     'tests': [
       {
-        'isolate': 'performance_test_suite_android_trichrome_chrome_google_64_32_bundle',
+        'isolate': 'performance_test_suite_android_chrome_google_bundle',
       }
     ],
-    'platform': 'android-trichrome-chrome-google-64-32-bundle',
+    'platform': 'android-chrome-bundle',
     'dimension': {
       'pool': 'chrome.tests.perf',
       'os': 'Android',
@@ -812,10 +817,10 @@ BUILDERS = {
   'android-pixel9-perf': {
     'tests': [
       {
-        'isolate': 'performance_test_suite_android_trichrome_chrome_google_64_32_bundle',
+        'isolate': 'performance_test_suite_android_chrome_google_bundle',
       }
     ],
-    'platform': 'android-trichrome-chrome-google-64-32-bundle',
+    'platform': 'android-chrome-bundle',
     'dimension': {
       'pool': 'chrome.tests.perf',
       'os': 'Android',
@@ -827,10 +832,10 @@ BUILDERS = {
   'android-pixel9-pro-perf': {
     'tests': [
       {
-        'isolate': 'performance_test_suite_android_trichrome_chrome_google_64_32_bundle',
+        'isolate': 'performance_test_suite_android_chrome_google_bundle',
       }
     ],
-    'platform': 'android-trichrome-chrome-google-64-32-bundle',
+    'platform': 'android-chrome-bundle',
     'dimension': {
       'pool': 'chrome.tests.perf',
       'os': 'Android',
@@ -842,10 +847,10 @@ BUILDERS = {
   'android-pixel9-pro-xl-perf': {
     'tests': [
       {
-        'isolate': 'performance_test_suite_android_trichrome_chrome_google_64_32_bundle',
+        'isolate': 'performance_test_suite_android_chrome_google_bundle',
       }
     ],
-    'platform': 'android-trichrome-chrome-google-64-32-bundle',
+    'platform': 'android-chrome-bundle',
     'dimension': {
       'pool': 'chrome.tests.perf',
       'os': 'Android',
@@ -857,10 +862,10 @@ BUILDERS = {
   'android-pixel10-perf': {
     'tests': [
       {
-        'isolate': 'performance_test_suite_android_trichrome_chrome_google_64_32_bundle',
+        'isolate': 'performance_test_suite_android_chrome_google_bundle',
       }
     ],
-    'platform': 'android-trichrome-chrome-google-64-32-bundle',
+    'platform': 'android-chrome-bundle',
     'dimension': {
       'pool': 'chrome.tests.perf',
       'os': 'Android',
@@ -921,10 +926,10 @@ BUILDERS = {
   'android-go-wembley-perf': {
     'tests': [
       {
-        'isolate': 'performance_test_suite_android_trichrome_chrome_google_bundle',
+        'isolate': 'performance_test_suite_android_chrome_google_bundle',
       }
     ],
-    'platform': 'android-trichrome-chrome-google-bundle',
+    'platform': 'android-chrome-bundle',
     'dimension': {
       'pool': 'chrome.tests.perf',
       'os': 'Android',
@@ -1022,9 +1027,9 @@ BUILDERS = {
         ],
       },
     ],
-    'platform':
-    'linux',
+    'platform': 'linux',
     'dimension': {
+      'cpu': 'arm64',
       'os': 'Ubuntu-24.04.4',
       'pool': 'chrome.tests.perf',
     },

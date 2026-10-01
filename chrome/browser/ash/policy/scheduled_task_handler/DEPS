@@ -17,10 +17,8 @@ include_rules = [
   "+chrome/browser/ash/app_restore",
   "+chrome/browser/ash/login/users",
   "+chrome/browser/ash/settings",
-  "+chrome/browser/browser_process.h",
   "+chrome/browser/profiles",
   "+chrome/browser/ui/ash/device_scheduled_reboot",
-  "+chrome/common/chrome_features.h",
   "+chrome/test/base",
 ]
 

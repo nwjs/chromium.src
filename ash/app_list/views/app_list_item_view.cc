@@ -28,11 +28,9 @@
 #include "ash/public/cpp/app_list/app_list_types.h"
 #include "ash/public/cpp/app_menu_constants.h"
 #include "ash/public/cpp/shelf_types.h"
-#include "ash/public/cpp/style/color_provider.h"
 #include "ash/resources/vector_icons/vector_icons.h"
 #include "ash/strings/grit/ash_strings.h"
 #include "ash/style/ash_color_id.h"
-#include "ash/style/ash_color_provider.h"
 #include "ash/style/dot_indicator.h"
 #include "ash/style/style_util.h"
 #include "ash/style/system_textfield.h"
@@ -1699,10 +1697,9 @@ void AppListItemView::SetBackgroundBlurEnabled(bool enabled) {
     }
     return;
   }
-  GetIconBackgroundLayer()->SetBackgroundBlur(
-      ColorProvider::kBackgroundBlurSigma);
+  GetIconBackgroundLayer()->SetBackgroundBlur(StyleUtil::kBackgroundBlurSigma);
   GetIconBackgroundLayer()->SetBackdropFilterQuality(
-      ColorProvider::kBackgroundBlurQuality);
+      StyleUtil::kBackgroundBlurQuality);
 }
 
 void AppListItemView::EnsureLayer() {

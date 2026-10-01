@@ -18,6 +18,8 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/mojom/dialog_button.mojom.h"
+#include "ui/base/page_transition_types.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/bubble/bubble_frame_view.h"
 #include "ui/views/controls/styled_label.h"
@@ -178,11 +180,9 @@ void OfferNotificationBubbleViews::InitWithGPayPromoCodeOfferContent() {
 void OfferNotificationBubbleViews::OnPromoCodeSeeDetailsClicked() {
   DCHECK(controller_->GetOffer()->GetOfferDetailsUrl().is_valid());
   web_contents()->OpenURL(
-      content::OpenURLParams(
+      content::OpenURLParams::CreateBrowserInitiated(
           GURL(controller_->GetOffer()->GetOfferDetailsUrl()),
-          content::Referrer(), WindowOpenDisposition::NEW_FOREGROUND_TAB,
-          ui::PAGE_TRANSITION_LINK,
-          /*is_renderer_initiated=*/false),
+          WindowOpenDisposition::NEW_FOREGROUND_TAB, ui::PAGE_TRANSITION_LINK),
       /*navigation_handle_callback=*/{});
 }
 

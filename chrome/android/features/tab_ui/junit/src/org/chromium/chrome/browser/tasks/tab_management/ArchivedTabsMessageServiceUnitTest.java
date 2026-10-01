@@ -56,7 +56,6 @@ import org.chromium.chrome.browser.tab.TabArchiver;
 import org.chromium.chrome.browser.tab.TabId;
 import org.chromium.chrome.browser.tab_ui.OnTabSelectingListener;
 import org.chromium.chrome.browser.tab_ui.TabContentManager;
-import org.chromium.chrome.browser.tab_ui.TabListMode;
 import org.chromium.chrome.browser.tabmodel.TabCreator;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tasks.tab_management.MessageCardView.ServiceDismissActionProvider;
@@ -90,7 +89,6 @@ public class ArchivedTabsMessageServiceUnitTest {
     @Mock private ArchivedTabModelOrchestrator mArchivedTabModelOrchestrator;
     @Mock private TabArchiveSettings mTabArchiveSettings;
     @Mock private TabArchiver mTabArchiver;
-    @Mock private TabModel mArchivedTabModel;
     @Mock private TabModel mTabModel;
     @Mock private Tab mTab;
     @Mock private ServiceDismissActionProvider<@MessageType Integer> mServiceDismissActionProvider;
@@ -135,6 +133,8 @@ public class ArchivedTabsMessageServiceUnitTest {
         mRootView = new FrameLayout(mActivity);
 
         doReturn(TIME_DELTA_DAYS).when(mTabArchiveSettings).getArchiveTimeDeltaDays();
+        doReturn(mTabCountSupplier).when(mTabArchiveSettings).getArchivedTabCountSupplier();
+        doReturn(mTabArchiveSettings).when(mArchivedTabModelOrchestrator).getTabArchiveSettings();
         doReturn(mTabCountSupplier).when(mArchivedTabModelOrchestrator).getTabCountSupplier();
         mTabListCoordinatorSupplier.set(mTabListCoordinator);
 
@@ -151,7 +151,6 @@ public class ArchivedTabsMessageServiceUnitTest {
                         mArchivedTabModelOrchestrator,
                         mBrowserControlsStateProvider,
                         mTabContentManager,
-                        TabListMode.GRID,
                         mRootView,
                         mSnackbarManager,
                         mRegularTabCreator,
@@ -172,13 +171,6 @@ public class ArchivedTabsMessageServiceUnitTest {
         mArchivedTabsMessageService.initialize(mServiceDismissActionProvider);
         mArchivedTabsMessageService.setOnTabSelectingListener(mOnTabSelectingListener);
 
-        // When the service is created, this getter will return null. Only set up the mock right
-        // before onTabModelCreated is called when initialization is nearly over.
-        doReturn(mTabArchiveSettings).when(mArchivedTabModelOrchestrator).getTabArchiveSettings();
-
-        mArchivedTabsMessageService
-                .getArchivedTabModelOrchestratorObserverForTesting()
-                .onTabModelCreated(mArchivedTabModel);
         verify(mTabArchiveSettings).addObserver(mTabArchiveSettingsObserverCaptor.capture());
         verify(mLayoutStateProvider).addObserver(mLayoutStateObserverCaptor.capture());
     }
@@ -226,10 +218,24 @@ public class ArchivedTabsMessageServiceUnitTest {
 
     @Test
     public void testClickCard() {
+        when(mArchivedTabModelOrchestrator.isTabModelInitialized()).thenReturn(true);
         createArchivedTabsMessageService();
         PropertyModel customCardPropertyModel =
                 mArchivedTabsMessageService.getCustomCardModelForTesting();
         customCardPropertyModel.get(CLICK_HANDLER).run();
+        verify(mArchivedTabsDialogCoordinator).show(mOnTabSelectingListener);
+        verify(mTracker).notifyEvent("android_tab_declutter_button_clicked");
+    }
+
+    @Test
+    public void testClickCard_UninitializedTabModel() {
+        when(mArchivedTabModelOrchestrator.isTabModelInitialized()).thenReturn(false);
+        createArchivedTabsMessageService();
+        PropertyModel customCardPropertyModel =
+                mArchivedTabsMessageService.getCustomCardModelForTesting();
+        customCardPropertyModel.get(CLICK_HANDLER).run();
+        verify(mArchivedTabModelOrchestrator)
+                .maybeCreateAndInitTabModels(eq(mTabContentManager), any());
         verify(mArchivedTabsDialogCoordinator).show(mOnTabSelectingListener);
         verify(mTracker).notifyEvent("android_tab_declutter_button_clicked");
     }

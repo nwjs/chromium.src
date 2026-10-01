@@ -38,7 +38,7 @@
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
 #include "third_party/blink/renderer/core/frame/csp/content_security_policy.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
-#include "third_party/blink/renderer/core/frame/local_frame_ukm_aggregator.h"
+#include "third_party/blink/renderer/core/frame/local_frame_metrics_aggregator.h"
 #include "third_party/blink/renderer/core/frame/visual_viewport.h"
 #include "third_party/blink/renderer/core/frame/web_feature.h"
 #include "third_party/blink/renderer/core/geometry/dom_rect.h"
@@ -341,7 +341,7 @@ void HTMLCapabilityElementBase::AttachLayoutTree(AttachContext& context) {
         GetDocument(),
         BindRepeating(&HTMLCapabilityElementBase::OnIntersectionChanged,
                       WrapWeakPersistent(this)),
-        LocalFrameUkmAggregator::kPermissionElementIntersectionObserver,
+        LocalFrameMetricsAggregator::kPermissionElementIntersectionObserver,
         IntersectionObserver::Params{
             .margin = {Length::Fixed(kMarginVisibleContent)},
             .margin_target = IntersectionObserver::kApplyMarginToTarget,
@@ -389,10 +389,12 @@ void HTMLCapabilityElementBase::Focus(const FocusParams& params) {
   if (fallback_mode_) {
     return HTMLElement::Focus(params);
   }
-  // This will only apply to `focus` and `blur` JS API. Other focus types (like
+  // This will only apply to script-initiated focusing. Other focus types (like
   // accessibility focusing and manual user focus), will still be permitted as
-  // usual.
-  if (params.type == mojom::blink::FocusType::kScript &&
+  // usual. `FocusTrigger` (rather than `FocusType`) is used because internal
+  // script-driven paths such as dialog.showModal() / popover autofocus reach
+  // this with FocusType::kNone.
+  if (params.focus_trigger == FocusTrigger::kScript &&
       !LocalFrame::HasTransientUserActivation(GetDocument().GetFrame())) {
     return;
   }
@@ -626,7 +628,7 @@ bool HTMLCapabilityElementBase::MaybeRegisterPageEmbeddedPermissionControl() {
   // disallow in sandboxed documents. If we
   // continue to block it in all subframes, we should likely create a new issue
   // type.
-  if (TagQName() == html_names::kInstallTag &&
+  if (HasTagName(html_names::kInstallTag) &&
       GetExecutionContext()->GetSandboxFlags() !=
           network::mojom::blink::WebSandboxFlags::kNone) {
     return false;
@@ -635,7 +637,7 @@ bool HTMLCapabilityElementBase::MaybeRegisterPageEmbeddedPermissionControl() {
   // TODO(crbug.com/490139152): Evaluate <install> support in subframes. If we
   // continue to block it in all subframes, we should likely create a new issue
   // type.
-  if (TagQName() == html_names::kInstallTag && !frame->IsMainFrame()) {
+  if (HasTagName(html_names::kInstallTag) && !frame->IsMainFrame()) {
     return false;
   }
 
@@ -919,14 +921,19 @@ void HTMLCapabilityElementBase::AdjustStyle(ComputedStyleBuilder& builder) {
     }
   }
 
-  // These webkit-prefixed properties are not supported by the permission
-  // element. But since they are inherited by default, they are passed through
-  // to the internal permission text span, even if they're not on the list of
-  // allowed CSS properties.
+  // These properties are not supported by the permission element. But since
+  // they are inherited by default, they are passed through to the internal
+  // permission text span, even if they're not on the list of allowed CSS
+  // properties.
   // Reset them here to avoid any side effects.
   builder.ResetTextStrokeWidth();
   builder.ResetTextFillColor();
   builder.ResetTextStrokeColor();
+  // TODO(crbug.com/560222073): Handle vertical writing mode properly.
+  builder.ResetWritingMode();
+  builder.ResetTextOrientation();
+  builder.ResetTextCombine();
+  builder.UpdateFontOrientation();
 
   // To prevent CSS :visited history leaks and ensure the button remains
   // fully legible and active in all states, we force the element to pretend
@@ -949,14 +956,7 @@ void HTMLCapabilityElementBase::DidRecalcStyle(const StyleRecalcChange change) {
   }
   EnableClickingAfterDelay(DisableReason::kInvalidStyle,
                            kDefaultDisableTimeout);
-  gfx::Rect intersection_rect =
-      ComputeIntersectionRectWithViewport(GetDocument().GetPage());
-  if (intersection_rect_.has_value() &&
-      intersection_rect_.value() != intersection_rect) {
-    DisableClickingTemporarily(DisableReason::kIntersectionWithViewportChanged,
-                               kDefaultDisableTimeout);
-  }
-  intersection_rect_ = intersection_rect;
+  RefreshCachedIntersectionWithViewport();
 }
 
 void HTMLCapabilityElementBase::HandleActivation(Event& event,
@@ -1181,7 +1181,7 @@ bool HTMLCapabilityElementBase::IsClickingEnabled() {
   // contexts. For now, check this before `is_registered_in_browser_process_`
   // so we don't fall through to SecurityChecksFailed, which DevTools
   // maps to a misleading "quota exceeded" message.
-  if (TagQName() == html_names::kInstallTag &&
+  if (HasTagName(html_names::kInstallTag) &&
       GetExecutionContext()->GetSandboxFlags() !=
           network::mojom::blink::WebSandboxFlags::kNone) {
     RecordPermissionElementUserInteractionDeniedReason(
@@ -1194,7 +1194,7 @@ bool HTMLCapabilityElementBase::IsClickingEnabled() {
     // For now, check this before `is_registered_in_browser_process_`
     // so we don't fall through to SecurityChecksFailed, which DevTools
     // maps to a misleading "quota exceeded" message.
-    if (TagQName() == html_names::kInstallTag && !frame->IsMainFrame()) {
+    if (HasTagName(html_names::kInstallTag) && !frame->IsMainFrame()) {
       RecordPermissionElementUserInteractionDeniedReason(
           TagQName(),
           UserInteractionDeniedReason::kFailedOrHasNotBeenRegistered);
@@ -1302,14 +1302,14 @@ HTMLCapabilityElementBase::GetClickingEnabledState() const {
 
     // TODO(crbug.com/493534965): Evaluate <install> support in sandboxed
     // contexts.
-    if (TagQName() == html_names::kInstallTag &&
+    if (HasTagName(html_names::kInstallTag) &&
         GetExecutionContext()->GetSandboxFlags() !=
             network::mojom::blink::WebSandboxFlags::kNone) {
       return {false, AtomicString("illegal_sandbox")};
     }
 
     // TODO(crbug.com/490139152): Evaluate <install> support in subframes.
-    if (TagQName() == html_names::kInstallTag && !frame->IsMainFrame()) {
+    if (HasTagName(html_names::kInstallTag) && !frame->IsMainFrame()) {
       return {false, AtomicString("illegal_subframe")};
     }
   }
@@ -1586,21 +1586,19 @@ LengthSize HTMLCapabilityElementBase::AdjustedPercentBoundedRadius(
   return adjusted_length_size;
 }
 
+void HTMLCapabilityElementBase::DidFinishLayout() {
+  // Runs after the layout phase of every lifecycle update beyond LayoutClean,
+  // including those that only target PrePaintClean (e.g. for input hit-testing)
+  // where DidFinishLifecycleUpdate is not dispatched.
+  RefreshCachedIntersectionWithViewport();
+}
+
 void HTMLCapabilityElementBase::DidFinishLifecycleUpdate(
     const LocalFrameView& local_frame_view) {
-  // This code monitors the stability of the HTMLCapabilityElementBase and
-  // temporarily disables the element if it detects an unstable state.
-  // "Unstable state" in this context occurs when the intersection rectangle
-  // between the viewport and the element's layout box changes, indicating that
-  // the element has been moved or resized.
-  gfx::Rect intersection_rect = ComputeIntersectionRectWithViewport(
-      local_frame_view.GetFrame().GetPage());
-  if (intersection_rect_.has_value() &&
-      intersection_rect_.value() != intersection_rect) {
-    DisableClickingTemporarily(DisableReason::kIntersectionWithViewportChanged,
-                               kDefaultDisableTimeout);
-  }
-  intersection_rect_ = intersection_rect;
+  // Re-check after all lifecycle phases have completed, since the intersection
+  // rect may also depend on state that changes after layout (e.g. scroll
+  // offsets adjusted during pre-paint).
+  RefreshCachedIntersectionWithViewport();
 
   if (IsRendered()) {
     MaybeRegisterPageEmbeddedPermissionControl();
@@ -1629,6 +1627,22 @@ gfx::Rect HTMLCapabilityElementBase::ComputeIntersectionRectWithViewport(
   // mutate `rect` to visible rect in the root frame's coordinate space.
   layout_object->MapToVisualRectInAncestorSpace(/*ancestor*/ nullptr, rect);
   return IntersectRects(viewport_in_root_frame, ToEnclosingRect(rect));
+}
+
+void HTMLCapabilityElementBase::RefreshCachedIntersectionWithViewport() {
+  // This code monitors the stability of the HTMLCapabilityElementBase and
+  // temporarily disables the element if it detects an unstable state.
+  // "Unstable state" in this context occurs when the intersection rectangle
+  // between the viewport and the element's layout box changes, indicating that
+  // the element has been moved or resized.
+  gfx::Rect intersection_rect =
+      ComputeIntersectionRectWithViewport(GetDocument().GetPage());
+  if (intersection_rect_.has_value() &&
+      intersection_rect_.value() != intersection_rect) {
+    DisableClickingTemporarily(DisableReason::kIntersectionWithViewportChanged,
+                               kDefaultDisableTimeout);
+  }
+  intersection_rect_ = intersection_rect;
 }
 
 std::optional<base::TimeDelta>

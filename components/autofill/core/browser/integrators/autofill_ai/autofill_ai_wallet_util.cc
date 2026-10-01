@@ -179,4 +179,11 @@ consent_auditor::ConsentAuditor::SessionId RecordWalletPrivatePassConsent(
   return session_id;
 }
 
+bool IsEligibleForWalletNotice(const EntityType& type,
+                               const EntityInstance::RecordType& record_type) {
+  return GetWalletPassType(type, record_type) ==
+             EntityInstance::WalletPassType::kPublic &&
+         !type.read_only();
+}
+
 }  // namespace autofill

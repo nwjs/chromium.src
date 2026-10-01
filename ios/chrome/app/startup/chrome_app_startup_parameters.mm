@@ -55,7 +55,6 @@ NSString* const kExternalActionAppSwitcherTesting = @"appswitchertesting";
 // here due to a Smart App Banner presentation on a Google.com page.
 NSString* const kSmartAppBannerKey = @"safarisab";
 
-const CGFloat kAppGroupTriggersVoiceSearchTimeout = 15.0;
 
 // Histogram helper to log the UMA IOS.WidgetKit.Action histogram.
 void LogWidgetKitAction(WidgetKitExtensionAction action) {
@@ -449,8 +448,7 @@ TabOpeningPostOpeningAction XCallbackPoaToPostOpeningAction(
                                  forceApplicationMode:forceApplicationMode];
       params.postOpeningAction = EXTERNAL_ACTION_SHOW_BROWSER_SETTINGS;
     }
-  } else if (IsAppStoreInAppEventsEnabled() &&
-             [path isEqualToString:kExternalActionAppStoreGeminiPromo]) {
+  } else if ([path isEqualToString:kExternalActionAppStoreGeminiPromo]) {
     base::RecordAction(base::UserMetricsAction(
         "MobileExternalActionURLOpenedWithAppStoreGeminiPromo"));
     action = IOSExternalAction::ACTION_APP_STORE_GEMINI_PROMO;
@@ -553,7 +551,7 @@ TabOpeningPostOpeningAction XCallbackPoaToPostOpeningAction(
   // open url request and replay it later.
   NSTimeInterval delay = [[NSDate date] timeIntervalSinceDate:commandTime];
   UMA_HISTOGRAM_COUNTS_100(kApplicationGroupCommandDelay, delay);
-  if (delay > kAppGroupTriggersVoiceSearchTimeout) {
+  if (delay > app_group::kAppGroupCommandTimeout) {
     return nil;
   }
   return [ChromeAppStartupParameters

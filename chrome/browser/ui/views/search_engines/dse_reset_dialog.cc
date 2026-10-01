@@ -27,6 +27,7 @@
 #include "services/preferences/tracked/pref_hash_filter.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/models/dialog_model.h"
+#include "ui/base/page_transition_types.h"
 #include "ui/base/window_open_disposition.h"
 #include "ui/views/bubble/bubble_dialog_model_host.h"
 #include "ui/views/controls/link.h"
@@ -44,11 +45,10 @@ void OpenLearnMoreLink(BrowserWindowInterface* browser,
                        const ui::Event& event) {
   const GURL kLearnMoreUrl(
       "https://support.google.com/chrome?p=chrome_reset_settings");
-  browser->OpenURL(
-      content::OpenURLParams(kLearnMoreUrl, content::Referrer(),
-                             WindowOpenDisposition::NEW_FOREGROUND_TAB,
-                             ui::PAGE_TRANSITION_LINK, false),
-      {});
+  browser->OpenURL(content::OpenURLParams::CreateBrowserInitiated(
+                       kLearnMoreUrl, WindowOpenDisposition::NEW_FOREGROUND_TAB,
+                       ui::PAGE_TRANSITION_LINK),
+                   {});
 }
 
 // Checks if a default search engine reset occurred that requires the

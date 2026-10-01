@@ -24,6 +24,9 @@
   E_CPONLY(kColorAppMenuHighlightPrimary) \
   E_CPONLY(kColorAppMenuExpandedForegroundDefault) \
   E_CPONLY(kColorAppMenuExpandedForegroundPrimary) \
+  E_CPONLY(kColorAppMenuChipBackground) \
+  E_CPONLY(kColorAppMenuChipBackgroundHovered) \
+  E_CPONLY(kColorAppMenuChipForeground) \
   E_CPONLY(kColorAppMenuChipInkDropHover) \
   E_CPONLY(kColorAppMenuChipInkDropRipple) \
   E_CPONLY(kColorAppMenuYourChromeBackground) \
@@ -35,6 +38,9 @@
   E_CPONLY(kColorAppMenuFooterButtonForeground) \
   E_CPONLY(kColorAppMenuFooterButtonForegroundHovered) \
   E_CPONLY(kColorAppMenuFooterButtonBackgroundHovered) \
+  E_CPONLY(kColorAppMenuZoomButtonBackground) \
+  E_CPONLY(kColorAppMenuZoomButtonHover) \
+  E_CPONLY(kColorAppMenuZoomSeparator) \
   /* Actor UI colors.*/ \
   E_CPONLY(kColorActorUiHandoffButtonBackground) \
   E_CPONLY(kColorActorUiHandoffButtonBorder) \
@@ -854,7 +860,13 @@
   /* Settings info card colors. */ \
   E_CPONLY(kColorSettingsInfoCardBackground) \
   /* Settings page colors. */ \
+  E_CPONLY(kColorSettingsNavMenuItemBackground) \
+  E_CPONLY(kColorSettingsNavMenuItemForeground) \
+  E_CPONLY(kColorSettingsNavMenuItemForegroundSelected) \
+  E_CPONLY(kColorSettingsNavMenuItemIcon) \
   E_CPONLY(kColorSettingsWebuiPageBackground) \
+  E_CPONLY(kColorSettingsTitleText) \
+  E_CPONLY(kColorSettingsSectionBackground) \
   /* Share-this-tab dialog colors. */ \
   E_CPONLY(kColorShareThisTabAudioToggleBackground) \
   E_CPONLY(kColorShareThisTabSourceViewBorder) \

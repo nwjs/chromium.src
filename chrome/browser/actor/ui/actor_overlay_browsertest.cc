@@ -111,16 +111,15 @@ IN_PROC_BROWSER_TEST_F(ActorOverlayTest, ControllerExistsForNormalBrowsers) {
   // Normal browser window
   BrowserWindowInterface* const normal_browser = browser();
   ASSERT_NE(ActorUiWindowController::From(normal_browser), nullptr);
-  ASSERT_NE(
-      ActorUiTabController::From(
-          normal_browser->GetFeatures().tab_strip_model()->GetActiveTab()),
-      nullptr);
+  ASSERT_NE(ActorUiTabController::From(
+                normal_browser->GetTabStripModel()->GetActiveTab()),
+            nullptr);
 
   // Popup window
   BrowserWindowInterface* const popup_browser = CreateBrowserForPopup(profile);
   ASSERT_EQ(ActorUiWindowController::From(popup_browser), nullptr);
   ASSERT_EQ(ActorUiTabController::From(
-                popup_browser->GetFeatures().tab_strip_model()->GetActiveTab()),
+                popup_browser->GetTabStripModel()->GetActiveTab()),
             nullptr);
 
   // App window
@@ -128,7 +127,7 @@ IN_PROC_BROWSER_TEST_F(ActorOverlayTest, ControllerExistsForNormalBrowsers) {
       CreateBrowserForApp("test_app_name", profile);
   ASSERT_EQ(ActorUiWindowController::From(app_browser), nullptr);
   ASSERT_EQ(ActorUiTabController::From(
-                app_browser->GetFeatures().tab_strip_model()->GetActiveTab()),
+                app_browser->GetTabStripModel()->GetActiveTab()),
             nullptr);
 
   // Picture-in-Picture window
@@ -805,6 +804,11 @@ IN_PROC_BROWSER_TEST_F(ActorOverlayTest,
   // on all platforms. Without web_contents()->SetPageBaseBackgroundColor(
   // SK_ColorTRANSPARENT) in ShowUI, Blink renders a solid white document
   // canvas (SK_ColorWHITE).
+  // Wait for the renderer to produce a frame and send the background color to
+  // the browser process before asserting.
+  ASSERT_TRUE(base::test::RunUntil([&]() {
+    return overlay_web_contents->GetBackgroundColor().has_value();
+  }));
   EXPECT_EQ(overlay_web_contents->GetBackgroundColor(), SK_ColorTRANSPARENT);
 
   // 4. Assert that the RenderWidgetHostView background color remains as
@@ -880,16 +884,15 @@ IN_PROC_BROWSER_TEST_F(GlicActorDisabledTest,
   // Normal browser window
   BrowserWindowInterface* const normal_browser = browser();
   ASSERT_EQ(ActorUiWindowController::From(normal_browser), nullptr);
-  ASSERT_EQ(
-      ActorUiTabController::From(
-          normal_browser->GetFeatures().tab_strip_model()->GetActiveTab()),
-      nullptr);
+  ASSERT_EQ(ActorUiTabController::From(
+                normal_browser->GetTabStripModel()->GetActiveTab()),
+            nullptr);
 
   // Popup window
   BrowserWindowInterface* const popup_browser = CreateBrowserForPopup(profile);
   ASSERT_EQ(ActorUiWindowController::From(popup_browser), nullptr);
   ASSERT_EQ(ActorUiTabController::From(
-                popup_browser->GetFeatures().tab_strip_model()->GetActiveTab()),
+                popup_browser->GetTabStripModel()->GetActiveTab()),
             nullptr);
 
   // App window
@@ -897,7 +900,7 @@ IN_PROC_BROWSER_TEST_F(GlicActorDisabledTest,
       CreateBrowserForApp("test_app_name", profile);
   ASSERT_EQ(ActorUiWindowController::From(app_browser), nullptr);
   ASSERT_EQ(ActorUiTabController::From(
-                app_browser->GetFeatures().tab_strip_model()->GetActiveTab()),
+                app_browser->GetTabStripModel()->GetActiveTab()),
             nullptr);
 
   // Picture-in-Picture window

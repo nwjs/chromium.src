@@ -424,6 +424,9 @@ BASE_FEATURE(kFrameAncestorsHeader, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kUpdateRequestForCorsRedirect, base::FEATURE_ENABLED_BY_DEFAULT);
 
+BASE_FEATURE(kAvoidCorsURLLoaderRestartOnRedirect,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 // https://github.com/patcg-individual-drafts/topics
 // Kill switch for the Topics API.
 BASE_FEATURE(kBrowsingTopics, base::FEATURE_ENABLED_BY_DEFAULT);
@@ -505,6 +508,12 @@ BASE_FEATURE(kBlockInvalidOriginHeaderModificationOnRedirect,
 // CorsURLLoader::StartRequest.
 BASE_FEATURE(kBlockInvalidOriginHeader, base::FEATURE_ENABLED_BY_DEFAULT);
 
+// When enabled, the network service will prohibit non-browser processes from
+// removing security-sensitive headers (such as Origin and Sec- headers other
+// than Client Hints) in CorsURLLoader::FollowRedirect.
+BASE_FEATURE(kBlockSecurityHeaderRemovalOnRedirect,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 BASE_FEATURE(kServiceWorkerSyntheticResponseHeaderCheck,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -562,5 +571,7 @@ BASE_FEATURE(kSafeRevalidation, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kBindURLLoaderFactoryToHighPriorityTaskRunner,
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kEnforceIsolatedWorldOriginLock, base::FEATURE_ENABLED_BY_DEFAULT);
 
 }  // namespace network::features

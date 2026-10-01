@@ -24,6 +24,7 @@
 #include "chrome/browser/ui/omnibox/omnibox_edit_model.h"
 #include "chrome/browser/ui/omnibox/omnibox_next_features.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_view_views.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
@@ -113,7 +114,7 @@ class ChromeAutocompleteProviderClientTest : public InProcessBrowserTest {
         /*enabled_features*/ {{omnibox::internal::kWebUIOmniboxPopup, {}},
                               {omnibox::internal::kWebUIOmniboxAimPopup, {}},
                               {omnibox::internal::kWebUIOmniboxSimplification,
-                               {{omnibox::kShowLensSearchChip.name, "true"}}}},
+                               {}}},
         // TODO (crbug.com/555239052) - Fix tests when AskG is launched.
         /*disabled_features*/ {omnibox::kWebUIOmniboxAskGAboutThisPage});
   }
@@ -253,31 +254,6 @@ IN_PROC_BROWSER_TEST_F(ChromeAutocompleteProviderClientTest,
                    .start_service_worker_for_navigation_hint_called());
 }
 
-class ChromeAutocompleteProviderClientWithChipTest
-    : public ChromeAutocompleteProviderClientTest {
- protected:
-  ChromeAutocompleteProviderClientWithChipTest() {
-    // Enable the AIM popup (which implies IsAimPopupFeatureEnabled = true) and
-    // the Lens Search Chip.
-    feature_list_.InitWithFeaturesAndParameters(
-        {{omnibox::internal::kWebUIOmniboxAimPopup, {}},
-         {omnibox::internal::kWebUIOmniboxSimplification,
-          {{omnibox::kShowLensSearchChip.name, "true"}}}},
-        {});
-  }
-
- private:
-  base::test::ScopedFeatureList feature_list_;
-};
-
-IN_PROC_BROWSER_TEST_F(ChromeAutocompleteProviderClientWithChipTest,
-                       IsOmniboxNextLensSearchChipEnabled) {
-  EXPECT_TRUE(
-      GetAutocompleteProviderClient()->IsOmniboxNextLensSearchChipEnabled());
-  EXPECT_FALSE(
-      GetAutocompleteProviderClient()->IsAskGShowChipEnabled());
-}
-
 class ChromeAutocompleteProviderClientAskGShowChipTest
     : public ChromeAutocompleteProviderClientTest {
  protected:
@@ -295,10 +271,7 @@ class ChromeAutocompleteProviderClientAskGShowChipTest
 
 IN_PROC_BROWSER_TEST_F(ChromeAutocompleteProviderClientAskGShowChipTest,
                        IsAskGShowChipEnabled) {
-  EXPECT_FALSE(
-      GetAutocompleteProviderClient()->IsOmniboxNextLensSearchChipEnabled());
-  EXPECT_TRUE(
-      GetAutocompleteProviderClient()->IsAskGShowChipEnabled());
+  EXPECT_TRUE(GetAutocompleteProviderClient()->IsAskGShowChipEnabled());
 }
 
 class ChromeAutocompleteProviderClientAskGCoBrowseTest
@@ -533,6 +506,62 @@ IN_PROC_BROWSER_TEST_F(
   EXPECT_TRUE(GetAutocompleteProviderClient()->ShouldOpenCoBrowsePanel());
 }
 
+class ChromeAutocompleteProviderClientAskGComposeboxTest
+    : public ChromeAutocompleteProviderClientTest {
+ public:
+  void SetUpBrowserContextKeyedServices(
+      content::BrowserContext* context) override {
+    ChromeAutocompleteProviderClientTest::SetUpBrowserContextKeyedServices(
+        context);
+    contextual_tasks::ContextualTasksUiServiceFactory::GetInstance()
+        ->SetTestingFactory(context,
+                            base::BindRepeating(&BuildMockUiServiceForAuth));
+  }
+
+  MockContextualTasksUiServiceForAuth* GetMockUiService() {
+    return static_cast<MockContextualTasksUiServiceForAuth*>(
+        contextual_tasks::ContextualTasksUiServiceFactory::GetForBrowserContext(
+            browser()->GetProfile()));
+  }
+
+ protected:
+  ChromeAutocompleteProviderClientAskGComposeboxTest() {
+    feature_list_.InitWithFeaturesAndParameters(
+        {{omnibox::internal::kWebUIOmniboxAimPopup, {}},
+         {omnibox::kWebUIOmniboxAskGAboutThisPage,
+          {{"Omnibox_AskGComposeBox", "true"}}},
+         {contextual_tasks::kContextualTasks, {}},
+         {contextual_tasks::kContextualTasksForceEntryPointEligibility, {}},
+         {lens::features::kLensSidePanelUnification,
+          {{"allow-signed-out", "false"}}}},
+        {});
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(ChromeAutocompleteProviderClientAskGComposeboxTest,
+                       ShouldOpenComposeboxForAskG_RespectsSignInState) {
+  auto* mock_ui = GetMockUiService();
+  ASSERT_TRUE(mock_ui);
+
+  // When signed out, ShouldOpenComposeboxForAskG should return false.
+  EXPECT_CALL(*mock_ui, IsSignedInToBrowserWithValidCredentials())
+      .WillRepeatedly(testing::Return(false));
+  EXPECT_CALL(*mock_ui, CookieJarContainsPrimaryAccount())
+      .WillRepeatedly(testing::Return(false));
+  EXPECT_FALSE(GetAutocompleteProviderClient()->ShouldOpenComposeboxForAskG());
+
+  // When signed in and cookie jar contains primary account,
+  // ShouldOpenComposeboxForAskG should return true.
+  EXPECT_CALL(*mock_ui, IsSignedInToBrowserWithValidCredentials())
+      .WillRepeatedly(testing::Return(true));
+  EXPECT_CALL(*mock_ui, CookieJarContainsPrimaryAccount())
+      .WillRepeatedly(testing::Return(true));
+  EXPECT_TRUE(GetAutocompleteProviderClient()->ShouldOpenComposeboxForAskG());
+}
+
 class ChromeAutocompleteProviderClientAskGLensChipRouteTest
     : public ChromeAutocompleteProviderClientTest {
  protected:
@@ -584,5 +613,3 @@ IN_PROC_BROWSER_TEST_F(ChromeAutocompleteProviderClientTest,
 
   GetOmniboxEditModel()->OpenLensSearch();
 }
-
-

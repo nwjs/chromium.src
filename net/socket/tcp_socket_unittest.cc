@@ -50,7 +50,9 @@
 #if BUILDFLAG(IS_WIN)
 #include <winsock2.h>
 
+#include "base/test/metrics/histogram_tester.h"
 #include "net/socket/tcp_socket_io_completion_port_win.h"
+#include "net/socket/tcp_socket_win.h"
 #else  // !BUILDFLAG(IS_WIN)
 #include <sys/socket.h>
 #endif  //  !BUILDFLAG(IS_WIN)
@@ -120,7 +122,7 @@ class TCPSocketTest
       // "TcpSocketIoCompletionPortWin" feature is enabled and
       // whether we should use Read() or ReadIfReady() to read
       // the data.
-      public testing::WithParamInterface<std::tuple<bool, bool>> {
+      public testing::WithParamInterface<std::tuple<bool, bool, bool>> {
  protected:
   TCPSocketTest() {
 #if BUILDFLAG(IS_WIN)
@@ -128,8 +130,15 @@ class TCPSocketTest
         features::kTcpSocketIoCompletionPortWin,
         IsTcpSocketIoCompletionPortWinEnabled());
 #elif BUILDFLAG(IS_MAC)
-    AddScopedFeatureList().InitWithFeatureState(
-        features::kTcpPortRandomizationMac, IsTcpPortRandomizationMacEnabled());
+    if (IsTcpPortRandomizationMacEnabled()) {
+      AddScopedFeatureList().InitAndEnableFeatureWithParameters(
+          features::kTcpPortRandomizationMac,
+          {{"TcpPortRandomizationMacForLoopback",
+            IsLoopbackRandomizationEnabled() ? "true" : "false"}});
+    } else {
+      AddScopedFeatureList().InitAndDisableFeature(
+          features::kTcpPortRandomizationMac);
+    }
 #else
     CHECK(!std::get<0>(GetParam()));
 #endif  // BUILDFLAG(IS_WIN)
@@ -142,6 +151,7 @@ class TCPSocketTest
   }
 #elif BUILDFLAG(IS_MAC)
   bool IsTcpPortRandomizationMacEnabled() { return std::get<0>(GetParam()); }
+  bool IsLoopbackRandomizationEnabled() { return std::get<2>(GetParam()); }
 #endif  // BUILDFLAG(IS_WIN)
 
   bool ShouldUseReadIfReady() { return std::get<1>(GetParam()); }
@@ -1651,30 +1661,160 @@ TEST_P(TCPSocketTest, PendingReadError) {
 #endif
 }
 
+#if BUILDFLAG(IS_WIN)
+void ExpectNonPubliclyRoutableHistogram(
+    std::string_view expected,
+    const IPAddress& address,
+    std::optional<bool> is_app_container = false) {
+  std::string actual = NonPubliclyRoutableConnectResultHistogramNameWin(
+      address, is_app_container);
+  EXPECT_EQ(expected, actual);
+}
+
+TEST(TCPSocketWinMetricsTest, ClassifiesNonPubliclyRoutableAddresses) {
+  ExpectNonPubliclyRoutableHistogram(
+      "Net.TCPSocket.ConnectResult.NonPubliclyRoutable."
+      "Loopback.NotAppContainer.Win",
+      IPAddress::IPv4Localhost());
+  ExpectNonPubliclyRoutableHistogram(
+      "Net.TCPSocket.ConnectResult.NonPubliclyRoutable."
+      "Loopback.NotAppContainer.Win",
+      IPAddress::IPv6Localhost());
+  ExpectNonPubliclyRoutableHistogram(
+      "Net.TCPSocket.ConnectResult.NonPubliclyRoutable."
+      "LinkLocal.NotAppContainer.Win",
+      IPAddress(169, 254, 1, 1));
+  std::optional<IPAddress> ipv6_link_local =
+      IPAddress::FromIPLiteral("fe80::1");
+  ASSERT_TRUE(ipv6_link_local);
+  ExpectNonPubliclyRoutableHistogram(
+      "Net.TCPSocket.ConnectResult.NonPubliclyRoutable."
+      "LinkLocal.NotAppContainer.Win",
+      *ipv6_link_local);
+
+  ExpectNonPubliclyRoutableHistogram(
+      "Net.TCPSocket.ConnectResult.NonPubliclyRoutable."
+      "Private.NotAppContainer.Win",
+      IPAddress(10, 0, 0, 1));
+  ExpectNonPubliclyRoutableHistogram(
+      "Net.TCPSocket.ConnectResult.NonPubliclyRoutable."
+      "Private.NotAppContainer.Win",
+      IPAddress(172, 16, 0, 1));
+  ExpectNonPubliclyRoutableHistogram(
+      "Net.TCPSocket.ConnectResult.NonPubliclyRoutable."
+      "Private.NotAppContainer.Win",
+      IPAddress(172, 31, 255, 254));
+  ExpectNonPubliclyRoutableHistogram(
+      "Net.TCPSocket.ConnectResult.NonPubliclyRoutable."
+      "Private.NotAppContainer.Win",
+      IPAddress(192, 168, 1, 100));
+  std::optional<IPAddress> ipv6_unique_local =
+      IPAddress::FromIPLiteral("fc00::1");
+  ASSERT_TRUE(ipv6_unique_local);
+  ExpectNonPubliclyRoutableHistogram(
+      "Net.TCPSocket.ConnectResult.NonPubliclyRoutable."
+      "Private.NotAppContainer.Win",
+      *ipv6_unique_local);
+
+  ExpectNonPubliclyRoutableHistogram(
+      "Net.TCPSocket.ConnectResult.NonPubliclyRoutable."
+      "Other.NotAppContainer.Win",
+      IPAddress(100, 64, 0, 1));
+}
+
+TEST(TCPSocketWinMetricsTest, ClassifiesIPv4MappedIPv6Addresses) {
+  ExpectNonPubliclyRoutableHistogram(
+      "Net.TCPSocket.ConnectResult.NonPubliclyRoutable."
+      "Loopback.NotAppContainer.Win",
+      ConvertIPv4ToIPv4MappedIPv6(IPAddress::IPv4Localhost()));
+  ExpectNonPubliclyRoutableHistogram(
+      "Net.TCPSocket.ConnectResult.NonPubliclyRoutable."
+      "Private.NotAppContainer.Win",
+      ConvertIPv4ToIPv4MappedIPv6(IPAddress(192, 168, 1, 100)));
+}
+
+TEST(TCPSocketWinMetricsTest, IncludesProcessSandboxState) {
+  ExpectNonPubliclyRoutableHistogram(
+      "Net.TCPSocket.ConnectResult.NonPubliclyRoutable."
+      "Loopback.AppContainer.Win",
+      IPAddress::IPv4Localhost(), true);
+  ExpectNonPubliclyRoutableHistogram(
+      "Net.TCPSocket.ConnectResult.NonPubliclyRoutable."
+      "Loopback.NotAppContainer.Win",
+      IPAddress::IPv4Localhost(), false);
+  ExpectNonPubliclyRoutableHistogram(
+      "Net.TCPSocket.ConnectResult.NonPubliclyRoutable.Loopback.Unknown.Win",
+      IPAddress::IPv4Localhost(), std::nullopt);
+}
+
+TEST_P(TCPSocketTest, RecordsNonPubliclyRoutableConnectResult) {
+  base::HistogramTester histogram_tester;
+  ASSERT_NO_FATAL_FAILURE(SetUpListenIPv4());
+  auto [connecting_socket, accepted_socket] = CreateIPv4SocketPair();
+  ASSERT_TRUE(connecting_socket);
+  ASSERT_TRUE(accepted_socket);
+
+  histogram_tester.ExpectUniqueSample(
+      NonPubliclyRoutableConnectResultHistogramNameWin(
+          IPAddress::IPv4Localhost(), false),
+      -OK, 1);
+}
+
+TEST_P(TCPSocketTest, RecordsFailedTCPClientSocketConnectResult) {
+  base::HistogramTester histogram_tester;
+  ASSERT_NO_FATAL_FAILURE(SetUpListenIPv4());
+  const IPEndPoint closed_address = local_address_;
+  socket_->Close();
+
+  TCPClientSocket client_socket(AddressList(closed_address),
+                                /*socket_performance_watcher=*/nullptr,
+                                /*network_quality_estimator=*/nullptr,
+                                /*net_log=*/nullptr, NetLogSource(),
+                                handles::kInvalidNetworkHandle);
+  TestCompletionCallback connect_callback;
+  int result = client_socket.Connect(connect_callback.callback());
+
+  EXPECT_EQ(ERR_CONNECTION_REFUSED, connect_callback.GetResult(result));
+  histogram_tester.ExpectUniqueSample(
+      NonPubliclyRoutableConnectResultHistogramNameWin(
+          IPAddress::IPv4Localhost(), false),
+      -ERR_CONNECTION_REFUSED, 1);
+}
+#endif  // BUILDFLAG(IS_WIN)
+
 INSTANTIATE_TEST_SUITE_P(
     Any,
     TCPSocketTest,
     ::testing::Values(
         // Base tests
-        std::make_tuple(false, false),  // Base, Read
-        std::make_tuple(false, true)    // Base, ReadIfReady
+        std::make_tuple(false, false, false),  // Base, Read, Unused
+        std::make_tuple(false, true, false)    // Base, ReadIfReady, Unused
 #if BUILDFLAG(IS_WIN)
         // TcpSocketIoCompletionPortWin tests
         ,
         std::make_tuple(true,
-                        false),      // TcpSocketIoCompletionPortWin, Read
-        std::make_tuple(true, true)  // TcpSocketIoCompletionPortWin,
-                                     // ReadIfReady
+                        false,
+                        false),  // TcpSocketIoCompletionPortWin, Read, Unused
+        std::make_tuple(true, true, false)  // TcpSocketIoCompletionPortWin,
+                                            // ReadIfReady, Unused
 #elif BUILDFLAG(IS_MAC)
         // TcpPortRandomizationMac tests
         ,
+        std::make_tuple(true, false, false),  // TcpPortRandomizationMac, Read,
+                                              // LoopbackRandomizationDisabled
         std::make_tuple(true,
-                        false),      // TcpPortRandomizationMac, Read
-        std::make_tuple(true, true)  // TcpPortRandomizationMac,
-                                     // ReadIfReady
+                        true,
+                        false),  // TcpPortRandomizationMac, ReadIfReady,
+                                 // LoopbackRandomizationDisabled
+        std::make_tuple(true, false, true),  // TcpPortRandomizationMac, Read,
+                                             // LoopbackRandomizationEnabled
+        std::make_tuple(true,
+                        true,
+                        true)  // TcpPortRandomizationMac, ReadIfReady,
+                               // LoopbackRandomizationEnabled
 #endif
         ),
-    [](::testing::TestParamInfo<std::tuple<bool, bool>> info) {
+    [](::testing::TestParamInfo<std::tuple<bool, bool, bool>> info) {
       std::string name;
       if (std::get<0>(info.param)) {
 #if BUILDFLAG(IS_WIN)
@@ -1686,6 +1826,10 @@ INSTANTIATE_TEST_SUITE_P(
         name = "Base";
       }
       name += std::get<1>(info.param) ? "_ReadIfReady" : "_Read";
+#if BUILDFLAG(IS_MAC)
+      name += std::get<2>(info.param) ? "_LoopbackRandomizationEnabled"
+                                      : "_LoopbackRandomizationDisabled";
+#endif
       return name;
     });
 

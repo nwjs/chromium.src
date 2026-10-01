@@ -9,6 +9,7 @@
 <translation id="1016495303386450659">Item geüpdatet</translation>
 <translation id="1018804590490383958">Scannen en automatisch invullen</translation>
 <translation id="1019990162050689579">Gemini Apps-activiteit</translation>
+<translation id="102645702181682900">Taak gestart</translation>
 <translation id="102916930470544692">Toegangssleutel</translation>
 <translation id="1030376737535466765">Wachtwoordmanager openen</translation>
 <translation id="1035980983510608210">Als je alle tabbladen sluit, worden ook vastgezette tabbladen gesloten.</translation>
@@ -63,6 +64,7 @@
 <translation id="1179890706672152411">Je opslag is vol</translation>
 <translation id="1181037720776840403">Verwijderen</translation>
 <translation id="1190609913194133056">Meldingscentrum</translation>
+<translation id="1195433173321863960">Afbeeldingen zijn weer beschikbaar als je limiet wordt gereset op <ph name="RESET_TIME" /></translation>
 <translation id="1196534270480620381">Geef me een korte samenvatting van deze pagina</translation>
 <translation id="1199631150313925648">Handmatig invoeren</translation>
 <translation id="1199963004393929848">Groen thema</translation>
@@ -171,6 +173,7 @@
 <translation id="1506733063065214205">RCS MLS-client</translation>
 <translation id="1508263560970797965">Doorgaan in incognitomodus</translation>
 <translation id="1509486075633541495">Inloggen op website</translation>
+<translation id="1509922846321012406">Ontdek meer manieren om je privacy en veiligheid te verbeteren</translation>
 <translation id="1513858653616922153">Wachtwoord verwijderen</translation>
 <translation id="1517166097004694782">Doorgaan met dit tabblad verbergen</translation>
 <translation id="1520027731907768768">Krijg meldingen over prijsdalingen voor producten die je volgt.</translation>
@@ -239,6 +242,7 @@
 <translation id="1709916727352927457">Toegangscode verwijderen</translation>
 <translation id="1715515772563243997">Als je <ph name="SITE" /> vertrouwt, kun je een opgeslagen wachtwoord gebruiken om in te loggen.</translation>
 <translation id="1718835860248848330">Afgelopen uur</translation>
+<translation id="1726013039921383235">Altijd toestaan</translation>
 <translation id="1728549374069268714">Plakken en zoeken</translation>
 <translation id="1732468323901456775">Meldingen voor <ph name="MODULE_NAME" /> aanzetten</translation>
 <translation id="1739364174357629566">Known Traveler Number updaten</translation>
@@ -265,6 +269,7 @@
 <translation id="17906873777101817">Aanbieden om wachtwoorden en toegangssleutels op te slaan</translation>
 <translation id="1794893174442046596">Tabbladgroep</translation>
 <translation id="1807893857950749072">Meldingen voor prijs volgen toestaan…</translation>
+<translation id="1808142805674973090">Andere modus</translation>
 <translation id="1809929083618343438">Hiermee verwijder je geselecteerde informatie uit Chrome, maar wordt deze informatie niet uit je Google-account verwijderd.</translation>
 <translation id="1810976980198522421">Annuleren</translation>
 <translation id="1815941218935345331">Toegangscode</translation>
@@ -451,6 +456,7 @@
 <translation id="2381405137052800939">Basisinstellingen</translation>
 <translation id="2384692388811649784">Incognitotabbladen verbergen</translation>
 <translation id="2386793615875593361">1 geselecteerd</translation>
+<translation id="2388949452472546050">De sites die je bezoekt, waaronder Google, zijn verantwoordelijk voor het bepalen hoe ze op dit verzoek reageren. Afhankelijk van de wetgeving in je regio kunnen sites reageren door de verkoop en het delen van je gegevens of het gebruik ervan voor gepersonaliseerde advertenties te beperken. <ph name="BEGIN_LINK" />Meer informatie<ph name="END_LINK" /></translation>
 <translation id="2390457533592708044"><ph name="MODULE_NAME" /> verbergen</translation>
 <translation id="2393230427496852974">Lees wat mensen zeggen</translation>
 <translation id="2394659309569789395">Site toch openen</translation>
@@ -602,6 +608,7 @@
 <translation id="2893168226686371498">Standaardbrowser</translation>
 <translation id="2893791155497534382">Wachtwoorden en andere activiteit kunnen worden verwijderd in de beheerinstellingen</translation>
 <translation id="2894757982205307093">Nieuw tabblad in groep</translation>
+<translation id="2897858638449756400">Meer manieren om te zoeken ontdekken</translation>
 <translation id="2902312830803030883">Meer acties</translation>
 <translation id="2904788871580817212">Prijsdaling op je geopende tabblad, van <ph name="PREVIOUS_PRICE" /> naar <ph name="PRICE" />, <ph name="PRODUCT_NAME" />, <ph name="DOMAIN" /></translation>
 <translation id="2905479111267140204">Je hebt <ph name="NUMBER_OF_PASSWORDS" /> hergebruikte wachtwoorden die een beveiligingsrisico kunnen vormen.</translation>
@@ -740,7 +747,7 @@
 <translation id="3409785640040772790">Maps</translation>
 <translation id="3416023309465857378">25 okt 2023</translation>
 <translation id="3419787211763835342">Help ons verbeterd automatisch invullen te verbeteren</translation>
-<translation id="3426715535827854458">Optie verbergen voor Werkbalk verbergen</translation>
+<translation id="3430407169377889553">Gebruik Gemini zorgvuldig en neem waar nodig de controle over. Jij bent verantwoordelijk voor de acties van Gemini tijdens taken.</translation>
 <translation id="3435738964857648380">Beveiliging</translation>
 <translation id="3441673211568148613">Houd je browsen privé</translation>
 <translation id="3443810440409579745">Tabblad ontvangen.</translation>
@@ -845,6 +852,7 @@
 <translation id="3779810277399252432">Geen internetverbinding.</translation>
 <translation id="3782614601387961027">Waarschuwing sluiten</translation>
 <translation id="3789841737615482174">Installeren</translation>
+<translation id="3793603310364129123">Minder stappen, snellere links</translation>
 <translation id="380329542618494757">Naam</translation>
 <translation id="3803696231112616155">Aanbieden om deze site te vertalen</translation>
 <translation id="3810973564298564668">Beheren</translation>
@@ -928,6 +936,7 @@
 <translation id="4021447724486050609">Je browser updaten</translation>
 <translation id="4021931095789478915">${url} toevoegen aan leeslijst</translation>
 <translation id="4028871427853484857">Opslaan in account…</translation>
+<translation id="4034354558246368274">Deze keer toestaan</translation>
 <translation id="4038354071007134711">Geen app op dit apparaat kan het bestand openen.</translation>
 <translation id="4042870976416480368">Zoeken op pagina</translation>
 <translation id="4045441967987592849">Opnieuw openen</translation>
@@ -1089,6 +1098,7 @@
 <translation id="4592672037257622855">{count,plural, =1{Pagina toegevoegd aan je leeslijst}other{{count} pagina's toegevoegd aan je leeslijst}}</translation>
 <translation id="459644946100970322">Prijsmeldingen aanzetten?</translation>
 <translation id="4597892826846980979">Meldingen voor tabbladen krijgen</translation>
+<translation id="459792494991530234">Typen</translation>
 <translation id="4601095002996233687">Uitgebreide scans voor verdachte downloads.</translation>
 <translation id="4606247758155004938">Je browser wordt beheerd door je organisatie.</translation>
 <translation id="4607887340472970274">Prijzen volgen</translation>
@@ -1154,6 +1164,7 @@
 <translation id="4792385443586519711">Bedrijfsnaam</translation>
 <translation id="479628432297359449">Download stoppen?</translation>
 <translation id="4796496140132859135">Tabbladgroep. Samengevouwen.</translation>
+<translation id="4800912004582762296">Klikken</translation>
 <translation id="4802185666270672526">Desktopsite opvragen verbergen</translation>
 <translation id="4802678077012980341">Wachtwoordcheck is afgerond.</translation>
 <translation id="4803185665210547709">Beheerd door je organisatie.
@@ -1173,6 +1184,7 @@
 <translation id="484280513275854557">Je bent uitgelogd en browsegegevens zijn verwijderd</translation>
 <translation id="484462545196658690">Auto</translation>
 <translation id="4846662396507502151">Sneller browsen met de nieuwe werkbalk</translation>
+<translation id="4850669014075537160">Scrollen</translation>
 <translation id="4850886885716139402">Weergave</translation>
 <translation id="4854068532375923088">Gemini toegang geven tot je camera</translation>
 <translation id="4860895144060829044">Bellen</translation>
@@ -1242,6 +1254,7 @@
 <translation id="5055551113846164633">Hiermee worden adressen verwijderd die zijn opgeslagen op dit apparaat. Ook worden adressen verwijderd die zijn opgeslagen in je Google-account <ph name="USER_EMAIL" />.</translation>
 <translation id="5056446788882570708">Problemen gevonden (<ph name="TIME" />).</translation>
 <translation id="5056587122125565772">Afbeelding maken</translation>
+<translation id="5058813911021873087">Ontdek meer manieren om georganiseerd te blijven en tijd te besparen</translation>
 <translation id="5059136629401106827">OK</translation>
 <translation id="5061202435354361813">Browse op een hoger niveau</translation>
 <translation id="5062321486222145940">Google Drive installeren</translation>
@@ -1371,6 +1384,7 @@
 <translation id="5467163657366219870">Previews van Maps uitzetten</translation>
 <translation id="5474397204728336997">Onder andere gezinswachtwoorden en nieuwe aanpassingsopties. Tik voor meer informatie.</translation>
 <translation id="5475793109165786685">{count,plural, =0{Geen wachtwoord geïmporteerd}=1{{count} wachtwoord geïmporteerd}other{{count} wachtwoorden geïmporteerd}}</translation>
+<translation id="5477188385487393357">Sla kopiëren en plakken over</translation>
 <translation id="5478327362747197944">Maak rechtstreeks Agenda-afspraken door op een datum op een webpagina te klikken.</translation>
 <translation id="5482922178977937393">Wil je meldingen krijgen voor onder andere nieuws en sport op basis van je interesses?</translation>
 <translation id="5483838506518938965">Je bent helemaal klaar</translation>
@@ -1625,6 +1639,7 @@ Handoff moet ook aanstaan in het gedeelte Algemeen van Instellingen en je appara
 <translation id="6259928806013786178">Leesmodus mislukt</translation>
 <translation id="626335165106398104">Gemini werkt met andere services</translation>
 <translation id="6268773951964630964">Zoeken naar gekopieerde afbeelding</translation>
+<translation id="6270944267518310103">Wachten</translation>
 <translation id="6271462272606946663">Mobiele site opvragen verbergen</translation>
 <translation id="6271824294945464304">Wachtwoord delen</translation>
 <translation id="628251768213143684">Je kunt altijd bepalen wat wordt opgeslagen in je Google-account</translation>
@@ -1658,6 +1673,7 @@ Handoff moet ook aanstaan in het gedeelte Algemeen van Instellingen en je appara
 <translation id="6350745006329795504">Je apparaten beheren</translation>
 <translation id="6351147166808964033">Tabbladschakelaar openen</translation>
 <translation id="63519665078626091">Als je Webcontrole wilt gebruiken, maak je via een kabel verbinding met Safari op je computer en open je je iPad via het menu Ontwikkelen. Je kunt het menu Ontwikkelen aanzetten in het gedeelte Geavanceerd van de Safari-instellingen op je computer.</translation>
+<translation id="6354695695659930684">Wachtwoord invullen</translation>
 <translation id="6355820183143562453">Kaart Prijzen volgen verbergen</translation>
 <translation id="6355820205320395730">Zwakke wachtwoorden zijn makkelijk te raden. Zorg dat je sterke wachtwoorden maakt. <ph name="BEGIN_LINK" />Meer beveiligingstips bekijken<ph name="END_LINK" /></translation>
 <translation id="6357455205205567365">Log in om onder andere je wachtwoorden en bookmarks te gebruiken.</translation>
@@ -1735,6 +1751,7 @@ Handoff moet ook aanstaan in het gedeelte Algemeen van Instellingen en je appara
 <translation id="6585618849026997638">Je kunt terugkeren naar een pagina die belangrijk voor je is door een bookmark toe te voegen</translation>
 <translation id="6589001036857939353">Duplicaten samenvoegen</translation>
 <translation id="659407965921887085">Deze kaart toont prijsdalingen op het web voor producten die je op dit moment volgt</translation>
+<translation id="6596324345367949437">Gemini is niet beschikbaar in de incognitomodus</translation>
 <translation id="6596481460663245319">Afbeelding zoeken met Google</translation>
 <translation id="6601302169302852717">Afbeelding in Google Foto's opgeslagen voor <ph name="USER_EMAIL" /></translation>
 <translation id="6602173570135186741">Automatisch invullen en wachtwoorden</translation>
@@ -1872,6 +1889,7 @@ Wissel naar <ph name="OTHER_EMAIL" /> om door te gaan vanaf je computer. Je krij
 <translation id="6987201788018524855">Ontdek handige functies die je hebt gemist</translation>
 <translation id="6989636517316575338">Stel vragen over een pagina</translation>
 <translation id="6990519590575500580">FaceTime</translation>
+<translation id="6998236305642926573">Alle taken</translation>
 <translation id="6998251471716094661">Volg de prijzen van producten en krijg meldingen als de prijs daalt op een site</translation>
 <translation id="7004032350256606903">Je organisatie vereist dat je privé browst.
 <ph name="BEGIN_LINK" />Meer informatie<ph name="END_LINK" /></translation>
@@ -1947,6 +1965,9 @@ Wissel naar <ph name="OTHER_EMAIL" /> om door te gaan vanaf je computer. Je krij
 <translation id="7280980607183752256">Dit bestand kan niet worden geïmporteerd</translation>
 <translation id="7282197670900591579">Citroenkleurig thema</translation>
 <translation id="7293429513719260019">Taal selecteren</translation>
+<translation id="72961285530871072">Hiermee wordt je Level Up-voortgang definitief verwijderd en worden gegevens over functiegebruik voor Level Up niet meer naar Google gestuurd voor je profiel.
+
+Je kunt op elk moment opnieuw beginnen.</translation>
 <translation id="7300448350764260141">Voeg een extra beveiligingslaag toe tegen online dreigingen.</translation>
 <translation id="7311244614769792472">Geen resultaten gevonden</translation>
 <translation id="7312823817809783355">Je taken</translation>
@@ -2097,6 +2118,7 @@ Wissel naar <ph name="OTHER_EMAIL" /> om door te gaan vanaf je computer. Je krij
 <translation id="7772948288262733182">Welkom terug</translation>
 <translation id="777637629667389858">Als je bent ingelogd, word je beschermd in Google-services.</translation>
 <translation id="7776604279034196531">Toegang tot de leesmodus vanuit de adresbalk als deze beschikbaar is</translation>
+<translation id="7780992949171378848">Een afmeldingsverzoek naar sites sturen over het gebruik van je gegevens</translation>
 <translation id="7781829728241885113">Gisteren</translation>
 <translation id="7788474973847076315">Foto maken</translation>
 <translation id="7788868432173225918">Uitgevouwen weergave sluiten</translation>
@@ -2247,6 +2269,7 @@ Wissel naar <ph name="OTHER_EMAIL" /> om door te gaan vanaf je computer. Je krij
 <translation id="8233237502828137700">Bannerpromotie sluiten</translation>
 <translation id="823339794112333264">Microfoon aanzetten</translation>
 <translation id="8240217649914883113">Dit toevoegen aan mijn agenda</translation>
+<translation id="824379025871762038">Nooit toestaan</translation>
 <translation id="8250920743982581267">Documenten</translation>
 <translation id="8252980988000695656">Google Lens is afgerond.</translation>
 <translation id="8258734532103758067">Ik heb mijn gegevens geëxporteerd</translation>

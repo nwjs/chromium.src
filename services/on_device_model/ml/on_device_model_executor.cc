@@ -358,8 +358,12 @@ class AsrStreamResponder final {
       std::vector<odmm::SpeechRecognitionResultPtr> result;
       result.reserve(output.size());
       for (const auto& t : output) {
-        result.push_back(
-            odmm::SpeechRecognitionResult::New(t.transcript, t.is_final));
+        auto r = odmm::SpeechRecognitionResult::New();
+        r->transcript = t.transcript;
+        r->is_final = t.is_final;
+        r->audio_start_time = base::Microseconds(t.from_timestamp_micros);
+        r->audio_end_time = base::Microseconds(t.to_timestamp_micros);
+        result.push_back(std::move(r));
       }
       task_runner->PostTask(
           FROM_HERE, base::BindOnce(&AsrStreamResponder::OnOutput, weak_ptr,
@@ -819,8 +823,6 @@ LoadModelResult OnDeviceModelExecutor::Init(
       .enable_host_mapped_pointer = kEnableHostMappedPointer.Get(),
       .use_low_power = kUseLowPower.Get(),
       .allow_fp16 = kAllowFp16.Get(),
-      .enable_speculative_decoding = base::FeatureList::IsEnabled(
-          on_device_model::features::kOnDeviceModelSpeculativeDecoding),
       .performance_hint = params->performance_hint,
       .vram_mb = params->vram_mb,
   };

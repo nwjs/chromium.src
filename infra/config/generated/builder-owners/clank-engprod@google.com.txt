@@ -32,6 +32,7 @@ try/android-15-x64-rel
 try/android-16-x64-rel
 try/android-arm-compile-dbg
 try/android-arm64-compile-dbg
+try/android-arm64-rel
 try/android-desktop-arm64-compile-dbg
 try/android-desktop-arm64-compile-rel
 try/android-desktop-arm64-official
@@ -44,3 +45,6 @@ try/android-x64-rel
 try/android-x64-rel-compilator
 try/android-x86-rel
 try/android-x86-rel-compilator
+try/android_compile_dbg
+try/android_compile_x64_dbg
+try/android_compile_x86_dbg

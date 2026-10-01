@@ -10,7 +10,6 @@
 #include "base/callback_list.h"
 #include "base/containers/span.h"
 #include "base/feature_list.h"
-#include "base/metrics/histogram_functions.h"
 #include "components/autofill/core/browser/autofill_field.h"
 #include "components/autofill/core/browser/field_types.h"
 #include "components/autofill/core/browser/form_structure.h"
@@ -28,7 +27,8 @@ bool OtpFieldDetector::IsOtpForm(const FormStructure& form) {
 
   bool has_otp_field = false;
   for (const std::unique_ptr<AutofillField>& f : form.fields()) {
-    if (!f->Type().GetTypes().contains(ONE_TIME_CODE) || !f->is_focusable()) {
+    if (!f->Type().GetTypes().contains(ONE_TIME_CODE) || !f->is_focusable() ||
+        f->IsPasswordInputElement()) {
       continue;
     }
     has_otp_field = true;
@@ -69,16 +69,7 @@ OtpFieldDetector::RegisterOtpFieldsSubmittedCallback(
 }
 
 bool OtpFieldDetector::IsOtpFieldPresent() const {
-  const bool is_otp_present = !forms_with_otps_.empty();
-  // TODO(crbug.com/415273270) This metric could be improved because
-  // 1) there is no guarantee inside `OtpFieldDetector` that
-  //   `IsOneTimeTokenFieldPresent()` is called only once
-  // 2) because the `OtpFieldDetector` also also considers OTP fields
-  //    in iframes (i.e. the "InMainFrame" suffix is incorrect).
-  // This exists for legacy purposes.
-  base::UmaHistogramBoolean("PasswordManager.OtpPresentInMainTab",
-                            is_otp_present);
-  return is_otp_present;
+  return !forms_with_otps_.empty();
 }
 
 void OtpFieldDetector::OnFieldTypesDetermined(AutofillManager& manager,

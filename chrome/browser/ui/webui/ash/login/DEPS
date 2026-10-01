@@ -19,15 +19,6 @@ include_rules = [
   "+chrome/browser/ash/drive",
   "+chrome/browser/ash/input_method",
   "+chrome/browser/ash/login",
-  "+chrome/browser/ash/login/demo_mode",
-  "+chrome/browser/ash/login/enrollment",
-  "+chrome/browser/ash/login/quick_unlock",
-  "+chrome/browser/ash/login/saml",
-  "+chrome/browser/ash/login/screens",
-  "+chrome/browser/ash/login/session",
-  "+chrome/browser/ash/login/signin",
-  "+chrome/browser/ash/login/test",
-  "+chrome/browser/ash/login/users",
   "+chrome/browser/ash/multidevice_setup",
   "+chrome/browser/ash/policy/core",
   "+chrome/browser/ash/policy/enrollment",
@@ -40,7 +31,6 @@ include_rules = [
   "+chrome/browser/extensions/tab_helper.h",
   "+chrome/browser/net",
   "+chrome/browser/policy/networking",
-  "+chrome/browser/profiles",
   "+chrome/browser/profiles",
   "+chrome/browser/signin",
   "+chrome/browser/ui/ash/login",
@@ -57,9 +47,6 @@ include_rules = [
   "+chrome/test/base",
 ]
 specific_include_rules = {
-  "welcome_screen_handler\\.cc": [
-    "+chrome/browser/global_features.h",
-  ],
   "core_oobe_handler\\.cc": [
     "+ash/shell.h",
   ],
@@ -68,6 +55,7 @@ specific_include_rules = {
   ],
   "oobe_ui\\.cc": [
     "+ash/shell.h",
+    "+chrome/browser/global_features.h",
   ],
 
   # Tests.

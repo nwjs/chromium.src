@@ -15,6 +15,7 @@
 #include "chrome/browser/user_education/user_education_service_factory.h"
 #include "components/user_education/common/feature_promo/feature_promo_controller.h"
 #include "ui/base/page_transition_types.h"
+#include "ui/base/window_open_disposition.h"
 
 namespace {
 
@@ -81,7 +82,7 @@ class StartTutorialInPageImpl : public StartTutorialInPage {
           UserEducationServiceFactory::GetForBrowserContext(
               browser_->GetProfile());
       if (service) {
-        return &service->tutorial_service();
+        return service->tutorial_service();
       }
     }
     return nullptr;

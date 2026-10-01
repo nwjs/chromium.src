@@ -17,7 +17,6 @@
 #include "chrome/browser/notifications/notification_display_service_tester.h"
 #include "chrome/browser/notifications/system_notification_helper.h"
 #include "chrome/browser/profiles/profile_manager.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/testing_browser_process.h"
@@ -29,6 +28,7 @@
 #include "services/device/public/mojom/usb_device.mojom.h"
 #include "services/device/public/mojom/usb_manager.mojom.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/message_center/public/cpp/notification.h"
 #include "ui/message_center/public/cpp/notification_delegate.h"
 #include "url/gurl.h"
@@ -165,6 +165,62 @@ IN_PROC_BROWSER_TEST_F(WebUsbDetectorTest,
       0, 1, "Google", kProductName_1, "002", landing_page);
   // For device without landing page, no notification is generated.
   AddDeviceWithNotificationExpectation(device, false);
+  RemoveDeviceAndWaitNoNotification(device);
+}
+
+IN_PROC_BROWSER_TEST_F(WebUsbDetectorTest,
+                       UsbDeviceWithPrivilegedSchemeChromeAddedAndRemoved) {
+  GURL landing_page("chrome://settings");
+  Initialize();
+  auto device = base::MakeRefCounted<device::FakeUsbDeviceInfo>(
+      0, 1, "Google", kProductName_1, "002", landing_page);
+  // For device with privileged landing page (chrome://), no notification is
+  // generated.
+  AddDeviceWithNotificationExpectation(device, false);
+  RemoveDeviceAndWaitNoNotification(device);
+}
+
+IN_PROC_BROWSER_TEST_F(WebUsbDetectorTest,
+                       UsbDeviceWithPrivilegedSchemeFileAddedAndRemoved) {
+  GURL landing_page("file:///test.html");
+  Initialize();
+  auto device = base::MakeRefCounted<device::FakeUsbDeviceInfo>(
+      0, 1, "Google", kProductName_1, "002", landing_page);
+  // For device with privileged landing page (file://), no notification is
+  // generated.
+  AddDeviceWithNotificationExpectation(device, false);
+  RemoveDeviceAndWaitNoNotification(device);
+}
+
+IN_PROC_BROWSER_TEST_F(WebUsbDetectorTest,
+                       UsbDeviceWithPrivilegedSchemeExtensionAddedAndRemoved) {
+  GURL landing_page(
+      "chrome-extension://abcdefghijklmnopqrstuvwxyzabcdef/manifest.json");
+  Initialize();
+  auto device = base::MakeRefCounted<device::FakeUsbDeviceInfo>(
+      0, 1, "Google", kProductName_1, "002", landing_page);
+  // For device with privileged landing page (chrome-extension://), no
+  // notification is generated.
+  AddDeviceWithNotificationExpectation(device, false);
+  RemoveDeviceAndWaitNoNotification(device);
+}
+
+IN_PROC_BROWSER_TEST_F(WebUsbDetectorTest,
+                       UsbDeviceWithValidHttpsLandingPageAddedAndRemoved) {
+  GURL landing_page("https://example.com/subpage");
+  Initialize();
+  auto device = base::MakeRefCounted<device::FakeUsbDeviceInfo>(
+      0, 1, "Google", kProductName_1, "002", landing_page);
+  // For device with valid https:// landing page, a notification is generated.
+  AddDeviceWithNotificationExpectation(device, true);
+  std::optional<message_center::Notification> notification =
+      display_service_->GetNotification(device->guid());
+  ASSERT_TRUE(notification);
+  std::u16string expected_title = u"Google Product A detected";
+  EXPECT_EQ(expected_title, notification->title());
+  std::u16string expected_message = u"Go to example.com to connect.";
+  EXPECT_EQ(expected_message, notification->message());
+  EXPECT_TRUE(notification->delegate() != nullptr);
   RemoveDeviceAndWaitNoNotification(device);
 }
 

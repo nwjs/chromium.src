@@ -11,7 +11,9 @@
 #import "base/test/ios/wait_util.h"
 #import "components/omnibox/browser/omnibox_pref_names.h"
 #import "components/translate/core/browser/translate_pref_names.h"
+#import "ios/chrome/browser/fullscreen/public/fullscreen_metrics.h"
 #import "ios/chrome/browser/fullscreen/ui_bundled/test/fullscreen_app_interface.h"
+#import "ios/chrome/browser/metrics/model/metrics_app_interface.h"
 #import "ios/chrome/browser/popup_menu/public/popup_menu_constants.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
@@ -45,10 +47,16 @@ const int kPageHeightEM = 400;
 // Tolerance for width increase check.
 const CGFloat kViewportFitCoverTolerance = 5.0;
 
+// Upper bound on swipes used to reach the bottom of a test page. The number of
+// swipes actually required depends on the viewport size, so callers stop as
+// soon as the bottom is reached rather than swiping a fixed number of times.
+const int kMaxScrollToBottomSwipes = 12;
+
 // Hides the toolbar by scrolling down.
 void HideToolbarUsingUI() {
   [[EarlGrey selectElementWithMatcher:WebStateScrollViewMatcher()]
-      performAction:grey_swipeSlowInDirection(kGREYDirectionUp)];
+      performAction:grey_swipeSlowInDirectionWithStartPoint(kGREYDirectionUp,
+                                                            0.5, 0.75)];
 }
 
 // A PDF itself can take a little longer to appear even after the page is
@@ -145,7 +153,7 @@ std::unique_ptr<net::test_server::HttpResponse> NotFoundResponse() {
   config.features_disabled.push_back(kFullscreenRefactoring);
   // TODO(crbug.com/511992708): Fix these tests when Chrome Next is enabled.
   config.features_disabled.push_back(kChromeNextIa);
-  config.features_enabled.push_back(kHideToolbarsInOverflowMenu);
+  config.features_enabled.push_back(kHideToolbar);
   return config;
 }
 
@@ -294,6 +302,9 @@ std::unique_ptr<net::test_server::HttpResponse> NotFoundResponse() {
 
 // Tests hiding and showing of the header with a user scroll on a long page.
 - (void)testHideHeaderUserScrollLongPage {
+  GREYAssertNil([MetricsAppInterface setupHistogramTester],
+                @"Failed to set up histogram tester.");
+
   _responses["/tallpage"] =
       base::StringPrintf("<p style='height:%dem'>a</p><p>b</p>", kPageHeightEM);
 
@@ -308,6 +319,91 @@ std::unique_ptr<net::test_server::HttpResponse> NotFoundResponse() {
   [[EarlGrey selectElementWithMatcher:WebStateScrollViewMatcher()]
       performAction:grey_swipeFastInDirection(kGREYDirectionDown)];
   [ChromeEarlGreyUI waitForToolbarVisible:YES];
+
+  // User scrolling logs kUserControlled.
+  NSError* enterError = [MetricsAppInterface
+       expectCount:1
+         forBucket:static_cast<int>(
+                       FullscreenModeTransitionTrigger::kUserControlled)
+      forHistogram:@"IOS.Fullscreen.TransitionTrigger.Enter"];
+  GREYAssertNil(enterError, @"Histogram error: %@", enterError);
+
+  // Exit has kUserControlled and kForcedByCode from page
+  // load.
+  NSError* exitError0 = [MetricsAppInterface
+       expectCount:1
+         forBucket:static_cast<int>(
+                       FullscreenModeTransitionTrigger::kUserControlled)
+      forHistogram:@"IOS.Fullscreen.TransitionTrigger.Exit"];
+  GREYAssertNil(exitError0, @"Histogram error: %@", exitError0);
+
+  NSError* exitError1 = [MetricsAppInterface
+       expectCount:1
+         forBucket:static_cast<int>(
+                       FullscreenModeTransitionTrigger::kForcedByCode)
+      forHistogram:@"IOS.Fullscreen.TransitionTrigger.Exit"];
+  GREYAssertNil(exitError1, @"Histogram error: %@", exitError1);
+
+  GREYAssertNil([MetricsAppInterface releaseHistogramTester],
+                @"Failed to release histogram tester.");
+}
+
+// Tests that fullscreen timing histograms are logged as expected.
+- (void)testFullscreenTimingHistograms {
+  GREYAssertNil([MetricsAppInterface setupHistogramTester],
+                @"Failed to set up histogram tester.");
+
+  _responses["/tallpage"] = base::StringPrintf(
+      "<p style='height:%dem'>a</p><p id='bottom'>b</p>", kPageHeightEM);
+
+  GURL URL = self.testServer->GetURL("/tallpage");
+  // Use the longer page-load timeout for web state appearance. The default 4s
+  // is not always enough on a cold-started app on a loaded bot.
+  [ChromeEarlGrey loadURL:URL withTimeout:kWaitForPageLoadTimeout];
+  [ChromeEarlGreyUI waitForToolbarVisible:YES];
+  [ChromeEarlGrey waitForPageToFinishLoading];
+
+  // 1. Enter fullscreen by scrolling down.
+  HideToolbarUsingUI();
+  [ChromeEarlGreyUI waitForToolbarVisible:NO];
+
+  // Verify IOS.Fullscreen.TimeNotInFullscreen is recorded.
+  NSError* notInFullscreenError =
+      [MetricsAppInterface expectTotalCount:1
+                               forHistogram:@(kTimeNotInFullscreenHistogram)];
+  GREYAssertNil(notInFullscreenError, @"Histogram error: %@",
+                notInFullscreenError);
+
+  // 2. Exit fullscreen by scrolling up.
+  [[EarlGrey selectElementWithMatcher:WebStateScrollViewMatcher()]
+      performAction:grey_swipeFastInDirection(kGREYDirectionDown)];
+  [ChromeEarlGreyUI waitForToolbarVisible:YES];
+
+  // Verify IOS.Fullscreen.TimeInFullscreen is recorded.
+  NSError* inFullscreenError =
+      [MetricsAppInterface expectTotalCount:1
+                               forHistogram:@(kTimeInFullscreenHistogram)];
+  GREYAssertNil(inFullscreenError, @"Histogram error: %@", inFullscreenError);
+
+  // 3. Scroll to the bottom of the page. The number of swipes needed depends on
+  // the viewport size, so keep swiping until the metric is recorded.
+  NSError* scrollToBottomError = nil;
+  for (int i = 0; i < kMaxScrollToBottomSwipes; ++i) {
+    [[EarlGrey selectElementWithMatcher:WebStateScrollViewMatcher()]
+        performAction:grey_swipeFastInDirection(kGREYDirectionUp)];
+    // Verify IOS.Fullscreen.TimeSpentScrollingToTheBottom is recorded.
+    scrollToBottomError = [MetricsAppInterface
+        expectTotalCount:1
+            forHistogram:@(kFullscreenScrollToTheBottomTime)];
+    if (!scrollToBottomError) {
+      break;
+    }
+  }
+  GREYAssertNil(scrollToBottomError, @"Histogram error: %@",
+                scrollToBottomError);
+
+  GREYAssertNil([MetricsAppInterface releaseHistogramTester],
+                @"Failed to release histogram tester.");
 }
 
 // Tests that reloading of a page shows the header even if it was not shown
@@ -528,36 +624,16 @@ std::unique_ptr<net::test_server::HttpResponse> NotFoundResponse() {
 // Tests that tapping on the collapsed primary toolbar exits force fullscreen
 // mode.
 - (void)testTapOnCollapsedToolbarExitsForceFullscreenMode {
+  GREYAssertNil([MetricsAppInterface setupUserActionTester],
+                @"Failed to set up user action tester.");
+  GREYAssertNil([MetricsAppInterface setupHistogramTester],
+                @"Failed to set up histogram tester.");
+
   _responses["/tallpage"] =
       base::StringPrintf("<p style='height:%dem'>a</p><p>b</p>", kPageHeightEM);
 
   GURL URL = self.testServer->GetURL("/tallpage");
   [ChromeEarlGrey loadURL:URL];
-  [ChromeEarlGreyUI waitForToolbarVisible:YES];
-
-  // Open the tools menu.
-  [ChromeEarlGreyUI openToolsMenu];
-
-  // Tap on "Hide Toolbars" in the tools menu.
-  [ChromeEarlGreyUI
-      tapToolsMenuAction:grey_accessibilityID(kToolsMenuHideToolbars)];
-
-  [ChromeEarlGreyUI waitForToolbarVisible:NO];
-
-  // Scroll down and up to ensure we are in forced fullscreen mode and the
-  // toolbars stay hidden.
-  [[EarlGrey selectElementWithMatcher:WebStateScrollViewMatcher()]
-      performAction:grey_scrollInDirection(kGREYDirectionDown, 250)];
-  [ChromeEarlGreyUI waitForToolbarVisible:NO];
-  [[EarlGrey selectElementWithMatcher:WebStateScrollViewMatcher()]
-      performAction:grey_scrollInDirection(kGREYDirectionUp, 250)];
-  [ChromeEarlGreyUI waitForToolbarVisible:NO];
-
-  // Tap on the primary toolbar (which is collapsed).
-  [[EarlGrey selectElementWithMatcher:chrome_test_util::PrimaryToolbar()]
-      performAction:grey_tap()];
-
-  // Verify that it exits force fullscreen mode and the toolbar is visible.
   [ChromeEarlGreyUI waitForToolbarVisible:YES];
 
   // Long press on the omnibox to show the context menu.
@@ -568,15 +644,28 @@ std::unique_ptr<net::test_server::HttpResponse> NotFoundResponse() {
       performAction:grey_longPress()];
 
   // Tap on "Hide Toolbars" in the context menu.
-  id<GREYMatcher> hideToolbarsButton = grey_allOf(
-      grey_accessibilityLabel(
-          l10n_util::GetNSString(IDS_IOS_OVERFLOW_MENU_HIDE_TOOLBARS)),
-      grey_not(grey_kindOfClass([UILabel class])), grey_sufficientlyVisible(),
-      nil);
+  id<GREYMatcher> hideToolbarsButton =
+      grey_allOf(grey_accessibilityLabel(
+                     l10n_util::GetNSString(IDS_IOS_TOOLBAR_MENU_HIDE_TOOLBAR)),
+                 grey_not(grey_kindOfClass([UILabel class])),
+                 grey_sufficientlyVisible(), nil);
   [[EarlGrey selectElementWithMatcher:hideToolbarsButton]
       performAction:grey_tap()];
 
   [ChromeEarlGreyUI waitForToolbarVisible:NO];
+
+  GREYAssertNil([MetricsAppInterface
+                      expectCount:1
+                    forUserAction:@"Mobile.OmniboxContextMenu.HideToolbar"],
+                @"Mobile.OmniboxContextMenu.HideToolbar was not recorded");
+
+  // Verify kForcedByUser was recorded for Enter.
+  NSError* enterError = [MetricsAppInterface
+       expectCount:1
+         forBucket:static_cast<int>(
+                       FullscreenModeTransitionTrigger::kForcedByUser)
+      forHistogram:@"IOS.Fullscreen.TransitionTrigger.Enter"];
+  GREYAssertNil(enterError, @"Histogram error for Enter: %@", enterError);
 
   // Scroll down and up to ensure we are in forced fullscreen mode and the
   // toolbars stay hidden.
@@ -593,6 +682,19 @@ std::unique_ptr<net::test_server::HttpResponse> NotFoundResponse() {
 
   // Verify that it exits force fullscreen mode and the toolbar is visible.
   [ChromeEarlGreyUI waitForToolbarVisible:YES];
+
+  // Verify kForcedByUser was recorded for Exit.
+  NSError* exitError = [MetricsAppInterface
+       expectCount:1
+         forBucket:static_cast<int>(
+                       FullscreenModeTransitionTrigger::kForcedByUser)
+      forHistogram:@"IOS.Fullscreen.TransitionTrigger.Exit"];
+  GREYAssertNil(exitError, @"Histogram error for Exit: %@", exitError);
+
+  GREYAssertNil([MetricsAppInterface releaseUserActionTester],
+                @"Failed to release user action tester.");
+  GREYAssertNil([MetricsAppInterface releaseHistogramTester],
+                @"Failed to release histogram tester.");
 }
 
 // Tests that viewport-fit=cover works as intended in landscape mode.
@@ -751,7 +853,7 @@ std::unique_ptr<net::test_server::HttpResponse> NotFoundResponse() {
 - (AppLaunchConfiguration)appConfigurationForTestCase {
   AppLaunchConfiguration config;
   config.features_enabled.push_back(web::features::kSmoothScrollingDefault);
-  config.features_enabled.push_back(kHideToolbarsInOverflowMenu);
+  config.features_enabled.push_back(kHideToolbar);
   config.features_disabled.push_back(
       web::features::kSmoothScrollingUseDelegate);
   config.features_disabled.push_back(kFullscreenRefactoring);
@@ -822,7 +924,7 @@ std::unique_ptr<net::test_server::HttpResponse> NotFoundResponse() {
   AppLaunchConfiguration config;
   config.features_enabled.push_back(web::features::kSmoothScrollingDefault);
   config.features_enabled.push_back(web::features::kSmoothScrollingUseDelegate);
-  config.features_enabled.push_back(kHideToolbarsInOverflowMenu);
+  config.features_enabled.push_back(kHideToolbar);
   config.features_disabled.push_back(kFullscreenRefactoring);
   // TODO(crbug.com/511992708): Fix these tests when Chrome Next is enabled.
   config.features_disabled.push_back(kChromeNextIa);
@@ -865,7 +967,7 @@ std::unique_ptr<net::test_server::HttpResponse> NotFoundResponse() {
 - (AppLaunchConfiguration)appConfigurationForTestCase {
   AppLaunchConfiguration config;
   config.features_enabled.push_back(kFullscreenRefactoring);
-  config.features_enabled.push_back(kHideToolbarsInOverflowMenu);
+  config.features_enabled.push_back(kHideToolbar);
   config.features_disabled.push_back(web::features::kSmoothScrollingDefault);
   config.features_enabled.push_back(kChromeNextIa);
   return config;

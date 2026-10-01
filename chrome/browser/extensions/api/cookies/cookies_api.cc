@@ -20,8 +20,6 @@
 #include "chrome/browser/extensions/window_controller_list.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/extensions/api/cookies.h"
-#include "components/safe_browsing/buildflags.h"
-#include "components/safe_browsing/core/common/features.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_thread.h"
 #include "extensions/browser/guest_view/web_view/web_view_guest.h"
@@ -29,7 +27,9 @@
 #include "content/public/browser/web_contents.h"
 #include "extensions/browser/event_router.h"
 #include "extensions/browser/extension_api_frame_id_map.h"
+#include "extensions/browser/extension_util.h"
 #include "extensions/browser/extensions_browser_client.h"
+#include "extensions/browser/safe_browsing_delegate.h"
 #include "extensions/common/constants.h"
 #include "extensions/common/error_utils.h"
 #include "extensions/common/extension.h"
@@ -40,13 +40,6 @@
 #include "net/cookies/cookie_constants.h"
 #include "services/network/public/mojom/network_service.mojom.h"
 #include "third_party/blink/public/common/storage_key/storage_key.h"
-
-#if !BUILDFLAG(IS_ANDROID) && BUILDFLAG(SAFE_BROWSING_AVAILABLE)
-#include "chrome/browser/safe_browsing/extension_telemetry/cookies_get_all_signal.h"
-#include "chrome/browser/safe_browsing/extension_telemetry/cookies_get_signal.h"
-#include "chrome/browser/safe_browsing/extension_telemetry/extension_telemetry_service.h"
-#include "chrome/browser/safe_browsing/extension_telemetry/extension_telemetry_service_factory.h"
-#endif
 
 using content::BrowserThread;
 
@@ -153,26 +146,26 @@ network::mojom::CookieManager* ParseStoreCookieManager(
     bool include_incognito,
     std::string* store_id,
     std::string* error) {
-  Profile* function_profile = Profile::FromBrowserContext(function_context);
-  Profile* store_profile = nullptr;
+  content::BrowserContext* store_context = nullptr;
   if (!store_id->empty()) {
-    content::StoragePartition* partition = GetStoragePartitionFromWebview(*store_id);
+    content::StoragePartition* partition =
+        GetStoragePartitionFromWebview(*store_id);
     if (partition) {
       return partition->GetCookieManagerForBrowserProcess();
     }
 
-    store_profile = cookies_helpers::ChooseProfileFromStoreId(
-        *store_id, function_profile, include_incognito);
-    if (!store_profile) {
+    store_context = cookies_helpers::ChooseBrowserContextFromStoreId(
+        *store_id, function_context, include_incognito);
+    if (!store_context) {
       *error = ErrorUtils::FormatErrorMessage(kInvalidStoreIdError, *store_id);
       return nullptr;
     }
   } else {
-    store_profile = function_profile;
-    *store_id = cookies_helpers::GetStoreIdFromProfile(store_profile);
+    store_context = function_context;
+    *store_id = cookies_helpers::GetStoreIdFromBrowserContext(store_context);
   }
 
-  return store_profile->GetDefaultStoragePartition()
+  return store_context->GetDefaultStoragePartition()
       ->GetCookieManagerForBrowserProcess();
 }
 
@@ -225,7 +218,7 @@ void CookiesEventRouter::OnCookieChange(bool otr,
   CHECK(profile);
 
   api::cookies::Cookie cookie = cookies_helpers::CreateCookie(
-      change.cookie, cookies_helpers::GetStoreIdFromProfile(profile));
+      change.cookie, cookies_helpers::GetStoreIdFromBrowserContext(profile));
   dict.Set(kCookieKey, cookie.ToValue());
 
   // Map the internal cause to an external string.
@@ -452,21 +445,12 @@ void CookiesGetFunction::GetCookieListCallback(
 
 void CookiesGetFunction::NotifyExtensionTelemetry() {
   // TODO(crbug.com/371423073): Support telemetry on Android.
-#if !BUILDFLAG(IS_ANDROID) && BUILDFLAG(SAFE_BROWSING_AVAILABLE)
-  auto* telemetry_service =
-      safe_browsing::ExtensionTelemetryServiceFactory::GetForProfile(
-          Profile::FromBrowserContext(browser_context()));
-
-  if (!telemetry_service || !telemetry_service->enabled()) {
-    return;
-  }
-
-  auto cookies_get_signal = std::make_unique<safe_browsing::CookiesGetSignal>(
-      extension_id(), parsed_args_->details.name,
-      parsed_args_->details.store_id.value_or(std::string()),
-      parsed_args_->details.url, js_callstack().value_or(StackTrace()));
-  telemetry_service->AddSignal(std::move(cookies_get_signal));
-#endif
+  ExtensionsBrowserClient::Get()
+      ->GetSafeBrowsingDelegate()
+      ->NotifyExtensionApiCookiesGet(
+          browser_context(), extension_id(), parsed_args_->details.name,
+          parsed_args_->details.store_id.value_or(std::string()),
+          parsed_args_->details.url, js_callstack().value_or(StackTrace()));
 }
 
 CookiesGetAllFunction::CookiesGetAllFunction() = default;
@@ -560,27 +544,17 @@ void CookiesGetAllFunction::GetCookieListCallback(
 }
 
 void CookiesGetAllFunction::NotifyExtensionTelemetry() {
-  // TODO(crbug.com/371423073): Support telemetry on Android.
-#if !BUILDFLAG(IS_ANDROID) && BUILDFLAG(SAFE_BROWSING_AVAILABLE)
-  auto* telemetry_service =
-      safe_browsing::ExtensionTelemetryServiceFactory::GetForProfile(
-          Profile::FromBrowserContext(browser_context()));
-
-  if (!telemetry_service || !telemetry_service->enabled()) {
-    return;
-  }
-
-  auto cookies_get_all_signal =
-      std::make_unique<safe_browsing::CookiesGetAllSignal>(
-          extension_id(), parsed_args_->details.domain.value_or(std::string()),
+  ExtensionsBrowserClient::Get()
+      ->GetSafeBrowsingDelegate()
+      ->NotifyExtensionApiCookiesGetAll(
+          browser_context(), extension_id(),
+          parsed_args_->details.domain.value_or(std::string()),
           parsed_args_->details.name.value_or(std::string()),
           parsed_args_->details.path.value_or(std::string()),
           parsed_args_->details.secure,
           parsed_args_->details.store_id.value_or(std::string()),
           parsed_args_->details.url.value_or(std::string()),
           parsed_args_->details.session, js_callstack().value_or(StackTrace()));
-  telemetry_service->AddSignal(std::move(cookies_get_all_signal));
-#endif
 }
 
 CookiesSetFunction::CookiesSetFunction()
@@ -841,16 +815,35 @@ ExtensionFunction::ResponseAction CookiesGetPartitionKeyFunction::Run() {
   content::RenderFrameHost* render_frame_host = nullptr;
   content::WebContents* web_contents = nullptr;
   std::optional<int> frame_id = parsed_args_->details.frame_id;
-  std::optional<ExtensionApiFrameIdMap::DocumentId> document_id;
   std::optional<int> tab_id = parsed_args_->details.tab_id;
 
   if (parsed_args_->details.document_id.has_value()) {
-    document_id = ExtensionApiFrameIdMap::DocumentIdFromString(
-        *parsed_args_->details.document_id);
+    ExtensionApiFrameIdMap::DocumentId document_id =
+        ExtensionApiFrameIdMap::DocumentIdFromString(
+            *parsed_args_->details.document_id);
+    if (!document_id) {
+      return RespondNow(Error("Invalid `documentId`."));
+    }
     render_frame_host =
         ExtensionApiFrameIdMap::Get()->GetRenderFrameHostByDocumentId(
-            document_id.value());
+            document_id);
+    if (!render_frame_host) {
+      return RespondNow(Error("Invalid `documentId`."));
+    }
     web_contents = content::WebContents::FromRenderFrameHost(render_frame_host);
+    if (!web_contents ||
+        !util::IsWebContentsInContext(*web_contents, *browser_context(),
+                                      include_incognito_information())) {
+      return RespondNow(Error("Invalid `documentId`."));
+    }
+
+    if ((tab_id.has_value() &&
+         ExtensionTabUtil::GetTabId(web_contents) != tab_id.value()) ||
+        (frame_id.has_value() && ExtensionApiFrameIdMap::GetFrameId(
+                                     render_frame_host) != frame_id.value())) {
+      return RespondNow(
+          Error("Provided `tabId` and `frameId` do not match the frame."));
+    }
   } else if (tab_id.has_value()) {
     if (!frame_id.has_value()) {
       // Default to main frame if no frame is provided.
@@ -865,34 +858,36 @@ ExtensionFunction::ResponseAction CookiesGetPartitionKeyFunction::Run() {
     }
     render_frame_host = ExtensionApiFrameIdMap::GetRenderFrameHostById(
         web_contents, frame_id.value());
+    if (!render_frame_host) {
+      return RespondNow(Error("Invalid `frameId`."));
+    }
   } else if (frame_id.has_value()) {
     if (frame_id.value() == 0) {
       return RespondNow(
           Error("`frameId` may not be 0 if no `tabId` is present."));
     }
+    if (frame_id.value() < 0) {
+      return RespondNow(Error("Invalid `frameId`."));
+    }
 
     render_frame_host =
         ExtensionApiFrameIdMap::Get()->GetRenderFrameHostByFrameId(
             frame_id.value());
+    if (!render_frame_host) {
+      return RespondNow(Error("Invalid `frameId`."));
+    }
+    web_contents = content::WebContents::FromRenderFrameHost(render_frame_host);
+    if (!web_contents ||
+        !util::IsWebContentsInContext(*web_contents, *browser_context(),
+                                      include_incognito_information())) {
+      return RespondNow(Error("Invalid `frameId`."));
+    }
   } else {
     return RespondNow(
         Error("Either `documentId` or `tabId` must be specified."));
   }
 
-  if (!render_frame_host) {
-    return RespondNow(document_id.has_value() ? Error("Invalid `documentId`.")
-                                              : Error("Invalid `frameId`."));
-  }
-
-  // If both document_id and tab_id are provided, make sure they match.
-  if (document_id.has_value() && tab_id.has_value()) {
-    if (ExtensionTabUtil::GetTabId(web_contents) != tab_id.value() ||
-        ExtensionApiFrameIdMap::GetFrameId(render_frame_host) !=
-            frame_id.value()) {
-      return RespondNow(
-          Error("Provided `tabId` and `frameId` do not match the frame."));
-    }
-  }
+  CHECK(render_frame_host);
 
   base::expected<net::CookiePartitionKey::SerializedCookiePartitionKey,
                  std::string>

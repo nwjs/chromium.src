@@ -18,10 +18,10 @@
 #import "components/prefs/testing_pref_service.h"
 #import "components/safe_browsing/core/browser/db/database_manager.h"
 #import "components/safe_browsing/core/browser/db/sb_database.h"
+#import "components/safe_browsing/core/browser/db/sb_test_util.h"
 #import "components/safe_browsing/core/browser/db/util.h"
 #import "components/safe_browsing/core/browser/db/v4_get_hash_protocol_manager.h"
 #import "components/safe_browsing/core/browser/db/v4_protocol_manager_util.h"
-#import "components/safe_browsing/core/browser/db/v4_test_util.h"
 #import "components/safe_browsing/core/browser/db/v5_get_hash_protocol_manager.h"
 #import "components/safe_browsing/core/browser/db/v5_search_hashes_cache.h"
 #import "components/safe_browsing/core/browser/hashprefix_realtime/hash_realtime_service.h"
@@ -302,7 +302,7 @@ class SafeBrowsingServiceTest : public PlatformTest,
     v5_get_hash_protocol_manager_ =
         std::make_unique<safe_browsing::V5GetHashProtocolManager>(
             safe_browsing_service_->GetURLLoaderFactory(),
-            safe_browsing::GetTestV4ProtocolConfig(), v5_cache_.get());
+            safe_browsing::GetTestSBProtocolConfig(), v5_cache_.get());
     safe_browsing_client_->set_v5_get_hash_protocol_manager(
         v5_get_hash_protocol_manager_.get());
 

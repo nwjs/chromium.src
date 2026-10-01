@@ -15,18 +15,30 @@
   -webkit-app-region: drag;
   position: relative;
   /* Preserves 2px border width parity with omnibox-everywhere-omnibox to
-   * prevent layout shift when toggling between searchbox and composebox,
-   * and matches the -2px search-animated-glow inset. */
+   * prevent layout shift when toggling between searchbox and composebox. */
   border: 2px solid transparent;
-  border-radius: 28px;
+  border-radius: 16px;
   box-sizing: border-box;
+  font-size: var(--cr-searchbox-font-size, 16px);
+  --cr-composebox-font-size: var(--cr-searchbox-font-size, 16px);
+  --cr-composebox-aim-icon-size: 18px;
+  --cr-composebox-match-icon-size: 16px;
   --composebox-cancel-button-top: var(--cr-composebox-cancel-button-top, 10px);
   --cr-composebox-background-color: var(--color-searchbox-background);
   --input-bottom-spacing: 10px;
   --text-input-top-spacing: 10px;
   --text-input-inline-end-spacing: 80px;
   --text-input-inline-start-spacing: 16px;
-  --cr-searchbox-match-padding-inline-start: 16px;
+  --cr-composebox-input-padding-inline-start: 10.5px;
+  /* Aligns carousel thumbnails with the composebox input and dropdown text.
+   * Uses a 9.5px offset (1px less than the 10.5px input text padding) to
+   * optically align the thumbnail card with the text column. */
+  --context-carousel-inline-start-spacing: calc(
+      var(--text-input-inline-start-spacing) +
+      var(--cr-searchbox-icon-container-size) +
+      9.5px);
+  --cr-composebox-match-icon-container-padding-inline-start: 16px;
+  --cr-searchbox-match-text-padding-inline-start: 8px;
   --text-input-max-height: 190px;
   --color-composebox-type-ahead: var(
       --color-searchbox-placeholder,
@@ -44,29 +56,31 @@
   --color-composebox-submit-button-background: var(
       --color-omnibox-composebox-submit-button-background,
       #1a73e8);
+  --cr-composebox-submit-border-radius: 100px;
+  --cr-composebox-submit-height: 32px;
+  --cr-composebox-submit-icon-offset: 0;
+  --cr-composebox-submit-icon-size: 20px;
+  --cr-composebox-submit-width: 40px;
 }
 
 #composebox {
   /* Transparent so search-animated-glow behind it (z-index: 1) can render
    * the background and energy glow effect via composebox-background. */
-  background-color: transparent;
+  background-color: var(--omnibox-inactive-hover-overlay, transparent);
   border-radius: inherit;
   display: flex;
   flex-direction: column;
-  height: calc-size(auto, size);
-  max-height: var(--cr-composebox-max-height, 422px);
+  height: auto;
+  min-height: var(--cr-searchbox-height, 48px);
   pointer-events: auto;
   position: relative;
-  overflow: hidden;
+  /* Elements like the IPH must overflow. */
+  overflow: visible;
   transition:
     opacity var(--fade-duration) ease-in-out,
     visibility var(--fade-duration) ease-in-out;
   padding-bottom: 10px;
   z-index: 2;
-}
-
-:host([is-collapsible][expanding_]:not([show-dropdown])) #composebox {
-  min-height: unset;
 }
 
 :host([is-dragging-file]) #composebox * {
@@ -78,7 +92,8 @@
   display: flex;
   flex-direction: column;
   padding-bottom: 0;
-  overflow: hidden;
+  /* Elements like the IPH must overflow. */
+  overflow: visible;
   width: 100%;
 }
 
@@ -88,25 +103,41 @@
   flex-direction: row;
 }
 
-#contextEntrypoint {
-  position: relative;
-  z-index: var(--cr-composebox-context-menu-z-index, 1001);
-}
-
-#contextEntrypoint::part(entrypoint-button) {
-  --cr-icon-button-size: 36px;
-}
-
 cr-composebox-tool-chip {
   padding-inline-start: 8px;
 }
 
 search-animated-glow {
+  --animated-glow-stroke-width: 2px;
+  --gradient-burst-duration: 1000ms;
+  --gradient-angle-start: 160deg;
+  --gradient-angle-end: 233.5deg;
+  --mask-angle-start: -110deg;
+  --mask-angle-end: 267deg;
+  --standard-decelerate-curve: cubic-bezier(0, 0, 0, 1);
+  --emphasized-accelerate-curve: cubic-bezier(0.3, 0, 0.8, 0.15);
   border-radius: inherit;
-  inset: -2px;
+  inset: 0;
   pointer-events: none;
   position: absolute;
   z-index: 1;
+}
+
+search-animated-glow[animation-state='expanding']::part(
+    composebox-background) {
+  inset: var(--animated-glow-stroke-width, 2px);
+}
+
+search-animated-glow:not([animation-state='expanding'])::part(
+    composebox-background) {
+  inset: 0;
+}
+
+#errorScrim {
+  border-radius: inherit;
+  inset: 0;
+  position: absolute;
+  z-index: 100;
 }
 
 #shadow-container {
@@ -118,10 +149,11 @@ search-animated-glow {
   z-index: 0;
 }
 
-/* Needed because composebox_submit.css sets opacity: 0.4 on #submitIcon
- * when disabled. For loomnibox, we want the submit icon to remain at
- * full opacity even when the input is empty. */
-cr-composebox-submit::part(submit-icon),
+/* Ensure the modern arrow-forward icon is used per the design spec. */
+cr-composebox-submit::part(submit-icon) {
+  --cr-icon-image: url(//resources/images/icon_arrow_forward.svg);
+}
+
 cr-composebox-input::part(cancel) {
   opacity: 1;
 }
@@ -133,14 +165,17 @@ cr-composebox-submit::part(submit) {
   inset-inline-end: unset;
   bottom: unset;
   opacity: 1;
+  margin-inline-start: 4px;
 }
 
-#bottomControls {
-  min-height: 48px;
-  position: relative;
+#bottomControls .context-menu-container {
+  padding-block: 0;
+  padding-inline-start: 0;
 }
 
 #bottomControls #contextEntrypoint {
+  --button-height: 32px;
+  margin-inline-start: 0.5px;
   padding-inline-start: 0;
 }
 
@@ -148,7 +183,7 @@ cr-composebox-submit::part(submit) {
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 12px;
+  gap: 4px;
 }
 
 /* TODO(crbug.com/532200145): Refine the selectors. New interactive elements
@@ -161,7 +196,8 @@ cr-composebox-input::part(cancel-icon),
 cr-composebox-input::part(action-icon),
 cr-composebox-submit::part(submit),
 cr-composebox-submit::part(submit-icon),
-cr-composebox-dropdown::part(dropdown),
+cr-composebox-dropdown,
+#matches,
 #carousel,
 #contextEntrypoint,
 cr-composebox-contextual-entrypoint-and-menu,
@@ -170,11 +206,34 @@ cr-composebox-tool-chip,
 .searchbox-icon-button,
 #voiceSearchButton,
 #lensSearchButton,
-#screenshotMenu {
+#screenshotMenu,
+#errorScrim,
+ntp-error-scrim {
   -webkit-app-region: no-drag;
 }
 
 cr-composebox-input::part(icon-container) {
   -webkit-app-region: drag;
   -webkit-user-drag: none;
+  width: var(--cr-searchbox-icon-container-size, 32px);
+}
+
+cr-composebox-input::part(input),
+cr-composebox-input::part(mirror),
+cr-composebox-input::part(smart-compose) {
+  padding-inline-start: var(--cr-composebox-input-padding-inline-start);
+}
+
+cr-composebox-dropdown::part(match-icon-container) {
+  padding-inline-start: 16px;
+  width: 32px;
+}
+
+cr-composebox-dropdown::part(match-text-container) {
+  padding-inline-start: 8px;
+}
+
+:host(:not([is-active])),
+:host(:not([is-active])) cr-composebox-input::part(icon-container) {
+  -webkit-app-region: no-drag;
 }

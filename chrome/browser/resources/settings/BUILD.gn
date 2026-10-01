@@ -88,12 +88,7 @@ build_webui("build") {
     "autofill_page/suggestions_from_gemini/suggestions_from_gemini_page.ts",
     "autofill_page/travel/travel_page.ts",
     "autofill_page/walletable_pass_detection_toggle.ts",
-    "clear_browsing_data_dialog/clear_browsing_data_dialog.ts",
-    "clear_browsing_data_dialog/clear_browsing_data_time_picker.ts",
-    "clear_browsing_data_dialog/history_deletion_dialog.ts",
-    "clear_browsing_data_dialog/other_google_data_dialog.ts",
     "controls/collapse_radio_button.ts",
-    "controls/controlled_button.ts",
     "controls/controlled_radio_button.ts",
     "controls/settings_checkbox.ts",
     "controls/settings_radio_group.ts",
@@ -129,13 +124,6 @@ build_webui("build") {
     "privacy_page/security/security_page.ts",
     "privacy_page/security/security_page_feature_row.ts",
     "privacy_page/security/security_page_v2.ts",
-    "safety_hub/extensions_module.ts",
-    "safety_hub/notification_permissions_module.ts",
-    "safety_hub/safety_hub_card.ts",
-    "safety_hub/safety_hub_entry_point.ts",
-    "safety_hub/safety_hub_module.ts",
-    "safety_hub/safety_hub_page.ts",
-    "safety_hub/unused_site_permissions_module.ts",
     "settings_main/settings_main.ts",
     "settings_menu/settings_menu.ts",
     "settings_ui/settings_ui.ts",
@@ -212,24 +200,8 @@ build_webui("build") {
     "site_settings/zoom_levels.ts",
   ]
 
-  if (!is_chromeos) {
-    web_component_files += [
-      "clear_browsing_data_dialog/clear_browsing_data_account_indicator.ts",
-      "languages_page/languages_page.ts",
-      "languages_page/languages_page_index.ts",
-      "languages_page/spell_check_page.ts",
-      "languages_page/translate_page.ts",
-      "relaunch_confirmation_dialog.ts",
-    ]
-  } else {
-    web_component_files += [
-      "languages_page/languages_page_index_cros.ts",
-      "site_settings/smart_card_readers_page.ts",
-    ]
-  }
-
-  if (!is_chromeos && !is_mac) {
-    web_component_files += [ "languages_page/edit_dictionary_page.ts" ]
+  if (is_chromeos) {
+    web_component_files += [ "site_settings/smart_card_readers_page.ts" ]
   }
 
   if (is_mac) {
@@ -255,6 +227,7 @@ build_webui("build") {
     "about_page/about_page_browser_proxy.ts",
     "about_page/about_page.html.ts",
     "about_page/about_page.ts",
+    "active_timer.ts",
     "ai_page/ai_learn_more_url_util.ts",
     "ai_page/constants.ts",
     "ai_page/dictation_browser_proxy.ts",
@@ -277,7 +250,17 @@ build_webui("build") {
     "autofill_page/saved_info_handler_proxy.ts",
     "base_mixin.ts",
     "clear_browsing_data_dialog/clear_browsing_data_browser_proxy.ts",
+    "clear_browsing_data_dialog/clear_browsing_data_dialog.html.ts",
+    "clear_browsing_data_dialog/clear_browsing_data_dialog.ts",
     "clear_browsing_data_dialog/clear_browsing_data_signin_util.ts",
+    "clear_browsing_data_dialog/clear_browsing_data_time_picker.html.ts",
+    "clear_browsing_data_dialog/clear_browsing_data_time_picker.ts",
+    "clear_browsing_data_dialog/history_deletion_dialog.html.ts",
+    "clear_browsing_data_dialog/history_deletion_dialog.ts",
+    "clear_browsing_data_dialog/other_google_data_dialog.html.ts",
+    "clear_browsing_data_dialog/other_google_data_dialog.ts",
+    "controls/controlled_button.html.ts",
+    "controls/controlled_button.ts",
     "controls/pref_key_observer_mixin.ts",
     "controls/pref_key_observer_mixin_lit.ts",
     "controls/settings_dropdown_menu.html.ts",
@@ -371,7 +354,21 @@ build_webui("build") {
     "reset_page/reset_profile_dialog.ts",
     "route.ts",
     "router.ts",
+    "safety_hub/extensions_module.html.ts",
+    "safety_hub/extensions_module.ts",
+    "safety_hub/notification_permissions_module.html.ts",
+    "safety_hub/notification_permissions_module.ts",
     "safety_hub/safety_hub_browser_proxy.ts",
+    "safety_hub/safety_hub_card.html.ts",
+    "safety_hub/safety_hub_card.ts",
+    "safety_hub/safety_hub_entry_point.html.ts",
+    "safety_hub/safety_hub_entry_point.ts",
+    "safety_hub/safety_hub_module.html.ts",
+    "safety_hub/safety_hub_module.ts",
+    "safety_hub/safety_hub_page.html.ts",
+    "safety_hub/safety_hub_page.ts",
+    "safety_hub/unused_site_permissions_module.html.ts",
+    "safety_hub/unused_site_permissions_module.ts",
     "scrollable_mixin.ts",
     "search_page/extension_controlled_message.html.ts",
     "search_page/extension_controlled_message.ts",
@@ -425,13 +422,19 @@ build_webui("build") {
   ]
 
   if (is_chromeos) {
-    ts_files += [ "people_page/account_manager_browser_proxy.ts" ]
+    ts_files += [
+      "languages_page/languages_page_index_cros.html.ts",
+      "languages_page/languages_page_index_cros.ts",
+      "people_page/account_manager_browser_proxy.ts",
+    ]
   } else {
     ts_files += [
       "a11y_page/live_caption.html.ts",
       "a11y_page/live_caption.ts",
       "a11y_page/live_translate.html.ts",
       "a11y_page/live_translate.ts",
+      "clear_browsing_data_dialog/clear_browsing_data_account_indicator.html.ts",
+      "clear_browsing_data_dialog/clear_browsing_data_account_indicator.ts",
       "default_browser_page/default_browser_browser_proxy.ts",
       "default_browser_page/default_browser_page.html.ts",
       "default_browser_page/default_browser_page.ts",
@@ -439,18 +442,35 @@ build_webui("build") {
       "languages_page/add_languages_dialog.ts",
       "languages_page/languages.ts",
       "languages_page/languages_browser_proxy.ts",
+      "languages_page/languages_page.html.ts",
+      "languages_page/languages_page.ts",
+      "languages_page/languages_page_index.html.ts",
+      "languages_page/languages_page_index.ts",
       "languages_page/languages_settings_metrics_proxy.ts",
       "languages_page/languages_types.ts",
       "languages_page/languages_util.ts",
+      "languages_page/spell_check_page.html.ts",
+      "languages_page/spell_check_page.ts",
+      "languages_page/translate_page.html.ts",
+      "languages_page/translate_page.ts",
       "people_page/import_data_browser_proxy.ts",
       "people_page/import_data_dialog.html.ts",
       "people_page/import_data_dialog.ts",
       "people_page/manage_profile.html.ts",
       "people_page/manage_profile.ts",
       "people_page/manage_profile_browser_proxy.ts",
+      "relaunch_confirmation_dialog.html.ts",
+      "relaunch_confirmation_dialog.ts",
       "system_page/system_page.html.ts",
       "system_page/system_page.ts",
       "system_page/system_page_browser_proxy.ts",
+    ]
+  }
+
+  if (!is_chromeos && !is_mac) {
+    ts_files += [
+      "languages_page/edit_dictionary_page.html.ts",
+      "languages_page/edit_dictionary_page.ts",
     ]
   }
 
@@ -503,12 +523,23 @@ build_webui("build") {
     "appearance_page/home_url_input.css",
     "autofill_page/autofill_shared.css",
     "autofill_page/passwords/passwords_shared.css",
-    "autofill_page/screen_reader_only.css",
+    "autofill_page/payments/screen_reader_only.css",
+    "clear_browsing_data_dialog/clear_browsing_data_account_indicator.css",
+    "clear_browsing_data_dialog/clear_browsing_data_dialog.css",
+    "clear_browsing_data_dialog/clear_browsing_data_time_picker.css",
+    "clear_browsing_data_dialog/other_google_data_dialog.css",
+    "controls/controlled_button.css",
     "controls/settings_dropdown_menu.css",
     "controls/settings_slider.css",
     "downloads_page/downloads_page.css",
+    "glic_page/glic_login_permissions_page.css",
+    "glic_page/glic_page.css",
+    "glic_page/glic_subpage.css",
     "languages_page/add_languages_dialog.css",
     "languages_page/edit_dictionary_page.css",
+    "languages_page/languages_page.css",
+    "languages_page/languages_page_index.css",
+    "languages_page/spell_check_page.css",
     "on_startup_page/startup_url_entry.css",
     "on_startup_page/startup_urls_page.css",
     "people_page/account_page.css",
@@ -534,6 +565,13 @@ build_webui("build") {
     "privacy_page/privacy_guide/privacy_guide_fragment_shared.css",
     "reset_page/reset_profile_banner.css",
     "reset_page/reset_profile_dialog.css",
+    "safety_hub/extensions_module.css",
+    "safety_hub/notification_permissions_module.css",
+    "safety_hub/safety_hub_card.css",
+    "safety_hub/safety_hub_entry_point.css",
+    "safety_hub/safety_hub_module.css",
+    "safety_hub/safety_hub_page.css",
+    "safety_hub/unused_site_permissions_module.css",
     "search_page/extension_controlled_message.css",
     "search_page/feature_shortcuts_page.css",
     "search_page/keyboard_shortcut_page.css",
@@ -581,6 +619,7 @@ build_webui("build") {
     "//third_party/lit/v3_0:build_ts",
     "//third_party/polymer/v3_0:library",
     "//ui/webui/resources/cr_components/color_change_listener:build_ts",
+    "//ui/webui/resources/cr_components/cr_lottie:build_ts",
     "//ui/webui/resources/cr_components/cr_shortcut_input:build_ts",
     "//ui/webui/resources/cr_components/customize_color_scheme_mode:build_ts",
     "//ui/webui/resources/cr_components/help_bubble:build_ts",

@@ -21,6 +21,7 @@ import {Command, CommandHandlerRemote} from 'chrome://resources/js/browser_comma
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {isMac} from 'chrome://resources/js/platform.js';
 import {PromiseResolver} from 'chrome://resources/js/promise_resolver.js';
+import {getDeepActiveElement} from 'chrome://resources/js/util.js';
 import {SuggestInventory} from 'chrome://resources/mojo/components/omnibox/browser/fusebox_action.mojom-webui.js';
 import {PageCallbackRouter as SearchboxPageCallbackRouter, PageHandlerRemote as SearchboxPageHandlerRemote} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 import {assertDeepEquals, assertEquals, assertFalse, assertNotEquals, assertTrue} from 'chrome://webui-test/chai_assert.js';
@@ -29,7 +30,7 @@ import {fakeMetricsPrivate} from 'chrome://webui-test/metrics_test_support.js';
 import type {TestMock} from 'chrome://webui-test/test_mock.js';
 import {eventToPromise, microtasksFinished} from 'chrome://webui-test/test_util.js';
 
-import {assertCenterAligned, assertEffectiveBorderRadiiCloseTo, assertNotStyle, assertStyle, createBackgroundImage, createTheme, getCenter, getEffectiveBorderRadii, getTextCenter, installMock, queryShadowPath} from './test_support.js';
+import {assertCenterAligned, assertEffectiveBorderRadiiCloseTo, assertNotStyle, assertStyle, createBackgroundImage, createFuseboxAction, createTheme, getCenter, getEffectiveBorderRadii, getTextCenter, installMock, queryShadowPath} from './test_support.js';
 
 const VOICE_ACTIONS_METRIC = 'NewTabPage.VoiceActions';
 
@@ -302,7 +303,7 @@ suite('NewTabPageAppTest', () => {
           messageType: 'loaded',
         },
         source: window,
-        origin: window.origin,
+        origin: 'chrome-untrusted://new-tab-page',
       }));
       await microtasksFinished();
 
@@ -512,7 +513,7 @@ suite('NewTabPageAppTest', () => {
                 messageType: 'loaded',
               },
               source: window,
-              origin: window.origin,
+              origin: 'chrome-untrusted://new-tab-page',
             }));
             await microtasksFinished();
 
@@ -704,7 +705,7 @@ suite('NewTabPageAppTest', () => {
           commandId,
         },
         source: window,
-        origin: window.origin,
+        origin: 'chrome-untrusted://new-tab-page',
       }));
 
       // Make sure the command is sent to the browser.
@@ -715,9 +716,13 @@ suite('NewTabPageAppTest', () => {
       assertEquals(Command.kUnknownCommand, expectedCommandId);
 
       // Make sure the promo frame gets notified whether the promo can be shown.
-      const {data} = await eventToPromise('message', window);
-      assertEquals('can-show-promo-with-browser-command', data.messageType);
-      assertTrue(data[commandId]);
+      const [target, data, targetOrigin] =
+          await windowProxy.whenCalled('postMessage');
+      assertEquals(window, target);
+      assertEquals('chrome-untrusted://new-tab-page', targetOrigin);
+      const response = data as {messageType: string, [key: number]: boolean};
+      assertEquals('can-show-promo-with-browser-command', response.messageType);
+      assertTrue(response[commandId]!);
     });
 
     test('executes promo browser command', async () => {
@@ -739,7 +744,7 @@ suite('NewTabPageAppTest', () => {
           },
         },
         source: window,
-        origin: window.origin,
+        origin: 'chrome-untrusted://new-tab-page',
       }));
 
       // Make sure the command and click information are sent to the browser.
@@ -752,8 +757,11 @@ suite('NewTabPageAppTest', () => {
 
       // Make sure the promo frame gets notified whether the command was
       // executed.
-      const {data: commandExecuted} = await eventToPromise('message', window);
-      assertTrue(commandExecuted);
+      const [target, commandExecuted, targetOrigin] =
+          await windowProxy.whenCalled('postMessage');
+      assertEquals(window, target);
+      assertEquals('chrome-untrusted://new-tab-page', targetOrigin);
+      assertTrue(commandExecuted as boolean);
     });
   });
 
@@ -799,6 +807,7 @@ suite('NewTabPageAppTest', () => {
           frameType: 'one-google-bar',
           messageType: 'click',
         },
+        origin: 'chrome-untrusted://new-tab-page',
       }));
 
       // Assert.
@@ -3080,14 +3089,10 @@ suite('NewTabPageAppTest', () => {
               typeIcon: IconType.kFavicon,
               primaryText: {text: 'TabContext', a11yText: null},
               secondaryText: {text: 'tab-subtitle', a11yText: null},
-              fuseboxAction: {
+              fuseboxAction: createFuseboxAction({
                 preselectedTool: ToolMode.kUnspecified,
-                preferredInventory: null,
                 preselectedModel: ModelMode.kUnspecified,
-                queryActionOverride: null,
-                preselectedInputSource: null,
-                searchboxOverride: null,
-              },
+              }),
             },
             tab: fakeTab,
           },
@@ -3097,14 +3102,10 @@ suite('NewTabPageAppTest', () => {
               typeIcon: IconType.kBanana,
               primaryText: {text: 'Nano Banana', a11yText: null},
               secondaryText: {text: 'image-subtitle', a11yText: null},
-              fuseboxAction: {
+              fuseboxAction: createFuseboxAction({
                 preselectedTool: ToolMode.kImageGen,
-                preferredInventory: null,
                 preselectedModel: ModelMode.kUnspecified,
-                queryActionOverride: null,
-                preselectedInputSource: null,
-                searchboxOverride: null,
-              },
+              }),
             },
             tab: null,
           },
@@ -3114,14 +3115,10 @@ suite('NewTabPageAppTest', () => {
               typeIcon: IconType.kGlobeWithSearchLoop,
               primaryText: {text: 'DeepSearch', a11yText: null},
               secondaryText: {text: 'ds-subtitle', a11yText: null},
-              fuseboxAction: {
+              fuseboxAction: createFuseboxAction({
                 preselectedTool: ToolMode.kDeepSearch,
-                preferredInventory: null,
                 preselectedModel: ModelMode.kUnspecified,
-                queryActionOverride: null,
-                preselectedInputSource: null,
-                searchboxOverride: null,
-              },
+              }),
             },
             tab: null,
           },
@@ -3187,14 +3184,14 @@ suite('NewTabPageAppTest', () => {
             let setInputTextCallCount = 0;
             searchbox.setInputText = () => setInputTextCallCount++;
 
-            const action: FuseboxAction = {
+            const action: FuseboxAction = createFuseboxAction({
               preselectedTool: ToolMode.kDeepSearch,
               preferredInventory: SuggestInventory.kBrainstorm,
               preselectedModel: ModelMode.kGeminiPro,
               queryActionOverride: QueryActionOverride.kPaste,
               preselectedInputSource: InputSource.kInputSourceGallery,
               searchboxOverride: SearchboxOverride.kComposebox,
-            };
+            });
             const firstRequest: ActionChipClickDetail = {
               suggestion: 'paste suggestion',
               files: [{
@@ -3245,14 +3242,10 @@ suite('NewTabPageAppTest', () => {
             const secondRequest: ActionChipClickDetail = {
               suggestion: 'second suggestion',
               files: [],
-              fuseboxAction: {
-                preselectedTool: null,
-                preferredInventory: null,
-                preselectedModel: null,
+              fuseboxAction: createFuseboxAction({
                 queryActionOverride: QueryActionOverride.kPaste,
-                preselectedInputSource: null,
                 searchboxOverride: SearchboxOverride.kComposebox,
-              },
+              }),
             };
             actionChips.dispatchEvent(new CustomEvent('action-chip-click', {
               detail: secondRequest,
@@ -3277,14 +3270,10 @@ suite('NewTabPageAppTest', () => {
         detail: {
           suggestion: 'initial suggestion',
           files: [],
-          fuseboxAction: {
-            preselectedTool: null,
-            preferredInventory: null,
-            preselectedModel: null,
+          fuseboxAction: createFuseboxAction({
             queryActionOverride: QueryActionOverride.kPaste,
-            preselectedInputSource: null,
             searchboxOverride: SearchboxOverride.kComposebox,
-          },
+          }),
         },
       }));
       await microtasksFinished();
@@ -3300,14 +3289,10 @@ suite('NewTabPageAppTest', () => {
         detail: {
           suggestion: 'hint suggestion',
           files: [],
-          fuseboxAction: {
-            preselectedTool: null,
-            preferredInventory: null,
-            preselectedModel: null,
+          fuseboxAction: createFuseboxAction({
             queryActionOverride: QueryActionOverride.kHint,
-            preselectedInputSource: null,
             searchboxOverride: SearchboxOverride.kComposebox,
-          },
+          }),
         },
       }));
       await microtasksFinished();
@@ -3351,14 +3336,10 @@ suite('NewTabPageAppTest', () => {
             detail: {
               suggestion: 'hint suggestion',
               files: [],
-              fuseboxAction: {
-                preselectedTool: null,
-                preferredInventory: null,
-                preselectedModel: null,
+              fuseboxAction: createFuseboxAction({
                 queryActionOverride: QueryActionOverride.kHint,
-                preselectedInputSource: null,
                 searchboxOverride: SearchboxOverride.kComposebox,
-              },
+              }),
             },
           }));
           await microtasksFinished();
@@ -3384,14 +3365,10 @@ suite('NewTabPageAppTest', () => {
         return Promise.resolve();
       };
 
-      const fuseboxAction: FuseboxAction = {
-        preselectedTool: null,
-        preferredInventory: null,
-        preselectedModel: null,
-        queryActionOverride: null,
+      const fuseboxAction: FuseboxAction = createFuseboxAction({
         preselectedInputSource: InputSource.kInputSourceTabPicker,
         searchboxOverride: SearchboxOverride.kRealbox,
-      };
+      });
 
       actionChips.dispatchEvent(new CustomEvent('action-chip-click', {
         detail: {
@@ -3517,14 +3494,10 @@ suite('NewTabPageAppTest', () => {
               typeIcon: IconType.kSubArrowRight,
               primaryText: {text: 'Model test', a11yText: null},
               secondaryText: {text: 'subtitle', a11yText: null},
-              fuseboxAction: {
+              fuseboxAction: createFuseboxAction({
                 preselectedTool: ToolMode.kUnspecified,
-                preferredInventory: null,
                 preselectedModel: ModelMode.kGeminiPro,
-                queryActionOverride: null,
-                preselectedInputSource: null,
-                searchboxOverride: null,
-              },
+              }),
             },
             tab: null,
           }]);
@@ -3565,14 +3538,13 @@ suite('NewTabPageAppTest', () => {
             const searchbox = $$(app, '#searchbox') as NtpSearchboxElement;
             let setInputTextCallCount = 0;
             searchbox.setInputText = () => setInputTextCallCount++;
-            const action: FuseboxAction = {
+            const action: FuseboxAction = createFuseboxAction({
               preselectedTool: ToolMode.kDeepSearch,
               preferredInventory: SuggestInventory.kBrainstorm,
               preselectedModel: ModelMode.kGeminiPro,
               queryActionOverride: QueryActionOverride.kHint,
-              preselectedInputSource: null,
               searchboxOverride: SearchboxOverride.kComposebox,
-            };
+            });
 
             // Act.
             const actionChips = $$(app, 'ntp-action-chips')!;
@@ -3623,25 +3595,15 @@ suite('NewTabPageAppTest', () => {
           {caseName: 'action missing', fuseboxAction: undefined},
           {
             caseName: 'query action override missing',
-            fuseboxAction: {
-              preselectedTool: null,
-              preferredInventory: null,
-              preselectedModel: null,
-              queryActionOverride: null,
-              preselectedInputSource: null,
+            fuseboxAction: createFuseboxAction({
               searchboxOverride: SearchboxOverride.kComposebox,
-            },
+            }),
           },
           {
             caseName: 'searchbox override missing',
-            fuseboxAction: {
-              preselectedTool: null,
-              preferredInventory: null,
-              preselectedModel: null,
+            fuseboxAction: createFuseboxAction({
               queryActionOverride: QueryActionOverride.kPaste,
-              preselectedInputSource: null,
-              searchboxOverride: null,
-            },
+            }),
           },
         ];
     missingOverrideCases.forEach(
@@ -3714,14 +3676,10 @@ suite('NewTabPageAppTest', () => {
           detail: {
             suggestion: 'unsupported suggestion',
             files: [],
-            fuseboxAction: {
-              preselectedTool: null,
-              preferredInventory: null,
-              preselectedModel: null,
+            fuseboxAction: createFuseboxAction({
               queryActionOverride: QueryActionOverride.kPaste,
-              preselectedInputSource: null,
               searchboxOverride: SearchboxOverride.kUnspecified,
-            },
+            }),
           },
         }));
         await microtasksFinished();
@@ -3765,14 +3723,10 @@ suite('NewTabPageAppTest', () => {
               detail: {
                 suggestion: 'stale suggestion',
                 files: [],
-                fuseboxAction: {
-                  preselectedTool: null,
-                  preferredInventory: null,
-                  preselectedModel: null,
+                fuseboxAction: createFuseboxAction({
                   queryActionOverride: QueryActionOverride.kPaste,
-                  preselectedInputSource: null,
                   searchboxOverride: SearchboxOverride.kComposebox,
-                },
+                }),
               },
             }));
             await microtasksFinished();
@@ -3875,6 +3829,15 @@ suite('NewTabPageAppTest', () => {
       Object.assign(window, {webkitSpeechRecognition: MockSpeechRecognition});
     });
 
+    setup(() => {
+      loadTimeData.overrideValues({
+        voiceSearchCoherenceAnySearchboxExperimentEnabled: false,
+        voiceSearchCoherenceSearchboxWithLiveTranscriptionEnabled: false,
+        voiceSearchCoherenceRealboxAutoEndpointEnabled: false,
+        voiceSearchCoherenceRealboxHelperTextEnabled: false,
+      });
+    });
+
     test(
         'renders legacy overlay when NTP searchbox (realbox) voice search ' +
             'coherence with live transcription is disabled',
@@ -3894,6 +3857,55 @@ suite('NewTabPageAppTest', () => {
               !!app.shadowRoot.querySelector('ntp-voice-search-overlay'));
           assertFalse(!!app.shadowRoot.querySelector('#voiceSearchDialog'));
         });
+
+    test(
+        'focuses dialog container so initial tab focuses stop button ' +
+            'first in voice search dialog',
+        async () => {
+          loadTimeData.overrideValues({
+            googleBaseUrl: 'chrome://new-tab-page/',
+            voiceSearchCoherenceAnySearchboxExperimentEnabled: true,
+            voiceSearchCoherenceSearchboxWithLiveTranscriptionEnabled: true,
+            voiceSearchCoherenceRealboxAutoEndpointEnabled: false,
+          });
+          await recreateApp();
+
+          const realbox = $$(app, '#searchbox')!;
+          realbox.dispatchEvent(new Event('open-voice-search'));
+          await microtasksFinished();
+
+          const dialog = app.shadowRoot.querySelector<HTMLDialogElement>(
+              '#voiceSearchDialog');
+          assertTrue(!!dialog);
+          assertTrue(dialog.open);
+
+          // The dialog container itself is focused rather than any inner
+          // button, so pressing Tab starts sequential navigation at the first
+          // child (#stopButton).
+          assertEquals(dialog, getDeepActiveElement());
+
+          const voiceSearch =
+              app.shadowRoot.querySelector('cr-composebox-voice-search')!;
+          assertTrue(!!voiceSearch);
+          await voiceSearch.updateComplete;
+
+          const stopButton =
+              voiceSearch.shadowRoot.querySelector<HTMLElement>('#stopButton')!;
+          assertTrue(!!stopButton);
+          assertEquals(0, stopButton.tabIndex);
+          assertEquals(stopButton.title, stopButton.getAttribute('aria-label'));
+
+          const submitButton =
+              voiceSearch.shadowRoot.querySelector<HTMLElement>(
+                  '#submitButton')!;
+          assertTrue(!!submitButton);
+
+          // Verify stop button precedes submit button in DOM tab order.
+          assertTrue(Boolean(
+              stopButton.compareDocumentPosition(submitButton) &
+              Node.DOCUMENT_POSITION_FOLLOWING));
+        });
+
 
     test(
         'dialog handles cancel, error, and final result when NTP searchbox ' +
@@ -4269,6 +4281,165 @@ suite('NewTabPageAppTest', () => {
         });
 
     test(
+        'renders both TicTac animation and live transcription with helper ' +
+            'text when NTP Realbox voice search coherence is enabled',
+        async () => {
+          loadTimeData.overrideValues({
+            voiceSearchCoherenceAnySearchboxExperimentEnabled: true,
+            voiceSearchCoherenceSearchboxWithLiveTranscriptionEnabled: true,
+            voiceSearchCoherenceRealboxAutoEndpointEnabled: true,
+            voiceSearchCoherenceRealboxHelperTextEnabled: true,
+          });
+          await recreateApp();
+
+          // Act: Open voice search overlay.
+          $$(app, '#searchbox')!.dispatchEvent(new Event('open-voice-search'));
+          await microtasksFinished();
+
+          // Assert: Dialog is open.
+          const dialog = app.shadowRoot.querySelector('dialog');
+          assertTrue(!!dialog);
+          assertTrue(dialog.open);
+
+          // Verify TicTac animation (search-animated-glow) is rendered
+          // directly.
+          const glow = app.shadowRoot.querySelector('search-animated-glow');
+          assertTrue(!!glow);
+          assertTrue(glow.coloredTicTacVoiceAnimationEnabled);
+
+          // Verify voice search element has live transcript, auto endpoint,
+          // helper text, and buttons enabled.
+          const voiceSearch =
+              app.shadowRoot.querySelector('cr-composebox-voice-search');
+          assertTrue(!!voiceSearch);
+          assertTrue(voiceSearch.liveTranscriptEnabled);
+          assertTrue(voiceSearch.helperTextEnabled);
+          assertTrue(voiceSearch.autosubmitEnabled);
+          assertTrue(voiceSearch.submitStopButtonsEnabled);
+          assertTrue(voiceSearch.audioWaveEnabled);
+
+          const transcriptText = $$(voiceSearch, '#transcript-text');
+          assertTrue(!!transcriptText);
+          assertEquals(
+              loadTimeData.getString('voiceListening'),
+              transcriptText.textContent.trim());
+
+          // Simulate transcript update and speech received events.
+          voiceSearch.dispatchEvent(new CustomEvent('transcript-update', {
+            detail: 'hello world',
+          }));
+          voiceSearch.dispatchEvent(new Event('speech-received'));
+          await microtasksFinished();
+
+          // Glow animation reflects transcript.
+          assertEquals('hello world', glow.transcript);
+          assertTrue(glow.receivedSpeech);
+          const waveOverlay = glow.shadowRoot.querySelector<HTMLElement>(
+              '#fullContainerOverlay')!;
+          assertEquals('49px', window.getComputedStyle(waveOverlay).top);
+
+          // Disable transitions to test immediate computed layout.
+          dialog.style.transition = 'none';
+          waveOverlay.style.setProperty('transition', 'none', 'important');
+
+          // Simulate multiline transcript (3 lines) where voiceSearch moves
+          // wave to 102px and expands dialog height to 214px, keeping bottom
+          // actions padding at 16px.
+          voiceSearch.toggleAttribute('has-multiline-transcript', true);
+          voiceSearch.setAttribute('transcript-lines', '3');
+          assertEquals('102px', window.getComputedStyle(waveOverlay).top);
+          assertEquals(
+              '214px',
+              window.getComputedStyle(dialog)
+                  .getPropertyValue('height')
+                  .trim());
+          assertEquals(
+              '16px',
+              window.getComputedStyle(voiceSearch)
+                  .getPropertyValue('--voice-bottom-actions-bottom')
+                  .trim());
+
+          // Verify 7 lines expands dialog to 310px and wave to 198px.
+          voiceSearch.setAttribute('transcript-lines', '7');
+          assertEquals('198px', window.getComputedStyle(waveOverlay).top);
+          assertEquals(
+              '310px',
+              window.getComputedStyle(dialog)
+                  .getPropertyValue('height')
+                  .trim());
+
+          // Verify 2 lines expands dialog to 190px and wave to 78px.
+          voiceSearch.setAttribute('transcript-lines', '2');
+          assertEquals('78px', window.getComputedStyle(waveOverlay).top);
+          assertEquals(
+              '190px',
+              window.getComputedStyle(dialog)
+                  .getPropertyValue('height')
+                  .trim());
+
+          // Reverting multiline restores single-line dimensions.
+          voiceSearch.removeAttribute('transcript-lines');
+          voiceSearch.toggleAttribute('has-multiline-transcript', false);
+          assertEquals('49px', window.getComputedStyle(waveOverlay).top);
+          assertEquals(
+              '168px',
+              window.getComputedStyle(dialog)
+                  .getPropertyValue('height')
+                  .trim());
+          assertEquals(
+              '16px',
+              window.getComputedStyle(voiceSearch)
+                  .getPropertyValue('--voice-bottom-actions-bottom')
+                  .trim());
+
+          // Simulate clicking Stop button and verify dialog closes.
+          $$<HTMLElement>(voiceSearch, '#stopButton')!.click();
+          await microtasksFinished();
+
+          // Verify the dialog is closed.
+          assertFalse(dialog.open);
+        });
+
+    test(
+        'renders wave and helper text without live transcription in ' +
+            'wave-only arm',
+        async () => {
+          loadTimeData.overrideValues({
+            voiceSearchCoherenceAnySearchboxExperimentEnabled: true,
+            voiceSearchCoherenceSearchboxWithLiveTranscriptionEnabled: false,
+            voiceSearchCoherenceRealboxAutoEndpointEnabled: false,
+            voiceSearchCoherenceRealboxHelperTextEnabled: true,
+          });
+          await recreateApp();
+
+          $$(app, '#searchbox')!.dispatchEvent(new Event('open-voice-search'));
+          await microtasksFinished();
+
+          const dialog = app.shadowRoot.querySelector('dialog');
+          assertTrue(!!dialog);
+          assertTrue(dialog.open);
+
+          // Wave is rendered.
+          const glow = app.shadowRoot.querySelector('search-animated-glow');
+          assertTrue(!!glow);
+
+          const voiceSearch =
+              app.shadowRoot.querySelector('cr-composebox-voice-search');
+          assertTrue(!!voiceSearch);
+          assertFalse(voiceSearch.liveTranscriptEnabled);
+          assertTrue(voiceSearch.helperTextEnabled);
+          assertFalse(voiceSearch.autosubmitEnabled);
+          assertTrue(voiceSearch.audioWaveEnabled);
+
+          // Helper text is rendered.
+          const transcriptText = $$(voiceSearch, '#transcript-text');
+          assertTrue(!!transcriptText);
+          assertEquals(
+              loadTimeData.getString('voiceListening'),
+              transcriptText.textContent.trim());
+        });
+
+    test(
         'hides TicTac animation and updates searchbox state when ' +
             'voice search error occurs',
         async () => {
@@ -4405,6 +4576,15 @@ suite('NewTabPageAppTest', () => {
           assertTrue(!!voiceSearch);
           assertTrue(voiceSearch.liveTranscriptEnabled);
           assertTrue(voiceSearch.submitStopButtonsEnabled);
+          assertFalse(voiceSearch.audioWaveEnabled);
+
+          // Verify transcript text shows the listening placeholder in live
+          // transcription mode.
+          const transcriptText = $$(voiceSearch, '#transcript-text');
+          assertTrue(!!transcriptText);
+          assertEquals(
+              loadTimeData.getString('voiceListening'),
+              transcriptText.textContent.trim());
 
           // Verify shadow DOM structure contains both live transcript textarea
           // and bottom action buttons simultaneously.
@@ -4706,6 +4886,7 @@ suite('NewTabPageAppTest', () => {
           loadTimeData.overrideValues({
             googleBaseUrl: 'chrome://new-tab-page/',
             voiceSearchCoherenceAnySearchboxExperimentEnabled: true,
+            voiceSearchCoherenceRealboxAutoEndpointEnabled: true,
           });
           await recreateApp();
 
@@ -4747,6 +4928,7 @@ suite('NewTabPageAppTest', () => {
           loadTimeData.overrideValues({
             googleBaseUrl: 'chrome://new-tab-page/',
             voiceSearchCoherenceAnySearchboxExperimentEnabled: true,
+            voiceSearchCoherenceRealboxAutoEndpointEnabled: true,
           });
           await recreateApp();
 
@@ -4786,11 +4968,12 @@ suite('NewTabPageAppTest', () => {
         });
 
     test(
-        'dynamicTimeoutEnabled = true configures speech recognition and ' +
-            'disables idle timer',
+        'autoEndpoint enabled configures continuous speech recognition and ' +
+            'idle timers',
         async () => {
           loadTimeData.overrideValues({
             voiceSearchCoherenceAnySearchboxExperimentEnabled: true,
+            voiceSearchCoherenceRealboxAutoEndpointEnabled: true,
           });
           await recreateApp();
 
@@ -4801,19 +4984,23 @@ suite('NewTabPageAppTest', () => {
           const searchbox = $$(app, '#searchbox');
           assertTrue(!!searchbox);
           searchbox.dispatchEvent(new Event('open-voice-search'));
+          await app.updateComplete;
           await microtasksFinished();
 
-          // Verify speech recognition continuous property is false.
-          assertFalse(mockSpeechRecognition.continuous);
+          // Speech recognition should be continuous so that the frontend
+          // controls endpoint timing via idleTimeout rather than webkit cutting
+          // off immediately.
+          assertTrue(mockSpeechRecognition.continuous);
 
-          // Verify setTimeout is NOT called for idle timeout (only called for
-          // outside click listener registration).
-          const setTimeoutCalls = windowProxy.getArgs('setTimeout');
-          const has8000Timeout = setTimeoutCalls.some(
-              (args: [unknown, number]) => args[1] === 8000);
-          assertFalse(
-              has8000Timeout,
-              'Should not start idle timer when dynamicTimeout is enabled');
+          const voiceSearch =
+              app.shadowRoot.querySelector<ComposeboxVoiceSearchElement>(
+                  'cr-composebox-voice-search');
+          assertTrue(!!voiceSearch);
+          await voiceSearch.updateComplete;
+          assertFalse(voiceSearch.dynamicTimeoutEnabled);
+          assertTrue(voiceSearch.autosubmitEnabled);
+          assertEquals(3000, voiceSearch.idleTimeout);
+          assertEquals(10000, voiceSearch.manualSubmitIdleTimeout);
         });
 
     test(

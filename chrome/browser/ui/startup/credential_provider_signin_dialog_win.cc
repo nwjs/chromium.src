@@ -33,7 +33,9 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui_message_handler.h"
 #include "net/base/url_util.h"
+#include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "ui/base/mojom/ui_base_types.mojom-shared.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/views/controls/webview/web_dialog_view.h"
 #include "ui/views/widget/widget.h"
 #include "ui/web_dialogs/web_dialog_delegate.h"
@@ -499,7 +501,8 @@ class CredentialProviderWebDialogView : public views::WebDialogView {
       WindowOpenDisposition disposition,
       const blink::mojom::WindowFeatures& window_features,
       const content::StoragePartitionConfig& partition_config,
-      content::SessionStorageNamespace* session_storage_namespace) override {
+      content::SessionStorageNamespaceHandle* session_storage_namespace)
+      override {
     VLOG(0) << "Suppressed window creation for  " << target_url.GetHost()
             << target_url.GetPath();
     return nullptr;

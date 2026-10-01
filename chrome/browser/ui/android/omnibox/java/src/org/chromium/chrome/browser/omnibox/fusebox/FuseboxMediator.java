@@ -13,7 +13,6 @@ import android.content.ClipData;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.graphics.Bitmap.CompressFormat;
 import android.graphics.drawable.BitmapDrawable;
@@ -28,6 +27,7 @@ import android.view.View;
 import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.Callback;
+import org.chromium.base.TimeUtils;
 import org.chromium.base.supplier.MonotonicObservableSupplier;
 import org.chromium.base.supplier.NonNullObservableSupplier;
 import org.chromium.base.supplier.ObservableSuppliers;
@@ -42,13 +42,13 @@ import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.omnibox.FuseboxSessionState;
 import org.chromium.chrome.browser.omnibox.R;
 import org.chromium.chrome.browser.omnibox.fusebox.FuseboxAttachmentModelList.FuseboxAttachmentChangeListener;
-import org.chromium.chrome.browser.omnibox.fusebox.FuseboxAttachmentRecyclerViewAdapter.FuseboxAttachmentType;
 import org.chromium.chrome.browser.omnibox.fusebox.FuseboxCoordinator.FuseboxLayoutMode;
 import org.chromium.chrome.browser.omnibox.fusebox.FuseboxCoordinator.FuseboxState;
 import org.chromium.chrome.browser.omnibox.fusebox.FuseboxCoordinator.PopupState;
 import org.chromium.chrome.browser.omnibox.fusebox.FuseboxMetrics.AiModeActivationSource;
 import org.chromium.chrome.browser.omnibox.fusebox.FuseboxMetrics.FuseboxAttachmentButtonType;
 import org.chromium.chrome.browser.omnibox.fusebox.FuseboxMetrics.SetActiveModelSource;
+import org.chromium.chrome.browser.omnibox.fusebox.FuseboxProperties.AnchoringMode;
 import org.chromium.chrome.browser.omnibox.fusebox.FuseboxProperties.BackgroundStyle;
 import org.chromium.chrome.browser.omnibox.fusebox.FuseboxProperties.PopupButtonData;
 import org.chromium.chrome.browser.omnibox.fusebox.FuseboxProperties.PopupButtonType;
@@ -73,21 +73,21 @@ import org.chromium.components.omnibox.AutocompleteInput;
 import org.chromium.components.omnibox.AutocompleteInput.AutocompleteState;
 import org.chromium.components.omnibox.AutocompleteInput.DisplayState;
 import org.chromium.components.omnibox.AutocompleteRequestType;
-import org.chromium.components.omnibox.IconResourceIdsProto.IconResourceIds;
+import org.chromium.components.omnibox.IconResourceIdsProtoIntDef.IconResourceIds;
 import org.chromium.components.omnibox.InputTypeProto.InputType;
 import org.chromium.components.omnibox.ModelConfigProto.ModelConfig;
 import org.chromium.components.omnibox.OmniboxCapabilities;
 import org.chromium.components.omnibox.OmniboxFeatures;
 import org.chromium.components.omnibox.OmniboxFocusReason;
 import org.chromium.components.omnibox.ToolConfigProto.ToolConfig;
-import org.chromium.components.omnibox.ToolModeProto.ToolMode;
+import org.chromium.components.omnibox.ToolModeProtoIntDef.ToolMode;
 import org.chromium.components.omnibox.ToolModeUtils;
+import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.base.KeyNavigationUtil;
 import org.chromium.ui.base.MimeTypeUtils;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.modelutil.ListObservable;
 import org.chromium.ui.modelutil.ListObservable.ListObserver;
-import org.chromium.ui.modelutil.MVCListAdapter;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.permissions.AndroidPermissionDelegate;
 
@@ -125,7 +125,7 @@ import java.util.function.Supplier;
     private final SettableNonNullObservableSupplier<@PopupState Integer> mPopupStateSupplier;
     private final BackPressManager mBackPressManager;
     private final SettableNonNullObservableSupplier<Boolean> mBackPressStateSupplier =
-            ObservableSuppliers.createNonNull(false);
+            ObservableSuppliers.createNonNull(/* initialValue= */ false);
     private final boolean mIsDesktopPlatform;
     private final SettableNonNullObservableSupplier<Boolean> mHasAttachmentsSupplier;
     private final OmniboxResourceProvider mResourceProvider;
@@ -197,6 +197,9 @@ import java.util.function.Supplier;
                         Snackbar.TYPE_NOTIFICATION,
                         Snackbar.UMA_FUSEBOX_UPLOAD_FAILED);
 
+        mModel.set(
+                FuseboxProperties.NAVIGATE_BUTTON_CONTENT_DESCRIPTION,
+                context.getString(R.string.acc_send_button_search_or_navigate));
         mModel.set(FuseboxProperties.PLUS_BUTTON_CLICKED, this::onPlusButtonClicked);
         mModel.set(FuseboxProperties.REQUEST_TYPE_BUTTON_CLICKED, this::onRequestTypeButtonClicked);
 
@@ -204,6 +207,10 @@ import java.util.function.Supplier;
         mModel.set(FuseboxProperties.POPUP_ATTACH_CAMERA_CLICKED, this::onCameraClicked);
         mModel.set(FuseboxProperties.POPUP_ATTACH_GALLERY_CLICKED, this::onImagePickerClicked);
         mModel.set(FuseboxProperties.POPUP_ATTACH_FILE_CLICKED, this::onFilePickerClicked);
+        mModel.set(FuseboxProperties.POPUP_ATTACH_DRIVE_CLICKED, this::onDrivePickerClicked);
+        mModel.set(FuseboxProperties.POPUP_MORE_OPTIONS_CLICKED, this::onMoreOptionsClicked);
+        mModel.set(FuseboxProperties.POPUP_MORE_OPTIONS_VISIBLE, OmniboxFeatures.hasAccordion());
+        mModel.set(FuseboxProperties.POPUP_ACCORDION_EXPANDED, !OmniboxFeatures.hasAccordion());
         mModel.set(FuseboxProperties.POPUP_TOOL_BUTTON_DATA_LIST, List.of());
         mModel.set(FuseboxProperties.POPUP_MODEL_BUTTON_DATA_LIST, List.of());
         mModel.set(FuseboxProperties.POPUP_RECENT_TABS_BUTTON_DATA_LIST, List.of());
@@ -213,6 +220,7 @@ import java.util.function.Supplier;
         mModel.set(FuseboxProperties.POPUP_ATTACH_TAB_PICKER_VISIBLE, !mIsDesktopPlatform);
         mModel.set(FuseboxProperties.POPUP_ATTACH_CAMERA_VISIBLE, !mIsDesktopPlatform);
         mModel.set(FuseboxProperties.POPUP_ATTACH_GALLERY_VISIBLE, true);
+        mModel.set(FuseboxProperties.POPUP_ATTACH_DRIVE_VISIBLE, false);
         mModel.set(FuseboxProperties.POPUP_TOOL_DIVIDER_VISIBLE, false);
         mModel.set(FuseboxProperties.POPUP_TOOL_HEADER_VISIBLE, false);
 
@@ -220,6 +228,7 @@ import java.util.function.Supplier;
         mModel.set(FuseboxProperties.POPUP_MODEL_HEADER_VISIBLE, false);
         mBackPressManager.addHandler(this, BackPressHandler.Type.FUSEBOX_POPUP);
         updatePlusButtonBackgroundStyle();
+        updateAnchoringMode();
     }
 
     /* package */ void destroy() {
@@ -271,11 +280,9 @@ import java.util.function.Supplier;
 
     private void setController(@Nullable ComposeboxQueryControllerBridge controller) {
         if (mComposeboxQueryControllerBridge != null) {
-            if (OmniboxFeatures.sShowModelPicker.getValue()) {
-                mComposeboxQueryControllerBridge
-                        .getInputStateSupplier()
-                        .removeObserver(mOnInputStateChanged);
-            }
+            mComposeboxQueryControllerBridge
+                    .getInputStateSupplier()
+                    .removeObserver(mOnInputStateChanged);
             mComposeboxQueryControllerBridge
                     .getSuggestedTabsSupplier()
                     .removeObserver(mOnSuggestedTabsChanged);
@@ -284,11 +291,9 @@ import java.util.function.Supplier;
         mComposeboxQueryControllerBridge = controller;
         if (mComposeboxQueryControllerBridge == null) return;
 
-        if (OmniboxFeatures.sShowModelPicker.getValue()) {
-            mComposeboxQueryControllerBridge
-                    .getInputStateSupplier()
-                    .addSyncObserverAndCallIfNonNull(mOnInputStateChanged);
-        }
+        mComposeboxQueryControllerBridge
+                .getInputStateSupplier()
+                .addSyncObserverAndCallIfNonNull(mOnInputStateChanged);
 
         mComposeboxQueryControllerBridge
                 .getSuggestedTabsSupplier()
@@ -297,9 +302,6 @@ import java.util.function.Supplier;
         mModel.set(
                 FuseboxProperties.POPUP_ATTACH_FILE_VISIBLE,
                 mComposeboxQueryControllerBridge.isPdfUploadEligible());
-        if (!OmniboxFeatures.sShowModelPicker.getValue() && mProfile != null) {
-            updateClientControlledToolButtonList();
-        }
     }
 
     private void setModelList(@Nullable FuseboxAttachmentModelList modelList) {
@@ -434,8 +436,7 @@ import java.util.function.Supplier;
     /* package */ void activateSearchMode() {
         if (trySetRequestType(AutocompleteRequestType.SEARCH)) {
             assert mModelList != null;
-            if (OmniboxFeatures.sShowModelPicker.getValue()
-                    && mComposeboxQueryControllerBridge != null) {
+            if (mComposeboxQueryControllerBridge != null) {
                 InputState inputState =
                         mComposeboxQueryControllerBridge.getInputStateSupplier().get();
                 if (inputState != null) {
@@ -445,8 +446,7 @@ import java.util.function.Supplier;
                                             != ModelMode.MODEL_MODE_UNSPECIFIED_VALUE
                                     && mInput.getModelMode() != inputState.defaultModel;
                     boolean modelNeedsReset =
-                            !OmniboxFeatures.sModelPickerOptimizations.getValue()
-                                    || inputState.activeModel != inputState.defaultModel
+                            inputState.activeModel != inputState.defaultModel
                                     || inputHasNonDefaultModel;
                     if (modelNeedsReset) {
                         FuseboxMetrics.notifySetActiveModelSource(
@@ -495,9 +495,22 @@ import java.util.function.Supplier;
         if (!isInInputSession()) {
             targetState = FuseboxState.DISABLED;
         } else if (mInput.getAutocompleteState() == AutocompleteState.STANDBY_NO_FOCUS
-                || mInput.getDisplayState() == DisplayState.DRAFTING_NO_FOCUS
-                || mInput.getDisplayState() == DisplayState.DRAFTING) {
+                || mInput.getDisplayState() == DisplayState.DRAFTING_NO_FOCUS) {
             targetState = FuseboxState.DISABLED;
+        } else if (mInput.getDisplayState() == DisplayState.DRAFTING) {
+            // Note: FuseboxState semantics have diverged significantly across form factors:
+            // - On Tablet, COMPACT activates the floating pop-out overlay container, negative
+            //   margins, and elevated translations. Setting DISABLED keeps the omnibox collapsed
+            //   in the toolbar slot during drafting (crbug.com/552571006).
+            // - On Phone, COMPACT leaves the omnibox single-line in the toolbar while enabling the
+            //   '+' button affordance in StatusView (crbug.com/557024450).
+            // (On Desktop/AL, COMPACT and DISABLED behave identically under SUGGESTIONS_POPOVER).
+            // TODO(crbug.com/559120802): Refactor FuseboxState to decouple the '+' affordance from
+            // container layout geometry.
+            targetState =
+                    DeviceFormFactor.isNonMultiDisplayContextOnTablet(mContext)
+                            ? FuseboxState.DISABLED
+                            : FuseboxState.COMPACT;
         } else {
             boolean isPopover =
                     mModel.get(FuseboxProperties.FUSEBOX_LAYOUT_MODE)
@@ -521,6 +534,20 @@ import java.util.function.Supplier;
         mModel.set(FuseboxProperties.PLUS_BUTTON_VISIBLE, targetState == FuseboxState.EXPANDED);
         mModel.set(FuseboxProperties.REQUEST_TYPE_BUTTON_VISIBLE, showRequestTypeButton);
         updateAttachmentsVisibility();
+        updateAnchoringMode();
+    }
+
+    private void updateAnchoringMode() {
+        @AnchoringMode int targetMode;
+        if (mModel.get(FuseboxProperties.FUSEBOX_LAYOUT_MODE)
+                == FuseboxLayoutMode.SUGGESTIONS_POPOVER) {
+            targetMode = AnchoringMode.POPOVER;
+        } else if (mModel.get(FuseboxProperties.FUSEBOX_STATE) == FuseboxState.EXPANDED) {
+            targetMode = AnchoringMode.TOOLBAR_MULTI_LINE;
+        } else {
+            targetMode = AnchoringMode.TOOLBAR_SINGLE_LINE;
+        }
+        mModel.set(FuseboxProperties.ANCHORING_MODE, targetMode);
     }
 
     private void updateAttachmentsVisibility() {
@@ -589,8 +616,7 @@ import java.util.function.Supplier;
         }
         updateModelForCurrentTab();
         updateModelForRecentTabs();
-        if (OmniboxFeatures.sShowModelPicker.getValue()
-                && mComposeboxQueryControllerBridge != null) {
+        if (mComposeboxQueryControllerBridge != null) {
             InputState inputState = mComposeboxQueryControllerBridge.getInputStateSupplier().get();
             if (inputState != null) {
                 updateModelForPopupInputState(inputState);
@@ -622,7 +648,7 @@ import java.util.function.Supplier;
         mBackPressStateSupplier.set(true);
     }
 
-    /** Hides the popup if currently shown */
+    /** Hides the popup if currently shown. */
     /* package */ boolean handleHidePopup() {
         if (mModel.get(FuseboxProperties.POPUP_STATE) == PopupState.HIDDEN) {
             return false;
@@ -633,6 +659,9 @@ import java.util.function.Supplier;
     }
 
     private void hidePopup() {
+        if (OmniboxFeatures.hasAccordion()) {
+            mModel.set(FuseboxProperties.POPUP_ACCORDION_EXPANDED, false);
+        }
         boolean wasBottomSheet = mModel.get(FuseboxProperties.POPUP_STATE) == PopupState.BOTTOM;
         mModel.set(FuseboxProperties.POPUP_STATE, PopupState.HIDDEN);
         mPopupStateSupplier.set(PopupState.HIDDEN);
@@ -788,30 +817,9 @@ import java.util.function.Supplier;
         updateFuseboxState();
         mHasAttachmentsSupplier.set(!mModelList.isEmpty());
         updateAttachmentsVisibility();
-        if (!OmniboxFeatures.sShowModelPicker.getValue()) {
-            updateClientControlledToolButtonList();
-            updatePopupButtonEnabledStates();
-        }
-
         if (mNeedUnfocusOnCancel && hasUserAddedAttachments()) {
             mNeedUnfocusOnCancel = false;
         }
-    }
-
-    private boolean areAttachmentsCompatibleWithCreateImage() {
-        if (!isInInputSession()) return false;
-        for (MVCListAdapter.ListItem listItem : mModelList) {
-            if (listItem.type == FuseboxAttachmentType.ATTACHMENT_FILE) {
-                return false;
-            }
-            if (listItem.type == FuseboxAttachmentType.ATTACHMENT_TAB) {
-                return false;
-            }
-            if (listItem.type == FuseboxAttachmentType.ATTACHMENT_PDF) {
-                return false;
-            }
-        }
-        return true;
     }
 
     private void onTabPickerClicked() {
@@ -972,36 +980,9 @@ import java.util.function.Supplier;
         }
     }
 
-    private String getRequestTypeButtonText(@AutocompleteRequestType int requestType) {
-        int stringRes =
-                switch (requestType) {
-                    case AutocompleteRequestType.AI_MODE -> R.string.ai_mode_entrypoint_label;
-                    case AutocompleteRequestType.IMAGE_GENERATION -> R.string.omnibox_create_image;
-                    case AutocompleteRequestType.DEEP_SEARCH -> R.string.ntp_compose_deep_search;
-                    case AutocompleteRequestType.CANVAS -> R.string.ntp_compose_canvas;
-                    default -> Resources.ID_NULL;
-                };
-        return stringRes == Resources.ID_NULL ? "" : mContext.getString(stringRes);
-    }
-
-    private String getRequestTypeButtonText(InputState inputState) {
-        if (inputState.activeTool == ToolMode.TOOL_MODE_UNSPECIFIED_VALUE) {
-            return mContext.getString(R.string.ai_mode_entrypoint_label);
-        }
-        for (ToolConfig toolConfig : inputState.getToolConfigs()) {
-            if (toolConfig.getToolValue() == inputState.activeTool) {
-                return toolConfig.getChipLabel();
-            }
-        }
-        return "";
-    }
-
     private void onAutocompleteRequestTypeChanged(@AutocompleteRequestType Integer type) {
         updateFuseboxState();
         mModel.set(FuseboxProperties.REQUEST_TYPE, type);
-        if (!OmniboxFeatures.sShowModelPicker.getValue()) {
-            mModel.set(FuseboxProperties.REQUEST_TYPE_BUTTON_TEXT, getRequestTypeButtonText(type));
-        }
 
         if (isInInputSession()) {
             if (!ToolModeUtils.isAimRequest(type)) {
@@ -1011,38 +992,22 @@ import java.util.function.Supplier;
             }
         }
 
-        if (OmniboxFeatures.sShowModelPicker.getValue()) {
-            if (!isInInputSession()) return;
-            InputState inputState = mComposeboxQueryControllerBridge.getInputStateSupplier().get();
-            if (inputState != null) {
-                onInputStateChange(inputState);
-            }
+        if (!isInInputSession()) return;
+        InputState inputState =
+                mComposeboxQueryControllerBridge != null
+                        ? mComposeboxQueryControllerBridge.getInputStateSupplier().get()
+                        : null;
+        if (inputState != null) {
+            onInputStateChange(inputState);
         } else {
-            updateClientControlledToolButtonList();
-            updatePopupButtonEnabledStates();
+            // Client controlled mode, or an input state that never arrived. Derive the tool from
+            // the request type so the chip and send button are still described correctly.
+            updateRequestTypeButtonProperties(
+                    ToolModeUtils.getToolModeForRequestType(type, mHasAttachmentsSupplier.get()),
+                    /* toolConfig= */ null);
         }
 
         updatePlusButtonBackgroundStyle();
-    }
-
-    private void updatePopupButtonEnabledStates() {
-        assert !OmniboxFeatures.sShowModelPicker.getValue();
-        if (!isInInputSession()) return;
-
-        // Disable Camera and Gallery Selection popup buttons if no remaining attachments are left.
-        boolean allowByCapacity = mModelList.getRemainingAttachments() > 0;
-        // Disables popup buttons for Current Tab, Tab Picker, and File selection if the
-        // autocomplete request is not image generation and if there are no remaining attachments.
-        boolean allowNonImage =
-                mInput.getRequestType() != AutocompleteRequestType.IMAGE_GENERATION
-                        && allowByCapacity;
-
-        mModel.set(FuseboxProperties.POPUP_ATTACH_CURRENT_TAB_ENABLED, allowNonImage);
-        mModel.set(FuseboxProperties.POPUP_ATTACH_TAB_PICKER_ENABLED, allowNonImage);
-        mModel.set(FuseboxProperties.POPUP_RECENT_TABS_ENABLED, allowNonImage);
-        mModel.set(FuseboxProperties.POPUP_ATTACH_CAMERA_ENABLED, allowByCapacity);
-        mModel.set(FuseboxProperties.POPUP_ATTACH_GALLERY_ENABLED, allowByCapacity);
-        mModel.set(FuseboxProperties.POPUP_ATTACH_FILE_ENABLED, allowNonImage);
     }
 
     private PopupButtonData createAiModeToolButtonData() {
@@ -1051,39 +1016,12 @@ import java.util.function.Supplier;
         return new PopupButtonData(
                 this::onDynamicButtonClicked,
                 mContext.getString(R.string.ai_mode_entrypoint_label),
-                IconResourceIds.SEARCH_LOUPE_WITH_SPARKLE_VALUE,
+                IconResourceIds.SEARCH_LOUPE_WITH_SPARKLE,
                 /* enabled= */ true,
                 selected,
                 PopupButtonType.TOOL,
-                ToolMode.TOOL_MODE_UNSPECIFIED_VALUE,
+                ToolMode.TOOL_MODE_UNSPECIFIED,
                 /* hasColor= */ false);
-    }
-
-    private void updateClientControlledToolButtonList() {
-        assert !OmniboxFeatures.sShowModelPicker.getValue();
-        if (!isInInputSession()) return;
-        List<PopupButtonData> toolButtons = new ArrayList<>();
-        if (!mIsDesktopPlatform) {
-            toolButtons.add(createAiModeToolButtonData());
-        }
-
-        if (mComposeboxQueryControllerBridge.isCreateImagesEligible()) {
-            toolButtons.add(
-                    new PopupButtonData(
-                            this::onDynamicButtonClicked,
-                            mContext.getString(R.string.omnibox_create_image),
-                            IconResourceIds.BANANA_VALUE,
-                            areAttachmentsCompatibleWithCreateImage(),
-                            mInput.getRequestType() == AutocompleteRequestType.IMAGE_GENERATION,
-                            PopupButtonType.TOOL,
-                            ToolMode.TOOL_MODE_IMAGE_GEN_VALUE,
-                            /* hasColor= */ true));
-        }
-
-        boolean showTools = !toolButtons.isEmpty();
-        mModel.set(FuseboxProperties.POPUP_TOOL_DIVIDER_VISIBLE, showTools);
-        mModel.set(FuseboxProperties.POPUP_TOOL_HEADER_VISIBLE, false);
-        mModel.set(FuseboxProperties.POPUP_TOOL_BUTTON_DATA_LIST, toolButtons);
     }
 
     private void launchCamera() {
@@ -1145,7 +1083,7 @@ import java.util.function.Supplier;
                             .setDataAndType(
                                     MediaStore.Images.Media.INTERNAL_CONTENT_URI,
                                     MimeTypeUtils.IMAGE_ANY_MIME_TYPE)
-                            .putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
+                            .putExtra(Intent.EXTRA_ALLOW_MULTIPLE, /* value= */ true);
         }
         intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
 
@@ -1175,6 +1113,38 @@ import java.util.function.Supplier;
                 R.string.low_memory_error);
     }
 
+    private void onDrivePickerClicked() {
+        if (!isInInputSession()) return;
+
+        mPopupItemSelected = true;
+        hidePopup();
+        mMetrics.notifyAttachmentButtonUsed(FuseboxAttachmentButtonType.DRIVE_FILES);
+        launchDrivePicker();
+    }
+
+    private void launchDrivePicker() {
+        long startTime = TimeUtils.elapsedRealtimeMillis();
+        DriveFilePickerClient.getInstance()
+                .launchPicker(mWindowAndroid, /* mimeTypes= */ null)
+                .then(
+                        metadata -> {
+                            if (metadata == null) {
+                                handlePickerCanceled();
+                                return;
+                            }
+                            if (!isInInputSession()) return;
+
+                            var attachment =
+                                    FuseboxAttachment.forDrive(
+                                            mContext,
+                                            metadata,
+                                            startTime,
+                                            FuseboxAttachmentButtonType.DRIVE_FILES);
+                            uploadAndAddAttachment(attachment);
+                        },
+                        exception -> handlePickerCanceled());
+    }
+
     private void onFilePickerClicked() {
         if (!isInInputSession()) return;
 
@@ -1190,7 +1160,7 @@ import java.util.function.Supplier;
                 new Intent(Intent.ACTION_OPEN_DOCUMENT)
                         .addCategory(Intent.CATEGORY_OPENABLE)
                         .setType(mimeType)
-                        .putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+                        .putExtra(Intent.EXTRA_ALLOW_MULTIPLE, /* value= */ true)
                         .addFlags(
                                 Intent.FLAG_GRANT_READ_URI_PERMISSION
                                         | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
@@ -1272,21 +1242,37 @@ import java.util.function.Supplier;
     }
 
     private void onInputStateChange(InputState inputState) {
-        assert OmniboxFeatures.sShowModelPicker.getValue();
         // Note that some of the time that this method is called in the middle of beginInput(), so
         // checking avoid checking isInInputSession() or using mModelList.
 
-        mModel.set(
-                FuseboxProperties.REQUEST_TYPE_BUTTON_TEXT, getRequestTypeButtonText(inputState));
+        updateRequestTypeButtonProperties(inputState.activeTool, getActiveToolConfig(inputState));
 
-        if (!OmniboxFeatures.sModelPickerOptimizations.getValue()
-                || mModel.get(FuseboxProperties.POPUP_STATE) != PopupState.HIDDEN) {
+        if (mModel.get(FuseboxProperties.POPUP_STATE) != PopupState.HIDDEN) {
             updateModelForPopupInputState(inputState);
         }
     }
 
+    /**
+     * Populates the request type button and send button properties. {@code toolConfig} is the
+     * server description of {@code activeTool}, and is null in client controlled mode or whenever
+     * the server shipped no config for the tool.
+     */
+    private void updateRequestTypeButtonProperties(
+            @ToolMode int activeTool, @Nullable ToolConfig toolConfig) {
+        @IconResourceIds int iconId = getRequestTypeButtonIconId(activeTool, toolConfig);
+        mModel.set(
+                FuseboxProperties.NAVIGATE_BUTTON_CONTENT_DESCRIPTION,
+                getNavigateButtonContentDescription(toolConfig));
+        mModel.set(FuseboxProperties.REQUEST_TYPE_BUTTON_ICON_ID, iconId);
+        mModel.set(
+                FuseboxProperties.REQUEST_TYPE_BUTTON_SHOULD_TINT_ICON,
+                shouldTintRequestTypeButtonIcon(iconId));
+        mModel.set(
+                FuseboxProperties.REQUEST_TYPE_BUTTON_TEXT,
+                getRequestTypeButtonText(activeTool, toolConfig));
+    }
+
     private void updateModelForPopupInputState(InputState inputState) {
-        assert OmniboxFeatures.sShowModelPicker.getValue();
 
         boolean disableTabsForCanvas = OmniboxFeatures.sOmniboxDisableTabsForCanvas.isEnabled();
         boolean isCanvasActive =
@@ -1302,12 +1288,22 @@ import java.util.function.Supplier;
                 !inputState.disabledInputTypes.contains(InputType.INPUT_TYPE_LENS_IMAGE_VALUE);
         boolean filesEnabled =
                 !inputState.disabledInputTypes.contains(InputType.INPUT_TYPE_LENS_FILE_VALUE);
+        // Drive button only visible if the flag is enabled, it is in allowedInputTypes, and
+        // the Drive picker is available on device.
+        boolean driveVisible =
+                OmniboxFeatures.sComposeboxDriveContextMenuOption.isEnabled()
+                        && inputState.allowedInputTypes.contains(InputType.INPUT_TYPE_DRIVE_VALUE)
+                        && DriveFilePickerClient.getInstance().isAvailable(mContext);
+        boolean driveEnabled =
+                !inputState.disabledInputTypes.contains(InputType.INPUT_TYPE_DRIVE_VALUE);
         mModel.set(FuseboxProperties.POPUP_ATTACH_CURRENT_TAB_ENABLED, tabsEnabled);
         mModel.set(FuseboxProperties.POPUP_ATTACH_TAB_PICKER_ENABLED, tabsEnabled);
         mModel.set(FuseboxProperties.POPUP_RECENT_TABS_ENABLED, tabsEnabled);
         mModel.set(FuseboxProperties.POPUP_ATTACH_CAMERA_ENABLED, imagesEnabled);
         mModel.set(FuseboxProperties.POPUP_ATTACH_GALLERY_ENABLED, imagesEnabled);
         mModel.set(FuseboxProperties.POPUP_ATTACH_FILE_ENABLED, filesEnabled);
+        mModel.set(FuseboxProperties.POPUP_ATTACH_DRIVE_VISIBLE, driveVisible);
+        mModel.set(FuseboxProperties.POPUP_ATTACH_DRIVE_ENABLED, driveEnabled);
 
         mModel.set(
                 FuseboxProperties.POPUP_TOOL_HEADER_TEXT,
@@ -1326,7 +1322,7 @@ import java.util.function.Supplier;
             int iconId =
                     toolConfig.hasIcon() && toolConfig.getIcon().hasIconId()
                             ? toolConfig.getIcon().getIconIdValue()
-                            : IconResourceIds.PLACE_WHITE_VALUE;
+                            : IconResourceIds.PLACE_WHITE;
             boolean selected =
                     mInput != null
                             && ToolModeUtils.getRequestTypeForToolMode(toolMode)
@@ -1335,10 +1331,8 @@ import java.util.function.Supplier;
                     inputState.isToolEnabled(toolMode)
                             && (!disableTabsForCanvas
                                     || !hasAttachedTabs
-                                    || toolMode != ToolMode.TOOL_MODE_CANVAS_VALUE);
-            boolean hasColor =
-                    toolMode == ToolMode.TOOL_MODE_IMAGE_GEN_VALUE
-                            || toolMode == ToolMode.TOOL_MODE_IMAGE_GEN_UPLOAD_VALUE;
+                                    || toolMode != ToolMode.TOOL_MODE_CANVAS);
+            boolean hasColor = !shouldTintRequestTypeButtonIcon(iconId);
 
             toolButtonDataList.add(
                     new PopupButtonData(
@@ -1374,7 +1368,7 @@ import java.util.function.Supplier;
                 int iconId =
                         modelConfig.hasIcon() && modelConfig.getIcon().hasIconId()
                                 ? modelConfig.getIcon().getIconIdValue()
-                                : IconResourceIds.PLACE_WHITE_VALUE;
+                                : IconResourceIds.PLACE_WHITE;
                 modelButtonDataList.add(
                         new PopupButtonData(
                                 this::onDynamicButtonClicked,
@@ -1398,6 +1392,71 @@ import java.util.function.Supplier;
         mModel.set(
                 FuseboxProperties.POPUP_MODEL_BUTTON_DATA_LIST,
                 showModelPicker ? modelButtonDataList : List.of());
+    }
+
+    /**
+     * Returns the {@link ToolConfig} describing {@code inputState.activeTool}, or null when the
+     * server shipped none. An exact tool match always wins. Any image generation config is accepted
+     * as a fallback for an image generation tool, since the server may describe the family with a
+     * single config.
+     */
+    private static @Nullable ToolConfig getActiveToolConfig(InputState inputState) {
+        if (inputState.activeTool == ToolMode.TOOL_MODE_UNSPECIFIED) {
+            return null;
+        }
+        boolean activeIsImageGen = ToolModeUtils.isImageGenTool(inputState.activeTool);
+        @Nullable ToolConfig imageGenFallback = null;
+        for (ToolConfig toolConfig : inputState.getToolConfigs()) {
+            if (toolConfig.getToolValue() == inputState.activeTool) {
+                return toolConfig;
+            }
+            if (imageGenFallback == null
+                    && activeIsImageGen
+                    && ToolModeUtils.isImageGenTool(toolConfig.getToolValue())) {
+                imageGenFallback = toolConfig;
+            }
+        }
+        return imageGenFallback;
+    }
+
+    private String getNavigateButtonContentDescription(@Nullable ToolConfig toolConfig) {
+        if (ToolModeUtils.isConventionalRequest(mModel.get(FuseboxProperties.REQUEST_TYPE))) {
+            return mContext.getString(R.string.acc_send_button_search_or_navigate);
+        }
+        if (toolConfig != null) {
+            String chipLabel = toolConfig.getChipLabel().trim();
+            if (!chipLabel.isEmpty()) {
+                return chipLabel;
+            }
+        }
+        return mContext.getString(R.string.acc_send_button_send_to_ai);
+    }
+
+    private static @IconResourceIds int getRequestTypeButtonIconId(
+            @ToolMode int activeTool, @Nullable ToolConfig toolConfig) {
+        if (activeTool == ToolMode.TOOL_MODE_UNSPECIFIED) {
+            return IconResourceIds.SEARCH_LOUPE_WITH_SPARKLE;
+        }
+        if (toolConfig != null && toolConfig.getIcon().hasIconId()) {
+            return toolConfig.getIcon().getIconIdValue();
+        }
+        return IconResourceIds.PLACE_WHITE;
+    }
+
+    private String getRequestTypeButtonText(
+            @ToolMode int activeTool, @Nullable ToolConfig toolConfig) {
+        if (activeTool == ToolMode.TOOL_MODE_UNSPECIFIED) {
+            return mContext.getString(R.string.ai_mode_entrypoint_label);
+        }
+        return toolConfig != null ? toolConfig.getChipLabel() : "";
+    }
+
+    /**
+     * Returns whether an icon should be tinted to match the surrounding text color. The banana icon
+     * is multicolored by design, so it is left untinted in both the request type button and popup.
+     */
+    private static boolean shouldTintRequestTypeButtonIcon(@IconResourceIds int iconId) {
+        return iconId != IconResourceIds.BANANA;
     }
 
     private boolean trySetRequestType(@AutocompleteRequestType int requestType) {
@@ -1429,7 +1488,6 @@ import java.util.function.Supplier;
     }
 
     private void setModelMode(int modelMode) {
-        assert OmniboxFeatures.sShowModelPicker.getValue();
         if (!isInInputSession()) return;
 
         hidePopup();
@@ -1440,6 +1498,12 @@ import java.util.function.Supplier;
         // TODO(https://crbug.com/476434460): Consider replacing with wiring in session state.
         FuseboxMetrics.notifySetActiveModelSource(SetActiveModelSource.SET_FROM_MODEL_SELECTION);
         mComposeboxQueryControllerBridge.setActiveModel(modelMode);
+    }
+
+    private void onMoreOptionsClicked() {
+        if (!isInInputSession()) return;
+        boolean expanded = mModel.get(FuseboxProperties.POPUP_ACCORDION_EXPANDED);
+        mModel.set(FuseboxProperties.POPUP_ACCORDION_EXPANDED, !expanded);
     }
 
     void selectFirstAttachment() {

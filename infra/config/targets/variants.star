@@ -51,15 +51,6 @@ targets.variant(
 )
 
 targets.variant(
-    name = "CROS_JACUZZI_RELEASE_LKGM",
-    identifier = "JACUZZI_RELEASE_LKGM",
-    skylab = targets.skylab(
-        cros_board = "jacuzzi",
-        use_lkgm = True,
-    ),
-)
-
-targets.variant(
     name = "CROS_GPU_BRYA_RELEASE_LKGM",
     identifier = "GPU_BRYA_RELEASE_LKGM",
     skylab = targets.skylab(
@@ -376,6 +367,21 @@ targets.variant(
 )
 
 targets.variant(
+    name = "SIM_IPAD_10TH_GEN_27_0",
+    identifier = "iPad (10th generation) 27.0",
+    mixins = [
+        "ios_runtime_cache_27_0",
+        "use-ios-simulator-cache",
+    ],
+    args = [
+        "--platform",
+        "iPad (10th generation)",
+        "--version",
+        "27.0",
+    ],
+)
+
+targets.variant(
     name = "SIM_IPHONE_14_18_5",
     identifier = "iPhone 14 18.5",
     mixins = [
@@ -477,6 +483,21 @@ targets.variant(
         "iPhone 16 Plus",
         "--version",
         "26.5",
+    ],
+)
+
+targets.variant(
+    name = "SIM_IPHONE_16_PLUS_27_0",
+    identifier = "iPhone 16 Plus 27.0",
+    mixins = [
+        "ios_runtime_cache_27_0",
+        "use-ios-simulator-cache",
+    ],
+    args = [
+        "--platform",
+        "iPhone 16 Plus",
+        "--version",
+        "27.0",
     ],
 )
 

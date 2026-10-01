@@ -140,7 +140,8 @@ class CONTENT_EXPORT RenderWidgetHostViewChildFrame
   void SetIsLoading(bool is_loading) override;
   void RenderProcessGone() override;
   void ShowWithVisibility(PageVisibilityState page_visibility) override;
-  void Destroy() override;
+  void DestroyImpl() override;
+  void OnDestroyOrDefer() override;
   void UpdateTooltipUnderCursor(const std::u16string& tooltip_text) override;
   void UpdateTooltipFromKeyboard(const std::u16string& tooltip_text,
                                  const gfx::Rect& bounds) override;
@@ -305,6 +306,7 @@ class CONTENT_EXPORT RenderWidgetHostViewChildFrame
   // Surface-related state.
   viz::SurfaceInfo last_activated_surface_info_;
   gfx::Rect last_screen_rect_;
+  gfx::Size initial_size_;
 
   // frame_connector_ provides a platform abstraction. Messages
   // sent through it are routed to the embedding renderer process.
@@ -339,6 +341,8 @@ class CONTENT_EXPORT RenderWidgetHostViewChildFrame
   virtual void FirstSurfaceActivation(const viz::SurfaceInfo& surface_info);
 
   void DetachFromTouchSelectionClientManagerIfNecessary();
+  void CleanUpHostObservers() override;
+  void ShutdownAndDisconnect();
 
   gfx::Rect GetViewBoundsHelper(bool without_transform);
 
@@ -403,6 +407,11 @@ class CONTENT_EXPORT RenderWidgetHostViewChildFrame
   // A queue for `IntrinsicSizingInfo` sent from the child renderer before the
   // frame connector is set.
   blink::mojom::IntrinsicSizingInfoPtr pending_sizing_info_;
+
+  // The display feature set for emulation, if any.
+  std::optional<DisplayFeature> display_feature_;
+
+  bool disconnected_ = false;
 
   base::WeakPtrFactory<RenderWidgetHostViewChildFrame> weak_factory_{this};
 };

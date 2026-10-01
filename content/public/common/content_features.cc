@@ -523,10 +523,6 @@ BASE_FEATURE(kWebIdentityDigitalCredentials, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kWebIdentityDigitalCredentialsCreation,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Enables scrollers inside Blink to store scroll offsets in fractional
-// floating-point numbers rather than truncating to integers.
-BASE_FEATURE(kFractionalScrollOffsets, base::FEATURE_DISABLED_BY_DEFAULT);
-
 // Puts network quality estimate related Web APIs in the holdback mode. When the
 // holdback is enabled the related Web APIs return network quality estimate
 // set by the experiment (regardless of the actual quality).
@@ -917,6 +913,25 @@ BASE_FEATURE(kRegionCaptureOfOtherTabs, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enable using the RenderDocument.
 BASE_FEATURE(kRenderDocument, base::FEATURE_ENABLED_BY_DEFAULT);
+
+// Master flag for the Resource Broker metrics-only skeleton, which observes
+// eligible subresource responses to measure cross-renderer duplication of
+// identical bytes. No serving behavior exists behind this flag.
+//
+// Policy: serving requires a future separate default-off feature; a
+// configuration that appears to request serving degrades to metrics-only with
+// a warning + UMA, never a browser-process CHECK.
+//
+// Tracking bug: crbug.com/560232768
+BASE_FEATURE(kResourceBroker, base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Grace period to keep cached resources alive after their renderer exits
+// before evicting them.
+BASE_FEATURE_PARAM(base::TimeDelta,
+                   kResourceBrokerGraceWindow,
+                   &kResourceBroker,
+                   "grace_window",
+                   base::Seconds(300));
 
 // Restrict the maximum number of concurrent ThreadPool tasks when a renderer is
 // low priority.
@@ -1335,14 +1350,16 @@ const base::FeatureParam<bool> kWebUIBundledCodeCacheGenerateResourceMap{
 BASE_FEATURE(kWebUIJSErrorReportingExtended, base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
-// If enabled, WebUI will optimize resources loading by piping a dictionary of
-// URL paths to materialized WebUI resource content to the renderer via
-// LocalResourceLoaderConfig.
+// If enabled, opted-in WebUIs will optimize resources loading by piping a
+// dictionary of URL paths to materialized WebUI resource content to the
+// renderer via LocalResourceLoaderConfig.
+// For now, only TopChrome WebUI renderer-related WebUIs are opted-in, including
+// NavigationControl and Omnibox Popup.
 // This is an extension of `kWebUIInProcessResourceLoading` which previously
 // serves only resources in resource bundle.
 // See crbug.com/459528908.
 BASE_FEATURE(kWebUIInProcessResourceLoadingV2,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Controls whether the WebUSB API is enabled:
 // https://wicg.github.io/webusb
@@ -1460,9 +1477,6 @@ BASE_FEATURE(kAccessibilitySequentialFocus, base::FEATURE_ENABLED_BY_DEFAULT);
 // ACTION_SET_SELECTION.
 BASE_FEATURE(kAccessibilitySetSelectableOnAllNodesWithText,
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Enables the use of a unified code path for AXTree snapshots.
-BASE_FEATURE(kAccessibilityUnifiedSnapshots, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enables posting registering, unregistering the broadcast receiver to the
 // background thread.

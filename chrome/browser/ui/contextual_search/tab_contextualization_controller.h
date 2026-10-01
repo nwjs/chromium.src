@@ -13,6 +13,8 @@
 #include "base/memory/raw_ptr.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/task/task_runner.h"
+#include "base/timer/timer.h"
+#include "base/unguessable_token.h"
 #include "components/lens/contextual_input.h"
 #include "components/lens/lens_bitmap_processing.h"
 #include "components/optimization_guide/content/browser/page_content_proto_provider.h"
@@ -76,6 +78,11 @@ class TabContextualizationController : public content::WebContentsObserver {
   // finishes loading.
   virtual void GetPageContext(GetPageContextCallback callback);
 
+  void GetPageContext(GetPageContextCallback callback,
+                      const base::UnguessableToken& cancellation_id);
+
+  bool CancelPageContextRequest(const base::UnguessableToken& cancellation_id);
+
   // Updates current page eligibility once received.
   void OnEligibilityChecked(bool is_page_context_eligible,
                             optimization_guide::AIPageContentResultOrError apc);
@@ -95,7 +102,26 @@ class TabContextualizationController : public content::WebContentsObserver {
       const GURL& url,
       const std::vector<optimization_guide::FrameMetadata>& frame_metadata);
 
+  // Performs actual page context retrieval after WebContents load completes.
+  // Virtual for testing.
+  virtual void FetchPageContextInternal(GetPageContextCallback callback);
+
+  // GetApcResultCallback for when the APC and eligibility are received
+  // for the GetPageContext flow. Adds the APC to the contextual input data and
+  // returns it to the callback.
+  void OnApcAndEligibilityReceivedForGetPageContext(
+      GetPageContextCallback callback,
+      std::unique_ptr<lens::ContextualInputData> data,
+      bool page_context_eligible,
+      optimization_guide::AIPageContentResultOrError result);
+
  private:
+  enum class PageContextAvailability {
+    kReadyToExtract,
+    kLoading,
+    kUnavailable,
+  };
+
   // Creates the eligibility API if it has not been created.
   void CreatePageContextEligibilityAPI();
 
@@ -105,17 +131,25 @@ class TabContextualizationController : public content::WebContentsObserver {
 
   // content::WebContentsObserver:
   void PrimaryPageChanged(content::Page& page) override;
-  void DidFinishLoad(content::RenderFrameHost* render_frame_host,
-                     const GURL& validated_url) override;
+  void DocumentOnLoadCompletedInPrimaryMainFrame() override;
+  void DidFinishNavigation(
+      content::NavigationHandle* navigation_handle) override;
+  void DidStopLoading() override;
+  void NavigationStopped() override;
+  void BeforeUnloadDialogCancelled() override;
 
   // TabInterface::WillDiscardContentsCallback:
   void WillDiscardContents(tabs::TabInterface* tab,
                            content::WebContents* old_contents,
                            content::WebContents* new_contents);
 
-  // Performs actual page context retrieval after WebContents load completes.
-  void FetchPageContextInternal(GetPageContextCallback callback);
-  void FlushPendingPageContextCallbacks();
+  // TabInterface::WillDetach:
+  void WillDetach(tabs::TabInterface* tab,
+                  tabs::TabInterface::DetachReason reason);
+
+  PageContextAvailability GetPageContextAvailability() const;
+  void MaybeCompleteDeferredPageContextRequests();
+  void CompleteDeferredPageContextRequests(bool should_extract);
 
   // Gets the annotated page content from the page context eligibility API.
   void GetAnnotatedPageContent(GetAnnotatedPageContentCallback callback);
@@ -124,15 +158,6 @@ class TabContextualizationController : public content::WebContentsObserver {
   // page is eligible and returns the result to the callback.
   void OnAnnotatedPageContentReceived(
       GetApcResultCallback callback,
-      optimization_guide::AIPageContentResultOrError result);
-
-  // GetApcResultCallback for when the APC and eligibility are received
-  // for the GetPageContext flow. Adds the APC to the contextual input data and
-  // returns it to the callback.
-  void OnApcAndEligibilityReceivedForGetPageContext(
-      GetPageContextCallback callback,
-      std::unique_ptr<lens::ContextualInputData> data,
-      bool page_context_eligible,
       optimization_guide::AIPageContentResultOrError result);
 
 #if BUILDFLAG(ENABLE_PDF)
@@ -176,18 +201,38 @@ class TabContextualizationController : public content::WebContentsObserver {
 
   const raw_ptr<tabs::TabInterface> tab_;
 
-  base::CallbackListSubscription tab_subscription_;
+  base::CallbackListSubscription will_discard_contents_subscription_;
+  base::CallbackListSubscription will_detach_subscription_;
 
   // Task runner used to downscale the tab screenshot in the background.
   scoped_refptr<base::TaskRunner> screenshot_task_runner_;
 
   bool is_page_context_eligible_ = false;
 
+  struct DeferredPageContextRequest {
+    std::optional<base::UnguessableToken> cancellation_id;
+    GetPageContextCallback callback;
+  };
+
   // Client supplied callbacks received for tabs that are currently loading.
   // Page content extraction is deferred until the loading completes after which
   // these callbacks will be used.
-  std::vector<GetPageContextCallback> pending_page_context_callbacks_;
+  std::vector<DeferredPageContextRequest> deferred_page_context_requests_;
 
+  std::optional<base::UnguessableToken> scoped_cancellation_id_;
+
+  // Timer to flush pending page context callbacks if page load completion is
+  // not received within the timeout period.
+  base::OneShotTimer pending_page_context_timer_;
+
+  // Must be the last members.
+  // Used for in-flight contextualization requests (APC, screenshot, PDF bytes).
+  // Invalidated on tab navigation, discard, or detach to prevent cross-origin
+  // leaks.
+  base::WeakPtrFactory<TabContextualizationController>
+      in_flight_weak_ptr_factory_{this};
+
+  // Used for general controller lifecycle and subscriptions.
   base::WeakPtrFactory<TabContextualizationController> weak_ptr_factory_{this};
 };
 

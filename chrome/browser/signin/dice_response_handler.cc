@@ -59,6 +59,10 @@ const char kDiceTokenBindingOutcomeHistogram[] =
     "Signin.DiceTokenBindingOutcome";
 const char kDiceEnableSyncHeaderAccountInfoIsPresent[] =
     "Signin.DiceEnableSyncHeaderAccountInfoIsPresent";
+const char kDiceLinkedAccountsLatencyInitiatorTokenFetch[] =
+    "Signin.Dice.LinkedAccounts.Latency.InitiatorTokenFetch";
+const char kDiceLinkedAccountsLatencyTotalSessionDuration[] =
+    "Signin.Dice.LinkedAccounts.Latency.TotalSessionDuration";
 
 // Used for UMA. Do not reorder, append new values at the end.
 enum DiceResponseHeader {
@@ -269,6 +273,14 @@ void DiceResponseHandler::DiceSigninSession::NotifySessionComplete() {
   }
   session_completed_notified_ = true;
 
+  if (IsMultiAccount() && !session_duration_recorded_ &&
+      !session_start_time_.is_null()) {
+    session_duration_recorded_ = true;
+    base::UmaHistogramMediumTimes(
+        kDiceLinkedAccountsLatencyTotalSessionDuration,
+        base::TimeTicks::Now() - session_start_time_);
+  }
+
   std::vector<CoreAccountId> secondary_accounts;
   const auto* initiator = signin_info_.GetInitiator();
   if (initiator) {
@@ -299,6 +311,7 @@ DiceResponseHandler::DiceSigninSession::GetFetchMode() const {
 
 void DiceResponseHandler::DiceSigninSession::StartTokenFetches() {
   CHECK(signin_info_.GetInitiator());
+  session_start_time_ = base::TimeTicks::Now();
 
   // The user is signing in, which means that account fetching will shortly be
   // triggered.
@@ -398,14 +411,21 @@ void DiceResponseHandler::DiceSigninSession::OnTokenExchangeSuccess(
       base::StringPrintf("Successful (%s)", account_id.ToString().c_str()));
 
   if (is_initiator) {
+    if (IsMultiAccount() && !session_start_time_.is_null()) {
+      base::UmaHistogramMediumTimes(
+          kDiceLinkedAccountsLatencyInitiatorTokenFetch,
+          base::TimeTicks::Now() - session_start_time_);
+    }
+
     delegate_->HandleTokenExchangeSuccess(
         account_id, is_new_account,
         signin_info_.linked_accounts_metadata().primary_is_connected);
 
     if (fetcher->should_enable_sync()) {
       delegate_->CompleteChromeSignInAfterGaiaSignin(
-          handler_->identity_manager_->FindExtendedAccountInfoByAccountId(
-              account_id));
+          handler_->identity_manager_
+              ->FindExtendedAccountInfoByAccountId(account_id)
+              .GetCoreAccountInfo());
     }
 
     if (GetFetchMode() == FetchMode::kInitiatorFirst) {
@@ -637,7 +657,8 @@ void DiceResponseHandler::ProcessEnableSyncHeader(
   if (account_info.IsEmpty()) {
     return;
   }
-  delegate->CompleteChromeSignInAfterGaiaSignin(account_info);
+  delegate->CompleteChromeSignInAfterGaiaSignin(
+      account_info.GetCoreAccountInfo());
 }
 
 void DiceResponseHandler::ProcessDiceSignoutHeader(

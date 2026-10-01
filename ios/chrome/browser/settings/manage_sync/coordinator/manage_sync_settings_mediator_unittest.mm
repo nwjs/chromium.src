@@ -31,6 +31,7 @@
 #import "ios/chrome/browser/shared/model/browser/test/test_browser.h"
 #import "ios/chrome/browser/shared/model/profile/features.h"
 #import "ios/chrome/browser/shared/model/profile/test/test_profile_ios.h"
+#import "ios/chrome/browser/shared/model/profile/test/test_profile_manager_ios.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_detail_icon_item.h"
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_image_item.h"
@@ -40,7 +41,6 @@
 #import "ios/chrome/browser/signin/model/authentication_service.h"
 #import "ios/chrome/browser/signin/model/authentication_service_factory.h"
 #import "ios/chrome/browser/signin/model/chrome_account_manager_service_factory.h"
-#import "ios/chrome/browser/signin/model/fake_authentication_service_delegate.h"
 #import "ios/chrome/browser/signin/model/fake_system_identity.h"
 #import "ios/chrome/browser/signin/model/fake_system_identity_manager.h"
 #import "ios/chrome/browser/signin/model/identity_manager_factory.h"
@@ -80,15 +80,14 @@ class ManageSyncSettingsMediatorTest : public PlatformTest {
                               base::BindRepeating(&CreateTestSyncService));
     builder.AddTestingFactory(
         AuthenticationServiceFactory::GetInstance(),
-        AuthenticationServiceFactory::GetFactoryWithDelegateForTesting(
-            std::make_unique<FakeAuthenticationServiceDelegate>()));
-    profile_ = std::move(builder).Build();
+        AuthenticationServiceFactory::GetDefaultFactory());
+    profile_ = profile_manager_.AddProfileWithBuilder(std::move(builder));
 
     sync_service_ = static_cast<syncer::TestSyncService*>(
-        SyncServiceFactory::GetForProfile(profile_.get()));
+        SyncServiceFactory::GetForProfile(profile_));
 
     AuthenticationService* authentication_service =
-        AuthenticationServiceFactory::GetForProfile(profile_.get());
+        AuthenticationServiceFactory::GetForProfile(profile_);
     authentication_service->SignIn(fake_system_identity_,
                                    signin_metrics::AccessPoint::kStartPage);
   }
@@ -102,12 +101,11 @@ class ManageSyncSettingsMediatorTest : public PlatformTest {
     [consumer_ loadModel];
     mediator_ = [[ManageSyncSettingsMediator alloc]
           initWithSyncService:sync_service_
-              identityManager:IdentityManagerFactory::GetForProfile(
-                                  profile_.get())
+              identityManager:IdentityManagerFactory::GetForProfile(profile_)
         authenticationService:AuthenticationServiceFactory::GetForProfile(
-                                  profile_.get())
+                                  profile_)
         accountManagerService:ChromeAccountManagerServiceFactory::GetForProfile(
-                                  profile_.get())
+                                  profile_)
                   prefService:profile_->GetPrefs()];
     mediator_.consumer = consumer_;
   }
@@ -116,6 +114,8 @@ class ManageSyncSettingsMediatorTest : public PlatformTest {
     [mediator_ disconnect];
     mediator_ = nullptr;
     consumer_ = nullptr;
+    sync_service_ = nullptr;
+    profile_ = nullptr;
     PlatformTest::TearDown();
   }
 
@@ -130,9 +130,10 @@ class ManageSyncSettingsMediatorTest : public PlatformTest {
 
   // Needed for the initialization of authentication service.
   IOSChromeScopedTestingLocalState scoped_testing_local_state_;
+  TestProfileManagerIOS profile_manager_;
+  raw_ptr<TestProfileIOS> profile_ = nullptr;
 
-  raw_ptr<syncer::TestSyncService, DanglingUntriaged> sync_service_;
-  std::unique_ptr<TestProfileIOS> profile_;
+  raw_ptr<syncer::TestSyncService> sync_service_ = nullptr;
 
   ManageSyncSettingsMediator* mediator_ = nullptr;
   ManageSyncSettingsTableViewController* consumer_ = nullptr;
@@ -312,15 +313,18 @@ TEST_F(ManageSyncSettingsMediatorTest, TestSyncErrorsForSignedInAccount) {
                                        SyncErrorsSectionIdentifier];
 
   EXPECT_EQ(2UL, error_items.count);
-  EXPECT_NSEQ(
-      base::apple::ObjCCastStrict<SettingsImageDetailTextItem>(error_items[0])
-          .detailText,
-      l10n_util::GetNSString(
-          IDS_IOS_ACCOUNT_TABLE_ERROR_ENTER_PASSPHRASE_MESSAGE));
-  EXPECT_NSEQ(
-      base::apple::ObjCCastStrict<TableViewTextItem>(error_items[1]).text,
-      l10n_util::GetNSString(
-          IDS_IOS_ACCOUNT_TABLE_ERROR_ENTER_PASSPHRASE_BUTTON));
+  SettingsImageDetailTextItem* error_message_item =
+      base::apple::ObjCCastStrict<SettingsImageDetailTextItem>(error_items[0]);
+  EXPECT_FALSE(error_message_item.accessibilityElementsHidden);
+  EXPECT_NSEQ(error_message_item.detailText,
+              l10n_util::GetNSString(
+                  IDS_IOS_ACCOUNT_TABLE_ERROR_ENTER_PASSPHRASE_MESSAGE));
+  TableViewTextItem* error_button_item =
+      base::apple::ObjCCastStrict<TableViewTextItem>(error_items[1]);
+  EXPECT_NSEQ(error_button_item.text,
+              l10n_util::GetNSString(
+                  IDS_IOS_ACCOUNT_TABLE_ERROR_ENTER_PASSPHRASE_BUTTON));
+  EXPECT_NSEQ(error_button_item.accessibilityLabel, nil);
 }
 
 // Tests that a bookmarks limit exceeded error is displayed as a text button at
@@ -650,4 +654,40 @@ TEST_F(ManageSyncSettingsMediatorTest,
       [model hasSectionForSectionIdentifier:SyncErrorsSectionIdentifier]);
   EXPECT_FALSE(
       [model hasSectionForSectionIdentifier:BatchUploadSectionIdentifier]);
+}
+
+// Tests that fetching local data descriptions for batch upload dynamically
+// adds the batch upload section without causing a crash when the view is
+// attached to a window.
+TEST_F(ManageSyncSettingsMediatorTest,
+       LocalDataDescriptionsFetchedBatchUploadInsertDoesNotCrash) {
+  ScopedKeyWindow scoped_window;
+  CreateManageSyncSettingsMediator();
+
+  scoped_window.Get().rootViewController = consumer_;
+
+  sync_service_->SetSignedIn(signin::ConsentLevel::kSignin);
+
+  std::map<syncer::DataType, syncer::LocalDataDescription> descriptions;
+  syncer::LocalDataDescription pass_desc;
+  pass_desc.item_count = 5;
+  descriptions[syncer::PASSWORDS] = pass_desc;
+  sync_service_->SetLocalDataDescriptions(descriptions);
+
+  [mediator_ manageSyncSettingsTableViewControllerLoadModel:mediator_.consumer];
+
+  // Force UIKit to perform layout.
+  [consumer_.view layoutIfNeeded];
+
+  EXPECT_TRUE([mediator_.consumer.tableViewModel
+      hasSectionForSectionIdentifier:BatchUploadSectionIdentifier]);
+
+  // Clear the local data descriptions and trigger a sync state change.
+  std::map<syncer::DataType, syncer::LocalDataDescription> empty_descriptions;
+  sync_service_->SetLocalDataDescriptions(empty_descriptions);
+  [mediator_ onSyncStateChanged];
+  [consumer_.view layoutIfNeeded];
+
+  EXPECT_FALSE([mediator_.consumer.tableViewModel
+      hasSectionForSectionIdentifier:BatchUploadSectionIdentifier]);
 }

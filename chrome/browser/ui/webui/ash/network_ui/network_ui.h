@@ -6,6 +6,7 @@
 #define CHROME_BROWSER_UI_WEBUI_ASH_NETWORK_UI_NETWORK_UI_H_
 
 #include "ash/constants/webui_url_constants.h"
+#include "base/memory/raw_ref.h"
 #include "base/values.h"
 #include "chromeos/ash/services/cellular_setup/public/mojom/esim_manager.mojom-forward.h"
 #include "chromeos/ash/services/connectivity/public/mojom/passpoint.mojom-forward.h"
@@ -17,22 +18,40 @@
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "ui/webui/mojo_web_ui_controller.h"
 
+class PrefService;
+
+namespace content {
+class WebUIMessageHandler;
+}  // namespace content
+
 namespace ash {
 
 class NetworkUI;
 
 // WebUIConfig for chrome://network
-class NetworkUIConfig : public content::DefaultWebUIConfig<NetworkUI> {
+class NetworkUIConfig : public content::WebUIConfig {
  public:
-  NetworkUIConfig()
-      : DefaultWebUIConfig(content::kChromeUIScheme,
-                           ash::kChromeUINetworkHost) {}
+  // `local_state` must be non-null and must outlive `this`.
+  explicit NetworkUIConfig(PrefService* local_state);
+
+  NetworkUIConfig(const NetworkUIConfig&) = delete;
+  NetworkUIConfig& operator=(const NetworkUIConfig&) = delete;
+
+  ~NetworkUIConfig() override;
+
+  std::unique_ptr<content::WebUIController> CreateWebUIController(
+      content::WebUI* web_ui,
+      const GURL& url) override;
+
+ private:
+  const raw_ref<PrefService> local_state_;
 };
 
 // WebUI controller for chrome://network debugging page.
 class NetworkUI : public ui::MojoWebUIController {
  public:
-  explicit NetworkUI(content::WebUI* web_ui);
+  // `local_state` must be non-null and must outlive `this`.
+  NetworkUI(PrefService* local_state, content::WebUI* web_ui);
 
   NetworkUI(const NetworkUI&) = delete;
   NetworkUI& operator=(const NetworkUI&) = delete;
@@ -40,6 +59,10 @@ class NetworkUI : public ui::MojoWebUIController {
   ~NetworkUI() override;
 
   static base::DictValue GetLocalizedStrings();
+
+  // `local_state` must be non-null and must outlive the returned handler.
+  static std::unique_ptr<content::WebUIMessageHandler>
+  CreateNetworkConfigMessageHandlerForTesting(PrefService* local_state);
 
   // Instantiates implementation of the mojom::CrosNetworkConfig mojo interface
   // passing the pending receiver that will be internally bound.

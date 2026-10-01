@@ -329,20 +329,6 @@ cr-icon-button {
       var(--cr-composebox-entrypoint-background-color, transparent);
 }
 
-:host([show-suggestion-label]) #entrypoint {
-  gap: 16px;
-}
-
-:host([show-suggestion-label]) cr-button#entrypoint {
-  color: var(
-    --color-sys-on-surface-subtle, --cr-fallback-color-on-surface-subtle);
-}
-
-:host([show-suggestion-label]) #entrypoint #description {
-  color: var(--color-searchbox-results-foreground);
-  font-size: var(--omnibox-font-size, 14px);
-  font-weight: 400;
-}
 
 :host([is-oblong-shape]) #entrypoint {
   --cr-composebox-entrypoint-width: 40px;
@@ -370,7 +356,7 @@ cr-icon-button {
   }
 }
 
-:host([has-popup-focus]) #entrypoint {
+:host([has-virtual-focus]) #entrypoint {
   box-shadow: inset 0 0 0 2px var(--cr-focus-outline-color);
 }
 

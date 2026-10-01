@@ -4,6 +4,7 @@
 
 #include "third_party/blink/renderer/modules/set_shape/set_shape.h"
 
+#include <algorithm>
 #include <cmath>
 #include <utility>
 
@@ -20,6 +21,7 @@
 #include "third_party/blink/renderer/platform/bindings/script_state.h"
 #include "third_party/blink/renderer/platform/heap/visitor.h"
 #include "third_party/blink/renderer/platform/wtf/functional.h"
+#include "third_party/blink/renderer/platform/wtf/text/format.h"
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
 #include "third_party/blink/renderer/platform/wtf/vector.h"
 #include "ui/gfx/geometry/rect.h"
@@ -77,6 +79,8 @@ ScriptPromise<IDLUndefined> SetShape::setShape(
 
   Vector<gfx::Rect> converted_rects;
   converted_rects.reserve(rects.size());
+  const gfx::Rect window_rect(0, 0, std::max(0, window.innerWidth()),
+                              std::max(0, window.innerHeight()));
   bool has_minimum_size_rect = false;
   for (const auto& rect : rects) {
     if (!std::isfinite(rect->x()) || !std::isfinite(rect->y()) ||
@@ -92,23 +96,24 @@ ScriptPromise<IDLUndefined> SetShape::setShape(
       return EmptyPromise();
     }
 
-    if (rect->width() >= mojom::blink::kMinimumIwaSetShapeSize &&
-        rect->height() >= mojom::blink::kMinimumIwaSetShapeSize) {
+    gfx::Rect converted_rect(base::saturated_cast<int>(rect->x()),
+                             base::saturated_cast<int>(rect->y()),
+                             base::saturated_cast<int>(rect->width()),
+                             base::saturated_cast<int>(rect->height()));
+
+    gfx::Rect visible_rect = gfx::IntersectRects(converted_rect, window_rect);
+    if (visible_rect.width() >= mojom::blink::kMinimumIwaSetShapeSize &&
+        visible_rect.height() >= mojom::blink::kMinimumIwaSetShapeSize) {
       has_minimum_size_rect = true;
     }
-
-    converted_rects.push_back(
-        gfx::Rect(base::saturated_cast<int>(rect->x()),
-                  base::saturated_cast<int>(rect->y()),
-                  base::saturated_cast<int>(rect->width()),
-                  base::saturated_cast<int>(rect->height())));
+    converted_rects.push_back(converted_rect);
   }
 
   if (!rects.empty() && !has_minimum_size_rect) {
     exception_state.ThrowTypeError(
-        String::Format("At least one rectangle must be %dx%d or larger.",
-                       mojom::blink::kMinimumIwaSetShapeSize,
-                       mojom::blink::kMinimumIwaSetShapeSize));
+        Format("At least one rectangle must be {}x{} or larger.",
+               mojom::blink::kMinimumIwaSetShapeSize,
+               mojom::blink::kMinimumIwaSetShapeSize));
     return EmptyPromise();
   }
 
@@ -135,6 +140,12 @@ ScriptPromise<IDLUndefined> SetShape::setShape(
                     DOMExceptionCode::kInvalidStateError,
                     "setShape requires the window to be in unframed display "
                     "mode.");
+                break;
+              case mojom::blink::SetShapeResult::kOutOfBounds:
+                resolver->RejectWithDOMException(
+                    DOMExceptionCode::kInvalidStateError,
+                    "The shape does not meet the minimum size requirement "
+                    "within the window bounds.");
                 break;
             }
           })));

@@ -328,11 +328,11 @@ class PdfViewWebPlugin::PdfInkModuleClientImpl : public PdfInkModuleClient {
 
   void DrawText(int page_index,
                 InkTextId id,
-                base::span<const InkTextInfo> text_info,
+                base::span<const InkTextLine> text_lines,
                 float ascent,
                 double pdf_zoom,
                 const InkTextBoxAttributes& attributes) override {
-    plugin_->engine_->DrawText(page_index, id, text_info, ascent, pdf_zoom,
+    plugin_->engine_->DrawText(page_index, id, text_lines, ascent, pdf_zoom,
                                attributes);
   }
 
@@ -1535,6 +1535,19 @@ void PdfViewWebPlugin::DocumentLoadComplete() {
   pdf_host_->UpdateContentRestrictions(GetContentRestrictions());
 }
 
+void PdfViewWebPlugin::OnFirstContentPainted() {
+  // Only a full-page PDF represents what the user navigated to; a PDF embedded
+  // in an HTML page is already covered by that page's own paint timing.
+  if (!full_frame_) {
+    return;
+  }
+
+  // The engine fires this at most once, so this is not re-entrant. Sampled
+  // here rather than in the engine so the timestamp is taken on the same clock
+  // the browser compares it against.
+  pdf_host_->OnPdfFirstContentPainted(base::TimeTicks::Now());
+}
+
 void PdfViewWebPlugin::DocumentLoadFailed() {
   DCHECK_EQ(DocumentLoadState::kLoading, document_load_state_);
   document_load_state_ = DocumentLoadState::kFailed;
@@ -2006,7 +2019,8 @@ void PdfViewWebPlugin::HandleGetSaveDataBlockMessage(
 void PdfViewWebPlugin::HandleGetSuggestedFileName(
     const base::DictValue& message) {
   client_->PostMessage(PrepareReplyMessage(message).Set(
-      "fileName", GetFileNameForSaveFromUrl(url_)));
+      "fileName", GetFileNameForSaveFromUrlAndSuggestion(
+                      url_, engine_->GetFileNameFromContentDisposition())));
 }
 
 void PdfViewWebPlugin::HandleGetThumbnailMessage(
@@ -2287,10 +2301,13 @@ void PdfViewWebPlugin::SaveToBuffer(pdf::mojom::SaveRequestType request_type,
   }
 #endif  // BUILDFLAG(ENABLE_PDF_INK2)
 
-  auto message = base::DictValue()
-                     .Set("type", "saveData")
-                     .Set("token", token)
-                     .Set("fileName", GetFileNameForSaveFromUrl(url_));
+  auto message =
+      base::DictValue()
+          .Set("type", "saveData")
+          .Set("token", token)
+          .Set("fileName",
+               GetFileNameForSaveFromUrlAndSuggestion(
+                   url_, engine_->GetFileNameFromContentDisposition()));
 
   // Expose `edit_mode_` state for integration testing.
   message.Set("editModeForTesting", edit_mode_);

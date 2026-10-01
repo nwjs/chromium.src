@@ -225,6 +225,7 @@ if (pdf_enable_v8) {
       sources = [ "pdfium_xfa_lpm_fuzzer/fuzzer.cc" ]
       deps = [
         ":proto_to_xfa",
+        ":xfa_proto",
         "//base",
         "//third_party/libprotobuf-mutator",
         "//third_party/pdfium",
@@ -270,9 +271,11 @@ if (is_clang) {
   if (pdf_enable_xfa) {
     pdfium_fuzzer_test("pdf_xfa_fdp_fuzzer") {
     }
+
     pdfium_fuzzer_test("pdf_xfa_raw_fuzzer") {
       dict = "dicts/pdf_xfa_raw_fuzzer.dict"
     }
+
     pdfium_fuzzer_test("pdf_xfa_xdp_fdp_fuzzer") {
       dict = "dicts/pdf_xfa_raw_fuzzer.dict"
     }

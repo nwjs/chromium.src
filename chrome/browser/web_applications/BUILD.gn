@@ -228,6 +228,7 @@ source_set("web_applications") {
     "model/migration_behavior.h",
     "model/migration_source.cc",
     "model/migration_source.h",
+    "model/parse_manifest_result.h",
     "model/pending_migration_info.cc",
     "model/pending_migration_info.h",
     "model/safe_url_pattern_to_value.cc",
@@ -943,7 +944,6 @@ source_set("prevent_close_test_support") {
     ":web_applications_test_support",
     "//chrome/browser/policy:test_support",
     "//chrome/browser/profiles:profile",
-    "//chrome/browser/ui",
     "//chrome/test:test_support",
     "//components/policy/core/common:test_support",
     "//components/webapps/common",
@@ -1322,12 +1322,9 @@ source_set("web_applications_browser_tests") {
     "web_app_origin_association_manager_browsertest.cc",
     "web_app_scope_extensions_browsertest.cc",
     "web_install_browsertest.cc",
+    "web_install_devtools_browsertest.cc",
     "web_install_from_manifest_browsertest.cc",
   ]
-
-  if (!is_win) {
-    sources += [ "web_app_internals_browsertest.cc" ]
-  }
 
   if (!is_chromeos) {
     sources += [
@@ -1379,6 +1376,7 @@ source_set("web_applications_browser_tests") {
     "//chrome/browser/browsing_data:constants",
     "//chrome/browser/component_updater",
     "//chrome/browser/content_settings:content_settings_factory",
+    "//chrome/browser/devtools",
     "//chrome/browser/devtools:test_support",
     "//chrome/browser/gcm",
     "//chrome/browser/notifications:system_notification_helper",
@@ -1392,12 +1390,17 @@ source_set("web_applications_browser_tests") {
     "//chrome/browser/ui/navigator",
     "//chrome/browser/ui/navigator:browser_tests",
     "//chrome/browser/ui/profiles",
+    "//chrome/browser/ui/views:intent_picker_bubble_view",
     "//chrome/browser/ui/views/location_bar",
     "//chrome/browser/ui/views/toolbar",
+    "//chrome/browser/ui/views/web_apps:web_app_install_flow_dialog_delegate",
     "//chrome/browser/ui/views/web_apps:web_app_install_progress_view",
+    "//chrome/browser/ui/views/web_apps/isolated_web_apps:isolated_web_app_installer_coordinator",
+    "//chrome/browser/ui/views/web_apps/isolated_web_apps:isolated_web_app_installer_view_controller",
     "//chrome/browser/ui/views/web_apps/sub_apps",
     "//chrome/browser/ui/web_applications",
     "//chrome/browser/ui/web_applications:launch_utils",
+    "//chrome/browser/ui/web_applications/test:test_support_ui",
     "//chrome/browser/ui/webui/web_app_internals",
     "//chrome/browser/web_applications:features",
     "//chrome/browser/web_applications/isolated_web_apps/test:test_support",
@@ -1492,7 +1495,10 @@ source_set("app_service_browser_tests") {
       "chromeos_web_app_experiments_browsertest.cc",
     ]
 
-    deps += [ "//chrome/browser/ui/web_applications" ]
+    deps += [
+      "//chrome/browser/ui/web_applications",
+      "//chrome/browser/ui/web_applications/test:test_support_ui",
+    ]
   }
 
   defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
@@ -1602,7 +1608,6 @@ if (!is_android) {
     deps = [
       ":web_applications_test_support",
       "//chrome/browser/profiles:profile",
-      "//chrome/browser/ui",
       "//chrome/common:constants",
     ]
 

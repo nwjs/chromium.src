@@ -44,6 +44,10 @@
 #include "chrome/browser/profiles/keep_alive/profile_keep_alive_types.h"
 #include "chrome/browser/profiles/keep_alive/scoped_profile_keep_alive.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/ui/tabs/tab_enums.h"
+#include "components/sessions/core/session_id.h"
+#include "extensions/buildflags/buildflags.h"
+#include "ui/base/window_open_disposition.h"
 #if BUILDFLAG(IS_MAC)
 #include "chrome/browser/renderer_host/chrome_render_widget_host_view_mac_history_swiping_control.h"
 #endif
@@ -1914,9 +1918,10 @@ void DevToolsWindow::OpenInNewTab(const GURL& url) {
           child_id, fixed_url)) {
     fixed_url = GURL(url::kAboutBlankURL);
   }
-  content::OpenURLParams params(fixed_url, content::Referrer(),
-                                WindowOpenDisposition::NEW_FOREGROUND_TAB,
-                                ui::PAGE_TRANSITION_LINK, false);
+  content::OpenURLParams params =
+      content::OpenURLParams::CreateBrowserInitiated(
+          fixed_url, WindowOpenDisposition::NEW_FOREGROUND_TAB,
+          ui::PAGE_TRANSITION_LINK);
   if (!inspected_web_contents ||
       !inspected_web_contents->OpenURL(params,
                                        /*navigation_handle_callback=*/{})) {

@@ -7,6 +7,7 @@
 #include <stdint.h>
 
 #include "base/memory/raw_ptr.h"
+#include "base/process/process.h"
 #include "base/run_loop.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/task_manager/providers/child_process_task_provider.h"
@@ -66,8 +67,7 @@ class ChildProcessTaskTest
 
   bool AreProviderContainersEmpty(
       const ChildProcessTaskProvider& provider) const {
-    return provider.tasks_by_processid_.empty() &&
-           provider.tasks_by_child_id_.empty();
+    return provider.tasks_by_child_id_.empty();
   }
 
  protected:
@@ -101,8 +101,7 @@ TEST_F(ChildProcessTaskTest, TestAll) {
   // The following process which has handle = base::kNullProcessHandle, won't be
   // added.
   ChildProcessData data1(0, content::ChildProcessId());
-  ASSERT_FALSE(data1.GetProcess().IsValid());
-  provider.BrowserChildProcessLaunchedAndConnected(data1);
+  provider.BrowserChildProcessLaunchedAndConnected(data1, base::Process());
   EXPECT_TRUE(provided_tasks_.empty());
 
   const content::ChildProcessId unique_id(245);
@@ -111,9 +110,9 @@ TEST_F(ChildProcessTaskTest, TestAll) {
       l10n_util::GetStringFUTF16(IDS_TASK_MANAGER_UTILITY_PREFIX, name));
 
   ChildProcessData data2(content::PROCESS_TYPE_UTILITY, unique_id);
-  data2.SetProcess(base::Process::Current());
   data2.name = name;
-  provider.BrowserChildProcessLaunchedAndConnected(data2);
+  provider.BrowserChildProcessLaunchedAndConnected(data2,
+                                                   base::Process::Current());
   ASSERT_EQ(1U, provided_tasks_.size());
 
   Task* task = provided_tasks_.begin()->second;
@@ -158,8 +157,8 @@ TEST_F(ChildProcessTaskTest, ProcessTypeToTaskType) {
   for (const auto& types_pair : kProcessTaskTypesPairs) {
     // Add the task.
     ChildProcessData data(types_pair.process_type_, content::ChildProcessId());
-    data.SetProcess(base::Process::Current());
-    provider.BrowserChildProcessLaunchedAndConnected(data);
+    provider.BrowserChildProcessLaunchedAndConnected(data,
+                                                     base::Process::Current());
     ASSERT_EQ(1U, provided_tasks_.size());
     Task* task = provided_tasks_.begin()->second;
     EXPECT_EQ(base::GetCurrentProcId(),
@@ -173,6 +172,30 @@ TEST_F(ChildProcessTaskTest, ProcessTypeToTaskType) {
 
   provider.ClearObserver();
   EXPECT_TRUE(AreProviderContainersEmpty(provider));
+}
+
+// Tests that task deletion succeeds on process disconnect using ChildProcessId.
+TEST_F(ChildProcessTaskTest, DisconnectTask) {
+  ChildProcessTaskProvider provider;
+  EXPECT_TRUE(provided_tasks_.empty());
+  provider.SetObserver(this);
+  content::RunAllPendingInMessageLoop();
+  ASSERT_TRUE(provided_tasks_.empty());
+
+  const content::ChildProcessId unique_id(245);
+  ChildProcessData data(content::PROCESS_TYPE_UTILITY, unique_id);
+  provider.BrowserChildProcessLaunchedAndConnected(data,
+                                                   base::Process::Current());
+  ASSERT_EQ(1U, provided_tasks_.size());
+
+  // In production, BrowserChildProcessHostDisconnected identifies the task via
+  // ChildProcessId rather than its OS process handle.
+  ChildProcessData disconnected_data(content::PROCESS_TYPE_UTILITY, unique_id);
+  provider.BrowserChildProcessHostDisconnected(disconnected_data);
+  EXPECT_TRUE(provided_tasks_.empty());
+  EXPECT_TRUE(AreProviderContainersEmpty(provider));
+
+  provider.ClearObserver();
 }
 
 }  // namespace task_manager

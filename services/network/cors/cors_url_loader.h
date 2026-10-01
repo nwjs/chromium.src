@@ -17,12 +17,14 @@
 #include "mojo/public/cpp/bindings/remote.h"
 #include "net/cookies/cookie_setting_override.h"
 #include "net/cookies/cookie_util.h"
+#include "net/disk_cache/buildflags.h"
 #include "net/log/net_log_with_source.h"
 #include "net/traffic_annotation/network_traffic_annotation.h"
 #include "net/url_request/redirect_info.h"
 #include "services/network/cors/preflight_controller.h"
 #include "services/network/public/cpp/cors/cors_error_status.h"
 #include "services/network/public/cpp/cross_origin_embedder_policy.h"
+#include "services/network/public/cpp/http_request_headers_update_params.h"
 #include "services/network/public/cpp/originating_process_id.h"
 #include "services/network/public/mojom/client_security_state.mojom-forward.h"
 #include "services/network/public/mojom/devtools_observer.mojom.h"
@@ -35,7 +37,12 @@
 
 namespace net {
 class SharedDictionary;
+class HttpResponseInfo;
 }  // namespace net
+
+namespace disk_cache {
+class Backend;
+}
 
 namespace network {
 namespace mojom {
@@ -73,6 +80,7 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) CorsURLLoader
       ResourceRequest resource_request,
       bool ignore_isolated_world_origin,
       bool skip_cors_enabled_scheme_check,
+      bool renderer_accessible_http_cache_write_enabled,
       mojo::PendingRemote<mojom::URLLoaderClient> client,
       const net::MutableNetworkTrafficAnnotationTag& traffic_annotation,
       mojom::URLLoaderFactory* network_loader_factory,
@@ -140,7 +148,8 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) CorsURLLoader
  private:
   // Helper function to get the `StorageAccessStatus` for the current `request_`
   // and `isolation_info_`.
-  std::optional<net::cookie_util::StorageAccessStatus> GetStorageAccessStatus();
+  std::optional<net::cookie_util::StorageAccessStatus> GetStorageAccessStatus()
+      const;
 
   // Checks if the current request is allowed to override unsafe headers.
   bool AllowUnsafeHeaders() const;
@@ -148,16 +157,35 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) CorsURLLoader
   // Validates whether `origin_header_value` is permitted for `request_`.
   bool HasValidOriginHeader(const std::string& origin_header_value) const;
 
+  // Returns true if the Origin header should be attached to `request_`.
+  bool ShouldIncludeOriginHeader() const;
+
+  // Updates the Origin header in `request_.headers` and `headers_update_params`
+  // as appropriate for the current request.
+  void MaybeSetOriginHeader(
+      network::HttpRequestHeadersUpdateParams* headers_update_params);
+
+  // Initiates or restarts the request.
   void StartRequest();
+
+  // Checks if a CORS preflight is required for `request_` and emits NetLog
+  // events accordingly.
+  bool CheckPreflightRequired();
+
+  // Initiates a CORS preflight check using `PreflightController`.
+  void StartPreflightCheck();
 
   // Helper for `OnPreflightRequestComplete()`.
   std::optional<URLLoaderCompletionStatus> ConvertPreflightResult(
       int net_error,
       std::optional<CorsErrorStatus> status);
 
+  // Callback invoked upon completion of a CORS preflight check.
   void OnPreflightRequestComplete(int net_error,
                                   std::optional<CorsErrorStatus> status,
                                   bool has_authorization_covered_by_wildcard);
+
+  // Creates and starts the network loader for the actual request.
   void StartNetworkRequest();
 
   // Called when there is a connection error on the upstream pipe used for the
@@ -209,6 +237,12 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) CorsURLLoader
       const std::string& header_name);
 
   void OnSharedDictionaryWritten(bool success);
+
+#if BUILDFLAG(ENABLE_DISK_CACHE_SQL_BACKEND)
+  void NotifyEntryEligibleForSharedCache();
+
+  disk_cache::Backend* GetCurrentBackend() const;
+#endif  // BUILDFLAG(ENABLE_DISK_CACHE_SQL_BACKEND)
 
   mojo::Receiver<mojom::URLLoader> receiver_;
 
@@ -266,6 +300,13 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) CorsURLLoader
   // Whether we have called `OnReceiveResponse()` on `forwarding_client_` yet.
   bool has_forwarded_response_ = false;
 
+#if BUILDFLAG(ENABLE_DISK_CACHE_SQL_BACKEND)
+  // Saved response info to be used in HandleComplete for Renderer Accessible
+  // HTTP Cache.
+  std::unique_ptr<net::HttpResponseInfo>
+      response_info_for_renderer_accessible_cache_;
+#endif  // BUILDFLAG(ENABLE_DISK_CACHE_SQL_BACKEND)
+
   // https://fetch.spec.whatwg.org/#timing-allow-failed
   bool timing_allow_failed_flag_ = false;
 
@@ -299,7 +340,18 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) CorsURLLoader
 
   const CrossOriginEmbedderPolicy cross_origin_embedder_policy_;
 
+  // Set to true if the preflight response indicated authorization header was
+  // covered by a wildcard.
   bool has_authorization_covered_by_wildcard_ = false;
+
+  struct DeferredRedirectPreflight {
+    network::HttpRequestHeadersUpdateParams headers_update_params;
+    std::optional<GURL> new_url;
+  };
+
+  // Holds the redirect parameters for an in-flight preflight check triggered
+  // by a redirect.
+  std::optional<DeferredRedirectPreflight> deferred_redirect_preflight_;
 
   mojo::Remote<mojom::DevToolsObserver> devtools_observer_;
   base::WeakPtrFactory<mojo::Remote<mojom::DevToolsObserver>>
@@ -308,6 +360,7 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) CorsURLLoader
   net::NetLogWithSource net_log_;
 
   const raw_ptr<NetworkContext> context_;
+  const bool renderer_accessible_http_cache_write_enabled_;
 
   const std::optional<base::UnguessableToken> network_restrictions_id_;
 

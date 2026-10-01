@@ -411,15 +411,28 @@ std::vector<CredentialUIEntry> SavedPasswordsPresenter::GetSavedCredentials()
   std::vector<CredentialUIEntry> credentials;
   auto it = sort_key_to_stored_credentials_.begin();
   while (it != sort_key_to_stored_credentials_.end()) {
-    auto current_key = it->first;
-    // Aggregate all passwords for the current key.
-    std::vector<StoredCredential> current_passwords_group;
+    const CredentialSortKey& current_key = it->first;
+    std::vector<std::vector<StoredCredential>> password_groups;
     while (it != sort_key_to_stored_credentials_.end() &&
            it->first == current_key) {
-      current_passwords_group.push_back(CloneStoredCredential(it->second));
+      auto password_group = password_groups.end();
+      if (it->second.blocked_by_user) {
+        password_group = password_groups.begin();
+      } else {
+        password_group = std::ranges::find_if(
+            password_groups, [&credential = it->second](const auto& group) {
+              return group.front().password_value == credential.password_value;
+            });
+      }
+      if (password_group == password_groups.end()) {
+        password_group = password_groups.emplace(password_groups.end());
+      }
+      password_group->push_back(CloneStoredCredential(it->second));
       ++it;
     }
-    credentials.emplace_back(std::move(current_passwords_group));
+    for (auto& password_group : password_groups) {
+      credentials.emplace_back(std::move(password_group));
+    }
   }
   return credentials;
 #else
@@ -549,11 +562,14 @@ SavedPasswordsPresenter::GetCorrespondingStoredCredentials(
     const CredentialUIEntry& credential) const {
   std::vector<StoredCredential> credentials;
 #if BUILDFLAG(IS_ANDROID)
-  const auto range =
-      sort_key_to_stored_credentials_.equal_range(CreateSortKey(credential));
-  std::ranges::transform(
-      range.first, range.second, std::back_inserter(credentials),
-      [](const auto& pair) { return CloneStoredCredential(pair.second); });
+  const auto range = sort_key_to_stored_credentials_.equal_range(
+      CreateCredentialSortKey(credential));
+  for (auto it = range.first; it != range.second; ++it) {
+    if (credential.blocked_by_user ||
+        it->second.password_value == credential.password) {
+      credentials.push_back(CloneStoredCredential(it->second));
+    }
+  }
 #else
   credentials = passwords_grouper_->GetStoredCredentialsFor(credential);
 #endif
@@ -660,15 +676,16 @@ void SavedPasswordsPresenter::OnPasskeyModelIsReady(bool is_ready) {}
 
 void SavedPasswordsPresenter::OnGetPasswordStoreResultsOrErrorFrom(
     PasswordStoreInterface* store,
-    LoginsResultOrError results_or_error) {
+    base::expected<std::vector<StoredCredential>, PasswordStoreBackendError>
+        results_or_error) {
   pending_store_updates_--;
   DCHECK_GE(pending_store_updates_, 0);
 
-  if (std::holds_alternative<PasswordStoreBackendError>(results_or_error)) {
+  if (!results_or_error) {
     NotifySavedPasswordsChanged(PasswordStoreChangeList());
     return;
   }
-  auto results = std::get<LoginsResult>(std::move(results_or_error));
+  std::vector<StoredCredential> results = std::move(*results_or_error);
 
   PasswordStoreChangeList changes;
   for (const auto& cred : results) {
@@ -709,8 +726,7 @@ void SavedPasswordsPresenter::AddCredentialsToCache(
   for (auto& cred : credentials) {
     // TODO(crbug.com/40862365): Consider replacing
     // |sort_key_to_stored_credentials_| when grouping is launched.
-    auto sort_key =
-        CreateSortKey(CredentialUIEntry(CloneStoredCredential(cred)));
+    auto sort_key = CreateCredentialSortKey(cred);
     sort_key_to_stored_credentials_.insert(
         std::make_pair(std::move(sort_key), std::move(cred)));
   }

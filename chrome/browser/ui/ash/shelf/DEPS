@@ -1,6 +1,4 @@
 include_rules = [
-  "+chromeos/ash/experiences/system_web_apps/types",
-  "+components/services/app_service/public",
   "+components/app_icon_loader",
 
   # Existing dependencies within //chrome. There is an active effort to
@@ -11,7 +9,6 @@ include_rules = [
   "+chrome/browser/apps/app_preload_service/app_preload_service.h",
   "+chrome/browser/apps/app_service",
   "+chrome/browser/apps/browser_instance",
-  "+chrome/browser/apps/icon_standardizer.h",
   "+chrome/browser/apps/platform_apps",
   "+chrome/browser/ash/accessibility",
   "+chrome/browser/ash/app_list",
@@ -66,10 +63,10 @@ specific_include_rules = {
     "+chrome/browser/extensions/extension_apitest.h",
     "+chrome/browser/extensions/extension_browsertest.h",
     "+chrome/browser/extensions/test_extension_system.h",
-    "+chrome/browser/ui/browser.h",
     "+chrome/browser/ui/browser_commands.h",
     "+chrome/browser/ui/browser_tabstrip.h",
     "+chrome/browser/ui/browser_window.h",
+    "+chrome/browser/ui/browser_window/public/browser_window_interface.h",
     "+chrome/browser/ui/settings_window_manager_chromeos.h",
     "+chrome/browser/ui/tabs/tab_enums.h",
     "+chrome/browser/ui/tabs/tab_model.h",

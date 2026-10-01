@@ -31,7 +31,6 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/themes/theme_service.h"
-#include "chrome/browser/themes/theme_service_factory.h"
 #include "chrome/grit/generated_resources.h"
 #include "chromeos/ash/components/browser_context_helper/browser_context_helper.h"
 #include "chromeos/ash/components/install_attributes/install_attributes.h"
@@ -55,8 +54,6 @@
 namespace ash {
 
 namespace {
-
-const char kNotificationOriginUrl[] = "chrome://hats";
 
 const char kNotifierHats[] = "ash.hats";
 
@@ -427,8 +424,8 @@ void HatsNotificationController::PortalStateChanged(
           message_center::NOTIFICATION_TYPE_SIMPLE, notification_id_, title_,
           body_,
           l10n_util::GetStringUTF16(IDS_MESSAGE_CENTER_NOTIFIER_HATS_NAME),
-          GURL(kNotificationOriginUrl), notifier_id,
-          message_center::RichNotificationData(), this, kNotificationGoogleIcon,
+          notifier_id, message_center::RichNotificationData(), this,
+          kNotificationGoogleIcon,
           message_center::SystemNotificationWarningLevel::NORMAL);
       message_center::MessageCenter::Get()->AddNotification(
           std::move(notification));

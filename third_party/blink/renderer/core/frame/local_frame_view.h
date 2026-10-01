@@ -48,7 +48,7 @@
 #include "third_party/blink/renderer/core/dom/document_resize_options.h"
 #include "third_party/blink/renderer/core/frame/frame_view.h"
 #include "third_party/blink/renderer/core/frame/layout_subtree_root_list.h"
-#include "third_party/blink/renderer/core/frame/local_frame_ukm_aggregator.h"
+#include "third_party/blink/renderer/core/frame/local_frame_metrics_aggregator.h"
 #include "third_party/blink/renderer/core/layout/hit_test_request.h"
 #include "third_party/blink/renderer/core/paint/layout_object_counter.h"
 #include "third_party/blink/renderer/core/view_transition/view_transition_request_forward.h"
@@ -203,7 +203,7 @@ class CORE_EXPORT LocalFrameView final
   bool IsInPerformLayout() const;
 
   // Methods to capture forced layout metrics.
-  void WillStartForcedLayout(DocumentUpdateReason);
+  void WillStartForcedLayout(DocumentUpdateReason, bool is_potentially_clean);
   void DidFinishForcedLayout();
 
   void ClearLayoutSubtreeRoot(const LayoutObject&);
@@ -242,10 +242,8 @@ class CORE_EXPORT LocalFrameView final
   enum IntersectionObservationState {
     // The next painting frame does not need an intersection observation.
     kNotNeeded = 0,
-    // The next painting frame needs to update
-    // - intersection observations whose MinScrollDeltaToUpdate is exceeded by
-    //   the accumulated scroll delta in the frame.
-    // - intersection observers that trackVisibility.
+    // The next painting frame needs to update intersection observers for
+    // scroll and intersection observers that trackVisibility.
     kScrollAndVisibilityOnly = 1,
     // The next painting frame needs to update all intersection observations.
     kDesired = 2,
@@ -257,7 +255,6 @@ class CORE_EXPORT LocalFrameView final
   // Sets the internal IntersectionObservationState to the max of the
   // current value and the provided one.
   void SetIntersectionObservationState(IntersectionObservationState);
-  void UpdateIntersectionObservationStateOnScroll(gfx::Vector2dF scroll_delta);
   IntersectionObservationState GetIntersectionObservationStateForTesting()
       const {
     return intersection_observation_state_;
@@ -265,7 +262,8 @@ class CORE_EXPORT LocalFrameView final
 
   // Get the InstersectionObservation::ComputeFlags for target elements in this
   // view.
-  unsigned GetIntersectionObservationFlags(unsigned parent_flags) const;
+  IntersectionObservation::ComputeFlags GetIntersectionObservationFlags(
+      IntersectionObservation::ComputeFlags parent_flags) const;
 
   void ForceUpdateViewportIntersections();
 
@@ -790,10 +788,10 @@ class CORE_EXPORT LocalFrameView final
   }
   void RegisterTapEvent(Element* target);
 
-  // Returns the UKM aggregator for this frame's local root, creating it if
+  // Returns the metrics aggregator for this frame's local root, creating it if
   // necessary. Returns null if no aggregator is needed, such as for SVG images.
-  LocalFrameUkmAggregator* GetUkmAggregator();
-  void ResetUkmAggregatorForTesting();
+  LocalFrameMetricsAggregator* GetMetricsAggregator();
+  void ResetMetricsAggregatorForTesting();
 
   // Checks whether paint holding should be released without FCP.
   // If the page has been painted and the document has finished parsing,
@@ -1104,7 +1102,7 @@ class CORE_EXPORT LocalFrameView final
   bool HasActiveIntersectionObservations() const override;
   bool NeedsOcclusionTracking() const override;
   void UpdateViewportIntersectionsForSubtree(
-      unsigned parent_flags,
+      IntersectionObservation::ComputeFlags parent_flags,
       ComputeIntersectionsContext&) override;
   void DeliverSynchronousIntersectionObservations();
 
@@ -1119,6 +1117,8 @@ class CORE_EXPORT LocalFrameView final
   bool RunResizeObserverSteps(DocumentLifecycle::LifecycleState target_state);
   void ClearResizeObserverLimit();
 
+  bool RunContainerQueryListSteps();
+
   bool RunViewTransitionSteps(DocumentLifecycle::LifecycleState target_state);
 
   bool CheckLayoutInvalidationIsAllowed() const;
@@ -1131,8 +1131,9 @@ class CORE_EXPORT LocalFrameView final
   // This is a recursive helper for determining intersection observations which
   // need to happen in post-layout. Returns true if there are any active
   // post-layout observations.
-  void ComputePostLayoutIntersections(unsigned parent_flags,
-                                      ComputeIntersectionsContext&);
+  void ComputePostLayoutIntersections(
+      IntersectionObservation::ComputeFlags parent_flags,
+      ComputeIntersectionsContext&);
 
   // Returns true if the root object was laid out. Returns false if the layout
   // was prevented (e.g. by ancestor display-lock) or not needed.
@@ -1272,7 +1273,6 @@ class CORE_EXPORT LocalFrameView final
   // True if this FrameView or any descendant FrameView has active
   // IntersectionObservers for which observer->trackVisibility() is true.
   bool needs_occlusion_tracking_ = false;
-  gfx::Vector2dF accumulated_scroll_delta_since_last_intersection_update_;
   // Used only if the frame is the local root.
   HeapTaskRunnerTimer<LocalFrameView> delayed_intersection_timer_;
   // Set on the local root when the above timer is fired. Will force update
@@ -1318,9 +1318,9 @@ class CORE_EXPORT LocalFrameView final
   Member<PaintControllerPersistentData> paint_controller_persistent_data_;
   Member<PaintArtifactCompositor> paint_artifact_compositor_;
 
-  scoped_refptr<LocalFrameUkmAggregator> ukm_aggregator_;
+  scoped_refptr<LocalFrameMetricsAggregator> metrics_aggregator_;
   unsigned forced_layout_stack_depth_;
-  std::optional<LocalFrameUkmAggregator::ScopedForcedLayoutTimer>
+  std::optional<LocalFrameMetricsAggregator::ScopedForcedLayoutTimer>
       forced_layout_timer_;
 
   // From the beginning of the document, how many frames have painted.

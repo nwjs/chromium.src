@@ -27,6 +27,7 @@ import org.chromium.base.task.PostTask;
 import org.chromium.base.task.TaskTraits;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
+import org.chromium.chrome.browser.browserservices.TwaValidator;
 import org.chromium.chrome.browser.browserservices.intents.WebappInfo;
 import org.chromium.chrome.browser.browserservices.intents.WebappIntentUtils;
 import org.chromium.chrome.browser.browserservices.metrics.WebApkUmaRecorder;
@@ -40,6 +41,7 @@ import org.chromium.components.embedder_support.util.Origin;
 import org.chromium.components.sync.protocol.WebApkSpecifics;
 import org.chromium.components.webapps.AppBannerManager;
 import org.chromium.content_public.browser.WebContents;
+import org.chromium.url.GURL;
 import org.chromium.webapk.lib.common.WebApkConstants;
 
 import java.util.ArrayList;
@@ -68,9 +70,11 @@ import java.util.Set;
  */
 @NullMarked
 public class WebappRegistry {
-    /** Observer for changes in the list of installed web apps. */
+    /** Observer for changes in the list of installed or pending web apps. */
     public interface Observer {
         void onOriginsWithInstalledAppChanged();
+
+        default void onPendingAppInstallStatusChanged() {}
     }
 
     private @Nullable ObserverList<Observer> mObservers;
@@ -96,6 +100,13 @@ public class WebappRegistry {
         ThreadUtils.assertOnUiThread();
         for (Observer observer : getObservers()) {
             observer.onOriginsWithInstalledAppChanged();
+        }
+    }
+
+    public void notifyPendingAppInstallStatusChanged() {
+        ThreadUtils.assertOnUiThread();
+        for (Observer observer : getObservers()) {
+            observer.onPendingAppInstallStatusChanged();
         }
     }
 
@@ -221,6 +232,7 @@ public class WebappRegistry {
                 String manifestId = storage.getWebApkManifestId();
                 if (manifestId != null) {
                     mPendingManifestIdToPackageName.remove(manifestId);
+                    notifyPendingAppInstallStatusChanged();
                 }
                 notifyOriginsWithInstalledAppChanged();
             }
@@ -295,24 +307,53 @@ public class WebappRegistry {
     }
 
     /**
-     * Returns true if a WebAPK is found whose scope matches |origin|.
-     * @param origin The origin to search a WebAPK for.
+     * Returns true if an installed WebAPK is found whose scope has the same origin as
+     * |targetOrigin|.
+     *
+     * @param targetOrigin The origin to search a WebAPK for.
      */
-    public boolean hasAtLeastOneWebApkForOrigin(String origin) {
+    public boolean hasAtLeastOneWebApkForOrigin(@Nullable Origin targetOrigin) {
+        if (targetOrigin == null) {
+            return false;
+        }
+
         for (WebappDataStorage storage : mStorages.values()) {
             String scope = getWebApkScopeFromStorage(storage);
             if (scope.isEmpty()) continue;
+            if (storage.getWebApkUninstallTimestamp() > 0) continue;
+
+            Origin scopeOrigin = Origin.create(scope);
+            if (scopeOrigin == null) continue;
+
+            if (!targetOrigin.equals(scopeOrigin)) continue;
 
             String webApkPackageName = storage.getWebApkPackageName();
-            assumeNonNull(webApkPackageName);
-            if (scope.startsWith(origin) && PackageUtils.isPackageInstalled(webApkPackageName)) {
+            if (webApkPackageName != null && PackageUtils.isPackageInstalled(webApkPackageName)) {
                 return true;
             }
         }
         return false;
     }
 
-    /** Returns a Set of all origins that have an installed WebAPK. */
+    /**
+     * Returns true if an installed WebAPK is found whose scope has the same origin as |origin|.
+     *
+     * @param origin The origin to search a WebAPK for.
+     */
+    public boolean hasAtLeastOneWebApkForOrigin(@Nullable String origin) {
+        if (TextUtils.isEmpty(origin)) {
+            return false;
+        }
+        return hasAtLeastOneWebApkForOrigin(Origin.create(origin));
+    }
+
+    /**
+     * Returns a Set of all origins that have an installed WebAPK.
+     *
+     * <p>Note: Unlike {@link #hasAtLeastOneWebApkForOrigin}, this method checks only the uninstall
+     * timestamp and avoids verifying {@link PackageUtils#isPackageInstalled} for each storage entry
+     * to avoid repetitive PackageManager IPCs across all registered WebAPKs.
+     */
     private Set<String> getOriginsWithWebApk() {
         Set<String> origins = new HashSet<>();
         for (WebappDataStorage storage : mStorages.values()) {
@@ -321,8 +362,9 @@ public class WebappRegistry {
             if (storage.getWebApkUninstallTimestamp() > 0) continue;
 
             Origin origin = Origin.create(scope);
-            assumeNonNull(origin);
-            origins.add(origin.toString());
+            if (origin != null) {
+                origins.add(origin.toString());
+            }
         }
         return origins;
     }
@@ -386,19 +428,35 @@ public class WebappRegistry {
         return webApkSpecificsList;
     }
 
-    /** Checks whether a TWA is installed for the origin, and no WebAPK. */
-    public boolean isTwaInstalled(String origin) {
-        Set<String> webApkOrigins = getOriginsWithWebApk();
-        Set<String> installedWebappOrigins = mPermissionStore.getStoredOrigins();
-        return installedWebappOrigins.contains(origin) && !webApkOrigins.contains(origin);
-    }
-
     /** Returns all origins that have a WebAPK or TWA installed. */
     public Set<String> getOriginsWithInstalledApp() {
         Set<String> origins = new HashSet<>();
         origins.addAll(getOriginsWithWebApk());
         origins.addAll(mPermissionStore.getStoredOrigins());
         return origins;
+    }
+
+    /**
+     * Checks whether an installed WebAPK or TWA exists for the specified GURL.
+     *
+     * @param url The page GURL to check.
+     * @return True if a WebAPK or TWA is installed for this URL.
+     */
+    public boolean isAppInstalledForUrl(GURL url) {
+        if (GURL.isEmptyOrInvalid(url)) {
+            return false;
+        }
+        // This function is called by the ToolbarManager every time a navigation
+        // happens, which means that there can be internal urls like about:blank
+        // that has a null origin. Handle that here.
+        Origin origin = Origin.create(url.getSpec());
+        if (origin == null) {
+            return false;
+        }
+        if (hasAtLeastOneWebApkForOrigin(origin)) {
+            return true;
+        }
+        return TwaValidator.isTwaInstalledForUrl(url);
     }
 
     /** Returns an array of all origins that have a WebAPK or TWA installed. */
@@ -448,11 +506,16 @@ public class WebappRegistry {
     }
 
     public void registerPendingWebApk(String manifestId, String packageName) {
+        ThreadUtils.assertOnUiThread();
         mPendingManifestIdToPackageName.put(manifestId, packageName);
+        notifyPendingAppInstallStatusChanged();
     }
 
     public void removePendingWebApk(String manifestId) {
-        mPendingManifestIdToPackageName.remove(manifestId);
+        ThreadUtils.assertOnUiThread();
+        if (mPendingManifestIdToPackageName.remove(manifestId) != null) {
+            notifyPendingAppInstallStatusChanged();
+        }
     }
 
     /** Returns whether there is a pending WebAPK installation for the given manifest ID. */
@@ -539,6 +602,7 @@ public class WebappRegistry {
     }
 
     void clearForTesting() {
+        mPendingManifestIdToPackageName.clear();
         Iterator<Map.Entry<String, WebappDataStorage>> it = mStorages.entrySet().iterator();
         while (it.hasNext()) {
             it.next().getValue().delete();

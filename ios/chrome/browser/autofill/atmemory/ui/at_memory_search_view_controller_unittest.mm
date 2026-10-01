@@ -7,7 +7,9 @@
 #import "base/apple/foundation_util.h"
 #import "base/strings/sys_string_conversions.h"
 #import "base/test/metrics/user_action_tester.h"
-#import "components/autofill/core/browser/integrators/at_memory/memory_search_result.h"
+#import "components/autofill/core/browser/suggestions/suggestion.h"
+#import "components/autofill/core/browser/suggestions/suggestion_type.h"
+#import "components/strings/grit/components_strings.h"
 #import "ios/chrome/browser/autofill/atmemory/public/at_memory_commands.h"
 #import "ios/chrome/browser/autofill/atmemory/public/at_memory_constants.h"
 #import "ios/chrome/browser/autofill/atmemory/ui/at_memory_inline_notice_view.h"
@@ -24,6 +26,11 @@
 #import "testing/platform_test.h"
 #import "third_party/ocmock/OCMock/OCMock.h"
 #import "third_party/ocmock/gtest_support.h"
+#import "ui/base/l10n/l10n_util.h"
+
+using autofill::MemoryDataType;
+using autofill::Suggestion;
+using autofill::SuggestionType;
 
 namespace {
 
@@ -35,6 +42,17 @@ NSString* const kExpirationValue = @"2030-01-01";
 
 // Search query used for testing view controller search states.
 NSString* const kSearchQuery = @"test search query";
+
+// Creates a mock passport search result Suggestion for testing.
+Suggestion CreatePassportSuggestion() {
+  Suggestion suggestion(base::SysNSStringToUTF16(kPassportValue),
+                        SuggestionType::kAtMemorySearchResult);
+  Suggestion::AtMemoryPayload payload(base::SysNSStringToUTF16(kPassportValue),
+                                      MemoryDataType::kPassportNumber);
+  payload.type_name = base::SysNSStringToUTF16(kPassportTypeName);
+  suggestion.payload = std::move(payload);
+  return suggestion;
+}
 
 }  // namespace
 
@@ -73,18 +91,9 @@ TEST_F(AtMemorySearchViewControllerTest, TestZeroState) {
 
 // Tests that setting search results populates the table view.
 TEST_F(AtMemorySearchViewControllerTest, TestSetSearchResults) {
-  autofill::MemorySearchResult mock_result(
-      autofill::MemoryDataType::kPassportNumber,
-      base::SysNSStringToUTF16(kPassportTypeName),
-      base::SysNSStringToUTF16(kPassportValue));
-  mock_result.metadata_list.push_back(
-      autofill::EntryMetadata(autofill::MemoryDataType::kPassportExpirationDate,
-                              base::SysNSStringToUTF16(kExpirationTypeName),
-                              base::SysNSStringToUTF16(kExpirationValue)));
-
   AtMemorySearchItem* item =
-      [[AtMemorySearchItem alloc] initWithMemorySearchResult:mock_result
-                                                       index:0];
+      [[AtMemorySearchItem alloc] initWithSuggestion:CreatePassportSuggestion()
+                                               index:0];
   [view_controller_ setSearchResults:@[ item ]];
 
   EXPECT_EQ(view_controller_.tableView.numberOfSections, 1);
@@ -107,14 +116,9 @@ TEST_F(AtMemorySearchViewControllerTest, TestSelectSearchResultItem) {
   id mutator = OCMProtocolMock(@protocol(AtMemorySearchMutator));
   view_controller_.mutator = mutator;
 
-  autofill::MemorySearchResult mock_result(
-      autofill::MemoryDataType::kPassportNumber,
-      base::SysNSStringToUTF16(kPassportTypeName),
-      base::SysNSStringToUTF16(kPassportValue));
-
   AtMemorySearchItem* item =
-      [[AtMemorySearchItem alloc] initWithMemorySearchResult:mock_result
-                                                       index:0];
+      [[AtMemorySearchItem alloc] initWithSuggestion:CreatePassportSuggestion()
+                                               index:0];
   [view_controller_ setSearchResults:@[ item ]];
 
   OCMExpect([mutator didSelectSearchResultItem:item]);
@@ -213,6 +217,35 @@ TEST_F(AtMemorySearchViewControllerTest, TestFetchingState) {
                   tableView:view_controller_.tableView
       cellForRowAtIndexPath:[NSIndexPath indexPathForRow:0 inSection:0]];
   EXPECT_FALSE(cell.userInteractionEnabled);
+
+  TableViewCellContentConfiguration* configuration =
+      base::apple::ObjCCastStrict<TableViewCellContentConfiguration>(
+          cell.contentConfiguration);
+  EXPECT_NSEQ(configuration.subtitle,
+              l10n_util::GetNSString(
+                  IDS_AUTOFILL_AT_MEMORY_FETCHING_FINDING_INFO_WITH_GEMINI));
+}
+
+// Tests that updating the fetching subtitle updates the cell's subtitle in the
+// fetching state.
+TEST_F(AtMemorySearchViewControllerTest, TestFetchingSubtitleUpdate) {
+  UISearchBar* search_bar =
+      view_controller_.navigationItem.searchController.searchBar;
+  search_bar.text = kSearchQuery;
+  [(id<UISearchBarDelegate>)view_controller_
+      searchBarSearchButtonClicked:search_bar];
+
+  NSString* updated_subtitle = l10n_util::GetNSString(
+      IDS_AUTOFILL_AT_MEMORY_FETCHING_REVIEWING_CONNECTED_APPS);
+  [view_controller_ setFetchingSubtitle:updated_subtitle];
+
+  UITableViewCell* cell = [view_controller_.tableView.dataSource
+                  tableView:view_controller_.tableView
+      cellForRowAtIndexPath:[NSIndexPath indexPathForRow:0 inSection:0]];
+  TableViewCellContentConfiguration* configuration =
+      base::apple::ObjCCastStrict<TableViewCellContentConfiguration>(
+          cell.contentConfiguration);
+  EXPECT_NSEQ(configuration.subtitle, updated_subtitle);
 }
 
 // Tests that the table view displays the notice cell when notice is visible
@@ -318,14 +351,9 @@ TEST_F(AtMemorySearchViewControllerTest,
       view_controller_.navigationItem.searchController;
   search_controller.searchBar.text = kSearchQuery;
 
-  autofill::MemorySearchResult mock_result(
-      autofill::MemoryDataType::kPassportNumber,
-      base::SysNSStringToUTF16(kPassportTypeName),
-      base::SysNSStringToUTF16(kPassportValue));
-
   AtMemorySearchItem* item =
-      [[AtMemorySearchItem alloc] initWithMemorySearchResult:mock_result
-                                                       index:0];
+      [[AtMemorySearchItem alloc] initWithSuggestion:CreatePassportSuggestion()
+                                               index:0];
   [view_controller_ setSearchResults:@[ item ]];
   [view_controller_ setNoticeVisible:YES];
 
@@ -359,14 +387,9 @@ TEST_F(AtMemorySearchViewControllerTest,
       view_controller_.navigationItem.searchController;
   search_controller.searchBar.text = kSearchQuery;
 
-  autofill::MemorySearchResult mock_result(
-      autofill::MemoryDataType::kPassportNumber,
-      base::SysNSStringToUTF16(kPassportTypeName),
-      base::SysNSStringToUTF16(kPassportValue));
-
   AtMemorySearchItem* item =
-      [[AtMemorySearchItem alloc] initWithMemorySearchResult:mock_result
-                                                       index:0];
+      [[AtMemorySearchItem alloc] initWithSuggestion:CreatePassportSuggestion()
+                                               index:0];
   [view_controller_ setSearchResults:@[ item ]];
 
   ASSERT_EQ(view_controller_.tableView.numberOfSections, 1);

@@ -14,9 +14,7 @@ namespace extensions_features {
 // API Features
 ///////////////////////////////////////////////////////////////////////////////
 
-BASE_FEATURE(kApiActionSetBadgeTextByteLimit, base::FEATURE_ENABLED_BY_DEFAULT);
-
-BASE_FEATURE(kApiTabsSplitView, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kApiTabsSplitView, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kApiContentSettingsClipboard, base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -79,7 +77,7 @@ const base::FeatureParam<GlicOpenNewTabDisposition>
         GlicOpenNewTabDisposition::kForegroundIfNotConsented,
         &kGlicOpenNewTabDispositionOptions};
 
-BASE_FEATURE(kApiEnterpriseWebrtc, base::FEATURE_ENABLED_BY_DEFAULT);
+BASE_FEATURE(kApiEnterpriseWebrtc, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kApiProxyOverrideRulesPrivate, base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -127,6 +125,10 @@ BASE_FEATURE(kExtensionAutoRejectIncognitoConnectability,
 
 BASE_FEATURE(kExtensionAsyncListenerRegistration,
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+// TODO(crbug.com/561948316): Remove this kill switch in M160.
+BASE_FEATURE(kExtensionDebuggerStrictPolicyRestrictions,
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kExtensionDisableUnsupportedDeveloper,
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -263,6 +265,8 @@ BASE_FEATURE_PARAM(bool,
 
 BASE_FEATURE(kSearchEngineUnconditionalDialog,
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kShareEventArgsOnDispatch, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kOptimizeWebRequestProxy, base::FEATURE_ENABLED_BY_DEFAULT);
 

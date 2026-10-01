@@ -247,7 +247,6 @@ class GlicActorTaskLifecycleFunctionalBrowserTest
         "components/test/data");
     GlicActorFunctionalBrowserTestBase::SetUpOnMainThread();
     host_resolver()->AddRule("*", "127.0.0.1");
-    ASSERT_TRUE(embedded_https_test_server().Start());
   }
 
  private:
@@ -472,8 +471,9 @@ IN_PROC_BROWSER_TEST_F(GlicActorTaskLifecycleFunctionalBrowserTest,
   // Pausing an invalid task should be a no-op and log an error.
   observer.WaitUntil(
       base::BindRepeating([](const ::actor::mojom::JournalEntry& entry) {
-        return entry.event == "Failed to pause task" &&
-               JournalEntryHasError(entry, "No such task");
+        return entry.event == "PauseActorTask" &&
+               JournalEntryHasError(entry,
+                                    "Task ID does not match current task");
       }));
 
   ContinueJsTest();
@@ -500,8 +500,9 @@ IN_PROC_BROWSER_TEST_F(GlicActorTaskLifecycleFunctionalBrowserTest,
   // Pausing an inactive task should be a no-op and log an error.
   observer.WaitUntil(
       base::BindRepeating([](const ::actor::mojom::JournalEntry& entry) {
-        return entry.event == "Failed to pause task" &&
-               JournalEntryHasError(entry, "No such task");
+        return entry.event == "PauseActorTask" &&
+               JournalEntryHasError(entry,
+                                    "Task ID does not match current task");
       }));
 
   ContinueJsTest();
@@ -551,8 +552,9 @@ IN_PROC_BROWSER_TEST_F(GlicActorTaskLifecycleFunctionalBrowserTest,
   // Interrupting an invalid task should be a no-op and log an error.
   observer.WaitUntil(
       base::BindRepeating([](const ::actor::mojom::JournalEntry& entry) {
-        return entry.event == "Failed to interrupt task" &&
-               JournalEntryHasError(entry, "No such task");
+        return entry.event == "InterruptActorTask" &&
+               JournalEntryHasError(entry,
+                                    "Task ID does not match current task");
       }));
 
   ContinueJsTest();
@@ -560,8 +562,9 @@ IN_PROC_BROWSER_TEST_F(GlicActorTaskLifecycleFunctionalBrowserTest,
   // Uninterrupting an invalid task should be a no-op and log an error.
   observer.WaitUntil(
       base::BindRepeating([](const ::actor::mojom::JournalEntry& entry) {
-        return entry.event == "Failed to uninterrupt task" &&
-               JournalEntryHasError(entry, "No such task");
+        return entry.event == "UninterruptActorTask" &&
+               JournalEntryHasError(entry,
+                                    "Task ID does not match current task");
       }));
 }
 

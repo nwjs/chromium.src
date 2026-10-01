@@ -62,12 +62,12 @@ class TouchToFillAutofillViewBridge implements TouchToFillAutofillComponent.Dele
         mWindowAndroid = windowAndroid;
         mBottomSheetController = bottomSheetController;
         mWebContents = webContents;
-        mComponent = new TouchToFillAutofillCoordinator();
-        mComponent.initialize(
-                context,
-                bottomSheetController,
-                this,
-                new BottomSheetFocusHelper(bottomSheetController, windowAndroid));
+        mComponent =
+                new TouchToFillAutofillCoordinator(
+                        context,
+                        bottomSheetController,
+                        this,
+                        new BottomSheetFocusHelper(bottomSheetController, windowAndroid));
     }
 
     @CalledByNative
@@ -142,11 +142,14 @@ class TouchToFillAutofillViewBridge implements TouchToFillAutofillComponent.Dele
 
     @CalledByNative
     void destroy() {
+        if (mNativeViewImpl == 0) {
+            return;
+        }
+        mNativeViewImpl = 0;
         if (mIsObserverRegistered) {
             mBottomSheetController.removeObserver(mBottomSheetObserver);
             mIsObserverRegistered = false;
         }
-        mNativeViewImpl = 0;
         mComponent.destroy();
     }
 

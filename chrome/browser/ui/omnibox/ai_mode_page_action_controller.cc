@@ -118,6 +118,12 @@ AiModePageActionController::AiModePageActionController(
           base::IgnoreArgs<const AiModeButtonUiConfig*>(
               base::BindRepeating(&AiModePageActionController::UpdatePageAction,
                                   weak_factory_.GetWeakPtr())));
+
+  pref_change_registrar_.Init(profile.GetPrefs());
+  pref_change_registrar_.Add(
+      omnibox::kShowAiModeOmniboxButton,
+      base::BindRepeating(&AiModePageActionController::UpdatePageAction,
+                          weak_factory_.GetWeakPtr()));
 }
 
 AiModePageActionController::~AiModePageActionController() = default;
@@ -216,30 +222,31 @@ bool AiModePageActionController::ShouldShowPageAction(
   }
 
   // If the feature is enabled to hide the AIM entrypoint for URL suggestions,
-  // don't show the AIM entrypoint if the default match is a URL suggestion.
+  // don't show the AIM entrypoint if the current selected match or typed input
+  // is a URL suggestion.
   if (base::FeatureList::IsEnabled(
           omnibox::kHideAimEntrypointForUrlSuggestions) ||
       base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxDynamicAiModeButton)) {
     const AutocompleteResult& result =
         omnibox_controller->autocomplete_controller()->result();
-    if (result.default_match() &&
-        !AutocompleteMatch::IsSearchType(result.default_match()->type)) {
+    const OmniboxPopupSelection selection = edit_model->GetPopupSelection();
+    if (selection.line != OmniboxPopupSelection::kNoMatch &&
+        selection.line < result.size()) {
+      if (!AutocompleteMatch::IsSearchType(
+              result.match_at(selection.line).type)) {
+        return false;
+      }
+    } else if (edit_model->user_input_in_progress() &&
+               !AutocompleteMatch::IsSearchType(
+                   edit_model->CurrentMatch().type)) {
       return false;
     }
   }
 
   // Otherwise, we should show the AIM view if the focus is within any view in
-  // the location bar, including the omnibox, this view or any other page action
-  // icon views.
-  //
-  // When the "full" WebUI Omnibox popup is enabled, OmniboxEditModel needs to
-  // be queried to determine focus state, as focus gets transferred to an
-  // entirely separate widget (containing the WebContents) when the popup is
-  // shown.
-  const bool has_focus =
-      location_bar.IsFocusWithin() ||
-      (base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxFullPopup) &&
-       edit_model->has_focus());
+  // the location bar, including the omnibox, this view, or any other page
+  // action icon views.
+  const bool has_focus = location_bar.IsFocusWithin();
 
   // TODO(crbug.com/448234135): Remove this logic from the migrated path when
   // Page Action framework supports suggestion chip queueing.

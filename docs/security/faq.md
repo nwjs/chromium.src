@@ -35,7 +35,7 @@ affect products besides Chromium, and we don’t want to put users of those
 products unnecessarily at risk by opening the bug before fixes for the other
 affected products have shipped.
 
-Therefore, we make all security bugs public within approximately 14 weeks of the
+Therefore, we make all security bugs public within approximately 30 days of the
 fix landing in the Chromium repository. The exception to this is in the event of
 the bug reporter or some other responsible party explicitly requesting anonymity
 or protection against disclosing other particularly sensitive data included in
@@ -256,7 +256,7 @@ a new file type that meets that condition, we’d like to hear about it.
 <a name="TOC-i-found-a-local-file-or-directory-that-may-be-security-sensitive-and-is-not-blocked-by-file-system-access-api-"></a>
 ### I found a local file or directory that may be security-sensitive and is not blocked by File System Access API - is this a security bug?
 
-The File System Access API maintains a [blocklist](https://source.chromium.org/chromium/chromium/src/+/main:chrome/browser/file_system_access/chrome_file_system_access_permission_context.cc;l=266-346)
+The File System Access API maintains a [blocklist](https://source.chromium.org/chromium/chromium/src/+/main:chrome/browser/file_system_access/chrome_file_system_access_permission_context.cc;l=368-493;drc=bbf74ad62c20afa8b0e51efbced167d0b91be8a1)
 of directories and files that may be sensitive, such as systems files, and if user
 chooses a file or a directory matching the list on a site using File System
 Access API, the access is blocked.

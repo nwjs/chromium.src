@@ -31,7 +31,8 @@ namespace internal {
 //
 // USE THE APPROPRIATE HELPER:
 // - Use the feature-specific `...FeatureEnabled()` function when you only
-//   need to check the raw feature state (appropriate for lifecycle-sensitive code).
+//   need to check the raw feature state (appropriate for lifecycle-sensitive
+//   code).
 // - Use the profile-based `...Enabled(profile)` function for standard UI
 //   logic (e.g., `IsAimPopupEnabled(profile)`), as it handles necessary
 //   eligibility and initialization checks.
@@ -77,6 +78,9 @@ BASE_DECLARE_FEATURE(kOmniboxKeepOpenOnFileSelection);
 
 extern const base::FeatureParam<bool> kWebUIOmniboxPopupDebugSxSParam;
 extern const base::FeatureParam<bool> kOmniboxEverywhereProfilePickerParam;
+extern const base::FeatureParam<bool> kOmniboxEverywhereMultilineParam;
+extern const base::FeatureParam<bool>
+    kOmniboxEverywhereSingleLineOnInlineAutocompleteParam;
 
 // The serialized base64 encoded `omnibox::NTPComposeboxConfig`.
 extern const base::FeatureParam<std::string> kConfigParam;
@@ -95,6 +99,11 @@ extern const base::FeatureParam<bool> kShowComposeboxZps;
 extern const base::FeatureParam<bool> kShowContextMenu;
 // Controls showing most visited tiles in OmniboxEverywhere.
 extern const base::FeatureParam<bool> kOmniboxEverywhereMostVisitedParam;
+// Controls whether small Loomnibox (480px width) is enabled.
+extern const base::FeatureParam<bool> kOmniboxEverywhereSmallLoomniboxParam;
+// Controls showing titles under most visited tiles in OmniboxEverywhere.
+extern const base::FeatureParam<bool>
+    kOmniboxEverywhereMostVisitedShowTitleParam;
 // Whether or not to show a description in the context menu entrypoint, or just
 // the icon.
 // TODO (crbug.com/509939902): Remove this when finch experiment reference
@@ -120,6 +129,9 @@ extern const base::FeatureParam<bool> kContextButtonShowSuggestionLabel;
 // BrowserView.
 extern const base::FeatureParam<bool> kWebUIOmniboxFullPopupUseBrowserView;
 extern const base::FeatureParam<bool> kWebUIOmniboxFullPopupMultiline;
+// The maximum number of autocomplete result snapshots cached for stale match
+// activation.
+extern const base::FeatureParam<int> kWebUIOmniboxFullPopupSnapshotCacheSize;
 // Whether to enable dynamic animation for the WebUI Omnibox.
 extern const base::FeatureParam<bool> kWebUIOmniboxDynamicAnimation;
 // Whether to enable dynamic color scheme for the WebUI Omnibox.
@@ -166,6 +178,12 @@ bool IsContentSharingEnabled(
 
 bool IsCreateImagesEnabled(Profile* profile);
 bool IsDeepSearchEnabled(Profile* profile);
+
+// Returns true if Contextual Tasks experiments are enabled and the user meets
+// the required authentication criteria (signed in with valid credentials and
+// synchronized primary account in cookie jar, or signed-out usage is explicitly
+// allowed).
+bool AreContextualTasksEligible(Profile* profile);
 
 // Helper to create a QueryControllerConfigParams object from the feature
 // params.

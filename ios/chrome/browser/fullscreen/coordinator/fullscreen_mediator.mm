@@ -6,7 +6,12 @@
 
 #import <UIKit/UIKit.h>
 
+#import <optional>
+
+#import "base/ios/ios_util.h"
 #import "base/memory/raw_ptr.h"
+#import "base/metrics/histogram_functions.h"
+#import "base/time/time.h"
 #import "base/types/pass_key.h"
 #import "ios/chrome/browser/fullscreen/model/fullscreen_browser_agent.h"
 #import "ios/chrome/browser/fullscreen/model/fullscreen_browser_agent_observer_bridge.h"
@@ -76,6 +81,11 @@ inline base::PassKey<FullscreenMediatorPassKeyFactory> PassKey() {
   // Scroll distance since the start of the drag, or since the scroll direction
   // changed.
   CGFloat _scrollTotal;
+  // The time at which the first scroll began in the current page session.
+  std::optional<base::TimeTicks> _startScrollingTime;
+  // Whether the time spent scrolling to bottom has been recorded for the
+  // current page session.
+  BOOL _isScrollingTimeRecorded;
 }
 
 #pragma mark - Public
@@ -161,6 +171,8 @@ inline base::PassKey<FullscreenMediatorPassKeyFactory> PassKey() {
         _webViewProxyObserver.get());
   }
   _webState = webState;
+  _startScrollingTime = std::nullopt;
+  _isScrollingTimeRecorded = NO;
   if (_webState) {
     _webState->AddObserver(_webStateObserver.get());
     WebViewProxyTabHelper* tabHelper =
@@ -231,6 +243,8 @@ inline base::PassKey<FullscreenMediatorPassKeyFactory> PassKey() {
 - (void)webState:(web::WebState*)webState
     didFinishNavigation:(web::NavigationContext*)navigationContext {
   if (!navigationContext->IsSameDocument()) {
+    _startScrollingTime = std::nullopt;
+    _isScrollingTimeRecorded = NO;
     _browserAgent->ExitFullscreen(
         PassKey(), FullscreenModeTransitionTrigger::kForcedByCode,
         /*animated=*/true);
@@ -338,6 +352,10 @@ inline base::PassKey<FullscreenMediatorPassKeyFactory> PassKey() {
     (CRWWebViewScrollViewProxy*)webViewScrollViewProxy {
   _lastContentOffset = webViewScrollViewProxy.contentOffset.y;
   _scrollTotal = 0;
+  if (!_startScrollingTime.has_value() && [self canCollapseToolbar]) {
+    _startScrollingTime = base::TimeTicks::Now();
+    _isScrollingTimeRecorded = NO;
+  }
 }
 
 - (void)webViewScrollViewDidEndDragging:
@@ -345,12 +363,14 @@ inline base::PassKey<FullscreenMediatorPassKeyFactory> PassKey() {
                          willDecelerate:(BOOL)decelerate {
   if (!decelerate) {
     [self snap];
+    [self recordScrollToBottomMetricIfApplicable];
   }
 }
 
 - (void)webViewScrollViewDidEndDecelerating:
     (CRWWebViewScrollViewProxy*)webViewScrollViewProxy {
   [self snap];
+  [self recordScrollToBottomMetricIfApplicable];
 }
 
 - (void)webViewScrollViewWillBeginZooming:
@@ -509,9 +529,11 @@ inline base::PassKey<FullscreenMediatorPassKeyFactory> PassKey() {
 - (void)snap {
   CGFloat topProgress = _browserAgent->top_progress();
   CGFloat bottomProgress = _browserAgent->bottom_progress();
-  if ((topProgress == 0.0 && bottomProgress == 0.0) ||
-      (topProgress == 1.0 && bottomProgress == 1.0)) {
-    return;
+  if (_lastContentOffset != 0) {
+    if ((topProgress == 0.0 && bottomProgress == 0.0) ||
+        (topProgress == 1.0 && bottomProgress == 1.0)) {
+      return;
+    }
   }
 
   if (IsFullscreenEasedTransitionsEnabled()) {
@@ -539,7 +561,8 @@ inline base::PassKey<FullscreenMediatorPassKeyFactory> PassKey() {
 
   if (_scrollTotal > kFullscreenSnapThreshold) {
     snapType = SnapType::kEnter;
-  } else if (_scrollTotal < -kFullscreenSnapThreshold) {
+  } else if (_scrollTotal < -kFullscreenSnapThreshold ||
+             _lastContentOffset == 0) {
     snapType = SnapType::kExit;
   } else {
     CGFloat progress = topProgress;
@@ -559,6 +582,49 @@ inline base::PassKey<FullscreenMediatorPassKeyFactory> PassKey() {
         PassKey(),
         FullscreenModeTransitionTrigger::kUserInitiatedFinishedByCode,
         /*animated=*/true);
+  }
+}
+
+// Returns whether the content is tall enough to collapse the toolbar.
+- (BOOL)canCollapseToolbar {
+  if (!_scrollViewProxy || !_browserAgent) {
+    return NO;
+  }
+  CGFloat contentHeight = _scrollViewProxy.contentSize.height;
+  CGFloat viewportHeight = _scrollViewProxy.frame.size.height;
+  if (!base::ios::IsRunningOnIOS26OrLater()) {
+    // On iOS 18, frame height is already inset by toolbar insets. Reconstruct
+    // the un-inset viewport height.
+    viewportHeight +=
+        _browserAgent->insets().top + _browserAgent->insets().bottom;
+  }
+  CGFloat toolbarDelta =
+      (_browserAgent->max_insets().top - _browserAgent->min_insets().top) +
+      (_browserAgent->max_insets().bottom - _browserAgent->min_insets().bottom);
+  return contentHeight > viewportHeight + toolbarDelta;
+}
+
+// Returns whether the view is scrolled all the way to the bottom.
+- (BOOL)isScrolledToBottom {
+  if (!_scrollViewProxy) {
+    return NO;
+  }
+  CGFloat contentOffset = _scrollViewProxy.contentOffset.y;
+  CGFloat scrollViewHeight = CGRectGetHeight(_scrollViewProxy.frame);
+  CGFloat contentHeight = _scrollViewProxy.contentSize.height;
+  return contentOffset + scrollViewHeight -
+             _scrollViewProxy.contentInset.bottom >=
+         contentHeight - 1.0;
+}
+
+// Records the time spent scrolling to the bottom if applicable.
+- (void)recordScrollToBottomMetricIfApplicable {
+  if (!_isScrollingTimeRecorded && _startScrollingTime.has_value() &&
+      [self isScrolledToBottom]) {
+    base::UmaHistogramLongTimes(
+        kFullscreenScrollToTheBottomTime,
+        base::TimeTicks::Now() - _startScrollingTime.value());
+    _isScrollingTimeRecorded = YES;
   }
 }
 

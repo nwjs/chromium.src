@@ -21,7 +21,9 @@
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_delegate.h"
 #include "components/saved_tab_groups/public/tab_group_sync_service.h"
+#include "components/sessions/core/session_id.h"
 #include "components/split_tabs/split_tab_visual_data.h"
+#include "components/tab_groups/tab_group_id.h"
 #include "components/tab_groups/tab_group_visual_data.h"
 #include "components/tabs/public/tab_group.h"
 #include "components/tabs/public/tab_interface.h"
@@ -322,6 +324,10 @@ std::vector<tab_groups::TabGroupId> TabListBridge::ListTabGroups() {
     return {};
   }
   return tab_strip_->group_model()->ListTabGroups();
+}
+
+std::set<split_tabs::SplitTabId> TabListBridge::ListSplits() {
+  return tab_strip_->ListSplits();
 }
 
 std::optional<tab_groups::TabGroupVisualData>

@@ -225,6 +225,7 @@ void ExtractUnderlines(NSAttributedString* string,
 - (void)sendWindowFrameInScreenToHost;
 - (bool)hostIsDisconnected;
 - (void)invalidateTouchBar;
+- (void)synchronizeFirstResponderWithKeyTrackingWindow:(BOOL)isFirstResponder;
 
 // NSCandidateListTouchBarItemDelegate implementation
 - (void)candidateListTouchBarItem:(NSCandidateListTouchBarItem*)anItem
@@ -276,6 +277,8 @@ gfx::PointF GetSanitizedFlippedPoint(NSPoint point, CGFloat height) {
 
   // Is YES if there was a mouse-down as yet unbalanced with a mouse-up.
   BOOL _hasOpenMouseDown;
+
+  BOOL _isChangingFirstResponder;
 
   // The cursor for the page. This is passed up from the renderer.
   NSCursor* __strong _currentCursor;
@@ -1375,6 +1378,23 @@ static NSWindow* __weak _deferredResignKeyWindow;
     return NO;
   }
 
+  // If the event is being redispatched, do not consume it again. This prevents
+  // dispatch loops that break accelerator key dispatch in fullscreen mode. Note
+  // that in fullscreen mode, the keys are dispatched to the key window, which
+  // is not the NSToolbarFullScreenWindow, but the BrowserNativeWidgetWindow.
+  // When redispatched, redispatchKeyEvent: resets theEvent.window to _owner
+  // which is also the BrowserNativeWidgetWindow. This implies that
+  // theEvent.window will be a BrowserNativeWidgetWindow which implements
+  // CommandDispatchingWindow.
+  if ([theEvent.window
+          conformsToProtocol:@protocol(CommandDispatchingWindow)]) {
+    NSObject<CommandDispatchingWindow>* window =
+        static_cast<NSObject<CommandDispatchingWindow>*>(theEvent.window);
+    if ([[window commandDispatcher] isEventBeingRedispatched:theEvent]) {
+      return NO;
+    }
+  }
+
   // If the event is reserved by the system, do not pass it to web content.
   // If the user changes the system hotkey mapping after Chrome has been
   // launched, it is possible that a formerly reserved system hotkey is no
@@ -2099,9 +2119,47 @@ static NSWindow* __weak _deferredResignKeyWindow;
   }
 }
 
+// Ensure this window and the key tracking window stay in sync with this view's
+// first responder status. Note that this is handled by AppKit automatically
+// for mouse click in Fullscreen, but it does not handle programmatic
+// -makeFirstResponder.
+- (void)synchronizeFirstResponderWithKeyTrackingWindow:(BOOL)isFirstResponder {
+  // Guard against re-entrancy: calling -[NSWindow makeFirstResponder:] below
+  // synchronously invokes -[self becomeFirstResponder] or -resignFirstResponder
+  // on the new/old responder.
+  if (_isChangingFirstResponder) {
+    return;
+  }
+  base::AutoReset<BOOL> changing(&_isChangingFirstResponder, YES);
+  NSWindow* keyTrackingWindow = [self keyTrackingWindow];
+  if (keyTrackingWindow == [self window]) {
+    return;
+  }
+
+  if (isFirstResponder) {
+    [keyTrackingWindow makeFirstResponder:self];
+    [[self window] makeFirstResponder:self];
+  } else {
+    // Only clear first responder if the window still points to self. If focus
+    // moved to another view (e.g. clicking the web contents in the browser
+    // window), that new view is already (or in the process of being) made first
+    // responder. Calling makeFirstResponder:nil unconditionally would steal
+    // focus from it.
+    if ([keyTrackingWindow firstResponder] == self) {
+      [keyTrackingWindow makeFirstResponder:nil];
+    }
+    if ([[self window] firstResponder] == self) {
+      [[self window] makeFirstResponder:nil];
+    }
+  }
+}
+
 - (BOOL)becomeFirstResponder {
   if ([self hostIsDisconnected])
     return NO;
+
+  [self synchronizeFirstResponderWithKeyTrackingWindow:YES];
+
   if ([_responderDelegate respondsToSelector:@selector(becomeFirstResponder)])
     [_responderDelegate becomeFirstResponder];
 
@@ -2123,6 +2181,8 @@ static NSWindow* __weak _deferredResignKeyWindow;
 }
 
 - (BOOL)resignFirstResponder {
+  [self synchronizeFirstResponderWithKeyTrackingWindow:NO];
+
   if ([_responderDelegate respondsToSelector:@selector(resignFirstResponder)])
     [_responderDelegate resignFirstResponder];
 
@@ -2704,7 +2764,8 @@ extern NSString* NSTextInputReplacementRangeAttributeName;
   // automatically cancels an ongoing composition when we send an empty text.
   // So, it is OK to send an empty text to the renderer.)
   if ([self isHandlingKeyDown] && !_isReconversionTriggered) {
-    _setMarkedTextReplacementRange = gfx::Range(replacementRange);
+    _setMarkedTextReplacementRange =
+        gfx::Range::FromPossiblyInvalidNSRange(replacementRange);
   } else {
     _host->ImeSetComposition(
         _markedText, _imeTextSpans,
@@ -2857,6 +2918,10 @@ extern NSString* NSTextInputReplacementRangeAttributeName;
 
   if ([self window]) {
     [self updateScreenProperties];
+  }
+
+  if ([[self window] firstResponder] == self) {
+    [self synchronizeFirstResponderWithKeyTrackingWindow:YES];
   }
 
   _host->OnWindowIsKeyChanged([self isKeyTrackingWindowKey]);

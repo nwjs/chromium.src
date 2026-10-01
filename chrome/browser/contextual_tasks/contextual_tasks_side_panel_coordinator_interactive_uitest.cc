@@ -15,6 +15,7 @@
 #include "chrome/browser/contextual_tasks/contextual_tasks_ui_service.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_ui_service_factory.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_web_view.h"
+#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/tab_list/tab_list_interface.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
@@ -35,8 +36,10 @@
 #include "components/contextual_tasks/public/contextual_tasks_service.h"
 #include "components/contextual_tasks/public/features.h"
 #include "components/sessions/content/session_tab_helper.h"
+#include "components/sessions/core/session_id.h"
 #include "components/tabs/public/tab_interface.h"
 #include "components/web_modal/web_contents_modal_dialog_manager.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/common/content_features.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
@@ -45,6 +48,7 @@
 #include "net/dns/mock_host_resolver.h"
 #include "ui/actions/actions.h"
 #include "ui/base/models/dialog_model.h"
+#include "ui/base/page_transition_types.h"
 #include "ui/base/window_open_disposition.h"
 #include "ui/views/widget/widget_deletion_observer.h"
 
@@ -163,12 +167,12 @@ class ContextualTasksSidePanelCoordinatorInteractiveUiTest
     coordinator->CreateCachedWebContentsForTesting(task_id1_, /*is_open=*/true);
     coordinator->CreateCachedWebContentsForTesting(task_id2_, /*is_open=*/true);
 
-    browser()->GetFeatures().side_panel_ui()->DisableAnimationsForTesting();
+    SidePanelUI::From(browser())->DisableAnimationsForTesting();
   }
 
   void SetUpOnMainThread() override {
     InteractiveBrowserTest::SetUpOnMainThread();
-    browser()->GetFeatures().side_panel_ui()->DisableAnimationsForTesting();
+    SidePanelUI::From(browser())->DisableAnimationsForTesting();
     host_resolver()->AddRule("*", "127.0.0.1");
     ASSERT_TRUE(embedded_test_server()->Start());
     url_loader_interceptor_ = std::make_unique<content::URLLoaderInterceptor>(
@@ -435,21 +439,15 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksSidePanelCoordinatorInteractiveUiTest,
       }));
 }
 
-// TODO(crbug.com/478095504): Flakily fails on ASan/LSan
-#if defined(ADDRESS_SANITIZER) || defined(LEAK_SANITIZER)
-#define MAYBE_SidePanelOpenByTransferWebContentsFromTab \
-  DISABLED_SidePanelOpenByTransferWebContentsFromTab
-#else
-#define MAYBE_SidePanelOpenByTransferWebContentsFromTab \
-  SidePanelOpenByTransferWebContentsFromTab
-#endif
 IN_PROC_BROWSER_TEST_F(ContextualTasksSidePanelCoordinatorInteractiveUiTest,
-                       MAYBE_SidePanelOpenByTransferWebContentsFromTab) {
+                       SidePanelOpenByTransferWebContentsFromTab) {
   SetUpTasks();
   // Add tab4 with contextual task side panel tab.
   TabStripModel* tab_strip_model = browser()->tab_strip_model();
   chrome::AddTabAt(browser(), GURL(chrome::kChromeUIContextualTasksURL), -1,
                    true);
+  ASSERT_TRUE(
+      content::WaitForLoadStop(tab_strip_model->GetActiveWebContents()));
   int detach_index = tab_strip_model->GetIndexOfWebContents(
       tab_strip_model->GetActiveWebContents());
   EXPECT_EQ(4, detach_index);

@@ -66,9 +66,13 @@ class SkillsPageHandlerV2 : public ::skills::mojom::SkillsPageHandler,
   void SendPrompt(const std::string& prompt) override;
   void CloseDialog(::skills::mojom::PendingEditorDataPtr data) override;
   void GetPendingEditorData(GetPendingEditorDataCallback callback) override;
+  void SignIn() override;
 
   // SkillsService::Observer:
   void OnProvidedSkillsChanged(SkillsProvider* provider) override;
+  void OnSkillUpdated(std::string_view skill_id,
+                      SkillsService::UpdateSource update_source,
+                      bool is_position_changed) override;
 
  private:
   BrowserWindowInterface* GetBrowserWindow();
@@ -76,6 +80,7 @@ class SkillsPageHandlerV2 : public ::skills::mojom::SkillsPageHandler,
   mojo::Receiver<::skills::mojom::SkillsPageHandler> receiver_;
   mojo::Remote<::skills::mojom::SkillsPageV2> page_;
   const base::raw_ref<Profile> profile_;
+  const raw_ptr<signin::IdentityManager> identity_manager_;
   const base::raw_ref<content::WebContents> web_contents_;
   std::unique_ptr<glic::GlicCookieSynchronizer> cookie_synchronizer_;
   base::WeakPtr<SkillsDialogDelegate> delegate_;

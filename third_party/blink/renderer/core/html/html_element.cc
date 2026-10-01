@@ -70,6 +70,7 @@
 #include "third_party/blink/renderer/core/dom/focus_params.h"
 #include "third_party/blink/renderer/core/dom/id_target_observer.h"
 #include "third_party/blink/renderer/core/dom/invoker_data.h"
+#include "third_party/blink/renderer/core/dom/node-inl.h"
 #include "third_party/blink/renderer/core/dom/node_lists_node_data.h"
 #include "third_party/blink/renderer/core/dom/node_rare_data.h"
 #include "third_party/blink/renderer/core/dom/node_traversal.h"
@@ -1862,9 +1863,8 @@ UnboundedEventData* HTMLElement::GetUnboundedEventData() const {
 }
 
 UnboundedEventData& HTMLElement::EnsureUnboundedEventData() {
-  auto pair = EnsureRareData().EnsureUnboundedEventData();
-  data_ = pair.second;
-  return pair.first.get();
+  return EnsureRareData().EnsureUnboundedEventData().RefreshNodeAndUnwrap(
+      *this);
 }
 
 gfx::Rect HTMLElement::LastSentUnboundedBounds() const {
@@ -1875,7 +1875,7 @@ gfx::Rect HTMLElement::LastSentUnboundedBounds() const {
 }
 
 void HTMLElement::SetLastSentUnboundedBounds(const gfx::Rect& bounds) {
-  data_ = EnsureRareData().SetLastSentUnboundedBounds(bounds);
+  EnsureRareData().SetLastSentUnboundedBounds(bounds).RefreshNode(*this);
 }
 
 bool HTMLElement::togglePopover(ExceptionState& exception_state) {
@@ -2164,7 +2164,10 @@ void HTMLElement::ShowPopoverInternal(Element* invoker,
   original_document.AddToTopLayer(this);
   // Make the popover match `:popover-open` and remove `display:none` styling:
   GetPopoverData()->setVisibilityState(PopoverVisibilityState::kShowing);
-  SetPopoverInvoker(invoker);
+  // ShowPopoverInternal() doesn't know how this popover was invoked (e.g. JS
+  // showPopover() vs. command vs. interest). Default to kNone here; callers
+  // that are command or interest invokers will upgrade this after the call.
+  SetPopoverInvoker(invoker, PopoverInvokedVia::kNone);
   SetImplicitAnchor(invoker);
 
   PseudoStateChanged(CSSSelector::kPseudoPopoverOpen);
@@ -2245,11 +2248,13 @@ void HTMLElement::ShowPopoverInternal(Element* invoker,
   }
 }
 
-void HTMLElement::SetPopoverInvoker(Element* invoker) {
+void HTMLElement::SetPopoverInvoker(Element* invoker,
+                                    PopoverInvokedVia invoked_via) {
   if (Element* oldInvoker = GetPopoverData()->invoker()) {
     oldInvoker->GetInvokerData()->SetInvokedPopover(nullptr);
   }
   GetPopoverData()->setInvoker(invoker);
+  GetPopoverData()->setInvokedVia(invoked_via);
   if (invoker) {
     invoker->EnsureInvokerData().SetInvokedPopover(this);
   }
@@ -2740,7 +2745,7 @@ PopoverHideResult HTMLElement::HidePopoverInternal(
     }
   }
 
-  SetPopoverInvoker(nullptr);
+  SetPopoverInvoker(nullptr, PopoverInvokedVia::kNone);
 
   // Re-apply display:none, and stop matching `:popover-open`.
   GetPopoverData()->setVisibilityState(PopoverVisibilityState::kHidden);
@@ -3188,9 +3193,17 @@ void HTMLElement::HandlePopoverLightDismissForClick(
   }
 }
 
-void HTMLElement::InvokePopover(Element& invoker) {
+void HTMLElement::InvokePopover(Element& invoker,
+                                PopoverInvokedVia invoked_via) {
   CHECK(IsPopover());
-  ShowPopoverInternal(&invoker, /*exception_state=*/nullptr);
+  if (!popoverOpen()) {
+    ShowPopoverInternal(&invoker, /*exception_state=*/nullptr);
+    if (popoverOpen()) {
+      GetPopoverData()->setInvokedVia(invoked_via);
+    }
+  } else if (invoked_via >= GetPopoverData()->invokedVia()) {
+    SetPopoverInvoker(&invoker, invoked_via);
+  }
 }
 
 void HTMLElement::SetImplicitAnchor(Element* element) {
@@ -3324,7 +3337,12 @@ bool HTMLElement::HandleCommandInternal(HTMLElement& invoker,
   } else if (can_show) {
     // TODO(crbug.com/1121840) HandleCommandInternal is called for both
     // `popovertarget` and `commandfor`.
-    InvokePopover(invoker);
+    InvokePopover(invoker, PopoverInvokedVia::kCommand);
+    return true;
+  } else if (command == CommandEventType::kShowPopover && popoverOpen()) {
+    // A `show-popover` command invoker "upgrades" to a command invoker, so it
+    // persists if de-hovered/blurred.
+    SetPopoverInvoker(&invoker, PopoverInvokedVia::kCommand);
     return true;
   }
 
@@ -4011,6 +4029,18 @@ void HTMLElement::AddHTMLLengthToStyle(HeapVector<CSSPropertyValue, 8>& style,
                                           unit);
 }
 
+void HTMLElement::AddHTMLPixelLengthToStyle(
+    HeapVector<CSSPropertyValue, 8>& style,
+    CSSPropertyID property_id,
+    const String& value) {
+  unsigned parsed_value;
+  if (!ParseHTMLNonNegativeInteger(value, parsed_value)) {
+    return;
+  }
+  AddPropertyToPresentationAttributeStyle(style, property_id, parsed_value,
+                                          CSSPrimitiveValue::UnitType::kPixels);
+}
+
 static Color ParseColorStringWithCrazyLegacyRules(const String& color_string) {
   // Per spec, only look at the first 128 digits of the string.
   const size_t kMaxColorLength = 128;
@@ -4264,7 +4294,6 @@ void HTMLElement::HandleKeydownEvent(KeyboardEvent& event) {
   if (is_focused_contenteditable) {
     // Handles only contenteditables. TextFieldInputType and HTMLTextAreaElement
     // analogously handle the event for <input> and <textarea>.
-    GetDocument().UpdateStyleAndLayoutTree();
     if (Page* page = GetDocument().GetPage();
         page && page->GetChromeClient().HandleKeyboardEventOnEditableElement(
                     *this, event)) {

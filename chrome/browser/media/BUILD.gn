@@ -141,6 +141,21 @@ source_set("unittests") {
       "//content/test:test_support",
       "//media/mojo/mojom:remoting",
     ]
+
+    if (enable_media_remoting_redirection) {
+      sources += [ "redirection_connector_unittest.cc" ]
+    }
+  }
+
+  if (is_android) {
+    sources += [ "android/cdm/media_drm_origin_id_manager_unittest.cc" ]
+    deps += [
+      ":impl",
+      "//base/test:test_support",
+      "//chrome/test:test_support",
+      "//components/prefs:test_support",
+      "//content/test:test_support",
+    ]
   }
 
   if (is_android || is_chromeos || is_win) {
@@ -223,6 +238,7 @@ source_set("browser_tests") {
       "//chrome/browser/ui:recently_audible_helper",
       "//chrome/browser/ui/tabs:tab_strip",
       "//chrome/test:test_support_ui",
+      "//chrome/test/base:test_launcher_utils",
       "//components/cdm/common:buildflags",
       "//components/no_state_prefetch/browser",
       "//components/no_state_prefetch/common",
@@ -299,7 +315,6 @@ source_set("media") {
       "android/cdm/media_drm_origin_id_manager.h",
       "android/cdm/media_drm_origin_id_manager_factory.h",
       "android/cdm/media_drm_storage_factory.h",
-      "android/cdm/per_device_provisioning_permission.h",
       "android/router/chrome_media_router_client.h",
     ]
     public_deps += [
@@ -333,6 +348,11 @@ source_set("media") {
       "//media/mojo/mojom:remoting",
       "//mojo/public/cpp/bindings",
     ]
+
+    if (enable_media_remoting_redirection) {
+      public += [ "redirection_connector.h" ]
+      public_deps += [ "//chrome/services/redirection/public/mojom" ]
+    }
   }
 
   if (enable_extensions) {
@@ -447,7 +467,6 @@ source_set("impl") {
       "android/cdm/media_drm_origin_id_manager.cc",
       "android/cdm/media_drm_origin_id_manager_factory.cc",
       "android/cdm/media_drm_storage_factory.cc",
-      "android/cdm/per_device_provisioning_permission.cc",
       "android/router/chrome_media_router_client.cc",
     ]
     deps += [
@@ -478,6 +497,15 @@ source_set("impl") {
       "//chrome/browser/media/router:media_router_feature",
       "//media/mojo/mojom:remoting",
     ]
+
+    if (enable_media_remoting_redirection) {
+      sources += [
+        "redirection_connector.cc",
+        "redirection_remoting_source_bridge.cc",
+        "redirection_remoting_source_bridge.h",
+      ]
+      deps += [ "//chrome/services/redirection/public/mojom" ]
+    }
 
     if (toolkit_views) {
       deps += [ "//chrome/browser/ui/views/media_router" ]

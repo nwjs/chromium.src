@@ -660,6 +660,27 @@
           }
         ]
       },
+      "GPU FYI Mac Builder": {
+        "contact_team_email": "chrome-gpu-infra@google.com",
+        "problem_specs": [
+          {
+            "name": "Unhealthy",
+            "period_days": 7,
+            "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
+            "thresholds": {
+              "_default": "_default"
+            }
+          }
+        ]
+      },
       "GPU FYI Mac arm64 Builder": {
         "contact_team_email": "chrome-gpu-infra@google.com",
         "problem_specs": [
@@ -1145,6 +1166,48 @@
       },
       "Mac Builder (dbg)": {
         "contact_team_email": "bling-engprod@google.com",
+        "problem_specs": [
+          {
+            "name": "Unhealthy",
+            "period_days": 7,
+            "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
+            "thresholds": {
+              "_default": "_default"
+            }
+          }
+        ]
+      },
+      "Mac FYI Release (Intel)": {
+        "contact_team_email": "chrome-gpu-infra@google.com",
+        "problem_specs": [
+          {
+            "name": "Unhealthy",
+            "period_days": 7,
+            "score": 5,
+            "thresholds": {
+              "_default": "_default"
+            }
+          },
+          {
+            "name": "Low Value",
+            "period_days": 90,
+            "score": 1,
+            "thresholds": {
+              "_default": "_default"
+            }
+          }
+        ]
+      },
+      "Mac FYI Retina Release (AMD)": {
+        "contact_team_email": "chrome-gpu-infra@google.com",
         "problem_specs": [
           {
             "name": "Unhealthy",

@@ -16,6 +16,7 @@ import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
+import org.mockito.quality.Strictness;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.chrome.browser.omnibox.suggestions.SelectionController.TraversalMode;
@@ -25,42 +26,45 @@ import org.chromium.chrome.browser.omnibox.suggestions.SelectionController.Trave
 public class SimpleSelectionControllerUnitTest {
     private static final int MAX_POSITION = 3; // Items 0‒2 inclusive.
 
-    @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
+    @Rule
+    public final MockitoRule mMockitoRule = MockitoJUnit.rule().strictness(Strictness.STRICT_STUBS);
+
     @Mock private SimpleSelectionController.OnSelectionChangedListener mListener;
 
     private void verifyPositionSet(SelectionController c, int position) {
-        verify(mListener).onSelectionChanged(position, true);
+        verify(mListener).onSelectionChanged(position, /* isSelected= */ true);
         assertEquals(Integer.valueOf(position), c.getPosition());
         assertFalse(c.isParkedAtSentinel());
         clearInvocations(mListener);
     }
 
     private void verifyPositionChanged(SelectionController c, int from, int to) {
-        verify(mListener).onSelectionChanged(from, false);
+        verify(mListener).onSelectionChanged(from, /* isSelected= */ false);
         verifyPositionSet(c, to);
     }
 
     @Test
     public void setItemCount() {
         SimpleSelectionController c =
-                new SimpleSelectionController(mListener, MAX_POSITION, TraversalMode.SATURATING);
+                new SimpleSelectionController(
+                        mListener, /* itemCount= */ MAX_POSITION, TraversalMode.SATURATING);
         verifyPositionSet(c, 0);
 
         // Grow list of items
-        c.setItemCount(5);
+        c.setItemCount(/* newItemCount= */ 5);
         verifyPositionSet(c, 0);
 
         assertTrue(c.selectNextItem()); // Should now reach index 4 without saturating
-        verifyPositionChanged(c, 0, 1);
+        verifyPositionChanged(c, /* from= */ 0, /* to= */ 1);
         assertTrue(c.selectNextItem()); // 2
-        verifyPositionChanged(c, 1, 2);
+        verifyPositionChanged(c, /* from= */ 1, /* to= */ 2);
         assertTrue(c.selectNextItem()); // 3
-        verifyPositionChanged(c, 2, 3);
+        verifyPositionChanged(c, /* from= */ 2, /* to= */ 3);
         assertTrue(c.selectNextItem()); // 4
-        verifyPositionChanged(c, 3, 4);
+        verifyPositionChanged(c, /* from= */ 3, /* to= */ 4);
 
         // Shrink list of items
-        c.setItemCount(2);
+        c.setItemCount(/* newItemCount= */ 2);
         verifyPositionSet(c, 1);
     }
 }

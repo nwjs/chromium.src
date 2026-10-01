@@ -33,6 +33,7 @@
 #include "third_party/blink/renderer/platform/graphics/canvas_resource.h"
 #include "third_party/blink/renderer/platform/graphics/gpu/canvas_utils.h"
 #include "third_party/blink/renderer/platform/graphics/gpu/shared_gpu_context.h"
+#include "third_party/blink/renderer/platform/graphics/memory_managed_paint_recorder.h"
 #include "third_party/blink/renderer/platform/graphics/paint/paint_canvas.h"
 #include "third_party/blink/renderer/platform/graphics/skia/skia_utils.h"
 #include "third_party/blink/renderer/platform/graphics/static_bitmap_image.h"
@@ -277,9 +278,17 @@ bool OffscreenCanvasRenderingContext2D::InitializeResourceProvider() {
         host->Size(), format, alpha_type, color_space, hdr_metadata, host);
   }
 
+  if (shared_image_provider_ || bitmap_provider_) {
+    recorder_ =
+        std::make_unique<MemoryManagedPaintRecorder>(host->Size(), this);
+  }
+
   Host()->UpdateMemoryUsage();
 
   if (shared_image_provider_) {
+    if (shared_image_provider_->IsGraphite()) {
+      recorder_->DisableLineDrawingAsPaths();
+    }
     base::UmaHistogramBoolean("Blink.Canvas.ResourceProviderIsAccelerated",
                               shared_image_provider_->IsAccelerated());
     base::UmaHistogramEnumeration("Blink.Canvas.ResourceProviderType",
@@ -310,8 +319,7 @@ base::ByteSize OffscreenCanvasRenderingContext2D::AllocatedBufferSize() const {
 }
 
 void OffscreenCanvasRenderingContext2D::Reset() {
-  shared_image_provider_ = nullptr;
-  bitmap_provider_ = nullptr;
+  ResetResourceProvider();
   Host()->DiscardResources();
   BaseRenderingContext2D::ResetInternal();
 }
@@ -373,8 +381,7 @@ ImageBitmap* OffscreenCanvasRenderingContext2D::TransferToImageBitmap(
     return nullptr;
   image->SetOriginClean(OriginClean());
 
-  shared_image_provider_ = nullptr;
-  bitmap_provider_ = nullptr;
+  ResetResourceProvider();
   Host()->DiscardResources();
 
   return MakeGarbageCollected<ImageBitmap>(std::move(image));
@@ -435,13 +442,14 @@ OffscreenCanvasRenderingContext2D::GetPaintCanvas() const {
 
 const MemoryManagedPaintRecorder* OffscreenCanvasRenderingContext2D::Recorder()
     const {
+  return recorder_.get();
+}
+
+void OffscreenCanvasRenderingContext2D::RecordingCleared() {
+  BaseRenderingContext2D::RecordingCleared();
   if (shared_image_provider_) {
-    return &shared_image_provider_->Recorder();
+    shared_image_provider_->RecordingCleared();
   }
-  if (bitmap_provider_) {
-    return &bitmap_provider_->Recorder();
-  }
-  return nullptr;
 }
 
 void OffscreenCanvasRenderingContext2D::WillDraw(
@@ -463,10 +471,10 @@ void OffscreenCanvasRenderingContext2D::WillDraw(
 }
 
 void OffscreenCanvasRenderingContext2D::FlushIfRecordingLimitExceeded() {
+  if (Host()->IsPrinting() && clear_frame()) {
+    return;
+  }
   if (shared_image_provider_) {
-    if (Host()->IsPrinting() && shared_image_provider_->clear_frame()) {
-      return;
-    }
     const MemoryManagedPaintRecorder* recorder = Recorder();
     CHECK(recorder);
     if (recorder->ReleasableOpBytesUsed() >
@@ -476,9 +484,6 @@ void OffscreenCanvasRenderingContext2D::FlushIfRecordingLimitExceeded() {
       FlushCanvas(FlushReason::kOther);
     }
   } else if (bitmap_provider_) {
-    if (Host()->IsPrinting() && bitmap_provider_->clear_frame()) {
-      return;
-    }
     const MemoryManagedPaintRecorder* recorder = Recorder();
     CHECK(recorder);
     if (recorder->ReleasableOpBytesUsed() >
@@ -494,10 +499,15 @@ sk_sp<PaintFilter> OffscreenCanvasRenderingContext2D::StateGetFilter() {
   return GetState().GetFilterForOffscreenCanvas(Host()->Size(), this);
 }
 
-void OffscreenCanvasRenderingContext2D::Dispose() {
-  FlushForImageListener::Get()->RemoveObserver(this);
+void OffscreenCanvasRenderingContext2D::ResetResourceProvider() {
   shared_image_provider_.reset();
   bitmap_provider_.reset();
+  recorder_.reset();
+}
+
+void OffscreenCanvasRenderingContext2D::Dispose() {
+  FlushForImageListener::Get()->RemoveObserver(this);
+  ResetResourceProvider();
   CanvasRenderingContext::Dispose();
 }
 
@@ -507,8 +517,7 @@ void OffscreenCanvasRenderingContext2D::LoseContext(LostContextMode lost_mode) {
   context_lost_mode_ = lost_mode;
   ResetInternal();
   if (CanvasRenderingContextHost* host = Host()) [[likely]] {
-    shared_image_provider_ = nullptr;
-    bitmap_provider_ = nullptr;
+    ResetResourceProvider();
     host->DiscardResources();
     host->DiscardResourceDispatcher();
   }
@@ -580,8 +589,7 @@ std::optional<cc::PaintRecord> OffscreenCanvasRenderingContext2D::FlushCanvas(
 void OffscreenCanvasRenderingContext2D::OnFlushForImage(
     cc::PaintImage::ContentId content_id) {
   if (shared_image_provider_ && !shared_image_provider_->IsSoftware()) {
-    if (shared_image_provider_->Recorder().getRecordingCanvas().IsCachingImage(
-            content_id)) {
+    if (recorder_->getRecordingCanvas().IsCachingImage(content_id)) {
       FlushCanvas(FlushReason::kOther);
     }
     shared_image_provider_->OnFlushForImage(content_id);

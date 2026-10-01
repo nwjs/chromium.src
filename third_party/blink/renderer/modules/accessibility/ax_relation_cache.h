@@ -48,7 +48,8 @@ class AXRelationCache {
   bool IsAriaOwned(const AXObject*, bool check = true) const;
 
   // Returns the parent of the given object due to aria-owns, if valid,
-  // otherwise, removes the child from maps indicating that it is owned.
+  // otherwise, removes the child from maps indicating that it is owned and
+  // restores its natural parent.
   AXObject* ValidatedAriaOwner(const AXObject*);
 
   // Returns the validated owned children of this element with aria-owns.
@@ -162,7 +163,8 @@ class AXRelationCache {
   // specific time in the lifecycle.
   // Pass |force=true| when the mappings must be updated even though the
   // owned ids have not changed, e.g. when an object has been refreshed.
-  void UpdateAriaOwnsWithCleanLayout(AXObject* owner, bool force = false);
+  // Returns true when the owner's child mapping changes.
+  bool UpdateAriaOwnsWithCleanLayout(AXObject* owner, bool force = false);
   void QueueOwnerToUpdate(AXObject* owner);
 
   // Is there work to be done when layout becomes clean?

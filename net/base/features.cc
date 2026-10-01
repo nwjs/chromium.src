@@ -34,8 +34,6 @@ BASE_FEATURE(kAlpsForHttp2, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kAsyncRetryOnTooManyConnectionErrors,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kAvoidH2Reprioritization, base::FEATURE_DISABLED_BY_DEFAULT);
-
 BASE_FEATURE(kDeriveConnectionTypeFromCapabilities,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -51,6 +49,8 @@ BASE_FEATURE(kAsyncDns,
 BASE_FEATURE(kOptimisticDnsForTcp, base::FEATURE_DISABLED_BY_DEFAULT);
 const base::FeatureParam<bool> kUseStaleConnectorsForOptimisticDns{
     &kOptimisticDnsForTcp, "use_stale_connectors", false};
+
+BASE_FEATURE(kOptimisticDnsForQuic, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kAddressSorterConnectCache, base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -81,6 +81,8 @@ const base::FeatureParam<bool> kDnsPlatformCancelPreviousAttemptOnRetry{
     &kDnsPlatformFailFastAndRetry, "cancel_previous_attempt_on_retry", false};
 
 BASE_FEATURE(kUseDnsHttpsSvcb, base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kUseDnsHttpsSvcbAddressHints, base::FEATURE_DISABLED_BY_DEFAULT);
 
 const base::FeatureParam<bool> kUseDnsHttpsSvcbEnforceSecureResponse{
     &kUseDnsHttpsSvcb, "UseDnsHttpsSvcbEnforceSecureResponse", false};
@@ -124,6 +126,10 @@ BASE_FEATURE(kHappyEyeballsV2,
 BASE_FEATURE(kHappyEyeballsV3, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kEnableIntermediateDnsResults, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE_PARAM(bool,
+                   kEnableIntermediateDnsResultsSortTransactionsIndividually,
+                   &kEnableIntermediateDnsResults,
+                   true);
 
 BASE_FEATURE(kAdjustIPv6FallbackTime, base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -283,9 +289,6 @@ extern const base::FeatureParam<base::TimeDelta> kTimeoutTcpConnectAttemptMax(
 BASE_FEATURE(kCookieSameSiteConsidersRedirectChain,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-BASE_FEATURE(kAllowSameSiteNoneCookiesInSandbox,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 BASE_FEATURE(kStaticKeyPinningEnforcement, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kCookieDomainRejectNonASCII, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -322,8 +325,15 @@ BASE_FEATURE(kDeferConnectionTypeAtStartup, base::FEATURE_DISABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_MAC)
 BASE_FEATURE(kTcpPortRandomizationMac, base::FEATURE_DISABLED_BY_DEFAULT);
-const base::FeatureParam<int> kTcpPortRandomizationReuseDelaySec{
-    &kTcpPortRandomizationMac, "reuse_delay_sec", 120};
+BASE_FEATURE_PARAM(int,
+                   kTcpPortRandomizationReuseDelaySec,
+                   &kTcpPortRandomizationMac,
+                   "reuse_delay_sec",
+                   120);
+BASE_FEATURE_PARAM(bool,
+                   kTcpPortRandomizationMacForLoopback,
+                   &kTcpPortRandomizationMac,
+                   false);
 #endif
 
 BASE_FEATURE(kAvoidEntryCreationForNoStore, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -344,6 +354,10 @@ BASE_FEATURE(kAsyncQuicSession,
 BASE_FEATURE(kAsyncDnsQuicJob, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE_PARAM(bool, kAsyncDnsQuicJobFastFail, &kAsyncDnsQuicJob, false);
+BASE_FEATURE_PARAM(bool,
+                   kAsyncDnsQuicJobSortTransactionsIndividually,
+                   &kAsyncDnsQuicJob,
+                   true);
 
 BASE_FEATURE(kAdjustQuicSlowTimerDelay, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE_PARAM(base::TimeDelta,
@@ -454,7 +468,7 @@ BASE_FEATURE(kDeviceBoundSessions, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kDeviceBoundSessions, base::FEATURE_DISABLED_BY_DEFAULT);
 #endif
 BASE_FEATURE(kDeviceBoundSessionsBypassDeferralsForRefreshRequests,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kDeviceBoundSessionsRetryTransientRefreshErrors,
              base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE_PARAM(bool,
@@ -500,6 +514,9 @@ BASE_FEATURE(kDeviceBoundSessionsForSingleSignOn,
 
 BASE_FEATURE(kDeviceBoundSessionsPersistExpiryOnRefresh,
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kDeviceBoundSessionsIncludeAudienceClaim,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kSpdySessionForProxyAdditionalChecks,
              base::FEATURE_ENABLED_BY_DEFAULT);
@@ -1059,4 +1076,11 @@ BASE_FEATURE(kEnableWindowsTcpLoopbackFastFail,
              base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
+BASE_FEATURE(kQuicSocketSendBufferSize, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE_PARAM(int,
+                   kQuicSocketSendBufferSizeParam,
+                   &kQuicSocketSendBufferSize,
+                   -1);
+
 }  // namespace net::features
+

@@ -14,7 +14,6 @@
 #include "chrome/browser/actor/actor_keyed_service_fake.h"
 #include "chrome/browser/actor/actor_test_util.h"
 #include "chrome/browser/actor/ui/task_list_bubble/actor_task_list_bubble.h"
-#include "chrome/browser/actor/ui/task_list_bubble/actor_task_list_bubble_controller.h"
 #include "chrome/browser/glic/browser_ui/glic_actor_nudge_controller.h"
 #include "chrome/browser/glic/browser_ui/glic_actor_task_icon_manager.h"
 #include "chrome/browser/glic/browser_ui/glic_actor_task_icon_manager_factory.h"
@@ -28,6 +27,7 @@
 #include "chrome/browser/ui/browser_window/test/mock_browser_window_interface.h"
 #include "chrome/browser/ui/views/controls/rich_hover_button.h"
 #include "chrome/common/chrome_features.h"
+#include "chrome/grit/generated_resources.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/testing_profile.h"
 #include "chrome/test/base/testing_profile_manager.h"
@@ -35,6 +35,7 @@
 #include "components/signin/public/identity_manager/identity_test_environment.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "ui/base/l10n/l10n_util.h"
 #include "ui/base/unowned_user_data/unowned_user_data_host.h"
 #include "ui/views/bubble/bubble_dialog_delegate_view.h"
 #include "ui/views/bubble/bubble_dialog_model_host.h"
@@ -451,4 +452,120 @@ TEST_F(ActorTaskListBubbleControllerTest,
 
   // Bubble widget should be created immediately.
   EXPECT_TRUE(actor_task_list_bubble_controller_->IsBubbleShowing());
+}
+
+TEST_F(ActorTaskListBubbleControllerTest,
+       GetActorTaskRowsForBubble_PriorityOrder) {
+  auto* fake_actor_service = static_cast<actor::ActorKeyedServiceFake*>(
+      actor::ActorKeyedService::Get(profile_));
+
+  actor::TaskId id_1 = fake_actor_service->CreateTaskForTesting();
+  fake_actor_service->PauseTaskForTesting(id_1, /*from_actor=*/true);
+
+  actor::TaskId id_2 = fake_actor_service->CreateTaskForTesting();
+  fake_actor_service->PauseTaskForTesting(id_2, /*from_actor=*/true);
+
+  actor::TaskId id_3 = fake_actor_service->CreateTaskForTesting();
+  fake_actor_service->StopTaskForTesting(
+      id_3, actor::ActorTask::StoppedReason::kTaskComplete);
+
+  actor::TaskId id_4 = fake_actor_service->CreateTaskForTesting();
+
+  auto rows = ActorTaskListBubbleController::GetActorTaskRowsForBubble(
+      profile_, {{id_1, true}, {id_2, false}, {id_3, true}, {id_4, false}});
+
+  ASSERT_EQ(4u, rows.size());
+  EXPECT_EQ(id_1,
+            rows[0].task_id);  // Priority 1: Unprocessed needing attention
+  EXPECT_EQ(id_2, rows[1].task_id);  // Priority 2: Processed needing attention
+  EXPECT_EQ(id_3, rows[2].task_id);  // Priority 3: Remaining needing processing
+  EXPECT_EQ(id_4, rows[3].task_id);  // Priority 4: All other tasks
+}
+
+TEST_F(ActorTaskListBubbleControllerTest,
+       GetActorTaskRowsForBubble_TieBreakByTaskIdAndContents) {
+  auto* fake_actor_service = static_cast<actor::ActorKeyedServiceFake*>(
+      actor::ActorKeyedService::Get(profile_));
+
+  actor::TaskId id_1 = fake_actor_service->CreateTaskForTesting();
+  fake_actor_service->PauseTaskForTesting(id_1, /*from_actor=*/true);
+
+  actor::TaskId id_2 = fake_actor_service->CreateTaskForTesting();
+  fake_actor_service->PauseTaskForTesting(id_2, /*from_actor=*/true);
+
+  actor::TaskId id_exp =
+      fake_actor_service->CreateExperimentalTriggeringTaskForTesting();
+  fake_actor_service->GetTask(id_exp)->SetState(
+      actor::ActorTask::State::kActing);
+
+  // id_1 and id_2 tie on priority 1; id_exp is priority 3; 99999 does not
+  // exist.
+  auto rows = ActorTaskListBubbleController::GetActorTaskRowsForBubble(
+      profile_, {{id_2, true},
+                 {id_1, true},
+                 {id_exp, true},
+                 {actor::TaskId(99999), true}});
+
+  ASSERT_EQ(3u, rows.size());
+
+  // Tie-break by task_id ascending + verify row contents.
+  EXPECT_EQ(id_1, rows[0].task_id);
+  EXPECT_EQ("Test Task", rows[0].title);
+  EXPECT_EQ(actor::ActorTask::State::kPausedByActor, rows[0].state);
+  EXPECT_TRUE(rows[0].requires_processing);
+  EXPECT_FALSE(rows[0].has_tab);
+  EXPECT_EQ(l10n_util::GetStringUTF8(
+                IDS_ACTOR_TASK_LIST_BUBBLE_ROW_TAB_CLOSED_SUBTITLE),
+            rows[0].subtitle);
+  EXPECT_TRUE(rows[0].is_enabled);
+  EXPECT_TRUE(rows[0].needs_review);
+
+  // id_2 does not have an associated tab and displays "Tab closed".
+  EXPECT_EQ(id_2, rows[1].task_id);
+  EXPECT_FALSE(rows[1].has_tab);
+  EXPECT_EQ(l10n_util::GetStringUTF8(
+                IDS_ACTOR_TASK_LIST_BUBBLE_ROW_TAB_CLOSED_SUBTITLE),
+            rows[1].subtitle);
+
+  // Experimental triggering overrides has_tab to true.
+  EXPECT_EQ(id_exp, rows[2].task_id);
+  EXPECT_EQ(glic::mojom::FeatureMode::kExperimentalTriggering,
+            rows[2].feature_mode);
+  EXPECT_TRUE(rows[2].has_tab);
+  EXPECT_EQ(l10n_util::GetStringUTF8(
+                IDS_ACTOR_TASK_LIST_BUBBLE_ROW_ACTING_TASK_SUBTITLE),
+            rows[2].subtitle);
+  EXPECT_TRUE(rows[2].is_enabled);
+  EXPECT_FALSE(rows[2].needs_review);
+}
+
+class ActorTaskListBubbleControllerOsNotificationTest
+    : public ActorTaskListBubbleControllerTest {
+ public:
+  ActorTaskListBubbleControllerOsNotificationTest() {
+    scoped_feature_list_.InitAndEnableFeature(
+        features::kGlicExperimentalTriggeringOsNotification);
+  }
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+TEST_F(ActorTaskListBubbleControllerOsNotificationTest,
+       ShowBubble_InactiveBrowserWindow_DoesNotShowBubble) {
+  // If the browser window is inactive and
+  // kGlicExperimentalTriggeringOsNotification is enabled, ShowBubble should
+  // return early and NOT show the bubble.
+  EXPECT_CALL(*browser_window_interface_, IsActive())
+      .WillRepeatedly(testing::Return(false));
+
+  actor_task_list_bubble_controller_->ShowBubble(
+      /*is_start_notification=*/true);
+
+  // Fast forward for delayed show.
+  task_environment()->FastForwardBy(
+      base::Milliseconds(features::kGlicActorUiTaskListBubbleDelayMs.Get()));
+
+  // Bubble widget should not be created.
+  EXPECT_FALSE(actor_task_list_bubble_controller_->IsBubbleShowing());
 }

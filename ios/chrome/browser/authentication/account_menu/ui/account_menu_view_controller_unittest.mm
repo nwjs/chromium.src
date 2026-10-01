@@ -20,6 +20,7 @@
 #import "ios/chrome/browser/settings/ui_bundled/settings_table_view_controller_constants.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/profile/test/test_profile_ios.h"
+#import "ios/chrome/browser/shared/model/profile/test/test_profile_manager_ios.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_text_item.h"
 #import "ios/chrome/browser/shared/ui/table_view/content_configuration/table_view_cell_content_configuration.h"
@@ -29,7 +30,6 @@
 #import "ios/chrome/browser/signin/model/avatar/avatar_provider.h"
 #import "ios/chrome/browser/signin/model/chrome_account_manager_service.h"
 #import "ios/chrome/browser/signin/model/chrome_account_manager_service_factory.h"
-#import "ios/chrome/browser/signin/model/fake_authentication_service_delegate.h"
 #import "ios/chrome/browser/signin/model/fake_system_identity.h"
 #import "ios/chrome/browser/signin/model/fake_system_identity_manager.h"
 #import "ios/chrome/browser/sync/model/sync_service_factory.h"
@@ -143,18 +143,17 @@ class AccountMenuViewControllerTest : public PlatformTest {
     TestProfileIOS::Builder builder;
     builder.AddTestingFactory(
         AuthenticationServiceFactory::GetInstance(),
-        AuthenticationServiceFactory::GetFactoryWithDelegateForTesting(
-            std::make_unique<FakeAuthenticationServiceDelegate>()));
+        AuthenticationServiceFactory::GetDefaultFactory());
     builder.AddTestingFactory(SyncServiceFactory::GetInstance(),
                               base::BindRepeating(&CreateTestSyncService));
-    profile_ = std::move(builder).Build();
+    profile_ = profile_manager_.AddProfileWithBuilder(std::move(builder));
     fake_system_identity_manager_ =
         FakeSystemIdentityManager::FromSystemIdentityManager(
             GetApplicationContext()->GetSystemIdentityManager());
     data_source_.accountManagerService =
-        ChromeAccountManagerServiceFactory::GetForProfile(profile_.get());
+        ChromeAccountManagerServiceFactory::GetForProfile(profile_);
     authentication_service_ =
-        AuthenticationServiceFactory::GetForProfile(profile_.get());
+        AuthenticationServiceFactory::GetForProfile(profile_);
 
     AddPrimaryIdentity();
     AddSecondaryIdentity();
@@ -183,6 +182,10 @@ class AccountMenuViewControllerTest : public PlatformTest {
   }
 
   void TearDown() override {
+    fake_system_identity_manager_ = nullptr;
+    authentication_service_ = nullptr;
+    profile_ = nullptr;
+
     VerifyMock();
     PlatformTest::TearDown();
   }
@@ -260,7 +263,8 @@ class AccountMenuViewControllerTest : public PlatformTest {
   web::WebTaskEnvironment task_environment_{
       base::test::TaskEnvironment::TimeSource::MOCK_TIME};
   IOSChromeScopedTestingLocalState scoped_testing_local_state_;
-  std::unique_ptr<TestProfileIOS> profile_;
+  TestProfileManagerIOS profile_manager_;
+  raw_ptr<TestProfileIOS> profile_;
   raw_ptr<AuthenticationService> authentication_service_;
 };
 
@@ -362,12 +366,28 @@ TEST_F(AccountMenuViewControllerTest, TestSetError) {
       l10n_util::GetNSString(
           IDS_IOS_ACCOUNT_TABLE_ERROR_ENTER_PASSPHRASE_MESSAGE),
       path_for_error_message);
+  UITableViewCell* error_message_cell = GetCell(path_for_error_message);
+  EXPECT_FALSE(error_message_cell.accessibilityElementsHidden);
+  EXPECT_TRUE(error_message_cell.isAccessibilityElement);
+  EXPECT_NSEQ(error_message_cell.accessibilityLabel,
+              l10n_util::GetNSString(
+                  IDS_IOS_ACCOUNT_TABLE_ERROR_ENTER_PASSPHRASE_MESSAGE));
 
   NSIndexPath* path_for_error_button = [NSIndexPath indexPathForRow:1
                                                           inSection:0];
   ExpectTextAtPath(l10n_util::GetNSString(
                        IDS_IOS_ACCOUNT_TABLE_ERROR_ENTER_PASSPHRASE_BUTTON),
                    path_for_error_button);
+  UITableViewCell* error_button_cell = GetCell(path_for_error_button);
+  EXPECT_FALSE(error_button_cell.accessibilityElementsHidden);
+  EXPECT_TRUE(error_button_cell.isAccessibilityElement);
+  EXPECT_EQ(error_button_cell.accessibilityTraits, UIAccessibilityTraitButton);
+  EXPECT_NSEQ(error_button_cell.accessibilityLabel,
+              l10n_util::GetNSString(
+                  IDS_IOS_ACCOUNT_TABLE_ERROR_ENTER_PASSPHRASE_BUTTON));
+  EXPECT_NSEQ(error_button_cell.accessibilityUserInputLabels, @[
+    l10n_util::GetNSString(IDS_IOS_ACCOUNT_TABLE_ERROR_ENTER_PASSPHRASE_BUTTON)
+  ]);
 
   OCMExpect([mutator_ didTapErrorButton]);
   SelectCell(path_for_error_button);

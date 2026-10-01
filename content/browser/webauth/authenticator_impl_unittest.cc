@@ -117,6 +117,7 @@
 #include "services/data_decoder/public/cpp/test_support/in_process_data_decoder.h"
 #include "services/metrics/public/cpp/ukm_builders.h"
 #include "services/metrics/public/cpp/ukm_source.h"
+#include "services/network/public/cpp/content_security_policy/content_security_policy.h"
 #include "services/network/public/cpp/permissions_policy/permissions_policy_declaration.h"
 #include "services/network/public/mojom/network_context.mojom.h"
 #include "services/network/public/mojom/permissions_policy/permissions_policy_feature.mojom-shared.h"
@@ -4061,6 +4062,9 @@ TEST_F(AuthenticatorImplTest, GetPublicKey) {
       {device::CoseAlgorithmIdentifier::kEs256, EVP_PKEY_EC},
       {device::CoseAlgorithmIdentifier::kRs256, EVP_PKEY_RSA},
       {device::CoseAlgorithmIdentifier::kEdDSA, EVP_PKEY_ED25519},
+      {device::CoseAlgorithmIdentifier::kMlDsa44, EVP_PKEY_ML_DSA_44},
+      {device::CoseAlgorithmIdentifier::kMlDsa65, EVP_PKEY_ML_DSA_65},
+      {device::CoseAlgorithmIdentifier::kMlDsa87, EVP_PKEY_ML_DSA_87},
       {device::CoseAlgorithmIdentifier::kInvalidForTesting, std::nullopt},
   };
 
@@ -4175,6 +4179,9 @@ TEST_F(AuthenticatorImplTest, VirtualAuthenticatorPublicKeyAlgos) {
       {device::CoseAlgorithmIdentifier::kEs256, EVP_sha256()},
       {device::CoseAlgorithmIdentifier::kRs256, EVP_sha256()},
       {device::CoseAlgorithmIdentifier::kEdDSA, nullptr},
+      {device::CoseAlgorithmIdentifier::kMlDsa44, nullptr},
+      {device::CoseAlgorithmIdentifier::kMlDsa65, nullptr},
+      {device::CoseAlgorithmIdentifier::kMlDsa87, nullptr},
   };
 
   std::vector<device::CoseAlgorithmIdentifier> advertised_algorithms;
@@ -5338,7 +5345,7 @@ TEST_F(AuthenticatorImplTest, InactiveRenderFrameHost) {
   // inactive.
   static_cast<RenderFrameHostImpl*>(main_rfh())
       ->SetLifecycleState(
-          RenderFrameHostImpl::LifecycleStateImpl::kInBackForwardCache);
+          RenderFrameHostLifecycleStateImpl::kInBackForwardCache);
   ASSERT_FALSE(main_rfh()->IsActive());
 
   // Try to connect to the authenticator service.

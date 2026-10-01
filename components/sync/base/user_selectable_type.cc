@@ -110,7 +110,7 @@ UserSelectableTypeInfo GetUserSelectableTypeInfo(
       // In Chrome OS, "Apps" is a sub-item of OS settings.
       return {kAppsTypeName, UNSPECIFIED};
 #else
-      return {kAppsTypeName, APPS, {APPS, APP_SETTINGS, WEB_APPS, WEB_APKS}};
+      return {kAppsTypeName, APPS, {APPS, APP_SETTINGS, WEB_APPS}};
 #endif
     case UserSelectableType::kReadingList:
       return {kReadingListTypeName, READING_LIST, {READING_LIST}};

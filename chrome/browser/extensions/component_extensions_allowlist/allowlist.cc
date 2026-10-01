@@ -26,7 +26,6 @@
 #include "ash/constants/ash_extension_constants.h"
 #include "ash/keyboard/ui/grit/keyboard_resources.h"
 #include "chrome/browser/ash/input_method/component_extension_ime_manager_delegate_impl.h"
-#include "chromeos/constants/chromeos_features.h"
 #include "ui/file_manager/grit/file_manager_resources.h"
 #endif
 
@@ -36,6 +35,7 @@ namespace extensions {
 
 bool IsComponentExtensionAllowlisted(const std::string& extension_id) {
   constexpr auto kAllowed = base::MakeFixedFlatSet<std::string_view>({
+      extension_misc::kAimEligibilityExtensionId,
       extension_misc::kContextualTasksExtensionId,
       extension_misc::kGlicExtensionId,
       extension_misc::kInAppPaymentsSupportAppId,
@@ -61,7 +61,6 @@ bool IsComponentExtensionAllowlisted(const std::string& extension_id) {
       extension_misc::kComponentUpdaterTTSEngineExtensionId,
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_MAC)
 #if !BUILDFLAG(IS_ANDROID)
-      extension_misc::kAimEligibilityExtensionId,
       extension_misc::kIndigoExtensionId,
       extension_misc::kDictationConnectorExtensionId,
 #endif  // !BUILDFLAG(IS_ANDROID)
@@ -72,8 +71,7 @@ bool IsComponentExtensionAllowlisted(const std::string& extension_id) {
   }
 
 #if BUILDFLAG(IS_CHROMEOS)
-  if (chromeos::features::IsUploadOfficeToCloudEnabled() &&
-      extension_id == extension_misc::kODFSExtensionId) {
+  if (extension_id == extension_misc::kODFSExtensionId) {
     return true;
   }
 

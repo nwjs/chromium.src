@@ -9,7 +9,7 @@
 
 #include "ash/constants/ash_features.h"
 #include "ash/drag_drop/drag_image_view.h"
-#include "ash/public/cpp/style/color_provider.h"
+#include "ash/style/style_util.h"
 #include "base/time/time.h"
 #include "ui/aura/window.h"
 #include "ui/base/dragdrop/mojom/drag_drop_types.mojom-shared.h"
@@ -37,7 +37,7 @@ constexpr base::TimeDelta kProxyAnimationDuration = base::Milliseconds(200);
 // icon that makes the icon looks smaller than its actual size. The shadow is
 // needed to resize to align with the visual icon. Note that this constant is
 // the same as `kBackgroundCircleScale` in
-// chrome/browser/apps/icon_standardizer.cc
+// ui/gfx/image/icon_standardizer.cc
 constexpr float kShadowScaleFactor = 176.f / 192.f;
 
 AppDragIconProxy::AppDragIconProxy(
@@ -85,8 +85,7 @@ AppDragIconProxy::AppDragIconProxy(
   const gfx::Point shadow_offset(
       (size.width() - scaled_shadow_size.width()) / 2,
       (size.height() - scaled_shadow_size.height()) / 2);
-  shadow_ = SystemShadow::CreateShadowOnNinePatchLayer(
-      kShadowType, SystemShadow::LayerRecreatedCallback());
+  shadow_ = SystemShadow::CreateShadowOnNinePatchLayer(kShadowType);
   shadow_->SetRoundedCorners(
       gfx::RoundedCornersF(scaled_shadow_size.width() / 2.0f));
   drag_image->AddLayerToRegion(shadow_->GetLayer(), views::LayerRegion::kBelow);
@@ -108,9 +107,8 @@ AppDragIconProxy::AppDragIconProxy(
 
     blurred_layer->SetRoundedCornerRadius(
         {corner_radius, corner_radius, corner_radius, corner_radius});
-    blurred_layer->SetBackgroundBlur(ColorProvider::kBackgroundBlurSigma);
-    blurred_layer->SetBackdropFilterQuality(
-        ColorProvider::kBackgroundBlurQuality);
+    blurred_layer->SetBackgroundBlur(StyleUtil::kBackgroundBlurSigma);
+    blurred_layer->SetBackdropFilterQuality(StyleUtil::kBackgroundBlurQuality);
   }
 
   drag_image_widget_->SetVisibilityAnimationTransition(

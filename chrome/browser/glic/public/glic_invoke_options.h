@@ -231,10 +231,12 @@ struct TabSharingOptions {
 
 // Specifies how to wait for the First Run Experience (FRE) to complete.
 enum class FreCompletionWaitMode {
-  // Whether or not we wait depends on the FRE override.
+  // Whether or not we wait depends on the FRE override and context.
   kDefault,
   // We do not wait for the FRE to complete, regardless of the FRE override.
   kNever,
+  // Always wait for the FRE to complete before proceeding.
+  kAlways,
 };
 
 // Configuration options for invoking Glic.
@@ -268,6 +270,10 @@ struct GlicInvokeOptions {
 
   // Tabs to pin as part of invocation.
   TabSharingOptions tab_sharing;
+
+  // Whether to automatically pin the target tab when the side panel is bound
+  // to it. Defaults to true.
+  bool pin_on_bind = true;
 
   // Defines the target for the invocation (surface and conversation).
   Target target;

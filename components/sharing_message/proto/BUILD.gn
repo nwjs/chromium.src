@@ -1,15 +1,19 @@
 # Copyright 2019 The Chromium Authors
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
+
 import("//third_party/protobuf/proto_library.gni")
+
 group("proto_lite") {
   public_deps = [
     ":proto",
     "//third_party/protobuf:protobuf_lite",
   ]
 }
+
 proto_library("proto") {
   sources = [
+    "actuator_downstream_message.proto",
     "glic_experimental_triggering.proto",
     "one_time_token_backend_notification.proto",
     "optimization_guide_push_notification.proto",
@@ -20,4 +24,5 @@ proto_library("proto") {
     "sms_fetch_message_test_proto3_optional.proto",
     "timestamp.proto",
   ]
+  deps = [ "//third_party/protobuf:any_proto" ]
 }

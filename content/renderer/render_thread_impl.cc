@@ -898,6 +898,13 @@ void RenderThreadImpl::RegisterSchemes() {
   WebSecurityPolicy::RegisterURLSchemeAsAllowingWasmEvalCSP(
       chrome_untrusted_scheme);
 
+  const base::CommandLine& command_line =
+      *base::CommandLine::ForCurrentProcess();
+  if (command_line.HasSwitch(switches::kAllowFileAccessFromFiles)) {
+    WebSecurityPolicy::RegisterURLSchemeAsSupportingFetchAPI(
+        WebString::FromAscii(url::kFileScheme));
+  }
+
   if (base::FeatureList::IsEnabled(features::kWebUICodeCache)) {
     WebSecurityPolicy::RegisterURLSchemeAsCodeCacheWithHashing(chrome_scheme);
     WebSecurityPolicy::RegisterURLSchemeAsCodeCacheWithHashing(
@@ -1583,6 +1590,7 @@ RenderThreadImpl::SharedCompositorWorkerContextProvider(
   auto shared_memory_limits =
       support_gpu_rasterization ? gpu::SharedMemoryLimits::ForGPURasterContext()
                                 : gpu::SharedMemoryLimits();
+  base::TimeTicks create_start_time = base::TimeTicks::Now();
   shared_worker_context_provider_ =
       viz::ContextProviderCommandBuffer::CreateForRaster(
           std::move(gpu_channel_host), kGpuStreamIdWorker,
@@ -1594,10 +1602,15 @@ RenderThreadImpl::SharedCompositorWorkerContextProvider(
           viz::command_buffer_metrics::ContextType::RENDERER_RASTER_WORKER);
 
   auto result = shared_worker_context_provider_->BindToCurrentSequence();
+  const base::TimeDelta elapsed = base::TimeTicks::Now() - create_start_time;
   if (result != gpu::ContextResult::kSuccess) {
+    base::UmaHistogramTimes(
+        "GPU.CreateSharedWorkerContextProvider.Duration.Failure", elapsed);
     shared_worker_context_provider_ = nullptr;
     return nullptr;
   }
+  base::UmaHistogramTimes(
+      "GPU.CreateSharedWorkerContextProvider.Duration.Success", elapsed);
 
   return shared_worker_context_provider_;
 }

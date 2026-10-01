@@ -56,7 +56,7 @@ TEST_F(AccountPreviewMetricsRecorderTest, RecordMetrics) {
 
   AccountInfo account_info =
       identity_test_env()->MakeAccountAvailable("user@example.com");
-  GaiaId gaia_id = account_info.gaia;
+  GaiaId gaia_id = account_info.GetGaiaId();
 
   account_info = AccountInfo::Builder(account_info)
                      .SetHostedDomain(signin::constants::kNoHostedDomainFound)
@@ -131,7 +131,7 @@ TEST_F(AccountPreviewMetricsRecorderTest, RecordMetricsSupervised) {
 
   AccountInfo account_info =
       identity_test_env()->MakeAccountAvailable("supervised@example.com");
-  GaiaId gaia_id = account_info.gaia;
+  GaiaId gaia_id = account_info.GetGaiaId();
 
   account_info = AccountInfo::Builder(account_info)
                      .SetHostedDomain(signin::constants::kNoHostedDomainFound)
@@ -167,7 +167,7 @@ TEST_F(AccountPreviewMetricsRecorderTest, DropAccountsAboveFive) {
 
   AccountInfo account_info =
       identity_test_env()->MakeAccountAvailable("user5@example.com");
-  GaiaId gaia_id = account_info.gaia;
+  GaiaId gaia_id = account_info.GetGaiaId();
 
   account_info = AccountInfo::Builder(account_info)
                      .SetHostedDomain(signin::constants::kNoHostedDomainFound)
@@ -190,7 +190,7 @@ TEST_F(AccountPreviewMetricsRecorderTest, RecordMetricsProfileOverflow) {
 
   AccountInfo account_info =
       identity_test_env()->MakeAccountAvailable("user@example.com");
-  GaiaId gaia_id = account_info.gaia;
+  GaiaId gaia_id = account_info.GetGaiaId();
 
   account_info = AccountInfo::Builder(account_info)
                      .SetHostedDomain(signin::constants::kNoHostedDomainFound)
@@ -293,7 +293,7 @@ TEST_F(AccountPreviewMetricsRecorderTest,
   // Score = 12
 
   AccountPreviewHeuristicContext ctx{
-      .gaia_id = primary_info.gaia,
+      .gaia_id = primary_info.GetGaiaId(),
       .preview_data = raw_ref(data),
   };
 
@@ -353,7 +353,7 @@ TEST_F(AccountPreviewMetricsRecorderTest,
   // Score = 4 + 2 = 6
 
   AccountPreviewHeuristicContext ctx0{
-      .gaia_id = primary_info.gaia,
+      .gaia_id = primary_info.GetGaiaId(),
       .preview_data = raw_ref(data0),
   };
   AccountPreviewHeuristicContext ctx1{
@@ -426,7 +426,7 @@ TEST_F(
   // Score = 12, cross device
 
   AccountPreviewHeuristicContext ctx0{
-      .gaia_id = primary_info.gaia,
+      .gaia_id = primary_info.GetGaiaId(),
       .preview_data = raw_ref(data0),
   };
   AccountPreviewHeuristicContext ctx1{
@@ -496,7 +496,7 @@ TEST_F(
   // Score = 4 + 2 + 2 = 8
 
   AccountPreviewHeuristicContext ctx0{
-      .gaia_id = primary_info.gaia,
+      .gaia_id = primary_info.GetGaiaId(),
       .preview_data = raw_ref(data0),
   };
   AccountPreviewHeuristicContext ctx1{

@@ -42,6 +42,7 @@
 #include "third_party/blink/public/mojom/blob/blob_url_store.mojom-forward.h"
 #include "third_party/blink/public/mojom/broadcastchannel/broadcast_channel.mojom.h"
 #include "third_party/blink/public/mojom/frame/back_forward_cache_controller.mojom.h"
+#include "third_party/blink/public/mojom/hid/hid.mojom-forward.h"
 #include "third_party/blink/public/mojom/idle/idle_manager.mojom-forward.h"
 #include "third_party/blink/public/mojom/loader/code_cache.mojom.h"
 #include "third_party/blink/public/mojom/loader/content_security_notifier.mojom.h"
@@ -57,7 +58,6 @@
 
 #if !BUILDFLAG(IS_ANDROID)
 #include "third_party/blink/public/mojom/direct_sockets/direct_sockets.mojom-forward.h"
-#include "third_party/blink/public/mojom/hid/hid.mojom-forward.h"
 #endif
 
 #if BUILDFLAG(ENABLE_COMPUTE_PRESSURE)
@@ -138,6 +138,9 @@ class CONTENT_EXPORT DedicatedWorkerHost final
   const blink::StorageKey& GetWorkerStorageKey() const {
     return worker_storage_key_;
   }
+  net::StorageAccessApiStatus storage_access_api_status() const {
+    return storage_access_api_status_;
+  }
   GlobalRenderFrameHostId GetAncestorRenderFrameHostId() const;
   // Returns the ancestor RenderFrameHost if it still hosts the document that
   // created this worker, or nullptr otherwise.
@@ -203,9 +206,7 @@ class CONTENT_EXPORT DedicatedWorkerHost final
 
   void BindSerialService(
       mojo::PendingReceiver<blink::mojom::SerialService> receiver);
-#if !BUILDFLAG(IS_ANDROID)
   void BindHidService(mojo::PendingReceiver<blink::mojom::HidService> receiver);
-#endif
 
   void StartScriptLoad(
       const GURL& script_url,

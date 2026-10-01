@@ -1995,6 +1995,20 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     getter writable
 [Worker]     method constructor
 [Worker]     method sendKeyFrameRequest
+[Worker] interface RTCRtpSenderEncodedSource : EventTarget
+[Worker]     attribute @@toStringTag
+[Worker]     getter allocatedBitrate
+[Worker]     getter availableOutgoingBitrate
+[Worker]     getter onbitrateinfochange
+[Worker]     getter onkeyframerequest
+[Worker]     getter writable
+[Worker]     method constructor
+[Worker]     setter onbitrateinfochange
+[Worker]     setter onkeyframerequest
+[Worker] interface RTCRtpSenderEncodedSourceEvent : Event
+[Worker]     attribute @@toStringTag
+[Worker]     getter encodedSource
+[Worker]     method constructor
 [Worker] interface RTCTransformEvent : Event
 [Worker]     attribute @@toStringTag
 [Worker]     getter transformer
@@ -2222,7 +2236,6 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     attribute @@toStringTag
 [Worker]     getter appendWindowEnd
 [Worker]     getter appendWindowStart
-[Worker]     getter audioTracks
 [Worker]     getter buffered
 [Worker]     getter mode
 [Worker]     getter onabort
@@ -2233,7 +2246,6 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     getter timestampOffset
 [Worker]     getter trackDefaults
 [Worker]     getter updating
-[Worker]     getter videoTracks
 [Worker]     method abort
 [Worker]     method appendBuffer
 [Worker]     method appendEncodedChunks
@@ -2294,15 +2306,21 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     method error
 [Worker]     method next
 [Worker] interface SubtleCrypto
+[Worker]     static method supports
 [Worker]     attribute @@toStringTag
 [Worker]     method constructor
+[Worker]     method decapsulateBits
+[Worker]     method decapsulateKey
 [Worker]     method decrypt
 [Worker]     method deriveBits
 [Worker]     method deriveKey
 [Worker]     method digest
+[Worker]     method encapsulateBits
+[Worker]     method encapsulateKey
 [Worker]     method encrypt
 [Worker]     method exportKey
 [Worker]     method generateKey
+[Worker]     method getPublicKey
 [Worker]     method importKey
 [Worker]     method sign
 [Worker]     method unwrapKey
@@ -3344,6 +3362,7 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     method drawElementsInstanced
 [Worker]     method drawRangeElements
 [Worker]     method drawingBufferStorage
+[Worker]     method drawingBufferToneMapping
 [Worker]     method enable
 [Worker]     method enableVertexAttribArray
 [Worker]     method endQuery
@@ -3879,6 +3898,7 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     method drawArrays
 [Worker]     method drawElements
 [Worker]     method drawingBufferStorage
+[Worker]     method drawingBufferToneMapping
 [Worker]     method enable
 [Worker]     method enableVertexAttribArray
 [Worker]     method finish
@@ -4038,6 +4058,7 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     method close
 [Worker]     method constructor
 [Worker] interface WebTransport
+[Worker]     static getter supportsReliableOnly
 [Worker]     attribute @@toStringTag
 [Worker]     getter anticipatedConcurrentIncomingBidirectionalStreams
 [Worker]     getter anticipatedConcurrentIncomingUnidirectionalStreams
@@ -4049,6 +4070,7 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     getter incomingUnidirectionalStreams
 [Worker]     getter protocol
 [Worker]     getter ready
+[Worker]     getter reliability
 [Worker]     getter responseHeaders
 [Worker]     method close
 [Worker]     method constructor
@@ -4354,6 +4376,7 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     getter name
 [Worker]     getter onmessage
 [Worker]     getter onmessageerror
+[Worker]     getter onrtcsenderencodedsource
 [Worker]     getter onrtctransform
 [Worker]     method cancelAnimationFrame
 [Worker]     method close
@@ -4367,6 +4390,7 @@ Starting worker: resources/global-interface-listing-worker.js
 [Worker]     setter name
 [Worker]     setter onmessage
 [Worker]     setter onmessageerror
+[Worker]     setter onrtcsenderencodedsource
 [Worker]     setter onrtctransform
 PASS successfullyParsed is true
 

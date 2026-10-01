@@ -37,6 +37,7 @@ import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
+import org.mockito.quality.Strictness;
 import org.robolectric.RuntimeEnvironment;
 import org.robolectric.annotation.Config;
 
@@ -65,7 +66,9 @@ import java.util.List;
 /** Tests for {@link BaseSuggestionViewBinder}. */
 @RunWith(BaseRobolectricTestRunner.class)
 public class BaseSuggestionViewBinderUnitTest {
-    @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
+    @Rule
+    public final MockitoRule mMockitoRule = MockitoJUnit.rule().strictness(Strictness.STRICT_STUBS);
+
     @Mock private Runnable mRunnable;
     @Mock private View mView;
     @Captor private ArgumentCaptor<Drawable> mBackgroundCaptor;
@@ -88,9 +91,11 @@ public class BaseSuggestionViewBinderUnitTest {
         mBaseView = spy(new BaseSuggestionView<>(new ImageView(mContext)));
         mIconView = mBaseView.decorationIcon;
 
-        mModel = new PropertyModel(BaseSuggestionViewProperties.ALL_KEYS);
         mResourceProvider = new OmniboxResourceProvider(mContext, BrandedColorScheme.APP_DEFAULT);
-        mModel.set(SuggestionCommonProperties.RESOURCE_PROVIDER, mResourceProvider);
+        mModel =
+                new PropertyModel.Builder(BaseSuggestionViewProperties.ALL_KEYS)
+                        .with(SuggestionCommonProperties.RESOURCE_PROVIDER, mResourceProvider)
+                        .build();
         mBinder =
                 new TestBaseSuggestionViewBinder<>(
                         (m, v, p) -> {
@@ -156,7 +161,7 @@ public class BaseSuggestionViewBinderUnitTest {
         assertEquals(View.VISIBLE, actionButtons.get(0).getVisibility());
         assertEquals(list.get(0).icon.drawable, actionButtons.get(0).getDrawable());
         assertNull(actionButtons.get(0).getBackground());
-        verify(mBaseView, times(1)).addView(actionButtons.get(0));
+        verify(mBaseView).addView(actionButtons.get(0));
 
         assertTrue(actionButtons.get(0).performClick());
         assertTrue(actionButtons.get(0).performClick());
@@ -195,20 +200,20 @@ public class BaseSuggestionViewBinderUnitTest {
         assertEquals(View.VISIBLE, actionButtons.get(1).getVisibility());
         assertEquals(View.VISIBLE, actionButtons.get(2).getVisibility());
 
-        verify(mBaseView, times(1)).addView(actionButtons.get(0));
-        verify(mBaseView, times(1)).addView(actionButtons.get(1));
-        verify(mBaseView, times(1)).addView(actionButtons.get(2));
+        verify(mBaseView).addView(actionButtons.get(0));
+        verify(mBaseView).addView(actionButtons.get(1));
+        verify(mBaseView).addView(actionButtons.get(2));
 
         assertEquals(list.get(0).icon.drawable, actionButtons.get(0).getDrawable());
         assertEquals(list.get(1).icon.drawable, actionButtons.get(1).getDrawable());
         assertEquals(list.get(2).icon.drawable, actionButtons.get(2).getDrawable());
 
         assertTrue(actionButtons.get(0).performClick());
-        verify(call1, times(1)).run();
+        verify(call1).run();
         assertTrue(actionButtons.get(1).performClick());
-        verify(call2, times(1)).run();
+        verify(call2).run();
         assertTrue(actionButtons.get(2).performClick());
-        verify(call3, times(1)).run();
+        verify(call3).run();
     }
 
     @Test
@@ -237,27 +242,27 @@ public class BaseSuggestionViewBinderUnitTest {
         final View actionButton1 = actionButtons.get(0);
         final View actionButton2 = actionButtons.get(1);
         final View actionButton3 = actionButtons.get(2);
-        verify(mBaseView, times(1)).addView(actionButton1);
-        verify(mBaseView, times(1)).addView(actionButton2);
-        verify(mBaseView, times(1)).addView(actionButton3);
+        verify(mBaseView).addView(actionButton1);
+        verify(mBaseView).addView(actionButton2);
+        verify(mBaseView).addView(actionButton3);
 
         mModel.set(BaseSuggestionViewProperties.ACTION_BUTTONS, list.subList(0, 2));
         assertEquals(2, actionButtons.size());
-        verify(mBaseView, times(1)).removeView(actionButton3);
+        verify(mBaseView).removeView(actionButton3);
 
         mModel.set(BaseSuggestionViewProperties.ACTION_BUTTONS, list.subList(0, 1));
         assertEquals(1, actionButtons.size());
-        verify(mBaseView, times(1)).removeView(actionButton2);
+        verify(mBaseView).removeView(actionButton2);
 
         mModel.set(BaseSuggestionViewProperties.ACTION_BUTTONS, null);
         assertEquals(0, actionButtons.size());
-        verify(mBaseView, times(1)).removeView(actionButton1);
+        verify(mBaseView).removeView(actionButton1);
     }
 
     @Test
     public void actionIcon_dontCrashWhenRecycling() {
         // Force a dirty/recycled view that would have a button view, when the model does not carry
-        // any aciton.
+        // any action.
         assertNull(mModel.get(BaseSuggestionViewProperties.ACTION_BUTTONS));
         mBaseView.setActionButtonsCount(1);
         // Change in color scheme happening ahead of setting action could cause a crash.
@@ -426,15 +431,15 @@ public class BaseSuggestionViewBinderUnitTest {
         var state1 = BaseSuggestionViewBinder.getFocusableDrawableStateForTesting();
 
         // Create a second MVP setup. Use Bare context that has no theme data.
-        var newModel = new PropertyModel(BaseSuggestionViewProperties.ALL_KEYS);
         var viewWithNoContext = spy(new BaseSuggestionView<>(new ImageView(mBareContext)));
         OmniboxResourceProvider bareResourceProvider =
                 new OmniboxResourceProvider(mBareContext, BrandedColorScheme.APP_DEFAULT);
-        newModel.set(SuggestionCommonProperties.RESOURCE_PROVIDER, bareResourceProvider);
+        var newModel =
+                new PropertyModel.Builder(BaseSuggestionViewProperties.ALL_KEYS)
+                        .with(SuggestionCommonProperties.RESOURCE_PROVIDER, bareResourceProvider)
+                        .build();
         PropertyModelChangeProcessor.create(
-                newModel,
-                viewWithNoContext,
-                new TestBaseSuggestionViewBinder<>((m, v, p) -> {}));
+                newModel, viewWithNoContext, new TestBaseSuggestionViewBinder<>((m, v, p) -> {}));
 
         // Apply the same color scheme to the new model.
         // Observe that we don't crash.

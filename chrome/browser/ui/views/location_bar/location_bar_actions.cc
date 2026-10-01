@@ -9,6 +9,7 @@
 #include "chrome/browser/ui/browser_actions.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/location_bar/location_bar.h"
 #include "chrome/browser/ui/omnibox/clipboard_utils.h"
 #include "chrome/browser/ui/omnibox/omnibox_controller.h"
@@ -22,6 +23,7 @@
 #include "chrome/browser/ui/webui/omnibox_popup/omnibox_popup_ui.h"
 #include "chrome/grit/generated_resources.h"
 #include "chrome/grit/omnibox_popup_resources.h"
+#include "content/public/browser/navigation_controller.h"
 #include "ui/actions/actions.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/ui_base_features.h"
@@ -62,11 +64,10 @@ OmniboxPopupUI* GetAIMPopup(OmniboxPopupPresenterDelegate* delegate) {
   return nullptr;
 }
 
-void AddFileOrImageToOmnibox(
-    BrowserWindowInterface* browser,
-    bool is_image,
-    actions::ActionItem* item,
-    actions::ActionInvocationContext context) {
+void AddFileOrImageToOmnibox(BrowserWindowInterface* browser,
+                             bool is_image,
+                             actions::ActionItem* item,
+                             actions::ActionInvocationContext context) {
   LocationBar* const location_bar = GetLocationBarForActions(browser);
   if (!location_bar) {
     return;
@@ -97,11 +98,10 @@ void AddFileOrImageToOmnibox(
   }
 }
 
-void SetOmniboxToolModeAndOpenAi(
-    BrowserWindowInterface* browser,
-    omnibox::ToolMode tool_mode,
-    actions::ActionItem* item,
-    actions::ActionInvocationContext context) {
+void SetOmniboxToolModeAndOpenAi(BrowserWindowInterface* browser,
+                                 omnibox::ToolMode tool_mode,
+                                 actions::ActionItem* item,
+                                 actions::ActionInvocationContext context) {
   LocationBar* const location_bar = GetLocationBarForActions(browser);
   if (!location_bar) {
     return;
@@ -124,11 +124,10 @@ void SetOmniboxToolModeAndOpenAi(
   edit_model->OpenAiMode(OmniboxEditModel::AimActivation::kContextMenu);
 }
 
-void SetOmniboxModelModeAndOpenAi(
-    BrowserWindowInterface* browser,
-    omnibox::ModelMode model_mode,
-    actions::ActionItem* item,
-    actions::ActionInvocationContext context) {
+void SetOmniboxModelModeAndOpenAi(BrowserWindowInterface* browser,
+                                  omnibox::ModelMode model_mode,
+                                  actions::ActionItem* item,
+                                  actions::ActionInvocationContext context) {
   LocationBar* const location_bar = GetLocationBarForActions(browser);
   if (!location_bar) {
     return;
@@ -177,8 +176,7 @@ void ExecutePasteAndGo(BrowserWindowInterface* browser,
 
 }  // namespace
 
-void RegisterOmniboxActions(
-    BrowserWindowInterface* browser) {
+void RegisterOmniboxActions(BrowserWindowInterface* browser) {
   if (!browser) {
     return;
   }

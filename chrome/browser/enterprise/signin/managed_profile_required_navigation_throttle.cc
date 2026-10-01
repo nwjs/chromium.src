@@ -14,6 +14,7 @@
 #include "chrome/browser/enterprise/signin/interstitials/managed_profile_required_page.h"
 #include "chrome/browser/enterprise/util/managed_browser_utils.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/managed_ui.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "components/security_interstitials/content/security_interstitial_tab_helper.h"
@@ -21,6 +22,8 @@
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/navigation_throttle.h"
 #include "content/public/browser/web_contents.h"
+#include "ui/base/page_transition_types.h"
+#include "ui/base/window_open_disposition.h"
 
 namespace {
 
@@ -39,10 +42,10 @@ class BlockingInfo : public base::SupportsUserData::Data {
   ~BlockingInfo() override {
     if (reload_required_ && !enterprise_action_web_contents_.WasInvalidated()) {
       enterprise_action_web_contents_->OpenURL(
-          content::OpenURLParams(
+          content::OpenURLParams::CreateBrowserInitiated(
               enterprise_action_web_contents_->GetVisibleURL(),
-              content::Referrer(), WindowOpenDisposition::CURRENT_TAB,
-              ui::PAGE_TRANSITION_AUTO_TOPLEVEL, false),
+              WindowOpenDisposition::CURRENT_TAB,
+              ui::PAGE_TRANSITION_AUTO_TOPLEVEL),
           /*navigation_handle_callback=*/std::move(on_reload_triggered_));
     }
   }

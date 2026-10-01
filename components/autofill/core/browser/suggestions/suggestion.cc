@@ -32,6 +32,7 @@
 #if BUILDFLAG(IS_ANDROID)
 #include "base/android/jni_android.h"
 #include "base/android/jni_string.h"
+#include "components/autofill/android/main_autofill_jni_headers/AtMemoryPayload_jni.h"
 #include "components/autofill/android/main_autofill_jni_headers/AutofillAiPayload_jni.h"
 #include "components/autofill/android/main_autofill_jni_headers/AutofillProfilePayload_jni.h"
 #include "components/autofill/android/main_autofill_jni_headers/PaymentsPayload_jni.h"
@@ -145,6 +146,8 @@ std::string_view ConvertIconToPrintableString(Suggestion::Icon icon) {
       return "kMagic";
     case Suggestion::Icon::kOfferTag:
       return "kOfferTag";
+    case Suggestion::Icon::kOpenInNew:
+      return "kOpenInNew";
     case Suggestion::Icon::kOrder:
       return "kOrder";
     case Suggestion::Icon::kOrderSpark:
@@ -402,6 +405,14 @@ Suggestion::AtMemoryPayload& Suggestion::AtMemoryPayload::operator=(
 
 Suggestion::AtMemoryPayload::~AtMemoryPayload() = default;
 
+#if BUILDFLAG(IS_ANDROID)
+base::android::ScopedJavaLocalRef<jobject>
+Suggestion::AtMemoryPayload::CreateJavaObject() const {
+  JNIEnv* env = base::android::AttachCurrentThread();
+  return Java_AtMemoryPayload_Constructor(env, type_name);
+}
+#endif  // BUILDFLAG(IS_ANDROID)
+
 Suggestion::OpenGeminiPayload::OpenGeminiPayload() = default;
 Suggestion::OpenGeminiPayload::OpenGeminiPayload(std::u16string prompt)
     : prompt(std::move(prompt)) {}
@@ -578,6 +589,7 @@ void PrintTo(const Suggestion& suggestion, std::ostream* os) {
 }  // namespace autofill
 
 #if BUILDFLAG(IS_ANDROID)
+DEFINE_JNI(AtMemoryPayload)
 DEFINE_JNI(AutofillProfilePayload)
 DEFINE_JNI(PaymentsPayload)
 #endif

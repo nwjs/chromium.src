@@ -8,12 +8,10 @@
 <translation id="1091252999271033193">Aceasta înseamnă că Chromium va solicita de fiecare dată site-ul mobil.</translation>
 <translation id="1115463765356382667">Finalizează mai jos aceste acțiuni sugerate, pentru a profita din plin de Chromium.</translation>
 <translation id="1185134272377778587">Despre Chromium</translation>
-<translation id="119044033865561140">Deschide instantaneu Chromium când folosești iPadul</translation>
 <translation id="1229234641991056119">Folosește parolele, istoricul, marcajele și cardurile de credit din Safari în Chromium</translation>
 <translation id="1257458525759135959">Pentru a salva imaginile, atinge Setări ca să permiți browserului Chromium să adauge fotografiile</translation>
 <translation id="1260702988262336471">Deschide meniul Chromium</translation>
 <translation id="12739128458173458">Pentru a trimite această filă pe alt dispozitiv, conectează-te la Chromium pe ambele dispozitive.</translation>
-<translation id="1279797561821266129">Accesează Chromium mai rapid din bara de andocare</translation>
 <translation id="1361748954329991663">Chromium nu este actualizat. Dacă nu este disponibilă nicio actualizare în <ph name="BEGIN_LINK" />App Store<ph name="END_LINK" />, e posibil ca dispozitivul tău să nu mai accepte versiuni noi de Chromium.</translation>
 <translation id="1383876407941801731">Caută</translation>
 <translation id="1423007117030725713">Începe o căutare într-o filă Chromium nouă.</translation>
@@ -32,7 +30,6 @@
 <translation id="1553657876656159572">Un feed personalizat creat pentru tine. Include știri, sport și meteo.</translation>
 <translation id="1561849081734670621">Pentru a dezactiva modul Blocare în Chromium, dezactivează-l pe iPhone.</translation>
 <translation id="1569258826720962327">Folosește Acțiuni în Chromium pe iOS</translation>
-<translation id="1573441572176948907">Mută Chromium în bara de andocare</translation>
 <translation id="159029779861043703">Chromium îți păstrează în siguranță datele sensibile cu Face ID.</translation>
 <translation id="1591119736686995611">Deschide grila cu file Chromium.</translation>
 <translation id="16001233025397167">Verificarea de siguranță te protejează împotriva încălcării securității datelor, a site-urilor nesigure și nu numai. Primește alerte cu privire la orice probleme de confidențialitate sau de securitate pe care Chromium le detectează pentru tine.</translation>
@@ -145,6 +142,7 @@ Așteaptă câteva minute înainte să schimbi contul. Dacă schimbi conturile a
 <translation id="3855938650519180865">Ce e nou în Chromium</translation>
 <translation id="3886689467633467988">Conectează-te la acest site și la Chromium pentru a accesa marcajele și multe altele de pe toate dispozitivele tale.</translation>
 <translation id="3949514465204582407">Sfat pentru Chromium: accesează parolele în orice aplicație</translation>
+<translation id="3983298990898629929">Setează Chromium ca browser prestabilit pentru a deschide linkurile cu o singură atingere</translation>
 <translation id="4005283307739974863">Deschide și rulează Verificarea de siguranță în Chromium.</translation>
 <translation id="4043291146360695975">Parolele sunt salvate în Managerul de parole numai pe acest dispozitiv.</translation>
 <translation id="4046625794029820944">Nu mai copia adrese URL. Setează Chromium ca browser prestabilit pentru a încărca paginile direct.</translation>
@@ -182,7 +180,6 @@ Pentru a modifica această setare, <ph name="BEGIN_LINK" />șterge datele Chromi
 <translation id="4790638144988730920">Folosește în continuare datele Chromium din Contul Google.</translation>
 <translation id="4828317641996116749">Chromium nu a putut verifica toate parolele. Încearcă din nou mai târziu.</translation>
 <translation id="4856138222358683580">Acțiuni în Chromium</translation>
-<translation id="4869706986935301458">Deschide instantaneu Chromium când folosești iPhone-ul</translation>
 <translation id="4904452304169763785">Alerte privind orice probleme de confidențialitate sau de securitate pe care Chromium le detectează pentru tine.</translation>
 <translation id="4962295957157529683">Termină ce făceai în cealaltă fereastră Chromium deschisă.</translation>
 <translation id="4985291216379576555">Offline, Chromium nu poate căuta actualizări</translation>
@@ -277,6 +274,7 @@ De reținut:
 <translation id="6680609900732453726">Păstrează navigarea privată cu autentificarea dispozitivului când închizi Chromium</translation>
 <translation id="6696512128741076907">Setează Chromium ca browser prestabilit pentru a deschide instantaneu linkuri din alte aplicații.</translation>
 <translation id="6752854822223394465">Organizația ta configurează Chromium...</translation>
+<translation id="6777348401413221846">Videoclip pe ecran complet despre cum să setezi Chromium ca browser prestabilit: deschide Setările Chromium în iOS, atinge Aplicația browser prestabilit și selectează Chromium.</translation>
 <translation id="6794054469102824109">Deschide jocul Chromium Dino.</translation>
 <translation id="6820823224820483452">Chromium nu a putut verifica toate parolele. Încearcă din nou mâine.</translation>
 <translation id="6830782797004194206">Conectează-te mai rapid cu ajutorul completării automate din Chromium</translation>
@@ -306,8 +304,8 @@ Numai un utilizator care deține expresia ta de acces îți poate citi datele cr
 <translation id="7337881442233988129">Chromium</translation>
 <translation id="7395825497086981028">Parola se va salva în Managerul de parole pentru <ph name="EMAIL" />.</translation>
 <translation id="7434848749522628428">Cheia de acces se va salva în Managerul de parole pentru <ph name="USER_EMAIL" />.</translation>
+<translation id="7453822113116681031">Setează Chromium ca browser prestabilit pentru a deschide linkurile cu o singură atingere</translation>
 <translation id="7504829997542308412">Deschide Chromium</translation>
-<translation id="7507535968973352823">Plasează Chromium în partea de jos pentru a-l accesa oricând</translation>
 <translation id="7531461704633548377">Din Chromium</translation>
 <translation id="7554983317097061001">Sfat pentru Chromium: mută Chromium în bara de andocare</translation>
 <translation id="7576863740961052505">Gestionează setările Chromium</translation>
@@ -357,7 +355,6 @@ Numai un utilizator care deține expresia ta de acces îți poate citi datele cr
 <translation id="8730503818204408000">Deschide setarea Chromium pentru a seta Chromium ca browser prestabilit.</translation>
 <translation id="8754966941001340678">Chromium recomandă protecția îmbunătățită</translation>
 <translation id="8759037115129007407">Momentan, membrul familiei nu poate primi parole. Solicită-i să actualizeze Chromium și să-și sincronizeze parolele. <ph name="BEGIN_LINK" />Află mai multe<ph name="END_LINK" /></translation>
-<translation id="8769418653786388149">Ia-ți browserul Chromium cu tine</translation>
 <translation id="8776843108004031667">Acest cont și toate datele nesalvate vor fi eliminate din Chromium.</translation>
 <translation id="8793333988063379360">Poți găsi setările Chromium și multe altele aici</translation>
 <translation id="8805148242934787134">Setează Chromium ca browser prestabilit</translation>

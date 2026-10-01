@@ -7,7 +7,6 @@
 #ifndef ANDROID_WEBVIEW_BROWSER_AW_BROWSER_PROCESS_H_
 #define ANDROID_WEBVIEW_BROWSER_AW_BROWSER_PROCESS_H_
 
-#include "android_webview/browser/aw_apk_type.h"
 #include "android_webview/browser/aw_browser_context.h"
 #include "android_webview/browser/aw_content_browser_client.h"
 #include "android_webview/browser/aw_enterprise_authentication_app_link_manager.h"
@@ -40,7 +39,6 @@ namespace prefs {
 // Used for Kerberos authentication.
 extern const char kAuthAndroidNegotiateAccountType[];
 extern const char kAuthServerAllowlist[];
-extern const char kEnterpriseAuthAppLinkPolicy[];
 extern const char kLastKnownAppCacheQuota[];
 
 }  // namespace prefs
@@ -99,8 +97,6 @@ class AwBrowserProcess : public WebViewAppStateObserver {
 
   static void RegisterNetworkContextLocalStatePrefs(
       PrefRegistrySimple* pref_registry);
-  static void RegisterEnterpriseAuthenticationAppLinkPolicyPref(
-      PrefRegistrySimple* pref_registry);
   static void RegisterAppCacheQuotaLocalStatePref(
       PrefRegistrySimple* pref_registry);
 
@@ -108,10 +104,6 @@ class AwBrowserProcess : public WebViewAppStateObserver {
   network::mojom::HttpAuthDynamicParamsPtr CreateHttpAuthDynamicParams();
 
   void PreMainMessageLoopRun();
-
-  static void TriggerMinidumpUploading();
-  static ApkType GetApkType();
-  static bool IsAppVisibleToUser();
 
   EnterpriseAuthenticationAppLinkManager*
   GetEnterpriseAuthenticationAppLinkManager();

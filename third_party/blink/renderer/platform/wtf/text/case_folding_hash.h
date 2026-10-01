@@ -49,10 +49,10 @@ template <class T>
   requires std::is_same_v<T, LChar> || std::is_same_v<T, UChar>
 struct CaseFoldingHashReader {
   // We never contract 16 to 8 bits, so this must always be 1.
-  static constexpr unsigned kCompressionFactor = 1;
+  static constexpr size_t kCompressionFactor = 1;
 
   // We always produce UTF-16 output, even if we take in Latin1.
-  static constexpr unsigned kExpansionFactor = sizeof(UChar) / sizeof(T);
+  static constexpr size_t kExpansionFactor = sizeof(UChar) / sizeof(T);
 
   static inline uint64_t Read64(const uint8_t* ptr) {
     const T* p = reinterpret_cast<const T*>(ptr);
@@ -96,26 +96,21 @@ class DeprecatedCaseFoldingHash {
   STATIC_ONLY(DeprecatedCaseFoldingHash);
 
  public:
-  static unsigned GetHash(base::span<const UChar> span) {
-    base::span<const char> bytes = base::as_chars(span);
-    return StringHasher::ComputeHashAndMaskTop8Bits<
-        CaseFoldingHashReader<UChar>>(bytes.data(), bytes.size());
+  static uint32_t GetHash(base::span<const UChar> span) {
+    return HashString24<CaseFoldingHashReader<UChar>>(base::as_bytes(span));
   }
 
-  static unsigned GetHash(StringImpl* str) {
+  static uint32_t GetHash(StringImpl* str) {
     if (str->Is8Bit())
       return GetHash(str->Span8());
     return GetHash(str->Span16());
   }
 
-  static unsigned GetHash(base::span<const LChar> span) {
-    base::span<const char> bytes = base::as_chars(span);
-    using Reader = CaseFoldingHashReader<LChar>;
-    return StringHasher::ComputeHashAndMaskTop8Bits<Reader>(
-        bytes.data(), bytes.size() * Reader::kExpansionFactor);
+  static uint32_t GetHash(base::span<const LChar> span) {
+    return HashString24<CaseFoldingHashReader<LChar>>(span);
   }
 
-  static inline unsigned GetHash(base::span<const char> span) {
+  static inline uint32_t GetHash(base::span<const char> span) {
     return GetHash(base::as_byte_span(span));
   }
 
@@ -134,7 +129,7 @@ class DeprecatedCaseFoldingHash {
     return blink::DeprecatedEqualIgnoringCaseAndNullity(a, b);
   }
 
-  static unsigned GetHash(const scoped_refptr<StringImpl>& key) {
+  static uint32_t GetHash(const scoped_refptr<StringImpl>& key) {
     return GetHash(key.get());
   }
 
@@ -143,8 +138,8 @@ class DeprecatedCaseFoldingHash {
     return Equal(a.get(), b.get());
   }
 
-  static unsigned GetHash(const String& key) { return GetHash(key.Impl()); }
-  static unsigned GetHash(const AtomicString& key) {
+  static uint32_t GetHash(const String& key) { return GetHash(key.Impl()); }
+  static uint32_t GetHash(const AtomicString& key) {
     return GetHash(key.Impl());
   }
   static bool Equal(const String& a, const String& b) {

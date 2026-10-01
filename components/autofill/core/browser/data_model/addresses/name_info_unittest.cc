@@ -1131,8 +1131,22 @@ INSTANTIATE_TEST_SUITE_P(
                          {.full_name = u"ワ・タシ", .other_full_name = u"タシ"},
                          {.full_name = u"이영호", .other_full_name = u"이"},
                          {.full_name = u"이영호", .other_full_name = u"영호"},
+                         {.full_name = u"이영호", .other_full_name = u"이영"},
+                         {.full_name = u"이영호", .other_full_name = u"영"},
+                         {.full_name = u"이영호",
+                          .other_full_name = u"이호",
+                          .are_variant = false},
+                         {.full_name = u"이영호",
+                          .other_full_name = u"호",
+                          .are_variant = false},
                          {.full_name = u"이 영호", .other_full_name = u"영호"},
                          {.full_name = u"이 영호", .other_full_name = u"이"},
+                         {.full_name = u"이 영호",
+                          .other_full_name = u"이호",
+                          .are_variant = false},
+                         {.full_name = u"이 영호",
+                          .other_full_name = u"호",
+                          .are_variant = false},
                          {.full_name = u"王", .other_full_name = u""},
                          {.full_name = u"王", .other_full_name = u"  "},
                          {.full_name = u"王", .other_full_name = u"・  ・"},
@@ -1381,6 +1395,38 @@ TEST_F(NameInfoTest, AssigningNameInfoWithAlternativeName) {
   EXPECT_EQ(new_profile.GetRawInfo(ALTERNATIVE_GIVEN_NAME), u"alt_given");
   EXPECT_EQ(new_profile.GetRawInfo(ALTERNATIVE_FAMILY_NAME), u"alt_family");
   EXPECT_EQ(new_profile.GetRawInfo(ALTERNATIVE_FULL_NAME),
+            u"alt_familyalt_given");
+}
+
+// Tests that moving a NameInfo object via move constructor and move assignment
+// properly transfers its values and alternative names.
+TEST_F(NameInfoTest, MovingNameInfoWithAlternativeName) {
+  NameInfo jp_profile =
+      CreateNameInfo(u"John", u"", u"Doe", u"", u"alt_given", u"alt_family",
+                     u"alt_familyalt_given",
+                     /*should_support_alternative_name=*/true);
+
+  // Test move construction.
+  NameInfo moved_constructed_profile(std::move(jp_profile));
+  EXPECT_EQ(moved_constructed_profile.GetRawInfo(NAME_FIRST), u"John");
+  EXPECT_EQ(moved_constructed_profile.GetRawInfo(NAME_LAST), u"Doe");
+  EXPECT_EQ(moved_constructed_profile.GetRawInfo(ALTERNATIVE_GIVEN_NAME),
+            u"alt_given");
+  EXPECT_EQ(moved_constructed_profile.GetRawInfo(ALTERNATIVE_FAMILY_NAME),
+            u"alt_family");
+  EXPECT_EQ(moved_constructed_profile.GetRawInfo(ALTERNATIVE_FULL_NAME),
+            u"alt_familyalt_given");
+
+  // Test move assignment.
+  NameInfo moved_assigned_profile(/*alternative_names_supported=*/false);
+  moved_assigned_profile = std::move(moved_constructed_profile);
+  EXPECT_EQ(moved_assigned_profile.GetRawInfo(NAME_FIRST), u"John");
+  EXPECT_EQ(moved_assigned_profile.GetRawInfo(NAME_LAST), u"Doe");
+  EXPECT_EQ(moved_assigned_profile.GetRawInfo(ALTERNATIVE_GIVEN_NAME),
+            u"alt_given");
+  EXPECT_EQ(moved_assigned_profile.GetRawInfo(ALTERNATIVE_FAMILY_NAME),
+            u"alt_family");
+  EXPECT_EQ(moved_assigned_profile.GetRawInfo(ALTERNATIVE_FULL_NAME),
             u"alt_familyalt_given");
 }
 

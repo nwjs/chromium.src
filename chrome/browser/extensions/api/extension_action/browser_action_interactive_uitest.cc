@@ -12,6 +12,7 @@
 #include "base/scoped_observation.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/test/test_timeouts.h"
+#include "base/threading/thread_restrictions.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
 #include "chrome/browser/download/download_prefs.h"
@@ -25,6 +26,7 @@
 #include "chrome/browser/ui/browser_window/public/profile_browser_collection.h"
 #include "chrome/browser/ui/extensions/extension_action_test_helper.h"
 #include "chrome/browser/ui/navigator/browser_navigator_params.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/toolbar/toolbar_action_view_model.h"
 #include "chrome/browser/ui/toolbar/toolbar_actions_model.h"
 #include "chrome/browser/ui/ui_features.h"
@@ -63,6 +65,8 @@
 #include "testing/gmock/include/gmock/gmock.h"
 #include "third_party/blink/public/common/page/page_zoom.h"
 #include "ui/base/buildflags.h"
+#include "ui/base/page_transition_types.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/scrollbar_size.h"
 #include "ui/views/widget/widget.h"
@@ -255,7 +259,7 @@ class BrowserActionInteractiveTest : public ExtensionApiTest {
   bool HasPopupNativeView() {
     ToolbarActionViewModel* popup_owner =
         extensions_container()->popup_owner_for_testing();
-    return popup_owner ? !!popup_owner->GetPopupNativeViewForTesting() : false;
+    return popup_owner ? !!popup_owner->GetPopupNativeView() : false;
   }
 
   // Trigger a focus loss to close the popup.
@@ -263,7 +267,7 @@ class BrowserActionInteractiveTest : public ExtensionApiTest {
     ToolbarActionViewModel* popup_owner =
         extensions_container()->popup_owner_for_testing();
     EXPECT_TRUE(popup_owner);
-    EXPECT_TRUE(popup_owner->GetPopupNativeViewForTesting());
+    EXPECT_TRUE(popup_owner->GetPopupNativeView());
     ExtensionHostTestHelper host_helper(profile());
 
 #if BUILDFLAG(IS_MAC)
@@ -273,10 +277,11 @@ class BrowserActionInteractiveTest : public ExtensionApiTest {
     // This works because bubbles on Mac are always toplevel.
     EXPECT_TRUE(ui_test_utils::BringBrowserWindowToFront(browser()));
 #else
-    // Elsewhere, click on the omnibox. Note that with aura, the browser may be
-    // "active" the entire time when the popup is not a toplevel window. It's
-    // aura::Window::Focus() that determines where key events go in this case.
-    ui_test_utils::ClickOnView(browser(), VIEW_ID_OMNIBOX);
+    // Elsewhere, click on the tab container. Note that with aura, the browser
+    // may be "active" the entire time when the popup is not a toplevel window.
+    // It's aura::Window::Focus() that determines where key events go in this
+    // case.
+    ui_test_utils::ClickOnView(browser(), VIEW_ID_TAB_CONTAINER);
 #endif
 
     // The window disappears immediately.
@@ -328,9 +333,9 @@ IN_PROC_BROWSER_TEST_F(BrowserActionInteractiveTest, MAYBE_TestOpenPopup) {
     BrowserWindowInterface* new_browser_interface =
         GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(
             browser()->OpenURL(
-                content::OpenURLParams(GURL("about:blank"), content::Referrer(),
-                                       WindowOpenDisposition::NEW_WINDOW,
-                                       ui::PAGE_TRANSITION_TYPED, false),
+                content::OpenURLParams::CreateBrowserInitiated(
+                    GURL("about:blank"), WindowOpenDisposition::NEW_WINDOW,
+                    ui::PAGE_TRANSITION_TYPED),
                 /*navigation_handle_callback=*/{}));
     ui_test_utils::BrowserActivationWaiter waiter(new_browser_interface);
     new_browser = new_browser_interface;
@@ -505,7 +510,14 @@ IN_PROC_BROWSER_TEST_F(BrowserActionInteractiveTest, FocusLossClosesPopup1) {
 }
 
 // Test that the extension popup is closed when the browser window is focused.
-IN_PROC_BROWSER_TEST_F(BrowserActionInteractiveTest, FocusLossClosesPopup2) {
+// TODO(crbug.com/556054354): Flaky on Windows.
+#if BUILDFLAG(IS_WIN)
+#define MAYBE_FocusLossClosesPopup2 DISABLED_FocusLossClosesPopup2
+#else
+#define MAYBE_FocusLossClosesPopup2 FocusLossClosesPopup2
+#endif
+IN_PROC_BROWSER_TEST_F(BrowserActionInteractiveTest,
+                       MAYBE_FocusLossClosesPopup2) {
   // Load a first extension that can open a popup.
   ASSERT_TRUE(
       LoadExtension(test_data_dir_.AppendASCII("browser_action/popup")));
@@ -673,8 +685,7 @@ IN_PROC_BROWSER_TEST_F(BrowserActionInteractiveTest, DestroyHWNDDoesNotCrash) {
   ToolbarActionViewModel* popup_owner =
       extensions_container()->popup_owner_for_testing();
   ASSERT_TRUE(popup_owner);
-  const gfx::NativeView popup_view =
-      popup_owner->GetPopupNativeViewForTesting();
+  const gfx::NativeView popup_view = popup_owner->GetPopupNativeView();
   EXPECT_NE(gfx::NativeView(), popup_view);
 
   const HWND popup_hwnd = views::HWNDForNativeView(popup_view);
@@ -685,9 +696,9 @@ IN_PROC_BROWSER_TEST_F(BrowserActionInteractiveTest, DestroyHWNDDoesNotCrash) {
 
   // Create a new browser window to prevent the message loop from terminating.
   browser()->OpenURL(
-      content::OpenURLParams(GURL("chrome://version"), content::Referrer(),
-                             WindowOpenDisposition::NEW_WINDOW,
-                             ui::PAGE_TRANSITION_TYPED, false),
+      content::OpenURLParams::CreateBrowserInitiated(
+          GURL("chrome://version"), WindowOpenDisposition::NEW_WINDOW,
+          ui::PAGE_TRANSITION_TYPED),
       /*navigation_handle_callback=*/{});
 
   // Forcibly closing the browser HWND should not cause a crash.
@@ -960,72 +971,9 @@ IN_PROC_BROWSER_TEST_F(BrowserActionInteractiveTest,
   EXPECT_FALSE(HasPopupNativeView());
 }
 
-class BrowserActionInteractiveFencedFrameTest
-    : public BrowserActionInteractiveTest {
- public:
-  ~BrowserActionInteractiveFencedFrameTest() override = default;
 
-  content::test::FencedFrameTestHelper& fenced_frame_test_helper() {
-    return fenced_frame_test_helper_;
-  }
 
- private:
-  content::test::FencedFrameTestHelper fenced_frame_test_helper_;
-};
 
-IN_PROC_BROWSER_TEST_F(BrowserActionInteractiveFencedFrameTest,
-                       BrowserActionPopupWithFencedFrame) {
-  net::EmbeddedTestServer https_server(net::EmbeddedTestServer::TYPE_HTTPS);
-  https_server.SetSSLConfig(net::EmbeddedTestServer::CERT_TEST_NAMES);
-  https_server.ServeFilesFromSourceDirectory("chrome/test/data");
-  ASSERT_TRUE(https_server.Start());
-
-  ASSERT_TRUE(LoadExtension(
-      test_data_dir_.AppendASCII("browser_action/popup_with_fencedframe")));
-  const Extension* extension = GetSingleLoadedExtension();
-  ASSERT_TRUE(extension) << message_;
-
-  // Simulate a click on the browser action to open the popup.
-  ASSERT_TRUE(OpenPopupViaToolbar(extension->id()));
-
-  // Find a primary main frame associated in the popup.
-  extensions::ProcessManager* manager =
-      extensions::ProcessManager::Get(browser()->GetProfile());
-  std::set<content::RenderFrameHost*> hosts =
-      manager->GetRenderFrameHostsForExtension(extension->id());
-  const auto& it = std::ranges::find_if(
-      hosts, &content::RenderFrameHost::IsInPrimaryMainFrame);
-  content::RenderFrameHost* primary_render_frame_host =
-      (it != hosts.end()) ? *it : nullptr;
-  ASSERT_TRUE(primary_render_frame_host);
-
-  // Navigate the popup's fenced frame to a (cross-site) web page via its
-  // parent, and wait for that page to send a message, which will ensure that
-  // the page has loaded.
-  GURL foo_url(https_server.GetURL("a.test", "/popup_fencedframe.html"));
-
-  content::TestNavigationObserver observer(
-      content::WebContents::FromRenderFrameHost(primary_render_frame_host));
-  std::string script =
-      "document.querySelector('fencedframe').config = new FencedFrameConfig('" +
-      foo_url.spec() + "')";
-  EXPECT_TRUE(ExecJs(primary_render_frame_host, script));
-  observer.WaitForNavigationFinished();
-
-  content::RenderFrameHost* fenced_frame_render_frame_host =
-      fenced_frame_test_helper().GetMostRecentlyAddedFencedFrame(
-          primary_render_frame_host);
-  ASSERT_TRUE(fenced_frame_render_frame_host);
-
-  // Confirm that the new page (popup_fencedframe.html) is actually loaded.
-  content::DOMMessageQueue dom_message_queue(fenced_frame_render_frame_host);
-  std::string json;
-  EXPECT_TRUE(dom_message_queue.WaitForMessage(&json));
-  EXPECT_EQ("\"DONE\"", json);
-
-  extensions_container()->HideActivePopup();
-  EXPECT_FALSE(HasPopupNativeView());
-}
 
 class NavigatingExtensionPopupInteractiveTest
     : public BrowserActionInteractiveTest {
@@ -1095,7 +1043,7 @@ class NavigatingExtensionPopupInteractiveTest
     content::WebContents* popup = popup_observer.Wait();
 
     // Verify popup is visible.
-    ASSERT_TRUE(model->GetPopupNativeViewForTesting());
+    ASSERT_TRUE(model->GetPopupNativeView());
 
     GURL popup_url = popup_extension().GetResourceURL("popup.html");
     EXPECT_EQ(popup_url, popup->GetLastCommittedURL());
@@ -1138,7 +1086,7 @@ class NavigatingExtensionPopupInteractiveTest
 
       extensions_container()->HideActivePopup();
       ASSERT_FALSE(extensions_container()->popup_owner_for_testing());
-      ASSERT_FALSE(model->GetPopupNativeViewForTesting());
+      ASSERT_FALSE(model->GetPopupNativeView());
     }
 
     // Make sure that the web navigation did not succeed somewhere outside of

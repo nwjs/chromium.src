@@ -33,13 +33,13 @@ import org.chromium.base.Callback;
 import org.chromium.base.ResettersForTesting;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
-import org.chromium.chrome.browser.tab.MediaState;
 import org.chromium.chrome.browser.tab.TabUtils;
 import org.chromium.chrome.browser.tab.state.ShoppingPersistedTabData.PriceDrop;
 import org.chromium.chrome.browser.tab_ui.TabCardThemeUtil;
 import org.chromium.chrome.browser.tab_ui.TabListFaviconProvider.TabFavicon;
 import org.chromium.chrome.browser.tab_ui.TabThumbnailView;
 import org.chromium.chrome.browser.tab_ui.TabThumbnailView.ThumbnailViewState;
+import org.chromium.chrome.browser.tab_ui.ThumbnailFetcher;
 import org.chromium.chrome.browser.tasks.tab_management.TabActionButtonData.TabActionButtonType;
 import org.chromium.chrome.browser.tasks.tab_management.TabListMediator.ShoppingPersistedTabDataFetcher;
 import org.chromium.chrome.browser.tasks.tab_management.TabListModel.CardProperties;
@@ -48,6 +48,7 @@ import org.chromium.chrome.browser.tasks.tab_management.TabProperties.TabCardHig
 import org.chromium.chrome.tab_ui.R;
 import org.chromium.components.browser_ui.util.TextResolver;
 import org.chromium.components.tab_groups.TabGroupColorId;
+import org.chromium.components.tabs.TabAlert;
 import org.chromium.ui.modelutil.PropertyKey;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.widget.ViewLookupCachingFrameLayout;
@@ -114,6 +115,7 @@ public class TabGridViewBinder {
             TabCardViewBinderUtils.detachTabGroupColorView(container);
 
             tabGridView.clearHighlight();
+            tabGridView.setThumbnailSpinnerVisibility(false);
             tabGridView.updateActionButtonBackground(
                     /* isSelected= */ false, /* isIncognito= */ false);
         }
@@ -125,24 +127,24 @@ public class TabGridViewBinder {
             @Nullable PropertyKey propertyKey) {
         if (TabProperties.TITLE == propertyKey
                 || TabProperties.IS_PINNED == propertyKey
-                || TabProperties.MEDIA_INDICATOR == propertyKey) {
+                || TabProperties.ALERT_STATE == propertyKey) {
             String title = model.get(TabProperties.TITLE);
             TextView tabTitleView = view.fastFindViewById(R.id.tab_title);
             if (TabProperties.TITLE == propertyKey) tabTitleView.setText(title);
-            if (TabProperties.MEDIA_INDICATOR == propertyKey) {
-                ((TabGridView) view).setMediaIndicator(model.get(TabProperties.MEDIA_INDICATOR));
+            if (TabProperties.ALERT_STATE == propertyKey) {
+                ((TabGridView) view).setAlertState(model.get(TabProperties.ALERT_STATE));
             }
             boolean isPinned =
                     model.containsKey(TabProperties.IS_PINNED)
                             && model.get(TabProperties.IS_PINNED);
-            @MediaState
-            int mediaState =
-                    model.containsKey(TabProperties.MEDIA_INDICATOR)
-                            ? model.get(TabProperties.MEDIA_INDICATOR)
-                            : MediaState.NONE;
+            @TabAlert
+            int alertState =
+                    model.containsKey(TabProperties.ALERT_STATE)
+                            ? model.get(TabProperties.ALERT_STATE)
+                            : TabAlert.NONE;
             @StringRes
             int contentDescriptionStringId =
-                    TabListViewBinderUtils.getTabContentDescriptionStringId(isPinned, mediaState);
+                    TabListViewBinderUtils.getTabContentDescriptionStringId(isPinned, alertState);
             tabTitleView.setContentDescription(
                     view.getResources().getString(contentDescriptionStringId, title));
         } else if (TabProperties.IS_SELECTED == propertyKey) {
@@ -449,7 +451,7 @@ public class TabGridViewBinder {
         TextView titleView = rootView.fastFindViewById(R.id.tab_title);
         TabThumbnailView thumbnail = rootView.fastFindViewById(R.id.tab_thumbnail);
         ImageView backgroundView = rootView.fastFindViewById(R.id.background_view);
-        ImageView mediaIndicator = rootView.fastFindViewById(R.id.media_indicator_icon);
+        ImageView alertIndicator = rootView.fastFindViewById(R.id.alert_indicator_icon);
 
         cardView.getBackground().mutate();
         final @ColorInt int backgroundColor =
@@ -471,9 +473,9 @@ public class TabGridViewBinder {
                 TabUiThemeProvider.getHoveredCardBackgroundTintList(
                         backgroundView.getContext(), isIncognito, isSelected));
 
-        mediaIndicator.setImageTintList(
-                TabCardThemeUtil.getMediaIndicatorColorStateList(
-                        mediaIndicator.getContext(), isIncognito, isSelected));
+        alertIndicator.setImageTintList(
+                TabCardThemeUtil.getAlertIndicatorColorStateList(
+                        alertIndicator.getContext(), isIncognito, isSelected));
 
         View contentView = rootView.fastFindViewById(R.id.content_view);
         if (contentView != null) {

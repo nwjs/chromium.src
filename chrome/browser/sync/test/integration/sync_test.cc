@@ -30,6 +30,7 @@
 #include "base/task/task_traits.h"
 #include "base/task/thread_pool.h"
 #include "base/test/test_timeouts.h"
+#include "base/threading/thread_restrictions.h"
 #include "build/build_config.h"
 #include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/browser_process.h"
@@ -101,6 +102,7 @@
 #include "services/network/public/cpp/url_loader_completion_status.h"
 #include "services/network/public/cpp/weak_wrapper_shared_url_loader_factory.h"
 #include "services/network/public/mojom/url_response_head.mojom.h"
+#include "ui/base/page_transition_types.h"
 #include "url/gurl.h"
 #include "url/url_constants.h"
 
@@ -124,14 +126,12 @@
 #if BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/sync/test/integration/sync_test_utils_android.h"
 #else  // BUILDFLAG(IS_ANDROID)
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_collection_observer.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
-#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/trusted_vault/command_line_switches.h"
 #endif  // BUILDFLAG(IS_ANDROID)
@@ -750,6 +750,7 @@ bool SyncTest::SetupSyncInternal(SetupSyncMode setup_mode,
       }
     }
 
+#if BUILDFLAG(IS_ANDROID)
     if (TestUsesSelfNotifications()) {
       // On Android, invalidations for Session data type are disabled by
       // default. This may result in test flakiness when using when using
@@ -761,6 +762,7 @@ bool SyncTest::SetupSyncInternal(SetupSyncMode setup_mode,
       CHECK(GetSyncService(client_index)->IsEngineInitialized());
       GetSyncService(client_index)->SetInvalidationsForSessionsEnabled(true);
     }
+#endif  // BUILDFLAG(IS_ANDROID)
 
     // It's important to wait for each client before setting up the next one,
     // otherwise multi-client tests get flaky. This may happen in some tests
@@ -1343,7 +1345,6 @@ syncer::DataTypeSet AllowedTypesInStandaloneTransportMode() {
   }
   if (syncer::IsReplaceSyncPromosWithSignInPromosEnabled()) {
     allowed_types.Put(syncer::AUTOFILL_WALLET_METADATA);
-    allowed_types.Put(syncer::AUTOFILL_WALLET_OFFER);
     if (base::FeatureList::IsEnabled(
             syncer::kSyncEncryptedTabContextContainer)) {
       allowed_types.Put(syncer::ENCRYPTED_TAB_CONTEXT_CONTAINER);
@@ -1426,6 +1427,10 @@ syncer::DataTypeSet AllowedTypesInStandaloneTransportMode() {
     allowed_types.Put(syncer::JOURNEY);
   }
 
+  if (base::FeatureList::IsEnabled(syncer::kSyncAutofillEntitySuppression)) {
+    allowed_types.Put(syncer::AUTOFILL_ENTITY_SUPPRESSION);
+  }
+
   if (base::FeatureList::IsEnabled(syncer::kSyncAccountSettings)) {
     allowed_types.Put(syncer::ACCOUNT_SETTING);
   }
@@ -1450,11 +1455,7 @@ syncer::DataTypeSet AllowedTypesInStandaloneTransportMode() {
     allowed_types.Put(syncer::SEARCH_ENGINES);
   }
 
-#if BUILDFLAG(IS_ANDROID)
-  if (base::FeatureList::IsEnabled(syncer::kWebApkBackupAndRestoreBackend)) {
-    allowed_types.Put(syncer::WEB_APKS);
-  }
-#else   // BUILDFLAG(IS_ANDROID)
+#if !BUILDFLAG(IS_ANDROID)
   if (base::FeatureList::IsEnabled(syncer::kSeparateLocalAndAccountThemes)) {
     allowed_types.Put(syncer::THEMES);
   }
@@ -1463,7 +1464,7 @@ syncer::DataTypeSet AllowedTypesInStandaloneTransportMode() {
   allowed_types.Put(syncer::INCOMING_PASSWORD_SHARING_INVITATION);
   allowed_types.Put(syncer::OUTGOING_PASSWORD_SHARING_INVITATION);
   allowed_types.Put(syncer::WEBAUTHN_CREDENTIAL);
-#endif  // BUILDFLAG(IS_ANDROID)
+#endif  // !BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_WIN)
   if (base::FeatureList::IsEnabled(

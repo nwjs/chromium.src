@@ -34,10 +34,9 @@
 #include "chrome/browser/safe_browsing/chrome_password_protection_service_factory.h"
 #include "chrome/browser/safe_browsing/chrome_ping_manager_factory.h"
 #include "chrome/browser/safe_browsing/chrome_safe_browsing_blocking_page_factory.h"
+#include "chrome/browser/safe_browsing/chrome_sb_protocol_config_provider.h"
 #include "chrome/browser/safe_browsing/chrome_ui_manager_delegate.h"
 #include "chrome/browser/safe_browsing/chrome_user_population_helper.h"
-#include "chrome/browser/safe_browsing/chrome_v4_protocol_config_provider.h"
-#include "chrome/browser/safe_browsing/external_app_redirect_checking.h"
 #include "chrome/browser/safe_browsing/network_context_service.h"
 #include "chrome/browser/safe_browsing/network_context_service_factory.h"
 #include "chrome/browser/safe_browsing/safe_browsing_metrics_collector_factory.h"
@@ -78,6 +77,7 @@
 #include "content/public/browser/download_item_utils.h"
 #include "services/network/public/cpp/cross_thread_pending_shared_url_loader_factory.h"
 #include "services/network/public/cpp/features.h"
+#include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "services/preferences/public/mojom/tracked_preference_validation_delegate.mojom.h"
 
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_WIN) || \
@@ -506,27 +506,8 @@ void SafeBrowsingServiceImpl::RegisterAllDelayedAnalysis() {
 #endif
 }
 
-V4ProtocolConfig SafeBrowsingServiceImpl::GetV4ProtocolConfig() const {
-  return safe_browsing::GetV4ProtocolConfig();
-}
-
-void SafeBrowsingServiceImpl::ReportExternalAppRedirect(
-    content::WebContents* web_contents,
-    std::string_view app_name,
-    std::string_view uri) {
-  std::unique_ptr<ClientSafeBrowsingReportRequest> report =
-      MakeExternalAppRedirectReport(web_contents, uri);
-
-  if (!report) {
-    return;
-  }
-
-  ShouldReportExternalAppRedirect(
-      database_manager(), web_contents, app_name, uri,
-      base::BindOnce(
-          &SafeBrowsingServiceImpl::MaybeSendExternalAppRedirectReport, this,
-          Profile::FromBrowserContext(web_contents->GetBrowserContext()),
-          std::string(app_name), std::move(report)));
+SBProtocolConfig SafeBrowsingServiceImpl::GetSBProtocolConfig() const {
+  return safe_browsing::GetSBProtocolConfig();
 }
 
 void SafeBrowsingServiceImpl::SetDatabaseManagerForTest(
@@ -540,7 +521,7 @@ void SafeBrowsingServiceImpl::Start() {
   if (!enabled_) {
     enabled_ = true;
     services_delegate_->StartOnUIThread(
-        g_browser_process->shared_url_loader_factory(), GetV4ProtocolConfig());
+        g_browser_process->shared_url_loader_factory(), GetSBProtocolConfig());
   }
 }
 
@@ -657,8 +638,6 @@ void SafeBrowsingServiceImpl::OnProfileAdded(Profile* profile) {
   SafeBrowsingMetricsCollectorFactory::GetForProfile(profile)->StartLogging();
 
   CreateServicesForProfile(profile);
-
-  CleanupExternalAppRedirectTimestamps(*pref_service);
 
   // Post task to isolate enhanced-security-bundle migration from other code
   // which reads settings controlled by the bundle on startup. Migration should
@@ -977,21 +956,6 @@ bool SafeBrowsingServiceImpl::IsURLAllowlisted(
                                     /*navigation_id=*/std::nullopt,
                                     SBThreatType::SB_THREAT_TYPE_URL_PHISHING,
                                     safe_browsing::ThreatSource::UNKNOWN);
-}
-
-void SafeBrowsingServiceImpl::MaybeSendExternalAppRedirectReport(
-    Profile* profile,
-    const std::string& app_name,
-    std::unique_ptr<ClientSafeBrowsingReportRequest> report,
-    bool should_send) {
-  LogExternalAppRedirectTimestamp(*profile->GetPrefs(), app_name);
-
-  if (!should_send) {
-    return;
-  }
-
-  ChromePingManagerFactory::GetForBrowserContext(profile)->ReportThreatDetails(
-      std::move(report));
 }
 
 // The default SafeBrowsingServiceFactory.  Global, made a singleton so we

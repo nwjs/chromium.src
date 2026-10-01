@@ -29,7 +29,6 @@ suite('OmniboxPopupContextualEntrypointTest', () => {
       searchboxLayoutMode: 'TallBottomContext',
       hideClassicContextButton: false,
       composeboxShowContextMenuDescription: false,
-      omniboxShowContextButtonSuggestionLabel: false,
       composeboxShowCurrentTabChip: true,
       composeboxShowChip: true,
       composeboxShowLensIcon: true,
@@ -135,6 +134,7 @@ suite('OmniboxPopupContextualEntrypointTest', () => {
 
   test('CurrentTabChipHasPriorityOverLensChip', async () => {
     element.isLensSearchEligible = true;
+    element.isLensIconEligible = true;
     testProxy.handler.setPromiseResolveFor<'getRecentTabs'>('getRecentTabs', {
       tabs: [{
         tabId: 123,
@@ -153,6 +153,46 @@ suite('OmniboxPopupContextualEntrypointTest', () => {
 
     const lensChip = $$<HTMLElement>(element, '#lensSearchChip');
     assertFalse(!!lensChip);
+
+    const lensIcon = $$<HTMLElement>(element, '#lensSearchIcon');
+    assertTrue(!!lensIcon);
+  });
+
+  test('CurrentTabChipSuppressedWhenFeatureIneligible', async () => {
+    loadTimeData.overrideValues({
+      composeboxShowCurrentTabChip: false,
+    });
+
+    const newElement =
+        document.createElement('omnibox-popup-contextual-entrypoint');
+    newElement.inputState = createDefaultInputState();
+    newElement.isContentSharingEnabled = true;
+    newElement.isLensSearchEligible = true;
+    newElement.isLensIconEligible = true;
+    document.body.appendChild(newElement);
+    testProxy.initVisibilityPrefs();
+
+    testProxy.handler.setPromiseResolveFor<'getRecentTabs'>('getRecentTabs', {
+      tabs: [{
+        tabId: 123,
+        title: 'Test Tab',
+        url: 'https://example.com',
+        showInCurrentTabChip: true,
+      }],
+    });
+
+    popupCallbackRouter.onShow();
+    await testProxy.handler.whenCalled('getRecentTabs');
+    await microtasksFinished();
+
+    const currentTabChip = $$<HTMLElement>(newElement, '#currentTabChip');
+    assertFalse(!!currentTabChip);
+
+    const lensChip = $$<HTMLElement>(newElement, '#lensSearchChip');
+    assertTrue(!!lensChip);
+
+    const lensIcon = $$<HTMLElement>(newElement, '#lensSearchIcon');
+    assertFalse(!!lensIcon);
   });
 
   test('BackgroundAndShapeProperties', async () => {

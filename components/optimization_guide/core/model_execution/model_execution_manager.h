@@ -16,7 +16,6 @@
 #include "components/optimization_guide/core/optimization_guide_features.h"
 #include "components/optimization_guide/proto/model_execution.pb.h"
 #include "components/optimization_guide/proto/model_quality_service.pb.h"
-#include "url/gurl.h"
 
 class OptimizationGuideLogger;
 
@@ -24,18 +23,15 @@ namespace network {
 class SharedURLLoaderFactory;
 }  // namespace network
 
+namespace network::mojom {
+class NetworkContext;
+}  // namespace network::mojom
+
 namespace signin {
 class IdentityManager;
 }  // namespace signin
 
 namespace optimization_guide {
-
-// Overrides the Optimization Guide model execution URL.
-inline constexpr char kOptimizationGuideServiceModelExecutionURLSwitch[] =
-    "optimization-guide-service-model-execution-url";
-
-// Return the URL endpoint used for the model execution service.
-GURL GetModelExecutionServiceURL();
 
 class ModelExecutionFetcher;
 
@@ -47,6 +43,9 @@ class ModelExecutionManager final {
 
     // Used to provide alternative fetcher implementations.
     virtual std::unique_ptr<ModelExecutionFetcher> CreatePrivateAiFetcher() = 0;
+
+    // Returns the network context to be used for streaming connections.
+    virtual network::mojom::NetworkContext* GetNetworkContext() = 0;
   };
 
   ModelExecutionManager(
@@ -73,6 +72,12 @@ class ModelExecutionManager final {
       std::unique_ptr<proto::LogAiDataRequest> log_ai_data_request,
       ModelExecutionServiceType service_type,
       OptimizationGuideModelExecutionResultCallback callback);
+
+  // Establishes a persistent streaming session for execution.
+  std::unique_ptr<RemoteModelExecutionSession> StartStreamingSession(
+      ModelBasedCapabilityKey feature,
+      const StreamingModelExecutionOptions& options,
+      OptimizationGuideModelExecutionStreamingCallback callback);
 
   // Records a fake model execution response to be returned when ExecuteModel is
   // called for the given feature.
@@ -112,9 +117,6 @@ class ModelExecutionManager final {
 
   // Owned by OptimizationGuideKeyedService and outlives `this`.
   raw_ptr<OptimizationGuideLogger> optimization_guide_logger_;
-
-  // The endpoint for the model execution service.
-  const GURL model_execution_service_url_;
 
   // Provides alternative fetcher implementations.
   std::unique_ptr<Delegate> delegate_;

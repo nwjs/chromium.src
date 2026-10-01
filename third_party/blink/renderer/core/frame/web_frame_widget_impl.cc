@@ -111,7 +111,7 @@
 #include "third_party/blink/renderer/core/exported/web_settings_impl.h"
 #include "third_party/blink/renderer/core/exported/web_view_impl.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
-#include "third_party/blink/renderer/core/frame/local_frame_ukm_aggregator.h"
+#include "third_party/blink/renderer/core/frame/local_frame_metrics_aggregator.h"
 #include "third_party/blink/renderer/core/frame/local_frame_view.h"
 #include "third_party/blink/renderer/core/frame/remote_frame_client.h"
 #include "third_party/blink/renderer/core/frame/screen.h"
@@ -3058,11 +3058,15 @@ void WebFrameWidgetImpl::BeginMainFrame(const viz::BeginFrameArgs& args) {
       ->GetEventHandler()
       .RecomputeMouseHoverStateIfNeeded();
 
-  std::optional<LocalFrameUkmAggregator::ScopedUkmHierarchicalTimer> ukm_timer;
+  std::optional<LocalFrameMetricsAggregator::ScopedUkmHierarchicalTimer>
+      ukm_timer;
   if (WidgetBase::ShouldRecordBeginMainFrameMetrics()) {
     ukm_timer.emplace(
-        LocalRootImpl()->GetFrame()->View()->GetUkmAggregator()->GetScopedTimer(
-            LocalFrameUkmAggregator::kAnimate));
+        LocalRootImpl()
+            ->GetFrame()
+            ->View()
+            ->GetMetricsAggregator()
+            ->GetScopedTimer(LocalFrameMetricsAggregator::kAnimate));
   }
 
   GetPage()->Animate(last_frame_time);
@@ -3121,7 +3125,7 @@ void WebFrameWidgetImpl::EndCommitCompositorFrame(
   LocalRootImpl()
       ->GetFrame()
       ->View()
-      ->GetUkmAggregator()
+      ->GetMetricsAggregator()
       ->RecordImplCompositorSample(commit_compositor_frame_start_time_.value(),
                                    commit_start_time, commit_finish_time);
   WindowPerformance* performance = DOMWindowPerformance::performance(
@@ -3174,9 +3178,13 @@ void WebFrameWidgetImpl::RecordManipulationTypeCounts(
 void WebFrameWidgetImpl::RecordDispatchRafAlignedInputTime(
     base::TimeTicks raf_aligned_input_start_time) {
   if (LocalRootImpl()) {
-    LocalRootImpl()->GetFrame()->View()->GetUkmAggregator()->RecordTimerSample(
-        LocalFrameUkmAggregator::kHandleInputEvents,
-        raf_aligned_input_start_time, base::TimeTicks::Now());
+    LocalRootImpl()
+        ->GetFrame()
+        ->View()
+        ->GetMetricsAggregator()
+        ->RecordTimerSample(LocalFrameMetricsAggregator::kHandleInputEvents,
+                            raf_aligned_input_start_time,
+                            base::TimeTicks::Now());
   }
 }
 
@@ -3216,7 +3224,7 @@ WebFrameWidgetImpl::GetBeginMainFrameMetrics() {
   return LocalRootImpl()
       ->GetFrame()
       ->View()
-      ->GetUkmAggregator()
+      ->GetMetricsAggregator()
       ->GetBeginMainFrameMetrics();
 }
 
@@ -3229,9 +3237,13 @@ void WebFrameWidgetImpl::BeginUpdateLayers() {
 void WebFrameWidgetImpl::EndUpdateLayers() {
   if (LocalRootImpl()) {
     DCHECK(update_layers_start_time_);
-    LocalRootImpl()->GetFrame()->View()->GetUkmAggregator()->RecordTimerSample(
-        LocalFrameUkmAggregator::kUpdateLayers,
-        update_layers_start_time_.value(), base::TimeTicks::Now());
+    LocalRootImpl()
+        ->GetFrame()
+        ->View()
+        ->GetMetricsAggregator()
+        ->RecordTimerSample(LocalFrameMetricsAggregator::kUpdateLayers,
+                            update_layers_start_time_.value(),
+                            base::TimeTicks::Now());
     probe::LayerTreeDidChange(LocalRootImpl()->GetFrame());
   }
   update_layers_start_time_.reset();
@@ -3241,7 +3253,7 @@ void WebFrameWidgetImpl::RecordStartOfFrameMetrics() {
   if (!LocalRootImpl())
     return;
 
-  LocalRootImpl()->GetFrame()->View()->GetUkmAggregator()->BeginMainFrame();
+  LocalRootImpl()->GetFrame()->View()->GetMetricsAggregator()->BeginMainFrame();
 }
 
 void WebFrameWidgetImpl::RecordEndOfFrameMetrics(
@@ -3254,7 +3266,7 @@ void WebFrameWidgetImpl::RecordEndOfFrameMetrics(
   LocalRootImpl()
       ->GetFrame()
       ->View()
-      ->GetUkmAggregator()
+      ->GetMetricsAggregator()
       ->RecordEndOfFrameMetrics(frame_begin_time, base::TimeTicks::Now(),
                                 trackers, document->UkmSourceID(),
                                 document->UkmRecorder());
@@ -6086,7 +6098,8 @@ void WebFrameWidgetImpl::OnWindowShowStateChanged(
     ui::mojom::blink::WindowShowState old_state,
     ui::mojom::blink::WindowShowState new_state) {
   if (!RuntimeEnabledFeatures::
-          DesktopPWAsAdditionalWindowingControlsEnabled()) {
+          DesktopPWAsAdditionalWindowingControlsEnabled() ||
+      !ForMainFrame() || IsProvisional()) {
     return;
   }
 
@@ -6118,7 +6131,7 @@ void WebFrameWidgetImpl::OnWindowShowStateChanged(
 void WebFrameWidgetImpl::OnResizableChanged(bool new_resizable) {
   if (!RuntimeEnabledFeatures::
           DesktopPWAsAdditionalWindowingControlsEnabled() ||
-      !ForMainFrame()) {
+      !ForMainFrame() || IsProvisional()) {
     return;
   }
 

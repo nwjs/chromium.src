@@ -50,40 +50,38 @@ const uint64_t kTestAHash = 0xE9422771E0A5DDE6;
 const uint64_t kTestBHash = 0x4A2DA770EEA75C1E;
 
 bool EqualCaseFoldingHash(StringView a, StringView b) {
-  unsigned hash_a = a.Is8Bit() ? DeprecatedCaseFoldingHash::GetHash(a.Span8())
+  uint32_t hash_a = a.Is8Bit() ? DeprecatedCaseFoldingHash::GetHash(a.Span8())
                                : DeprecatedCaseFoldingHash::GetHash(a.Span16());
-  unsigned hash_b = b.Is8Bit() ? DeprecatedCaseFoldingHash::GetHash(b.Span8())
+  uint32_t hash_b = b.Is8Bit() ? DeprecatedCaseFoldingHash::GetHash(b.Span8())
                                : DeprecatedCaseFoldingHash::GetHash(b.Span16());
   return hash_a == hash_b;
 }
 
 }  // anonymous namespace
 
-TEST(StringHasherTest, StringHasher_ComputeHashAndMaskTop8Bits) {
+TEST(StringHasherTest, HashString24) {
   EXPECT_EQ(kEmptyStringHash & 0xFFFFFF,
-            StringHasher::ComputeHashAndMaskTop8Bits(nullptr, 0));
+            HashString24(base::span<const uint8_t>()));
   EXPECT_EQ(kEmptyStringHash & 0xFFFFFF,
-            StringHasher::ComputeHashAndMaskTop8Bits(kNullLChars, 0));
+            HashString24(base::as_byte_span(kNullLChars).first(0u)));
   EXPECT_EQ(kEmptyStringHash & 0xFFFFFF,
-            StringHasher::ComputeHashAndMaskTop8Bits<ConvertTo8BitHashReader>(
-                nullptr, 0));
+            HashString24<ConvertTo8BitHashReader>(base::span<const uint8_t>()));
   EXPECT_EQ(kEmptyStringHash & 0xFFFFFF,
-            StringHasher::ComputeHashAndMaskTop8Bits<ConvertTo8BitHashReader>(
-                (const char*)kNullUChars, 0));
+            HashString24<ConvertTo8BitHashReader>(
+                base::as_byte_span(kNullUChars).first(0u)));
 
   EXPECT_EQ(kSingleNullCharacterHash & 0xFFFFFF,
-            StringHasher::ComputeHashAndMaskTop8Bits(kNullLChars, 1));
-  EXPECT_EQ(kSingleNullCharacterHash & 0xFFFFFF,
-            StringHasher::ComputeHashAndMaskTop8Bits<ConvertTo8BitHashReader>(
-                (const char*)kNullUChars, 1));
+            HashString24(base::as_byte_span(kNullLChars)));
+  EXPECT_EQ(
+      kSingleNullCharacterHash & 0xFFFFFF,
+      HashString24<ConvertTo8BitHashReader>(base::as_byte_span(kNullUChars)));
 
-  EXPECT_EQ(kTestAHash & 0xFFFFFF, StringHasher::ComputeHashAndMaskTop8Bits(
-                                       (const char*)kTestALChars, 5));
   EXPECT_EQ(kTestAHash & 0xFFFFFF,
-            StringHasher::ComputeHashAndMaskTop8Bits<ConvertTo8BitHashReader>(
-                (const char*)kTestAUChars, 5));
-  EXPECT_EQ(kTestBHash & 0xFFFFFF, StringHasher::ComputeHashAndMaskTop8Bits(
-                                       (const char*)kTestBUChars, 10));
+            HashString24(base::as_byte_span(kTestALChars)));
+  EXPECT_EQ(kTestAHash & 0xFFFFFF, HashString24<ConvertTo8BitHashReader>(
+                                       base::as_byte_span(kTestAUChars)));
+  EXPECT_EQ(kTestBHash & 0xFFFFFF,
+            HashString24(base::as_byte_span(kTestBUChars)));
 
   // Test a slightly longer case (including characters that fit in Latin1
   // but not in ASCII).
@@ -91,34 +89,20 @@ TEST(StringHasherTest, StringHasher_ComputeHashAndMaskTop8Bits) {
       base::span_from_cstring("A quick browñ föx jumps over thé lazy dog");
   std::array<UChar, kStr.size()> wide_str;
   std::ranges::copy(base::as_bytes(kStr), wide_str.begin());
-  auto wide_bytes = base::as_chars(base::as_byte_span(wide_str));
-  unsigned expected_hash =
-      StringHasher::ComputeHashAndMaskTop8Bits(kStr.data(), kStr.size());
+  uint32_t expected_hash = HashString24(base::as_byte_span(kStr));
   using Reader = ConvertTo8BitHashReader;
-  EXPECT_EQ(expected_hash, StringHasher::ComputeHashAndMaskTop8Bits<Reader>(
-                               wide_bytes.data(),
-                               wide_bytes.size() / Reader::kCompressionFactor));
-  EXPECT_NE(expected_hash, StringHasher::ComputeHashAndMaskTop8Bits(
-                               wide_bytes.data(), wide_bytes.size() / 2));
-  EXPECT_NE(expected_hash, StringHasher::ComputeHashAndMaskTop8Bits(
-                               wide_bytes.data(), wide_bytes.size()));
-}
+  EXPECT_EQ(expected_hash, HashString24<Reader>(base::as_byte_span(wide_str)));
+  EXPECT_NE(expected_hash,
+            HashString24(base::as_byte_span(wide_str).first(wide_str.size())));
+  EXPECT_NE(expected_hash, HashString24(base::as_byte_span(wide_str)));
 
-TEST(StringHasherTest, StringHasher_HashMemory) {
-  EXPECT_EQ(kEmptyStringHash,
-            StringHasher::HashMemory64(base::span<const uint8_t>()));
-  EXPECT_EQ(kEmptyStringHash,
-            StringHasher::HashMemory64(base::span<const uint8_t, 0>()));
-  EXPECT_EQ(kEmptyStringHash, StringHasher::HashMemory64(
-                                  base::as_byte_span(kNullUChars).first(0u)));
-
+  // Test a reader with expansion (kExpansionFactor > 1).
+  using ExpansionReader = CaseFoldingHashReader<LChar>;
+  base::span<const LChar> lchars = base::span(kTestALChars);
+  base::span<const UChar> uchars = base::span(kTestAUChars);
   EXPECT_EQ(
-      kSingleNullCharacterHash,
-      StringHasher::HashMemory64(base::as_byte_span(kNullUChars).first(1u)));
-
-  EXPECT_EQ(kTestAHash, StringHasher::HashMemory64(kTestALChars));
-  EXPECT_EQ(kTestBHash,
-            StringHasher::HashMemory64(base::as_byte_span(kTestBUChars)));
+      HashString24<ExpansionReader>(base::as_byte_span(lchars)),
+      HashString24<CaseFoldingHashReader<UChar>>(base::as_byte_span(uchars)));
 }
 
 TEST(StringHasherTest, DeprecatedCaseFoldingHash) {
@@ -137,7 +121,7 @@ TEST(StringHasherTest, ContractionAndExpansion) {
   // that's long enough that we will hit most of the paths.
   String str =
       "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_!?'$";
-  for (unsigned i = 0; i < str.length(); ++i) {
+  for (wtf_size_t i = 0; i < str.length(); ++i) {
     String s8 = str.substr(0, i);
     String s16 = s8;
     s16.Ensure16Bit();

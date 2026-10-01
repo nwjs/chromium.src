@@ -46,11 +46,13 @@
 #include "components/sync_preferences/testing_pref_service_syncable.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/test/browser_task_environment.h"
+#include "extensions/buildflags/buildflags.h"
 #include "google_apis/gaia/gaia_constants.h"
 #include "google_apis/gaia/gaia_urls.h"
 #include "google_apis/gaia/google_service_auth_error.h"
 #include "net/base/net_errors.h"
 #include "net/http/http_status_code.h"
+#include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "services/network/public/cpp/weak_wrapper_shared_url_loader_factory.h"
 #include "services/network/test/test_network_connection_tracker.h"
 #include "services/network/test/test_url_loader_factory.h"
@@ -143,7 +145,7 @@ class UserPolicySigninServiceTest : public testing::Test {
 
     CHECK(!account_info.IsEmpty());
     service->RegisterForPolicyWithAccountId(
-        kTestUser, account_info.account_id,
+        kTestUser, account_info.GetAccountId(),
         /*is_registration_for_management_consistency_check=*/false,
         std::move(callback));
     ASSERT_TRUE(IsRequestActive());

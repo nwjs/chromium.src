@@ -69,6 +69,7 @@ class OmniboxPopupHandler : public omnibox_popup::mojom::PageHandler,
                    const gfx::Range& selection) override;
   void SetEditHistoryState(bool can_undo, bool can_redo) override;
   void OpenDevTools() override;
+  void AdvanceFocus(bool reverse) override;
 
   // omnibox_popup::mojom::Page:
   void OnShow();
@@ -81,8 +82,11 @@ class OmniboxPopupHandler : public omnibox_popup::mojom::PageHandler,
                      const std::string& permanent_display_text,
                      bool show_full_url,
                      bool query_zps,
-                     searchbox::mojom::InputKeywordModelPtr keyword_model);
-  void SetFocus(bool is_focused, bool query_zps = false);
+                     searchbox::mojom::InputKeywordModelPtr keyword_model,
+                     bool is_tab_switch);
+  void SetFocus(bool is_focused,
+                bool query_zps = false,
+                bool select_all = false);
   void ClearAutocompleteMatches();
   void ClearPopup(base::OnceClosure callback);
 

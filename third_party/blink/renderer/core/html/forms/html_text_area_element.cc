@@ -57,6 +57,7 @@
 #include "third_party/blink/renderer/core/html/parser/html_parser_idioms.h"
 #include "third_party/blink/renderer/core/html/shadow/shadow_element_names.h"
 #include "third_party/blink/renderer/core/html_names.h"
+#include "third_party/blink/renderer/core/keywords.h"
 #include "third_party/blink/renderer/core/layout/adjust_for_absolute_zoom.h"
 #include "third_party/blink/renderer/core/layout/forms/layout_text_control_multi_line.h"
 #include "third_party/blink/renderer/core/layout/inline/fragment_item.h"
@@ -164,7 +165,9 @@ void HTMLTextAreaElement::DidAddUserAgentShadowRoot(ShadowRoot& root) {
   auto* inner_editor = CreateInnerEditorElement();
   // We need a placeholder break for an empty value in order to provide one
   // line-height and a baseline even if this element is not editable.
-  inner_editor->AppendChild(CreatePlaceholderBreakElement());
+  auto* placeholder_break = CreatePlaceholderBreakElement();
+  placeholder_break->setAttribute(html_names::kAriaHiddenAttr, keywords::kTrue);
+  inner_editor->AppendChild(placeholder_break);
   root.AppendChild(inner_editor);
 }
 
@@ -431,7 +434,8 @@ void HTMLTextAreaElement::DefaultEventHandler(Event& event) {
        event.HasInterface(event_interface_names::kWheelEvent) ||
        event.type() == event_type_names::kBlur)) {
     ForwardEvent(event);
-  } else if (GetLayoutObject() && event.IsBeforeTextInsertedEvent()) {
+  } else if (!RuntimeEnabledFeatures::CleanUpActivationBehaviorEnabled() &&
+             GetLayoutObject() && event.IsBeforeTextInsertedEvent()) {
     HandleBeforeTextInsertedEvent(
         static_cast<BeforeTextInsertedEvent*>(&event));
   }
@@ -485,18 +489,27 @@ void HTMLTextAreaElement::SubtreeHasChanged() {
 
 void HTMLTextAreaElement::HandleBeforeTextInsertedEvent(
     BeforeTextInsertedEvent* event) {
+  DCHECK(!RuntimeEnabledFeatures::CleanUpActivationBehaviorEnabled());
   DCHECK(event);
   DCHECK(GetLayoutObject());
+  event->SetText(FilterBeforeTextInserted(event->GetText()));
+}
+
+String HTMLTextAreaElement::FilterBeforeTextInserted(const String& text) {
+  if (!GetLayoutObject()) {
+    return text;
+  }
   int signed_max_length = maxLength();
-  if (signed_max_length < 0)
-    return;
+  if (signed_max_length < 0) {
+    return text;
+  }
   unsigned unsigned_max_length = static_cast<unsigned>(signed_max_length);
 
   const String& current_value = InnerEditorValue();
   unsigned current_length = ComputeLengthForAPIValue(current_value);
-  if (current_length + ComputeLengthForAPIValue(event->GetText()) <
-      unsigned_max_length)
-    return;
+  if (current_length + ComputeLengthForAPIValue(text) < unsigned_max_length) {
+    return text;
+  }
 
   // selectionLength represents the selection length of this text field to be
   // removed by this insertion.
@@ -516,12 +529,13 @@ void HTMLTextAreaElement::HandleBeforeTextInsertedEvent(
   unsigned base_length = current_length - selection_length;
   unsigned appendable_length =
       unsigned_max_length > base_length ? unsigned_max_length - base_length : 0;
-  event->SetText(SanitizeUserInputValue(event->GetText(), appendable_length));
+  String result = SanitizeUserInputValue(text, appendable_length);
 
   if (selection_length == current_length && selection_length != 0 &&
-      !event->GetText().empty()) {
+      !result.empty()) {
     GetDocument().GetPage()->GetChromeClient().DidClearValueInTextField(*this);
   }
+  return result;
 }
 
 String HTMLTextAreaElement::SanitizeUserInputValue(const String& proposed_value,
@@ -913,12 +927,13 @@ String HTMLTextAreaElement::DefaultToolTip() const {
 }
 
 void HTMLTextAreaElement::SetFocused(bool is_focused,
-                                     mojom::blink::FocusType focus_type) {
+                                     mojom::blink::FocusType focus_type,
+                                     BlurEventBehavior blur_event_behavior) {
   // See comment in HTMLInputElement::SetFocused.
   if (UserHasEditedTheField()) {
     SetUserHasEditedTheFieldAndBlurred();
   }
-  TextControlElement::SetFocused(is_focused, focus_type);
+  TextControlElement::SetFocused(is_focused, focus_type, blur_event_behavior);
 }
 
 WebFormControlElement::TextInfo HTMLTextAreaElement::GetTextInfo() const {

@@ -139,7 +139,8 @@ public class HubCoordinator implements PaneHubController, BackPressHandler, Pane
 
         // Get bottom toolbar delegate and visibility supplier
         HubBottomToolbarDelegate bottomToolbarDelegate =
-                HubBottomToolbarDelegateFactory.createDelegate(activity);
+                HubBottomToolbarDelegateFactory.createDelegate(
+                        activity, currentTabSupplier, hubLayoutController.getIsHidingSupplier());
         NonNullObservableSupplier<Boolean> bottomToolbarVisibilitySupplier =
                 bottomToolbarDelegate != null
                         ? bottomToolbarDelegate.getBottomToolbarVisibilitySupplier()
@@ -169,7 +170,9 @@ public class HubCoordinator implements PaneHubController, BackPressHandler, Pane
                             paneManager,
                             hubColorMixer,
                             bottomToolbarDelegate,
-                            edgeToEdgeSupplier);
+                            edgeToEdgeSupplier,
+                            currentTabSupplier,
+                            hubLayoutController.getIsHidingSupplier());
         } else {
             mHubBottomToolbarCoordinator = null;
         }

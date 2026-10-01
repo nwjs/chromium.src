@@ -31,10 +31,12 @@
 #include "chrome/browser/glic/test_support/interactive_test_util.h"
 #include "chrome/common/actor/action_result.h"
 #include "chrome/common/chrome_features.h"
+#include "components/actor/core/actor_features.h"
 #include "components/actor/public/mojom/actor_types.mojom.h"
 #include "components/optimization_guide/core/optimization_guide_features.h"
 #include "components/optimization_guide/proto/features/actions_data.pb.h"
 #include "components/optimization_guide/proto/features/common_quality_data.pb.h"
+#include "components/sessions/core/session_id.h"
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/test/browser_test_utils.h"
 #include "net/dns/mock_host_resolver.h"
@@ -88,11 +90,12 @@ GlicActorUiTest::GlicActorUiTest() {
       {// Increase timeout since tests are timing out with ASAN builds.
        {features::kGlicWebClientLoadTimes,
         {{features::kGlicMaxLoadingTimeMs.name, "30000"}}},
+       {features::kGlicActor,
+        {{features::kGlicActorPolicyControlExemption.name, "true"}}},
        // Decrease the timeout for observation delays to prevent test timeouts
        // on slow builders.
-       {features::kGlicActor,
-        {{features::kGlicActorPolicyControlExemption.name, "true"},
-         {"actor-observation-delay-timeout", "3s"}}},
+       {actor::kActorObservationDelay,
+        {{actor::kActorObservationDelayTimeout.name, "3s"}}},
        {features::kGlicActorToctouValidation, {}},
        {optimization_guide::features::
             kAnnotatedPageContentWithActionableElements,

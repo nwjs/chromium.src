@@ -11,7 +11,9 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.ArgumentMatchers.refEq;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.inOrder;
@@ -28,6 +30,7 @@ import static org.chromium.chrome.browser.multiwindow.MultiInstanceManager.Persi
 import static org.chromium.chrome.browser.share.ShareDelegate.ShareOrigin.TAB_STRIP_CONTEXT_MENU;
 import static org.chromium.ui.listmenu.ListItemType.DIVIDER;
 import static org.chromium.ui.listmenu.ListItemType.MENU_ITEM;
+import static org.chromium.ui.listmenu.ListItemType.MENU_ITEM_WITH_SUBMENU;
 import static org.chromium.ui.listmenu.ListItemType.SUBMENU_HEADER;
 import static org.chromium.ui.listmenu.ListMenuItemProperties.CLICK_LISTENER;
 import static org.chromium.ui.listmenu.ListMenuItemProperties.ENABLED;
@@ -79,7 +82,12 @@ import org.chromium.chrome.browser.bookmarks.TabBookmarker;
 import org.chromium.chrome.browser.collaboration.CollaborationServiceFactory;
 import org.chromium.chrome.browser.compositor.overlays.strip.TabContextMenuCoordinator.AnchorInfo;
 import org.chromium.chrome.browser.compositor.overlays.strip.TabContextMenuCoordinator.TabStripLayoutType;
+import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.glic.ConversationInfo;
+import org.chromium.chrome.browser.glic.GlicEnabling;
+import org.chromium.chrome.browser.glic.GlicKeyedService;
+import org.chromium.chrome.browser.glic.GlicKeyedServiceFactory;
 import org.chromium.chrome.browser.incognito.IncognitoUtils;
 import org.chromium.chrome.browser.multiwindow.InstanceInfo;
 import org.chromium.chrome.browser.multiwindow.MultiInstanceManager;
@@ -128,6 +136,8 @@ import org.chromium.components.browser_ui.widget.list_view.FakeListViewTouchTrac
 import org.chromium.components.browser_ui.widget.list_view.ListViewTouchTracker;
 import org.chromium.components.collaboration.CollaborationService;
 import org.chromium.components.collaboration.ServiceStatus;
+import org.chromium.components.feature_engagement.FeatureConstants;
+import org.chromium.components.feature_engagement.Tracker;
 import org.chromium.components.tab_group_sync.LocalTabGroupId;
 import org.chromium.components.tab_group_sync.SavedTabGroup;
 import org.chromium.components.tab_group_sync.SavedTabGroupTab;
@@ -188,7 +198,10 @@ import java.util.function.BiConsumer;
     ChromeFeatureList.DATA_SHARING,
     ChromeFeatureList.ANDROID_CONTEXT_MENU_DISABLED_MENU_ITEMS
 })
-@DisableFeatures({TabGroupsFeatureMap.UPDATE_TAB_GROUP_COLORS})
+@DisableFeatures({
+    TabGroupsFeatureMap.UPDATE_TAB_GROUP_COLORS,
+    ChromeFeatureList.CLANK_GLIC_CONTEXT_MENU
+})
 public class TabContextMenuCoordinatorUnitTest {
     private static final int TAB_ID = 1;
     private static final int TAB_OUTSIDE_OF_GROUP_ID = 2;
@@ -279,11 +292,13 @@ public class TabContextMenuCoordinatorUnitTest {
     @Mock private TabUngrouper mTabUngrouper;
     @Mock private SendTabToSelfAndroidBridge.Natives mSendTabToSelfAndroidBridgeNatives;
     @Mock private Profile mProfile;
+    @Mock private Tracker mTracker;
     @Mock private TabGroupListBottomSheetCoordinator mBottomSheetCoordinator;
     @Mock private TabGroupCreationCallback mTabGroupCreationCallback;
     @Mock private MultiInstanceManager mMultiInstanceManager;
     @Mock private MultiInstanceOrchestrator mMultiInstanceOrchestrator;
     @Mock private ShareDelegate mShareDelegate;
+    @Mock private GlicKeyedService mGlicKeyedService;
     @Mock private TabBookmarker mTabBookmarker;
     @Mock private TabCreator mTabCreator;
     @Mock private WindowAndroid mWindowAndroid;
@@ -307,6 +322,7 @@ public class TabContextMenuCoordinatorUnitTest {
 
     @Before
     public void setUp() {
+        TrackerFactory.setTrackerForTests(mTracker);
         SendTabToSelfAndroidBridgeJni.setInstanceForTesting(mSendTabToSelfAndroidBridgeNatives);
         when(mSendTabToSelfAndroidBridgeNatives.getEntryPointDisplayReason(any(), any()))
                 .thenReturn(EntryPointDisplayReason.OFFER_FEATURE);
@@ -400,8 +416,6 @@ public class TabContextMenuCoordinatorUnitTest {
     @After
     public void tearDown() {
         ChromeSharedPreferences.getInstance().removeKey(ChromePreferenceKeys.VERTICAL_TABS_ENABLED);
-        ChromeSharedPreferences.getInstance()
-                .removeKey(ChromePreferenceKeys.VERTICAL_TABS_LAYOUT_TOGGLE_VIEW_COUNT);
         DeviceInfo.resetIsDesktopForTesting();
     }
 
@@ -1281,6 +1295,7 @@ public class TabContextMenuCoordinatorUnitTest {
                         eq(TabList.INVALID_TAB_INDEX),
                         anyInt(),
                         eq(true));
+        verify(mMultiInstanceManager).closeChromeWindowIfEmpty(INSTANCE_ID_1);
     }
 
     @Test
@@ -2921,6 +2936,104 @@ public class TabContextMenuCoordinatorUnitTest {
 
     @Test
     @Feature("Tab Strip Context Menu")
+    public void testCloseOtherTabs_singleTab_hiddenWhenOtherTabsPinned() {
+        mTabModel.addTab(
+                mTab1, -1, TabLaunchType.FROM_CHROME_UI, TabCreationState.LIVE_IN_FOREGROUND);
+        mTabModel.addTab(
+                mTab2, -1, TabLaunchType.FROM_CHROME_UI, TabCreationState.LIVE_IN_FOREGROUND);
+        when(mTab2.getIsPinned()).thenReturn(true);
+
+        var modelList = new ModelList();
+        mTabContextMenuCoordinator.configureMenuItemsForTesting(
+                modelList, new AnchorInfo(TAB_ID, Collections.singletonList(TAB_ID)));
+
+        ListItem closeOtherItem = findItemByMenuId(modelList, R.id.close_other_tabs_menu_id);
+        assertNull(closeOtherItem);
+    }
+
+    @Test
+    @Feature("Tab Strip Context Menu")
+    public void testCloseOtherTabs_multipleTabs_hiddenWhenOtherTabsPinned() {
+        mTabModel.addTab(
+                mTab1, -1, TabLaunchType.FROM_CHROME_UI, TabCreationState.LIVE_IN_FOREGROUND);
+        mTabModel.addTab(
+                mTab2, -1, TabLaunchType.FROM_CHROME_UI, TabCreationState.LIVE_IN_FOREGROUND);
+        mTabModel.addTab(
+                mTabOutsideOfGroup,
+                -1,
+                TabLaunchType.FROM_CHROME_UI,
+                TabCreationState.LIVE_IN_FOREGROUND);
+        when(mTabOutsideOfGroup.getIsPinned()).thenReturn(true);
+
+        var modelList = new ModelList();
+        mTabContextMenuCoordinator.configureMenuItemsForTesting(
+                modelList, new AnchorInfo(TAB_ID, List.of(TAB_ID, TAB_ID_2)));
+
+        ListItem closeOtherItem = findItemByMenuId(modelList, R.id.close_other_tabs_menu_id);
+        assertNull(closeOtherItem);
+    }
+
+    @Test
+    @Feature("Tab Strip Context Menu")
+    public void testCloseOtherTabs_doesNotClosePinnedTabs() {
+        mTabModel.addTab(
+                mTab1, -1, TabLaunchType.FROM_CHROME_UI, TabCreationState.LIVE_IN_FOREGROUND);
+        mTabModel.addTab(
+                mTab2, -1, TabLaunchType.FROM_CHROME_UI, TabCreationState.LIVE_IN_FOREGROUND);
+        mTabModel.addTab(
+                mTabOutsideOfGroup,
+                -1,
+                TabLaunchType.FROM_CHROME_UI,
+                TabCreationState.LIVE_IN_FOREGROUND);
+        when(mTab2.getIsPinned()).thenReturn(true);
+
+        mOnItemClickedCallback.onClick(
+                R.id.close_other_tabs_menu_id,
+                new AnchorInfo(TAB_ID, Collections.singletonList(TAB_ID)),
+                /* collaborationId= */ null,
+                /* listViewTouchTracker= */ null);
+
+        verify(mTabRemover)
+                .closeTabs(
+                        TabClosureParams.closeTabs(List.of(mTabOutsideOfGroup))
+                                .hideTabGroups(true)
+                                .tabClosingSource(TabClosingSource.TABLET_TAB_STRIP)
+                                .build(),
+                        /* allowDialog= */ true);
+    }
+
+    @Test
+    @Feature("Tab Strip Context Menu")
+    public void testCloseOtherTabs_pinnedTabAnchor_closesUnpinnedTabs() {
+        mTabModel.addTab(
+                mTab1, -1, TabLaunchType.FROM_CHROME_UI, TabCreationState.LIVE_IN_FOREGROUND);
+        mTabModel.addTab(
+                mTab2, -1, TabLaunchType.FROM_CHROME_UI, TabCreationState.LIVE_IN_FOREGROUND);
+        mTabModel.addTab(
+                mTabOutsideOfGroup,
+                -1,
+                TabLaunchType.FROM_CHROME_UI,
+                TabCreationState.LIVE_IN_FOREGROUND);
+        when(mTab1.getIsPinned()).thenReturn(true);
+        when(mTab2.getIsPinned()).thenReturn(true);
+
+        mOnItemClickedCallback.onClick(
+                R.id.close_other_tabs_menu_id,
+                new AnchorInfo(TAB_ID, Collections.singletonList(TAB_ID)),
+                /* collaborationId= */ null,
+                /* listViewTouchTracker= */ null);
+
+        verify(mTabRemover)
+                .closeTabs(
+                        TabClosureParams.closeTabs(List.of(mTabOutsideOfGroup))
+                                .hideTabGroups(true)
+                                .tabClosingSource(TabClosingSource.TABLET_TAB_STRIP)
+                                .build(),
+                        /* allowDialog= */ true);
+    }
+
+    @Test
+    @Feature("Tab Strip Context Menu")
     public void testCloseTabsToTheRight_singleTab_hiddenForLastTab() {
         mTabModel.addTab(
                 mTab1, -1, TabLaunchType.FROM_CHROME_UI, TabCreationState.LIVE_IN_FOREGROUND);
@@ -3076,9 +3189,8 @@ public class TabContextMenuCoordinatorUnitTest {
     @EnableFeatures(ChromeFeatureList.ANDROID_VERTICAL_TABS)
     @Config(qualifiers = "sw600dp")
     public void testListMenuItems_verticalTabs_showsNewBadge() {
-        VerticalTabUtils.setVerticalTabsEnabled(false);
-        ChromeSharedPreferences.getInstance()
-                .writeInt(ChromePreferenceKeys.VERTICAL_TABS_LAYOUT_TOGGLE_VIEW_COUNT, 0);
+        when(mTracker.shouldTriggerHelpUi(FeatureConstants.ANDROID_VERTICAL_TABS_NEW_LABEL))
+                .thenReturn(true);
 
         initializeCoordinatorForTesting(TabStripLayoutType.HORIZONTAL);
 
@@ -3099,34 +3211,35 @@ public class TabContextMenuCoordinatorUnitTest {
         Object[] spans = spannableTitle.getSpans(0, spannableTitle.length(), Object.class);
         assertTrue("Spannable title should carry badge style spans", spans.length > 0);
 
-        // Verify view count incremented from 0 to 1 upon configuring items.
-        assertEquals(1, VerticalTabUtils.getNewBadgeViewCount());
+        verify(mTracker).shouldTriggerHelpUi(FeatureConstants.ANDROID_VERTICAL_TABS_NEW_LABEL);
+        verify(mTracker).dismissed(FeatureConstants.ANDROID_VERTICAL_TABS_NEW_LABEL);
     }
 
     @Test
     @Feature("Tab Strip Context Menu")
     @EnableFeatures(ChromeFeatureList.ANDROID_VERTICAL_TABS)
     @Config(qualifiers = "sw600dp")
-    public void testListMenuItems_verticalTabs_clickDismissesNewBadge() {
-        VerticalTabUtils.setVerticalTabsEnabled(false);
-        ChromeSharedPreferences.getInstance()
-                .writeInt(ChromePreferenceKeys.VERTICAL_TABS_LAYOUT_TOGGLE_VIEW_COUNT, 0);
+    public void testListMenuItems_verticalTabs_suppressesBadgeWhenTrackerReturnsFalse() {
+        when(mTracker.shouldTriggerHelpUi(FeatureConstants.ANDROID_VERTICAL_TABS_NEW_LABEL))
+                .thenReturn(false);
 
         initializeCoordinatorForTesting(TabStripLayoutType.HORIZONTAL);
 
-        // Select the toggle layout menu option.
-        mOnItemClickedCallback.onClick(
-                R.id.toggle_tab_layout_menu_id,
-                new AnchorInfo(TAB_ID, Collections.singletonList(TAB_ID)),
-                /* collaborationId= */ null,
-                /* listViewTouchTracker= */ null);
+        var modelList = new ModelList();
+        mTabContextMenuCoordinator.configureMenuItemsForTesting(
+                modelList, new AnchorInfo(TAB_ID, Collections.singletonList(TAB_ID)));
 
-        // Simulate enabling vertical tabs as a result of selecting the option.
-        VerticalTabUtils.setVerticalTabsEnabled(true);
+        ListItem verticalTabsItem = findItemByMenuId(modelList, R.id.toggle_tab_layout_menu_id);
+        assertNotNull("Toggle layout menu item should be present", verticalTabsItem);
 
-        // Verify view count was set to max count (3), permanently dismissing the badge.
-        assertEquals(
-                VerticalTabUtils.NEW_BADGE_MAX_VIEW_COUNT, VerticalTabUtils.getNewBadgeViewCount());
+        CharSequence title = verticalTabsItem.model.get(TITLE);
+        assertNotNull("The menu item title should not be null.", title);
+        assertTrue(title.toString().contains(mActivity.getString(R.string.show_tabs_vertically)));
+
+        // Verify the title is a plain string without the badge span attached.
+        assertFalse("Title should not carry badge spans", title instanceof Spannable);
+        verify(mTracker).shouldTriggerHelpUi(FeatureConstants.ANDROID_VERTICAL_TABS_NEW_LABEL);
+        verify(mTracker, never()).dismissed(any());
     }
 
     @Test
@@ -3134,10 +3247,6 @@ public class TabContextMenuCoordinatorUnitTest {
     @EnableFeatures(ChromeFeatureList.ANDROID_VERTICAL_TABS)
     @Config(qualifiers = "sw600dp")
     public void testListMenuItems_verticalTabs_desktopDevice_suppressesNewBadge() {
-        VerticalTabUtils.setVerticalTabsEnabled(false);
-        ChromeSharedPreferences.getInstance()
-                .writeInt(ChromePreferenceKeys.VERTICAL_TABS_LAYOUT_TOGGLE_VIEW_COUNT, 0);
-
         // Mock device form factor as Desktop.
         DeviceInfo.setIsDesktopForTesting(true);
 
@@ -3156,9 +3265,7 @@ public class TabContextMenuCoordinatorUnitTest {
 
         // Verify the title is a plain string without the badge span attached.
         assertFalse("Title should not carry badge spans on desktop", title instanceof Spannable);
-
-        // View count should remain 0 because Desktop suppresses the badge.
-        assertEquals(0, VerticalTabUtils.getNewBadgeViewCount());
+        verify(mTracker, never()).shouldTriggerHelpUi(any());
     }
 
     // --------------------------------------------------------------//
@@ -3411,6 +3518,234 @@ public class TabContextMenuCoordinatorUnitTest {
                 "Expected to navigate back to parent menu",
                 modelListSizeBeforeNav,
                 modelList.size());
+    }
+
+    // --------------------------------------------------------------//
+    // ---------- GLIC "SHARE TAB WITH GEMINI" MENU TESTS -----------//
+    // --------------------------------------------------------------//
+
+    @Test
+    @Feature("Tab Strip Context Menu")
+    public void testGlicShareItem_notShownWhenFeatureDisabled() {
+        // CLANK_GLIC_CONTEXT_MENU is disabled at the class level and not enabled here.
+        GlicEnabling.setEnabledForTesting(true);
+        GlicKeyedServiceFactory.setForTesting(mGlicKeyedService);
+        addSingleTab();
+
+        var modelList = new ModelList();
+        mTabContextMenuCoordinator.configureMenuItemsForTesting(
+                modelList, new AnchorInfo(TAB_ID, Collections.singletonList(TAB_ID)));
+
+        assertGlicShareAndUnshareAbsent(modelList, "when the feature flag is disabled");
+    }
+
+    @Test
+    @Feature("Tab Strip Context Menu")
+    @EnableFeatures(ChromeFeatureList.CLANK_GLIC_CONTEXT_MENU + ":show_gemini_on_tab_strip/false")
+    public void testGlicShareItem_notShownWhenParamDisabled() {
+        // Feature is on, but the tab strip entry param (show_gemini_on_tab_strip)
+        // is explicitly disabled, so the item should be absent.
+        enableGlic();
+        addSingleTab();
+
+        var modelList = new ModelList();
+        mTabContextMenuCoordinator.configureMenuItemsForTesting(
+                modelList, new AnchorInfo(TAB_ID, Collections.singletonList(TAB_ID)));
+
+        assertGlicShareAndUnshareAbsent(modelList, "when show_gemini_on_tab_strip param is false");
+    }
+
+    @Test
+    @Feature("Tab Strip Context Menu")
+    @EnableFeatures(ChromeFeatureList.CLANK_GLIC_CONTEXT_MENU + ":show_gemini_on_tab_strip/true")
+    public void testGlicShareItem_notShownInIncognito() {
+        setupWithIncognito(/* incognito= */ true);
+        enableGlic();
+        addSingleTab();
+
+        var modelList = new ModelList();
+        mTabContextMenuCoordinator.configureMenuItemsForTesting(
+                modelList, new AnchorInfo(TAB_ID, Collections.singletonList(TAB_ID)));
+
+        assertGlicShareAndUnshareAbsent(modelList, "in incognito");
+    }
+
+    @Test
+    @Feature("Tab Strip Context Menu")
+    @EnableFeatures(ChromeFeatureList.CLANK_GLIC_CONTEXT_MENU + ":show_gemini_on_tab_strip/true")
+    public void testGlicShareItem_notShownWhenGlicNotReady() {
+        // Flag is on and a service is available, but Glic is not ready for the profile.
+        GlicEnabling.setEnabledForTesting(false);
+        GlicKeyedServiceFactory.setForTesting(mGlicKeyedService);
+        addSingleTab();
+
+        var modelList = new ModelList();
+        mTabContextMenuCoordinator.configureMenuItemsForTesting(
+                modelList, new AnchorInfo(TAB_ID, Collections.singletonList(TAB_ID)));
+
+        assertGlicShareAndUnshareAbsent(modelList, "when Glic is not ready for the profile");
+    }
+
+    @Test
+    @Feature("Tab Strip Context Menu")
+    @EnableFeatures(ChromeFeatureList.CLANK_GLIC_CONTEXT_MENU + ":show_gemini_on_tab_strip/true")
+    public void testGlicShareItem_startNewChat_noRecents() {
+        enableGlic();
+        when(mGlicKeyedService.getRecentlyActiveInstances(anyInt()))
+                .thenReturn(Collections.emptyList());
+        addSingleTab();
+
+        var modelList = new ModelList();
+        mTabContextMenuCoordinator.configureMenuItemsForTesting(
+                modelList, new AnchorInfo(TAB_ID, Collections.singletonList(TAB_ID)));
+
+        ListItem shareItem = findGlicShareItem(modelList);
+        assertNotNull("Glic share item should be present", shareItem);
+
+        var subMenu = shareItem.model.get(SUBMENU_PROVIDER).get();
+        assertEquals("Submenu should only contain 'Start new chat'", 1, subMenu.size());
+        ListItem startNewChat = subMenu.get(0);
+        assertEquals(
+                "First submenu item should be 'Start new chat'",
+                R.string.tab_cxmenu_glic_create_new_chat,
+                startNewChat.model.get(ListMenuItemProperties.TITLE_ID));
+
+        // Clicking 'Start new chat' shares the tab into a brand new conversation.
+        startNewChat.model.get(CLICK_LISTENER).onClick(mView);
+        verify(mGlicKeyedService)
+                .shareTabs(
+                        anyList(),
+                        isNull(),
+                        eq(true),
+                        eq(GlicKeyedService.GlicInvocationSource.TAB_CONTEXT_MENU));
+    }
+
+    @Test
+    @Feature("Tab Strip Context Menu")
+    @EnableFeatures(ChromeFeatureList.CLANK_GLIC_CONTEXT_MENU + ":show_gemini_on_tab_strip/true")
+    public void testGlicShareItem_withRecentConversations() {
+        enableGlic();
+        ConversationInfo convo1 = new ConversationInfo("instance-1", "Conversation One");
+        ConversationInfo convo2 = new ConversationInfo("instance-2", "Conversation Two");
+        when(mGlicKeyedService.getRecentlyActiveInstances(anyInt()))
+                .thenReturn(List.of(convo1, convo2));
+        addSingleTab();
+
+        var modelList = new ModelList();
+        mTabContextMenuCoordinator.configureMenuItemsForTesting(
+                modelList, new AnchorInfo(TAB_ID, Collections.singletonList(TAB_ID)));
+
+        ListItem shareItem = findGlicShareItem(modelList);
+        assertNotNull("Glic share item should be present", shareItem);
+
+        var subMenu = shareItem.model.get(SUBMENU_PROVIDER).get();
+        // 'Start new chat' + divider + two recent conversations.
+        assertEquals("Submenu should have 4 items", 4, subMenu.size());
+        assertEquals("Second submenu item should be a divider", DIVIDER, subMenu.get(1).type);
+        assertEquals("Conversation One", subMenu.get(2).model.get(TITLE));
+        assertEquals("Conversation Two", subMenu.get(3).model.get(TITLE));
+
+        // Clicking a recent conversation shares the tab into that existing conversation.
+        subMenu.get(2).model.get(CLICK_LISTENER).onClick(mView);
+        verify(mGlicKeyedService)
+                .shareTabs(
+                        anyList(),
+                        eq("instance-1"),
+                        eq(false),
+                        eq(GlicKeyedService.GlicInvocationSource.TAB_CONTEXT_MENU));
+    }
+
+    @Test
+    @Feature("Tab Strip Context Menu")
+    @EnableFeatures(ChromeFeatureList.CLANK_GLIC_CONTEXT_MENU + ":show_gemini_on_tab_strip/true")
+    public void testGlicUnshareItem_shownWhenTabPinned() {
+        enableGlic();
+        when(mGlicKeyedService.isTabPinnedToAnyInstance(anyList())).thenReturn(true);
+        addSingleTab();
+
+        var modelList = new ModelList();
+        mTabContextMenuCoordinator.configureMenuItemsForTesting(
+                modelList, new AnchorInfo(TAB_ID, Collections.singletonList(TAB_ID)));
+
+        ListItem unshareItem = findItemByMenuId(modelList, R.id.glic_unshare_menu_id);
+        assertNotNull("Glic unshare item should be present when the tab is pinned", unshareItem);
+        assertEquals(
+                R.string.tab_cxmenu_glic_unshare,
+                unshareItem.model.get(ListMenuItemProperties.TITLE_ID));
+    }
+
+    @Test
+    @Feature("Tab Strip Context Menu")
+    @EnableFeatures(ChromeFeatureList.CLANK_GLIC_CONTEXT_MENU + ":show_gemini_on_tab_strip/true")
+    public void testGlicUnshareItem_hiddenWhenTabNotPinned() {
+        enableGlic();
+        when(mGlicKeyedService.isTabPinnedToAnyInstance(anyList())).thenReturn(false);
+        addSingleTab();
+
+        var modelList = new ModelList();
+        mTabContextMenuCoordinator.configureMenuItemsForTesting(
+                modelList, new AnchorInfo(TAB_ID, Collections.singletonList(TAB_ID)));
+
+        assertNull(
+                "Glic unshare item should be absent when no tab is pinned",
+                findItemByMenuId(modelList, R.id.glic_unshare_menu_id));
+    }
+
+    @Test
+    @Feature("Tab Strip Context Menu")
+    @EnableFeatures(ChromeFeatureList.CLANK_GLIC_CONTEXT_MENU + ":show_gemini_on_tab_strip/true")
+    public void testGlicUnshareCallback_unsharesTabs() {
+        enableGlic();
+        addSingleTab();
+
+        mOnItemClickedCallback.onClick(
+                R.id.glic_unshare_menu_id,
+                new AnchorInfo(TAB_ID, Collections.singletonList(TAB_ID)),
+                COLLABORATION_ID,
+                /* listViewTouchTracker= */ null);
+
+        verify(mGlicKeyedService).unshareTabs(anyList());
+    }
+
+    /** Enables the Glic feature and injects a mock {@link GlicKeyedService} for testing. */
+    private void enableGlic() {
+        GlicEnabling.setEnabledForTesting(true);
+        GlicKeyedServiceFactory.setForTesting(mGlicKeyedService);
+    }
+
+    private void addSingleTab() {
+        mTabModel.addTab(
+                mTab1,
+                TabModel.INVALID_TAB_INDEX,
+                TabLaunchType.FROM_CHROME_UI,
+                TabCreationState.LIVE_IN_FOREGROUND);
+    }
+
+    /**
+     * Finds the Glic "Share tab with Gemini" submenu parent independent of its (tab-count
+     * dependent) title, by matching the submenu whose first entry is "Start new chat".
+     */
+    private @Nullable ListItem findGlicShareItem(ModelList modelList) {
+        for (int i = 0; i < modelList.size(); i++) {
+            ListItem item = modelList.get(i);
+            if (item.type != MENU_ITEM_WITH_SUBMENU) continue;
+            List<ListItem> submenu = item.model.get(SUBMENU_PROVIDER).get();
+            if (!submenu.isEmpty()
+                    && submenu.get(0).model.containsKey(ListMenuItemProperties.TITLE_ID)
+                    && submenu.get(0).model.get(ListMenuItemProperties.TITLE_ID)
+                            == R.string.tab_cxmenu_glic_create_new_chat) {
+                return item;
+            }
+        }
+        return null;
+    }
+
+    /** Asserts that neither the Glic share nor unshare menu items are present. */
+    private void assertGlicShareAndUnshareAbsent(ModelList modelList, String reason) {
+        assertNull("Glic share item should be absent " + reason, findGlicShareItem(modelList));
+        assertNull(
+                "Glic unshare item should be absent " + reason,
+                findItemByMenuId(modelList, R.id.glic_unshare_menu_id));
     }
 
     private void testCloseTab(

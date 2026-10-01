@@ -257,6 +257,7 @@ linux_memory_builder(
             ),
         },
     ),
+    ssd = None,
     console_view_entry = consoles.console_view_entry(
         category = "linux|asan lsan",
         short_name = "tst",
@@ -294,6 +295,7 @@ linux_memory_builder(
             "x64",
         ],
     ),
+    ssd = None,
     console_view_entry = consoles.console_view_entry(
         category = "linux|TSan v2",
         short_name = "bld",
@@ -345,7 +347,7 @@ linux_memory_builder(
                     "--disable-features=WebUIOmniboxPopup,WebUIOmniboxAimPopup",
                 ],
                 swarming = targets.swarming(
-                    shards = 45,
+                    shards = 60,
                 ),
             ),
             "crashpad_tests": targets.remove(
@@ -523,6 +525,7 @@ linux_memory_builder(
             ),
         },
     ),
+    ssd = None,
     console_view_entry = consoles.console_view_entry(
         category = "cros|asan",
         short_name = "tst",
@@ -664,6 +667,7 @@ linux_memory_builder(
             ),
         },
     ),
+    ssd = None,
     console_view_entry = consoles.console_view_entry(
         category = "cros|msan",
         short_name = "tst",
@@ -784,6 +788,7 @@ linux_memory_builder(
             ),
         },
     ),
+    ssd = None,
     console_view_entry = consoles.console_view_entry(
         category = "linux|msan",
         short_name = "tst",
@@ -942,6 +947,7 @@ linux_memory_builder(
             ),
         },
     ),
+    ssd = None,
     console_view_entry = consoles.console_view_entry(
         category = "linux|TSan v2",
         short_name = "tst",
@@ -1052,6 +1058,7 @@ linux_memory_builder(
             ),
         },
     ),
+    ssd = None,
     console_view_entry = consoles.console_view_entry(
         category = "linux|ubsan",
         short_name = "tst",
@@ -1208,6 +1215,7 @@ ci.builder(
             ),
         },
     ),
+    ssd = None,
     console_view_entry = consoles.console_view_entry(
         category = "linux|blink",
         short_name = "asn",
@@ -1291,6 +1299,7 @@ ci.builder(
             ),
         },
     ),
+    ssd = None,
     console_view_entry = consoles.console_view_entry(
         category = "linux|blink",
         short_name = "lk",
@@ -1376,6 +1385,7 @@ ci.builder(
             ),
         },
     ),
+    ssd = None,
     console_view_entry = consoles.console_view_entry(
         category = "linux|blink",
         short_name = "msn",
@@ -1539,11 +1549,7 @@ ci.builder(
             target_platform = builder_config.target_platform.IOS,
         ),
         clusterfuzz_archive = builder_config.clusterfuzz_archive(
-            # TODO(https://crbug.com/527836546): Flip `use_archive_path` to True
-            # then remove `archive_name_prefix` and `archive_subdir`.
-            archive_name_prefix = "ios-asan",
             archive_path = "mac-release-ios-asan/ios-asan-mac-release",
-            archive_subdir = "ios-asan",
             gs_acl = "public-read",
             gs_bucket = "chromium-browser-asan",
         ),

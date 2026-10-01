@@ -74,6 +74,7 @@ _CONVERTED_SCHEMAS = [
   ('content_scripts.idl', 'content_scripts.webidl'),
   ('declarative_net_request.idl', 'declarative_net_request.webidl'),
   ('image_writer_private.idl', 'image_writer_private.webidl'),
+  ('passwords_private.idl', 'passwords_private.webidl'),
   ('printer_provider.idl', 'printer_provider.webidl'),
   ('printer_provider_internal.idl', 'printer_provider_internal.webidl'),
   ('scripts_internal.idl', 'scripts_internal.webidl'),
@@ -100,6 +101,15 @@ _CONVERTED_SCHEMAS = [
   ('enterprise_platform_keys.idl', 'enterprise_platform_keys.webidl'),
   ('experimental_actor.idl', 'experimental_actor.webidl'),
   ('file_system_provider.idl', 'file_system_provider.webidl'),
+  ('icon_variants.idl', 'icon_variants.webidl'),
+  ('mime_handler_private.idl', 'mime_handler_private.webidl'),
+  ('hid.idl', 'hid.webidl'),
+  ('file_system.idl', 'file_system.webidl'),
+  ('sockets_tcp_server.idl', 'sockets_tcp_server.webidl'),
+  ('sockets_tcp.idl', 'sockets_tcp.webidl'),
+  ('sockets_udp.idl', 'sockets_udp.webidl'),
+  ('socket.idl', 'socket.webidl'),
+  ('scripting.idl', 'scripting.webidl'),
 ]
 
 

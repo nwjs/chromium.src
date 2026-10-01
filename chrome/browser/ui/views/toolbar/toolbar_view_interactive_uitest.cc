@@ -23,6 +23,7 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/omnibox/omnibox_next_features.h"
+#include "chrome/browser/ui/tabs/split_view_layout_menu_model.h"
 #include "chrome/browser/ui/tabs/tab_menu_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/ui_features.h"
@@ -48,6 +49,8 @@
 #include "components/bookmarks/browser/bookmark_utils.h"
 #include "components/strings/grit/components_strings.h"
 #include "content/public/browser/focused_node_details.h"
+#include "content/public/browser/navigation_controller.h"
+#include "content/public/browser/navigation_entry.h"
 #include "content/public/common/content_features.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
@@ -137,6 +140,14 @@ class ToolbarViewTest : public ToolbarAccessibilityTest {
         // is enabled and then remove these two Features.
         {omnibox::internal::kWebUIOmniboxPopup,
          omnibox::internal::kWebUIOmniboxAimPopup});
+
+    // TODO(crbug.com/557287887): Make SplitViewLayoutMenuModel work with
+    // OpenSideBySideTab.
+    spit_view_horizontal_feature_list_.InitWithFeaturesAndParameters(
+        /*enabled_features=*/{{tabs::kSplitViewHorizontal,
+                               {{"split_view_horizontal_direct_tab_access",
+                                 "false"}}}},
+        /*disabled_features=*/{});
   }
   ToolbarViewTest(const ToolbarViewTest&) = delete;
   ToolbarViewTest& operator=(const ToolbarViewTest&) = delete;
@@ -187,6 +198,7 @@ class ToolbarViewTest : public ToolbarAccessibilityTest {
  private:
   base::test::ScopedFeatureList feature_list_;
   base::test::ScopedFeatureList webui_omnibox_feature_list_;
+  base::test::ScopedFeatureList spit_view_horizontal_feature_list_;
 };
 
 void ToolbarViewTest::RunToolbarCycleFocusTest(

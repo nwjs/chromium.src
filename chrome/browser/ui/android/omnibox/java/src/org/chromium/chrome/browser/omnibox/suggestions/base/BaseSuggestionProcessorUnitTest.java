@@ -9,7 +9,6 @@ import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.robolectric.Shadows.shadowOf;
 
@@ -28,6 +27,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
+import org.mockito.quality.Strictness;
 import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowLog;
 
@@ -89,7 +89,7 @@ public class BaseSuggestionProcessorUnitTest {
 
         @Override
         public PropertyModel createModel() {
-            return new PropertyModel(BaseSuggestionViewProperties.ALL_KEYS);
+            return createPropertyModel(BaseSuggestionViewProperties.ALL_KEYS);
         }
 
         @Override
@@ -115,7 +115,8 @@ public class BaseSuggestionProcessorUnitTest {
 
     private static final GURL TEST_URL = JUnitTestGURLs.URL_1;
 
-    @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
+    @Rule
+    public final MockitoRule mMockitoRule = MockitoJUnit.rule().strictness(Strictness.STRICT_STUBS);
 
     @Mock private SuggestionHost mSuggestionHost;
     @Mock private OmniboxImageSupplier mImageSupplier;
@@ -276,7 +277,7 @@ public class BaseSuggestionProcessorUnitTest {
         touchDownListener.onResult(1000L);
 
         histogramWatcher.assertExpected();
-        verify(mSuggestionHost, times(1))
+        verify(mSuggestionHost)
                 .onSuggestionTouchDown(mSuggestion, /* position= */ 0, /* eventTime= */ 1000L);
     }
 

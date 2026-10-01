@@ -24,7 +24,6 @@
 #include "chrome/browser/speech/speech_recognition_client_browser_interface.h"
 #include "chrome/browser/speech/speech_recognition_client_browser_interface_factory.h"
 #include "chrome/browser/speech/speech_recognizer_delegate.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "components/live_caption/caption_bubble_controller.h"
 #include "components/live_caption/live_caption_controller.h"
@@ -492,7 +491,7 @@ IN_PROC_BROWSER_TEST_F(SystemLiveCaptionServiceTest, UsesCorrectLanguage) {
 // This tests that while there are non chrome outputs running that the session
 // restarts automatically.
 IN_PROC_BROWSER_TEST_F(SystemLiveCaptionServiceTest,
-                       DISABLED_SwitchesLanguageCorrectly) {
+                       SwitchesLanguageCorrectly) {
   StartLiveCaptioning();
   ASSERT_TRUE(current_audio_fetcher_);
 

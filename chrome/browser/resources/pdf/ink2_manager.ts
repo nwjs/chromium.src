@@ -27,7 +27,8 @@ export const MIN_TEXTBOX_SIZE_PX = 24;
 
 export function stylesEqual(style1: TextStyles, style2: TextStyles): boolean {
   return style1.bold === style2.bold && style1.italic === style2.italic &&
-      style1.strikethrough === style2.strikethrough;
+      style1.strikethrough === style2.strikethrough &&
+      style1.underline === style2.underline;
 }
 
 function getClampedLocation(
@@ -59,6 +60,7 @@ export class Ink2Manager extends EventTarget {
       [TextStyle.BOLD]: false,
       [TextStyle.ITALIC]: false,
       [TextStyle.STRIKETHROUGH]: false,
+      [TextStyle.UNDERLINE]: false,
     },
   };
   private brushResolver_: PromiseResolver<void>|null = null;
@@ -68,6 +70,9 @@ export class Ink2Manager extends EventTarget {
   private existingAnnotationAttributes_: TextAttributes|null = null;
   private clipboardAnnotation_: TextAnnotation|null = null;
   private isCutAnnotation_: boolean = false;
+  // Maps page index to the page coordinates of the most recently pasted
+  // annotation on that page.
+  private pastedPageRects_: Map<number, TextBoxRect> = new Map();
   private pluginController_: PluginController = PluginController.getInstance();
   private textResolver_: PromiseResolver<void>|null = null;
   private viewport_: Viewport|null = null;
@@ -100,12 +105,15 @@ export class Ink2Manager extends EventTarget {
     this.stack_.resetForTesting();
   }
 
-  // Initialize a new empty text annotation at `location` in screen coordinates.
-  // No-op if there is no PDF page at `location`.
-  // If `location` is not provided, creates the annotation at the center of the
-  // visible portion of the most visible page.
-  // Returns true if an annotation was initialized, and false otherwise.
-  initializeTextAnnotation(location?: Point): boolean {
+  // Initialize a text annotation at `location` in screen coordinates.
+  // If a text annotation already exists at `location`, activates it for
+  // editing. If `location` is not provided, creates the annotation at the
+  // center of the visible portion of the most visible page. If `onlyExisting`
+  // is true, only existing annotations will be activated; no new annotation
+  // will be created if none exists at `location`. Returns true if an annotation
+  // was initialized or activated, and false otherwise.
+  initializeTextAnnotation(location?: Point, onlyExisting: boolean = false):
+      boolean {
     assert(this.isTextInitializationComplete());
     assert(this.viewport_);
 
@@ -114,6 +122,35 @@ export class Ink2Manager extends EventTarget {
                             this.viewport_.getMostVisiblePage();
     if (page === -1) {
       // Don't initialize an annotation if the click isn't on the PDF itself.
+      return false;
+    }
+
+    if (location) {
+      const annotationsMap = this.annotations_.get(page);
+      if (annotationsMap && annotationsMap.size > 0) {
+        let candidate: TextAnnotation|null = null;
+        let candidateScreenRect: TextBoxRect|null = null;
+        for (const annotation of annotationsMap.values()) {
+          const screenRect = pageToScreenCoordinates(
+              page, annotation.textBoxRect, this.viewport_);
+          if (location.x >= screenRect.locationX &&
+              location.x <= screenRect.locationX + screenRect.width &&
+              location.y >= screenRect.locationY &&
+              location.y <= screenRect.locationY + screenRect.height) {
+            if (!candidate || annotation.id > candidate.id) {
+              candidate = annotation;
+              candidateScreenRect = screenRect;
+            }
+          }
+        }
+        if (candidate) {
+          assert(candidateScreenRect);
+          return this.activateAnnotation_(candidate, candidateScreenRect);
+        }
+      }
+    }
+
+    if (onlyExisting) {
       return false;
     }
 
@@ -189,11 +226,49 @@ export class Ink2Manager extends EventTarget {
     return true;
   }
 
+  // Activates an existing text annotation with `id` for editing.
+  // Returns true if the annotation was found and activated, and false
+  // otherwise.
+  activateAnnotationById(id: number): boolean {
+    assert(this.isTextInitializationComplete());
+    for (const pageAnnotations of this.annotations_.values()) {
+      const annotation = pageAnnotations.get(id);
+      if (annotation) {
+        assert(this.viewport_);
+        const screenRect = pageToScreenCoordinates(
+            annotation.pageIndex, annotation.textBoxRect, this.viewport_);
+        return this.activateAnnotation_(annotation, screenRect);
+      }
+    }
+    return false;
+  }
+
+  // Activates an existing text annotation for editing.
+  private activateAnnotation_(
+      annotation: TextAnnotation, screenRect: TextBoxRect): boolean {
+    assert(this.viewport_);
+    const pageDimensions =
+        this.viewport_.getPageScreenRect(annotation.pageIndex);
+    if (!pageDimensions) {
+      return false;
+    }
+
+    const annotationToActivate = structuredClone(annotation);
+    annotationToActivate.textBoxRect = screenRect;
+
+    this.initializeTextBox_(
+        annotationToActivate, pageDimensions, /*isPaste=*/ false,
+        /*isExisting=*/ true);
+    this.pluginController_.editTextAnnotation(annotation.id);
+    return true;
+  }
+
   private initializeTextBox_(
       annotation: TextAnnotation, pageDimensions: ViewportRect,
-      isPaste: boolean) {
-    this.existingAnnotationAttributes_ =
-        isPaste ? structuredClone(annotation.textAttributes) : null;
+      isPaste: boolean, isExisting: boolean = false) {
+    this.existingAnnotationAttributes_ = (isPaste || isExisting) ?
+        structuredClone(annotation.textAttributes) :
+        null;
 
     this.dispatchEvent(new CustomEvent('initialize-text-box', {
       detail: {
@@ -213,6 +288,10 @@ export class Ink2Manager extends EventTarget {
     assert(annotation.text !== '');
     this.clipboardAnnotation_ = structuredClone(annotation);
     this.isCutAnnotation_ = isCut;
+    this.pastedPageRects_.clear();
+    if (!isCut) {
+      this.pastedPageRects_.set(annotation.pageIndex, annotation.textBoxRect);
+    }
     this.dispatchEvent(
         new CustomEvent('saved-annotation-to-clipboard-for-testing', {
           detail: {
@@ -220,6 +299,63 @@ export class Ink2Manager extends EventTarget {
             isCut: this.isCutAnnotation_,
           },
         }));
+  }
+
+  // Computes the page, page dimensions, and screen coordinates for pasting the
+  // clipboard annotation. Falls back to the original page if the annotation
+  // does not fit on the currently visible page. Returns null if the page
+  // dimensions cannot be retrieved.
+  private getPastedAnnotationPosition_(): {
+    page: number,
+    pageDimensions: ViewportRect,
+    textBoxRect: TextBoxRect,
+  }|null {
+    assert(this.clipboardAnnotation_);
+    assert(this.viewport_);
+
+    let page = this.viewport_.getMostVisiblePage();
+    let pageDimensions = this.viewport_.getPageScreenRect(page);
+    if (pageDimensions.height === 0 || pageDimensions.width === 0) {
+      return null;
+    }
+
+    // If the annotation's dimensions are too large to fit on the target page,
+    // fall back to pasting it on the original page where it was created.
+    if (page !== this.clipboardAnnotation_.pageIndex) {
+      const screenRectOnPage = pageToScreenCoordinates(
+          page, this.clipboardAnnotation_.textBoxRect, this.viewport_);
+      if (screenRectOnPage.width > pageDimensions.width ||
+          screenRectOnPage.height > pageDimensions.height) {
+        page = this.clipboardAnnotation_.pageIndex;
+        pageDimensions = this.viewport_.getPageScreenRect(page);
+        if (pageDimensions.height === 0 || pageDimensions.width === 0) {
+          return null;
+        }
+      }
+    }
+
+    const lastRect = this.pastedPageRects_.get(page);
+    // On the first paste on a page, place the annotation at the original
+    // location (0 offset). Subsequent pastes on the same page (or copying onto
+    // the original page, which pre-populates lastRect) offset by 10px each
+    // time.
+    const offset = lastRect ? 10 : 0;
+    const basePageRect = lastRect ?? this.clipboardAnnotation_.textBoxRect;
+    const screenRect =
+        pageToScreenCoordinates(page, basePageRect, this.viewport_);
+
+    const location = getClampedLocation(
+        {x: screenRect.locationX + offset, y: screenRect.locationY + offset},
+        screenRect.width, screenRect.height, pageDimensions);
+
+    const textBoxRect: TextBoxRect = {
+      height: screenRect.height,
+      locationX: location.x,
+      locationY: location.y,
+      width: screenRect.width,
+    };
+
+    return {page, pageDimensions, textBoxRect};
   }
 
   // Pastes the clipboard annotation.
@@ -232,12 +368,12 @@ export class Ink2Manager extends EventTarget {
       return false;
     }
 
-    const page = this.clipboardAnnotation_.pageIndex;
-    const pageDimensions = this.viewport_.getPageScreenRect(page);
-    if (!pageDimensions) {
+    const position = this.getPastedAnnotationPosition_();
+    if (!position) {
       return false;
     }
 
+    const {page, pageDimensions, textBoxRect} = position;
     const viewportRotations = this.viewport_.getClockwiseRotations();
     let id: number;
     if (this.isCutAnnotation_) {
@@ -247,20 +383,6 @@ export class Ink2Manager extends EventTarget {
     } else {
       id = this.nextAnnotationId_++;
     }
-
-    const screenRect = pageToScreenCoordinates(
-        page, this.clipboardAnnotation_.textBoxRect, this.viewport_);
-
-    const location = getClampedLocation(
-        {x: screenRect.locationX + 10, y: screenRect.locationY + 10},
-        screenRect.width, screenRect.height, pageDimensions);
-
-    const textBoxRect: TextBoxRect = {
-      height: screenRect.height,
-      locationX: location.x,
-      locationY: location.y,
-      width: screenRect.width,
-    };
 
     const annotation: TextAnnotation = {
       id,
@@ -274,23 +396,13 @@ export class Ink2Manager extends EventTarget {
       viewportOrientation: viewportRotations,
     };
 
-    // Update clipboard coordinates for subsequent consecutive pastes (+10px
-    // cascading).
+    // Update the last pasted coordinates on this page for subsequent
+    // consecutive pastes (+10px cascading).
     const pageRect = screenToPageCoordinates(page, textBoxRect, this.viewport_);
-    this.clipboardAnnotation_ = structuredClone(annotation);
-    this.clipboardAnnotation_.textBoxRect = pageRect;
+    this.pastedPageRects_.set(page, pageRect);
 
     this.initializeTextBox_(annotation, pageDimensions, /*isPaste=*/ true);
     return true;
-  }
-
-  // Reactivate an existing text annotation for editing.
-  reactivateTextAnnotation(annotation: TextAnnotation) {
-    assert(this.isTextInitializationComplete());
-    this.pluginController_.editTextAnnotation(annotation.id);
-    this.existingAnnotationAttributes_ =
-        structuredClone(annotation.textAttributes);
-    this.fireAttributesChanged_();
   }
 
   isInitializationStarted(): boolean {

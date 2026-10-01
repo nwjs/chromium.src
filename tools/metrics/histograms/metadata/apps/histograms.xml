@@ -1939,7 +1939,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Apps.AppShimRegistry.HmacKeyStore.LoadResult"
-    enum="AppShimRegistryGetHmacKeyResult" expires_after="2026-12-27">
+    enum="AppShimRegistryGetHmacKeyResult" expires_after="2027-02-28">
   <owner>mek@chromium.org</owner>
   <owner>src/chrome/browser/web_applications/OWNERS</owner>
   <summary>
@@ -1950,7 +1950,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Apps.AppShimRegistry.HmacKeyStore.SaveResult"
-    enum="AppShimRegistrySaveHmacKeyResult" expires_after="2026-12-27">
+    enum="AppShimRegistrySaveHmacKeyResult" expires_after="2027-02-28">
   <owner>mek@chromium.org</owner>
   <owner>src/chrome/browser/web_applications/OWNERS</owner>
   <summary>
@@ -2223,7 +2223,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Apps.FullRestoreWindowCount2" units="count"
-    expires_after="2027-01-03">
+    expires_after="2027-03-07">
   <owner>dandersson@chromium.org</owner>
   <owner>fanafan@chromium.org</owner>
   <owner>chromeos-wm-corexp@google.com</owner>
@@ -2528,7 +2528,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Apps.RestoredAppLaunch" enum="AppType"
-    expires_after="2027-01-03">
+    expires_after="2027-03-07">
   <owner>dandersson@chromium.org</owner>
   <owner>fanafan@chromium.org</owner>
   <owner>chromeos-wm-corexp@google.com</owner>
@@ -2539,7 +2539,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Apps.RestoreInitSetting" enum="RestoreSetting"
-    expires_after="2027-01-03">
+    expires_after="2027-03-07">
   <owner>dandersson@chromium.org</owner>
   <owner>fanafan@chromium.org</owner>
   <owner>chromeos-wm-corexp@google.com</owner>
@@ -2550,7 +2550,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Apps.RestoreSetting" enum="RestoreSetting"
-    expires_after="2027-01-03">
+    expires_after="2027-03-07">
   <owner>dandersson@chromium.org</owner>
   <owner>fanafan@chromium.org</owner>
   <owner>chromeos-wm-corexp@google.com</owner>
@@ -2642,7 +2642,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Apps.SessionRestoreExitResult" enum="SessionRestoreExitResult"
-    expires_after="2026-11-01">
+    expires_after="2027-02-28">
   <owner>dandersson@chromium.org</owner>
   <owner>fanafan@chromium.org</owner>
   <owner>chromeos-wm-corexp@google.com</owner>

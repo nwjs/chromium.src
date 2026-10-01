@@ -61,6 +61,10 @@ bool IndigoCueTarget::RequiresModelExecution() const {
   return false;
 }
 
+bool IndigoCueTarget::IsPersistent() const {
+  return true;
+}
+
 bool IndigoCueTarget::IsEligible() const {
   if (base::CommandLine::ForCurrentProcess()->HasSwitch(kForceIndigoSwitch)) {
     return true;
@@ -174,6 +178,14 @@ contextual_cueing::CueActionData IndigoCueTarget::CueActionDataFromResponse(
     const optimization_guide::proto::ContextualCue& cue,
     std::vector<tabs::TabHandle> tabs_to_show) const {
   return std::monostate{};
+}
+
+bool IndigoCueTarget::OverridesUcbScoring() const {
+  return features::kIndigoContextualCueingV2OverrideUcbScoring.Get();
+}
+
+bool IndigoCueTarget::DowngradesToQuietOnDismiss() const {
+  return true;
 }
 
 optimization_guide::proto::ContextualCueingSurface IndigoCueTarget::GetSurface()

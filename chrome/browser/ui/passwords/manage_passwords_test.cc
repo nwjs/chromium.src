@@ -14,7 +14,6 @@
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/actor/actor_keyed_service_factory.h"
 #include "chrome/browser/actor/actor_keyed_service_fake.h"
-#include "chrome/browser/actor/ui/test_support/mock_actor_ui_state_manager.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service.h"
 #include "chrome/browser/optimization_guide/optimization_guide_keyed_service_factory.h"
 #include "chrome/browser/password_manager/factories/account_password_store_factory.h"
@@ -51,7 +50,9 @@
 #include "components/signin/public/identity_manager/account_info.h"
 #include "components/signin/public/identity_manager/identity_test_utils.h"
 #include "components/sync/test/test_sync_service.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/test/test_utils.h"
+#include "ui/base/page_transition_types.h"
 
 using base::ASCIIToUTF16;
 using password_manager::PasswordFormManager;
@@ -129,16 +130,8 @@ void ManagePasswordsTest::SetUpInProcessBrowserTestFixture() {
                                                     KeyedService> {
                           Profile* profile =
                               Profile::FromBrowserContext(context);
-                          auto actor_keyed_service =
-                              std::make_unique<actor::ActorKeyedServiceFake>(
-                                  profile);
-                          std::unique_ptr<actor::ui::MockActorUiStateManager>
-                              ausm = std::make_unique<
-                                  actor::ui::MockActorUiStateManager>();
-                          actor_keyed_service->SetActorUiStateManagerForTesting(
-                              std::move(ausm));
-
-                          return std::move(actor_keyed_service);
+                          return std::make_unique<actor::ActorKeyedServiceFake>(
+                              profile);
                         }));
               }));
 }
@@ -274,7 +267,7 @@ void ManagePasswordsTest::ConfigurePasswordSync(
                                : signin::ConsentLevel::kSignin;
       AccountInfo info = signin::MakePrimaryAccountAvailable(
           identity_manager, "test@email.com", consent_level);
-      sync_service->SetSignedIn(consent_level, info);
+      sync_service->SetSignedIn(consent_level, info.GetCoreAccountInfo());
       break;
     }
   }

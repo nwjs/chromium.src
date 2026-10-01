@@ -5,7 +5,7 @@
 #include "chrome/browser/ui/ash/shelf/browser_shortcut_shelf_item_controller.h"
 
 #include <algorithm>
-#include <limits>
+#include <optional>
 #include <utility>
 #include <vector>
 
@@ -13,22 +13,19 @@
 #include "ash/public/cpp/shelf_model.h"
 #include "ash/wm/desks/desks_util.h"
 #include "ash/wm/window_animations.h"
-#include "base/check_deref.h"
 #include "base/metrics/user_metrics.h"
 #include "base/metrics/user_metrics_action.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/ash/app_restore/full_restore_service.h"
 #include "chrome/browser/ash/app_restore/full_restore_service_factory.h"
-#include "chrome/browser/ash/browser_delegate/browser_controller.h"
-#include "chrome/browser/ash/browser_delegate/browser_delegate.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/ash/shelf/chrome_shelf_controller.h"
 #include "chrome/browser/ui/ash/shelf/chrome_shelf_controller_util.h"
 #include "chrome/browser/ui/ash/shelf/shelf_context_menu.h"
-#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
-#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/grit/theme_resources.h"
-#include "chromeos/ash/components/browser_context_helper/annotated_account_id.h"
+#include "chromeos/ash/components/browser_context_helper/browser_context_helper.h"
+#include "chromeos/ash/components/browser_delegate/browser_controller.h"
+#include "chromeos/ash/components/browser_delegate/browser_delegate.h"
 #include "components/account_id/account_id.h"
 #include "components/app_constants/constants.h"
 #include "components/user_manager/user_names.h"
@@ -37,6 +34,7 @@
 #include "extensions/browser/extension_prefs.h"
 #include "ui/aura/window.h"
 #include "ui/base/resource/resource_bundle.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/events/event.h"
 #include "ui/events/event_constants.h"
 #include "ui/events/types/event_type.h"
@@ -96,9 +94,6 @@ class BrowserShortcutShelfItemController::ShelfItemBrowsers
 
 namespace {
 
-// The tab-index flag for browser window menu items that do not specify a tab.
-constexpr int kNoTab = std::numeric_limits<int>::max();
-
 // Gets a list of active browsers.
 std::vector<ash::BrowserDelegate*> GetListOfActiveBrowsers(
     const ash::ShelfModel* model) {
@@ -133,9 +128,9 @@ bool ShouldRecordLaunchTime(const ash::BrowserDelegate& browser,
          IsBrowserRepresentedInBrowserList(&browser, model);
 }
 
-ash::BrowserDelegate* FindNormalBrowserOnActiveDesk(
-    const AccountId& account_id) {
+ash::BrowserDelegate* FindNormalBrowserOnActiveDesk() {
   ash::BrowserDelegate* result = nullptr;
+  const AccountId& account_id = GetActiveAccountId();
   ash::BrowserController::GetInstance()->ForEachBrowser(
       ash::BrowserController::BrowserOrder::kAscendingActivationTime,
       [&](ash::BrowserDelegate& browser) {
@@ -151,11 +146,6 @@ ash::BrowserDelegate* FindNormalBrowserOnActiveDesk(
         return ash::BrowserController::kContinueIteration;
       });
   return result;
-}
-
-AccountId GetAccountId(Profile* profile) {
-  return CHECK_DEREF(
-      ash::AnnotatedAccountId::Get(profile->GetOriginalProfile()));
 }
 
 }  // namespace
@@ -247,8 +237,7 @@ void BrowserShortcutShelfItemController::ItemSelected(
     return;
   }
 
-  ash::BrowserDelegate* last_browser =
-      FindNormalBrowserOnActiveDesk(GetAccountId(profile));
+  ash::BrowserDelegate* last_browser = FindNormalBrowserOnActiveDesk();
   if (last_browser && !filter_predicate.is_null() &&
       !filter_predicate.Run(last_browser->GetNativeWindow())) {
     last_browser = nullptr;
@@ -285,7 +274,8 @@ ash::ShelfItemDelegate::AppMenuItems
 BrowserShortcutShelfItemController::GetAppMenuItems(
     int event_flags,
     const ItemFilterPredicate& filter_predicate) {
-  std::vector<std::pair<BrowserWindowInterface*, size_t>> app_menu_items;
+  std::vector<std::pair<raw_ptr<ash::BrowserDelegate>, std::optional<size_t>>>
+      app_menu_items;
   AppMenuItems items;
   bool found_tabbed_browser = false;
   ChromeShelfController* controller = ChromeShelfController::instance();
@@ -303,7 +293,7 @@ BrowserShortcutShelfItemController::GetAppMenuItems(
     if (!(event_flags & ui::EF_SHIFT_DOWN)) {
       base::RecordAction(base::UserMetricsAction(
           "Shelf_BrowserShortcutShelfItem_ShowWindows"));
-      app_menu_items.emplace_back(&browser->GetBrowser(), kNoTab);
+      app_menu_items.emplace_back(browser, std::nullopt);
       auto* tab = browser->GetActiveWebContents();
       const gfx::Image& icon =
           ui::ResourceBundle::GetSharedInstance().GetImageNamed(
@@ -328,7 +318,7 @@ BrowserShortcutShelfItemController::GetAppMenuItems(
           base::UserMetricsAction("Shelf_BrowserShortcutShelfItem_ShowTabs"));
       for (size_t i = 0; i < browser->GetWebContentsCount(); ++i) {
         auto* tab = browser->GetWebContentsAt(i);
-        app_menu_items.emplace_back(&browser->GetBrowser(), i);
+        app_menu_items.emplace_back(browser, i);
         items.push_back({static_cast<int>(app_menu_items.size() - 1),
                          controller->GetAppMenuTitle(tab),
                          controller->GetAppMenuIcon(tab).AsImageSkia()});
@@ -364,21 +354,19 @@ void BrowserShortcutShelfItemController::ExecuteCommand(bool from_context_menu,
   if (command_id < static_cast<int64_t>(app_menu_items_.size()) &&
       app_menu_items_[command_id].first &&
       app_menu_items_[command_id].first->GetWindow()) {
-    ash::BrowserDelegate* browser =
-        ash::BrowserController::GetInstance()->GetDelegate(
-            app_menu_items_[command_id].first);
-    TabStripModel* tab_strip = browser->GetBrowser().GetTabStripModel();
-    const int tab_index = app_menu_items_[command_id].second;
+    ash::BrowserDelegate* browser = app_menu_items_[command_id].first;
+    const std::optional<size_t> tab_index = app_menu_items_[command_id].second;
     if (event_flags & (ui::EF_SHIFT_DOWN | ui::EF_MIDDLE_MOUSE_BUTTON)) {
-      if (tab_index == kNoTab) {
-        tab_strip->CloseAllTabs();
-      } else if (tab_strip->ContainsIndex(tab_index)) {
-        browser->CloseWebContentsAt(tab_index,
+      if (!tab_index.has_value()) {
+        browser->CloseAllTabs();
+      } else if (*tab_index < browser->GetWebContentsCount()) {
+        browser->CloseWebContentsAt(*tab_index,
                                     ash::BrowserDelegate::UserGesture::kYes);
       }
     } else {
-      if (tab_index != kNoTab && tab_strip->ContainsIndex(tab_index)) {
-        tab_strip->ActivateTabAt(tab_index);
+      if (tab_index.has_value() &&
+          *tab_index < browser->GetWebContentsCount()) {
+        browser->ActivateWebContentsAt(*tab_index);
       }
       ShowAndActivateBrowser(/*move_to_current_desktop=*/true, browser);
     }
@@ -431,8 +419,7 @@ BrowserShortcutShelfItemController::ActivateOrAdvanceToNextBrowser() {
         browser = (++it == browsers.end()) ? browsers[0] : *it;
       }
     } else {
-      browser = FindNormalBrowserOnActiveDesk(
-          GetAccountId(ChromeShelfController::instance()->profile()));
+      browser = FindNormalBrowserOnActiveDesk();
       if (!browser ||
           !IsBrowserRepresentedInBrowserList(browser, shelf_model_)) {
         browser = browsers[0];
@@ -462,8 +449,11 @@ void BrowserShortcutShelfItemController::OnBrowserCreated(
       });
 
   if (!browser_found) {
-    extensions::ExtensionPrefs::Get(browser->GetBrowser().GetProfile())
-        ->SetLastLaunchTime(shelf_id().app_id, base::Time::Now());
+    content::BrowserContext* context =
+        ash::BrowserContextHelper::Get()->GetBrowserContextByAccountId(
+            browser->GetAccountId());
+    extensions::ExtensionPrefs::Get(context)->SetLastLaunchTime(
+        shelf_id().app_id, base::Time::Now());
   }
 }
 
@@ -471,7 +461,7 @@ void BrowserShortcutShelfItemController::OnBrowserClosed(
     ash::BrowserDelegate* browser) {
   // Reset pointers to the closed browser, but leave menu indices intact.
   for (auto& it : app_menu_items_) {
-    if (it.first == &browser->GetBrowser()) {
+    if (it.first == browser) {
       it.first = nullptr;
     }
   }

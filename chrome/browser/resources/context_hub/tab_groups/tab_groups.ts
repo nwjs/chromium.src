@@ -7,6 +7,11 @@ import '//resources/cr_elements/cr_expand_button/cr_expand_button.js';
 import '//resources/cr_elements/cr_button/cr_button.js';
 import '//resources/cr_elements/cr_icon_button/cr_icon_button.js';
 import '//resources/cr_elements/cr_input/cr_input.js';
+import '//resources/cr_elements/cr_dialog/cr_dialog.js';
+import '//resources/cr_elements/cr_slider/cr_slider.js';
+import type {CrSliderElement} from
+    '//resources/cr_elements/cr_slider/cr_slider.js';
+import '//resources/cr_elements/cr_textarea/cr_textarea.js';
 import '//resources/cr_elements/icons.html.js';
 import '/strings.m.js';
 
@@ -19,13 +24,17 @@ import type {ChatMessage, TabGroup as TabGroupMojom, TabInfo} from '../context_h
 import {getCss} from './tab_groups.css.js';
 import {getHtml} from './tab_groups.html.js';
 
-const CANVAS_FEEDBACK_FORM_URL =
-    'https://docs.google.com/forms/d/e/1FAIpQLSfseE-j9tXWU7oSbcUAY37K2pGlkkCPGzjxe9V9ZigGasSB3Q/viewform';
-const ENTRY_USER_PROMPT = 'entry.372998523';
-const ENTRY_EXPORTED_JSON = 'entry.1489365180';
-const ENTRY_LIKED_DISLIKED = 'entry.1865051344';
-const ENTRY_GROUPING_DESCRIPTION = 'entry.532400426';
-const ENTRY_OVERALL_RATING = 'entry.647161720';
+// Standardized 8 Defect Categories
+export const DEFECT_CATEGORIES = [
+  'All good',
+  'Few tabs left ungrouped',
+  'Bad group name',
+  'Group(s) too broad / coarse',
+  'Group(s) too fragmented / fine',
+  'Tabs placed in wrong group',
+  'Unnecessary grouping',
+  'Completely wrong',
+] as const;
 
 interface TabGroup {
   label: string;
@@ -60,6 +69,14 @@ export class TabGroupsElement extends CrLitElement {
       inputValue_: {type: String},
       canvasFeedbackLiked_: {type: Boolean},
       chatFeedbackLiked_: {type: Boolean},
+      feedbackDialogOpen_: {type: Boolean},
+      feedbackRating_: {type: Number},
+      feedbackDefect_: {type: String},
+      feedbackComments_: {type: String},
+      feedbackLiked_: {type: Boolean},
+      feedbackSource_: {type: String},
+      raterName_: {type: String},
+      copiedRowSuccess_: {type: Boolean},
     };
   }
 
@@ -79,6 +96,14 @@ export class TabGroupsElement extends CrLitElement {
   protected accessor inputValue_: string = '';
   protected accessor canvasFeedbackLiked_: boolean|null = null;
   protected accessor chatFeedbackLiked_: boolean|null = null;
+  protected accessor feedbackDialogOpen_: boolean = false;
+  protected accessor feedbackRating_: number|null = null;
+  protected accessor feedbackDefect_: string = '';
+  protected accessor feedbackComments_: string = '';
+  protected accessor feedbackLiked_: boolean = true;
+  protected accessor feedbackSource_: 'canvas'|'chat' = 'canvas';
+  protected accessor raterName_: string = '';
+  protected accessor copiedRowSuccess_: boolean = false;
   protected lastGroupPrompt_: string = 'Default';
 
   private trimChatHistory_(history: ChatMessage[]): ChatMessage[] {
@@ -91,8 +116,22 @@ export class TabGroupsElement extends CrLitElement {
 
   override connectedCallback() {
     super.connectedCallback();
+    try {
+      this.raterName_ = localStorage.getItem('autotab_eval_rater') || '';
+    } catch {
+      // Ignore local storage errors.
+    }
     this.fetchExistingTabGroupsAndChats_();
     this.fetchConfirmedTabGroupSummaries_();
+  }
+
+  protected onRaterNameValueChanged_(e: CustomEvent<{value: string}>) {
+    this.raterName_ = e.detail.value;
+    try {
+      localStorage.setItem('autotab_eval_rater', e.detail.value);
+    } catch {
+      // Ignore local storage errors.
+    }
   }
 
   private async fetchConfirmedTabGroupSummaries_() {
@@ -369,84 +408,184 @@ export class TabGroupsElement extends CrLitElement {
                                                'cr:thumb-down';
   }
 
-  protected exportGroupDataJson_(): string {
-    const result: Record<string, Array<{tab_title: string, tab_url: string}>> =
-        {};
-    for (const group of this.groups_) {
-      result[group.label] = group.tabs.map(tab => ({
-                                             tab_title: tab.title,
-                                             tab_url: tab.url,
-                                           }));
+  protected cleanUrl_(rawUrl: string|{url: string}|null|undefined): string {
+    const urlStr = typeof rawUrl === 'string' ? rawUrl : (rawUrl?.url || '');
+    if (!urlStr) {
+      return '';
     }
-    return JSON.stringify(result);
+    try {
+      const u = new URL(urlStr);
+      return `${u.origin}${u.pathname}`;
+    } catch {
+      return urlStr.substring(0, 80);
+    }
   }
 
   protected onCanvasThumbsUpClick_() {
-    this.sendFeedback_('canvas', true);
+    this.openFeedbackDialog_('canvas', true);
   }
 
   protected onCanvasThumbsDownClick_() {
-    this.sendFeedback_('canvas', false);
+    this.openFeedbackDialog_('canvas', false);
   }
 
   protected onChatThumbsUpClick_() {
-    this.sendFeedback_('chat', true);
+    this.openFeedbackDialog_('chat', true);
   }
 
   protected onChatThumbsDownClick_() {
-    this.sendFeedback_('chat', false);
+    this.openFeedbackDialog_('chat', false);
   }
 
-  protected sendFeedback_(source: 'canvas'|'chat', liked: boolean) {
-    if (source === 'canvas') {
-      if (this.canvasFeedbackLiked_ === liked) {
-        this.canvasFeedbackLiked_ = null;
-        return;
+  protected canSubmitFeedback_(): boolean {
+    return this.feedbackLiked_ ||
+        (!!this.feedbackDefect_ && this.feedbackDefect_ !== 'All good');
+  }
+
+  protected escapeTsvField_(value: string|number): string {
+    const str = String(value ?? '');
+    const normalized = str.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    if (normalized.includes('\t') || normalized.includes('\n') ||
+        normalized.includes('"')) {
+      return `"${normalized.replace(/"/g, '""')}"`;
+    }
+    return normalized;
+  }
+
+  protected formatTimestamp_(date: Date = new Date()): string {
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${
+        pad(date.getDate())} ${pad(date.getHours())}:${
+        pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+  }
+
+  protected getRatingBucket_(rating: number): string {
+    return rating >= 9 ? 'Very Good (9-10)' :
+        rating >= 6 ? 'Good (6-8)' :
+        rating >= 4 ? 'Bad (4-5)' : 'Very Bad (1-3)';
+  }
+
+  protected onRatingCrSliderValueChanged_(e: Event) {
+    this.feedbackRating_ = (e.target as CrSliderElement).value;
+  }
+
+  protected onDefectChange_(e: Event) {
+    const select = e.target as HTMLSelectElement;
+    this.feedbackDefect_ = select.value;
+  }
+
+  protected onFeedbackCommentsValueChanged_(e: CustomEvent<{value: string}>) {
+    this.feedbackComments_ = e.detail.value;
+  }
+
+  protected openFeedbackDialog_(source: 'canvas'|'chat', liked: boolean) {
+    this.feedbackSource_ = source;
+    this.feedbackLiked_ = liked;
+    this.feedbackComments_ = '';
+    this.copiedRowSuccess_ = false;
+
+    if (liked) {
+      this.feedbackRating_ = 10;
+      this.feedbackDefect_ = 'All good';
+      if (source === 'canvas') {
+        this.canvasFeedbackLiked_ = true;
+      } else {
+        this.chatFeedbackLiked_ = true;
       }
-      this.canvasFeedbackLiked_ = liked;
     } else {
-      if (this.chatFeedbackLiked_ === liked) {
-        this.chatFeedbackLiked_ = null;
-        return;
+      this.feedbackRating_ = 3;
+      this.feedbackDefect_ = '';
+      if (source === 'canvas') {
+        this.canvasFeedbackLiked_ = false;
+      } else {
+        this.chatFeedbackLiked_ = false;
       }
-      this.chatFeedbackLiked_ = liked;
+    }
+
+    this.feedbackDialogOpen_ = true;
+  }
+
+  protected onCloseFeedbackDialogClick_() {
+    this.feedbackDialogOpen_ = false;
+    this.copiedRowSuccess_ = false;
+  }
+
+  protected onFeedbackDialogClose_() {
+    this.feedbackDialogOpen_ = false;
+    this.copiedRowSuccess_ = false;
+  }
+
+  protected async onCopyForSheetClick_() {
+    if (!this.canSubmitFeedback_()) {
+      return;
     }
 
     const totalTurns = Math.ceil(this.chatHistory_.length / 2);
-    const sourceLabel = source === 'canvas' ? 'Canvas' : 'Chat';
+    const sourceLabel = this.feedbackSource_ === 'canvas' ? 'Canvas' : 'Chat';
     const userPrompt = this.lastGroupPrompt_ || 'Default';
-    const promptHeader = totalTurns > 0 ?
-        `[${sourceLabel} - Turn ${totalTurns}/${totalTurns}] ${userPrompt}` :
-        `[${sourceLabel}] ${userPrompt}`;
+    const rating = this.feedbackRating_ ?? 10;
+    const ratingBucket = this.getRatingBucket_(rating);
+    const sentiment = this.feedbackLiked_ ? 'Liked' : 'Disliked';
+    const defect =
+        this.feedbackDefect_ || (sentiment === 'Liked' ? 'All good' : '');
+    const comments = (this.feedbackComments_ || '').trim();
 
-    const lastMsg = this.chatHistory_[this.chatHistory_.length - 1];
-    const latestAssistantResponse =
-        lastMsg && lastMsg.role === ChatRole.kAssistant ? lastMsg.content : '';
+    const activeGroups = this.groups_.length > 0 ?
+        this.groups_ :
+        this.confirmedGroupSummaries_.map(
+            g => ({label: g.label, tabs: g.tabs, expanded: false}));
 
-    const payload = {
-      source,
-      user_prompt: userPrompt,
-      latest_assistant_response: latestAssistantResponse,
-      chat_history: this.chatHistory_.map(msg => ({
-        role: msg.role === ChatRole.kUser ? 'user' : 'assistant',
-        content: msg.content,
-      })),
-      groups_snapshot: JSON.parse(this.exportGroupDataJson_()),
-    };
+    const groupCount = activeGroups.length;
+    const tabCount = activeGroups.reduce((acc, g) => acc + g.tabs.length, 0);
 
-    const params = new URLSearchParams({
-      'usp': 'pp_url',
-      [ENTRY_USER_PROMPT]: promptHeader,
-      [ENTRY_EXPORTED_JSON]: JSON.stringify(payload),
-      [ENTRY_LIKED_DISLIKED]: liked ? 'Liked 👍' : 'Disliked 👎',
-    });
-
-    if (liked) {
-      params.set(ENTRY_GROUPING_DESCRIPTION, 'All good');
-      params.set(ENTRY_OVERALL_RATING, '10');
+    let lastAssistantMessage = '';
+    for (let i = this.chatHistory_.length - 1; i >= 0; i--) {
+      const msg = this.chatHistory_[i];
+      if (msg && msg.role === ChatRole.kAssistant) {
+        lastAssistantMessage = msg.content;
+        break;
+      }
     }
 
-    window.open(`${CANVAS_FEEDBACK_FORM_URL}?${params.toString()}`, '_blank');
+    const exportedData = JSON.stringify({
+      groups: activeGroups.map(g => ({
+        label: g.label,
+        tabs: g.tabs.map(t => ({title: t.title, url: this.cleanUrl_(t.url)})),
+      })),
+      ungrouped: this.ungroupedTabs_.map(
+          t => ({title: t.title, url: this.cleanUrl_(t.url)})),
+    });
+
+    // 14 columns precisely aligned with 'Wave 1 Feedback' Google Sheet:
+    // 1: Timestamp, 2: Rater, 3: Source, 4: Turn, 5: Prompt, 6: Rating (1-10),
+    // 7: Rating Bucket, 8: Sentiment, 9: Defect Category, 10: Comments,
+    // 11: Groups, 12: Tabs, 13: Assistant Response,
+    // 14: Exported Tab Data (JSON)
+    const columns: Array<string|number> = [
+      this.formatTimestamp_(),
+      this.raterName_.trim(),
+      sourceLabel,
+      totalTurns > 0 ? `Turn ${totalTurns}` : 'Turn 1/1',
+      userPrompt,
+      rating,
+      ratingBucket,
+      sentiment,
+      defect,
+      comments,
+      groupCount,
+      tabCount,
+      lastAssistantMessage,
+      exportedData,
+    ];
+
+    const tsvRow = columns.map(c => this.escapeTsvField_(c)).join('\t');
+
+    try {
+      await navigator.clipboard.writeText(tsvRow);
+      this.copiedRowSuccess_ = true;
+    } catch (err) {
+      console.error('Failed to copy TSV row to clipboard:', err);
+    }
   }
 
   private scrollToBottom_() {

@@ -11,6 +11,7 @@ import org.chromium.chrome.browser.omnibox.fusebox.FuseboxCoordinator.FuseboxLay
 import org.chromium.chrome.browser.omnibox.styles.OmniboxResourceProvider;
 import org.chromium.chrome.browser.ui.theme.BrandedColorScheme;
 import org.chromium.ui.modelutil.PropertyKey;
+import org.chromium.ui.modelutil.PropertyModel.ReadableObjectPropertyKey;
 import org.chromium.ui.modelutil.PropertyModel.WritableBooleanPropertyKey;
 import org.chromium.ui.modelutil.PropertyModel.WritableIntDefPropertyKey;
 import org.chromium.ui.modelutil.PropertyModel.WritableIntPropertyKey;
@@ -24,7 +25,7 @@ import java.lang.annotation.Target;
 /** The set of common properties associated with any omnibox suggestion. */
 @NullMarked
 public @interface SuggestionCommonProperties {
-    /** Enum for identifying the device type */
+    /** Enum for identifying the device type. */
     @IntDef({FormFactor.UNKNOWN, FormFactor.PHONE, FormFactor.TABLET})
     @Retention(RetentionPolicy.SOURCE)
     @interface FormFactor {
@@ -61,7 +62,7 @@ public @interface SuggestionCommonProperties {
         int TOP_AND_BOTTOM = 2;
     }
 
-    /** The type of suggestion separator to draw between suggestions */
+    /** The type of suggestion separator to draw between suggestions. */
     @IntDef({GroupSeparatorType.NONE, GroupSeparatorType.GAP, GroupSeparatorType.LINE})
     @Retention(RetentionPolicy.SOURCE)
     @interface GroupSeparatorType {
@@ -107,8 +108,8 @@ public @interface SuggestionCommonProperties {
     WritableIntPropertyKey LAYOUT_DIRECTION = new WritableIntPropertyKey();
 
     /** The provider for omnibox resources. */
-    WritableObjectPropertyKey<OmniboxResourceProvider> RESOURCE_PROVIDER =
-            new WritableObjectPropertyKey<>();
+    ReadableObjectPropertyKey<OmniboxResourceProvider> RESOURCE_PROVIDER =
+            new ReadableObjectPropertyKey<>();
 
     /** Whether a divider should be shown at the bottom of the suggestion. */
     WritableBooleanPropertyKey SHOW_DIVIDER = new WritableBooleanPropertyKey();

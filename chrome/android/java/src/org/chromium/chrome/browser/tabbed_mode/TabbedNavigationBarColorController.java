@@ -21,6 +21,8 @@ import androidx.annotation.VisibleForTesting;
 import org.chromium.base.Callback;
 import org.chromium.base.CallbackController;
 import org.chromium.base.ObserverList;
+import org.chromium.base.TriState;
+import org.chromium.base.TriStateUtils;
 import org.chromium.base.supplier.MonotonicObservableSupplier;
 import org.chromium.base.supplier.NullableObservableSupplier;
 import org.chromium.build.annotations.EnsuresNonNullIf;
@@ -42,7 +44,6 @@ import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabObserver;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
-import org.chromium.chrome.browser.ui.bottombar.BottomBarConfigUtils;
 import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeController;
 import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeUtils;
 import org.chromium.chrome.browser.ui.edge_to_edge.NavigationBarColorProvider;
@@ -105,8 +106,7 @@ class TabbedNavigationBarColorController
     private boolean mForceShowDivider;
     private boolean mOverviewMode;
     private @Nullable ValueAnimator mNavbarColorTransitionAnimation;
-    private @Nullable Boolean mEnabledBottomChinForTesting;
-    private final boolean mIsBottomBarEnabledInGts;
+    private @TriState int mEnabledBottomChinForTesting;
 
     /**
      * Creates a new {@link TabbedNavigationBarColorController} instance.
@@ -184,9 +184,6 @@ class TabbedNavigationBarColorController
         mContext = context;
         mFullScreenManager = fullscreenManager;
         mEdgeToEdgeSystemBarColorHelper = edgeToEdgeSystemBarColorHelper;
-        mIsBottomBarEnabledInGts =
-                BottomBarConfigUtils.isBottomBarEnabled(context)
-                        && BottomBarConfigUtils.shouldShowOnGts();
 
         mBottomAttachedUiObserver = bottomAttachedUiObserver;
         mBottomAttachedUiObserver.addObserver(this);
@@ -263,8 +260,8 @@ class TabbedNavigationBarColorController
         if (mActiveTab != null) mActiveTab.removeObserver(mTabObserver);
         if (mLayoutManager != null) {
             mLayoutManager.removeObserver(mLayoutStateObserver);
-            mOverviewColorSupplier.removeObserver(mOnOverviewColorChanged);
         }
+        mOverviewColorSupplier.removeObserver(mOnOverviewColorChanged);
         if (mCallbackController != null) {
             mCallbackController.destroy();
             mCallbackController = null;
@@ -447,9 +444,7 @@ class TabbedNavigationBarColorController
     }
 
     private @ColorInt int getNavigationBarColor(boolean forceDarkNavigationBar) {
-        if (mOverviewMode && mIsBottomBarEnabledInGts && useBottomAttachedUiColor()) {
-            return mBottomAttachedUiColor;
-        } else if (mOverviewMode && mOverviewColorSupplier.get() != null) {
+        if (mOverviewMode && mOverviewColorSupplier.get() != null) {
             return mOverviewColorSupplier.get();
         } else if (useBottomAttachedUiColor()) {
             return mBottomAttachedUiColor;
@@ -465,9 +460,7 @@ class TabbedNavigationBarColorController
     @VisibleForTesting
     @ColorInt
     int getNavigationBarDividerColor(boolean forceDarkNavigationBar, boolean forceShowDivider) {
-        if (mOverviewMode && mIsBottomBarEnabledInGts && useBottomAttachedUiColor()) {
-            return mBottomAttachedUiColor;
-        } else if (mOverviewMode && mOverviewColorSupplier.get() != null) {
+        if (mOverviewMode && mOverviewColorSupplier.get() != null) {
             return mOverviewColorSupplier.get();
         } else if (!forceShowDivider && useBottomAttachedUiColor()) {
             return mBottomAttachedUiColor;
@@ -527,7 +520,7 @@ class TabbedNavigationBarColorController
     }
 
     public void setIsBottomChinEnabledForTesting(boolean isEnabled) {
-        mEnabledBottomChinForTesting = isEnabled;
+        mEnabledBottomChinForTesting = TriStateUtils.from(isEnabled);
     }
 
     private boolean shouldEnableNavBarBottomChinColorAnimations() {
@@ -544,8 +537,8 @@ class TabbedNavigationBarColorController
     }
 
     private boolean isBottomChinEnabled() {
-        if (mEnabledBottomChinForTesting != null) {
-            return mEnabledBottomChinForTesting;
+        if (mEnabledBottomChinForTesting != TriState.NOT_SET) {
+            return mEnabledBottomChinForTesting == TriState.TRUE;
         }
 
         return mContext instanceof Activity

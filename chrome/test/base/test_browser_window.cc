@@ -9,7 +9,6 @@
 #include "base/feature_list.h"
 #include "base/values.h"
 #include "build/build_config.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_init_state.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
@@ -69,7 +68,7 @@ ChipController* TestBrowserWindow::TestLocationBar::GetChipController() {
 }
 
 LocationBarTesting*
-    TestBrowserWindow::TestLocationBar::GetLocationBarForTesting() {
+TestBrowserWindow::TestLocationBar::GetLocationBarForTesting() {
   return nullptr;
 }
 
@@ -287,6 +286,10 @@ LocationBar* TestBrowserWindow::GetLocationBar() const {
   return const_cast<TestLocationBar*>(&location_bar_);
 }
 
+ui::AcceleratorProvider* TestBrowserWindow::GetAcceleratorProvider() {
+  return nullptr;
+}
+
 autofill::AutofillBubbleHandler* TestBrowserWindow::GetAutofillBubbleHandler() {
   return &autofill_bubble_handler_;
 }
@@ -344,7 +347,6 @@ ShowTranslateBubbleResult TestBrowserWindow::ShowTranslateBubble(
   return ShowTranslateBubbleResult::kSuccess;
 }
 
-
 #if BUILDFLAG(IS_CHROMEOS)
 void TestBrowserWindow::ToggleMultitaskMenu() {
   return;
@@ -360,7 +362,7 @@ std::unique_ptr<FindBar> TestBrowserWindow::CreateFindBar() {
 }
 
 web_modal::WebContentsModalDialogHost*
-    TestBrowserWindow::GetWebContentsModalDialogHost() {
+TestBrowserWindow::GetWebContentsModalDialogHost() {
   return nullptr;
 }
 

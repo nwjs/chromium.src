@@ -421,14 +421,13 @@ void AtMemoryManager::OnPopupShown(
     const FormGlobalId& form_id,
     const FieldGlobalId& field_id,
     AutofillSuggestionTriggerSource trigger_source,
-    base::optional_ref<const AutofillSuggestionDelegate::SuggestionMetadata>
-        parent_suggestion_metadata,
+    const AutofillSuggestionDelegate::SuggestionUiMetadata& metadata,
     UpdateSuggestionsCallback update_callback,
     ukm::SourceId ukm_source_id) {
   if (!IsAtMemoryTriggerSource(trigger_source)) {
     return;
   }
-  if (!parent_suggestion_metadata && !popup_state_) {
+  if (!metadata.is_subpopup() && !popup_state_) {
     const auto [form, field] = bam.FindFormAndField(form_id, field_id);
     const FormSignature form_signature =
         form ? form->form_signature() : FormSignature(0);
@@ -450,8 +449,7 @@ void AtMemoryManager::OnPopupShown(
   }
 
   if (popup_state_ && popup_state_->metrics_recorder) {
-    popup_state_->metrics_recorder->OnPopupShown(trigger_source,
-                                                 parent_suggestion_metadata);
+    popup_state_->metrics_recorder->OnPopupShown(trigger_source, metadata);
   }
 }
 
@@ -744,8 +742,12 @@ void AtMemoryManager::MaybeAppendPersonalContextNotice(
 void AtMemoryManager::MaybeAppendPreviouslyFilledSuggestions(
     std::vector<Suggestion>& suggestions) const {
   if (!base::FeatureList::IsEnabled(
-          features::kAutofillAtMemoryPreviouslyFilled) ||
-      state_manager_.previously_filled_suggestions().empty()) {
+          features::kAutofillAtMemoryPreviouslyFilled)) {
+    return;
+  }
+  std::vector<Suggestion> prev_suggestions =
+      state_manager_.previously_filled_suggestions();
+  if (prev_suggestions.empty()) {
     return;
   }
   Suggestion suggestion(
@@ -755,8 +757,9 @@ void AtMemoryManager::MaybeAppendPreviouslyFilledSuggestions(
   suggestion.acceptability =
       Suggestion::Acceptability::kUnselectableAndUnacceptable;
   suggestions.push_back(std::move(suggestion));
-  base::Extend(suggestions,
-               base::Reversed(state_manager_.previously_filled_suggestions()));
+  suggestions.insert(suggestions.end(),
+                     std::make_move_iterator(prev_suggestions.rbegin()),
+                     std::make_move_iterator(prev_suggestions.rend()));
 }
 
 void AtMemoryManager::ExecuteQuery(const std::u16string& filter) {
@@ -909,8 +912,13 @@ void AtMemoryManager::AdvanceFetchingSuggestion() {
 void AtMemoryManager::ShowFetchingStateSuggestions() {
   CHECK(popup_state_);
   std::vector<Suggestion> suggestions;
-  suggestions.emplace_back(
-      CreateFetchingSuggestion(popup_state_->fetching_string_index));
+  Suggestion fetching_suggestion =
+      CreateFetchingSuggestion(popup_state_->fetching_string_index);
+  if (popup_state_->fetching_string_index == 0) {
+    fetching_suggestion.a11y_announcement = l10n_util::GetStringUTF16(
+        IDS_AUTOFILL_AT_MEMORY_LOADING_A11Y_ANNOUNCEMENT);
+  }
+  suggestions.emplace_back(std::move(fetching_suggestion));
   MaybeAppendPersonalContextNotice(suggestions);
   SendSuggestions(std::move(suggestions));
 }
@@ -947,6 +955,9 @@ void AtMemoryManager::ShowResultsRetrievedStateSuggestions(
       base::ToVector(result.entries, [&](const MemorySearchResult& entry) {
         return TransformResultIntoSuggestion(entry, app_locale);
       });
+  CHECK(!suggestions.empty());
+  suggestions.front().a11y_announcement = l10n_util::GetStringUTF16(
+      IDS_AUTOFILL_AT_MEMORY_SEARCH_RESULTS_A11Y_ANNOUNCEMENT);
   MaybeAppendPersonalContextNotice(suggestions);
   SendSuggestions(std::move(suggestions));
 }

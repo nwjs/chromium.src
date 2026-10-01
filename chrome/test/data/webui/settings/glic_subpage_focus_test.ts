@@ -5,17 +5,14 @@
 import 'chrome://settings/settings.js';
 
 import type {CrShortcutInputElement} from 'chrome://settings/lazy_load.js';
-import type {SettingsGlicSubpageElement, SettingsPrefsElement, SettingsToggleButtonElement} from 'chrome://settings/settings.js';
-import {CrSettingsPrefs, GlicBrowserProxyImpl, loadTimeData, MetricsBrowserProxyImpl, resetRouterForTesting, SettingsGlicPageFeaturePrefName as PrefName} from 'chrome://settings/settings.js';
+import type {SettingsGlicSubpageElement, SettingsToggleButtonElement} from 'chrome://settings/settings.js';
+import {GlicBrowserProxyImpl, loadTimeData, MetricsBrowserProxyImpl, PrefService, resetRouterForTesting, SettingsGlicPageFeaturePrefName as PrefName} from 'chrome://settings/settings.js';
 import {assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {keyDownOn} from 'chrome://webui-test/keyboard_mock_interactions.js';
-import {flushTasks} from 'chrome://webui-test/polymer_test_util.js';
 import {microtasksFinished} from 'chrome://webui-test/test_util.js';
 
 import {Shortcut, TestGlicBrowserProxy} from './test_glic_browser_proxy.js';
 import {TestMetricsBrowserProxy} from './test_metrics_browser_proxy.js';
-
-const POLICY_ENABLED_VALUE = 0;
 
 interface Shortcuts {
   main?: string;
@@ -24,22 +21,22 @@ interface Shortcuts {
 
 suite('GlicPageFocusTest', function() {
   let page: SettingsGlicSubpageElement;
-  let settingsPrefs: SettingsPrefsElement;
+  let prefService: PrefService;
   let glicBrowserProxy: TestGlicBrowserProxy;
   let metricsBrowserProxy: TestMetricsBrowserProxy;
 
   function $<T extends HTMLElement = HTMLElement>(id: string): T|null {
-    return page.shadowRoot!.querySelector<T>(`#${id}`);
+    return page.shadowRoot.querySelector<T>(`#${id}`);
   }
 
   suiteSetup(function() {
-    settingsPrefs = document.createElement('settings-prefs');
     loadTimeData.overrideValues({
       showAiPage: true,
       showGlicSettings: true,
     });
     resetRouterForTesting();
-    return CrSettingsPrefs.initialized;
+    prefService = PrefService.getInstance();
+    return prefService.whenInitialized();
   });
 
   async function createGlicPage(initialShortcuts: Shortcuts) {
@@ -54,15 +51,12 @@ suite('GlicPageFocusTest', function() {
     GlicBrowserProxyImpl.setInstance(glicBrowserProxy);
 
     page = document.createElement('settings-glic-subpage');
-    page.prefs = settingsPrefs.prefs!;
     document.body.appendChild(page);
-    await flushTasks();
+    await microtasksFinished();
 
     // Ensure the launcher toggle is enabled so the shortcut edit is shown.
-    page.setPrefValue(PrefName.LAUNCHER_ENABLED, true);
-    page.setPrefValue(PrefName.SETTINGS_POLICY, POLICY_ENABLED_VALUE);
+    await prefService.setPrefValue(PrefName.LAUNCHER_ENABLED, true);
     await microtasksFinished();
-    await flushTasks();
   }
 
   test('ShortcutInputSuspends', async () => {

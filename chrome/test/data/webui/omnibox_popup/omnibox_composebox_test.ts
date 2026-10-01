@@ -18,7 +18,7 @@ import {createAutocompleteResultForTesting, createSearchMatchForTesting} from 'c
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {SuggestInventory} from 'chrome://resources/mojo/components/omnibox/browser/fusebox_action.mojom-webui.js';
 import type {PageCallbackRouter as SearchboxPageCallbackRouter, PageHandlerRemote as SearchboxPageHandlerRemote, SearchContext, SelectedFileInfo} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
-import {TabAttachmentSource} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
+import {RenderType, SideType, TabAttachmentSource} from 'chrome://resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 import {assertEquals, assertFalse, assertNotEquals, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {TestMock} from 'chrome://webui-test/test_mock.js';
 import {microtasksFinished} from 'chrome://webui-test/test_util.js';
@@ -80,6 +80,13 @@ suite('OmniboxComposeboxTest', () => {
       WindowProxy.setInstance(originalWindowProxy);
     }
   });
+
+  // The box grows and the dropdown fades, so an animation on either one means
+  // the load-in animation ran.
+  function loadInAnimationCount(): number {
+    return omniboxComposebox.$.composebox.getAnimations().length +
+        omniboxComposebox.$.matches.getAnimations().length;
+  }
 
   test(
       'Shift+Enter allows inserting a newline when input is focused and not empty',
@@ -442,6 +449,83 @@ suite('OmniboxComposeboxTest', () => {
         assertEquals(
             initialCallCount + 1,
             testProxy.handler.getCallCount('queryAutocomplete'));
+      });
+
+  test(
+      'contextual suggestions animate in after a blocked zero state',
+      async () => {
+        loadTimeData.overrideValues(
+            {askGBlockAutoTabZeroStateSuggestions: true});
+
+        const context = {
+          input: '',
+          attachments: [{
+            tabAttachment: {
+              tabId: 42,
+              title: 'Google',
+              url: 'https://google.com',
+              source: TabAttachmentSource.kAutoAdded,
+            },
+          }],
+          toolMode: 0,
+        };
+        omniboxComposebox.addSearchContext(context as unknown as SearchContext);
+        await microtasksFinished();
+
+        // The zero state query was skipped, so there is nothing to animate yet.
+        assertFalse(omniboxComposebox.showDropdown);
+        assertEquals(0, loadInAnimationCount());
+
+        testProxy.page.autocompleteResultChanged(
+            createAutocompleteResultForTesting({
+              queryId: omniboxComposebox.activeQueryId,
+              matches: [createSearchMatchForTesting({
+                allowedToBeDefaultMatch: false,
+              })],
+            }));
+        await testProxy.page.$.flushForTesting();
+        await microtasksFinished();
+
+        assertTrue(omniboxComposebox.showDropdown);
+        assertNotEquals(0, loadInAnimationCount());
+      });
+
+  test(
+      'contextual suggestions do not animate when the zero state query was' +
+          ' not blocked',
+      async () => {
+        loadTimeData.overrideValues(
+            {askGBlockAutoTabZeroStateSuggestions: false});
+
+        const context = {
+          input: '',
+          attachments: [{
+            tabAttachment: {
+              tabId: 42,
+              title: 'Google',
+              url: 'https://google.com',
+              source: TabAttachmentSource.kAutoAdded,
+            },
+          }],
+          toolMode: 0,
+        };
+        omniboxComposebox.addSearchContext(context as unknown as SearchContext);
+        await microtasksFinished();
+
+        testProxy.page.autocompleteResultChanged(
+            createAutocompleteResultForTesting({
+              queryId: omniboxComposebox.activeQueryId,
+              matches: [createSearchMatchForTesting({
+                allowedToBeDefaultMatch: false,
+              })],
+            }));
+        await testProxy.page.$.flushForTesting();
+        await microtasksFinished();
+
+        // Suggestions were never withheld, so the dropdown appearing is the
+        // ordinary zero state and must not animate.
+        assertTrue(omniboxComposebox.showDropdown);
+        assertEquals(0, loadInAnimationCount());
       });
 
   test(
@@ -2150,7 +2234,17 @@ suite('OmniboxComposeboxTest', () => {
         metricSource: 'NTP_OMNIBOX_COMPOSEBOX',
       });
 
+      loadTimeData.overrideValues({
+        voiceSearchCoherenceComposeboxesEnabled: true,
+      });
+
+      // Recreate omniboxComposebox so updated loadTimeData and WindowProxy
+      // mock take effect.
+      document.body.innerHTML = window.trustedTypes!.emptyHTML;
+      omniboxComposebox = document.createElement('cr-omnibox-composebox');
       omniboxComposebox.showVoiceSearch = true;
+      document.body.appendChild(omniboxComposebox);
+      await microtasksFinished();
       await omniboxComposebox.updateComplete;
     });
 
@@ -2855,6 +2949,7 @@ suite('OmniboxComposeboxTest', () => {
         disableActiveModelSelection: false,
         aimUrlParams: [],
         menuTooltip: '',
+        icon: 0,
       }];
       omniboxComposebox.inputState = inputState;
       await microtasksFinished();
@@ -2874,6 +2969,153 @@ suite('OmniboxComposeboxTest', () => {
       await addAutoAddedTab();
 
       assertEquals('Ask AI Mode', omniboxComposebox.inputPlaceholder);
+    });
+
+    test('passes richImageSuggestionsEnabled to matches dropdown', async () => {
+      loadTimeData.overrideValues({
+        composeboxRichImageSuggestionsEnabled: true,
+      });
+      document.body.innerHTML = window.trustedTypes!.emptyHTML;
+      omniboxComposebox = document.createElement('cr-omnibox-composebox');
+      document.body.appendChild(omniboxComposebox);
+      await microtasksFinished();
+
+      assertTrue(omniboxComposebox.$.matches.richImageSuggestionsEnabled);
+    });
+  });
+
+
+  suite('RichImageSuggestions', () => {
+    function createGridAutocompleteResult() {
+      return createAutocompleteResultForTesting({
+        queryId: omniboxComposebox.activeQueryId,
+        matches: [
+          createSearchMatchForTesting({
+            allowedToBeDefaultMatch: false,
+            suggestionGroupId: 100,
+          }),
+        ],
+        suggestionGroupsMap: {
+          100: {
+            header: 'Images',
+            renderType: RenderType.kGrid,
+            sideType: SideType.kDefaultPrimary,
+          },
+        },
+      });
+    }
+
+    setup(async () => {
+      testProxy.handler.setPromiseResolveFor('getPageClassification', {
+        metricSource: 'NTP_OMNIBOX_COMPOSEBOX',
+      });
+
+      loadTimeData.overrideValues({
+        composeboxRichImageSuggestionsEnabled: true,
+      });
+
+      document.body.innerHTML = window.trustedTypes!.emptyHTML;
+      omniboxComposebox = document.createElement('cr-omnibox-composebox');
+      document.body.appendChild(omniboxComposebox);
+      await microtasksFinished();
+    });
+
+    teardown(() => {
+      loadTimeData.overrideValues({
+        composeboxRichImageSuggestionsEnabled: false,
+      });
+    });
+
+    test('context element has flex column styling', () => {
+      const context =
+          omniboxComposebox.shadowRoot.querySelector<HTMLElement>('#context');
+      assertTrue(context !== null);
+      assertEquals('flex', window.getComputedStyle(context).display);
+      assertEquals('column', window.getComputedStyle(context).flexDirection);
+    });
+
+    test('divider-and-dropdown wraps dropdown', () => {
+      const container =
+          omniboxComposebox.shadowRoot.querySelector('.divider-and-dropdown');
+      assertTrue(container !== null);
+      const dropdown = container.querySelector('#matches');
+      assertTrue(dropdown !== null);
+    });
+
+    test('updates has-grid attribute accordingly', async () => {
+      assertFalse(omniboxComposebox.hasAttribute('has-grid'));
+
+      testProxy.page.autocompleteResultChanged(createGridAutocompleteResult());
+      await testProxy.page.$.flushForTesting();
+      await microtasksFinished();
+
+      assertTrue(omniboxComposebox.hasAttribute('has-grid'));
+
+      testProxy.page.autocompleteResultChanged(
+          createAutocompleteResultForTesting({
+            queryId: omniboxComposebox.activeQueryId,
+            matches: [],
+          }));
+      await testProxy.page.$.flushForTesting();
+      await microtasksFinished();
+
+      assertFalse(omniboxComposebox.hasAttribute('has-grid'));
+    });
+
+    test('does not set has-grid attribute when flag is disabled', async () => {
+      loadTimeData.overrideValues({
+        composeboxRichImageSuggestionsEnabled: false,
+      });
+      document.body.innerHTML = window.trustedTypes!.emptyHTML;
+      omniboxComposebox = document.createElement('cr-omnibox-composebox');
+      document.body.appendChild(omniboxComposebox);
+      await microtasksFinished();
+
+      testProxy.page.autocompleteResultChanged(createGridAutocompleteResult());
+      await testProxy.page.$.flushForTesting();
+      await microtasksFinished();
+
+      assertFalse(omniboxComposebox.hasAttribute('has-grid'));
+    });
+
+    test(
+        'does not set has-grid attribute for non-grid suggestions',
+        async () => {
+          testProxy.page.autocompleteResultChanged(
+              createAutocompleteResultForTesting({
+                queryId: omniboxComposebox.activeQueryId,
+                matches: [
+                  createSearchMatchForTesting({
+                    allowedToBeDefaultMatch: false,
+                    suggestionGroupId: 100,
+                  }),
+                ],
+                suggestionGroupsMap: {
+                  100: {
+                    header: 'Default',
+                    renderType: RenderType.kDefaultVertical,
+                    sideType: SideType.kDefaultPrimary,
+                  },
+                },
+              }));
+          await testProxy.page.$.flushForTesting();
+          await microtasksFinished();
+
+          assertFalse(omniboxComposebox.hasAttribute('has-grid'));
+        });
+
+    test('divider-and-dropdown has order 1 when has-grid is set', async () => {
+      const container = omniboxComposebox.shadowRoot.querySelector<HTMLElement>(
+          '.divider-and-dropdown');
+      assertTrue(container !== null);
+      assertEquals('0', window.getComputedStyle(container).order);
+
+      testProxy.page.autocompleteResultChanged(createGridAutocompleteResult());
+      await testProxy.page.$.flushForTesting();
+      await microtasksFinished();
+
+      assertTrue(omniboxComposebox.hasAttribute('has-grid'));
+      assertEquals('1', window.getComputedStyle(container).order);
     });
   });
 });

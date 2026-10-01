@@ -12,6 +12,7 @@
 #include "base/memory/raw_ptr.h"
 #include "base/run_loop.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/test/gmock_callback_support.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "components/autofill/content/common/mojom/autofill_agent.mojom.h"
@@ -215,7 +216,7 @@ PasswordFormFillData GetTestPasswordFormFillData() {
   preferred_match.password_value = password_manager::PasswordString(u"test");
   preferred_match.signon_realm = "https://foo.com/";
   preferred_match.scheme = PasswordForm::Scheme::kHtml;
-  preferred_match.match_type = PasswordForm::MatchType::kExact;
+  preferred_match.match_type = affiliations::MatchType::kExact;
 
   std::vector<StoredCredential> matches;
   StoredCredential non_preferred_match;
@@ -225,7 +226,7 @@ PasswordFormFillData GetTestPasswordFormFillData() {
       password_manager::PasswordString(u"test1");
   non_preferred_match.signon_realm = "https://foo.com/";
   non_preferred_match.scheme = PasswordForm::Scheme::kHtml;
-  non_preferred_match.match_type = PasswordForm::MatchType::kPSL;
+  non_preferred_match.match_type = affiliations::MatchType::kPSL;
   matches.push_back(std::move(non_preferred_match));
 
   url::Origin page_origin = url::Origin::Create(GURL("https://foo.com/"));
@@ -269,11 +270,13 @@ class ContentPasswordManagerDriverTest
 
   bool WasLoggingActivationMessageSent(bool* activation_flag) {
     base::RunLoop().RunUntilIdle();
-    if (!fake_agent_.called_set_logging_state())
+    if (!fake_agent_.called_set_logging_state()) {
       return false;
+    }
 
-    if (activation_flag)
+    if (activation_flag) {
       *activation_flag = fake_agent_.logging_state_active();
+    }
     fake_agent_.reset_data();
     return true;
   }
@@ -560,6 +563,16 @@ TEST_F(ContentPasswordManagerDriverTest, HasCrossOriginAncestor) {
 
   ContentPasswordManagerDriver mid_driver(mid_rfh, &password_manager_client_);
   EXPECT_TRUE(mid_driver.HasCrossOriginAncestor());
+}
+
+TEST_F(ContentPasswordManagerDriverTest, FillIntoFocusedField) {
+  base::RunLoop run_loop;
+  ContentPasswordManagerDriver driver(main_rfh(), &password_manager_client_);
+  EXPECT_CALL(fake_agent_,
+              FillIntoFocusedField(true, std::u16string(u"secret")))
+      .WillOnce(base::test::RunClosure(run_loop.QuitClosure()));
+  driver.FillIntoFocusedField(/*is_password=*/true, u"secret");
+  run_loop.Run();
 }
 
 }  // namespace password_manager

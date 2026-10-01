@@ -7,7 +7,9 @@
 #include <ncrypt.h>
 #include <tbs.h>
 
+#include <array>
 #include <concepts>
+#include <functional>
 #include <string>
 #include <string_view>
 #include <tuple>
@@ -15,13 +17,19 @@
 #include <vector>
 
 #include "base/base64.h"
+#include "base/check_deref.h"
 #include "base/compiler_specific.h"
 #include "base/containers/span.h"
+#include "base/containers/span_reader.h"
 #include "base/containers/span_rust.h"
+#include "base/containers/span_writer.h"
 #include "base/containers/to_vector.h"
 #include "base/logging.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/notimplemented.h"
+#include "base/notreached.h"
+#include "base/numerics/byte_conversions.h"
+#include "base/numerics/safe_conversions.h"
 #include "base/numerics/safe_math.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
@@ -50,6 +58,31 @@
 namespace crypto {
 
 namespace {
+
+// Persistent Storage Root Key (SRK) handles used as parent keys for TPM 2.0
+// keys by the Microsoft Platform Crypto Provider (PCP).
+//
+// In the TCG TPM 2.0 handle registry, 0x81000001 is reserved for the primary
+// RSA Storage Root Key (SRK), while 0x81000002 is recommended for ECC.
+//
+// In Windows (PCPKsp.dll), handle 0x81000002 is repurposed as an RSA signing
+// key, and the ECC Storage Root Key is hardcoded to handle 0x81000009:
+//   - TpmKey20Ecc::ReadParent / GetEccSrk explicitly probes handle 0x81000009
+//     via TPM2_ReadPublic.
+//   - If absent, GetEccSrk creates a NIST P-256 primary key under TPM_RH_OWNER
+//     (objectAttributes = 0x00030472) and persists it to handle 0x81000009 via
+//     TPM2_EvictControl.
+//   - When importing opaque blobs (NCryptImportKey), PCPKsp.dll unconditionally
+//     passes 0x81000009 (ECC) or 0x81000001 (RSA) as the parentHandle to
+//     TPM2_Load.
+//
+// Both handles can be verified on a provisioned machine by executing
+// TPM2_ReadPublic(0x81000001) and TPM2_ReadPublic(0x81000009) via TBS, which
+// return TPM_ALG_RSA and TPM_ALG_ECC keys with attributes 0x00030472.
+enum class WindowsSrkHandle : uint32_t {
+  kRsa = 0x81000001,
+  kEcc = 0x81000009,
+};
 
 const char kMetricVirtualCreateKeyError[] = "Crypto.TpmError.VirtualCreateKey";
 const char kMetricVirtualFinalizeKeyError[] =
@@ -83,8 +116,7 @@ struct KeyDetails {
   // The SubjectPublicKeyInfo for the public key.
   std::vector<uint8_t> spki;
   // The algorithm used for the key.
-  SignatureVerifier::SignatureAlgorithm algo =
-      SignatureVerifier::SignatureAlgorithm::ECDSA_SHA256;
+  sign::SignatureKind algo = sign::ECDSA_SHA256;
 };
 
 // WinKeyImpl shares common implementation for unexportable keys on Windows.
@@ -98,9 +130,7 @@ class WinKeyImpl : public BaseInterface {
         spki_(std::move(details.spki)),
         algo_(details.algo) {}
 
-  SignatureVerifier::SignatureAlgorithm Algorithm() const override {
-    return algo_;
-  }
+  sign::SignatureKind Algorithm() const override { return algo_; }
 
   std::vector<uint8_t> GetSubjectPublicKeyInfo() const override {
     return spki_;
@@ -119,7 +149,7 @@ class WinKeyImpl : public BaseInterface {
   ScopedNCryptKey key_;
   const std::vector<uint8_t> wrapped_key_;
   const std::vector<uint8_t> spki_;
-  const SignatureVerifier::SignatureAlgorithm algo_;
+  const sign::SignatureKind algo_;
 };
 
 LPCWSTR GetWindowsIdentifierForProvider(ProviderType type) {
@@ -164,11 +194,10 @@ SecurityStatusOr<void> SetNCryptProperty(NCRYPT_HANDLE handle,
 
 // Logs `status` and `selected_algorithm` to an error histogram capturing that
 // `operation` failed for a TPM-backed key.
-void LogTPMOperationError(
-    TPMOperation operation,
-    HRESULT status,
-    std::optional<SignatureVerifier::SignatureAlgorithm> selected_algorithm,
-    bool open_storage_provider_error = false) {
+void LogTPMOperationError(TPMOperation operation,
+                          HRESULT status,
+                          std::optional<sign::SignatureKind> selected_algorithm,
+                          bool open_storage_provider_error = false) {
   static constexpr char kTPMOperationErrorHistogramFormat[] =
       "Crypto.TPMOperation.Win.%s%s.Error";
   // There are two cases that can be recorded without a `selected_algorithm`:
@@ -192,13 +221,12 @@ void LogTPMOperationError(
 
 // BCryptAlgorithmFor returns the BCrypt algorithm ID for the given Chromium
 // signing algorithm.
-std::optional<LPCWSTR> BCryptAlgorithmFor(
-    SignatureVerifier::SignatureAlgorithm algo) {
+std::optional<LPCWSTR> BCryptAlgorithmFor(sign::SignatureKind algo) {
   switch (algo) {
-    case SignatureVerifier::SignatureAlgorithm::RSA_PKCS1_SHA256:
+    case sign::RSA_PKCS1_SHA256:
       return BCRYPT_RSA_ALGORITHM;
 
-    case SignatureVerifier::SignatureAlgorithm::ECDSA_SHA256:
+    case sign::ECDSA_SHA256:
       return BCRYPT_ECDSA_P256_ALGORITHM;
 
     default:
@@ -206,12 +234,36 @@ std::optional<LPCWSTR> BCryptAlgorithmFor(
   }
 }
 
+// GetSrkHandleFor returns the persistent Storage Root Key (SRK) handle used as
+// the parent key when creating TPM 2.0 keys for the given algorithm.
+WindowsSrkHandle GetSrkHandleFor(sign::SignatureKind algo) {
+  switch (algo) {
+    case sign::RSA_PKCS1_SHA1:
+    case sign::RSA_PKCS1_SHA256:
+    case sign::RSA_PKCS1_SHA384:
+    case sign::RSA_PKCS1_SHA512:
+    case sign::RSA_PSS_SHA256:
+    case sign::RSA_PSS_SHA384:
+    case sign::RSA_PSS_SHA512:
+      return WindowsSrkHandle::kRsa;
+    case sign::ECDSA_SHA1:
+    case sign::ECDSA_SHA256:
+    case sign::ECDSA_SHA384:
+    case sign::ECDSA_SHA512:
+      return WindowsSrkHandle::kEcc;
+    case sign::ED25519:
+    case sign::MLDSA_44:
+    case sign::MLDSA_65:
+    case sign::MLDSA_87:
+      NOTREACHED();
+  }
+}
+
 // GetBestSupported returns the first element of |acceptable_algorithms| that
 // |provider| supports, or |nullopt| if there isn't any.
-std::optional<SignatureVerifier::SignatureAlgorithm> GetBestSupported(
+std::optional<sign::SignatureKind> GetBestSupported(
     NCRYPT_PROV_HANDLE provider,
-    base::span<const SignatureVerifier::SignatureAlgorithm>
-        acceptable_algorithms) {
+    base::span<const sign::SignatureKind> acceptable_algorithms) {
   for (auto algo : acceptable_algorithms) {
     std::optional<LPCWSTR> bcrypto_algo_name = BCryptAlgorithmFor(algo);
     if (!bcrypto_algo_name) {
@@ -313,14 +365,10 @@ std::optional<std::vector<uint8_t>> GetP256ECDSASPKI(NCRYPT_KEY_HANDLE key) {
   // The exported key is a `BCRYPT_ECCKEY_BLOB` followed by the bytes of the
   // public key itself.
   // https://docs.microsoft.com/en-us/windows/win32/api/bcrypt/ns-bcrypt-bcrypt_ecckey_blob
-  base::span pub_key_span = pub_key;
-  if (pub_key_span.size() < sizeof(BCRYPT_ECCKEY_BLOB)) {
-    return std::nullopt;
-  }
-  auto [header_bytes, key_bytes] =
-      pub_key_span.split_at<sizeof(BCRYPT_ECCKEY_BLOB)>();
-  const BCRYPT_ECCKEY_BLOB& header =
-      base::subtle::reinterpret_span<const BCRYPT_ECCKEY_BLOB>(header_bytes)[0];
+  base::SpanReader reader(base::span{pub_key});
+  ASSIGN_OR_RETURN(const auto header,
+                   reader.ReadNativeEndian<BCRYPT_ECCKEY_BLOB>());
+  base::span key_bytes = reader.remaining_span();
   // |cbKey| is documented[1] as "the length, in bytes, of the key". It is
   // not. For ECDSA public keys it is the length of a field element.
   if ((header.dwMagic != BCRYPT_ECDSA_PUBLIC_P256_MAGIC &&
@@ -351,17 +399,13 @@ std::optional<std::vector<uint8_t>> GetRSASPKI(NCRYPT_KEY_HANDLE key) {
                    ExportKey(key, BCRYPT_RSAPUBLIC_BLOB),
                    [](auto) { return std::nullopt; });
 
-  base::span pub_key_span = pub_key;
   // The exported key is a `BCRYPT_RSAKEY_BLOB` followed by the bytes of the
   // key itself.
   // https://docs.microsoft.com/en-us/windows/win32/api/bcrypt/ns-bcrypt-bcrypt_rsakey_blob
-  if (pub_key_span.size() < sizeof(BCRYPT_RSAKEY_BLOB)) {
-    return std::nullopt;
-  }
-  auto [header_bytes, key_bytes] =
-      pub_key_span.split_at<sizeof(BCRYPT_RSAKEY_BLOB)>();
-  const BCRYPT_RSAKEY_BLOB& header =
-      base::subtle::reinterpret_span<const BCRYPT_RSAKEY_BLOB>(header_bytes)[0];
+  base::SpanReader reader(base::span{pub_key});
+  ASSIGN_OR_RETURN(const auto header,
+                   reader.ReadNativeEndian<BCRYPT_RSAKEY_BLOB>());
+  base::span key_bytes = reader.remaining_span();
   if (header.Magic != static_cast<ULONG>(BCRYPT_RSAPUBLIC_MAGIC)) {
     return std::nullopt;
   }
@@ -479,21 +523,52 @@ ScopedNCryptKey LoadWrappedKey(base::span<const uint8_t> wrapped,
   return key;
 }
 
-tpm::SignatureErrorOr<void> VerifyAndLogTpmSignature(
-    base::span<const uint8_t> spki,
-    base::span<const uint8_t> statement,
-    base::span<const uint8_t> signature_blob) {
-  ASSIGN_OR_RETURN(tpm::SignatureAlgorithms algs,
-                   tpm::GetSignatureAlgorithms(signature_blob));
-  base::UmaHistogramSparse(
-      "Crypto.TPMOperation.Win.TpmCertifyVerify.SignatureAlgorithm",
-      std::to_underlying(algs.sig_alg));
-  base::UmaHistogramSparse(
-      "Crypto.TPMOperation.Win.TpmCertifyVerify.HashAlgorithm",
-      std::to_underlying(algs.hash_alg));
+// Builds a Windows Platform Crypto Provider (PCP) opaque key blob
+// (BCRYPT_OPAQUE_KEY_BLOB) from the TPM2_Create response. This function is
+// strictly TPM 2.0 only, formatting the TPM2_Create outputs into a
+// PCP_KEY_BLOB_WIN8 structure with pcpType = 2 (PCPTYPE_TPM20).
+//
+// The binary layout corresponds to the PCP_KEY_BLOB_WIN8 structure used by the
+// Microsoft Platform Crypto Provider for TPM 2.0 keys. See:
+// https://github.com/microsoft/TSS.MSR/tree/main/PCPTool.v11
+std::vector<uint8_t> BuildWrappedAttestationKey(
+    const tpm::CreateResponse& response) {
+  // Layout for BCRYPT_OPAQUE_KEY_BLOB under Windows 8+ for TPM 2.0 keys.
+  // See
+  // https://raw.githack.com/microsoft/TSS.MSR/master/PCPTool.v11/Using%20the%20Windows%208%20Platform%20Crypto%20Provider%20and%20Associated%20TPM%20Functionality.pdf#page=25
+  struct PCP_KEY_BLOB_WIN8 {
+    DWORD magic = 0x4D504350;  // 'MPCP'
+    DWORD cbHeader = sizeof(PCP_KEY_BLOB_WIN8);
+    DWORD pcpType = 2;  // PCP_TYPE_TPM20
+    DWORD flags = 0;
+    ULONG cbPublic = 0;
+    ULONG cbPrivate = 0;
+    ULONG cbMigrationPublic = 0;
+    ULONG cbMigrationPrivate = 0;
+    ULONG cbPolicyDigestList = 0;
+    ULONG cbPCRBinding = 0;
+    ULONG cbPCRDigest = 0;
+    ULONG cbEncryptedSecret = 0;
+    ULONG cbTpm12HostageBlob = 0;
+  };
 
-  return tpm::VerifySignature(spki, statement, signature_blob);
+  const PCP_KEY_BLOB_WIN8 header{
+      .flags = NCRYPT_PCP_IDENTITY_KEY,
+      .cbPublic = base::checked_cast<ULONG>(response.out_public.size()),
+      .cbPrivate = base::checked_cast<ULONG>(response.out_private.size()),
+  };
+
+  std::vector<uint8_t> wrapped_key(header.cbHeader + header.cbPublic +
+                                   header.cbPrivate);
+  base::SpanWriter<uint8_t> writer(wrapped_key);
+  writer.Write(base::byte_span_from_ref(header));
+  writer.Write(response.out_public);
+  writer.Write(response.out_private);
+  CHECK_EQ(writer.remaining(), 0u);
+
+  return wrapped_key;
 }
+
 
 // ECDSASigningKey wraps a P-256 ECDSA key stored in the given provider.
 class ECDSASigningKey : public WinKeyImpl<UnexportableSigningKey> {
@@ -586,6 +661,11 @@ class RSASigningKey : public WinKeyImpl<UnexportableSigningKey> {
 // if the Windows TPM Base Services are missing or disabled.
 bool IsTbsAvailable() {
   static const bool is_available = [] {
+    SCOPED_MAY_LOAD_LIBRARY_AT_BACKGROUND_PRIORITY();
+
+    // Resolve all delay-loaded imports for tbs.dll on the first call to
+    // prevent failed loads being treated as a fatal failure later, which
+    // can happen in rare cases due to missing or corrupted DLL file.
     base::expected<bool, HRESULT> load_result =
         base::win::LoadAllImportsForDllUnchecked("tbs.dll");
     bool available = load_result.value_or(false);
@@ -599,6 +679,15 @@ bool IsTbsAvailable() {
   return is_available;
 }
 
+bool IsTpm20Available() {
+  if (!IsTbsAvailable()) {
+    return false;
+  }
+  TPM_DEVICE_INFO tpm_info{};
+  TBS_RESULT result = ::Tbsi_GetDeviceInfo(sizeof(tpm_info), &tpm_info);
+  return result == TBS_SUCCESS && tpm_info.tpmVersion >= TPM_VERSION_20;
+}
+
 // Maps a TPM operation (represented by a TPM command) to a TPMOperation enum.
 //
 // NOTE: Right now only restricted signing keys directly issue commands to the
@@ -607,8 +696,6 @@ bool IsTbsAvailable() {
 // case.
 std::optional<TPMOperation> TpmCommandToOperation(tpm::TpmCommand command) {
   switch (command) {
-    case tpm::TpmCommand::kCertify:
-      return TPMOperation::kKeyCertification;
     case tpm::TpmCommand::kCreate:
       return TPMOperation::kNewAttestationKeyCreation;
     case tpm::TpmCommand::kSign:
@@ -626,10 +713,9 @@ std::optional<TPMOperation> TpmCommandToOperation(tpm::TpmCommand command) {
   NOTREACHED();
 }
 
-void LogTpmExtractPropertyResult(
-    tpm::TpmCommand command,
-    SECURITY_STATUS status,
-    SignatureVerifier::SignatureAlgorithm algorithm) {
+void LogTpmExtractPropertyResult(tpm::TpmCommand command,
+                                 SECURITY_STATUS status,
+                                 sign::SignatureKind algorithm) {
   base::UmaHistogramSparse(
       absl::StrFormat("Crypto.TPMOperation.Win.Tpm%vExtractProperty.Result",
                       command),
@@ -639,10 +725,9 @@ void LogTpmExtractPropertyResult(
   }
 }
 
-std::optional<TBS_HCONTEXT> GetTbsContext(
-    NCRYPT_KEY_HANDLE key_handle,
-    tpm::TpmCommand command,
-    SignatureVerifier::SignatureAlgorithm algorithm) {
+std::optional<TBS_HCONTEXT> GetTbsContext(NCRYPT_KEY_HANDLE key_handle,
+                                          tpm::TpmCommand command,
+                                          sign::SignatureKind algorithm) {
   auto log_extract_property_error = [&](SECURITY_STATUS status) {
     LogTpmExtractPropertyResult(command, status, algorithm);
     return std::nullopt;
@@ -661,10 +746,9 @@ std::optional<TBS_HCONTEXT> GetTbsContext(
   return h_context;
 }
 
-std::optional<uint32_t> GetTpmPlatformHandle(
-    NCRYPT_KEY_HANDLE key_handle,
-    tpm::TpmCommand command,
-    SignatureVerifier::SignatureAlgorithm algorithm) {
+std::optional<uint32_t> GetTpmPlatformHandle(NCRYPT_KEY_HANDLE key_handle,
+                                             tpm::TpmCommand command,
+                                             sign::SignatureKind algorithm) {
   return base::OptionalFromExpected(
       GetNCryptProperty<uint32_t>(key_handle,
                                   NCRYPT_PCP_PLATFORMHANDLE_PROPERTY)
@@ -679,7 +763,7 @@ std::optional<std::vector<uint8_t>> SubmitTbsCommand(
     tpm::TpmCommand command,
     base::span<const uint8_t> cmd,
     size_t max_resp_size,
-    SignatureVerifier::SignatureAlgorithm algorithm) {
+    sign::SignatureKind algorithm) {
   // A max_resp_size buffer handles the maximum expected TPM response.
   // Heap-allocating it protects the local stack from potential buffer
   // overflow vulnerabilities in the OS API.
@@ -727,8 +811,7 @@ std::optional<T> ToOptionalAndRecordParseMetrics(
 // payload).
 constexpr size_t kMaxTpmHashBufferSize = 1024;
 
-// Maximum expected response buffer size for TPM commands (e.g. TPM2_Sign and
-// TPM2_Certify).
+// Maximum expected response buffer size for TPM commands (e.g. TPM2_Sign).
 constexpr size_t kMaxTpmResponseSize = 4096;
 
 // Holds the digest and validation ticket produced by hashing data with the TPM.
@@ -737,18 +820,43 @@ struct HashResult {
   std::vector<uint8_t> validation_ticket;
 };
 
+// Extracts the hash algorithm (`crypto::hash::HashKind`) from a
+// `sign::SignatureKind`.
+constexpr std::optional<hash::HashKind> ToHashKind(
+    sign::SignatureKind algorithm) {
+  switch (algorithm) {
+    case sign::RSA_PKCS1_SHA1:
+    case sign::ECDSA_SHA1:
+      return hash::kSha1;
+    case sign::RSA_PKCS1_SHA256:
+    case sign::ECDSA_SHA256:
+    case sign::RSA_PSS_SHA256:
+      return hash::kSha256;
+    case sign::RSA_PKCS1_SHA384:
+    case sign::ECDSA_SHA384:
+    case sign::RSA_PSS_SHA384:
+      return hash::kSha384;
+    case sign::RSA_PKCS1_SHA512:
+    case sign::ECDSA_SHA512:
+    case sign::RSA_PSS_SHA512:
+      return hash::kSha512;
+    case sign::ED25519:
+    case sign::MLDSA_44:
+    case sign::MLDSA_65:
+    case sign::MLDSA_87:
+      return std::nullopt;
+  }
+}
+
 // Hashes data using either single-shot TPM2_Hash (if data <= 1024 bytes) or
 // streaming TPM sequence commands (TPM2_HashSequenceStart, TPM2_SequenceUpdate,
 // TPM2_SequenceComplete) for larger buffers.
-std::optional<HashResult> HashDataSlowly(
-    TBS_HCONTEXT h_context,
-    base::span<const uint8_t> data,
-    tpm::TpmAlg hash_alg,
-    tpm::TpmRh hierarchy,
-    SignatureVerifier::SignatureAlgorithm algorithm) {
+std::optional<HashResult> HashDataSlowly(TBS_HCONTEXT h_context,
+                                         base::span<const uint8_t> data,
+                                         sign::SignatureKind algorithm) {
+  ASSIGN_OR_RETURN(const hash::HashKind hash_kind, ToHashKind(algorithm));
   if (data.size() <= kMaxTpmHashBufferSize) {
-    std::vector<uint8_t> hash_cmd =
-        tpm::BuildHashCommand(data, hash_alg, hierarchy);
+    std::vector<uint8_t> hash_cmd = tpm::BuildHashCommand(data, hash_kind);
 
     ASSIGN_OR_RETURN(
         std::vector<uint8_t> hash_resp,
@@ -767,7 +875,8 @@ std::optional<HashResult> HashDataSlowly(
 
   // Multi-part hashing sequence for payloads larger than 1024 bytes.
   // 1. TPM2_HashSequenceStart
-  std::vector<uint8_t> start_cmd = tpm::BuildHashSequenceStartCommand(hash_alg);
+  std::vector<uint8_t> start_cmd =
+      tpm::BuildHashSequenceStartCommand(hash_kind);
 
   ASSIGN_OR_RETURN(
       std::vector<uint8_t> start_resp,
@@ -814,7 +923,7 @@ std::optional<HashResult> HashDataSlowly(
 
   // 3. TPM2_SequenceComplete with remaining data (<= 1024 bytes).
   std::vector<uint8_t> complete_cmd =
-      tpm::BuildSequenceCompleteCommand(sequence_handle, remaining, hierarchy);
+      tpm::BuildSequenceCompleteCommand(sequence_handle, remaining);
 
   ASSIGN_OR_RETURN(
       std::vector<uint8_t> complete_resp,
@@ -832,10 +941,94 @@ std::optional<HashResult> HashDataSlowly(
   };
 }
 
-// AttestationKeyWin wraps an Attestation Identity Key (AIK) on Windows. Given
-// the lack of support for restricted TPM signing keys in the Windows NCrypt
-// APIs, this implementation talks to the TPM directly via TBS (TPM Base
-// Services) and constructs the low-level TPM commands manually.
+// Small helper to write a TPM2B sized buffer. Consisting of a uint16_t size and
+// payload.
+void WriteTpm2b(base::SpanWriter<uint8_t>& writer,
+                base::span<const uint8_t> data) {
+  CHECK(writer.WriteU16BigEndian(base::checked_cast<uint16_t>(data.size())));
+  CHECK(writer.Write(data));
+}
+
+// Converts raw signature bytes into a serialized TPMT_SIGNATURE binary
+// structure. This is needed, because
+// NCRYPT_PCP_TPM_WEB_AUTHN_ATTESTATION_STATEMENT version 1 returns the TPM
+// signature in raw format, rather than a serialized `TPMT_SIGNATURE`. This is
+// fixed in version 2, but requires Windows 11, version 23H2.
+std::optional<std::vector<uint8_t>> ConvertRawToTpmtSignature(
+    sign::SignatureKind alg,
+    base::span<const uint8_t> raw_sig) {
+  switch (alg) {
+    case sign::ECDSA_SHA256: {
+      static constexpr size_t kPrimeSize = 32;
+      if (raw_sig.size() != kPrimeSize * 2) {
+        return std::nullopt;
+      }
+      auto sig_span = base::span<const uint8_t, kPrimeSize * 2>(raw_sig);
+      auto [r_bytes, s_bytes] = sig_span.split_at<kPrimeSize>();
+
+      constexpr size_t kEcdsaTpmSigSize = 2 + 2 + 2 * (2 + kPrimeSize);
+      std::vector<uint8_t> signature(kEcdsaTpmSigSize);
+      base::SpanWriter<uint8_t> sig_writer(signature);
+      sig_writer.WriteEnumBigEndian(tpm::TPM_ALG_ECDSA);
+      sig_writer.WriteEnumBigEndian(tpm::TPM_ALG_SHA256);
+      WriteTpm2b(sig_writer, r_bytes);
+      WriteTpm2b(sig_writer, s_bytes);
+      CHECK_EQ(sig_writer.remaining(), 0u);
+      return signature;
+    }
+    case sign::RSA_PKCS1_SHA256: {
+      constexpr size_t kRsa2048SigSize = 256;
+      if (raw_sig.size() != kRsa2048SigSize) {
+        return std::nullopt;
+      }
+      constexpr size_t kRsaTpmSigSize = 2 + 2 + 2 + kRsa2048SigSize;
+      std::vector<uint8_t> signature(kRsaTpmSigSize);
+      base::SpanWriter<uint8_t> sig_writer(signature);
+      sig_writer.WriteEnumBigEndian(tpm::TPM_ALG_RSASSA);
+      sig_writer.WriteEnumBigEndian(tpm::TPM_ALG_SHA256);
+      WriteTpm2b(sig_writer, raw_sig);
+      CHECK_EQ(sig_writer.remaining(), 0u);
+      return signature;
+    }
+    default:
+      return std::nullopt;
+  }
+}
+
+// Parses an NCRYPT_PCP_TPM_WEB_AUTHN_ATTESTATION_STATEMENT claim blob.
+std::optional<AttestationStatement> ParseWebAuthnAttestationStatement(
+    sign::SignatureKind alg,
+    base::span<const uint8_t> claim_blob) {
+  // Magic value for NCRYPT_PCP_TPM_WEB_AUTHN_ATTESTATION_STATEMENT ('KAWA').
+  static constexpr uint32_t kPcpTpmWebAuthnAttestationMagic = 0x4B415741;
+  using Header = NCRYPT_PCP_TPM_WEB_AUTHN_ATTESTATION_STATEMENT;
+  base::SpanReader reader(claim_blob);
+  ASSIGN_OR_RETURN(const auto header, reader.ReadNativeEndian<Header>());
+
+  if (header.Magic != kPcpTpmWebAuthnAttestationMagic || header.Version != 1 ||
+      header.HeaderSize != sizeof(Header)) {
+    return std::nullopt;
+  }
+
+  ASSIGN_OR_RETURN(base::span certify_info, reader.Read(header.cbCertifyInfo));
+  ASSIGN_OR_RETURN(
+      std::vector tpmt_signature,
+      reader.Read(header.cbSignature)
+          .and_then(std::bind_front(ConvertRawToTpmtSignature, alg)));
+  ASSIGN_OR_RETURN(base::span tpm_public, reader.Read(header.cbTpmPublic));
+
+  return AttestationStatement{
+      .format = AttestationStatement::kTpm,
+      .statement = base::ToVector(certify_info),
+      .signature = std::move(tpmt_signature),
+      .subject_key = base::ToVector(tpm_public),
+  };
+}
+
+// AttestationKeyWin wraps an Attestation Identity Key (AIK) on Windows.
+// While signing still communicates with the TPM directly via TBS (due to the
+// restricted key policy preventing arbitrary message signing through NCrypt),
+// key certification is performed via NCryptCreateClaim.
 class AttestationKeyWin : public WinKeyImpl<UnexportableAttestationKey> {
  public:
   AttestationKeyWin(ProviderType provider_type, KeyDetails details)
@@ -861,66 +1054,32 @@ class AttestationKeyWin : public WinKeyImpl<UnexportableAttestationKey> {
                      GetTpmPlatformHandle(GetNCryptKeyHandle(),
                                           tpm::TpmCommand::kSign, Algorithm()));
 
-    // 3. Determine TPM algorithm ID
-    tpm::TpmAlg tpm_alg_id = tpm::TPM_ALG_NULL;
-    switch (Algorithm()) {
-      case SignatureVerifier::SignatureAlgorithm::RSA_PKCS1_SHA256:
-        tpm_alg_id = tpm::TPM_ALG_SHA256;
-        break;
-      case SignatureVerifier::SignatureAlgorithm::ECDSA_SHA256:
-        // Windows Platform Crypto Provider (PCP) and NCrypt AIK providers
-        // restrict ECDSA attestation key signature hashing to SHA-1
-        // (tpm::TPM_ALG_SHA1) rather than SHA-256, even when the key algorithm
-        // is NIST P-256 (ECDSA_SHA256). We must instruct TPM2_Hash /
-        // TPM2_HashSequenceStart to generate a SHA-1 ticket so the TPM2_Sign
-        // command succeeds.
-        //
-        // TODO(crbug.com/531590259): Actually support ECDSA_SHA256 keys by
-        // implementing key creation in the TPM. If TPM-native key creation is
-        // ever extended to general signing keys, a Finch experiment will be
-        // mandatory to avoid breaking active keys.
-        tpm_alg_id = tpm::TPM_ALG_SHA1;
-        break;
-      default:
-        return std::nullopt;
-    }
-
-    // 4. Hash Data (single-shot or streaming sequence)
-    // Attestation Identity Keys (AIKs) in Windows Platform Crypto Provider
-    // (PCP) belong to the Endorsement hierarchy (`TPM_RH_ENDORSEMENT`),
-    // unlike standard storage keys which use `TPM_RH_OWNER`. Therefore, the
-    // ticket produced by TPM2_Hash / TPM2_SequenceComplete MUST specify the
-    // endorsement hierarchy handle so that TPM2_Sign can consume it for an
-    // attestation key.
+    // 3. Hash Data (single-shot or streaming sequence)
     ASSIGN_OR_RETURN(HashResult hash_result,
-                     HashDataSlowly(h_context, data, tpm_alg_id,
-                                    tpm::TPM_RH_ENDORSEMENT, Algorithm()));
+                     HashDataSlowly(h_context, data, Algorithm()));
 
-    // 5. Submit TPM2_Sign Command
+    // 4. Submit TPM2_Sign Command
     // Attestation Identity Keys (AIKs) are restricted signing keys whose
     // signature scheme is fixed in the key's public template upon creation.
-    // Per TPM 2.0 Part 3 Section 19.2 (TPM2_Sign), `inScheme` MUST be set to
+    // Per TPM 2.0 Part 3 Section 19.2 (TPM2_Sign), `inScheme` is set to
     // `TPM_ALG_NULL` for restricted keys so the TPM uses the scheme defined in
-    // the key object itself.
-    //
-    // TODO(crbug.com/530828835): Remove this parameter from the API if we
-    // always need to pass NULL anyway, as the low-level Rust API can just
-    // always write it unconditionally.
+    // the key object itself. Setting `inScheme` to `TPM_ALG_NULL` specifies no
+    // scheme-specific parameters, meaning `hash_alg` is ignored in the
+    // serialized `TPMT_SIG_SCHEME`.
     std::vector<uint8_t> sign_cmd = tpm::BuildSignCommand(
-        sign_handle, hash_result.digest, tpm::TPM_ALG_NULL, tpm_alg_id,
-        hash_result.validation_ticket);
+        sign_handle, hash_result.digest, hash_result.validation_ticket);
 
     ASSIGN_OR_RETURN(
         std::vector<uint8_t> sign_resp,
         SubmitTbsCommand(h_context, tpm::TpmCommand::kSign, sign_cmd,
                          kMaxTpmResponseSize, Algorithm()));
 
-    // 6. Parse TPM2_Sign Response
+    // 5. Parse TPM2_Sign Response
     ASSIGN_OR_RETURN(
         tpm::SignResponse sign_parsed,
         ToOptionalAndRecordParseMetrics(tpm::ParseSignResponse(sign_resp)));
 
-    // 7. Normalize signature format (DER for ECDSA, raw for RSA)
+    // 6. Normalize signature format (DER for ECDSA, raw for RSA)
     return tpm::ParseTpmSignature(sign_parsed.signature);
   }
 
@@ -936,55 +1095,37 @@ class AttestationKeyWin : public WinKeyImpl<UnexportableAttestationKey> {
       base::span<const uint8_t> challenge) override {
     base::ScopedBlockingCall scoped_blocking_call(
         FROM_HERE, base::BlockingType::WILL_BLOCK);
+    const auto qualifying_data =
+        hash::Hash(CHECK_DEREF(ToHashKind(Algorithm())), challenge);
+    NCryptBuffer nonce_buffer{
+        .cbBuffer = static_cast<ULONG>(qualifying_data.size()),
+        .BufferType = NCRYPTBUFFER_CLAIM_KEYATTESTATION_NONCE,
+        .pvBuffer = const_cast<uint8_t*>(qualifying_data.data()),
+    };
+    NCryptBufferDesc parameter_list{
+        .ulVersion = BCRYPTBUFFER_VERSION,
+        .cBuffers = 1,
+        .pBuffers = &nonce_buffer,
+    };
 
-    // 1. Check TBS availability
-    if (!IsTbsAvailable()) {
+    // Pre-allocate a 1024-byte buffer which is sufficient for ECDSA P-256
+    // (~330 bytes) and RSA 2048 (~730 bytes) attestation statements. This
+    // avoids an extra TPM transaction for size querying.
+    std::vector<uint8_t> claim_blob(1024);
+    DWORD bytes_written = 0;
+    SECURITY_STATUS status = NCryptCreateClaim(
+        signing_key.GetNCryptKeyHandle(), GetNCryptKeyHandle(),
+        NCRYPT_CLAIM_WEB_AUTH_SUBJECT_ONLY, &parameter_list, claim_blob.data(),
+        static_cast<DWORD>(claim_blob.size()), &bytes_written, /*dwFlags=*/0);
+
+    if (FAILED(status)) {
+      LogTPMOperationError(TPMOperation::kKeyCertification, status,
+                           Algorithm());
       return std::nullopt;
     }
 
-    // 2. Extract Provider Context and TPM handles
-    ASSIGN_OR_RETURN(TBS_HCONTEXT h_context,
-                     GetTbsContext(GetNCryptKeyHandle(),
-                                   tpm::TpmCommand::kCertify, Algorithm()));
-
-    ASSIGN_OR_RETURN(
-        uint32_t object_handle,
-        GetTpmPlatformHandle(signing_key.GetNCryptKeyHandle(),
-                             tpm::TpmCommand::kCertify, Algorithm()));
-
-    ASSIGN_OR_RETURN(
-        uint32_t sign_handle,
-        GetTpmPlatformHandle(GetNCryptKeyHandle(), tpm::TpmCommand::kCertify,
-                             Algorithm()));
-
-    // 3. Construct Command
-    const auto qualifying_data = hash::Sha256(challenge);
-    std::vector<uint8_t> cmd =
-        tpm::BuildCertifyCommand(object_handle, sign_handle, qualifying_data);
-
-    // 4. Submit Command
-    ASSIGN_OR_RETURN(std::vector<uint8_t> resp,
-                     SubmitTbsCommand(h_context, tpm::TpmCommand::kCertify, cmd,
-                                      kMaxTpmResponseSize, Algorithm()));
-
-    // 5. Parse in Rust by going through the C++ shim.
-    ASSIGN_OR_RETURN(tpm::CertifyResponse parsed,
-                     ToOptionalAndRecordParseMetrics(
-                         tpm::ParseCertifyResponse(resp, qualifying_data)));
-
-    // 6. Verify in C++. C++ supports a wider range of signature algorithms than
-    // Rust.
-    base::UmaHistogramEnumeration(
-        "Crypto.TPMOperation.Win.TpmCertifyVerify.Result",
-        VerifyAndLogTpmSignature(GetSubjectPublicKeyInfo(), parsed.statement,
-                                 parsed.signature)
-            .error_or(tpm::kNoSignatureErrorForMetrics));
-
-    return AttestationStatement{
-        .format = AttestationStatement::kTpm,
-        .statement = std::move(parsed.statement),
-        .signature = std::move(parsed.signature),
-    };
+    claim_blob.resize(bytes_written);
+    return ParseWebAuthnAttestationStatement(Algorithm(), claim_blob);
   }
 };
 
@@ -996,9 +1137,8 @@ class UnexportableKeyProviderWin : public UnexportableKeyProvider {
       : provider_type_(provider_type) {}
   ~UnexportableKeyProviderWin() override = default;
 
-  std::optional<SignatureVerifier::SignatureAlgorithm> SelectAlgorithm(
-      base::span<const SignatureVerifier::SignatureAlgorithm>
-          acceptable_algorithms) override {
+  std::optional<sign::SignatureKind> SelectAlgorithm(
+      base::span<const sign::SignatureKind> acceptable_algorithms) override {
     ScopedNCryptProvider provider;
     {
       SCOPED_MAY_LOAD_LIBRARY_AT_BACKGROUND_PRIORITY();
@@ -1016,21 +1156,10 @@ class UnexportableKeyProviderWin : public UnexportableKeyProvider {
     return GetBestSupported(provider.get(), acceptable_algorithms);
   }
 
-  std::optional<KeyDetails> GenerateKeyImpl(
-      base::span<const SignatureVerifier::SignatureAlgorithm>
-          acceptable_algorithms,
-      KeyUsage usage) {
+  std::unique_ptr<UnexportableSigningKey> GenerateSigningKeySlowly(
+      base::span<const sign::SignatureKind> acceptable_algorithms) override {
     base::ScopedBlockingCall scoped_blocking_call(
         FROM_HERE, base::BlockingType::WILL_BLOCK);
-
-    TPMOperation creation_operation =
-        usage == KeyUsage::kAttestation
-            ? TPMOperation::kNewAttestationKeyCreation
-            : TPMOperation::kNewKeyCreation;
-    TPMOperation export_operation =
-        usage == KeyUsage::kAttestation
-            ? TPMOperation::kWrappedAttestationKeyExport
-            : TPMOperation::kWrappedKeyExport;
 
     ScopedNCryptProvider provider;
     {
@@ -1039,14 +1168,16 @@ class UnexportableKeyProviderWin : public UnexportableKeyProvider {
           ScopedNCryptProvider::Receiver(provider).get(),
           GetWindowsIdentifierForProvider(provider_type_), /*flags=*/0);
       if (FAILED(status)) {
-        LogTPMOperationError(creation_operation, status, std::nullopt,
+        LogTPMOperationError(TPMOperation::kNewKeyCreation, status,
+                             std::nullopt,
                              /*open_storage_provider_error=*/true);
-        return std::nullopt;
+        return nullptr;
       }
     }
 
-    ASSIGN_OR_RETURN(SignatureVerifier::SignatureAlgorithm algo,
-                     GetBestSupported(provider.get(), acceptable_algorithms));
+    ASSIGN_OR_RETURN(sign::SignatureKind algo,
+                     GetBestSupported(provider.get(), acceptable_algorithms),
+                     [] { return nullptr; });
 
     std::vector<uint8_t> key_id;
     ScopedNCryptKey key;
@@ -1074,71 +1205,35 @@ class UnexportableKeyProviderWin : public UnexportableKeyProvider {
             /*dwLegacyKeySpec=*/0, /*dwFlags=*/0);
       }
       if (FAILED(creation_status)) {
-        LogTPMOperationError(creation_operation, creation_status, algo);
-        return std::nullopt;
+        LogTPMOperationError(TPMOperation::kNewKeyCreation, creation_status,
+                             algo);
+        return nullptr;
       }
 
       if (provider_type_ == ProviderType::kTPM &&
-          algo == SignatureVerifier::SignatureAlgorithm::RSA_PKCS1_SHA256) {
+          algo == sign::RSA_PKCS1_SHA256) {
         // TPM 2.0 RSA keys created via the Platform Crypto Provider default to
         // SHA-1 for signing if left unset. Restrict the key to SHA-256 instead.
-        RETURN_IF_ERROR(
-            SetNCryptProperty(
-                key.get(), NCRYPT_PCP_RSA_SCHEME_HASH_ALG_PROPERTY,
-                static_cast<DWORD>(crypto::tpm::TpmAlg::TPM_ALG_SHA256)),
-            [&](SECURITY_STATUS status) {
-              LogTPMOperationError(creation_operation, status, algo);
-              return std::nullopt;
-            });
-      }
-
-      if (usage == KeyUsage::kAttestation) {
-        // Sets the NCRYPT_PCP_IDENTITY_KEY flag in the key's usage policy.
-        // This marks the key as an Attestation Identity Key (AIK). This
-        // property is specific to the Platform Crypto Provider (TPM) and
-        // restricts the key from being used to sign arbitrary data.
-        RETURN_IF_ERROR(
-            SetNCryptProperty(key.get(), NCRYPT_PCP_KEY_USAGE_POLICY_PROPERTY,
-                              NCRYPT_PCP_IDENTITY_KEY),
-            [&](SECURITY_STATUS status) {
-              LogTPMOperationError(creation_operation, status, algo);
-              return std::nullopt;
-            });
-      }
-
-      if (usage == KeyUsage::kAttestation &&
-          algo == SignatureVerifier::SignatureAlgorithm::RSA_PKCS1_SHA256) {
-        // TPM 2.0 Attestation Identity Keys (AIKs) are restricted signing keys
-        // and require a specific signature scheme and hash algorithm to be
-        // fixed in their public template upon creation. Explicitly configure
-        // the key to use RSASSA with SHA-256 for signing and certification.
-        RETURN_IF_ERROR(
-            SetNCryptProperty(key.get(), NCRYPT_PCP_RSA_SCHEME_PROPERTY,
-                              static_cast<DWORD>(tpm::TPM_ALG_RSASSA)),
-            [&](SECURITY_STATUS status) {
-              LogTPMOperationError(creation_operation, status, algo);
-              return std::nullopt;
-            });
-
         RETURN_IF_ERROR(
             SetNCryptProperty(key.get(),
                               NCRYPT_PCP_RSA_SCHEME_HASH_ALG_PROPERTY,
                               static_cast<DWORD>(tpm::TPM_ALG_SHA256)),
             [&](SECURITY_STATUS status) {
-              LogTPMOperationError(creation_operation, status, algo);
-              return std::nullopt;
+              LogTPMOperationError(TPMOperation::kNewKeyCreation, status, algo);
+              return nullptr;
             });
       }
 
       if (FAILED(NCryptFinalizeKey(key.get(), NCRYPT_SILENT_FLAG))) {
-        return std::nullopt;
+        return nullptr;
       }
     }
     if (provider_type_ == ProviderType::kTPM) {
       ASSIGN_OR_RETURN(key_id, ExportKey(key.get(), BCRYPT_OPAQUE_KEY_BLOB),
                        [&](SECURITY_STATUS status) {
-                         LogTPMOperationError(export_operation, status, algo);
-                         return std::nullopt;
+                         LogTPMOperationError(TPMOperation::kWrappedKeyExport,
+                                              status, algo);
+                         return nullptr;
                        });
     }
 
@@ -1146,16 +1241,109 @@ class UnexportableKeyProviderWin : public UnexportableKeyProvider {
         std::vector<uint8_t> spki,
         [&]() -> std::optional<std::vector<uint8_t>> {
           switch (algo) {
-            case SignatureVerifier::SignatureAlgorithm::ECDSA_SHA256:
+            case sign::ECDSA_SHA256:
               return GetP256ECDSASPKI(key.get());
-            case SignatureVerifier::SignatureAlgorithm::RSA_PKCS1_SHA256:
+            case sign::RSA_PKCS1_SHA256:
               return GetRSASPKI(key.get());
             default:
               return std::nullopt;
           }
-        }());
+        }(),
+        [] { return nullptr; });
 
-    return KeyDetails{std::move(key), std::move(key_id), std::move(spki), algo};
+    KeyDetails key_details{std::move(key), std::move(key_id), std::move(spki),
+                           algo};
+    switch (algo) {
+      case sign::ECDSA_SHA256:
+        return std::make_unique<ECDSASigningKey>(provider_type_,
+                                                 std::move(key_details));
+      case sign::RSA_PKCS1_SHA256:
+        return std::make_unique<RSASigningKey>(provider_type_,
+                                               std::move(key_details));
+      default:
+        return nullptr;
+    }
+  }
+
+  // Generates a TPM 2.0 Attestation Identity Key (AIK) by submitting a raw
+  // TPM2_Create command via TBS and importing the resulting opaque key blob
+  // into the Windows Platform Crypto Provider (PCP).
+  //
+  // Windows CNG does not support creating AIKs with modern parameters (e.g.,
+  // ECDSA P-256 with SHA-256) directly through NCryptCreatePersistedKey.
+  // Instead, we construct and issue TPM2_Create directly under the Storage Root
+  // Key (SRK), format the TPM2B_PUBLIC and TPM2B_PRIVATE into a
+  // BCRYPT_OPAQUE_KEY_BLOB (PCP_KEY_BLOB_WIN8), and import it via
+  // NCryptImportKey.
+  std::unique_ptr<UnexportableAttestationKey> GenerateAttestationKeySlowly(
+      base::span<const sign::SignatureKind> acceptable_algorithms) override {
+    base::ScopedBlockingCall scoped_blocking_call(
+        FROM_HERE, base::BlockingType::WILL_BLOCK);
+
+    if (provider_type_ != ProviderType::kTPM || !IsTbsAvailable() ||
+        !IsTpm20Available()) {
+      return nullptr;
+    }
+
+    // 1. Open the Platform Crypto Provider and select the best supported
+    // algorithm.
+    ScopedNCryptProvider provider;
+    {
+      SCOPED_MAY_LOAD_LIBRARY_AT_BACKGROUND_PRIORITY();
+      SECURITY_STATUS status = NCryptOpenStorageProvider(
+          ScopedNCryptProvider::Receiver(provider).get(),
+          GetWindowsIdentifierForProvider(provider_type_), /*flags=*/0);
+      if (FAILED(status)) {
+        LogTPMOperationError(TPMOperation::kNewAttestationKeyCreation, status,
+                             std::nullopt,
+                             /*open_storage_provider_error=*/true);
+        return nullptr;
+      }
+    }
+
+    ASSIGN_OR_RETURN(sign::SignatureKind algo,
+                     GetBestSupported(provider.get(), acceptable_algorithms),
+                     [] { return nullptr; });
+
+    // 2. Extract the underlying TBS context handle from the provider.
+    ASSIGN_OR_RETURN(TBS_HCONTEXT h_context,
+                     GetNCryptProperty<TBS_HCONTEXT>(
+                         provider.get(), NCRYPT_PCP_PLATFORMHANDLE_PROPERTY),
+                     [&](SECURITY_STATUS status) {
+                       LogTPMOperationError(
+                           TPMOperation::kNewAttestationKeyCreation, status,
+                           algo);
+                       return nullptr;
+                     });
+
+    // 3. Construct and submit the TPM2_Create command to generate the AIK under
+    // the Storage Root Key (SRK).
+    ASSIGN_OR_RETURN(std::vector<uint8_t> create_cmd,
+                     tpm::BuildCreateAikCommand(
+                         std::to_underlying(GetSrkHandleFor(algo)), algo),
+                     [&] {
+                       LogTPMOperationError(
+                           TPMOperation::kNewAttestationKeyCreation,
+                           NTE_NOT_SUPPORTED, algo);
+                       return nullptr;
+                     });
+
+    ASSIGN_OR_RETURN(std::vector<uint8_t> create_resp,
+                     SubmitTbsCommand(h_context, tpm::TpmCommand::kCreate,
+                                      create_cmd, kMaxTpmResponseSize, algo),
+                     [] { return nullptr; });
+
+    // 4. Parse the TPM2_Create response to extract the public and private
+    // key areas.
+    ASSIGN_OR_RETURN(
+        tpm::CreateResponse parsed_create,
+        ToOptionalAndRecordParseMetrics(tpm::ParseCreateResponse(create_resp)),
+        [] { return nullptr; });
+
+    // 5. Build a BCRYPT_OPAQUE_KEY_BLOB (PCP_KEY_BLOB_WIN8) from the
+    // TPM2_Create output and import it to obtain a functional key handle.
+    return FromWrappedAttestationKeySlowly(
+        BuildWrappedAttestationKey(parsed_create));
   }
 
   std::optional<KeyDetails> FromWrappedKeyImpl(
@@ -1184,47 +1372,16 @@ class UnexportableKeyProviderWin : public UnexportableKeyProvider {
         algorithm == BCRYPT_ECDSA_ALGORITHM) {
       ASSIGN_OR_RETURN(std::vector<uint8_t> spki, GetP256ECDSASPKI(key.get()));
       return KeyDetails{std::move(key), base::ToVector(wrapped),
-                        std::move(spki),
-                        SignatureVerifier::SignatureAlgorithm::ECDSA_SHA256};
+                        std::move(spki), sign::ECDSA_SHA256};
     }
 
     if (algorithm == BCRYPT_RSA_ALGORITHM) {
       ASSIGN_OR_RETURN(std::vector<uint8_t> spki, GetRSASPKI(key.get()));
-      return KeyDetails{
-          std::move(key), base::ToVector(wrapped), std::move(spki),
-          SignatureVerifier::SignatureAlgorithm::RSA_PKCS1_SHA256};
+      return KeyDetails{std::move(key), base::ToVector(wrapped),
+                        std::move(spki), sign::RSA_PKCS1_SHA256};
     }
 
     return std::nullopt;
-  }
-
-  std::unique_ptr<UnexportableSigningKey> GenerateSigningKeySlowly(
-      base::span<const SignatureVerifier::SignatureAlgorithm>
-          acceptable_algorithms) override {
-    ASSIGN_OR_RETURN(KeyDetails key,
-                     GenerateKeyImpl(acceptable_algorithms, KeyUsage::kSigning),
-                     [] { return nullptr; });
-
-    switch (key.algo) {
-      case SignatureVerifier::SignatureAlgorithm::ECDSA_SHA256:
-        return std::make_unique<ECDSASigningKey>(provider_type_,
-                                                 std::move(key));
-      case SignatureVerifier::SignatureAlgorithm::RSA_PKCS1_SHA256:
-        return std::make_unique<RSASigningKey>(provider_type_, std::move(key));
-      default:
-        return nullptr;
-    }
-  }
-
-  std::unique_ptr<UnexportableAttestationKey> GenerateAttestationKeySlowly(
-      base::span<const SignatureVerifier::SignatureAlgorithm>
-          acceptable_algorithms) override {
-    ASSIGN_OR_RETURN(
-        KeyDetails key,
-        GenerateKeyImpl(acceptable_algorithms, KeyUsage::kAttestation),
-        [] { return nullptr; });
-
-    return std::make_unique<AttestationKeyWin>(provider_type_, std::move(key));
   }
 
   std::unique_ptr<UnexportableSigningKey> FromWrappedSigningKeySlowly(
@@ -1234,10 +1391,10 @@ class UnexportableKeyProviderWin : public UnexportableKeyProvider {
                      [] { return nullptr; });
 
     switch (key.algo) {
-      case SignatureVerifier::SignatureAlgorithm::ECDSA_SHA256:
+      case sign::ECDSA_SHA256:
         return std::make_unique<ECDSASigningKey>(provider_type_,
                                                  std::move(key));
-      case SignatureVerifier::SignatureAlgorithm::RSA_PKCS1_SHA256:
+      case sign::RSA_PKCS1_SHA256:
         return std::make_unique<RSASigningKey>(provider_type_, std::move(key));
       default:
         return nullptr;
@@ -1271,9 +1428,7 @@ class ECDSASoftwareKey : public VirtualUnexportableSigningKey {
                    std::vector<uint8_t> spki)
       : key_(std::move(key)), name_(std::move(name)), spki_(std::move(spki)) {}
 
-  SignatureVerifier::SignatureAlgorithm Algorithm() const override {
-    return SignatureVerifier::SignatureAlgorithm::ECDSA_SHA256;
-  }
+  sign::SignatureKind Algorithm() const override { return sign::ECDSA_SHA256; }
 
   std::vector<uint8_t> GetSubjectPublicKeyInfo() const override {
     return spki_;
@@ -1319,8 +1474,8 @@ class RSASoftwareKey : public VirtualUnexportableSigningKey {
                  std::vector<uint8_t> spki)
       : key_(std::move(key)), name_(std::move(name)), spki_(std::move(spki)) {}
 
-  SignatureVerifier::SignatureAlgorithm Algorithm() const override {
-    return SignatureVerifier::SignatureAlgorithm::RSA_PKCS1_SHA256;
+  sign::SignatureKind Algorithm() const override {
+    return sign::RSA_PKCS1_SHA256;
   }
 
   std::vector<uint8_t> GetSubjectPublicKeyInfo() const override {
@@ -1366,9 +1521,8 @@ class VirtualUnexportableKeyProviderWin
  public:
   ~VirtualUnexportableKeyProviderWin() override = default;
 
-  std::optional<SignatureVerifier::SignatureAlgorithm> SelectAlgorithm(
-      base::span<const SignatureVerifier::SignatureAlgorithm>
-          acceptable_algorithms) override {
+  std::optional<sign::SignatureKind> SelectAlgorithm(
+      base::span<const sign::SignatureKind> acceptable_algorithms) override {
     ScopedNCryptProvider provider;
     {
       SCOPED_MAY_LOAD_LIBRARY_AT_BACKGROUND_PRIORITY();
@@ -1385,8 +1539,7 @@ class VirtualUnexportableKeyProviderWin
   }
 
   std::unique_ptr<VirtualUnexportableSigningKey> GenerateSigningKey(
-      base::span<const SignatureVerifier::SignatureAlgorithm>
-          acceptable_algorithms,
+      base::span<const sign::SignatureKind> acceptable_algorithms,
       std::string name) override {
     base::ScopedBlockingCall scoped_blocking_call(
         FROM_HERE, base::BlockingType::WILL_BLOCK);
@@ -1403,7 +1556,7 @@ class VirtualUnexportableKeyProviderWin
       }
     }
 
-    std::optional<SignatureVerifier::SignatureAlgorithm> algo =
+    std::optional<sign::SignatureKind> algo =
         GetBestSupported(provider.get(), acceptable_algorithms);
     if (!algo) {
       return nullptr;
@@ -1433,14 +1586,14 @@ class VirtualUnexportableKeyProviderWin
 
     std::optional<std::vector<uint8_t>> spki;
     switch (*algo) {
-      case SignatureVerifier::SignatureAlgorithm::ECDSA_SHA256:
+      case sign::ECDSA_SHA256:
         spki = GetP256ECDSASPKI(key.get());
         if (!spki) {
           return nullptr;
         }
         return std::make_unique<ECDSASoftwareKey>(std::move(key), name,
                                                   std::move(spki.value()));
-      case SignatureVerifier::SignatureAlgorithm::RSA_PKCS1_SHA256:
+      case sign::RSA_PKCS1_SHA256:
         spki = GetRSASPKI(key.get());
         if (!spki) {
           return nullptr;

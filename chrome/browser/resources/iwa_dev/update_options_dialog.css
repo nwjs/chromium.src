@@ -12,6 +12,7 @@
   display: flex;
   font-size: 1rem;
   gap: 8px;
+  margin-bottom: 8px;
 }
 
 #app-icon {
@@ -23,24 +24,12 @@
 [slot='body'] {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  min-height: 160px;
+  gap: 8px;
+  min-height: 240px;
 }
 
-.input-container {
-  align-items: center;
-  display: flex;
-  position: relative;
-  width: 100%;
-}
-
-#clearPinnedVersionButton {
-  --cr-icon-button-size: 20px;
-  --cr-icon-button-icon-size: 14px;
-  inset-inline-end: 32px;
-  margin: 0;
-  position: absolute;
-  z-index: 1;
+iwa-dev-combobox {
+  --iwa-dev-combobox-margin-bottom: 28px;
 }
 
 .toggle-container {

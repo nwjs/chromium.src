@@ -36,7 +36,6 @@
 #include "third_party/skia/include/gpu/ganesh/GrTypes.h"
 
 namespace cc {
-class PaintCanvas;
 class SkiaPaintCanvas;
 }  // namespace cc
 
@@ -67,7 +66,6 @@ class CanvasResource;
 class CanvasResourceSharedImage;
 class Canvas2DResourceProvider;
 class CanvasImageProvider;
-class MemoryManagedPaintCanvas;
 class StaticBitmapImage;
 class WebGraphicsSharedImageInterfaceProvider;
 
@@ -115,7 +113,6 @@ class PLATFORM_EXPORT CanvasResourceProviderDelegate {
   virtual ~CanvasResourceProviderDelegate() = default;
 
   virtual void NotifyGpuContextLost() = 0;
-  virtual void InitializeForRecording(cc::PaintCanvas* canvas) const = 0;
   virtual bool IsPrinting() const { return false; }
   // This is used to apply a map of frame indexes to be used by
   // PlaybackImageProvider::GetRasterContent. When the delegate is a
@@ -139,7 +136,6 @@ class PLATFORM_EXPORT Canvas2DResourceProvider
       public viz::ContextLostObserver,
       public BitmapGpuChannelLostObserver,
       public CanvasMemoryDumpClient,
-      public MemoryManagedPaintRecorder::Client,
       public ScopedRasterTimer::Host {
  public:
   constexpr static base::TimeDelta kUnusedResourceExpirationTime =
@@ -221,8 +217,6 @@ class PLATFORM_EXPORT Canvas2DResourceProvider
 
   size_t max_recorded_op_bytes() const { return max_recorded_op_bytes_; }
   size_t max_pinned_image_bytes() const { return max_pinned_image_bytes_; }
-  bool clear_frame() const { return clear_frame_; }
-  void set_clear_frame(bool clear_frame) { clear_frame_ = clear_frame; }
 
   int NumInflightResourcesForTesting() const { return num_inflight_resources_; }
   base::ByteSize EstimatedSizeInBytes() const;
@@ -243,11 +237,6 @@ class PLATFORM_EXPORT Canvas2DResourceProvider
                            int x,
                            int y);
 
-  const MemoryManagedPaintRecorder& Recorder() const { return *recorder_; }
-  MemoryManagedPaintRecorder& Recorder() { return *recorder_; }
-  std::unique_ptr<MemoryManagedPaintRecorder> ReleaseRecorder();
-  void SetRecorder(std::unique_ptr<MemoryManagedPaintRecorder> recorder);
-
   void SetResourceRecyclingEnabled(bool value);
 
   // Signals that the ongoing transfer of this resource to WebGPU has completed,
@@ -259,8 +248,9 @@ class PLATFORM_EXPORT Canvas2DResourceProvider
 
   virtual void RasterRecord(cc::PaintRecord last_recording);
   gpu::raster::RasterInterface* RasterInterface() const;
-  MemoryManagedPaintCanvas& GetCanvasForTesting();
   void RestoreBackBuffer(const cc::PaintImage&);
+  bool IsGraphite() const;
+  void RecordingCleared();
 
  protected:
   Canvas2DResourceProvider(gfx::Size,
@@ -301,10 +291,6 @@ class PLATFORM_EXPORT Canvas2DResourceProvider
 
   scoped_refptr<CanvasResourceSharedImage> NewOrRecycledResource();
 
-  // MemoryManagedPaintRecorder::Client implementation.
-  void InitializeForRecording(cc::PaintCanvas* canvas) const override;
-  void RecordingCleared() override;
-
   void ApplyAnimatedImageFrameIndexesForId(SkCanvas* canvas, uint32_t id);
 
   SkSurface* GetSkSurface() const;
@@ -336,7 +322,6 @@ class PLATFORM_EXPORT Canvas2DResourceProvider
   // Notifies before any unaccelerated drawing will be done on the resource used
   // by this provider.
   void WillDrawUnaccelerated();
-  void DisableLineDrawingAsPathsIfNecessary();
 
   SkSurfaceProps GetSkSurfaceProps() const;
   virtual sk_sp<SkSurface> CreateSkSurface() const;
@@ -400,7 +385,6 @@ class PLATFORM_EXPORT Canvas2DResourceProvider
   gfx::ColorSpace color_space_;
   gfx::HDRMetadata hdr_metadata_;
 
-  std::unique_ptr<MemoryManagedPaintRecorder> recorder_;
   size_t max_recorded_op_bytes_;
   size_t max_pinned_image_bytes_;
   raw_ptr<CanvasResourceProviderDelegate> delegate_ = nullptr;
@@ -410,8 +394,6 @@ class PLATFORM_EXPORT Canvas2DResourceProvider
   cc::PaintImage::ContentId snapshot_paint_image_content_id_ =
       cc::PaintImage::kInvalidContentId;
   uint32_t snapshot_sk_image_id_ = 0u;
-
-  bool clear_frame_ = true;
 
   base::WeakPtrFactory<Canvas2DResourceProvider> weak_ptr_factory_{this};
 };

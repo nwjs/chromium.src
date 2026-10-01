@@ -44,7 +44,6 @@
 #include "base/types/expected.h"
 #include "base/types/optional_ref.h"
 #include "base/types/pass_key.h"
-#include "components/autofill/core/browser/autofill_browser_util.h"
 #include "components/autofill/core/browser/autofill_field.h"
 #include "components/autofill/core/browser/autofill_trigger_source.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_profile.h"
@@ -58,6 +57,7 @@
 #include "components/autofill/core/browser/filling/field_filling_skip_reason.h"
 #include "components/autofill/core/browser/filling/field_filling_util.h"
 #include "components/autofill/core/browser/filling/filling_product.h"
+#include "components/autofill/core/browser/filling/form_autofill_history.h"
 #include "components/autofill/core/browser/filling/payments/field_filling_payments_util.h"
 #include "components/autofill/core/browser/form_processing/autofill_ai/determine_attribute_types.h"
 #include "components/autofill/core/browser/form_structure.h"
@@ -279,6 +279,7 @@ DenseSet<FieldFillingSkipReason> GetIgnorableSkipReasons(
     case AutofillTriggerSource::kDevtools:
     case AutofillTriggerSource::kScanCreditCard:
     case AutofillTriggerSource::kProactivePasswordRecovery:
+    case AutofillTriggerSource::kGmailOneTimePasswordAvailable:
     case AutofillTriggerSource::kCreditCardSaveAndFill:
     case AutofillTriggerSource::kProgrammaticRefill:
     case AutofillTriggerSource::kOmniboxAutofill:
@@ -950,19 +951,9 @@ void FormFiller::FillOrPreviewForm(
                      augmented_filling_payload.filling_product(),
                      filling_content, skip_reasons);
 
-  // TODO(crbug.com/40227071): Remove.
-  base::flat_set<FieldGlobalId> filled_field_ids;
-  for (const auto& [id, reasons] : skip_reasons) {
-    if (reasons.empty() ||
-        reasons == DenseSet{FieldFillingSkipReason::kIframeSecurityPolicy}) {
-      filled_field_ids.insert(id);
-    }
-  }
-
   manager_->OnDidFillOrPreviewForm(
-      action_persistence, form, trigger_field, safe_filled_fields,
-      std::move(filled_field_ids), skip_reasons, filling_payload,
-      trigger_source, refill_options.reason());
+      action_persistence, form, trigger_field, safe_filled_fields, skip_reasons,
+      filling_payload, trigger_source, refill_options.reason());
 }
 
 void FormFiller::SuppressAutomaticRefills(const FillId& fill_id) {

@@ -164,12 +164,12 @@ public class MediaCaptureDevicesDispatcherAndroid {
     public static void notifyTabCapturingStopped(@Nullable WebContents webContents) {
         if (webContents == null) return;
         setSourceSwitchingInProgress(webContents, false);
-        // TabSharingUIManager only tracks active tab sharing sessions when
-        // kTabSharingToolbarAndroid is enabled (which creates TabSharingUIBridge).
+        // TabSharingUiManager only tracks active tab sharing sessions when
+        // kTabSharingToolbarAndroid is enabled (which creates TabSharingUiBridge).
         // If no bridge is registered (e.g. when the feature is disabled), fall back
         // to notifyDisplayMediaStopped() to stop the stream via native
         // MediaStreamCaptureIndicator.
-        if (!TabSharingUIManager.getInstance().stopSharingByCapturerTab(webContents)) {
+        if (!TabSharingUiManager.getInstance().stopSharingByCapturerTab(webContents)) {
             MediaCaptureDevicesDispatcherAndroidJni.get().notifyDisplayMediaStopped(webContents);
         }
     }

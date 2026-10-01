@@ -3538,6 +3538,11 @@ int AXObjectCacheImpl::GetLocationSerializationDelay() {
     return kDelayForLocationUpdatesFocused;
   }
 
+  if (accessibility_focus_ != ui::AXNodeData::kInvalidAXID &&
+      changed_bounds_ids_.Contains(accessibility_focus_)) {
+    return kDelayForLocationUpdatesFocused;
+  }
+
   return kDelayForLocationUpdatesNonFocused;
 }
 
@@ -5067,6 +5072,9 @@ void AXObjectCacheImpl::HandleAttributeChanged(const QualifiedName& attr_name,
     if (IsA<HTMLSelectElement>(element)) {
       DeferTreeUpdate(TreeUpdateReason::kRoleMaybeChangedOnSelect, element);
     }
+  } else if (attr_name == html_names::kContenteditableAttr &&
+             AXObject::HasARIAOwns(element)) {
+    DeferTreeUpdate(TreeUpdateReason::kUpdateAriaOwns, element);
   } else if (attr_name == html_names::kAltAttr) {
     TextChanged(element);
   } else if (attr_name == html_names::kTitleAttr) {

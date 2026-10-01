@@ -27,6 +27,7 @@
 #include "components/optimization_guide/proto/features/actions_data.pb.h"
 #include "content/public/browser/devtools_agent_host.h"
 #include "content/public/browser/devtools_agent_host_client.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/test_navigation_observer.h"
@@ -43,8 +44,7 @@ class ActorToolsTestScriptTool : public ActorToolsTest {
  public:
   ActorToolsTestScriptTool() {
     features_.InitWithFeatures(
-        {blink::features::kWebMCP, blink::features::kDevToolsWebMCPSupport,
-         actor::kGlicActorEnableScriptTools,
+        {blink::features::kWebMCP, actor::kGlicActorEnableScriptTools,
          actor::kActorScriptToolTransientUserActivation},
         {});
   }
@@ -273,7 +273,6 @@ class ActorToolsTestScriptToolNoTimeout : public ActorToolsTest {
   ActorToolsTestScriptToolNoTimeout() {
     features_.InitWithFeaturesAndParameters(
         {{blink::features::kWebMCP, {}},
-         {blink::features::kDevToolsWebMCPSupport, {}},
          {actor::kGlicActorEnableScriptTools, {{"execution_timeout", "1s"}}}},
         {});
   }

@@ -24,11 +24,11 @@
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
 #import "ios/chrome/browser/shared/model/profile/test/test_profile_ios.h"
+#import "ios/chrome/browser/shared/model/profile/test/test_profile_manager_ios.h"
 #import "ios/chrome/browser/shared/model/utils/first_run_test_util.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/signin/model/authentication_service.h"
 #import "ios/chrome/browser/signin/model/authentication_service_factory.h"
-#import "ios/chrome/browser/signin/model/fake_authentication_service_delegate.h"
 #import "ios/chrome/browser/signin/model/fake_system_identity.h"
 #import "ios/chrome/browser/signin/model/fake_system_identity_manager.h"
 #import "ios/chrome/browser/sync/model/mock_sync_service_utils.h"
@@ -59,8 +59,7 @@ class TipsNotificationCriteriaTest : public PlatformTest {
     TestProfileIOS::Builder builder;
     builder.AddTestingFactory(
         AuthenticationServiceFactory::GetInstance(),
-        AuthenticationServiceFactory::GetFactoryWithDelegateForTesting(
-            std::make_unique<FakeAuthenticationServiceDelegate>()));
+        AuthenticationServiceFactory::GetDefaultFactory());
     builder.AddTestingFactory(
         feature_engagement::TrackerFactory::GetInstance(),
         base::BindRepeating(&BuildFeatureEngagementMockTracker));
@@ -69,16 +68,24 @@ class TipsNotificationCriteriaTest : public PlatformTest {
     builder.AddTestingFactory(
         ios::TemplateURLServiceFactory::GetInstance(),
         ios::TemplateURLServiceFactory::GetDefaultFactory());
-    profile_ = std::move(builder).Build();
+    profile_ = profile_manager_.AddProfileWithBuilder(std::move(builder));
     mock_tracker_ = static_cast<feature_engagement::test::MockTracker*>(
-        feature_engagement::TrackerFactory::GetForProfile(profile_.get()));
+        feature_engagement::TrackerFactory::GetForProfile(profile_));
     TemplateURLService* template_url_service =
-        ios::TemplateURLServiceFactory::GetForProfile(profile_.get());
+        ios::TemplateURLServiceFactory::GetForProfile(profile_);
     template_url_service->Load();
-    criteria_ = std::make_unique<TipsNotificationCriteria>(profile_.get(),
-                                                           GetLocalState());
+    criteria_ =
+        std::make_unique<TipsNotificationCriteria>(profile_, GetLocalState());
     sync_service_mock_ = static_cast<syncer::MockSyncService*>(
-        SyncServiceFactory::GetForProfile(profile_.get()));
+        SyncServiceFactory::GetForProfile(profile_));
+  }
+
+  void TearDown() override {
+    criteria_.reset();
+    mock_tracker_ = nullptr;
+    sync_service_mock_ = nullptr;
+    profile_ = nullptr;
+    PlatformTest::TearDown();
   }
 
   PrefService* GetLocalState() {
@@ -86,7 +93,7 @@ class TipsNotificationCriteriaTest : public PlatformTest {
   }
 
   AuthenticationService* GetAuthService() {
-    return AuthenticationServiceFactory::GetForProfile(profile_.get());
+    return AuthenticationServiceFactory::GetForProfile(profile_);
   }
 
   // Ensures that Chrome is considered as default browser.
@@ -107,7 +114,7 @@ class TipsNotificationCriteriaTest : public PlatformTest {
 
   void SetIsGoogleDefaultSearchEngine(bool is_google) {
     TemplateURLService* template_url_service =
-        ios::TemplateURLServiceFactory::GetForProfile(profile_.get());
+        ios::TemplateURLServiceFactory::GetForProfile(profile_);
     if (is_google) {
       template_url_service->SetUserSelectedDefaultSearchProvider(
           template_url_service->GetTemplateURLForKeyword(u"google.com"));
@@ -117,12 +124,13 @@ class TipsNotificationCriteriaTest : public PlatformTest {
     }
   }
 
-  base::test::ScopedFeatureList feature_list_;
   web::WebTaskEnvironment task_environment_;
+  base::test::ScopedFeatureList feature_list_;
   IOSChromeScopedTestingLocalState scoped_testing_local_state_;
-  std::unique_ptr<TestProfileIOS> profile_;
+  TestProfileManagerIOS profile_manager_;
+  raw_ptr<TestProfileIOS> profile_ = nullptr;
   std::unique_ptr<TipsNotificationCriteria> criteria_;
-  raw_ptr<feature_engagement::test::MockTracker> mock_tracker_;
+  raw_ptr<feature_engagement::test::MockTracker> mock_tracker_ = nullptr;
   raw_ptr<syncer::MockSyncService> sync_service_mock_ = nullptr;
 };
 

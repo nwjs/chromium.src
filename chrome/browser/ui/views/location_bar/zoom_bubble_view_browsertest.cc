@@ -4,8 +4,11 @@
 
 #include "chrome/browser/ui/views/location_bar/zoom_bubble_view.h"
 
+#include "base/test/scoped_feature_list.h"
 #include "build/build_config.h"
+#include "chrome/browser/ui/actions/chrome_action_id.h"
 #include "chrome/browser/ui/browser_commands.h"
+#include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_web_contents_delegate/browser_web_contents_delegate.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
@@ -15,14 +18,18 @@
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/test/test_browser_dialog.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
+#include "chrome/browser/ui/views/frame/toolbar_button_provider.h"
 #include "chrome/browser/ui/views/location_bar/zoom_bubble_coordinator.h"
+#include "chrome/common/chrome_features.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/zoom/zoom_controller.h"
+#include "content/public/common/content_features.h"
 #include "content/public/test/browser_test.h"
 #include "extensions/browser/extension_zoom_request_client.h"
 #include "extensions/common/extension_builder.h"
 #include "third_party/blink/public/mojom/frame/fullscreen.mojom.h"
+#include "ui/base/page_transition_types.h"
 #include "ui/views/test/test_widget_observer.h"
 #include "ui/views/test/widget_test.h"
 
@@ -293,6 +300,65 @@ IN_PROC_BROWSER_TEST_F(ZoomBubbleBrowserTest, DestroyedWebContents) {
   EXPECT_TRUE(observer.widget_closed());
 }
 
+// Ensure that a bubble whose widget was hidden without being closed (for
+// example when the OS hides the parent window during a sleep/wake cycle) is
+// closed and replaced by Show() instead of tripping a CHECK in
+// ZoomBubbleCoordinator::Show(). Regression test for
+// https://crbug.com/555518369.
+IN_PROC_BROWSER_TEST_F(ZoomBubbleBrowserTest, ShowAfterWidgetHiddenIsSafe) {
+  content::WebContents* web_contents =
+      browser()->GetTabStripModel()->GetActiveWebContents();
+
+  zoom_bubble_coordinator_->Show(web_contents, ZoomBubbleView::AUTOMATIC);
+  ZoomBubbleView* bubble = zoom_bubble_coordinator_->bubble();
+  ASSERT_TRUE(bubble);
+  views::Widget* old_widget = bubble->GetWidget();
+  ASSERT_TRUE(old_widget);
+
+  // Hide the widget without closing it. The coordinator still observes it, but
+  // no longer reports it as showing.
+  old_widget->Hide();
+  EXPECT_FALSE(old_widget->IsClosed());
+  EXPECT_FALSE(zoom_bubble_coordinator_->IsShowing());
+  EXPECT_FALSE(zoom_bubble_coordinator_->bubble());
+
+  views::test::WidgetDestroyedWaiter waiter(old_widget);
+
+  // Showing again (as an extension-initiated zoom change would) must close the
+  // hidden widget and create a fresh bubble rather than crash.
+  zoom_bubble_coordinator_->Show(web_contents, ZoomBubbleView::AUTOMATIC);
+  ZoomBubbleView* new_bubble = zoom_bubble_coordinator_->bubble();
+  ASSERT_TRUE(new_bubble);
+  EXPECT_NE(bubble, new_bubble);
+  EXPECT_NE(old_widget, new_bubble->GetWidget());
+
+  // The old widget is closed asynchronously.
+  waiter.Wait();
+  EXPECT_TRUE(zoom_bubble_coordinator_->IsShowing());
+  EXPECT_EQ(new_bubble, zoom_bubble_coordinator_->bubble());
+}
+
+// Regression test for https://crbug.com/555518369.
+IN_PROC_BROWSER_TEST_F(ZoomBubbleBrowserTest, HideClosesHiddenWidget) {
+  content::WebContents* web_contents =
+      browser()->GetTabStripModel()->GetActiveWebContents();
+
+  zoom_bubble_coordinator_->Show(web_contents, ZoomBubbleView::AUTOMATIC);
+  ZoomBubbleView* bubble = zoom_bubble_coordinator_->bubble();
+  ASSERT_TRUE(bubble);
+  views::Widget* widget = bubble->GetWidget();
+  ASSERT_TRUE(widget);
+
+  widget->Hide();
+  EXPECT_FALSE(zoom_bubble_coordinator_->IsShowing());
+
+  views::test::WidgetDestroyedWaiter waiter(widget);
+  zoom_bubble_coordinator_->Hide();
+  EXPECT_TRUE(widget->IsClosed());
+  waiter.Wait();
+  EXPECT_FALSE(zoom_bubble_coordinator_->bubble());
+}
+
 namespace {
 
 class TestZoomRequestClient : public extensions::ExtensionZoomRequestClient {
@@ -502,6 +568,54 @@ IN_PROC_BROWSER_TEST_F(ZoomBubbleBrowserTest,
   // Reset zoom level.
   zoom_controller->SetZoomLevel(zoom_controller->GetDefaultZoomLevel());
   EXPECT_FALSE(reset_button->GetEnabled());
+}
+
+class ZoomBubbleWebUILocationBarBrowserTest : public ZoomBubbleBrowserTest {
+ public:
+  ZoomBubbleWebUILocationBarBrowserTest() {
+    feature_list_.InitWithFeatures(
+        {features::kInitialWebUI, features::kWebUILocationBar}, {});
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(ZoomBubbleWebUILocationBarBrowserTest,
+                       PopupDoesNotCrashWithoutPageActionView) {
+  BrowserWindowInterface* popup_browser =
+      CreateBrowserForPopup(browser()->GetProfile());
+  chrome::AddTabAt(popup_browser, GURL(url::kAboutBlankURL), -1, true);
+  BrowserView* const browser_view =
+      BrowserView::GetBrowserViewForBrowser(popup_browser);
+  ASSERT_TRUE(browser_view);
+
+  // In a popup window with WebUILocationBar enabled,
+  // GetPageActionViewInterface(kActionShowZoomBubble) returns nullptr.
+  ToolbarButtonProvider* provider = browser_view->toolbar_button_provider();
+  ASSERT_TRUE(provider);
+  EXPECT_EQ(provider->GetPageActionViewInterface(kActionShowZoomBubble),
+            nullptr);
+
+  content::WebContents* web_contents = browser_view->GetActiveWebContents();
+  ASSERT_TRUE(web_contents);
+  zoom::ZoomController* zoom_controller =
+      zoom::ZoomController::FromWebContents(web_contents);
+  ASSERT_TRUE(zoom_controller);
+  zoom_controller->SetZoomLevel(zoom_controller->GetDefaultZoomLevel() + 1.0);
+
+  auto* coordinator = ZoomBubbleCoordinator::From(popup_browser);
+  ASSERT_TRUE(coordinator);
+  // Showing the bubble invokes ZoomBubbleView::Init(), which calls
+  // GetAccessibleWindowTitle() ->
+  // ZoomBubbleManager::GetZoomActionAccessibleName(). This must not crash even
+  // when GetPageActionViewInterface() returns nullptr.
+  coordinator->Show(web_contents, ZoomBubbleView::USER_GESTURE);
+  ASSERT_TRUE(coordinator->bubble());
+  EXPECT_TRUE(coordinator->IsShowing());
+  EXPECT_EQ(static_cast<views::WidgetDelegate*>(coordinator->bubble())
+                ->GetAccessibleWindowTitle(),
+            std::u16string());
 }
 
 }  // namespace

@@ -101,7 +101,7 @@ class CORE_EXPORT StyleResolver final : public GarbageCollected<StyleResolver> {
   // root element style. In addition to initial values things like zoom, font,
   // forced color mode etc. is set.
   ComputedStyleBuilder InitialStyleBuilderForElement() const;
-  const ComputedStyle* InitialStyleForElement() const;
+  const ComputedStyle& InitialStyleForElement() const;
 
   float InitialZoom() const;
 
@@ -142,7 +142,7 @@ class CORE_EXPORT StyleResolver final : public GarbageCollected<StyleResolver> {
   void LoadPaginationResources();
 
   const ComputedStyle* StyleForText(Text*);
-  const ComputedStyle* StyleForViewport();
+  const ComputedStyle& StyleForViewport();
   // Returns `ComputedStyle` for rendering initial letter text.
   // `initial_letter_box_style` should have non-normal `initial-letter`
   // property.

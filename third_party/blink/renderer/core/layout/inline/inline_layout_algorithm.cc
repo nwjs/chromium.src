@@ -322,10 +322,15 @@ void InlineLayoutAlgorithm::CheckBoxStates(
                      should_scale_line_height)
       .RebuildBoxStates(line_info, 0u, GetBreakToken()->StartItemIndex());
   LogicalLineItems& line_box = context_->AcquireTempLogicalLineItems();
-  const bool is_only_line_clamp_ellipsis =
-      line_clamp_ellipsis_.has_value() && line_info.Results().empty();
-  rebuilt.OnBeginPlaceItems(Node(), line_info, baseline_type_,
-                            quirks_mode_ || is_only_line_clamp_ellipsis,
+  LineHeightMode line_height_mode;
+  if (line_clamp_ellipsis_.has_value() && line_info.Results().empty()) {
+    line_height_mode = LineHeightMode::kLineClampDisplacedEllipsis;
+  } else if (quirks_mode_) {
+    line_height_mode = LineHeightMode::kQuirk;
+  } else {
+    line_height_mode = LineHeightMode::kNormal;
+  }
+  rebuilt.OnBeginPlaceItems(Node(), line_info, baseline_type_, line_height_mode,
                             should_scale_line_height, &line_box);
   DCHECK(box_states_);
   box_states_->CheckSame(rebuilt);
@@ -401,9 +406,7 @@ void InlineLayoutAlgorithm::CreateLine(const LineLayoutOpportunity& opportunity,
 
   const FontHeight& line_box_metrics = box_states_->LineBoxState().metrics;
 
-  const bool has_text_emphasis =
-      RuntimeEnabledFeatures::TextEmphasisAsRubyEnabled() &&
-      Node().HasTextEmphasis();
+  const bool has_text_emphasis = Node().HasTextEmphasis();
   if ((Node().HasRuby() || has_text_emphasis) && !line_info->IsEmptyLine())
       [[unlikely]] {
     std::optional<FontHeight> annotation_metrics;
@@ -416,21 +419,10 @@ void InlineLayoutAlgorithm::CreateLine(const LineLayoutOpportunity& opportunity,
           .PlaceLines(*line_box, line_box_metrics)
           .AddLinesTo(*line_container);
       annotation_metrics = calculator.AnnotationMetrics();
-      if (RuntimeEnabledFeatures::TextEmphasisAsRubyEnabled()) {
-        calculator.UpdateColumnLayoutAnnotationMetrics(column_list);
-      } else if (RuntimeEnabledFeatures::TextEmphasisWithRubyEnabled()) {
-        for (const auto& column : column_list) {
-          for (wtf_size_t i = 0; i < column->size; ++i) {
-            (*line_box)[column->start_index + i].annotation_metrics =
-                column->annotation_metrics;
-          }
-        }
-      }
+      calculator.UpdateColumnLayoutAnnotationMetrics(column_list);
     }
 
-    if (RuntimeEnabledFeatures::TextEmphasisAsRubyEnabled()) {
-      SetTextEmphasisAnnotationMetrics(column_list, *line_box);
-    }
+    SetTextEmphasisAnnotationMetrics(column_list, *line_box);
     line_info->SetAnnotationBlockStartAdjustment(SetAnnotationOverflow(
         *line_info, *line_box, line_box_metrics, annotation_metrics));
   } else if (RuntimeEnabledFeatures::AnnotationSpaceOnStartEnabled() &&
@@ -1793,13 +1785,8 @@ PositionedFloat InlineLayoutAlgorithm::PositionFloat(
   BfcOffset origin_bfc_offset = {space.GetBfcOffset().line_offset,
                                  origin_bfc_block_offset};
 
-  // The BFC offset passed to `ShouldHideForPaint` should be the bottom offset
-  // of the line, which we don't know at this point. However, since block layout
-  // will relayout to fix the clamp BFC offset to the bottom of the last line
-  // before clamp, we now that if the line's BFC offset is equal or greater than
-  // the clamp BFC offset in the final relayout, the line will be hidden.
-  bool is_hidden_for_paint =
-      GetConstraintSpace().GetLineClampData().ShouldHideForPaint();
+  LineClampFloatState line_clamp_state =
+      GetConstraintSpace().GetLineClampData().FloatState();
 
   BlockNode child(To<LayoutBox>(floating_object));
   UnpositionedFloat unpositioned_float(
@@ -1807,7 +1794,7 @@ PositionedFloat InlineLayoutAlgorithm::PositionFloat(
       child.IsReplaced() ? space.ReplacedChildPercentageResolutionSize()
                          : space.PercentageResolutionSize(),
       origin_bfc_offset, space, Style(), space.FragmentainerBlockSize(),
-      space.FragmentainerOffset(), is_hidden_for_paint);
+      space.FragmentainerOffset(), line_clamp_state);
 
   PositionedFloat positioned_float =
       ::blink::PositionFloat(&unpositioned_float, exclusion_space);

@@ -44,9 +44,9 @@ class BackgroundTracingManagerImpl
 
   CONTENT_EXPORT static BackgroundTracingManagerImpl& GetInstance();
 
-  explicit CONTENT_EXPORT BackgroundTracingManagerImpl(
-      TracingDelegate* delegate);
-  ~BackgroundTracingManagerImpl() override;
+  CONTENT_EXPORT explicit BackgroundTracingManagerImpl(
+      std::unique_ptr<TracingDelegate> delegate);
+  CONTENT_EXPORT ~BackgroundTracingManagerImpl() override;
 
   BackgroundTracingManagerImpl(const BackgroundTracingManagerImpl&) = delete;
   BackgroundTracingManagerImpl& operator=(const BackgroundTracingManagerImpl&) =
@@ -57,7 +57,7 @@ class BackgroundTracingManagerImpl
                                  mojom::ChildProcess* child_process);
 
   // tracing::BackgroundTracingManager implementation:
-  bool IsRecordingAllowed(bool privacy_filter_enabled,
+  bool IsRecordingAllowed(bool is_local_scenario,
                           base::TimeTicks scenario_start_time) override;
   bool ShouldSaveUnuploadedTrace() override;
   std::string RecordSerializedSystemProfileMetrics() override;
@@ -80,6 +80,8 @@ class BackgroundTracingManagerImpl
   void RemoveAgentObserver(
       tracing::TracingAgentObserverManager::AgentObserver* observer) override;
 
+  TracingDelegate* delegate() const { return delegate_.get(); }
+
   // For tests
   CONTENT_EXPORT void SetPreferenceManagerForTesting(
       std::unique_ptr<PreferenceManager> preferences);
@@ -96,7 +98,7 @@ class BackgroundTracingManagerImpl
   static void ClearPendingAgent(int child_process_id);
   void MaybeConstructPendingAgents() override;
 
-  raw_ptr<TracingDelegate> delegate_;
+  std::unique_ptr<TracingDelegate> delegate_;
   std::unique_ptr<tracing::BackgroundTracingStateManager> state_manager_;
   std::unique_ptr<PreferenceManager> preferences_;
 
@@ -111,6 +113,9 @@ class BackgroundTracingManagerImpl
 
   base::WeakPtrFactory<BackgroundTracingManagerImpl> weak_factory_{this};
 };
+
+CONTENT_EXPORT std::unique_ptr<BackgroundTracingManagerImpl>
+CreateBackgroundTracingManagerAndInitializeScenarios();
 
 }  // namespace content
 

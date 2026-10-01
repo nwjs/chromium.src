@@ -11,6 +11,7 @@
 #include <limits>
 #include <optional>
 
+#include "base/i18n/rtl.h"
 #include "base/numerics/ranges.h"
 #include "ui/display/screen.h"
 #include "ui/display/win/screen_win.h"
@@ -26,10 +27,14 @@ constexpr int kMinAnchorWidthPx = 320;
 constexpr int kMinAnchorHeightPx = 160;
 
 // Layout constants in DIPs. These values were determined based on the visual
-// alignment with the native Windows Settings app to match the UX spec.
+// alignment with the native Windows Settings app to match the UX spec. The
+// WebUI draws the slot the window docks into from the same numbers, so the
+// slot's shadow frames the docked window.
+// LINT.IfChange(docked_settings_geometry)
 constexpr int kHorizontalInsetDip = 61;
 constexpr int kPreferredHeightDip = 220;
 constexpr int kMinHeightDip = 180;
+// LINT.ThenChange(//chrome/browser/resources/default_browser/visual_guided_setter/visual_guided_setter.css:docked_settings_slot)
 }  // namespace
 
 bool IsAnchorLargeEnoughForDocking(const gfx::Rect& anchor_rect) {
@@ -98,7 +103,7 @@ gfx::Rect ComputeDockedSettingsRectFromAnchor(HWND chrome_hwnd,
 }
 
 gfx::Point ComputeArrowStartPointFromAnchor(const gfx::Rect& anchor_rect) {
-  return gfx::Point(anchor_rect.right(),
+  return gfx::Point(base::i18n::IsRTL() ? anchor_rect.x() : anchor_rect.right(),
                     anchor_rect.y() + anchor_rect.height() / 2);
 }
 
@@ -112,7 +117,7 @@ gfx::Point ComputeArrowEndPoint(HWND settings_hwnd,
           .height();
 
   return gfx::Point(
-      target_rect.right(),
+      base::i18n::IsRTL() ? target_rect.x() : target_rect.right(),
       target_rect.y() + std::min(top_padding_px, target_rect.height()));
 }
 

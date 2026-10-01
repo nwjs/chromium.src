@@ -292,6 +292,14 @@ void V4Store::Reset() {
   state_ = "";
 }
 
+std::vector<base::FilePath> V4Store::GetPathsInUse() const {
+  std::vector<base::FilePath> paths{store_path_};
+  for (const auto& path : hash_prefix_map_->GetPaths()) {
+    paths.push_back(path);
+  }
+  return paths;
+}
+
 ApplyUpdateResult V4Store::ProcessPartialUpdateAndWriteToDisk(
     const std::string& metric,
     const HashPrefixMapView& hash_prefix_map_old,
@@ -1160,8 +1168,6 @@ bool V4Store::VerifyChecksum() {
   base::ElapsedThreadTimer thread_timer;
   DCHECK(task_runner_->RunsTasksInCurrentSequence());
 
-  // TODO(crbug.com/362791941): Remove this once have confirmed assumption that
-  // empty checksums are rare for valid stores.
   if (has_valid_data_) {
     base::UmaHistogramBoolean(
         "SafeBrowsing.V4Store.VerifyChecksum.ValidStoreChecksumEmpty" +

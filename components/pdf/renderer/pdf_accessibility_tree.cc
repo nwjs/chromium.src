@@ -291,79 +291,6 @@ bool PdfAccessibilityTree::IsDataFromPluginValid(
     }
   }
 
-  const std::vector<chrome_pdf::AccessibilityTextFieldInfo>& text_fields =
-      page_objects.form_fields.text_fields;
-  if (!std::is_sorted(
-          text_fields.begin(), text_fields.end(),
-          CompareTextRuns<chrome_pdf::AccessibilityTextFieldInfo>)) {
-    return false;
-  }
-  // Text run index of an `text_field` works on the same logic as the text run
-  // index of a `link` as mentioned above.
-  // `index_in_page` of a `text_field` follows the same index validation rules
-  // as of links.
-  for (const chrome_pdf::AccessibilityTextFieldInfo& text_field : text_fields) {
-    if (text_field.text_run_index > text_runs.size() ||
-        text_field.index_in_page >= text_fields.size()) {
-      return false;
-    }
-  }
-
-  const std::vector<chrome_pdf::AccessibilityChoiceFieldInfo>& choice_fields =
-      page_objects.form_fields.choice_fields;
-  if (!std::is_sorted(
-          choice_fields.begin(), choice_fields.end(),
-          CompareTextRuns<chrome_pdf::AccessibilityChoiceFieldInfo>)) {
-    return false;
-  }
-  for (const auto& choice_field : choice_fields) {
-    // Text run index of an `choice_field` works on the same logic as the text
-    // run index of a `link` as mentioned above.
-    // `index_in_page` of a `choice_field` follows the same index validation
-    // rules as of links.
-    if (choice_field.text_run_index > text_runs.size() ||
-        choice_field.index_in_page >= choice_fields.size()) {
-      return false;
-    }
-
-    // The type should be valid.
-    if (choice_field.type < chrome_pdf::ChoiceFieldType::kMinValue ||
-        choice_field.type > chrome_pdf::ChoiceFieldType::kMaxValue) {
-      return false;
-    }
-  }
-
-  const std::vector<chrome_pdf::AccessibilityButtonInfo>& buttons =
-      page_objects.form_fields.buttons;
-  if (!std::is_sorted(buttons.begin(), buttons.end(),
-                      CompareTextRuns<chrome_pdf::AccessibilityButtonInfo>)) {
-    return false;
-  }
-  for (const chrome_pdf::AccessibilityButtonInfo& button : buttons) {
-    // Text run index of an `button` works on the same logic as the text run
-    // index of a `link` as mentioned above.
-    // `index_in_page` of a `button` follows the same index validation rules as
-    // of links.
-    if (button.text_run_index > text_runs.size() ||
-        button.index_in_page >= buttons.size()) {
-      return false;
-    }
-
-    // The type should be valid.
-    if (button.type < chrome_pdf::ButtonType::kMinValue ||
-        button.type > chrome_pdf::ButtonType::kMaxValue) {
-      return false;
-    }
-
-    // For radio button or checkbox, value of `button.control_index` should
-    // always be less than `button.control_count`.
-    if ((button.type == chrome_pdf::ButtonType::kCheckBox ||
-         button.type == chrome_pdf::ButtonType::kRadioButton) &&
-        (button.control_index >= button.control_count)) {
-      return false;
-    }
-  }
-
   return true;
 }
 
@@ -799,8 +726,7 @@ bool PdfAccessibilityTree::RecursiveFindNodeOffset(
     if (iter == node_id_to_page_char_index_.end()) {
       return false;
     }
-    uint32_t len =
-        node->GetStringAttribute(ax::mojom::StringAttribute::kName).size();
+    uint32_t len = node->GetTextContentLengthUTF16();
     if (std::optional<uint32_t> offset = GetCharOffsetInRun(
             end_of_selection, page_char_index, iter->second.char_index, len)) {
       *out_node_id = node->id();
@@ -820,8 +746,7 @@ bool PdfAccessibilityTree::RecursiveFindNodeOffset(
     // All inline text box children created in `PdfAccessibilityTreeBuilder`
     // are guaranteed to be registered in `node_id_to_page_char_index_`.
     CHECK(iter != node_id_to_page_char_index_.end());
-    uint32_t child_len =
-        child->GetStringAttribute(ax::mojom::StringAttribute::kName).size();
+    uint32_t child_len = child->GetTextContentLengthUTF16();
     if (std::optional<uint32_t> offset =
             GetCharOffsetInRun(end_of_selection, page_char_index,
                                iter->second.char_index, child_len)) {
@@ -851,8 +776,7 @@ bool PdfAccessibilityTree::FindCharacterOffset(
         node.GetAllChildren();
     for (size_t i = 0; i < children.size(); ++i) {
       ui::AXNode* child = children[i];
-      uint32_t child_len =
-          child->GetStringAttribute(ax::mojom::StringAttribute::kName).size();
+      uint32_t child_len = child->GetTextContentLengthUTF16();
       bool is_last_child = (i == children.size() - 1);
       // Identify which child inline text box contains `remaining_offset`.
       if (remaining_offset < child_len || is_last_child) {

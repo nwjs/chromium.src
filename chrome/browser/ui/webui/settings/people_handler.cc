@@ -707,7 +707,8 @@ void PeopleHandler::HandleStartSyncingWithEmail(const base::ListValue& args) {
       IdentityManagerFactory::GetForProfile(profile_)
           ->FindExtendedAccountInfoByEmailAddress(email.GetString());
   signin_ui_util::EnableSyncFromMultiAccountPromo(
-      profile_, maybe_account, signin_metrics::AccessPoint::kSettings,
+      profile_, maybe_account.GetCoreAccountInfo(),
+      signin_metrics::AccessPoint::kSettings,
       is_default_promo_account.GetBool());
 #else
   NOTIMPLEMENTED();
@@ -878,7 +879,7 @@ void PeopleHandler::HandleSignout(const base::ListValue& args) {
   if (!browser) {
     return;
   }
-  browser->GetFeatures().signin_view_controller()->SignoutOrReauthWithPrompt(
+  SigninViewController::From(browser)->SignoutOrReauthWithPrompt(
       signin_metrics::AccessPoint::kSettingsSignoutConfirmationPrompt,
       signin_metrics::ProfileSignout::kUserClickedSignoutSettings,
       signin_metrics::SourceForRefreshTokenOperation::kSettings_Signout);
@@ -903,7 +904,7 @@ void PeopleHandler::HandleTurnOffSync(bool delete_profile,
     if (browser) {
       // Clearing the primary account isn't sufficient to signout SAML accounts,
       // see http://crbug.com/40710922.
-      browser->GetFeatures().signin_view_controller()->ShowGaiaLogoutTab(
+      SigninViewController::From(browser)->ShowGaiaLogoutTab(
           signin_metrics::SourceForRefreshTokenOperation::kSettings_Signout);
     }
 

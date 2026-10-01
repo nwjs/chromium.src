@@ -16,6 +16,7 @@
 #include "chrome/browser/sync/sync_service_factory.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/signin/signin_view_controller.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/webui/test_support/webui_interactive_test_mixin.h"
 #include "chrome/test/interaction/interactive_browser_test.h"
 #include "components/signin/public/base/signin_metrics.h"
@@ -122,7 +123,7 @@ IN_PROC_BROWSER_TEST_P(HistorySyncOptinScreenFromPromoEntryPointInteractiveTest,
       // Opens a sign-in tab as the method is called with an empty account.
       Do([&]() {
         signin_ui_util::EnableSyncFromSingleAccountPromo(
-            browser()->GetProfile(), AccountInfo(),
+            browser()->GetProfile(), CoreAccountInfo(),
             signin_metrics::AccessPoint::kAccountMenuSwitchAccount);
       }),
       Do([&]() {
@@ -138,7 +139,7 @@ IN_PROC_BROWSER_TEST_P(HistorySyncOptinScreenFromPromoEntryPointInteractiveTest,
         // Mock processing an ENABLE SYNC header as part of the sign-in.
         // This also signs in the user.
         process_dice_header_delegate_impl->CompleteChromeSignInAfterGaiaSignin(
-            account_info);
+            account_info.GetCoreAccountInfo());
       }),
       WaitForShow(SigninViewController::kHistorySyncOptinViewId),
       InstrumentNonTabWebView(kHistorySyncOptinDialogContentsId,
@@ -195,7 +196,7 @@ IN_PROC_BROWSER_TEST_P(HistorySyncOptinScreenFromPromoEntryPointInteractiveTest,
       InstrumentTab(kTabId, 0, browser()), Do([&]() {
         signin_ui_util::EnableSyncFromSingleAccountPromo(
             browser()->GetProfile(),
-            /*account=*/account_info,
+            /*account=*/account_info.GetCoreAccountInfo(),
             signin_metrics::AccessPoint::kAccountMenuSwitchAccount);
       }),
       // The user is already signed-in, the history sync optin dialog should
@@ -271,7 +272,7 @@ IN_PROC_BROWSER_TEST_P(
       InstrumentTab(kTabId, 0, browser()), Do([&]() {
         signin_ui_util::EnableSyncFromSingleAccountPromo(
             browser()->GetProfile(),
-            /*account=*/account_info,
+            /*account=*/account_info.GetCoreAccountInfo(),
             signin_metrics::AccessPoint::kAccountMenuSwitchAccount);
       }),
       // The user is already signed-in, the history sync optin dialog should
@@ -353,7 +354,7 @@ IN_PROC_BROWSER_TEST_P(HistorySyncOptinScreenFromPromoEntryPointInteractiveTest,
       InstrumentTab(kTabId, 0, browser()), Do([&]() {
         signin_ui_util::EnableSyncFromSingleAccountPromo(
             browser()->GetProfile(),
-            /*account=*/account_info,
+            /*account=*/account_info.GetCoreAccountInfo(),
             signin_metrics::AccessPoint::kAccountMenuSwitchAccount);
       }),
       // The user is already signed-in, the history sync optin dialog should
@@ -414,7 +415,7 @@ IN_PROC_BROWSER_TEST_P(HistorySyncOptinScreenFromPromoEntryPointInteractiveTest,
       InstrumentTab(kTabId, 0, browser()), Do([&]() {
         signin_ui_util::EnableSyncFromSingleAccountPromo(
             browser()->GetProfile(),
-            /*account=*/account_info,
+            /*account=*/account_info.GetCoreAccountInfo(),
             signin_metrics::AccessPoint::kAccountMenuSwitchAccount);
       }),
       // The user is already signed-in, the history sync optin dialog should
@@ -489,7 +490,7 @@ IN_PROC_BROWSER_TEST_P(HistorySyncOptinScreenFromPromoEntryPointInteractiveTest,
       Do([&]() {
         signin_ui_util::EnableSyncFromSingleAccountPromo(
             browser()->GetProfile(),
-            /*account=*/account_info,
+            /*account=*/account_info.GetCoreAccountInfo(),
             signin_metrics::AccessPoint::kAccountMenuSwitchAccount);
       }),
       WaitForState(kHistorySyncOptInAlreadyOptedInHistogramState, 1),

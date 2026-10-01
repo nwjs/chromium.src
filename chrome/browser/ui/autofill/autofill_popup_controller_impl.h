@@ -57,9 +57,7 @@ class AutofillPopupControllerImpl : public AutofillPopupController {
   void AcceptSuggestion(
       int index,
       AutofillMetrics::SuggestionAcceptedMethod accept_method) override;
-  bool RemoveSuggestion(
-      int list_index,
-      AutofillMetrics::SingleEntryRemovalMethod removal_method) override;
+  bool RemoveSuggestion(int list_index) override;
   int GetLineCount() const override;
   const std::vector<Suggestion>& GetSuggestions() const override;
   const Suggestion& GetSuggestionAt(int row) const override;
@@ -76,6 +74,7 @@ class AutofillPopupControllerImpl : public AutofillPopupController {
   std::optional<UiSessionId> GetUiSessionId() const override;
   void SetKeepPopupOpenForTesting(bool keep_popup_open_for_testing) override;
   void UpdateDataListValues(base::span<const SelectOption> options) override;
+  const LocalFrameToken& GetFrameToken() const override;
   bool MayRecycle(
       base::WeakPtr<AutofillSuggestionDelegate> delegate,
       content::WebContents* web_contents,
@@ -172,18 +171,15 @@ class AutofillPopupControllerImpl : public AutofillPopupController {
   // Returns `true` if this popup has no parent, and `false` for sub-popups.
   bool IsRootPopup() const;
 
-  // Returns the multi-row index of the suggestion anchoring this popup.
-  // Concretely:
-  // - If `this` is a root popup, the method returns an empty vector.
-  // - If `this` is a sub-popup of `level > 1`, it returns the indices of the
-  //   suggestions on which the sub-popups are anchored. For example
-  //   if `this` is a sub-popup of `level = 2` and
-  //   * `this` is anchored on a suggestion with `index=3` in the first-level
-  //     sub-popub, and
-  //   * the first-level sub-popup is anchored on a suggestion with `index=2`
-  //     in the root-popup,
-  //   then `GetParentMultiRowIndex()` will return `{2, 3}`.
-  std::vector<size_t> GetParentMultiRowIndex() const;
+  // Returns metadata about this popup container. Concretely:
+  // - If `this` is a root popup, its `multi_index` is empty.
+  // - If `this` is a sub-popup, its `multi_index` contains the indices of the
+  //   suggestions on which this popup and its ancestors are anchored.
+  AutofillSuggestionDelegate::SuggestionUiMetadata GetPopupMetadata() const;
+
+  // Returns metadata about the suggestion at `row_index` within this popup.
+  AutofillSuggestionDelegate::SuggestionMetadata GetSuggestionMetadata(
+      size_t row_index) const;
 
   // Notifies the view that the suggestions provided by the controller changed.
   // If `prefer_prev_arrow_side` is `true`, the view takes prev arrow side as

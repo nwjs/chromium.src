@@ -109,6 +109,7 @@ class TabStripActionContainer : public views::View,
 
   views::LabelButton* GetGlicButtonForTesting() { return glic_button_; }
   geic::GeicButton* GetGeicButtonForTesting() { return geic_button_; }
+  views::Separator* GetSeparatorForTesting() { return separator_; }
 
   glic::TabStripGlicActorTaskIcon* glic_actor_task_icon() {
     return glic_actor_task_icon_;
@@ -130,14 +131,14 @@ class TabStripActionContainer : public views::View,
   void HideGlicActorTaskIcon() override;
   bool GetIsShowingGlicActorTaskIconNudge() override;
   void SetGlicActorNudgeLabel(const std::u16string& nudge_label) override;
-  void TriggerGlicActorNudge(const std::u16string& nudge_text) override;
+  void TriggerGlicActorNudge(const std::u16string& nudge_label) override;
   void SetGlicActorNudgePressedState(bool pressed) override;
   void ShowActorTaskListBubble() override;
   void CloseActorTaskListBubble() override;
   bool IsActorTaskListBubbleShowing() override;
 
   views::FlexLayoutView* glic_actor_button_container();
-  void ShowGlicActorNudge(const std::u16string& nudge_text);
+  void ShowGlicActorNudge(const std::u16string& nudge_label);
 
   void UpdateButtonBorders(gfx::Insets button_insets);
 
@@ -206,6 +207,9 @@ class TabStripActionContainer : public views::View,
 
   // Update visibility of glic button and action container
   void UpdateGlicButtonVisibility(bool should_show);
+
+  // Update visibility of separator.
+  void UpdateSeparatorVisibility();
 
   // The button currently holding the lock to be shown/hidden.
   raw_ptr<TabStripNudgeButton> locked_expansion_button_ = nullptr;

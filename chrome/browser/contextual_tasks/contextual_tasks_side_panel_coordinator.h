@@ -18,15 +18,23 @@
 #include "components/sessions/core/session_id.h"
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/web_contents_observer.h"
+#include "extensions/buildflags/buildflags.h"
 #include "third_party/omnibox_proto/chrome_aim_entry_point.pb.h"
 #include "ui/base/unowned_user_data/scoped_unowned_user_data.h"
 
 #if !BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/ui/views/bubble/webui_bubble_reopen_suppressor.h"
+#include "ui/views/bubble/bubble_anchor.h"
 #endif
 
 class BrowserWindowInterface;
 class PrefService;
+
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE) && !BUILDFLAG(IS_ANDROID)
+namespace contextual_tasks {
+class ContextualTasksExtensionsContainer;
+}  // namespace contextual_tasks
+#endif
 
 namespace base {
 class Uuid;
@@ -149,6 +157,11 @@ class ContextualTasksSidePanelCoordinator
   bool CanExpandToFullTab() const override;
   void ShowPageInfoBubble(bool is_pointer_interaction) override;
   void OnLogoPointerDown() override;
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE) && !BUILDFLAG(IS_ANDROID)
+  ContextualTasksExtensionsContainer* GetExtensionsContainerForTesting() {
+    return extensions_container_.get();
+  }
+#endif
 
   // ContextualTasksPanelHost::Observer:
   void OnSurfaceStateChanged(
@@ -316,6 +329,23 @@ class ContextualTasksSidePanelCoordinator
 #if !BUILDFLAG(IS_ANDROID)
   // TODO(crbug.com/536100150): Support this on Android Desktop
   WebUIBubbleReopenSuppressor page_info_bubble_suppressor_;
+#endif
+
+#if !BUILDFLAG(IS_ANDROID)
+  // Returns an anchor for the side panel toolbar's super G button, or a null
+  // anchor if that element is not currently available. The underlying
+  // `ui::TrackedElement` is owned by the side panel WebUI document and dies
+  // with it, so callers must re-resolve the anchor on every use instead of
+  // caching it.
+  views::BubbleAnchor GetSuperGButtonAnchor();
+#endif
+
+  // Returns the browser window hosting this side panel.
+  BrowserWindowInterface* GetBrowserWindow() const;
+
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE) && !BUILDFLAG(IS_ANDROID)
+  void OnSeeExtensionsClicked();
+  std::unique_ptr<ContextualTasksExtensionsContainer> extensions_container_;
 #endif
 
   base::WeakPtrFactory<ContextualTasksSidePanelCoordinator> weak_ptr_factory_{

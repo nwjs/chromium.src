@@ -4,8 +4,26 @@
 
 #import "ios/chrome/browser/intelligence/contextual_cueing/contextual_cueing_tab_helper.h"
 
+#import <algorithm>
+
+#import "base/check.h"
+#import "base/containers/flat_set.h"
+#import "base/functional/bind.h"
+#import "base/metrics/histogram_functions.h"
+#import "base/strings/utf_string_conversions.h"
+#import "components/contextual_cueing/contextual_cueing_enums.h"
+#import "components/feature_engagement/public/event_constants.h"
+#import "components/feature_engagement/public/feature_constants.h"
+#import "components/feature_engagement/public/tracker.h"
+#import "components/optimization_guide/core/model_quality/model_quality_log_entry.h"
+#import "components/optimization_guide/core/optimization_guide_util.h"
+#import "components/signin/public/identity_manager/account_capabilities.h"
+#import "components/signin/public/identity_manager/account_info.h"
+#import "components/signin/public/identity_manager/identity_manager.h"
+#import "components/signin/public/identity_manager/tribool.h"
 #import "components/sync/service/sync_service.h"
 #import "components/sync/service/sync_user_settings.h"
+#import "ios/chrome/browser/feature_engagement/model/tracker_factory.h"
 #import "ios/chrome/browser/intelligence/bwg/metrics/gemini_metrics.h"
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_service.h"
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_service_factory.h"
@@ -14,13 +32,22 @@
 #import "ios/chrome/browser/intelligence/features/features.h"
 #import "ios/chrome/browser/intelligence/on_device_category_classifier/on_device_page_classification_service.h"
 #import "ios/chrome/browser/intelligence/on_device_category_classifier/on_device_page_classification_service_factory.h"
+#import "ios/chrome/browser/optimization_guide/model/optimization_guide_service.h"
+#import "ios/chrome/browser/optimization_guide/model/optimization_guide_service_factory.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
+#import "ios/chrome/browser/signin/model/identity_manager_factory.h"
 #import "ios/chrome/browser/sync/model/sync_service_factory.h"
 #import "ios/web/public/browser_state.h"
 #import "ios/web/public/navigation/navigation_context.h"
 #import "ios/web/public/web_state.h"
 
 namespace contextual_cueing {
+
+namespace {
+
+constexpr size_t kMaxBackgroundTabs = 5;
+
+}  // namespace
 
 ContextualCueingTabHelper::ContextualCueingTabHelper(web::WebState* web_state)
     : web_state_(web_state),
@@ -29,7 +56,9 @@ ContextualCueingTabHelper::ContextualCueingTabHelper(web::WebState* web_state)
   web_state_observation_.Observe(web_state_);
 }
 
-ContextualCueingTabHelper::~ContextualCueingTabHelper() = default;
+ContextualCueingTabHelper::~ContextualCueingTabHelper() {
+  DismissFeatureEngagementPromo();
+}
 
 void ContextualCueingTabHelper::AddObserver(Observer* observer) {
   observers_.AddObserver(observer);
@@ -44,29 +73,62 @@ ContextualCueingTabHelper::GetCategories() const {
   return categories_;
 }
 
-void ContextualCueingTabHelper::RecordCueShown() {
+const std::optional<optimization_guide::proto::ContextualCue>&
+ContextualCueingTabHelper::GetContextualCue() const {
+  return cue_;
+}
+
+bool ContextualCueingTabHelper::RecordCueShown() {
+  CHECK(!fet_dismiss_runner_);
+  feature_engagement::Tracker* tracker = GetFeatureEngagementTracker();
+  if (tracker) {
+    if (!tracker->ShouldTriggerHelpUI(
+            feature_engagement::kIPHiOSGeminiContextualCueChip)) {
+      RecordContextualCueingDecision(
+          ContextualCueingDecision::kTargetFeatureNotEligible);
+      // FET owns promo arbitration; drop the cue so no surface keeps showing a
+      // chip that FET has not authorized.
+      InvalidateCue();
+      return false;
+    }
+    fet_dismiss_runner_.ReplaceClosure(base::BindOnce(
+        [](feature_engagement::Tracker* tracker) {
+          tracker->Dismissed(
+              feature_engagement::kIPHiOSGeminiContextualCueChip);
+        },
+        base::Unretained(tracker)));
+  }
+
   RecordContextualCueingDecision(ContextualCueingDecision::kSuccess);
   ContextualCueingCapTrackerService* cap_service = GetCapTrackerService();
-  if (!cap_service) {
-    return;
+  if (cap_service && web_state_) {
+    cap_service->RecordCueShown(web_state_->GetLastCommittedURL());
   }
-  cap_service->RecordCueShown(web_state_->GetLastCommittedURL());
+  return true;
 }
 
 void ContextualCueingTabHelper::RecordCueDismissed() {
   ContextualCueingCapTrackerService* cap_service = GetCapTrackerService();
-  if (!cap_service) {
-    return;
+  if (cap_service && web_state_) {
+    cap_service->RecordCueDismissed(web_state_->GetLastCommittedURL());
   }
-  cap_service->RecordCueDismissed(web_state_->GetLastCommittedURL());
+
+  DismissFeatureEngagementPromo();
 }
 
 void ContextualCueingTabHelper::RecordCueClicked() {
   ContextualCueingCapTrackerService* cap_service = GetCapTrackerService();
-  if (!cap_service) {
-    return;
+  if (cap_service && web_state_) {
+    cap_service->RecordCueClicked(web_state_->GetLastCommittedURL());
   }
-  cap_service->RecordCueClicked(web_state_->GetLastCommittedURL());
+
+  feature_engagement::Tracker* tracker = GetFeatureEngagementTracker();
+  if (tracker) {
+    tracker->NotifyEvent(
+        feature_engagement::events::kIOSGeminiContextualCueChipUsed);
+  }
+
+  DismissFeatureEngagementPromo();
 }
 
 #pragma mark - web::WebStateObserver
@@ -95,10 +157,6 @@ void ContextualCueingTabHelper::DidFinishNavigation(
 
   CancelClassification();
   categories_.reset();
-
-  for (Observer& observer : observers_) {
-    observer.OnContextualCueInvalidated(web_state_);
-  }
 
   if (navigation_context->IsSameDocument()) {
     StartClassification();
@@ -136,6 +194,11 @@ void ContextualCueingTabHelper::CancelClassification() {
     return;
   }
   weak_ptr_factory_.InvalidateWeakPtrs();
+  log_entry_.reset();
+
+  DismissFeatureEngagementPromo();
+
+  InvalidateCue();
 
   ProfileIOS* profile =
       ProfileIOS::FromBrowserState(web_state_->GetBrowserState());
@@ -176,7 +239,8 @@ void ContextualCueingTabHelper::StartClassification() {
   if (mime_type.empty()) {
     mime_type = "text/html";
   }
-  ContextualCueingEvaluator evaluator(GetCapTrackerService());
+  ContextualCueingEvaluator evaluator(GetCapTrackerService(),
+                                      GetFeatureEngagementTracker());
   ContextualCueingDecision page_decision =
       evaluator.EvaluatePageEligibility(url, mime_type);
   // Check if we are eligible to show a cue before classifying the page.
@@ -211,7 +275,7 @@ void ContextualCueingTabHelper::OnPageClassified(
   categories_ = categories;
 
   for (Observer& observer : observers_) {
-    observer.OnPageClassificationCompleted(web_state_, categories_);
+    observer.OnPageClassificationCompleted(this, categories_);
   }
 
   if (!categories.has_value()) {
@@ -224,12 +288,135 @@ void ContextualCueingTabHelper::OnPageClassified(
   if (mime_type.empty()) {
     mime_type = "text/html";
   }
-  ContextualCueingEvaluator evaluator(GetCapTrackerService());
+  ContextualCueingEvaluator evaluator(GetCapTrackerService(),
+                                      GetFeatureEngagementTracker());
   ContextualCueingEvaluator::EvaluationResult evaluation_result =
       evaluator.Evaluate(expected_url, *categories, mime_type);
   if (!evaluation_result.is_eligible()) {
     RecordContextualCueingDecision(evaluation_result.decision);
     return;
+  }
+
+  if (IsGeminiContextualSuggestionsCuesServerModelExecutionEnabled()) {
+    InitiateModelExecutionRequest(expected_url);
+  }
+}
+
+void ContextualCueingTabHelper::InitiateModelExecutionRequest(
+    const GURL& expected_url) {
+  if (!web_state_ || web_state_->GetLastCommittedURL() != expected_url) {
+    return;
+  }
+
+  ProfileIOS* profile =
+      ProfileIOS::FromBrowserState(web_state_->GetBrowserState());
+  CHECK(profile);
+  OptimizationGuideService* service =
+      OptimizationGuideServiceFactory::GetForProfile(profile);
+  if (!service) {
+    return;
+  }
+
+  optimization_guide::proto::ContextualCueingRequest request;
+  request.mutable_active_tab_page_context()->set_url(expected_url.spec());
+  request.mutable_active_tab_page_context()->set_title(
+      base::UTF16ToUTF8(web_state_->GetTitle()));
+
+  if (delegate_) {
+    base::flat_set<GURL> seen_urls;
+    seen_urls.insert(expected_url.GetWithoutRef());
+
+    std::vector<BackgroundTabContext> bg_contexts =
+        delegate_->GetEligibleBackgroundTabs(web_state_, kMaxBackgroundTabs);
+    for (const auto& bg_context : bg_contexts) {
+      if (!bg_context.url.is_valid() ||
+          !seen_urls.insert(bg_context.url.GetWithoutRef()).second) {
+        continue;
+      }
+      auto* tab_context = request.add_background_tabs();
+      tab_context->set_url(bg_context.url.spec());
+      tab_context->set_title(bg_context.title);
+    }
+  }
+
+  service->ExecuteModel(
+      optimization_guide::ModelBasedCapabilityKey::kContextualCueing, request,
+      /*options=*/{},
+      base::BindOnce(
+          &ContextualCueingTabHelper::OnModelExecutionResponseReceived,
+          weak_ptr_factory_.GetWeakPtr(), expected_url));
+}
+
+void ContextualCueingTabHelper::OnModelExecutionResponseReceived(
+    const GURL& expected_url,
+    optimization_guide::OptimizationGuideModelExecutionResult result,
+    std::unique_ptr<optimization_guide::ModelQualityLogEntry> log_entry) {
+  if (!web_state_ || web_state_->GetLastCommittedURL() != expected_url) {
+    return;
+  }
+
+  log_entry_ = std::move(log_entry);
+
+  if (!result.response.has_value()) {
+    NotifyContextualCueReceived(std::nullopt);
+    return;
+  }
+
+  auto response = optimization_guide::ParsedAnyMetadata<
+      optimization_guide::proto::ContextualCueingResponse>(
+      result.response.value());
+  if (!response || response->contextual_cues_size() == 0) {
+    NotifyContextualCueReceived(std::nullopt);
+    return;
+  }
+
+  const optimization_guide::proto::ContextualCue& cue =
+      response->contextual_cues(0);
+  // The proto defines `fulfillment_surface` as a `oneof` to support different
+  // surfaces (and future additions). Validate that the surface is populated
+  // and set to Gemini in Chrome (GiC), as it is currently the only fulfillment
+  // surface supported on iOS.
+  if (cue.fulfillment_surface_case() !=
+          optimization_guide::proto::ContextualCue::kGeminiInChromeSurface ||
+      !cue.has_gemini_in_chrome_surface()) {
+    NotifyContextualCueReceived(std::nullopt);
+    return;
+  }
+
+  ContextualCueingCapTrackerService* cap_service = GetCapTrackerService();
+  if (cap_service && cap_service->CanShowNudge(expected_url) !=
+                         ContextualCueingDecision::kSuccess) {
+    NotifyContextualCueReceived(std::nullopt);
+    return;
+  }
+
+  feature_engagement::Tracker* tracker = GetFeatureEngagementTracker();
+  if (tracker && !tracker->WouldTriggerHelpUI(
+                     feature_engagement::kIPHiOSGeminiContextualCueChip)) {
+    RecordContextualCueingDecision(
+        ContextualCueingDecision::kTargetFeatureNotEligible);
+    NotifyContextualCueReceived(std::nullopt);
+    return;
+  }
+
+  NotifyContextualCueReceived(cue);
+}
+
+void ContextualCueingTabHelper::NotifyContextualCueReceived(
+    std::optional<optimization_guide::proto::ContextualCue> cue) {
+  cue_ = std::move(cue);
+  for (Observer& observer : observers_) {
+    observer.OnContextualCueReceived(this, cue_);
+  }
+}
+
+void ContextualCueingTabHelper::InvalidateCue() {
+  if (!cue_.has_value()) {
+    return;
+  }
+  cue_.reset();
+  for (Observer& observer : observers_) {
+    observer.OnContextualCueInvalidated(this);
   }
 }
 
@@ -259,6 +446,23 @@ ContextualCueingTabHelper::GetCapTrackerService() const {
     return nullptr;
   }
   return ContextualCueingCapTrackerServiceFactory::GetForProfile(profile);
+}
+
+feature_engagement::Tracker*
+ContextualCueingTabHelper::GetFeatureEngagementTracker() const {
+  if (!web_state_) {
+    return nullptr;
+  }
+  ProfileIOS* profile =
+      ProfileIOS::FromBrowserState(web_state_->GetBrowserState());
+  if (!profile) {
+    return nullptr;
+  }
+  return feature_engagement::TrackerFactory::GetForProfile(profile);
+}
+
+void ContextualCueingTabHelper::DismissFeatureEngagementPromo() {
+  fet_dismiss_runner_.RunAndReset();
 }
 
 }  // namespace contextual_cueing

@@ -11,6 +11,7 @@
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/stringprintf.h"
 #include "base/values.h"
+#include "build/build_config.h"
 #include "chrome/browser/extensions/extension_browsertest.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
@@ -262,48 +263,3 @@ IN_PROC_BROWSER_TEST_F(ChromeAppAPITest, InstallAndRunningStateFrame) {
   EXPECT_FALSE(IsAppInstalledInIFrame());
 }
 
-class ChromeAppAPIFencedFrameTest : public ChromeAppAPITest {
- public:
-  ChromeAppAPIFencedFrameTest() {
-    // kPrivacySandboxAdsAPIOverride must also be set since kFencedFrames
-    // cannot be enabled independently without it.
-    feature_list_.InitWithFeaturesAndParameters(
-        {{blink::features::kFencedFrames, {}},
-         {blink::features::kFencedFramesAPIChanges, {}},
-         {blink::features::kFencedFramesDefaultMode, {}},
-         {features::kPrivacySandboxAdsAPIsOverride, {}}},
-        {/* disabled_features */});
-  }
-
-  ~ChromeAppAPIFencedFrameTest() override = default;
-
-  void SetUpOnMainThread() override {
-    ChromeAppAPITest::SetUpOnMainThread();
-    https_server()->AddDefaultHandlers(GetChromeTestDataDir());
-    https_server()->SetSSLConfig(net::EmbeddedTestServer::CERT_TEST_NAMES);
-    ASSERT_TRUE(https_server()->Start());
-  }
-
-  net::EmbeddedTestServer* https_server() { return &https_server_; }
-
- private:
-  base::test::ScopedFeatureList feature_list_;
-  net::EmbeddedTestServer https_server_{net::EmbeddedTestServer::TYPE_HTTPS};
-};
-
-IN_PROC_BROWSER_TEST_F(ChromeAppAPIFencedFrameTest, NoInfo) {
-  GURL app_url = https_server()->GetURL(
-      "a.test", "/extensions/get_app_details_for_fenced_frame.html");
-
-  // Check the install and running state of a fenced frame running
-  // within an app.
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), app_url));
-
-  auto render_frame_hosts = CollectAllRenderFrameHosts(
-      browser()->GetTabStripModel()->GetActiveWebContents());
-  ASSERT_EQ(2u, render_frame_hosts.size());
-
-  content::RenderFrameHost* fenced_frame = render_frame_hosts.at(1);
-  ASSERT_TRUE(fenced_frame);
-  EXPECT_EQ("cannot_run", RunningStateInFrame(fenced_frame));
-}

@@ -8,12 +8,10 @@
 <translation id="1091252999271033193">Cela signifie que Chromium demandera la version pour mobile à chaque fois.</translation>
 <translation id="1115463765356382667">Suivez les suggestions ci-dessous pour profiter pleinement de Chromium.</translation>
 <translation id="1185134272377778587">À propos de Chromium</translation>
-<translation id="119044033865561140">Ouvrez Chromium instantanément lorsque vous utilisez votre iPad</translation>
 <translation id="1229234641991056119">Utilisez vos mots de passe, votre historique, vos favoris et vos cartes de crédit Safari dans Chromium</translation>
 <translation id="1257458525759135959">Pour enregistrer une image, appuyez sur "Paramètres" afin que Chromium puisse l'ajouter à vos photos</translation>
 <translation id="1260702988262336471">Ouvrir le menu Chromium</translation>
 <translation id="12739128458173458">Pour envoyer cet onglet à un autre appareil, connectez-vous à Chromium sur les deux appareils.</translation>
-<translation id="1279797561821266129">Accédez plus rapidement à Chromium depuis votre dock</translation>
 <translation id="1361748954329991663">Version de Chromium obsolète. Si aucune mise à jour n'est disponible sur l'<ph name="BEGIN_LINK" />App Store<ph name="END_LINK" />, votre appareil n'est peut-être plus compatible avec les nouvelles versions de Chromium.</translation>
 <translation id="1383876407941801731">Rechercher</translation>
 <translation id="1423007117030725713">Lancer une recherche dans un nouvel onglet Chromium.</translation>
@@ -32,7 +30,6 @@
 <translation id="1553657876656159572">Flux personnalisé pour vous par Google. Avec les actualités, le sport et la météo.</translation>
 <translation id="1561849081734670621">Pour désactiver le mode Blocage dans Chromium, désactivez-le sur votre iPhone.</translation>
 <translation id="1569258826720962327">Utiliser les actions Chromium sur iOS</translation>
-<translation id="1573441572176948907">Déplacez Chromium vers votre dock</translation>
 <translation id="159029779861043703">Chromium protège vos données sensibles avec Face ID.</translation>
 <translation id="1591119736686995611">Ouvre la grille d'onglets de Chromium.</translation>
 <translation id="16001233025397167">Le contrôle de sécurité vous protège contre les violations de données, les sites Web dangereux et plus encore. Recevez des alertes concernant les problèmes de confidentialité ou de sécurité que Chromium détecte pour vous.</translation>
@@ -145,6 +142,7 @@ Patientez quelques minutes avant de changer de compte. Si vous changez de compte
 <translation id="3855938650519180865">Nouveautés de Chromium</translation>
 <translation id="3886689467633467988">Connectez-vous à ce site et à Chromium pour accéder sur tous vos appareils à vos favoris et bien plus.</translation>
 <translation id="3949514465204582407">Astuce Chromium : Retrouvez vos mots de passe dans toutes les applis</translation>
+<translation id="3983298990898629929">Définissez Chromium comme navigateur par défaut pour ouvrir les liens d'un simple geste</translation>
 <translation id="4005283307739974863">Lance le contrôle de sécurité dans Chromium.</translation>
 <translation id="4043291146360695975">Les mots de passe sont enregistrés dans le Gestionnaire de mots de passe uniquement sur cet appareil.</translation>
 <translation id="4046625794029820944">Arrêtez de copier des URL. Définissez Chromium comme navigateur par défaut pour charger les pages directement.</translation>
@@ -182,7 +180,6 @@ Pour modifier ce paramètre, <ph name="BEGIN_LINK" />supprimez les données Chro
 <translation id="4790638144988730920">Continuez d'utiliser les données Chromium de votre compte Google.</translation>
 <translation id="4828317641996116749">Chromium n'est pas parvenu à vérifier tous les mots de passe. Réessayez plus tard.</translation>
 <translation id="4856138222358683580">Actions Chromium</translation>
-<translation id="4869706986935301458">Ouvrez Chromium instantanément lorsque vous utilisez votre iPhone</translation>
 <translation id="4904452304169763785">Alertes concernant les problèmes de confidentialité ou de sécurité que Chromium détecte pour vous.</translation>
 <translation id="4962295957157529683">Terminez ce que vous étiez en train de faire dans l'autre fenêtre Chromium ouverte.</translation>
 <translation id="4985291216379576555">Chromium ne parvient pas à rechercher les mises à jour, car vous êtes hors connexion</translation>
@@ -277,6 +274,7 @@ Points à prendre en compte :
 <translation id="6680609900732453726">Protégez la confidentialité de votre navigation avec l'authentification de l'appareil lorsque vous fermez Chromium</translation>
 <translation id="6696512128741076907">Définissez Chromium comme navigateur par défaut pour ouvrir instantanément les liens depuis d'autres applis.</translation>
 <translation id="6752854822223394465">Votre organisation configure Chromium…</translation>
+<translation id="6777348401413221846">Vidéo plein écran indiquant comment définir Chromium comme navigateur par défaut : ouvrir les réglages Chromium sous iOS, appuyer sur "App du navigateur par défaut", puis sélectionner Chromium.</translation>
 <translation id="6794054469102824109">Ouvre le jeu Chromium Dino.</translation>
 <translation id="6820823224820483452">Chromium n'est pas parvenu à vérifier tous les mots de passe. Réessayez demain.</translation>
 <translation id="6830782797004194206">Connectez-vous plus vite avec la saisie automatique Chromium</translation>
@@ -306,8 +304,8 @@ Seule une personne connaissant votre phrase secrète peut lire vos données chif
 <translation id="7337881442233988129">Chromium</translation>
 <translation id="7395825497086981028">Votre mot de passe sera enregistré dans le Gestionnaire de mots de passe pour <ph name="EMAIL" />.</translation>
 <translation id="7434848749522628428">La clé d'accès sera enregistrée dans le Gestionnaire de mots de passe pour <ph name="USER_EMAIL" /></translation>
+<translation id="7453822113116681031">Définissez Chromium comme navigateur par défaut pour ouvrir les liens d'un simple geste</translation>
 <translation id="7504829997542308412">Ouvrez Chromium</translation>
-<translation id="7507535968973352823">Placez Chromium dans la zone du bas pour y accéder à tout moment</translation>
 <translation id="7531461704633548377">Source : Chromium</translation>
 <translation id="7554983317097061001">Astuce Chromium : déplacez Chromium vers le dock</translation>
 <translation id="7576863740961052505">Gérer les réglages Chromium</translation>
@@ -357,7 +355,6 @@ Seule une personne connaissant votre phrase secrète peut lire vos données chif
 <translation id="8730503818204408000">Ouvre le paramètre Chromium permettant de définir Chromium comme navigateur par défaut.</translation>
 <translation id="8754966941001340678">Chromium recommande une protection renforcée</translation>
 <translation id="8759037115129007407">Le membre de votre famille ne peut pas recevoir de mots de passe pour le moment. Demandez-lui de mettre à jour Chromium et de synchroniser ses mots de passe. <ph name="BEGIN_LINK" />En savoir plus<ph name="END_LINK" /></translation>
-<translation id="8769418653786388149">Emportez Chromium avec vous</translation>
 <translation id="8776843108004031667">Ce compte et les données non enregistrées seront supprimés de Chromium.</translation>
 <translation id="8793333988063379360">Vous trouverez les paramètres Chromium et plus ici</translation>
 <translation id="8805148242934787134">Définir Chromium comme navigateur par défaut</translation>

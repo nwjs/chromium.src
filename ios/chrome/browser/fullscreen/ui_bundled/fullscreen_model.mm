@@ -12,7 +12,6 @@
 #import "base/metrics/user_metrics.h"
 #import "base/metrics/user_metrics_action.h"
 #import "ios/chrome/browser/fullscreen/public/fullscreen_metrics.h"
-#import "ios/chrome/browser/fullscreen/ui_bundled/fullscreen_constants.h"
 #import "ios/chrome/browser/fullscreen/ui_bundled/fullscreen_model_observer.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/toolbar/legacy/ui_bundled/fullscreen/toolbars_size.h"
@@ -521,9 +520,11 @@ void FullscreenModel::SetProgress(CGFloat progress) {
   }
 
   if (progress == 0.0 && progress_ > 0.0) {
-    base::UmaHistogramEnumeration(
-        kEnterFullscreenModeTransitionTriggerHistogram,
-        FullscreenModeTransitionTrigger::kUserControlled);
+    if (!IsForceFullscreenMode()) {
+      base::UmaHistogramEnumeration(
+          kEnterFullscreenModeTransitionTriggerHistogram,
+          FullscreenModeTransitionTrigger::kUserControlled);
+    }
     time_entered_fullscreen_ = base::TimeTicks::Now();
     if (time_exited_fullscreen_.has_value()) {
       base::UmaHistogramLongTimes(
@@ -531,9 +532,11 @@ void FullscreenModel::SetProgress(CGFloat progress) {
           base::TimeTicks::Now() - time_exited_fullscreen_.value());
     }
   } else if (progress == 1.0 && progress_ < 1.0) {
-    base::UmaHistogramEnumeration(
-        kExitFullscreenModeTransitionTriggerHistogram,
-        FullscreenModeTransitionTrigger::kUserControlled);
+    if (!IsForceFullscreenMode()) {
+      base::UmaHistogramEnumeration(
+          kExitFullscreenModeTransitionTriggerHistogram,
+          FullscreenModeTransitionTrigger::kUserControlled);
+    }
     time_exited_fullscreen_ = base::TimeTicks::Now();
     if (time_entered_fullscreen_.has_value()) {
       base::UmaHistogramLongTimes(

@@ -36,7 +36,6 @@
 #import "ios/chrome/browser/signin/model/authentication_service_factory.h"
 #import "ios/chrome/browser/signin/model/chrome_account_manager_service.h"
 #import "ios/chrome/browser/signin/model/chrome_account_manager_service_factory.h"
-#import "ios/chrome/browser/signin/model/fake_authentication_service_delegate.h"
 #import "ios/chrome/browser/signin/model/fake_system_identity.h"
 #import "ios/chrome/browser/signin/model/fake_system_identity_manager.h"
 #import "ios/chrome/browser/signin/model/identity_manager_factory.h"
@@ -124,8 +123,7 @@ class SyncedSetUpMediatorTest : public PlatformTest {
     TestProfileIOS::Builder builder;
     builder.AddTestingFactory(
         AuthenticationServiceFactory::GetInstance(),
-        AuthenticationServiceFactory::GetFactoryWithDelegateForTesting(
-            std::make_unique<FakeAuthenticationServiceDelegate>()));
+        AuthenticationServiceFactory::GetDefaultFactory());
     builder.AddTestingFactory(SyncServiceFactory::GetInstance(),
                               base::BindRepeating(&CreateTestSyncService));
     profile_ = profile_manager_.AddProfileWithBuilder(std::move(builder));
@@ -137,6 +135,9 @@ class SyncedSetUpMediatorTest : public PlatformTest {
 
   void TearDown() override {
     [mediator_ disconnect];
+    consumer_mock_ = nil;
+    delegate_mock_ = nil;
+    snackbar_handler_mock_ = nil;
     PlatformTest::TearDown();
   }
 
@@ -172,22 +173,22 @@ class SyncedSetUpMediatorTest : public PlatformTest {
     snackbar_handler_mock_ = OCMStrictProtocolMock(@protocol(SnackbarCommands));
 
     mediator_ = [[SyncedSetUpMediator alloc]
-            initWithPrefTracker:&pref_tracker_
-          authenticationService:authentication_service_
-          accountManagerService:account_manager_service_
-          deviceInfoSyncService:&device_info_sync_service_
-             profilePrefService:profile_->GetPrefs()
-                identityManager:identity_manager_
-                   webStateList:web_state_list_
-              startupParameters:startup_params_
-        snackbarCommandsHandler:snackbar_handler_mock_];
-
+          initWithPrefTracker:&pref_tracker_
+        authenticationService:authentication_service_
+        accountManagerService:account_manager_service_
+        deviceInfoSyncService:&device_info_sync_service_
+           profilePrefService:profile_->GetPrefs()
+              identityManager:identity_manager_
+                 webStateList:web_state_list_
+            startupParameters:startup_params_
+              snackbarHandler:snackbar_handler_mock_];
     consumer_mock_ = OCMStrictProtocolMock(@protocol(SyncedSetUpConsumer));
     delegate_mock_ =
         OCMStrictProtocolMock(@protocol(SyncedSetUpMediatorDelegate));
+    mediator_.delegate = delegate_mock_;
   }
 
-  // Configures `web_state_list_` with a an active WebState, given whether the
+  // Configures `web_state_list_` with an active WebState, given whether the
   // visible page should be the NTP.
   void ConfigureWebStateList(bool on_ntp = false) {
     web_state_->SetIsRealized(false);
@@ -207,7 +208,7 @@ class SyncedSetUpMediatorTest : public PlatformTest {
   void ConfigureTimestampedPrefValue(
       sync_preferences::TimestampedPrefValue& timestamped_value,
       base::Value value,
-      std::string device_sync_cache_guid,
+      const std::string& device_sync_cache_guid,
       base::Time last_observed_change_time = base::Time::Now()) {
     timestamped_value.value = value.Clone();
     timestamped_value.last_observed_change_time = last_observed_change_time;
@@ -267,8 +268,9 @@ TEST_F(SyncedSetUpMediatorTest, TestDelegateInformedOfFirstRunOnNTP) {
   bool on_ntp = true;
   InitializeMediator(on_ntp);
 
-  OCMExpect([delegate_mock_ mediatorWillStartPostFirstRunFlow:[OCMArg any]]);
-  mediator_.delegate = delegate_mock_;
+  OCMExpect([delegate_mock_
+      syncedSetUpMediatorWillStartPostFirstRunFlow:[OCMArg any]]);
+  [mediator_ startSyncedSetUpFlow];
   EXPECT_OCMOCK_VERIFY(delegate_mock_);
 }
 
@@ -302,8 +304,9 @@ TEST_F(SyncedSetUpMediatorTest, TestDelegateInformedOfFirstRunOnURLPage) {
   bool on_ntp = false;
   InitializeMediator(on_ntp);
 
-  OCMExpect([delegate_mock_ mediatorWillStartPostFirstRunFlow:[OCMArg any]]);
-  mediator_.delegate = delegate_mock_;
+  OCMExpect([delegate_mock_
+      syncedSetUpMediatorWillStartPostFirstRunFlow:[OCMArg any]]);
+  [mediator_ startSyncedSetUpFlow];
   EXPECT_OCMOCK_VERIFY(delegate_mock_);
 }
 
@@ -336,9 +339,11 @@ TEST_F(SyncedSetUpMediatorTest,
   bool on_ntp = false;
   InitializeMediator(on_ntp);
 
-  OCMReject([delegate_mock_ mediatorWillStartPostFirstRunFlow:[OCMArg any]]);
-  OCMExpect([delegate_mock_ mediatorWillStartFromUrlPage:[OCMArg any]]);
-  mediator_.delegate = delegate_mock_;
+  OCMReject([delegate_mock_
+      syncedSetUpMediatorWillStartPostFirstRunFlow:[OCMArg any]]);
+  OCMExpect(
+      [delegate_mock_ syncedSetUpMediatorWillStartFromURLPage:[OCMArg any]]);
+  [mediator_ startSyncedSetUpFlow];
   EXPECT_OCMOCK_VERIFY(delegate_mock_);
 
   // A Snackbar will dismiss naturally after 4 seconds, then the mediator will
@@ -346,7 +351,7 @@ TEST_F(SyncedSetUpMediatorTest,
   // presentation of another Snackbar, the mediator should not inform the
   // delegate that it is finished.
   OCMExpect([snackbar_handler_mock_ showSnackbarMessage:[OCMArg any]]);
-  OCMExpect([delegate_mock_ recordSyncedSetUpShown:[OCMArg any]]);
+  OCMExpect([delegate_mock_ syncedSetUpMediatorDidShow:[OCMArg any]]);
   [mediator_ applyPrefs];
   EXPECT_OCMOCK_VERIFY(snackbar_handler_mock_);
   EXPECT_OCMOCK_VERIFY(delegate_mock_);
@@ -354,7 +359,7 @@ TEST_F(SyncedSetUpMediatorTest,
   task_environment_.FastForwardBy(base::Seconds(3));
 
   OCMExpect([snackbar_handler_mock_ showSnackbarMessage:[OCMArg any]]);
-  OCMExpect([delegate_mock_ recordSyncedSetUpShown:[OCMArg any]]);
+  OCMExpect([delegate_mock_ syncedSetUpMediatorDidShow:[OCMArg any]]);
   [mediator_ applyPrefs];
   EXPECT_OCMOCK_VERIFY(snackbar_handler_mock_);
   EXPECT_OCMOCK_VERIFY(delegate_mock_);
@@ -372,7 +377,7 @@ TEST_F(SyncedSetUpMediatorTest, TestMediatorFinishesWhenNoRemotePrefsToApply) {
   InitializeMediator();
 
   OCMExpect([delegate_mock_ syncedSetUpMediatorDidComplete:[OCMArg any]]);
-  mediator_.delegate = delegate_mock_;
+  [mediator_ startSyncedSetUpFlow];
   EXPECT_OCMOCK_VERIFY(delegate_mock_);
 }
 
@@ -446,8 +451,9 @@ TEST_F(SyncedSetUpMediatorTest, TestPrefsChangeOnApply) {
   bool on_ntp = true;
   InitializeMediator(on_ntp);
 
-  OCMExpect([delegate_mock_ mediatorWillStartPostFirstRunFlow:[OCMArg any]]);
-  mediator_.delegate = delegate_mock_;
+  OCMExpect([delegate_mock_
+      syncedSetUpMediatorWillStartPostFirstRunFlow:[OCMArg any]]);
+  [mediator_ startSyncedSetUpFlow];
   EXPECT_OCMOCK_VERIFY(delegate_mock_);
 
   // Expect that the pref is changed.

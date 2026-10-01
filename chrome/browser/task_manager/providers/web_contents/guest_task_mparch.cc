@@ -10,6 +10,7 @@
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/favicon_status.h"
 #include "content/public/browser/guest_page_holder.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/site_instance.h"
@@ -68,12 +69,17 @@ void GuestTaskMPArch::UpdateFavicon() {
     set_icon(gfx::ImageSkia());
     return;
   }
-  // TODO(https://crbug.com/376084062): The favicon is currently the default
-  // icon. Need to properly wire up the update.
-  const content::FaviconStatus& status =
-      guest->GetController().GetLastCommittedEntry()->GetFavicon();
-  set_icon(status.image.IsEmpty() ? gfx::ImageSkia()
-                                  : *status.image.ToImageSkia());
+  content::NavigationEntry* const entry =
+      guest->GetController().GetLastCommittedEntry();
+  if (!entry) {
+    set_icon(gfx::ImageSkia());
+    return;
+  }
+
+  const content::FaviconStatus& status = entry->GetFavicon();
+  set_icon(
+      status.image.IsEmpty() ? gfx::ImageSkia() : *status.image.ToImageSkia(),
+      ShouldThemifyFaviconOfEntry(entry));
 }
 
 void GuestTaskMPArch::Activate() {

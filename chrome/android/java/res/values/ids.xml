@@ -46,6 +46,7 @@ found in the LICENSE file.
     <item type="id" name="open_recently_closed_tab" />
     <item type="id" name="open_tab_strip_context_menu" />
     <item type="id" name="print_id" />
+    <item type="id" name="quit_chrome" />
     <item type="id" name="select_next_tab" />
     <item type="id" name="select_previous_tab" />
     <item type="id" name="show_menu" />
@@ -212,6 +213,9 @@ found in the LICENSE file.
     <item type="id" name="forward_menu_id" />
     <item type="id" name="get_image_descriptions_id" />
     <item type="id" name="glic_menu_id" />
+    <item type="id" name="glic_share_new_chat_sub_menu_id" />
+    <item type="id" name="glic_share_recent_sub_menu_id" />
+    <item type="id" name="glic_unshare_menu_id" />
     <item type="id" name="google_password_manager_menu_id" />
     <item type="id" name="help_id" />
     <item type="id" name="help_parent_menu_id" />
@@ -242,6 +246,7 @@ found in the LICENSE file.
     <item type="id" name="new_window_menu_id" />
     <item type="id" name="ntp_customization_id" />
     <item type="id" name="offline_page_id" />
+    <item type="id" name="open_file_id" />
     <item type="id" name="open_history_menu_id" />
     <item type="id" name="open_in_app_menu_id" />
     <item type="id" name="open_webapk_id" />

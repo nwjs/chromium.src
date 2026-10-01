@@ -5,16 +5,21 @@
 #include "chrome/browser/ui/search_promotion/search_promotion_manager.h"
 
 #include <memory>
+#include <optional>
 #include <string_view>
 #include <utility>
 
 #include "base/feature_list.h"
+#include "base/files/file_path.h"
 #include "base/functional/bind.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/strings/strcat.h"
+#include "base/strings/string_split.h"
 #include "base/task/thread_pool.h"
+#include "base/version.h"
 #include "chrome/browser/feature_engagement/tracker_factory.h"
 #include "chrome/browser/platform_experience/delegated_tasks/delegated_task_runner.h"
+#include "chrome/browser/platform_experience/delegated_tasks/peh_launcher.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/segmentation_platform/segmentation_platform_service_factory.h"
 #include "chrome/browser/shell_integration.h"
@@ -44,11 +49,40 @@ enum class DefaultBrowserType {
 };
 // LINT.ThenChange(//tools/metrics/histograms/metadata/search/enums.xml:SearchPromotionDefaultBrowserType)
 
+// Checks if a verified PEH binary exists on disk and meets `min_version_str`.
+SearchPromotionPehEligibility CheckPehEligibility(
+    std::unique_ptr<platform_experience::PehLauncher> launcher,
+    std::string min_version_str) {
+  if (!launcher) {
+    return SearchPromotionPehEligibility::kLauncherUnavailable;
+  }
+  const base::Version min_version(min_version_str);
+  if (!min_version.IsValid()) {
+    return SearchPromotionPehEligibility::kMinVersionInvalid;
+  }
+  const base::FilePath path = launcher->GetBinaryPath();
+  if (path.empty()) {
+    return SearchPromotionPehEligibility::kBinaryNotFound;
+  }
+  if (!launcher->IsBinaryVerified(path)) {
+    return SearchPromotionPehEligibility::kBinaryNotVerified;
+  }
+  const base::Version version = launcher->GetBinaryVersion(path);
+  if (!version.IsValid()) {
+    return SearchPromotionPehEligibility::kBinaryVersionInvalid;
+  }
+  if (version < min_version) {
+    return SearchPromotionPehEligibility::kBinaryVersionTooLow;
+  }
+  return SearchPromotionPehEligibility::kEligible;
+}
+
 }  // namespace
 
 SearchPromotionManager::SearchPromotionManager(
     Profile& profile,
-    CreateTaskRunnerCallback create_task_runner_callback)
+    CreateTaskRunnerCallback create_task_runner_callback,
+    CreatePehLauncherCallback create_peh_launcher_callback)
     : profile_(profile),
       create_task_runner_callback_(std::move(create_task_runner_callback)) {
   // SearchPromotionManager is currently a Windows-only feature intended to
@@ -59,11 +93,12 @@ SearchPromotionManager::SearchPromotionManager(
   if (base::FeatureList::IsEnabled(
           feature_engagement::kIPHSearchPromotionFeature)) {
     action_ = feature_engagement::kSearchPromotionAction.Get();
-    cohort_ = feature_engagement::kSearchPromotionCohort.Get();
+    ParseCohorts(feature_engagement::kSearchPromotionCohort.Get());
   }
 
   if (action_ != feature_engagement::SearchPromotionAction::kDisabled) {
     QueryEngagementLevel();
+    QueryPehEligibility(std::move(create_peh_launcher_callback));
   }
 }
 
@@ -78,7 +113,7 @@ void SearchPromotionManager::OnTargetURLVisited(
   // Record baseline evaluation across all evaluated users (including Control).
   base::UmaHistogramBoolean("Search.SearchPromotion.Evaluated", true);
 
-  if (!IsEngagementEligible()) {
+  if (!is_peh_eligible_.value_or(false) || !IsEngagementEligible()) {
     return;
   }
 
@@ -207,18 +242,81 @@ std::string_view SearchPromotionManager::GetEngagementLabelForTesting() const {
   return engagement_label_;
 }
 
-bool SearchPromotionManager::IsEngagementEligible() const {
-  switch (cohort_) {
-    case feature_engagement::SearchPromotionCohort::kAll:
-      return true;
-    case feature_engagement::SearchPromotionCohort::kLow:
-      return engagement_label_ == kEngagementLabelOneDay ||
-             engagement_label_ == kEngagementLabelLow;
-    case feature_engagement::SearchPromotionCohort::kMedium:
-      return engagement_label_ == kEngagementLabelMedium;
-    case feature_engagement::SearchPromotionCohort::kPower:
-      return engagement_label_ == kEngagementLabelPower;
+std::optional<bool> SearchPromotionManager::IsPehEligibleForTesting() const {
+  return is_peh_eligible_;
+}
+
+const base::flat_set<feature_engagement::SearchPromotionCohort>&
+SearchPromotionManager::GetAllowedCohortsForTesting() const {
+  return allowed_cohorts_;
+}
+
+void SearchPromotionManager::QueryPehEligibility(
+    CreatePehLauncherCallback create_peh_launcher_callback) {
+  auto launcher = create_peh_launcher_callback
+                      ? std::move(create_peh_launcher_callback).Run()
+                      : std::make_unique<platform_experience::PehLauncher>();
+  base::ThreadPool::PostTaskAndReplyWithResult(
+      FROM_HERE, {base::MayBlock(), base::TaskPriority::USER_VISIBLE},
+      base::BindOnce(&CheckPehEligibility, std::move(launcher),
+                     feature_engagement::kSearchPromotionMinPehVersion.Get()),
+      base::BindOnce(&SearchPromotionManager::OnPehEligibilityRetrieved,
+                     weak_ptr_factory_.GetWeakPtr()));
+}
+
+void SearchPromotionManager::OnPehEligibilityRetrieved(
+    SearchPromotionPehEligibility eligibility) {
+  is_peh_eligible_ = (eligibility == SearchPromotionPehEligibility::kEligible);
+  base::UmaHistogramEnumeration("Search.SearchPromotion.PehEligible",
+                                eligibility);
+}
+
+void SearchPromotionManager::ParseCohorts(std::string_view cohort_param) {
+  for (std::string_view token :
+       base::SplitStringPiece(cohort_param, ",", base::TRIM_WHITESPACE,
+                              base::SPLIT_WANT_NONEMPTY)) {
+    if (token == feature_engagement::kSearchPromotionCohortAll) {
+      allowed_cohorts_.insert(feature_engagement::SearchPromotionCohort::kAll);
+    } else if (token == feature_engagement::kSearchPromotionCohortLow) {
+      allowed_cohorts_.insert(feature_engagement::SearchPromotionCohort::kLow);
+    } else if (token == feature_engagement::kSearchPromotionCohortMedium) {
+      allowed_cohorts_.insert(
+          feature_engagement::SearchPromotionCohort::kMedium);
+    } else if (token == feature_engagement::kSearchPromotionCohortPower) {
+      allowed_cohorts_.insert(
+          feature_engagement::SearchPromotionCohort::kPower);
+    }
   }
+
+  // If empty, omitted, or if all tokens are unrecognized, safely default to
+  // targeting all cohorts.
+  if (allowed_cohorts_.empty()) {
+    allowed_cohorts_.insert(feature_engagement::SearchPromotionCohort::kAll);
+  }
+}
+
+bool SearchPromotionManager::IsEngagementEligible() const {
+  if (allowed_cohorts_.contains(
+          feature_engagement::SearchPromotionCohort::kAll)) {
+    return true;
+  }
+  if (allowed_cohorts_.contains(
+          feature_engagement::SearchPromotionCohort::kLow) &&
+      (engagement_label_ == kEngagementLabelOneDay ||
+       engagement_label_ == kEngagementLabelLow)) {
+    return true;
+  }
+  if (allowed_cohorts_.contains(
+          feature_engagement::SearchPromotionCohort::kMedium) &&
+      engagement_label_ == kEngagementLabelMedium) {
+    return true;
+  }
+  if (allowed_cohorts_.contains(
+          feature_engagement::SearchPromotionCohort::kPower) &&
+      engagement_label_ == kEngagementLabelPower) {
+    return true;
+  }
+  return false;
 }
 
 void SearchPromotionManager::QueryEngagementLevel() {

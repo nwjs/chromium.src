@@ -12,7 +12,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
-import android.widget.RelativeLayout;
+import android.widget.ScrollView;
 import android.widget.TextView;
 
 import androidx.annotation.StringRes;
@@ -22,16 +22,20 @@ import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.password_manager.PasswordManagerResourceProviderFactory;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetContent;
+import org.chromium.components.browser_ui.bottomsheet.BottomSheetType;
 import org.chromium.ui.widget.TextViewWithClickableSpans;
 
 /** This class is responsible for rendering the simple notice sheet. */
 @NullMarked
 class SimpleNoticeSheetView implements BottomSheetContent {
-    private final RelativeLayout mContentView;
+    private static final BottomSheetType BOTTOM_SHEET_TYPE =
+            new BottomSheetType.Builder().build();
+
+    private final ScrollView mContentView;
 
     SimpleNoticeSheetView(Context context) {
         mContentView =
-                (RelativeLayout)
+                (ScrollView)
                         LayoutInflater.from(context).inflate(R.layout.simple_notice_sheet, null);
         mContentView.setOnGenericMotionListener((v, e) -> true); // Filter background interaction.
         ImageView sheetHeaderImage = mContentView.findViewById(R.id.sheet_header_image);
@@ -84,6 +88,11 @@ class SimpleNoticeSheetView implements BottomSheetContent {
     public void destroy() {}
 
     @Override
+    public BottomSheetType getSheetType() {
+        return BOTTOM_SHEET_TYPE;
+    }
+
+    @Override
     public int getPriority() {
         return BottomSheetContent.ContentPriority.HIGH;
     }
@@ -126,5 +135,10 @@ class SimpleNoticeSheetView implements BottomSheetContent {
     @Override
     public float getFullHeightRatio() {
         return HeightMode.WRAP_CONTENT;
+    }
+
+    @Override
+    public boolean showHandlebar() {
+        return true;
     }
 }

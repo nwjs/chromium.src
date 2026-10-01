@@ -8,12 +8,10 @@
 <translation id="1091252999271033193">Гэта азначае, што Chromium будзе кожны раз запытваць версію сайта для мабільных прылад.</translation>
 <translation id="1115463765356382667">Каб карыстацца ўсімі магчымасцямі Chromium, выканайце гэтыя дзеянні.</translation>
 <translation id="1185134272377778587">Пра Chromium</translation>
-<translation id="119044033865561140">Адкрывайце Chromium імгненна на iPad</translation>
 <translation id="1229234641991056119">Вы можаце выкарыстоўваць паролі Safari, гісторыю, закладкі і крэдытныя карткі ў Chromium</translation>
 <translation id="1257458525759135959">Каб магчы захоўваць відарысы, націсніце "Налады" і дазвольце Chromium дадаваць вашы фота</translation>
 <translation id="1260702988262336471">Адкрыйце меню Chromium</translation>
 <translation id="12739128458173458">Каб адправіць гэту ўкладку з адной прылады на іншую, увайдзіце ў Chromium на абедзвюх.</translation>
-<translation id="1279797561821266129">Адкрывайце Chromium хутчэй, выкарыстоўваючы панэль Dock</translation>
 <translation id="1361748954329991663">Ваша версія Chromium састарэла. Калі ў <ph name="BEGIN_LINK" />App Store<ph name="END_LINK" /> абнаўленняў няма, магчыма, прылада больш не падтрымлівае новыя версіі Chromium.</translation>
 <translation id="1383876407941801731">Пошук</translation>
 <translation id="1423007117030725713">Пачаць пошук у новай укладцы Chromium.</translation>
@@ -32,7 +30,6 @@
 <translation id="1553657876656159572">Для вас створана спецыяльная стужка. Яна ўключае навіны, спорт і надвор’е.</translation>
 <translation id="1561849081734670621">Каб адключыць рэжым Lockdown Mode у Chromium, адключыце яго на iPhone.</translation>
 <translation id="1569258826720962327">Выкарыстоўвайце дзеянні ў Chromium на прыладах з iOS</translation>
-<translation id="1573441572176948907">Перамясціце Chromium на панэль Dock</translation>
 <translation id="159029779861043703">Chromium абараняе вашы канфідэнцыяльныя даныя з дапамогай Face ID.</translation>
 <translation id="1591119736686995611">Дазваляе адкрыць сетку ўкладак Chromium.</translation>
 <translation id="16001233025397167">Функцыя "Праверка бяспекі" абараняе вас ад уцечкі даных, наведвання небяспечных вэб-сайтаў і г. д. Вы будзеце атрымліваць абвесткі аб праблемах з прыватнасцю і бяспекай, якія выяўляе Chromium.</translation>
@@ -145,6 +142,7 @@
 <translation id="3855938650519180865">Што новага ў Chromium</translation>
 <translation id="3886689467633467988">Увайдзіце на сайт і ў Chromium, каб карыстацца паролямі, закладкамі і іншым змесцівам на ўсіх сваіх прыладах.</translation>
 <translation id="3949514465204582407">Парада Chromium: выкарыстоўвайце паролі ў любой праграме</translation>
+<translation id="3983298990898629929">Зрабіце Chromium стандартным браўзерам, каб адкрываць спасылкі адным націсканнем</translation>
 <translation id="4005283307739974863">Запускае праверку бяспекі ў Chromium.</translation>
 <translation id="4043291146360695975">Паролі захоўваюцца ў Менеджары пароляў толькі на гэтай прыладзе.</translation>
 <translation id="4046625794029820944">Больш не трэба капіраваць URL-адрасы. Зрабіце Chromium стандартным браўзерам, каб старонкі адкрываліся адразу.</translation>
@@ -182,7 +180,6 @@
 <translation id="4790638144988730920">Працягвайце выкарыстоўваць даныя Chromium ва Уліковым запісе Google.</translation>
 <translation id="4828317641996116749">Браўзеру Chromium не ўдалося праверыць усе паролі. Паўтарыце спробу пазней.</translation>
 <translation id="4856138222358683580">Дзеянні ў Chromium</translation>
-<translation id="4869706986935301458">Адкрывайце Chromium імгненна на iPhone</translation>
 <translation id="4904452304169763785">Абвесткі аб праблемах з прыватнасцю і бяспекай, якія выяўляе Chromium.</translation>
 <translation id="4962295957157529683">Завяршыце тое, што вы рабілі ў іншым адкрытым акне Chromium.</translation>
 <translation id="4985291216379576555">Няма падключэння да сеткі. Браўзеру Chromium не ўдаецца праверыць наяўнасць абнаўленняў</translation>
@@ -277,6 +274,7 @@
 <translation id="6680609900732453726">Захоўвайце прыватнасць прагляду з дапамогай аўтэнтыфікацыі прылады, калі вы закрываеце Chromium</translation>
 <translation id="6696512128741076907">Зрабіце Chromium стандартным браўзерам, каб імгненна адкрываць спасылкі з іншых праграм.</translation>
 <translation id="6752854822223394465">Ваша арганізацыя наладжвае Chromium...</translation>
+<translation id="6777348401413221846">Поўнаэкраннае відэа пра тое, як зрабіць Chromium стандартным браўзерам: адкрыйце налады Chromium у iOS, націсніце "Стандартны браўзер" і выберыце Chromium.</translation>
 <translation id="6794054469102824109">Адкрывае гульню "Chromium Dino".</translation>
 <translation id="6820823224820483452">Браўзеру Chromium не ўдалося праверыць усе паролі. Паўтарыце спробу заўтра.</translation>
 <translation id="6830782797004194206">Больш хуткі ўваход з дапамогай функцыі аўтазапаўнення ў Chromium</translation>
@@ -306,8 +304,8 @@
 <translation id="7337881442233988129">Chromium</translation>
 <translation id="7395825497086981028">Пароль будзе захаваны ў Менеджары пароляў уліковага запісу <ph name="EMAIL" />.</translation>
 <translation id="7434848749522628428">Гэты ключ доступу будзе захаваны ў Менеджары пароляў уліковага запісу <ph name="USER_EMAIL" /></translation>
+<translation id="7453822113116681031">Зрабіце Chromium стандартным браўзерам, каб адкрываць спасылкі адным націсканнем</translation>
 <translation id="7504829997542308412">Адкрыйце Chromium.</translation>
-<translation id="7507535968973352823">Размясціце Chromium у ніжняй частцы экрана, каб мець доступ да браўзера ў любы час</translation>
 <translation id="7531461704633548377">З браўзера Chromium</translation>
 <translation id="7554983317097061001">Парада Chromium: перамясціце Chromium на панэль Dock</translation>
 <translation id="7576863740961052505">Кіраванне наладамі Chromium</translation>
@@ -357,7 +355,6 @@
 <translation id="8730503818204408000">Адкрывае наладу Chromium, якая дазваляе зрабіць Chromium стандартным браўзерам.</translation>
 <translation id="8754966941001340678">Chromium рэкамендуе палепшаную абарону</translation>
 <translation id="8759037115129007407">Удзельнік сямейнай групы зараз не можа атрымліваць паролі. Папрасіце яго абнавіць Chromium і сінхранізаваць паролі. <ph name="BEGIN_LINK" />Даведацца больш<ph name="END_LINK" /></translation>
-<translation id="8769418653786388149">Chromium заўсёды з вамі</translation>
 <translation id="8776843108004031667">Гэты ўліковы запіс і ўсе незахаваныя даныя будуць выдалены з браўзера Chromium.</translation>
 <translation id="8793333988063379360">Тут вы знойдзеце налады Chromium і іншую інфармацыю</translation>
 <translation id="8805148242934787134">Зрабіць Chromium стандартным браўзерам</translation>

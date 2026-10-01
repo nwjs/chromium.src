@@ -78,6 +78,7 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/dom/dom_node_id.h"
 #include "third_party/blink/public/common/dom_storage/session_storage_namespace_id.h"
+#include "third_party/blink/public/common/input/web_gesture_event.h"
 #include "third_party/blink/public/common/navigation/navigation_params.h"
 #include "third_party/blink/public/common/origin_trials/scoped_test_origin_trial_policy.h"
 #include "third_party/blink/public/common/origin_trials/trial_token_validator.h"
@@ -1171,7 +1172,7 @@ TEST_F(RenderViewImplScaleFactorTest, DeviceScaleCorrectAfterCrossOriginNav) {
       blink::mojom::TreeScopeType::kDocument, std::move(replication_state),
       std::move(widget_params), blink::mojom::FrameOwnerProperties::New(),
       /*is_on_initial_empty_document=*/true, blink::DocumentToken(),
-      base::UnguessableToken::Create(), CreateStubPolicyContainer(),
+      blink::InitiatorStateToken(), CreateStubPolicyContainer(),
       /*is_for_nested_main_frame=*/false);
 
   TestRenderFrame* provisional_frame =
@@ -1243,7 +1244,7 @@ TEST_F(RenderViewImplTest, DetachingProxyAlsoDestroysProvisionalFrame) {
       blink::mojom::TreeScopeType::kDocument, std::move(replication_state),
       /*widget_params=*/nullptr, blink::mojom::FrameOwnerProperties::New(),
       /*is_on_initial_empty_document=*/true, blink::DocumentToken(),
-      base::UnguessableToken::Create(), CreateStubPolicyContainer(),
+      blink::InitiatorStateToken(), CreateStubPolicyContainer(),
       /*is_for_nested_main_frame=*/false);
   {
     TestRenderFrame* provisional_frame =

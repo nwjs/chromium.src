@@ -383,10 +383,6 @@ TEST_F(UpdateValidatedOriginAssociationsCommandTest, AppDisabled) {
 }
 
 TEST_F(UpdateValidatedOriginAssociationsCommandTest, MigrationSourcesSuccess) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndEnableFeature(
-      blink::features::kWebAppMigrationApi);
-
   GURL start_url("https://example.com/");
   auto info = WebAppInstallInfo::CreateWithStartUrlForTesting(start_url);
   info->title = u"Test App";
@@ -431,6 +427,45 @@ TEST_F(UpdateValidatedOriginAssociationsCommandTest, MigrationSourcesSuccess) {
   tester2.ExpectUniqueSample("WebApp.ValidatedOriginAssociations.Updated",
                              UpdateValidatedOriginAssociationsResult::kSuccess,
                              1);
+}
+
+TEST_F(UpdateValidatedOriginAssociationsCommandTest,
+       SuggestedForMigrationSuccess) {
+  GURL start_url("https://example.com/");
+  auto info = WebAppInstallInfo::CreateWithStartUrlForTesting(start_url);
+  info->title = u"Test App";
+  webapps::ManifestId manifest_id = info->manifest_id();
+  webapps::AppId app_id = test::InstallWebApp(profile(), std::move(info));
+
+  MigrationSource migration_source(manifest_id, MigrationBehavior::kForce,
+                                   GURL("https://example.com/subpath"));
+
+  {
+    ScopedRegistryUpdate update = provider().sync_bridge_unsafe().BeginUpdate();
+    WebApp* app_to_update = update->UpdateApp(app_id);
+    app_to_update->SetInstallState(
+        proto::InstallState::SUGGESTED_FROM_MIGRATION);
+    app_to_update->SetUnvalidatedMigrationSources({migration_source});
+  }
+
+  base::HistogramTester tester;
+  fake_origin_association_manager()->set_pass_through(true);
+  clock().Advance(base::Days(10) + base::Seconds(1));
+
+  EXPECT_CALL(mock_scheduler(), ScheduleResolveWebAppPendingMigrationInfo(_, _))
+      .Times(1);
+
+  base::test::TestFuture<UpdateValidatedOriginAssociationsResult> future;
+  provider().scheduler().UpdateValidatedOriginAssociations(
+      app_id, future.GetCallback());
+  ASSERT_EQ(UpdateValidatedOriginAssociationsResult::kSuccess, future.Get());
+  tester.ExpectUniqueSample("WebApp.ValidatedOriginAssociations.Updated",
+                            UpdateValidatedOriginAssociationsResult::kSuccess,
+                            1);
+
+  const WebApp* app = provider().registrar_unsafe().GetAppById(app_id);
+  EXPECT_FALSE(app->validated_migration_sources().empty());
+  EXPECT_EQ(migration_source, *app->validated_migration_sources().begin());
 }
 
 TEST_F(UpdateValidatedOriginAssociationsCommandTest,
@@ -482,10 +517,6 @@ TEST_F(UpdateValidatedOriginAssociationsCommandTest,
 
 TEST_F(UpdateValidatedOriginAssociationsCommandTest,
        RemoveStaleMigrationSource) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndEnableFeature(
-      blink::features::kWebAppMigrationApi);
-
   GURL start_url("https://example.com/");
   auto info = WebAppInstallInfo::CreateWithStartUrlForTesting(start_url);
   info->title = u"Test App";

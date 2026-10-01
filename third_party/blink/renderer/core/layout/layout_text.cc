@@ -186,7 +186,7 @@ void LayoutText::Trace(Visitor* visitor) const {
 }
 
 LayoutText* LayoutText::CreateEmptyAnonymous(Document& document,
-                                             const ComputedStyle* style) {
+                                             const ComputedStyle& style) {
   auto* text = MakeGarbageCollected<LayoutText>(nullptr, StringImpl::empty_);
   text->SetDocumentForAnonymous(document);
   text->SetStyle(style);
@@ -677,8 +677,9 @@ PositionWithAffinity LayoutText::PositionForPoint(
     DCHECK(containing_block_flow);
     PhysicalOffset point_in_contents = point;
     if (containing_block_flow->IsScrollContainer()) {
-      point_in_contents += PhysicalOffset(
-          containing_block_flow->PixelSnappedScrolledContentOffset());
+      point_in_contents +=
+          PhysicalOffset(containing_block_flow->GetScrollableArea()
+                             ->PixelSnappedScrollOffset());
     }
     const auto* const text_combine = DynamicTo<LayoutTextCombine>(Parent());
     const PhysicalBoxFragment* container_fragment = nullptr;

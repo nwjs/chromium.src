@@ -15,6 +15,7 @@
 #include "content/browser/devtools/render_frame_devtools_agent_host.h"
 #include "content/browser/preloading/prerender/prerender_host_registry.h"
 #include "content/browser/renderer_host/frame_tree_node.h"
+#include "content/browser/renderer_host/navigation_request.h"
 #include "content/browser/web_contents/web_contents_impl.h"
 #include "content/public/common/content_features.h"
 
@@ -199,7 +200,7 @@ void WebContentsDevToolsAgentHost::InnerAttach(WebContents* wc) {
 }
 
 void WebContentsDevToolsAgentHost::InnerDetach() {
-  DCHECK_EQ(this, FindAgentHost(web_contents()));
+  CHECK_EQ(this, FindAgentHost(web_contents()), base::NotFatalUntil::M159);
   auto_attacher_->SetWebContents(nullptr);
   GetAgentHostInstances().erase(web_contents());
   Observe(nullptr);
@@ -229,7 +230,7 @@ void WebContentsDevToolsAgentHost::InspectElement(RenderFrameHost* frame_host,
 }
 
 WebContentsDevToolsAgentHost::~WebContentsDevToolsAgentHost() {
-  DCHECK(!web_contents());
+  CHECK(!web_contents(), base::NotFatalUntil::M159);
 }
 
 void WebContentsDevToolsAgentHost::DisconnectWebContents() {
@@ -426,7 +427,7 @@ bool WebContentsDevToolsAgentHost::AttachSession(DevToolsSession* session) {
 }
 
 protocol::TargetAutoAttacher* WebContentsDevToolsAgentHost::auto_attacher() {
-  DCHECK(auto_attacher_);
+  CHECK(auto_attacher_, base::NotFatalUntil::M159);
   return auto_attacher_.get();
 }
 

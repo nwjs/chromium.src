@@ -33,6 +33,7 @@ import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.omnibox.ChromeAutocompleteSchemeClassifier;
 import org.chromium.chrome.browser.omnibox.FuseboxSessionState;
 import org.chromium.chrome.browser.omnibox.LocationBarDataProvider;
+import org.chromium.chrome.browser.omnibox.LocationBarDataProvider.AppInstallState;
 import org.chromium.chrome.browser.omnibox.NewTabPageDelegate;
 import org.chromium.chrome.browser.omnibox.UrlBarData;
 import org.chromium.chrome.browser.omnibox.styles.OmniboxResourceProvider;
@@ -919,11 +920,11 @@ public class LocationBarModel implements ToolbarDataProvider, LocationBarDataPro
             boolean isIncognito) {
         // Return regular color scheme if the website does not show warning.
         if (connectionSecurityLevel == ConnectionSecurityLevel.DANGEROUS) {
+            // Suspicious sites display a themed neutral icon (on-surface-variant) in the Omnibox
+            // rather than a danger/error red tint.
             if (getMaliciousContentStatus()
                     == ConnectionMaliciousContentStatus.WARNABLE_SUSPICIOUS_SITE) {
-                // Return Resources.ID_NULL to skip color tinting so the shield_question icon
-                // retains its internal red fill and white question mark vector colors.
-                return Resources.ID_NULL;
+                return ThemeUtils.getThemedToolbarIconTintRes(brandedColorScheme);
             }
             // Assign red color only on light or dark background including Incognito mode.
             // We will not change the security icon to red when BrandedColorScheme is
@@ -1089,8 +1090,9 @@ public class LocationBarModel implements ToolbarDataProvider, LocationBarDataPro
     }
 
     @Override
-    public boolean currentUrlHasInstalledApp() {
-        GURL url = getCurrentGurl();
-        return mAppInstalledDelegate != null && mAppInstalledDelegate.isAppInstalled(url);
+    public @AppInstallState int getAppInstallState() {
+        return mAppInstalledDelegate != null
+                ? mAppInstalledDelegate.getAppInstallState(getTab())
+                : AppInstallState.NOT_INSTALLED;
     }
 }

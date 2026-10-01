@@ -16,7 +16,7 @@ namespace content {
 
 // static
 WorkerDevToolsManager& WorkerDevToolsManager::GetInstance() {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M159);
   return *base::Singleton<WorkerDevToolsManager>::get();
 }
 
@@ -25,7 +25,7 @@ WorkerDevToolsManager::~WorkerDevToolsManager() = default;
 
 DedicatedWorkerDevToolsAgentHost* WorkerDevToolsManager::GetDevToolsHost(
     const DedicatedWorkerHost* host) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M159);
 
   auto it = hosts_.find(host);
   return it == hosts_.end() ? nullptr : it->second.get();
@@ -34,7 +34,7 @@ DedicatedWorkerDevToolsAgentHost* WorkerDevToolsManager::GetDevToolsHost(
 DedicatedWorkerDevToolsAgentHost*
 WorkerDevToolsManager::GetDevToolsHostFromToken(
     const base::UnguessableToken& token) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M159);
 
   for (const auto& it : hosts_) {
     if (it.second->devtools_worker_token() == token) {
@@ -51,8 +51,8 @@ void WorkerDevToolsManager::WorkerCreated(
     const GlobalRenderFrameHostId& ancestor_render_frame_host_id,
     const DedicatedWorkerHost* parent_worker_host,
     scoped_refptr<DevToolsThrottleHandle> throttle_handle) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
-  DCHECK(!hosts_.contains(host));
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M159);
+  CHECK(!hosts_.contains(host), base::NotFatalUntil::M159);
 
   auto* rfh = RenderFrameHostImpl::FromID(ancestor_render_frame_host_id);
   std::string parent_frame_id =
@@ -80,7 +80,7 @@ void WorkerDevToolsManager::WorkerCreated(
 }
 
 void WorkerDevToolsManager::WorkerDestroyed(const DedicatedWorkerHost* host) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M159);
   // If the worker thread in the renderer has never establiashed a mojo
   // connection to the DedicatedWorkerDevToolsAgentHost we need to
   // explicitly run disconnect.

@@ -42,6 +42,7 @@ import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.back_press.BackPressManager;
 import org.chromium.chrome.browser.omnibox.FuseboxSessionState;
 import org.chromium.chrome.browser.omnibox.R;
+import org.chromium.chrome.browser.omnibox.fusebox.FuseboxProperties.AnchoringMode;
 import org.chromium.chrome.browser.omnibox.styles.OmniboxResourceProvider;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
@@ -123,7 +124,7 @@ public class FuseboxCoordinator implements TemplateUrlServiceObserver {
     private final SettableNonNullObservableSupplier<@PopupState Integer> mPopupStateSupplier =
             ObservableSuppliers.createNonNull(PopupState.HIDDEN);
     private final SettableNonNullObservableSupplier<Boolean> mHasAttachmentsSupplier =
-            ObservableSuppliers.createNonNull(false);
+            ObservableSuppliers.createNonNull(/* initialValue= */ false);
     private final SnackbarManager mSnackbarManager;
     private @Nullable ViewportRectProvider mViewportRectProvider;
     private @Nullable FuseboxMetrics mMetrics;
@@ -193,12 +194,21 @@ public class FuseboxCoordinator implements TemplateUrlServiceObserver {
         if (mDeferredInitialized) return;
         mDeferredInitialized = true;
 
+        @AnchoringMode
+        int initialAnchoringMode =
+                getFuseboxLayoutMode() == FuseboxLayoutMode.SUGGESTIONS_POPOVER
+                        ? AnchoringMode.POPOVER
+                        : AnchoringMode.TOOLBAR_SINGLE_LINE;
         mModel =
                 new PropertyModel.Builder(FuseboxProperties.ALL_KEYS)
                         .with(FuseboxProperties.FUSEBOX_LAYOUT_MODE, getFuseboxLayoutMode())
+                        .with(FuseboxProperties.ANCHORING_MODE, initialAnchoringMode)
                         .with(
                                 FuseboxProperties.POPUP_IS_BOTTOM_SHEET,
                                 OmniboxFeatures.shouldShowBottomSheetPopup())
+                        .with(
+                                FuseboxProperties.POPUP_USE_CAROUSEL,
+                                OmniboxFeatures.shouldUseCarousel())
                         .build();
 
         new AsyncLayoutInflater(mActivity)
@@ -239,15 +249,15 @@ public class FuseboxCoordinator implements TemplateUrlServiceObserver {
                                 () -> popupView,
                                 dynamicRectProvider)
                         .addOnDismissListener(this::onContextPopupDismissed)
-                        .setOutsideTouchable(true)
-                        .setFocusable(true)
+                        .setOutsideTouchable(/* touchable= */ true)
+                        .setFocusable(/* focusable= */ true)
                         .setInputMethodMode(PopupWindow.INPUT_METHOD_NOT_NEEDED)
-                        .setAnimateFromAnchor(true)
+                        .setAnimateFromAnchor(/* animateFromAnchor= */ true)
                         .setPreferredHorizontalOrientation(HorizontalOrientation.LAYOUT_DIRECTION)
                         .setViewportRectProvider(mViewportRectProvider)
-                        .setHorizontalOverlapAnchor(true)
-                        .setVerticalOverlapAnchor(true)
-                        .setAllowNonTouchableSize(true);
+                        .setHorizontalOverlapAnchor(/* overlap= */ true)
+                        .setVerticalOverlapAnchor(/* overlap= */ true)
+                        .setAllowNonTouchableSize(/* allow= */ true);
 
         FuseboxPopup popup =
                 new FuseboxPopup(
@@ -256,7 +266,8 @@ public class FuseboxCoordinator implements TemplateUrlServiceObserver {
                         popupWindowBuilder.build(),
                         popupView,
                         dynamicRectProvider,
-                        OmniboxFeatures.shouldShowBottomSheetPopup());
+                        OmniboxFeatures.shouldShowBottomSheetPopup(),
+                        OmniboxFeatures.shouldUseCarousel());
 
         mViewHolder = new FuseboxViewHolder(mParent, popup);
 
@@ -321,7 +332,7 @@ public class FuseboxCoordinator implements TemplateUrlServiceObserver {
         mScrimManager.destroy();
     }
 
-    /** Apply a variant of the branded color scheme to Fusebox UI elements */
+    /** Apply a variant of the branded color scheme to Fusebox UI elements. */
     public void updateVisualsForState(@BrandedColorScheme int brandedColorScheme) {
         mLastBrandedColorScheme = brandedColorScheme;
         if (mMediator != null) {
@@ -445,22 +456,6 @@ public class FuseboxCoordinator implements TemplateUrlServiceObserver {
         }
     }
 
-    public @Nullable PropertyModel getModelForTesting() {
-        return mModel;
-    }
-
-    @Nullable FuseboxViewHolder getViewHolderForTesting() {
-        return mViewHolder;
-    }
-
-    void setMediatorForTesting(FuseboxMediator mediator) {
-        mMediator = mediator;
-    }
-
-    @Nullable FuseboxMediator getMediatorForTesting() {
-        return mMediator;
-    }
-
     @VisibleForTesting
     void onContextPopupDismissed() {
         if (mViewHolder == null || mViewHolder.plusButton == null) return;
@@ -552,9 +547,7 @@ public class FuseboxCoordinator implements TemplateUrlServiceObserver {
      * search, or the search widget) use the TOOLBAR layout mode to match mobile layouts.
      */
     private @FuseboxLayoutMode int getFuseboxLayoutMode() {
-        return !mIsForcedPhoneStyleOmnibox
-                        && OmniboxCapabilities.isDesktopPlatform()
-                        && OmniboxFeatures.sAndroidDesktopAimGate.isEnabled()
+        return !mIsForcedPhoneStyleOmnibox && OmniboxCapabilities.isDesktopPlatform()
                 ? FuseboxLayoutMode.SUGGESTIONS_POPOVER
                 : FuseboxLayoutMode.TOOLBAR;
     }
@@ -640,5 +633,21 @@ public class FuseboxCoordinator implements TemplateUrlServiceObserver {
                 mInsetObserver.removeObserver(this);
             }
         }
+    }
+
+    public @Nullable PropertyModel getModelForTesting() {
+        return mModel;
+    }
+
+    @Nullable FuseboxViewHolder getViewHolderForTesting() {
+        return mViewHolder;
+    }
+
+    void setMediatorForTesting(FuseboxMediator mediator) {
+        mMediator = mediator;
+    }
+
+    @Nullable FuseboxMediator getMediatorForTesting() {
+        return mMediator;
     }
 }

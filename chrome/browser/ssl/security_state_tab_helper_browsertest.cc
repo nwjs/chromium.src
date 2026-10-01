@@ -38,6 +38,7 @@
 #include "chrome/browser/ssl/https_upgrades_util.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_paths.h"
@@ -103,6 +104,8 @@
 #include "services/network/public/mojom/network_service.mojom.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/boringssl/src/include/openssl/ssl.h"
+#include "ui/base/page_transition_types.h"
+#include "ui/base/window_open_disposition.h"
 
 namespace {
 
@@ -1078,9 +1081,9 @@ IN_PROC_BROWSER_TEST_F(SecurityStateLoadingTest, NavigationStateChanges) {
   // Navigate to a page that doesn't finish loading. Test that the
   // security state is neutral while the page is loading.
   browser()->OpenURL(
-      content::OpenURLParams(
-          embedded_test_server()->GetURL("/title1.html"), content::Referrer(),
-          WindowOpenDisposition::CURRENT_TAB, ui::PAGE_TRANSITION_TYPED, false),
+      content::OpenURLParams::CreateBrowserInitiated(
+          embedded_test_server()->GetURL("/title1.html"),
+          WindowOpenDisposition::CURRENT_TAB, ui::PAGE_TRANSITION_TYPED),
       /*navigation_handle_callback=*/{});
   CheckSecurityInfoForNonCommitted(
       browser()->GetTabStripModel()->GetActiveWebContents());
@@ -1690,36 +1693,6 @@ IN_PROC_BROWSER_TEST_P(SecurityStateTabHelperFencedFrameTest,
   }
 }
 
-IN_PROC_BROWSER_TEST_P(SecurityStateTabHelperFencedFrameTest,
-                       LoadFencedFrameViaInsecureURL) {
-  // Setup a mock certificate verifier.
-  SetUpMockCertVerifierForHttpsServer(0, net::OK);
 
-  // Load a valid HTTPS page.
-  auto primary_url = https_server_.GetURL("/empty.html");
-
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), primary_url));
-  CheckSecurityInfoForSecure(web_contents(), security_state::SECURE, false,
-                             false, false,
-                             false /* expect cert status error */);
-
-  // Create a fenced frame with an insecure url.
-  GURL fenced_frame_url =
-      embedded_test_server()->GetURL("b.com", "/fenced_frames/title1.html");
-
-  content::RenderFrameHost* fenced_frame_host =
-      fenced_frame_test_helper().CreateFencedFrame(
-          web_contents()->GetPrimaryMainFrame(), fenced_frame_url);
-  EXPECT_NE(nullptr, fenced_frame_host);
-  // Check that nothing has been loaded in the fenced frame.
-  EXPECT_EQ(
-      0, content::EvalJs(fenced_frame_host, "document.body.childElementCount"));
-
-  // Since we are blocking http content in a fenced frame, the security
-  // indicator should not change, and there should be no mixed content loaded.
-  CheckSecurityInfoForSecure(web_contents(), security_state::SECURE, false,
-                             false, false /* expect no mixed content loaded */,
-                             false /* expect cert status error */);
-}
 
 }  // namespace

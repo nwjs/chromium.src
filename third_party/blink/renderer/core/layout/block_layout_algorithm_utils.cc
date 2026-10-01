@@ -43,10 +43,11 @@ BlockContentAlignment ComputeContentAlignment(const ComputedStyle& style,
 
   if (use_counter) {
     if (!behave_like_table_cell) {
-      if (position != ContentPosition::kNormal &&
-          position != ContentPosition::kStart &&
-          position != ContentPosition::kBaseline &&
-          position != ContentPosition::kFlexStart) {
+      if (position != ContentPosition::kBaseline &&
+          position != ContentPosition::kFlexStart &&
+          position != ContentPosition::kFlowStart &&
+          position != ContentPosition::kNormal &&
+          position != ContentPosition::kStart) {
         UseCounter::Count(*use_counter,
                           WebFeature::kEffectiveAlignContentForBlock);
       }
@@ -71,6 +72,7 @@ BlockContentAlignment ComputeContentAlignment(const ComputedStyle& style,
 
     case ContentPosition::kEnd:
     case ContentPosition::kFlexEnd:
+    case ContentPosition::kFlowEnd:
       return is_safe ? BlockContentAlignment::kSafeEnd
                      : BlockContentAlignment::kUnsafeEnd;
 
@@ -82,7 +84,6 @@ BlockContentAlignment ComputeContentAlignment(const ComputedStyle& style,
         case EVerticalAlign::kTop:
           // Do nothing for 'top' vertical alignment.
           return BlockContentAlignment::kStart;
-
         case EVerticalAlign::kBaselineMiddle:
         case EVerticalAlign::kSub:
         case EVerticalAlign::kSuper:
@@ -93,21 +94,16 @@ BlockContentAlignment ComputeContentAlignment(const ComputedStyle& style,
           // table-cell vertical alignment.
         case EVerticalAlign::kBaseline:
           return BlockContentAlignment::kBaseline;
-
         case EVerticalAlign::kMiddle:
-          return RuntimeEnabledFeatures::LayoutTableCellAlignmentSafeEnabled()
-                     ? BlockContentAlignment::kSafeCenter
-                     : BlockContentAlignment::kUnsafeCenter;
-
+          return BlockContentAlignment::kSafeCenter;
         case EVerticalAlign::kBottom:
-          return RuntimeEnabledFeatures::LayoutTableCellAlignmentSafeEnabled()
-                     ? BlockContentAlignment::kSafeEnd
-                     : BlockContentAlignment::kUnsafeEnd;
+          return BlockContentAlignment::kSafeEnd;
       }
       break;
 
-    case ContentPosition::kStart:
     case ContentPosition::kFlexStart:
+    case ContentPosition::kFlowStart:
+    case ContentPosition::kStart:
       return BlockContentAlignment::kStart;
 
     case ContentPosition::kBaseline:
@@ -249,6 +245,7 @@ LogicalStaticPosition::InlineEdge InlineStaticPositionEdge(
   switch (align_self) {
     case ItemPosition::kEnd:
     case ItemPosition::kFlexEnd:
+    case ItemPosition::kFlowEnd:
     case ItemPosition::kLastBaseline:
     case ItemPosition::kRight: {
       return should_swap_inline_axis ? LogicalStaticPosition::kInlineStart
@@ -259,6 +256,7 @@ LogicalStaticPosition::InlineEdge InlineStaticPositionEdge(
       return LogicalStaticPosition::kInlineCenter;
     case ItemPosition::kBaseline:
     case ItemPosition::kFlexStart:
+    case ItemPosition::kFlowStart:
     case ItemPosition::kLeft:
     case ItemPosition::kStart:
     case ItemPosition::kStretch: {
@@ -298,6 +296,7 @@ LogicalStaticPosition::BlockEdge BlockStaticPositionEdge(
   switch (align_self) {
     case ItemPosition::kEnd:
     case ItemPosition::kFlexEnd:
+    case ItemPosition::kFlowEnd:
     case ItemPosition::kLastBaseline:
       return LogicalStaticPosition::kBlockEnd;
     case ItemPosition::kAnchorCenter:
@@ -305,6 +304,7 @@ LogicalStaticPosition::BlockEdge BlockStaticPositionEdge(
       return LogicalStaticPosition::kBlockCenter;
     case ItemPosition::kBaseline:
     case ItemPosition::kFlexStart:
+    case ItemPosition::kFlowStart:
     case ItemPosition::kStart:
     case ItemPosition::kStretch:
       return LogicalStaticPosition::kBlockStart;

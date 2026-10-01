@@ -8,12 +8,10 @@
 <translation id="1091252999271033193">Kjo do të thotë që Chromium do kërkojë sajtin në celular çdo herë.</translation>
 <translation id="1115463765356382667">Përfundo këto veprime të sugjeruara më poshtë për të përfituar sa më shumë nga Chromium.</translation>
 <translation id="1185134272377778587">Rreth Chromium</translation>
-<translation id="119044033865561140">Hap Chromium menjëherë kur je në iPad</translation>
 <translation id="1229234641991056119">Përdor fjalëkalimet, historikun, faqeshënuesit dhe kartat e tua të kreditit nga Safari në Chromium</translation>
 <translation id="1257458525759135959">Për të ruajtur imazhet, trokit te "Cilësimet" për të lejuar që Chromium të shtojë te fotografitë e tua</translation>
 <translation id="1260702988262336471">Hap menynë e Chromium</translation>
 <translation id="12739128458173458">Për ta dërguar këtë skedë te një pajisje tjetër, identifikohu në Chromium në të dyja pajisjet.</translation>
-<translation id="1279797561821266129">Qasu më shpejt në Chromium nga stacioni</translation>
 <translation id="1361748954329991663">Chromium është i papërditësuar. Nëse nuk ofrohet ndonjë përditësim në <ph name="BEGIN_LINK" />App Store<ph name="END_LINK" />, ka mundësi që pajisja jote nuk i mbështet më versionet e reja të Chromium.</translation>
 <translation id="1383876407941801731">Kërko</translation>
 <translation id="1423007117030725713">Nis një kërkim në një skedë të re të Chromium.</translation>
@@ -32,7 +30,6 @@
 <translation id="1553657876656159572">Një furnizim i personalizuar i krijuar për ty. Duke përfshirë lajmet, sportet dhe motin.</translation>
 <translation id="1561849081734670621">Për të çaktivizuar Lockdown Mode në Chromium, çaktivizoje atë në iPhone.</translation>
 <translation id="1569258826720962327">Përdor veprimet në Chromium në iOS</translation>
-<translation id="1573441572176948907">Zhvendose Chromium te stacioni</translation>
 <translation id="159029779861043703">Chromium i mban të dhënat e tua delikate të sigurta me Face ID.</translation>
 <translation id="1591119736686995611">Hap rrjetën e skedave të Chromium.</translation>
 <translation id="16001233025397167">"Kontrolli i sigurisë" të mban të sigurt nga nxjerrjet e paautorizuara të të dhënave, uebsajtet e pasigurta etj. Merr sinjalizime për çdo problem të privatësisë ose sigurisë që Chromium zbulon për ty.</translation>
@@ -145,6 +142,7 @@ Provo të presësh për disa minuta para se të ndërrosh llogaritë. Nëse i nd
 <translation id="3855938650519180865">Ç'të reja ka në Chromium</translation>
 <translation id="3886689467633467988">Identifikohu në këtë sajt dhe Chromium për të marrë faqeshënuesit etj. në të gjitha pajisjet e tua.</translation>
 <translation id="3949514465204582407">Këshillë për Chromium: Merr fjalëkalimet e tua në çdo aplikacion</translation>
+<translation id="3983298990898629929">Cakto Chromium si shfletuesin tënd të parazgjedhur për t'i hapur lidhjet me një trokitje</translation>
 <translation id="4005283307739974863">Hap dhe ekzekuton kontrollin e sigurisë në Chromium.</translation>
 <translation id="4043291146360695975">Fjalëkalimet ruhen në "Menaxherin e fjalëkalimeve" vetëm në këtë pajisje.</translation>
 <translation id="4046625794029820944">Mos kopjo më URL-të. Cakto Chromium si shfletuesin e parazgjedhur për të ngarkuar faqet drejtpërdrejt.</translation>
@@ -182,7 +180,6 @@ Për ta ndryshuar këtë cilësim, <ph name="BEGIN_LINK" />fshi të dhënat e Ch
 <translation id="4790638144988730920">Vazhdo të përdorësh të dhënat e Chromium në "Llogarinë tënde të Google".</translation>
 <translation id="4828317641996116749">Chromium nuk mund t'i kontrollonte të gjitha fjalëkalimet. Provo sërish më vonë.</translation>
 <translation id="4856138222358683580">Veprimet në Chromium</translation>
-<translation id="4869706986935301458">Hap Chromium menjëherë kur je në iPhone</translation>
 <translation id="4904452304169763785">Sinjalizimet për çdo problem të privatësisë ose sigurisë që Chromium zbulon për ty.</translation>
 <translation id="4962295957157529683">Përfundo atë që po bën në dritaren tjetër të hapur të Chromium.</translation>
 <translation id="4985291216379576555">Offline. Chromium nuk mund të kontrollojë për përditësime</translation>
@@ -276,6 +273,7 @@ Gjëra për të pasur parasysh:
 <translation id="6680609900732453726">Mbaje shfletimin privat me vërtetimin e pajisjes kur mbyll Chromium</translation>
 <translation id="6696512128741076907">Cakto Chromium si shfletuesin e parazgjedhur për të hapur lidhjet në çast nga aplikacionet e tjera.</translation>
 <translation id="6752854822223394465">Organizata jote po konfiguron Chromium...</translation>
+<translation id="6777348401413221846">Video në ekran të plotë për mënyrën se si ta caktosh Chromium si parazgjedhje: Hap cilësimet e Chromium në iOS, trokit tek "Aplikacioni i parazgjedhur i shfletuesit" dhe zgjidh Chromium.</translation>
 <translation id="6794054469102824109">Hap lojën Chromium Dino.</translation>
 <translation id="6820823224820483452">Chromium nuk mund t'i kontrollonte të gjitha fjalëkalimet. Provo sërish nesër.</translation>
 <translation id="6830782797004194206">Identifikohu më shpejt me plotësimin automatik në Chromium</translation>
@@ -305,8 +303,8 @@ Vetëm dikush me frazën tënde të kalimit mund të lexojë të dhënat e tua t
 <translation id="7337881442233988129">Chromium</translation>
 <translation id="7395825497086981028">Fjalëkalimi yt do të ruhet në "Menaxherin e fjalëkalimeve" për <ph name="EMAIL" />.</translation>
 <translation id="7434848749522628428">Ky çelës kalimi do të ruhet te "Menaxheri i fjalëkalimeve" për <ph name="USER_EMAIL" />.</translation>
+<translation id="7453822113116681031">Bëje Chromium shfletuesin tënd të parazgjedhur për t'i hapur lidhjet me një trokitje</translation>
 <translation id="7504829997542308412">Hap Chromium</translation>
-<translation id="7507535968973352823">Vendose Chromium në zonën e poshtme për t'u qasur tek ai në çdo kohë</translation>
 <translation id="7531461704633548377">Nga Chromium</translation>
 <translation id="7554983317097061001">Këshillë për Chromium: Zhvendose Chromium te stacioni</translation>
 <translation id="7576863740961052505">Menaxho cilësimet e Chromium</translation>
@@ -356,7 +354,6 @@ Vetëm dikush me frazën tënde të kalimit mund të lexojë të dhënat e tua t
 <translation id="8730503818204408000">Hap cilësimin e Chromium për ta caktuar atë si shfletuesin e parazgjedhur.</translation>
 <translation id="8754966941001340678">Chromium rekomandon mbrojtjen e përmirësuar</translation>
 <translation id="8759037115129007407">Anëtari i familjes nuk mund t'i marrë fjalëkalimet në këtë moment. Kërkoji që të përditësojë Chromium dhe sinkronizo fjalëkalimet e atij anëtari. <ph name="BEGIN_LINK" />Mëso më shumë<ph name="END_LINK" /></translation>
-<translation id="8769418653786388149">Merre Chromium me vete</translation>
 <translation id="8776843108004031667">Kjo llogari dhe të dhënat e paruajtura do të hiqen nga Chromium.</translation>
 <translation id="8793333988063379360">Mund të gjesh cilësimet e Chromium dhe më shumë këtu</translation>
 <translation id="8805148242934787134">Cakto Chromium si shfletuesin e parazgjedhur</translation>

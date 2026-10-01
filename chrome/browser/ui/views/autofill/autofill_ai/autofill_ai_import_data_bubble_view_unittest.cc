@@ -13,6 +13,7 @@
 #include "chrome/grit/browser_resources.h"
 #include "chrome/test/base/testing_profile.h"
 #include "chrome/test/views/chrome_views_test_base.h"
+#include "components/autofill/core/browser/payments/test_legal_message_line.h"
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/strings/grit/components_strings.h"
 #include "content/public/browser/web_contents.h"
@@ -21,6 +22,7 @@
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/views/bubble/bubble_frame_view.h"
+#include "ui/views/controls/styled_label.h"
 #include "ui/views/layout/box_layout_view.h"
 #include "ui/views/view_class_properties.h"
 #include "ui/views/view_utils.h"
@@ -253,6 +255,54 @@ TEST_F(AutofillAiImportDataBubbleViewTest,
   EXPECT_EQ(margins->left(), 0);
   EXPECT_EQ(margins->bottom(), 0);
   EXPECT_EQ(margins->right(), 0);
+}
+
+TEST_F(AutofillAiImportDataBubbleViewTest,
+       WalletPassDisclosureShownWhenLegalMessageLinesNotEmpty) {
+  LegalMessageLines legal_message_lines = {
+      TestLegalMessageLine("Test legal message")};
+  EXPECT_CALL(mock_controller(), GetLegalMessageLines())
+      .WillRepeatedly(testing::ReturnRef(legal_message_lines));
+  CreateViewAndShow();
+
+  EXPECT_NE(view()->GetViewByID(DialogViewId::LEGAL_MESSAGE_VIEW), nullptr);
+}
+
+TEST_F(AutofillAiImportDataBubbleViewTest,
+       WalletPassDisclosureNotShownWhenLegalMessageLinesEmpty) {
+  LegalMessageLines legal_message_lines;
+  EXPECT_CALL(mock_controller(), GetLegalMessageLines())
+      .WillRepeatedly(testing::ReturnRef(legal_message_lines));
+  CreateViewAndShow();
+
+  EXPECT_EQ(view()->GetViewByID(DialogViewId::LEGAL_MESSAGE_VIEW), nullptr);
+}
+
+TEST_F(AutofillAiImportDataBubbleViewTest,
+       WalletSubtitleBrandedWhenNoticeStringIdIsBranded) {
+  EXPECT_CALL(mock_controller(), IsWalletableEntity())
+      .WillRepeatedly(Return(true));
+  EXPECT_CALL(mock_controller(), IsSavePrompt()).WillRepeatedly(Return(true));
+  EXPECT_CALL(mock_controller(), GetSaveUpdateDialogTitleImagesResourceId())
+      .WillRepeatedly(Return(IDR_AUTOFILL_SAVE_DRIVERS_LICENSE_LOTTIE));
+  EXPECT_CALL(mock_controller(), GetPrimaryAccountEmail())
+      .WillRepeatedly(Return(u"test@example.com"));
+  EXPECT_CALL(mock_controller(), GetNoticeStringId())
+      .WillRepeatedly(
+          Return(IDS_AUTOFILL_AI_SAVE_ENTITY_TO_WALLET_DIALOG_SUBTITLE_BRANDED));
+  CreateViewAndShow();
+
+  auto* styled_label = views::AsViewClass<views::StyledLabel>(
+      view()->children()[0]->children()[0]->children()[0]);
+  ASSERT_NE(styled_label, nullptr);
+  EXPECT_EQ(
+      styled_label->GetText(),
+      u"Save your info and get things done faster, like filling forms across "
+      u"Google products. You can manage your Wallet settings for "
+      u"test@example.com.");
+
+  EXPECT_CALL(mock_controller(), OnGoToWalletLinkClicked());
+  styled_label->ClickFirstLinkForTesting();
 }
 
 }  // namespace

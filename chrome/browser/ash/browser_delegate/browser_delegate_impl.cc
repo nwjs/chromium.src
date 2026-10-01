@@ -8,20 +8,23 @@
 #include "base/check_deref.h"
 #include "base/check_is_test.h"
 #include "chrome/app/chrome_command_ids.h"
+#include "chrome/browser/ui/browser_window/public/create_browser_window.h"
+#include "chrome/browser/ui/tabs/tab_enums.h"
+#include "components/sessions/core/session_id.h"
+#include "ui/base/page_transition_types.h"
 // TODO(crbug.com/365146870): on_task_locked_controller.h|cc and associated code
 // will be removed.
 #include "chrome/browser/ash/boca/on_task/on_task_locked_controller.h"
-#include "chrome/browser/ash/browser_delegate/browser_type.h"
 #include "chrome/browser/ash/browser_delegate/browser_type_conversion.h"
 #include "chrome/browser/devtools/devtools_window.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_command_controller.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_init_state.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/chromeos/locked_state/locked_state_controller.h"
 #include "chrome/browser/ui/location_bar/location_bar.h"
 #include "chrome/browser/ui/navigator/browser_navigator.h"
 #include "chrome/browser/ui/navigator/browser_navigator_params.h"
@@ -35,10 +38,13 @@
 #include "chrome/browser/ui/web_applications/web_app_launch_utils.h"
 #include "chrome/browser/ui/window_metadata/window_metadata_controller.h"
 #include "chrome/browser/web_applications/web_app_helpers.h"
+#include "chrome/common/chrome_features.h"
 #include "chromeos/ash/components/browser_context_helper/annotated_account_id.h"
+#include "chromeos/ash/components/browser_delegate/browser_type.h"
 #include "components/tab_groups/tab_group_id.h"
 #include "components/tab_groups/tab_group_info.h"
 #include "components/tabs/public/tab_group.h"
+#include "components/tabs/public/tab_interface.h"
 #include "ui/base/base_window.h"
 
 namespace ash {
@@ -100,6 +106,20 @@ size_t BrowserDelegateImpl::GetWebContentsCount() const {
 content::WebContents* BrowserDelegateImpl::GetWebContentsAt(
     size_t index) const {
   return browser_->tab_strip_model()->GetWebContentsAt(index);
+}
+
+std::optional<size_t> BrowserDelegateImpl::GetIndexOfWebContents(
+    const content::WebContents* contents) const {
+  int index = browser_->tab_strip_model()->GetIndexOfWebContents(contents);
+  return index == TabStripModel::kNoTab ? std::nullopt
+                                        : std::optional<size_t>(index);
+}
+
+content::WebContents* BrowserDelegateImpl::GetOpenerOfTabAt(
+    size_t index) const {
+  tabs::TabInterface* opener =
+      browser_->tab_strip_model()->GetOpenerOfTabAt(index);
+  return opener ? opener->GetContents() : nullptr;
 }
 
 tabs::TabIteratorRange BrowserDelegateImpl::GetTabIterator() const {
@@ -203,6 +223,10 @@ void BrowserDelegateImpl::Close() {
   browser_->GetWindow()->Close();
 }
 
+void BrowserDelegateImpl::CloseAllTabs() {
+  browser_->tab_strip_model()->CloseAllTabs();
+}
+
 void BrowserDelegateImpl::SetSkipWarningUserOnClose(bool skip) {
   if (auto* unload_controller = UnloadController::From(&*browser_)) {
     unload_controller->set_force_skip_warning_user_on_close(skip);
@@ -222,6 +246,10 @@ void BrowserDelegateImpl::CloseWebContentsAt(size_t index,
       index, user_gesture == UserGesture::kYes
                  ? TabCloseTypes::CLOSE_USER_GESTURE
                  : TabCloseTypes::CLOSE_NONE);
+}
+
+void BrowserDelegateImpl::ForceCloseWebContentsAt(size_t index) {
+  browser_->tab_strip_model()->DetachAndDeleteWebContentsAt(index);
 }
 
 content::WebContents* BrowserDelegateImpl::NavigateWebApp(
@@ -308,6 +336,26 @@ void BrowserDelegateImpl::ResetLocationBar() {
 }
 
 void BrowserDelegateImpl::SetOnTaskState(OnTaskState state) {
+  if (features::IsUseUnifiedLockedStateControllerEnabled()) {
+    auto* const controller =
+        chromeos::LockedStateController::From(&browser_.get());
+    switch (state) {
+      case OnTaskState::kUnlocked:
+        controller->Unlock(chromeos::LockedState::kOnTaskLocked);
+        break;
+      case OnTaskState::kPrepared:
+        controller->Lock(chromeos::LockedState::kOnTaskPrepared);
+        break;
+      case OnTaskState::kLocked:
+        controller->Lock(chromeos::LockedState::kOnTaskLocked);
+        break;
+      case OnTaskState::kPaused:
+        controller->Lock(chromeos::LockedState::kOnTaskLockedPaused);
+        break;
+    }
+    return;
+  }
+
   switch (state) {
     case OnTaskState::kUnlocked:
       if (IsLockedFullscreen()) {
@@ -341,6 +389,22 @@ void BrowserDelegateImpl::SetOnTaskState(OnTaskState state) {
 }
 
 bool BrowserDelegateImpl::IsOnTaskState(OnTaskState state) const {
+  if (features::IsUseUnifiedLockedStateControllerEnabled()) {
+    auto* const controller =
+        chromeos::LockedStateController::From(&browser_.get());
+    switch (state) {
+      case OnTaskState::kUnlocked:
+        return controller->GetState() == chromeos::LockedState::kUnlocked;
+      case OnTaskState::kPrepared:
+        return controller->GetState() == chromeos::LockedState::kOnTaskPrepared;
+      case OnTaskState::kLocked:
+        return controller->GetState() == chromeos::LockedState::kOnTaskLocked;
+      case OnTaskState::kPaused:
+        return controller->GetState() ==
+               chromeos::LockedState::kOnTaskLockedPaused;
+    }
+  }
+
   switch (state) {
     case OnTaskState::kUnlocked:
       return !boca::OnTaskLockedController::From(&browser_.get())

@@ -9,6 +9,7 @@
 #include "base/feature_list.h"
 #include "build/build_config.h"
 #include "ui/accessibility/ax_base_export.h"
+#include "ui/accessibility/ax_features.mojom-features.h"
 
 // This file declares base::Features related to the ui/accessibility code.
 //
@@ -205,18 +206,6 @@ AX_BASE_EXPORT bool IsAccessibilityGroupLocationChangeByCommonAncestorEnabled();
 // TODO(accessibility): Should this be moved to ash_features.cc?
 AX_BASE_EXPORT bool IsDictationOfflineAvailable();
 
-// Adds option to enable Accessibility accelerator.
-AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityAccelerator);
-AX_BASE_EXPORT bool IsAccessibilityAcceleratorEnabled();
-
-// Adds option to limit the movement on the screen.
-AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityReducedAnimations);
-AX_BASE_EXPORT bool IsAccessibilityReducedAnimationsEnabled();
-
-// Adds reduced animations toggle to kiosk quick settings.
-AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityReducedAnimationsInKiosk);
-AX_BASE_EXPORT bool IsAccessibilityReducedAnimationsInKioskEnabled();
-
 // Allow context checking with the accessibility Dictation
 // feature.
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(
@@ -224,29 +213,13 @@ AX_BASE_EXPORT BASE_DECLARE_FEATURE(
 AX_BASE_EXPORT bool
 IsExperimentalAccessibilityDictationContextCheckingEnabled();
 
-// Whether the screen magnifier can follow the ChromeVox focus.
-AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityMagnifierFollowsChromeVox);
-AX_BASE_EXPORT bool IsAccessibilityMagnifierFollowsChromeVoxEnabled();
-
 // Control mouse with keyboard.
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityMouseKeys);
 AX_BASE_EXPORT bool IsAccessibilityMouseKeysEnabled();
 
-// Show captions on a braille display.
-AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityCaptionsOnBrailleDisplay);
-AX_BASE_EXPORT bool IsAccessibilityCaptionsOnBrailleDisplayEnabled();
-
 // Controls whether the shake cursor to locate feature is available.
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityShakeToLocate);
 AX_BASE_EXPORT bool IsAccessibilityShakeToLocateEnabled();
-
-// Controls whether the disable touchpad feature is enabled.
-AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityDisableTouchpad);
-AX_BASE_EXPORT bool IsAccessibilityDisableTouchpadEnabled();
-
-// Controls whether the flash screen for notifications feature is available.
-AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityFlashScreenFeature);
-AX_BASE_EXPORT bool IsAccessibilityFlashScreenFeatureEnabled();
 
 // Controls whether the inverted mouse cursor feature is available.
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityInvertedMouseCursor);
@@ -254,9 +227,6 @@ AX_BASE_EXPORT bool IsAccessibilityInvertedMouseCursorEnabled();
 
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityManifestV3ChromeVox);
 AX_BASE_EXPORT bool IsAccessibilityManifestV3EnabledForChromeVox();
-
-AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityManifestV3EspeakNGTts);
-AX_BASE_EXPORT bool IsAccessibilityManifestV3EnabledForEspeakNGTts();
 
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityManifestV3GoogleTts);
 AX_BASE_EXPORT bool IsAccessibilityManifestV3EnabledForGoogleTts();
@@ -294,12 +264,19 @@ AX_BASE_EXPORT BASE_DECLARE_FEATURE(
 AX_BASE_EXPORT BASE_DECLARE_FEATURE(kAccessibilityAndroidMath);
 AX_BASE_EXPORT bool IsAccessibilityAndroidMathEnabled();
 
-// Controls the new native C++ implementation for Read Aloud on Android,
+#endif  // BUILDFLAG(IS_ANDROID)
+
+// Controls the new native C++ implementation for Read Aloud,
 // replacing the previous Speakr service integration.
-AX_BASE_EXPORT BASE_DECLARE_FEATURE(kReadAloudNative);
+using ax::mojom::features::kReadAloudNative;
 AX_BASE_EXPORT bool IsReadAloudNativeEnabled();
 
-#endif  // BUILDFLAG(IS_ANDROID)
+// Controls the server speech synthesis broker for Read Aloud. Returns true if
+// kReadAloudServerSynthesizer is enabled or if kReadAloudNative is enabled,
+// unless kReadAloudServerSynthesizer is explicitly disabled via command line or
+// Finch field trial overrides.
+using ax::mojom::features::kReadAloudServerSynthesizer;
+AX_BASE_EXPORT bool IsReadAloudServerSynthesizerEnabled();
 
 #if !BUILDFLAG(IS_ANDROID)
 // Use the AXTree fixing code, which may be an assortment of different

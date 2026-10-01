@@ -15,13 +15,13 @@
 #include "base/lazy_instance.h"
 #include "base/location.h"
 #include "base/memory/raw_ptr.h"
+#include "base/process/process.h"
 #include "base/task/single_thread_task_runner.h"
-#include "chrome/browser/ash/browser_delegate/browser_delegate.h"
-#include "chrome/browser/browser_process.h"
 #include "chrome/browser/chromeos/app_mode/kiosk_browser_window_handler.h"
 #include "chrome/browser/chromeos/app_mode/kiosk_metrics_service.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chromeos/ash/components/browser_delegate/browser_delegate.h"
 #include "chromeos/dbus/power/power_manager_client.h"
 #include "components/pref_registry/pref_registry_syncable.h"
 #include "components/prefs/pref_registry_simple.h"
@@ -63,22 +63,27 @@ void DumpPluginProcess(const std::set<int>& child_ids) {
 
   bool dump_requested = false;
 
-  content::BrowserChildProcessHostIterator iter(
-      content::PROCESS_TYPE_PPAPI_PLUGIN_DEPRECATED);
-  while (!iter.Done()) {
+  for (content::BrowserChildProcessHostIterator iter(
+           content::PROCESS_TYPE_PPAPI_PLUGIN_DEPRECATED);
+       !iter.Done(); ++iter) {
     const content::ChildProcessData& data = iter.GetData();
     if (child_ids.count(data.id) == 1) {
+      const base::Process& process = iter.GetProcess();
+      if (!process.IsValid()) {
+        LOG(WARNING) << "Plugin process is not valid, skipping dump for: "
+                     << data.name;
+        continue;
+      }
       // Send a signal to dump the plugin process.
-      if (kill(data.GetProcess().Handle(), SIGFPE) == 0) {
+      if (kill(process.Handle(), SIGFPE) == 0) {
         dump_requested = true;
       } else {
         PLOG(WARNING) << "Failed to send SIGFPE to plugin process"
-                      << ", pid=" << data.GetProcess().Pid()
+                      << ", pid=" << process.Pid()
                       << ", type=" << data.process_type
                       << ", name=" << data.name;
       }
     }
-    ++iter;
   }
 
   // Wait a bit to let dump finish (if requested) before rebooting the device.
@@ -170,14 +175,15 @@ class KioskBrowserSession::PluginHandlerDelegateImpl
 };
 #endif
 
-KioskBrowserSession::KioskBrowserSession(Profile* profile)
-    : KioskBrowserSession(profile,
-                          base::BindOnce(chrome::AttemptUserExit),
-                          g_browser_process->local_state()) {}
+KioskBrowserSession::KioskBrowserSession(PrefService* local_state,
+                                         Profile* profile)
+    : KioskBrowserSession(local_state,
+                          profile,
+                          base::BindOnce(chrome::AttemptUserExit)) {}
 
-KioskBrowserSession::KioskBrowserSession(Profile* profile,
-                                         base::OnceClosure attempt_user_exit,
-                                         PrefService* local_state)
+KioskBrowserSession::KioskBrowserSession(PrefService* local_state,
+                                         Profile* profile,
+                                         base::OnceClosure attempt_user_exit)
     : KioskBrowserSession(profile,
                           std::move(attempt_user_exit),
                           std::make_unique<KioskMetricsService>(local_state)) {}
@@ -190,9 +196,9 @@ KioskBrowserSession::~KioskBrowserSession() {
 
 // static
 std::unique_ptr<KioskBrowserSession> KioskBrowserSession::CreateForTesting(
+    PrefService* local_state,
     Profile* profile,
     base::OnceClosure attempt_user_exit,
-    PrefService* local_state,
     const std::vector<std::string>& crash_dirs) {
   return base::WrapUnique(new KioskBrowserSession(
       profile, std::move(attempt_user_exit),

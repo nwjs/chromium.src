@@ -13,13 +13,18 @@ import("//third_party/blink/public/public_features.gni")
 import("//third_party/blink/renderer/config.gni")
 
 declare_args() {
-  # Enable active iterator counting in blink::HeapVector to detect
-  # use-after-free.
-  enable_heap_vector_active_iterator_checks = false
+  # Enable modification checks in blink::HeapVector to detect
+  # modifications during iteration.
+  enable_heap_vector_modification_checks = false
 
-  # Enable active iterator counting in non-garbage-collected blink::Vector
-  # (i.e. PartitionAllocator-backed) to detect use-after-free.
-  enable_vector_active_iterator_checks = false
+  # Enable modification checks in non-garbage-collected blink::Vector
+  # (i.e. PartitionAllocator-backed) to detect modifications during iteration.
+  enable_vector_modification_checks = false
+
+  # Whether blink::HeapVector promptly frees its backing store via
+  # Allocator::FreeVectorBacking(). When disabled, the backing store is left to
+  # be reclaimed by garbage collection.
+  enable_heap_vector_promptly_free = true
 }
 
 buildflag_header("wtf_buildflags") {
@@ -27,8 +32,9 @@ buildflag_header("wtf_buildflags") {
   header_dir = "third_party/blink/renderer/platform/wtf"
 
   flags = [
-    "ENABLE_HEAP_VECTOR_ACTIVE_ITERATOR_CHECKS=$enable_heap_vector_active_iterator_checks",
-    "ENABLE_VECTOR_ACTIVE_ITERATOR_CHECKS=$enable_vector_active_iterator_checks",
+    "ENABLE_HEAP_VECTOR_MODIFICATION_CHECKS=$enable_heap_vector_modification_checks",
+    "ENABLE_VECTOR_MODIFICATION_CHECKS=$enable_vector_modification_checks",
+    "ENABLE_HEAP_VECTOR_PROMPTLY_FREE=$enable_heap_vector_promptly_free",
   ]
 }
 
@@ -105,6 +111,7 @@ component("wtf") {
     "get_ptr.h",
     "hash_counted_set.h",
     "hash_functions.h",
+    "hash_functions_memory.h",
     "hash_map.h",
     "hash_set.h",
     "hash_table.cc",
@@ -230,7 +237,6 @@ component("wtf") {
     "type_traits.h",
     "uuid.cc",
     "uuid.h",
-    "vector.cc",
     "vector.h",
     "vector_backed_linked_list.h",
     "vector_traits.h",
@@ -369,6 +375,7 @@ source_set("wtf_unittests_sources") {
     "doubly_linked_list_test.cc",
     "dtoa_test.cc",
     "functional_test.cc",
+    "hash_functions_memory_test.cc",
     "hash_map_test.cc",
     "hash_set_test.cc",
     "linked_hash_set_test.cc",

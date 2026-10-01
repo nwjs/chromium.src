@@ -164,6 +164,19 @@ chromium-metrics-reviews@google.com.
 
 <!-- LINT.ThenChange(//chrome/browser/ui/webui/default_browser/visual_guided_setter_controller_win.h:DefaultBrowserVisualGuideOutcome) -->
 
+<!-- LINT.IfChange(InitialWebUISurfaceSyncResult) -->
+
+<enum name="InitialWebUISurfaceSyncResult">
+  <int value="0" label="Ready Within Deadline"/>
+  <int value="1" label="Deadline Exceeded - Painted Later"/>
+  <int value="2" label="Deadline Exceeded - Closed Before Paint"/>
+  <int value="3" label="Deadline Exceeded - Render Process Gone"/>
+  <int value="4" label="Closed Before Browser Presentation"/>
+  <int value="5" label="Render Process Gone Before Browser Presentation"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/browser/ui/waap/waap_utils.h:InitialWebUISurfaceSyncResult) -->
+
 <!-- LINT.IfChange(InitialWebUIView) -->
 
 <enum name="InitialWebUIView">
@@ -796,6 +809,7 @@ chromium-metrics-reviews@google.com.
   <int value="-1591890659" label="chrome://syncfs-internals/"/>
   <int value="-1564946100" label="chrome://tab-strip.top-chrome/"/>
   <int value="-1532727290" label="chrome://whats-new/"/>
+  <int value="-1503118064" label="chrome://critical-actions-internals/"/>
   <int value="-1500737448" label="chrome://manage-mirrorsync/"/>
   <int value="-1493822642" label="chrome://invalidations/"/>
   <int value="-1493762713" label="chrome://settings/cookies/"/>
@@ -1013,6 +1027,7 @@ chromium-metrics-reviews@google.com.
   <int value="762064551" label="chrome://graduation/"/>
   <int value="770641362" label="chrome://shortcut-customization/"/>
   <int value="784140714" label="chrome://predictors/"/>
+  <int value="806313658" label="chrome://browser-actuator-internals/"/>
   <int value="807323521" label="chrome://glic-fre/"/>
   <int value="812624791" label="chrome://dom-distiller/"/>
   <int value="821023334" label="chrome://screenlock-icon/"/>

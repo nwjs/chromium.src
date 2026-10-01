@@ -23,8 +23,13 @@ Shared utilities for message passing with postMessage.
 
 ### actor/
 
-The actor module. Contains both client and host implementations for actor
-related glic API functions. Future modules should match this format.
+The actor module. Contains the client implementation for actor related glic API
+functions.
   actor_client.ts - client implementation.
-  actor_host.ts - host implementation.
-  actor_types.ts - types shared between client and host.
+
+### zero_state_suggestions/
+
+The zero state suggestions module. Contains the client implementation for zero
+state suggestions related glic API functions.
+  zero_state_suggestions_client.ts - client implementation.
+

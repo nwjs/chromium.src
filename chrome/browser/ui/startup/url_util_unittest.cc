@@ -43,6 +43,12 @@ TEST(UrlUtilTest, ValidateLaunchUrlWebUnsafe) {
   EXPECT_FALSE(ValidateLaunchUrlWebUnsafe(GURL("about:about")));
   EXPECT_FALSE(ValidateLaunchUrlWebUnsafe(GURL("about:")));
 
+  // chrome-native: URLs should be rejected
+  EXPECT_FALSE(ValidateLaunchUrlWebUnsafe(GURL("chrome-native://pdf/")));
+  EXPECT_FALSE(ValidateLaunchUrlWebUnsafe(GURL(
+      "chrome-native://pdf/link?url=https%3A%2F%2Fexample.com%2Fdoc.pdf")));
+  EXPECT_FALSE(ValidateLaunchUrlWebUnsafe(GURL("chrome-native://newtab/")));
+
 #if BUILDFLAG(IS_ANDROID)
   EXPECT_TRUE(ValidateLaunchUrlWebUnsafe(
       GURL("content://packagename.providername/path")));
@@ -71,6 +77,34 @@ TEST(UrlUtilTest, ValidateLaunchUrlWebSafe) {
   EXPECT_FALSE(ValidateLaunchUrlWebSafe(GURL("about:settings")));
   EXPECT_FALSE(ValidateLaunchUrlWebSafe(GURL("about:about")));
   EXPECT_FALSE(ValidateLaunchUrlWebSafe(GURL("about:")));
+
+  // chrome-native: URLs should be rejected in WebSafe context.
+  EXPECT_FALSE(ValidateLaunchUrlWebSafe(GURL("chrome-native://pdf/")));
+  EXPECT_FALSE(ValidateLaunchUrlWebSafe(GURL(
+      "chrome-native://pdf/link?url=https%3A%2F%2Fexample.com%2Fdoc.pdf")));
+  EXPECT_FALSE(ValidateLaunchUrlWebSafe(GURL("chrome-native://newtab/")));
+  // Schemes that ChildProcessSecurityPolicy::IsWebSafeScheme() considers
+  // web-safe, but that are not valid launch targets. These are rejected by the
+  // explicit http/https/about:blank allowlist.
+  EXPECT_FALSE(ValidateLaunchUrlWebSafe(
+      GURL("data:text/html,<script>alert(1)</script>")));
+  EXPECT_FALSE(ValidateLaunchUrlWebSafe(GURL("data:text/plain,hello")));
+  EXPECT_FALSE(ValidateLaunchUrlWebSafe(GURL("ws://example.com/socket")));
+  EXPECT_FALSE(ValidateLaunchUrlWebSafe(GURL("wss://example.com/socket")));
+
+  // Schemes registered via navigator.registerProtocolHandler() become web-safe
+  // at runtime, but must never be launch targets.
+  EXPECT_FALSE(ValidateLaunchUrlWebSafe(GURL("mailto:user@example.com")));
+  EXPECT_FALSE(ValidateLaunchUrlWebSafe(GURL("web+example:payload")));
+
+  // Extension and Android-specific privileged/intent schemes should be rejected
+  // in WebSafe context.
+  EXPECT_FALSE(ValidateLaunchUrlWebSafe(
+      GURL("chrome-extension://abcdefghijklmnopabcdefghijklmnop/index.html")));
+  EXPECT_FALSE(ValidateLaunchUrlWebSafe(
+      GURL("content://packagename.providername/path")));
+  EXPECT_FALSE(ValidateLaunchUrlWebSafe(
+      GURL("intent://example.com/#Intent;scheme=http;end")));
 }
 
 TEST(UrlUtilTest, ValidateUrlRejectsNestedSchemes) {

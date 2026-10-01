@@ -75,6 +75,7 @@
 #include "chrome/installer/setup/configure_app_container_sandbox.h"
 #include "chrome/installer/setup/downgrade_cleanup.h"
 #include "chrome/installer/setup/install.h"
+#include "chrome/installer/setup/install_component.h"
 #include "chrome/installer/setup/install_params.h"
 #include "chrome/installer/setup/install_worker.h"
 #include "chrome/installer/setup/installer_crash_reporting.h"
@@ -1255,6 +1256,10 @@ bool HandleNonInstallCmdLineOptions(installer::ModifyParams& modify_params,
         break;
     }
 #endif
+  } else if (cmd_line.HasSwitch(installer::switches::kInstallComponent)) {
+    const base::FilePath source_file =
+        cmd_line.GetSwitchValuePath(installer::switches::kInstallComponent);
+    *exit_code = installer::InstallComponent(source_file, *installer_state);
   } else if (cmd_line.HasSwitch(installer::switches::kCreateShortcuts)) {
     std::string install_op_arg =
         cmd_line.GetSwitchValueASCII(installer::switches::kCreateShortcuts);
@@ -1332,8 +1337,8 @@ InstallStatus InstallProductsHelper(InstallationState& original_state,
     return TEMP_DIR_FAILED;
   }
 
-  RETURN_IF_ERROR(UnpackChromeArchive(unpack_path, original_state, setup_exe,
-                                      cmd_line, installer_state));
+  RETURN_IF_ERROR(
+      UnpackChromeArchive(unpack_path, setup_exe, cmd_line, installer_state));
 
   VLOG(1) << "unpacked to " << unpack_path.value();
 

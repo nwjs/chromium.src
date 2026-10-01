@@ -395,6 +395,8 @@ chromium-metrics-reviews@google.com.
   <int value="121" label="DriveConsentState"/>
   <int value="122" label="AutofillAiPrivateInferenceOptInStatus"/>
   <int value="123" label="AutofillWalletReminderNoticeShown"/>
+  <int value="124" label="AutofillAtMemoryDoubleCtrlTriggerEnabled"/>
+  <int value="125" label="AutofillAtMemoryShortcut"/>
 <!-- LINT.ThenChange(/components/sync_preferences/common_syncable_prefs_database.cc:CommonSyncablePref)-->
 
 <!-- LINT.IfChange(ChromeSyncablePref) -->
@@ -849,6 +851,7 @@ chromium-metrics-reviews@google.com.
   <int value="200018" label="LevelUpTypingSavedStat"/>
   <int value="200019" label="LevelUpPasswordsVerifiedStat"/>
   <int value="200020" label="LevelUpPhotoSearchesPerformedStat"/>
+  <int value="200021" label="LevelUpOptIn"/>
 <!-- LINT.ThenChange(/ios/chrome/browser/sync/model/prefs/ios_chrome_syncable_prefs_database.cc:IosSyncablePref)-->
 
 </enum>
@@ -1039,7 +1042,7 @@ chromium-metrics-reviews@google.com.
   <int value="59" label="Incoming Password Sharing Invitations"/>
   <int value="60" label="Outgoing Password Sharing Invitations"/>
   <int value="61" label="Autofill Wallet Credential"/>
-  <int value="62" label="WebAPKs"/>
+  <int value="62" label="(Obsolete) WebAPKs"/>
   <int value="63" label="Shared Tab Group Data"/>
   <int value="64" label="Collaboration Groups"/>
   <int value="65" label="(Obsolete) Plus Address"/>
@@ -1062,6 +1065,7 @@ chromium-metrics-reviews@google.com.
   <int value="82" label="Encrypted Tab Context Item"/>
   <int value="83" label="Notebook"/>
   <int value="84" label="Journey"/>
+  <int value="85" label="Autofill Entity Suppression"/>
 </enum>
 
 <!-- LINT.ThenChange(/components/sync/base/data_type.h:SyncDataTypes) -->
@@ -1395,7 +1399,7 @@ chromium-metrics-reviews@google.com.
   <int value="2" label="Button clicked"/>
 </enum>
 
-<!-- LINT.ThenChange(/chrome/android/java/src/org/chromium/chrome/browser/sync/settings/SyncSettingsUtils.java:SyncErrorUiAction) -->
+<!-- LINT.ThenChange(/chrome/browser/sync/android/java/src/org/chromium/chrome/browser/sync/SyncSettingsUtils.java:SyncErrorUiAction) -->
 
 <!-- LINT.IfChange(SyncFeatureOrTransport) -->
 

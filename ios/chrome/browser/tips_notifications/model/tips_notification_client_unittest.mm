@@ -43,7 +43,6 @@
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/signin/model/authentication_service.h"
 #import "ios/chrome/browser/signin/model/authentication_service_factory.h"
-#import "ios/chrome/browser/signin/model/fake_authentication_service_delegate.h"
 #import "ios/chrome/browser/signin/model/fake_system_identity.h"
 #import "ios/chrome/browser/signin/model/fake_system_identity_manager.h"
 #import "ios/chrome/browser/sync/model/sync_service_factory.h"
@@ -69,8 +68,7 @@ class TipsNotificationClientTest : public PlatformTest {
     TestProfileIOS::Builder builder;
     builder.AddTestingFactory(
         AuthenticationServiceFactory::GetInstance(),
-        AuthenticationServiceFactory::GetFactoryWithDelegateForTesting(
-            std::make_unique<FakeAuthenticationServiceDelegate>()));
+        AuthenticationServiceFactory::GetDefaultFactory());
     builder.AddTestingFactory(SyncServiceFactory::GetInstance(),
                               base::BindRepeating(&CreateTestSyncService));
     profile_ = profile_manager_.AddProfileWithBuilder(std::move(builder));
@@ -741,7 +739,7 @@ TEST_F(TipsNotificationClientTest,
 // Tests that the client handles a CPE Promo notification response.
 TEST_F(TipsNotificationClientTest, CPEHandle) {
   StubPrepareToPresentModal();
-  id mock_handler = MockHandler(@protocol(CredentialProviderPromoCommands));
+  id mock_handler = MockHandler(@protocol(PromosManagerCommands));
   OCMExpect(
       [mock_handler showCredentialProviderPromoWithTrigger:
                         CredentialProviderPromoTrigger::TipsNotification]);

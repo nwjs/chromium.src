@@ -19,9 +19,11 @@
 #include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/ui/tabs/saved_tab_groups/tab_group_sync_service_initialized_observer.h"
 #include "chrome/browser/ui/tabs/tab_group_model.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_test_utils.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
+#include "components/sessions/core/session_id.h"
 #include "components/split_tabs/split_tab_id.h"
 #include "components/tab_groups/tab_group_id.h"
 #include "components/tab_groups/tab_group_visual_data.h"
@@ -1056,6 +1058,27 @@ IN_PROC_BROWSER_TEST_F(TabListBridgeBrowserTest, Unsplit) {
             GetTabStripStateString(tab_strip_model, /*annotate_groups=*/true));
   EXPECT_FALSE(tab_list_interface->GetTab(0)->GetSplit().has_value());
   EXPECT_FALSE(tab_list_interface->GetTab(1)->GetSplit().has_value());
+}
+
+IN_PROC_BROWSER_TEST_F(TabListBridgeBrowserTest, ListSplits) {
+  SetupTabs(browser(), 4);
+
+  TabListInterface* tab_list_interface = TabListInterface::From(browser());
+  ASSERT_TRUE(tab_list_interface);
+  EXPECT_TRUE(tab_list_interface->ListSplits().empty());
+
+  std::optional<split_tabs::SplitTabId> split_id =
+      tab_list_interface->CreateSplit(
+          {tab_list_interface->GetTab(0)->GetHandle(),
+           tab_list_interface->GetTab(1)->GetHandle()});
+  ASSERT_TRUE(split_id.has_value());
+
+  std::set<split_tabs::SplitTabId> splits = tab_list_interface->ListSplits();
+  ASSERT_EQ(1u, splits.size());
+  EXPECT_EQ(*split_id, *splits.begin());
+
+  tab_list_interface->Unsplit(*split_id);
+  EXPECT_TRUE(tab_list_interface->ListSplits().empty());
 }
 
 IN_PROC_BROWSER_TEST_F(TabListBridgeBrowserTest, OpenTab) {

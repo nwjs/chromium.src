@@ -30,32 +30,6 @@ TEST_F(AccountCapabilitiesTest, GetSupportedAccountCapabilityNames) {
   EXPECT_THAT(names, Contains(kCanUseModelExecutionFeaturesName));
 }
 
-#if !defined(NDEBUG) && !BUILDFLAG(IS_ANDROID)
-TEST_F(AccountCapabilitiesTest,
-       GetSupportedAccountCapabilityNames_FlagDisabled) {
-  base::test::ScopedFeatureList feature_list;
-  feature_list.InitAndDisableFeature(switches::kEnableFakeCapabilityForTesting);
-
-  auto names =
-      AccountCapabilities::GetSupportedAccountCapabilityNamesInternal();
-
-  // Check one of the existing expected account capabilities.
-  EXPECT_THAT(names, Not(Contains(kFakeCapabilityForTestingName)));
-}
-
-TEST_F(AccountCapabilitiesTest,
-       GetSupportedAccountCapabilityNames_FlagEnabled) {
-  base::test::ScopedFeatureList feature_list{
-      switches::kEnableFakeCapabilityForTesting};
-
-  auto names =
-      AccountCapabilities::GetSupportedAccountCapabilityNamesInternal();
-
-  // Check one of the existing expected account capabilities.
-  EXPECT_THAT(names, Contains(kFakeCapabilityForTestingName));
-}
-#endif  // !defined(NDEBUG) && !BUILDFLAG(IS_ANDROID)
-
 TEST_F(AccountCapabilitiesTest, CanFetchFamilyMemberInfo) {
   AccountCapabilities capabilities;
   EXPECT_EQ(capabilities.can_fetch_family_member_info(),
@@ -160,8 +134,6 @@ TEST_F(AccountCapabilitiesTest, CanSubmitFeedback) {
 
 #if BUILDFLAG(IS_IOS)
 TEST_F(AccountCapabilitiesTest, CanSignInToChrome) {
-  base::test::ScopedFeatureList feature_list{
-      switches::kEnforceCanSignInToChromeCapability};
   AccountCapabilities capabilities;
   EXPECT_EQ(capabilities.can_sign_in_to_chrome(), signin::Tribool::kUnknown);
 
@@ -369,6 +341,21 @@ TEST_F(AccountCapabilitiesTest, IsSubjectToParentalControls) {
 
   mutator.set_is_subject_to_parental_controls(false);
   EXPECT_EQ(capabilities.is_subject_to_parental_controls(),
+            signin::Tribool::kFalse);
+}
+
+TEST_F(AccountCapabilitiesTest, IsSubjectToParentalControlsViaBundle) {
+  AccountCapabilities capabilities;
+  EXPECT_EQ(capabilities.is_subject_to_parental_controls_via_bundle(),
+            signin::Tribool::kUnknown);
+
+  AccountCapabilitiesTestMutator mutator(&capabilities);
+  mutator.set_is_subject_to_parental_controls_via_bundle(true);
+  EXPECT_EQ(capabilities.is_subject_to_parental_controls_via_bundle(),
+            signin::Tribool::kTrue);
+
+  mutator.set_is_subject_to_parental_controls_via_bundle(false);
+  EXPECT_EQ(capabilities.is_subject_to_parental_controls_via_bundle(),
             signin::Tribool::kFalse);
 }
 

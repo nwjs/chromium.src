@@ -12,6 +12,7 @@ import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
@@ -22,6 +23,7 @@ import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
+import org.mockito.quality.Strictness;
 
 import org.chromium.base.ContextUtils;
 import org.chromium.base.supplier.ObservableSuppliers;
@@ -35,7 +37,6 @@ import org.chromium.components.metrics.OmniboxEventProtosIntDef.PageClassificati
 import org.chromium.components.omnibox.AutocompleteInput;
 import org.chromium.components.omnibox.AutocompleteRequestType;
 import org.chromium.components.omnibox.OmniboxCapabilities;
-import org.chromium.components.omnibox.OmniboxFeatures;
 import org.chromium.components.omnibox.ToolModeProto.ToolMode;
 import org.chromium.url.GURL;
 
@@ -44,7 +45,8 @@ import org.chromium.url.GURL;
 public class FuseboxSessionStateUnitTest {
     private static final GURL SAMPLE_PAGE_URL = new GURL("https://www.google.com");
 
-    @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
+    @Rule
+    public final MockitoRule mMockitoRule = MockitoJUnit.rule().strictness(Strictness.STRICT_STUBS);
 
     @Mock private LocationBarDataProvider mLocationBarDataProvider;
     @Mock private Profile mProfile;
@@ -57,14 +59,16 @@ public class FuseboxSessionStateUnitTest {
     @Before
     public void setUp() {
         mProfileSupplier = ObservableSuppliers.createMonotonic(mProfile);
-        doReturn(new FuseboxSessionState()).when(mLocationBarDataProvider).getFuseboxSessionState();
+        lenient()
+                .doReturn(new FuseboxSessionState())
+                .when(mLocationBarDataProvider)
+                .getFuseboxSessionState();
         ComposeboxQueryControllerBridge.setInstanceForTesting(mComposeboxQueryControllerBridge);
         AutocompleteController.setInstanceForTesting(mAutocompleteController);
     }
 
     @Test
     public void testSetActiveTool() {
-        OmniboxFeatures.sShowModelPicker.setForTesting(true);
         FuseboxSessionState session = new FuseboxSessionState();
         Runnable onFullyActivated =
                 () -> {
@@ -84,25 +88,7 @@ public class FuseboxSessionStateUnitTest {
     }
 
     @Test
-    public void testSetActiveTool_disabledShowModelPicker() {
-        OmniboxFeatures.sShowModelPicker.setForTesting(false);
-        FuseboxSessionState session = new FuseboxSessionState();
-        Runnable onFullyActivated =
-                () -> {
-                    AutocompleteInput input = session.getAutocompleteInput();
-                    input.setRequestType(AutocompleteRequestType.IMAGE_GENERATION);
-                    verify(mComposeboxQueryControllerBridge, never())
-                            .setActiveTool(ToolMode.TOOL_MODE_IMAGE_GEN_VALUE);
-                };
-
-        session.activate(
-                ContextUtils.getApplicationContext(), null, mProfileSupplier, onFullyActivated);
-        RobolectricUtil.runAllBackgroundAndUi();
-    }
-
-    @Test
     public void testRequestTypeObserver() {
-        OmniboxFeatures.sShowModelPicker.setForTesting(true);
         FuseboxSessionState session = new FuseboxSessionState();
         assertTrue(session.getAutocompleteInput().getRequestTypeSupplier().hasObservers());
         session.destroy();
@@ -110,17 +96,10 @@ public class FuseboxSessionStateUnitTest {
     }
 
     @Test
-    public void testRequestTypeObserver_disabledShowModelPicker() {
-        OmniboxFeatures.sShowModelPicker.setForTesting(false);
-        FuseboxSessionState session = new FuseboxSessionState();
-        assertFalse(session.getAutocompleteInput().getRequestTypeSupplier().hasObservers());
-    }
-
-    @Test
     public void testFrom() {
         doReturn("Title").when(mLocationBarDataProvider).getTitle();
         doReturn(SAMPLE_PAGE_URL).when(mLocationBarDataProvider).getCurrentGurl();
-        doReturn(1).when(mLocationBarDataProvider).getPageClassification(false);
+        doReturn(1).when(mLocationBarDataProvider).getPageClassification(/* prefetch= */ false);
 
         FuseboxSessionState session = FuseboxSessionState.from(mLocationBarDataProvider);
         assertNotNull(session);
@@ -202,7 +181,6 @@ public class FuseboxSessionStateUnitTest {
 
     @Test
     public void testDestroy() {
-        OmniboxFeatures.sShowModelPicker.setForTesting(true);
         FuseboxSessionState session = new FuseboxSessionState();
         session.activate(ContextUtils.getApplicationContext(), null, mProfileSupplier, null);
         RobolectricUtil.runAllBackgroundAndUi();
@@ -224,7 +202,7 @@ public class FuseboxSessionStateUnitTest {
         doReturn(SAMPLE_PAGE_URL).when(mLocationBarDataProvider).getCurrentGurl();
         doReturn(PageClassification.OTHER)
                 .when(mLocationBarDataProvider)
-                .getPageClassification(false);
+                .getPageClassification(/* prefetch= */ false);
 
         FuseboxSessionState session = FuseboxSessionState.from(mLocationBarDataProvider);
         session.activate(ContextUtils.getApplicationContext(), null, mProfileSupplier, null);
@@ -240,7 +218,7 @@ public class FuseboxSessionStateUnitTest {
         doReturn(SAMPLE_PAGE_URL).when(mLocationBarDataProvider).getCurrentGurl();
         doReturn(PageClassification.ANDROID_SEARCH_WIDGET)
                 .when(mLocationBarDataProvider)
-                .getPageClassification(false);
+                .getPageClassification(/* prefetch= */ false);
 
         FuseboxSessionState session = FuseboxSessionState.from(mLocationBarDataProvider);
         session.activate(ContextUtils.getApplicationContext(), null, mProfileSupplier, null);
@@ -256,7 +234,7 @@ public class FuseboxSessionStateUnitTest {
         doReturn(SAMPLE_PAGE_URL).when(mLocationBarDataProvider).getCurrentGurl();
         doReturn(PageClassification.ANDROID_SHORTCUTS_WIDGET)
                 .when(mLocationBarDataProvider)
-                .getPageClassification(false);
+                .getPageClassification(/* prefetch= */ false);
 
         FuseboxSessionState session = FuseboxSessionState.from(mLocationBarDataProvider);
         session.activate(ContextUtils.getApplicationContext(), null, mProfileSupplier, null);
@@ -298,6 +276,7 @@ public class FuseboxSessionStateUnitTest {
         FuseboxSessionState session = FuseboxSessionState.from(mLocationBarDataProvider);
         session.activate(ContextUtils.getApplicationContext(), null, mProfileSupplier, null);
 
-        assertNull(session.getAutocompleteInput().getPreviewMatchUrl());
+        GURL previewMatchUrl = session.getAutocompleteInput().getPreviewMatchUrl();
+        assertNull(previewMatchUrl);
     }
 }

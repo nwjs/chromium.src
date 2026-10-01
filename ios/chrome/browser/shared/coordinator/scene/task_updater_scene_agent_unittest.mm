@@ -23,10 +23,10 @@
 #import "ios/chrome/browser/shared/coordinator/scene/test/fake_scene_state.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/profile/test/test_profile_ios.h"
+#import "ios/chrome/browser/shared/model/profile/test/test_profile_manager_ios.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/signin/model/authentication_service.h"
 #import "ios/chrome/browser/signin/model/authentication_service_factory.h"
-#import "ios/chrome/browser/signin/model/fake_authentication_service_delegate.h"
 #import "ios/chrome/browser/signin/model/fake_system_identity.h"
 #import "ios/chrome/browser/signin/model/fake_system_identity_manager.h"
 #import "ios/chrome/browser/signin/model/identity_manager_factory.h"
@@ -47,7 +47,7 @@
 @implementation FakeTaskOrchestrator
 
 - (void)updateToStage:(TaskExecutionStage)stage
-             forScene:(std::string_view)sceneSessionID {
+             forScene:(SceneState*)sceneState {
   self.stage = stage;
 }
 
@@ -71,11 +71,10 @@ class TaskUpdaterSceneAgentTest : public PlatformTest {
     TestProfileIOS::Builder builder;
     builder.AddTestingFactory(
         AuthenticationServiceFactory::GetInstance(),
-        AuthenticationServiceFactory::GetFactoryWithDelegateForTesting(
-            std::make_unique<FakeAuthenticationServiceDelegate>()));
+        AuthenticationServiceFactory::GetDefaultFactory());
     builder.AddTestingFactory(SyncServiceFactory::GetInstance(),
                               base::BindRepeating(&CreateTestSyncService));
-    profile_ = std::move(builder).Build();
+    profile_ = profile_manager_.AddProfileWithBuilder(std::move(builder));
 
     fake_startup_information_ = [[FakeStartupInformation alloc] init];
     app_state_ =
@@ -85,11 +84,16 @@ class TaskUpdaterSceneAgentTest : public PlatformTest {
     [app_state_ setValue:fake_task_orchestrator_ forKey:@"taskOrchestrator"];
 
     profile_state_ = [[ProfileState alloc] initWithAppState:app_state_];
-    profile_state_.profile = profile_.get();
+    profile_state_.profile = profile_;
 
-    scene_state_ = [[FakeSceneState alloc] initWithProfile:profile_.get()];
+    id fake_scene = OCMClassMock([UIWindowScene class]);
+    id fake_session = OCMClassMock([UISceneSession class]);
+    OCMStub([fake_session persistentIdentifier]).andReturn(@"scene-1");
+    OCMStub([fake_scene session]).andReturn(fake_session);
+
+    scene_state_ = [[FakeSceneState alloc] initWithProfile:profile_];
     scene_state_.profileState = profile_state_;
-    scene_state_.sceneSessionID = "scene-1";
+    scene_state_.scene = fake_scene;
 
     agent_ = [[TaskUpdaterSceneAgent alloc] init];
     [scene_state_ addAgent:agent_];
@@ -101,29 +105,38 @@ class TaskUpdaterSceneAgentTest : public PlatformTest {
 
   void TearDown() override {
     [(OCMockObject*)mock_application_ stopMocking];
+    mock_application_ = nil;
     [scene_state_ shutdown];
+    scene_state_ = nil;
+    agent_ = nil;
+    profile_state_ = nil;
+    fake_task_orchestrator_ = nil;
+    app_state_ = nil;
+    fake_startup_information_ = nil;
+    profile_ = nullptr;
     PlatformTest::TearDown();
   }
 
   AuthenticationService* auth_service() {
-    return AuthenticationServiceFactory::GetForProfile(profile_.get());
+    return AuthenticationServiceFactory::GetForProfile(profile_);
   }
 
   signin::IdentityManager* identity_manager() {
-    return IdentityManagerFactory::GetForProfile(profile_.get());
+    return IdentityManagerFactory::GetForProfile(profile_);
   }
 
   web::WebTaskEnvironment task_environment_;
   base::test::ScopedFeatureList scoped_feature_list_;
   IOSChromeScopedTestingLocalState local_state_;
-  std::unique_ptr<TestProfileIOS> profile_;
-  FakeStartupInformation* fake_startup_information_;
-  AppState* app_state_;
-  FakeTaskOrchestrator* fake_task_orchestrator_;
-  ProfileState* profile_state_;
-  FakeSceneState* scene_state_;
-  TaskUpdaterSceneAgent* agent_;
-  id mock_application_;
+  TestProfileManagerIOS profile_manager_;
+  raw_ptr<TestProfileIOS> profile_ = nullptr;
+  FakeStartupInformation* fake_startup_information_ = nil;
+  AppState* app_state_ = nil;
+  FakeTaskOrchestrator* fake_task_orchestrator_ = nil;
+  ProfileState* profile_state_ = nil;
+  FakeSceneState* scene_state_ = nil;
+  TaskUpdaterSceneAgent* agent_ = nil;
+  id mock_application_ = nil;
 };
 
 // Tests that TaskExecutionProfileLoaded is sent when profile is loaded.

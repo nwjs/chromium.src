@@ -3,7 +3,7 @@
 // found in the LICENSE file.
 
 import {ComposeboxElement, NtpComposeboxElement, SubmitButtonIconType} from 'chrome://new-tab-page/lazy_load.js';
-import {$$, InputSource, QueryActionOverride} from 'chrome://new-tab-page/new_tab_page.js';
+import {$$, InputSource, QueryActionOverride, SearchboxTutorial} from 'chrome://new-tab-page/new_tab_page.js';
 import {GlifAnimationState} from 'chrome://resources/cr_components/composebox/common.js';
 import {InputType, ModelMode, ToolMode} from 'chrome://resources/cr_components/composebox/composebox_query.mojom-webui.js';
 import type {ComposeboxToolChipElement} from 'chrome://resources/cr_components/composebox/composebox_tool_chip.js';
@@ -20,7 +20,7 @@ import {MockTimer} from 'chrome://webui-test/mock_timer.js';
 import {TestMock} from 'chrome://webui-test/test_mock.js';
 import {eventToPromise, microtasksFinished} from 'chrome://webui-test/test_util.js';
 
-import {ADD_FILE_CONTEXT_FN, createComposeboxElement, getSubmitContainer, getSubmitIcon, MockInputState, setupComposeboxTest} from './test_support.js';
+import {ADD_FILE_CONTEXT_FN, createComposeboxElement, createFuseboxAction, getSubmitContainer, getSubmitIcon, MockInputState, setupComposeboxTest} from './test_support.js';
 
 suite(`NewTabPageComposeboxTest`, () => {
   const testProxy = setupComposeboxTest();
@@ -421,7 +421,10 @@ suite(`NewTabPageComposeboxTest`, () => {
 
         try {
           // Guard off: ImageGen renders the legacy layout.
-          loadTimeData.overrideValues({isAndroid: false});
+          loadTimeData.overrideValues({
+            isAndroid: false,
+            useSearchboxConfigIconIds: false,
+          });
           testProxy.searchboxCallbackRouterRemote.onInputStateChanged(
               new MockInputState({activeTool: ToolMode.kImageGen}));
           await testProxy.searchboxCallbackRouterRemote.$.flushForTesting();
@@ -474,7 +477,10 @@ suite(`NewTabPageComposeboxTest`, () => {
               'Canvas should render the Clank close icon when isAndroid is' +
                   ' true');
         } finally {
-          loadTimeData.overrideValues({isAndroid: false});
+          loadTimeData.overrideValues({
+            isAndroid: false,
+            useSearchboxConfigIconIds: true,
+          });
         }
       });
 
@@ -990,14 +996,12 @@ suite(`NewTabPageComposeboxTest`, () => {
     await composebox.handleFuseboxAction({
       suggestion: 'paste suggestion',
       files: [],
-      fuseboxAction: {
+      fuseboxAction: createFuseboxAction({
         preselectedTool: ToolMode.kDeepSearch,
         preferredInventory: SuggestInventory.kBrainstorm,
         preselectedModel: ModelMode.kGeminiPro,
         queryActionOverride: QueryActionOverride.kPaste,
-        preselectedInputSource: null,
-        searchboxOverride: null,
-      },
+      }),
     });
     await microtasksFinished();
     await composebox.updateComplete;
@@ -1018,14 +1022,9 @@ suite(`NewTabPageComposeboxTest`, () => {
     await composebox.handleFuseboxAction({
       suggestion: 'second suggestion',
       files: [],
-      fuseboxAction: {
-        preselectedTool: null,
-        preferredInventory: null,
-        preselectedModel: null,
+      fuseboxAction: createFuseboxAction({
         queryActionOverride: QueryActionOverride.kPaste,
-        preselectedInputSource: null,
-        searchboxOverride: null,
-      },
+      }),
     });
     await microtasksFinished();
     await composebox.updateComplete;
@@ -1060,14 +1059,9 @@ suite(`NewTabPageComposeboxTest`, () => {
         await composebox.handleFuseboxAction({
           suggestion: '',
           files: [],
-          fuseboxAction: {
-            preselectedTool: null,
-            preferredInventory: null,
-            preselectedModel: null,
-            queryActionOverride: null,
+          fuseboxAction: createFuseboxAction({
             preselectedInputSource: InputSource.kInputSourceGallery,
-            searchboxOverride: null,
-          },
+          }),
         });
         await microtasksFinished();
 
@@ -1093,14 +1087,9 @@ suite(`NewTabPageComposeboxTest`, () => {
         await composebox.handleFuseboxAction({
           suggestion: '',
           files: [],
-          fuseboxAction: {
-            preselectedTool: null,
-            preferredInventory: null,
-            preselectedModel: null,
-            queryActionOverride: null,
+          fuseboxAction: createFuseboxAction({
             preselectedInputSource: InputSource.kInputSourceFilePicker,
-            searchboxOverride: null,
-          },
+          }),
         });
         await microtasksFinished();
 
@@ -1132,14 +1121,9 @@ suite(`NewTabPageComposeboxTest`, () => {
         await composebox.handleFuseboxAction({
           suggestion: '',
           files: [],
-          fuseboxAction: {
-            preselectedTool: null,
-            preferredInventory: null,
-            preselectedModel: null,
-            queryActionOverride: null,
+          fuseboxAction: createFuseboxAction({
             preselectedInputSource: InputSource.kInputSourceTabPicker,
-            searchboxOverride: null,
-          },
+          }),
         });
         await microtasksFinished();
 
@@ -1161,14 +1145,9 @@ suite(`NewTabPageComposeboxTest`, () => {
         await composebox.handleFuseboxAction({
           suggestion: '',
           files: [],
-          fuseboxAction: {
-            preselectedTool: null,
-            preferredInventory: null,
-            preselectedModel: null,
-            queryActionOverride: null,
+          fuseboxAction: createFuseboxAction({
             preselectedInputSource: InputSource.kInputSourceVoice,
-            searchboxOverride: null,
-          },
+          }),
         });
         await microtasksFinished();
 
@@ -1188,14 +1167,9 @@ suite(`NewTabPageComposeboxTest`, () => {
         await composebox.handleFuseboxAction({
           suggestion: 'chip hint',
           files: [],
-          fuseboxAction: {
-            preselectedTool: null,
-            preferredInventory: null,
-            preselectedModel: null,
+          fuseboxAction: createFuseboxAction({
             queryActionOverride: QueryActionOverride.kHint,
-            preselectedInputSource: null,
-            searchboxOverride: null,
-          },
+          }),
         });
         await composebox.updateComplete;
         await composebox.getInputElement().updateComplete;
@@ -1212,46 +1186,43 @@ suite(`NewTabPageComposeboxTest`, () => {
         assertEquals('chip hint', input.getAttribute('placeholder'));
       });
 
-  // TODO(crbug.com/548681676): Verify that actions trigger the contextual
-  // entrypoint energy effect animation only when animation and test mode are
-  // enabled. Update to test TutorialId once the server proto rolls.
-  [false, true].forEach(scaledActionChipsInTestMode => {
-    [false, true].forEach(energyEffectAnimationEnabled => {
-      test(
-          `handleFuseboxAction animation with testMode=${
-              scaledActionChipsInTestMode}, energyEnabled=${
-              energyEffectAnimationEnabled}`,
-          async () => {
-            loadTimeData.overrideValues({scaledActionChipsInTestMode});
-            const composebox = new NtpComposeboxElement();
-            composebox.energyEffectAnimationEnabled =
-                energyEffectAnimationEnabled;
-            document.body.appendChild(composebox);
-            await microtasksFinished();
+  // Verify that actions trigger the contextual entrypoint energy effect
+  // animation only when energyEffectAnimationEnabled is true and
+  // searchboxTutorial requests kGlowPlusButton.
+  [null, SearchboxTutorial.kUnspecified, SearchboxTutorial.kGlowPlusButton]
+      .forEach(searchboxTutorial => {
+        [false, true].forEach(energyEffectAnimationEnabled => {
+          test(
+              `handleFuseboxAction animation with tutorial=${
+                  searchboxTutorial}, energyEnabled=${
+                  energyEffectAnimationEnabled}`,
+              async () => {
+                const composebox = new NtpComposeboxElement();
+                composebox.energyEffectAnimationEnabled =
+                    energyEffectAnimationEnabled;
+                document.body.appendChild(composebox);
+                await microtasksFinished();
 
-            const action = {
-              preselectedTool: ToolMode.kUnspecified,
-              preferredInventory: null,
-              preselectedModel: null,
-              queryActionOverride: null,
-              preselectedInputSource: null,
-              searchboxOverride: null,
-            };
+                const action = createFuseboxAction({
+                  preselectedTool: ToolMode.kUnspecified,
+                  searchboxTutorial,
+                });
 
-            const expectedState =
-                scaledActionChipsInTestMode && energyEffectAnimationEnabled ?
-                GlifAnimationState.STARTED :
-                GlifAnimationState.INELIGIBLE;
-            await composebox.handleFuseboxAction({
-              suggestion: '',
-              files: [],
-              fuseboxAction: action,
-            });
-            await new Promise(resolve => requestAnimationFrame(resolve));
-            assertEquals(expectedState, composebox.glifAnimationState);
-          });
-    });
-  });
+                const expectedState =
+                    searchboxTutorial === SearchboxTutorial.kGlowPlusButton &&
+                        energyEffectAnimationEnabled ?
+                    GlifAnimationState.STARTED :
+                    GlifAnimationState.INELIGIBLE;
+                await composebox.handleFuseboxAction({
+                  suggestion: '',
+                  files: [],
+                  fuseboxAction: action,
+                });
+                await new Promise(resolve => requestAnimationFrame(resolve));
+                assertEquals(expectedState, composebox.glifAnimationState);
+              });
+        });
+      });
 });
 
 // ==========================================================

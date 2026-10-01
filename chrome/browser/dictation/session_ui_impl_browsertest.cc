@@ -22,6 +22,7 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/interaction/browser_elements.h"
+#include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/toasts/api/toast_id.h"
 #include "chrome/browser/ui/toasts/toast_controller.h"
@@ -41,6 +42,7 @@
 #include "extensions/common/switches.h"
 #include "ui/base/interaction/element_tracker.h"
 #include "ui/base/interaction/state_observer.h"
+#include "ui/base/page_transition_types.h"
 #include "ui/views/controls/button/label_button.h"
 #include "url/gurl.h"
 
@@ -116,7 +118,7 @@ class DictationSessionUiImplBrowserTest
   auto CheckShowingToast(ToastId toast_id, bool showing) {
     return Check([this, toast_id, showing]() {
       ToastController* const toast_controller =
-          browser()->GetFeatures().toast_controller();
+          ToastController::From(browser());
       CHECK(toast_controller);
       const bool is_showing_toast =
           toast_controller->IsShowingToast() &&
@@ -748,63 +750,6 @@ IN_PROC_BROWSER_TEST_P(DictationSessionUiImplBrowserTest,
       embedded_test_server()->GetURL("/textinput/simple_textinput.html");
   gfx::Rect target_bounds;
 
-  if (GetParam()) {
-    // clang-format off
-    RunTestSequence(
-      InstrumentTab(kWebContentsElementId),
-      NavigateWebContents(kWebContentsElementId, url),
-      StartSessionWithTarget(kWebContentsElementId, "#text_id"),
-      ObserveSessionStateChanges(),
-      InAnyContext(WaitForShow(DictationOverlayView::kViewElementIdForTesting)),
-      LookupTargetElementBounds(kWebContentsElementId, "#text_id",
-                                target_bounds),
-      ExtensionAPISetStreamState(ExtensionStreamState::kTranscribing),
-      ExtensionAPIUpdateTranscription(
-          ExtensionTranscriptionType::kFinal,
-          "This string is longer than the size of the input element."),
-      CheckElementWithinBounds(DictationOverlayView::kViewElementIdForTesting,
-                               target_bounds),
-      ExtensionAPISetStreamState(ExtensionStreamState::kComplete),
-      WaitForSessionState(SessionState::kInactive),
-      InAnyContext(WaitForHide(DictationOverlayView::kViewElementIdForTesting))
-    );
-    // clang-format on
-  } else {
-    // clang-format off
-    RunTestSequence(
-      InstrumentTab(kWebContentsElementId),
-      NavigateWebContents(kWebContentsElementId, url),
-      StartSessionWithTarget(kWebContentsElementId, "#text_id"),
-      ObserveSessionStateChanges(),
-      InAnyContext(WaitForShow(DictationOverlayView::kViewElementIdForTesting)),
-      LookupTargetElementBounds(kWebContentsElementId, "#text_id",
-                                target_bounds),
-      ExtensionAPISetStreamState(ExtensionStreamState::kTranscribing),
-      ExtensionAPIUpdateTranscription(
-          ExtensionTranscriptionType::kFinal,
-          "This string is longer than the size of the input element."),
-      CheckElementWithinBounds(DictationOverlayView::kViewElementIdForTesting,
-                               target_bounds),
-      ExtensionAPISetStreamState(ExtensionStreamState::kComplete),
-      WaitForSessionState(SessionState::kInactive),
-      // Lingering UI case: verify it is still visible and within bounds.
-      CheckElementWithinBounds(DictationOverlayView::kViewElementIdForTesting,
-                               target_bounds)
-    );
-    // clang-format on
-  }
-}
-
-IN_PROC_BROWSER_TEST_P(DictationSessionUiImplBrowserTest,
-                       AutoSessionEndDelayedShutdownOnAttachedStreamComplete) {
-  if (!GetParam()) {
-    GTEST_SKIP() << "Auto session end only applies to this config.";
-  }
-
-  DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kWebContentsElementId);
-  const GURL url =
-      embedded_test_server()->GetURL("/textinput/simple_textinput.html");
-
   // clang-format off
   RunTestSequence(
     InstrumentTab(kWebContentsElementId),
@@ -812,12 +757,17 @@ IN_PROC_BROWSER_TEST_P(DictationSessionUiImplBrowserTest,
     StartSessionWithTarget(kWebContentsElementId, "#text_id"),
     ObserveSessionStateChanges(),
     InAnyContext(WaitForShow(DictationOverlayView::kViewElementIdForTesting)),
+    LookupTargetElementBounds(kWebContentsElementId, "#text_id", target_bounds),
     ExtensionAPISetStreamState(ExtensionStreamState::kTranscribing),
-    WaitForSessionState(SessionState::kTranscribing),
+    ExtensionAPIUpdateTranscription(
+        ExtensionTranscriptionType::kFinal,
+        "This string is longer than the size of the input element."),
+    CheckElementWithinBounds(DictationOverlayView::kViewElementIdForTesting,
+                             target_bounds),
     ExtensionAPISetStreamState(ExtensionStreamState::kComplete),
     WaitForSessionState(SessionState::kInactive),
-    InAnyContext(WaitForHide(DictationOverlayView::kViewElementIdForTesting)),
-    CheckHasSession(false)
+    CheckElementWithinBounds(DictationOverlayView::kViewElementIdForTesting,
+                             target_bounds)
   );
   // clang-format on
 }

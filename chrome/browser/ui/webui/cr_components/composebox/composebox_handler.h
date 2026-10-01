@@ -11,12 +11,12 @@
 
 #include "base/memory/raw_ptr.h"
 #include "chrome/browser/ui/webui/cr_components/searchbox/contextual_searchbox_handler.h"
+#include "chrome/browser/ui/webui/cr_components/searchbox/contextual_searchbox_screenshare_controller.h"
 #include "components/omnibox/browser/autocomplete_match_type.h"
 #include "components/omnibox/browser/searchbox.mojom.h"
 #include "content/public/browser/web_contents.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/receiver.h"
-#include "mojo/public/cpp/bindings/remote.h"
 #include "third_party/metrics_proto/omnibox_event.pb.h"
 #include "ui/base/window_open_disposition_utils.h"
 #include "ui/webui/resources/cr_components/composebox/composebox.mojom.h"
@@ -61,7 +61,7 @@ class ComposeboxHandler : public composebox::mojom::PageHandler,
  public:
   using ClearSessionHandleCallback = base::RepeatingClosure;
 
-  explicit ComposeboxHandler(
+  ComposeboxHandler(
       mojo::PendingReceiver<composebox::mojom::PageHandler> pending_handler,
       mojo::PendingReceiver<searchbox::mojom::PageHandler>
           pending_searchbox_handler,
@@ -124,10 +124,6 @@ class ComposeboxHandler : public composebox::mojom::PageHandler,
   virtual void ClearSessionHandle();
 
  protected:
-  void ProcessContextAndOpenUrl(
-      GURL url,
-      const WindowOpenDisposition disposition) override;
-
   FRIEND_TEST_ALL_PREFIXES(
       ComposeboxHandlerTest,
       ProcessContextAndOpenUrl_ResetsContextControllerObserver);
@@ -135,7 +131,6 @@ class ComposeboxHandler : public composebox::mojom::PageHandler,
   FRIEND_TEST_ALL_PREFIXES(ComposeboxHandlerTest,
                            SetSmartTabSharingEnabled_FeatureDisabled);
 
- protected:
   ComposeboxHandler(
       mojo::PendingReceiver<composebox::mojom::PageHandler> pending_handler,
       mojo::PendingReceiver<searchbox::mojom::PageHandler>
@@ -145,7 +140,14 @@ class ComposeboxHandler : public composebox::mojom::PageHandler,
       content::WebContents* web_contents,
       std::unique_ptr<OmniboxClient> omnibox_client,
       GetSessionHandleCallback get_session_callback,
-      ClearSessionHandleCallback clear_session_callback);
+      ClearSessionHandleCallback clear_session_callback,
+      ContextualSearchboxScreenshareController::Delegate* screenshare_delegate =
+          nullptr);
+
+  // ContextualSearchboxHandler:
+  void ProcessContextAndOpenUrl(
+      GURL url,
+      const WindowOpenDisposition disposition) override;
 
  private:
   ClearSessionHandleCallback clear_session_callback_;

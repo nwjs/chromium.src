@@ -2,10 +2,12 @@
 <!DOCTYPE translationbundle>
 <translationbundle lang="de">
 <translation id="1184166532603925201">Wenn du im Inkognitomodus bist, verhindert Chrome, dass Websites Drittanbieter-Cookies verwenden</translation>
+<translation id="1365023215312302966">Websites können keine Drittanbieter-Cookies verwenden, um Inhalte und Werbung zu personalisieren oder Informationen zu deinen Aktivitäten auf anderen Websites zu erhalten</translation>
 <translation id="1569440020357229235">Wenn du im Inkognitomodus bist, können Websites keine Drittanbieter-Cookies verwenden. Wenn eine Website, die auf diese Cookies angewiesen ist, nicht funktioniert, <ph name="BEGIN_LINK" />kannst du auf dieser Website vorübergehend Drittanbieter-Cookies zulassen<ph name="END_LINK" />, um das Problem zu beheben.</translation>
 <translation id="2004697686368036666">Einige Websites funktionieren möglicherweise nicht richtig</translation>
 <translation id="2183376768278472507">Wenn eine Website nicht wie erwartet funktioniert, kannst du für eine bestimmte von dir besuchte Website Drittanbieter-Cookies akzeptieren, um das Problem zu beheben</translation>
 <translation id="2235344399760031203">Drittanbieter-Cookies werden blockiert</translation>
+<translation id="2360633687155619995">Websites können keine Drittanbieter-Cookies verwenden, um Inhalte und Werbung zu personalisieren oder Informationen zu deinen Aktivitäten auf anderen Websites zu erhalten. Einige Websites funktionieren möglicherweise nicht wie erwartet.</translation>
 <translation id="2496115946829713659">Websites können Drittanbieter-Cookies verwenden, um Inhalte und Werbung zu personalisieren und Informationen zu deinen Aktivitäten auf anderen Websites zu erhalten</translation>
 <translation id="3045333309254072201">Wenn du im Inkognitomodus bist, können Websites keine Drittanbieter-Cookies verwenden. Wenn eine Website, die auf diese Cookies angewiesen ist, nicht funktioniert, <ph name="START_LINK" />kannst du auf dieser Website vorübergehend Drittanbieter-Cookies zulassen<ph name="END_LINK" />, um das Problem zu beheben.</translation>
 <translation id="3425311689852411591">Websites, die auf Drittanbieter-Cookies angewiesen sind, sollten wie erwartet funktionieren</translation>
@@ -14,11 +16,9 @@
 <translation id="4278390842282768270">Zulässig</translation>
 <translation id="4412992751769744546">Drittanbieter-Cookies zulassen</translation>
 <translation id="4711259472133554310">Du kannst in den Einstellungen Ausnahmen erstellen, um bestimmten Websites das Verwenden von Drittanbieter-Cookies immer zu erlauben</translation>
-<translation id="5117284457376555514">Websites können keine Drittanbieter-Cookies verwenden, um Inhalte und Werbung zu personalisieren oder Informationen zu deinen Aktivitäten auf anderen Websites zu erhalten – es sei denn, du erlaubst ähnlichen Websites den Zugriff darauf Einige Websites funktionieren möglicherweise nicht wie erwartet.</translation>
 <translation id="5677928146339483299">Blockiert</translation>
 <translation id="6196640612572343990">Drittanbieter-Cookies blockieren</translation>
 <translation id="6308169245546905162">Websites können Drittanbieter-Cookies verwenden, um Informationen zu deinen Aktivitäten auf anderen Websites zu erhalten</translation>
-<translation id="6710025070089118043">Websites können keine Drittanbieter-Cookies verwenden, um Inhalte und Werbung zu personalisieren oder Informationen zu deinen Aktivitäten auf anderen Websites zu erhalten – es sei denn, du erlaubst ähnlichen Websites den Zugriff darauf</translation>
 <translation id="7315780377187123731">Weitere Informationen zur Option „Drittanbieter-Cookies blockieren“</translation>
 <translation id="7374493521304367420">Websites können weiterhin Cookies verwenden, um Browseraktivitäten auf der eigenen Website zu sehen</translation>
 <translation id="7453144832830554937">Websitefunktionen, die auf Drittanbieter-Cookies angewiesen sind, funktionieren möglicherweise nicht</translation>
@@ -26,5 +26,4 @@
 <translation id="8200078544056087897">Websitefunktionen, die auf Drittanbieter-Cookies angewiesen sind, sollten wie erwartet funktionieren</translation>
 <translation id="839994149685752920">Websites können Drittanbieter-Cookies verwenden, um Inhalte und Werbung zu personalisieren</translation>
 <translation id="9039924186462989565">Wenn du im Inkognitomodus bist, verhindert Chromium, dass Websites Drittanbieter-Cookies verwenden</translation>
-<translation id="9162335340010958530">Websites können keine Drittanbieter-Cookies verwenden, um Inhalte und Werbung zu personalisieren oder Informationen zu deinen Aktivitäten auf anderen Websites zu erhalten – es sei denn, du erlaubst ähnlichen Websites den Zugriff darauf</translation>
 </translationbundle>

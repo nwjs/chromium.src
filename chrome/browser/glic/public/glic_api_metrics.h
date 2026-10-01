@@ -66,6 +66,7 @@ enum class GlicHostApiRequestId {
   kUnpinAllTabs = 51,
   kSubscribeToPinCandidates = 52,
   kGetZeroStateSuggestionsForFocusedTab = 54,
+  kGetZeroStateSuggestionsAndSubscribe = 55,
   kSetClosedCaptioningSetting = 56,
   kDropScrollToHighlight = 57,
   kMaybeRefreshUserStatus = 58,
@@ -111,8 +112,11 @@ enum class GlicHostApiRequestId {
   kActivateTabWithUrl = 102,
   kUpdateActorTaskStepProgress = 103,
   kOpenPinnedTabPicker = 104,
+  kOpenContactInfoSettingsPage = 105,
 };
-// LINT.ThenChange(//tools/metrics/histograms/metadata/glic/enums.xml:GlicHostApiRequestType)
+// LINT.ThenChange(
+// //tools/metrics/histograms/metadata/glic/histograms.xml:ApiRequestType,
+// //tools/metrics/histograms/metadata/glic/enums.xml:GlicHostApiRequestType)
 
 // Returns the string name for a GlicHostApiRequestId (e.g. "CreateSkill").
 std::string_view ToString(GlicHostApiRequestId request_id);

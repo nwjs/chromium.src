@@ -11,8 +11,22 @@ export function getHtml(this: OrganizerListSectionElement) {
   return html`<!--_html_template_start_-->
 <h2 id="header">${this.delegate?.getHeader() || ''}</h2>
 <div id="items" role="list">
-  ${this.delegate?.getItems()?.map(item => html`
-    <organizer-list-section-item .item="${item}" role="listitem">
+  ${this.getInitialItems_().map(item => html`
+    <organizer-list-section-item .item="${item}" role="listitem"
+        @click="${this.onItemClick_}"
+        @action-button-click="${this.onItemActionButtonClick_}">
+    </organizer-list-section-item>
+  `)}
+  ${this.hasMoreItems_() ? html`
+    <cr-expand-button id="expandButton" ?expanded="${this.expanded_}"
+        @expanded-changed="${this.onExpandedChanged_}">
+      Show more
+    </cr-expand-button>
+  ` : ''}
+  ${this.getRemainingItems_().map(item => html`
+    <organizer-list-section-item .item="${item}" role="listitem"
+        @click="${this.onItemClick_}"
+        @action-button-click="${this.onItemActionButtonClick_}">
     </organizer-list-section-item>
   `)}
 </div>

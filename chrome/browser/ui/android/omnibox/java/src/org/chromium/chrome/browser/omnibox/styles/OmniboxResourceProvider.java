@@ -60,11 +60,13 @@ import java.util.function.Function;
 /**
  * Provides resources specific to Omnibox.
  *
- * <p>This class is currently being migrated to an instance-based calls to remove the requirement
- * that each of its clients caches a lot of state information, possibly leading to an inconsistent
- * UI and overabundance of caching.
+ * <p>This class is actively being migrated to instance methods to remove the requirement that each
+ * of its clients caches state information, which can lead to an inconsistent UI and an
+ * overabundance of caching.
  *
- * <p>Where possible please use an Instance. Static methods are set to be retired.
+ * <p><b>NOTE: No new static methods should be added to this class.</b> The component is being
+ * migrated to instance methods. Where possible, please use an {@link OmniboxResourceProvider}
+ * instance. Existing static methods are set to be retired.
  */
 @NullMarked
 public class OmniboxResourceProvider implements ComponentCallbacks2 {
@@ -466,6 +468,28 @@ public class OmniboxResourceProvider implements ComponentCallbacks2 {
         return mCache.getDimen(R.dimen.omnibox_small_icon_rounding_radius);
     }
 
+    /** Returns the layout size of the status icon in pixels. */
+    public @Px int getStatusIconSize() {
+        if (OmniboxCapabilities.isDesktopPlatform()) {
+            return mCache.getDimen(R.dimen.omnibox_search_engine_logo_composed_size_desktop);
+        }
+        return mCache.getDimen(R.dimen.omnibox_search_engine_logo_composed_size);
+    }
+
+    /**
+     * Returns the dimension resource ID for the status icon corner radius.
+     *
+     * @param focused Whether the omnibox input field currently has focus.
+     */
+    public @DimenRes int getStatusIconCornerRadiusRes(boolean focused) {
+        if (focused && OmniboxFeatures.sPreviewMatchFavicons.isEnabled()) {
+            return R.dimen.omnibox_small_icon_rounding_radius;
+        }
+        return OmniboxCapabilities.isDesktopPlatform()
+                ? R.dimen.omnibox_search_engine_logo_composed_half_size_desktop
+                : R.dimen.omnibox_search_engine_logo_composed_half_size;
+    }
+
     /** Get most visited carousel top padding. */
     public @Px int getMostVisitedCarouselTopPadding() {
         return mCache.getDimen(R.dimen.omnibox_carousel_suggestion_padding_smaller);
@@ -775,6 +799,12 @@ public class OmniboxResourceProvider implements ComponentCallbacks2 {
         return getDrawable(resId);
     }
 
+    // ============================================================================================
+    // Static methods.
+    // NOTE: Do not add new static methods here. The component is actively being migrated to
+    // instance methods; any new capabilities must be added as instance methods instead.
+    // ============================================================================================
+
     /**
      * As {@link android.content.res.Resources#getString(int, Object...)} but potentially augmented
      * with caching. If caching is enabled, there is a single, unbounded string cache shared by all
@@ -811,31 +841,8 @@ public class OmniboxResourceProvider implements ComponentCallbacks2 {
                         (Object[]) args);
     }
 
-    public static void disableCachesForTesting() {
-        sStringCache =
-                new SparseArray<>() {
-                    @Override
-                    public @Nullable String get(int key) {
-                        return null;
-                    }
-
-                    @Override
-                    public String get(int key, String valueIfKeyNotFound) {
-                        return valueIfKeyNotFound;
-                    }
-                };
-    }
-
-    public static void reenableCachesForTesting() {
-        sStringCache = new SparseArray<>();
-    }
-
-    public static SparseArray<String> getStringCacheForTesting() {
-        return sStringCache;
-    }
-
     /**
-     * Returns a drawable for a given attribute depending on a {@link BrandedColorScheme}
+     * Returns a drawable for a given attribute depending on a {@link BrandedColorScheme}.
      *
      * @param context The {@link Context} used to retrieve resources.
      * @param brandedColorScheme {@link BrandedColorScheme} to use.
@@ -897,11 +904,6 @@ public class OmniboxResourceProvider implements ComponentCallbacks2 {
         return color;
     }
 
-    public static void setUrlBarPrimaryTextColorForTesting(@ColorInt int value) {
-        sUrlBarPrimaryTextColorForTesting = value;
-        ResettersForTesting.register(() -> sUrlBarPrimaryTextColorForTesting = null);
-    }
-
     /**
      * Returns the secondary text color for the url bar.
      *
@@ -937,11 +939,6 @@ public class OmniboxResourceProvider implements ComponentCallbacks2 {
             return sUrlBarHintTextColorForTesting;
         }
         return getUrlBarSecondaryTextColor(context, brandedColorScheme);
-    }
-
-    public static void setUrlBarHintTextColorForTesting(@ColorInt int value) {
-        sUrlBarHintTextColorForTesting = value;
-        ResettersForTesting.register(() -> sUrlBarHintTextColorForTesting = null);
     }
 
     /**
@@ -1451,6 +1448,39 @@ public class OmniboxResourceProvider implements ComponentCallbacks2 {
 
     public static void setTabFaviconFactory(Function<Tab, @Nullable Bitmap> tabFaviconFactory) {
         sTabFaviconFactory = tabFaviconFactory;
+    }
+
+    public static void disableCachesForTesting() {
+        sStringCache =
+                new SparseArray<>() {
+                    @Override
+                    public @Nullable String get(int key) {
+                        return null;
+                    }
+
+                    @Override
+                    public String get(int key, String valueIfKeyNotFound) {
+                        return valueIfKeyNotFound;
+                    }
+                };
+    }
+
+    public static void reenableCachesForTesting() {
+        sStringCache = new SparseArray<>();
+    }
+
+    public static SparseArray<String> getStringCacheForTesting() {
+        return sStringCache;
+    }
+
+    public static void setUrlBarPrimaryTextColorForTesting(@ColorInt int value) {
+        sUrlBarPrimaryTextColorForTesting = value;
+        ResettersForTesting.register(() -> sUrlBarPrimaryTextColorForTesting = null);
+    }
+
+    public static void setUrlBarHintTextColorForTesting(@ColorInt int value) {
+        sUrlBarHintTextColorForTesting = value;
+        ResettersForTesting.register(() -> sUrlBarHintTextColorForTesting = null);
     }
 
     ResourceCache getCacheForTesting() {

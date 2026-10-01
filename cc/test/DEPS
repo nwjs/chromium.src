@@ -14,6 +14,7 @@ include_rules = [
   "+services/viz/privileged/mojom/gl/gpu_host.mojom.h",
   "+services/viz/public/mojom/compositing/compositor_frame_sink.mojom.h",
   "+ui/base/ui_base_features.h",
+  "+ui/gl"
 ]
 
 specific_include_rules = {
@@ -26,10 +27,6 @@ specific_include_rules = {
   "pixel_test\\.h": [
     "+gpu/command_buffer/service/shared_image/shared_image_manager.h",
     "+gpu/command_buffer/service/sync_point_manager.h",
-  ],
-  "pixel_test\\.cc": [
-    "+gpu/command_buffer/service/service_utils.h",
-    "+gpu/config/gpu_switches.h",
   ],
   "layer_tree_test\\.cc": [
     "+gpu/config/gpu_switches.h",

@@ -144,7 +144,7 @@ class BLINK_EXPORT WebLocalFrame : public WebFrame {
       CrossVariantMojoRemote<mojom::BrowserInterfaceBrokerInterfaceBase>,
       const LocalFrameToken& frame_token,
       const DocumentToken& document_token,
-      const base::UnguessableToken& initiator_state_token,
+      const InitiatorStateToken& initiator_state_token,
       std::unique_ptr<blink::WebPolicyContainer> policy_container,
       WebFrame* opener = nullptr,
       const WebString& name = WebString(),
@@ -227,7 +227,7 @@ class BLINK_EXPORT WebLocalFrame : public WebFrame {
   }
 
   virtual WebDocument GetDocument() const = 0;
-  virtual base::UnguessableToken GetInitiatorStateToken() const = 0;
+  virtual InitiatorStateToken GetInitiatorStateToken() const = 0;
 
   // The name of this frame. If no name is given, empty string is returned.
   virtual WebString AssignedName() const = 0;
@@ -457,10 +457,10 @@ class BLINK_EXPORT WebLocalFrame : public WebFrame {
                                         v8::Local<v8::Value> argv[],
                                         WebScriptExecutionCallback) = 0;
 
-  // Executes the script in the main world of the page.
+  // Executes the script in the specified world of the page.
   // Use kMainDOMWorldId to execute in the main world; otherwise,
   // `world_id` must be a positive integer and less than kEmbedderWorldIdLimit.
-  // If `is_injected_extension_script` is true, the script is marked by the
+  // If `script_injector_id` is non-empty, the script is marked by the
   // ExtensionScriptTracker.
   virtual void RequestExecuteScript(int32_t world_id,
                                     base::span<const WebScriptSource> sources,
@@ -471,7 +471,7 @@ class BLINK_EXPORT WebLocalFrame : public WebFrame {
                                     BackForwardCacheAware,
                                     mojom::WantResultOption,
                                     mojom::PromiseResultOption,
-                                    bool is_injected_extension_script) = 0;
+                                    const WebString& script_injector_id) = 0;
 
   // Returns if devtools is connected to the frame.
   virtual bool IsInspectorConnected() = 0;
@@ -894,10 +894,6 @@ class BLINK_EXPORT WebLocalFrame : public WebFrame {
   // stack. This is the same method used to compute the below bit which will
   // persist.
   virtual bool IsAdScriptInStack() const = 0;
-
-  // This is used to check if a script tagged as an extension is currently on
-  // the v8 stack.
-  virtual bool IsExtensionScriptInStack() const = 0;
 
   // True iff a script tagged as an ad was on the v8 stack when the frame was
   // created. This is not currently propagated when a frame navigates

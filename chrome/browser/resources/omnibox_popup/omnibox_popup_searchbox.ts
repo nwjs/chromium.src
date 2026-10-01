@@ -14,8 +14,9 @@ import type {SearchboxInputElement} from '//resources/cr_components/searchbox/se
 import {kDefaultSelection} from '//resources/cr_components/searchbox/searchbox_match.js';
 import type {SearchboxMixinInterface} from '//resources/cr_components/searchbox/searchbox_mixin.js';
 import {SearchboxMixin} from '//resources/cr_components/searchbox/searchbox_mixin.js';
+import type {OmniboxPopupSelection, SelectionDirection, SelectionStep} from '//resources/cr_components/searchbox/searchbox_selection_mixin.js';
 import {selectionIsNativelySupported, selectionsEqual} from '//resources/cr_components/searchbox/searchbox_selection_mixin.js';
-import {markOnce, sanitizeTextForPaste} from '//resources/cr_components/searchbox/utils.js';
+import {afterNextPaint, markOnce, sanitizeTextForPaste} from '//resources/cr_components/searchbox/utils.js';
 import {I18nMixinLit} from '//resources/cr_elements/i18n_mixin_lit.js';
 import {WebUiListenerMixinLit} from '//resources/cr_elements/web_ui_listener_mixin_lit.js';
 import {EventTracker} from '//resources/js/event_tracker.js';
@@ -24,7 +25,7 @@ import {isMac} from '//resources/js/platform.js';
 import type {PropertyValues} from '//resources/lit/v3_0/lit.rollup.js';
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
 import {SelectionLineState} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
-import type {PageCallbackRouter as SearchboxPageCallbackRouter, PageHandlerInterface as SearchboxPageHandlerInterface} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
+import type {AutocompleteResult, PageCallbackRouter as SearchboxPageCallbackRouter, PageHandlerInterface as SearchboxPageHandlerInterface} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 import type {Url} from '//resources/mojo/url/mojom/url.mojom-webui.js';
 
 import {browserProxyFactory, OmniboxEscapeAction} from './omnibox_popup.mojom-webui.js';
@@ -205,16 +206,26 @@ export class OmniboxPopupSearchboxElement extends
         type: Boolean,
         reflect: true,
       },
+      isLensSearchEligible_: {
+        type: Boolean,
+      },
     };
   }
 
-  override accessor virtualFocusEnabled: boolean =
-      loadTimeData.valueExists('omniboxPopupVirtualFocusNavigation') &&
-      loadTimeData.getBoolean('omniboxPopupVirtualFocusNavigation');
+  override accessor virtualFocusEnabled: boolean = true;
+
+  override setSelection(selection: OmniboxPopupSelection) {
+    super.setSelection(selection);
+    if (this.virtualFocusEnabled &&
+        this.selectedMatchIndex !== selection.line) {
+      this.selectedMatchIndex = selection.line;
+    }
+  }
   accessor canShowSecondarySide: boolean =
       canShowSecondarySideMediaQueryList.matches;
   accessor hasSecondarySide: boolean = false;
   accessor isLogicallyFocused_: boolean = false;
+  accessor isLensSearchEligible_: boolean = false;
   accessor hasInputSelection_: boolean = false;
   accessor searchboxChromeRefreshTheming: boolean =
       loadTimeData.getBoolean('searchboxCr23Theming');
@@ -228,6 +239,8 @@ export class OmniboxPopupSearchboxElement extends
       loadTimeData.getBoolean('searchboxVoiceSearch');
   protected accessor searchboxLensSearchEnabled_: boolean =
       loadTimeData.getBoolean('searchboxLensSearch');
+  private isComposeboxChipEnabled_: boolean =
+      loadTimeData.getBoolean('composeboxShowChip');
   protected accessor useWebkitSearchIcons_: boolean = false;
   override accessor multiLineEnabled: boolean =
       loadTimeData.getBoolean('searchboxMultiline');
@@ -341,6 +354,13 @@ export class OmniboxPopupSearchboxElement extends
               icon: iconUrl,
             };
           }),
+      this.searchboxCallbackRouter_.updateLensSearchEligibility.addListener(
+          (eligible: boolean) => {
+            this.isLensSearchEligible_ = eligible;
+            if (this.isComposeboxChipEnabled_) {
+              this.updateDropdownVisibility();
+            }
+          }),
     ];
     this.popupListenerIds_ = [
       this.popupCallbackRouter_.setInputState.addListener(
@@ -413,6 +433,16 @@ export class OmniboxPopupSearchboxElement extends
   }
 
   override willUpdate(changedProperties: PropertyValues<this>) {
+    if (this.virtualFocusEnabled &&
+        changedProperties.has('selectedMatchIndex') &&
+        this.selectedMatchIndex !== this.selection.line) {
+      this.setSelection(this.selectedMatchIndex === -1 ? kDefaultSelection : {
+        line: this.selectedMatchIndex,
+        state: SelectionLineState.kNormal,
+        actionIndex: 0,
+      });
+    }
+
     super.willUpdate(changedProperties);
 
     if (changedProperties.has('searchboxChromeRefreshTheming')) {
@@ -429,36 +459,29 @@ export class OmniboxPopupSearchboxElement extends
         null;
   }
 
-  override firstUpdated(changedProperties: PropertyValues<this>) {
-    super.firstUpdated(changedProperties);
-    this.initialInputScrollHeight = this.$.input.inputElement.scrollHeight;
-  }
-
   override updated(changedProperties: PropertyValues<this>) {
     super.updated(changedProperties);
 
-    if (this.virtualFocusEnabled) {
-      if (changedProperties.has('selection')) {
+    if (changedProperties.has('selection') ||
+        changedProperties.has('selectedMatchIndex')) {
+      // Guard against transient out-of-bounds indices when autocomplete
+      // results are being cleared or updated asynchronously. The backend will
+      // be synced once the new valid results are rendered.
+      if (this.selectedMatchIndex !== -1 &&
+          (!this.result || !this.result.matches ||
+           this.selectedMatchIndex >= this.result.matches.length)) {
+        return;
+      }
+      if (this.virtualFocusEnabled) {
         this.searchboxPageHandler_.setPopupSelection(
             selectionIsNativelySupported(this.selection) ? this.selection :
                                                            kDefaultSelection);
 
         const entrypoint = this.getContextualEntrypointButton();
         if (entrypoint) {
-          entrypoint.hasPopupFocus = this.selection.state ===
-              SelectionLineState.kFocusedButtonContextEntrypoint;
+          entrypoint.hasVirtualFocus = this.isContextEntrypointVirtualFocused();
         }
-      }
-    } else {
-      if (changedProperties.has('selectedMatchIndex')) {
-        // Guard against transient out-of-bounds indices when autocomplete
-        // results are being cleared or updated asynchronously. The backend will
-        // be synced once the new valid results are rendered.
-        if (this.selectedMatchIndex !== -1 &&
-            (!this.result || !this.result.matches ||
-             this.selectedMatchIndex >= this.result.matches.length)) {
-          return;
-        }
+      } else {
         // Synchronize selection changes driven by WebUI back to C++. This
         // ensures the backend edit model is aware of the active selection and
         // can preserve it across tab switches.
@@ -469,6 +492,16 @@ export class OmniboxPopupSearchboxElement extends
               actionIndex: 0,
             });
       }
+    }
+
+    const changedPrivateProperties =
+        changedProperties as Map<PropertyKey, unknown>;
+    if (changedProperties.has('selectedMatchIndex') ||
+        changedProperties.has('selection') ||
+        changedProperties.has('selectedMatch') ||
+        changedProperties.has('result') ||
+        changedPrivateProperties.has('aimButtonVisible_')) {
+      this.updateAimButtonCollapse_();
     }
   }
 
@@ -519,6 +552,13 @@ export class OmniboxPopupSearchboxElement extends
     this.getContextualEntrypointButton()?.showContextMenu();
   }
 
+  override stepCyclesSelection(
+      _result: AutocompleteResult|null, _from: OmniboxPopupSelection,
+      _direction: SelectionDirection, _step: SelectionStep): boolean {
+    // In Omnibox, cycle within the popup matches rather than exiting.
+    return false;
+  }
+
   /**
    * Clears frontend autocomplete matches and reverts C++ `OmniboxEditModel`.
    * Kept separate from `clearAutocompleteMatches()`, which is called internally
@@ -528,20 +568,79 @@ export class OmniboxPopupSearchboxElement extends
     this.clearAutocompleteMatches();
     this.popupPageHandler_.revert(this.currentSequenceNum_);
   }
-
-  // TODO(crbug.com/528331161): Unify this with the NTP searchbox logic and move
-  // it to SearchboxMixin.
-  override updateDropdownVisibility() {
-    super.updateDropdownVisibility();
-
-    if (this.multiLineEnabled && this.dropdownIsVisible) {
-      const shouldSuppressDropdown = this.initialInputScrollHeight > 0 &&
-          this.$.input.inputElement.scrollHeight >
-              this.initialInputScrollHeight;
-      if (shouldSuppressDropdown) {
-        this.dropdownIsVisible = false;
-      }
+  /**
+   * Determines whether the dropdown should be visible considering contextual
+   * chips because the header "Ask Google about this page" is suppressed when
+   * this chip mode is enabled.
+   * TODO(crbug.com/555355466): Clean up contextual chip visibility logic.
+   */
+  override shouldDropdownBeVisible(): boolean {
+    const hasContextualChips =
+        this.isComposeboxChipEnabled_ && this.isLensSearchEligible_;
+    return this.hasMatches() || hasContextualChips;
+  }
+  /**
+   * Dispatches an autocomplete query to the browser process via Mojo.
+   *
+   * Overridden to record a performance mark when an autocomplete query is
+   * dispatched over Mojo while the dropdown is closed.
+   */
+  override queryAutocomplete(
+      input: string, preventInlineAutocomplete: boolean,
+      isOnFocus: boolean): void {
+    if (!this.dropdownIsVisible) {
+      performance.mark('OmniboxPopupSearchboxElement::queryAutocomplete');
     }
+    super.queryAutocomplete(input, preventInlineAutocomplete, isOnFocus);
+  }
+
+  /**
+   * Handles autocomplete results received from the browser process via Mojo.
+   *
+   * Overridden to record performance marks when match results are received
+   * over IPC and when they have finished painting to the screen.
+   */
+  // TODO(crbug.com/553005514): Extract performance marks and `afterNextPaint`
+  // logic tracking into a dedicated PerformanceTracker helper class / util.
+  override async onAutocompleteResultChanged(result: AutocompleteResult):
+      Promise<void> {
+    if (this.isAutocompleteResultStale(result)) {
+      return;
+    }
+    // Snapshot visibility BEFORE applying results. `super` will mutate
+    // `this.dropdownIsVisible` to true if matches are present, so capturing
+    // this upfront is the only way to detect a closed -> open transition.
+    const wasDropdownVisible = this.dropdownIsVisible;
+
+    performance.mark(
+        'OmniboxPopupSearchboxElement::onAutocompleteResultChanged:ResultsReceived');
+    await super.onAutocompleteResultChanged(result);
+
+    // If these results didn't produce a visible dropdown (ex: 0 matches),
+    // don't schedule paint or emit marks.
+    if (!this.dropdownIsVisible) {
+      return;
+    }
+
+    // True if this specific result transitioned the dropdown from closed to
+    // open (as opposed to updating results in an already opened dropdown).
+    const isPopupNewlyOpened = !wasDropdownVisible;
+
+    afterNextPaint(() => {
+      // Abort if a newer query superseded this result or if the dropdown was
+      // closed (ex: Escape pressed) before this frame finished painting.
+      if (this.isAutocompleteResultStale(result) || !this.dropdownIsVisible) {
+        return;
+      }
+      // Mark when the popup first appears on screen.
+      if (isPopupNewlyOpened) {
+        performance.mark(
+            'OmniboxPopupSearchboxElement::onAutocompleteResultChanged:PopupOpened');
+      }
+      // Mark the visual presentation of matches for this query.
+      performance.mark(
+          'OmniboxPopupSearchboxElement::onAutocompleteResultChanged:ResultsRendered');
+    });
   }
 
   isInputEmpty(): boolean {
@@ -589,16 +688,21 @@ export class OmniboxPopupSearchboxElement extends
     this.showFullUrlOnDeselect_();
     // If nothing is selected, a mouse click should select all the text
     // if the input is not already focused. (i.e. focusing on omnibox).
+    const input = this.getInputElement().inputElement;
     if (!this.dropdownIsVisible &&
         this.shadowRoot?.activeElement !== this.$.input) {
       // Only handle left (0) and middle (1) mouse button clicks.
       if (e.button === 0 || e.button === 1) {
-        const input = this.getInputElement().inputElement;
         if (input.selectionStart === input.selectionEnd) {
           this.selectAllOnMouseRelease_ = true;
           input.select();
         }
       }
+    }
+    if (e.button === 0 && e.composedPath().includes(input)) {
+      this.onInputFocusChanged(new CustomEvent('input-focus-changed', {
+        detail: {value: input.value, isOnFocus: !input.value},
+      }));
     }
   }
 
@@ -736,11 +840,19 @@ export class OmniboxPopupSearchboxElement extends
         this.currentSequenceNum_, isCut, oldValue, {start, end});
 
     if (isCut) {
-      const newValue = oldValue.substring(0, start) + oldValue.substring(end);
+      this.textfieldModel_.selectRange({start, end});
+      this.textfieldModel_.cut();
+      this.lastInputText_ = this.textfieldModel_.text;
+      this.lastInputSelection_ = this.textfieldModel_.selection;
+      this.updateEditHistoryState_();
+
+      const newValue = this.textfieldModel_.text;
+      const cursorPos = this.lastInputSelection_.end;
+
       this.userInputInProgress_ = true;
       this.hasUserInput_ = !!newValue.trim();
       this.getInputElement().setInput({text: newValue, inline: ''});
-      this.getInputElement().setSelectionRange(start, start);
+      this.getInputElement().setSelectionRange(cursorPos, cursorPos);
 
       if (newValue.trim()) {
         this.queryAutocomplete(
@@ -839,7 +951,10 @@ export class OmniboxPopupSearchboxElement extends
    */
   private onSetInputState_(state: OmniboxInputState) {
     markOnce('OmniboxPopupSearchboxElement::onSetInputState_');
-    const isTabSwitch = this.tabId_ !== state.tabId;
+    if (state.isTabSwitch) {
+      performance.mark(
+          'OmniboxPopupSearchboxElement::onSetInputState_:TabSwitch');
+    }
     this.$.input.setInputText(state.text);
     this.userInputInProgress_ = state.userInputInProgress;
     this.hasUserInput_ = state.userInputInProgress && !!state.text.trim();
@@ -849,20 +964,25 @@ export class OmniboxPopupSearchboxElement extends
     this.lastQueriedInput = state.text;
     this.permanentDisplayText_ = state.permanentDisplayText;
     this.isComposing_ = false;
+    const keywordChanged =
+        this.inputKeywordModel?.keyword !== state.keywordModel?.keyword ||
+        this.inputKeywordModel?.type !== state.keywordModel?.type;
     this.inputKeywordModel = state.keywordModel;
     this.lastInputText_ = state.text;
     this.lastInputSelection_ = state.selection;
     // Clear edit history and set baseline text on hard state resets (e.g. tab
     // switch, revert), but preserve active edit history if an IPC arrives
     // while the user is actively typing in the same tab.
-    if (isTabSwitch || !state.userInputInProgress) {
+    if (state.isTabSwitch || !state.userInputInProgress) {
       this.textfieldModel_.setInitialText(state.text, state.selection);
     }
     this.updateEditHistoryState_();
 
-    // Clear any stale results and close the dropdown on a hard state reset.
-    // Clear results here since focusout event may not fire.
-    this.clearAutocompleteMatches();
+    // Prevent stale matches from a different context from lingering.
+    if (state.isTabSwitch || !state.isFocused || keywordChanged ||
+        (!state.userInputInProgress && !state.queryZps)) {
+      this.clearAutocompleteMatches();
+    }
 
     this.isLogicallyFocused_ = state.isFocused;
 
@@ -888,16 +1008,22 @@ export class OmniboxPopupSearchboxElement extends
     this.selectRange(state.selection);
     this.getDropdownElement().unselect();
 
-    // Records user timing marks when the input field is focused and the caret
-    // is positioned in the DOM without text selection, indicating readiness
-    // for user input. The first invocation marks the startup of the browser,
-    // while the subsequent focus event marks the first, warm new tab focus.
-    // Placed before `queryAutocomplete()` to isolate input hydration from ZPS
-    // query dispatch.
-    // TODO(crbug.com/553005514): Distinguish between New Tab Creation and Tab
-    // Switch Restoration.
-    if (state.isFocused && document.visibilityState === 'visible' &&
+    // Records user timing marks for tab state restoration and browser/tab
+    // focus readiness.
+    // TODO(crbug.com/553005514): - Add `afterNextPaint` for more accurate tab
+    // switch timing, if necessary.
+    if (state.isTabSwitch && state.isFocused) {
+      performance.mark(
+          'OmniboxPopupSearchboxElement::onSetInputState_:TabSwitchCaretReady');
+    } else if (
+        state.isFocused && document.visibilityState === 'visible' &&
         !this.hasInputSelection_) {
+      // Records user timing marks when the input field is focused and the caret
+      // is positioned in the DOM without text selection, indicating readiness
+      // for user input. The first invocation marks the startup of the browser,
+      // while the subsequent focus event marks the first, warm new tab focus.
+      // Placed before `queryAutocomplete()` to isolate input hydration from ZPS
+      // query dispatch.
       if (!markOnce(
               'OmniboxPopupSearchboxElement::onSetInputState_:StartupCaretReady')) {
         markOnce(
@@ -920,20 +1046,28 @@ export class OmniboxPopupSearchboxElement extends
   /**
    * Called by C++ via `SetFocus` Mojo IPC when the browser refocuses the
    * Omnibox while the popup is already open (or during tab restoration). If the
-   * document is visible, focuses and selects all input text immediately.
-   * If hidden, defers the action until `visibilitychange`.
+   * document is visible, focuses the input element while preserving the
+   * active selection range. If hidden, defers the focus action until
+   * `visibilitychange`.
    */
-  private onSetFocus_(isFocused: boolean, queryZps: boolean = false) {
+  private onSetFocus_(
+      isFocused: boolean, queryZps: boolean = false,
+      selectAll: boolean = false) {
     this.isLogicallyFocused_ = isFocused;
     if (isFocused) {
       if (document.visibilityState === 'visible') {
         this.deferredFocusAction_ = null;
         this.$.input.focus();
-        this.getInputElement().select();
+        if (selectAll) {
+          this.getInputElement().select();
+        }
       } else {
-        // Defer focusing and selecting text if the document is currently
-        // hidden, as DOM focus calls on hidden documents may be ignored.
-        this.deferredFocusAction_ = DeferredFocusAction.FOCUS_AND_SELECT;
+        // Defer focusing (and selecting text if selectAll is true) if the
+        // document is currently hidden, as DOM focus calls on hidden documents
+        // may be ignored.
+        this.deferredFocusAction_ = selectAll ?
+            DeferredFocusAction.FOCUS_AND_SELECT :
+            DeferredFocusAction.FOCUS;
       }
       if (queryZps && !this.userInputInProgress_ && !this.dropdownIsVisible) {
         this.queryAutocomplete(
@@ -1274,6 +1408,7 @@ export class OmniboxPopupSearchboxElement extends
       // verbatim input text (or reload the permanent URL).
       e.preventDefault();
       this.pageHandler().openAutocompleteMatch(
+          /*resultSequenceId=*/ this.result?.sequenceId ?? 0,
           /*line=*/ -1,
           /*url=*/ '',
           /*areMatchesShowing=*/ this.dropdownIsVisible,
@@ -1287,15 +1422,63 @@ export class OmniboxPopupSearchboxElement extends
       return;
     }
 
-    if (!this.virtualFocusEnabled && e.key === 'Tab' &&
-        this.$.input === this.shadowRoot?.activeElement) {
-      if (!e.shiftKey &&
-          this.keywordModeManager.acceptTab(
-              this.selectedMatch, this.matchIndex)) {
-        e.preventDefault();
+    if (e.key === 'Tab') {
+      const isShift = e.shiftKey;
+      const isAimButtonFocused = this.isAiModeVirtualFocused() ||
+          this.shadowRoot?.activeElement === this.$.composeButton;
+      const isInputFocused = this.$.input === this.shadowRoot?.activeElement;
+
+      if (this.dropdownIsVisible) {
+        if (!this.virtualFocusEnabled) {
+          if (!isShift &&
+              this.keywordModeManager.acceptTab(
+                  this.selectedMatch, this.matchIndex)) {
+            e.preventDefault();
+            return;
+          }
+          if (this.acceptInlineAutocomplete(e)) {
+            return;
+          }
+        }
+        super.handleKeyNavigation(e);
         return;
       }
-      if (this.acceptInlineAutocomplete(e)) {
+
+      if (isAimButtonFocused) {
+        e.preventDefault();
+        this.setSelection(kDefaultSelection);
+        if (isShift) {
+          // Shift+Tab from AIM button moves focus back to the omnibox input.
+          this.getInputElement().focus();
+          return;
+        }
+        // If dropdown is closed / no suggestions, advance focus out of the
+        // omnibox.
+        this.popupPageHandler_.advanceFocus(/*reverse=*/ false);
+        return;
+      }
+
+      if (isInputFocused) {
+        if (!isShift) {
+          e.preventDefault();
+          // Forward Tab from input: always focus the AIM button first if
+          // visible.
+          if (this.aimButtonVisible_) {
+            this.$.composeButton.focus();
+            return;
+          }
+
+          // Advance focus out of the omnibox.
+          this.popupPageHandler_.advanceFocus(/*reverse=*/ false);
+          return;
+        }
+
+        // Shift+Tab from input:
+        e.preventDefault();
+
+        // Advance focus backwards out
+        // of the omnibox (e.g. to the Reload button).
+        this.popupPageHandler_.advanceFocus(/*reverse=*/ true);
         return;
       }
     }
@@ -1311,12 +1494,23 @@ export class OmniboxPopupSearchboxElement extends
     // (selectedMatchIndex > 0 or non-default match/action highlighted),
     // restores typed query and resets match selection to index 0. Dropdown
     // stays open and focus stays in Omnibox.
-    const hasTemporaryText = this.selectedMatchIndex > 0 ||
-        (dropdown && dropdown.selection &&
-         dropdown.selection.state !== SelectionLineState.kNormal);
+    const selectedLine = this.virtualFocusEnabled ? this.selection.line :
+                                                    this.selectedMatchIndex;
+    const selectedState = this.virtualFocusEnabled ?
+        this.selection.state :
+        (dropdown?.selection?.state ?? SelectionLineState.kNormal);
+    const hasTemporaryText =
+        selectedLine > 0 || selectedState !== SelectionLineState.kNormal;
     if (this.dropdownIsVisible && hasTemporaryText) {
       dropdown.selectFirst();
       this.selectedMatchIndex = 0;
+      if (this.virtualFocusEnabled) {
+        this.setSelection({
+          line: 0,
+          state: SelectionLineState.kNormal,
+          actionIndex: 0,
+        });
+      }
       const defaultMatch = this.result?.matches?.[0];
       const typedText = this.lastQueriedInput ?? '';
       const inlineText =

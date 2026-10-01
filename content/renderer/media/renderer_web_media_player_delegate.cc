@@ -51,7 +51,7 @@ RendererWebMediaPlayerDelegate::RendererWebMediaPlayerDelegate(
       render_frame->GetTaskRunner(blink::TaskType::kInternalMedia));
 }
 
-RendererWebMediaPlayerDelegate::~RendererWebMediaPlayerDelegate() {}
+RendererWebMediaPlayerDelegate::~RendererWebMediaPlayerDelegate() = default;
 
 bool RendererWebMediaPlayerDelegate::IsPageHidden() {
   // There is always a render frame except perhaps during teardown (though
@@ -111,7 +111,7 @@ void RendererWebMediaPlayerDelegate::DidPlay(int player_id) {
   DCHECK(id_map_.Lookup(player_id));
 
   has_played_media_ = true;
-  if (players_with_video_.count(player_id) == 1) {
+  if (players_with_video_.contains(player_id)) {
     playing_videos_.insert(player_id);
     has_played_video_ = true;
   }
@@ -157,7 +157,8 @@ void RendererWebMediaPlayerDelegate::SetIdle(int player_id, bool is_idle) {
 }
 
 bool RendererWebMediaPlayerDelegate::IsIdle(int player_id) {
-  return idle_player_map_.count(player_id) || stale_players_.count(player_id);
+  return idle_player_map_.contains(player_id) ||
+         stale_players_.contains(player_id);
 }
 
 void RendererWebMediaPlayerDelegate::ClearStaleFlag(int player_id) {
@@ -183,7 +184,7 @@ void RendererWebMediaPlayerDelegate::ClearStaleFlag(int player_id) {
 }
 
 bool RendererWebMediaPlayerDelegate::IsStale(int player_id) {
-  return stale_players_.count(player_id);
+  return stale_players_.contains(player_id);
 }
 
 void RendererWebMediaPlayerDelegate::OnPageVisibilityChanged(
@@ -298,9 +299,10 @@ void RendererWebMediaPlayerDelegate::CleanUpIdlePlayers(
   // Create a list of stale players before making any possibly reentrant calls
   // to OnIdleTimeout().
   std::vector<int> stale_players;
-  for (const auto& it : idle_player_map_) {
-    if (now - it.second >= timeout)
-      stale_players.push_back(it.first);
+  for (const auto& [player_id, idle_time] : idle_player_map_) {
+    if (now - idle_time >= timeout) {
+      stale_players.push_back(player_id);
+    }
   }
 
   // Notify stale players.

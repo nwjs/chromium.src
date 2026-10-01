@@ -21,12 +21,14 @@
 #include "chrome/test/base/testing_profile.h"
 #include "components/pref_registry/pref_registry_syncable.h"
 #include "components/prefs/testing_pref_store.h"
+#include "components/profile_metrics/browser_profile_type.h"
 #include "components/sync_preferences/pref_service_mock_factory.h"
 #include "components/sync_preferences/pref_service_syncable.h"
 #include "content/public/test/browser_task_environment.h"
 #include "content/public/test/mock_render_process_host.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/receiver_set.h"
+#include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "services/network/public/cpp/weak_wrapper_shared_url_loader_factory.h"
 #include "services/network/test/test_url_loader_factory.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -225,6 +227,20 @@ TEST_F(WebRtcLoggingControllerTest, ManagedProfileWithUnsetPolicy) {
   LoadMainTestProfile(std::nullopt);
   EXPECT_TRUE(webrtc_logging_controller_->IsWebRtcTextLogAllowed(
       browser_context_.get()));
+}
+
+TEST_F(WebRtcLoggingControllerTest, EnterpriseIsolatedModeWithUnsetPolicy) {
+  LoadMainTestProfile(std::nullopt);
+  Profile* isolated_profile =
+      browser_context_->GetPrimaryOTRProfile(/*create_if_needed=*/true);
+  profile_metrics::SetBrowserProfileType(
+      isolated_profile,
+      profile_metrics::BrowserProfileType::kEnterpriseIsolated);
+
+  EXPECT_FALSE(
+      webrtc_logging_controller_->IsWebRtcTextLogAllowed(isolated_profile));
+
+  browser_context_->DestroyOffTheRecordProfile(isolated_profile);
 }
 
 TEST_F(WebRtcLoggingControllerTest, IncognitoWithUnsetPolicy) {

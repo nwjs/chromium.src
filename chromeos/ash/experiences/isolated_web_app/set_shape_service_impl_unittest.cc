@@ -25,6 +25,7 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/mojom/set_shape/set_shape.mojom.h"
 #include "ui/aura/window.h"
+#include "ui/compositor/layer.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/views/widget/widget.h"
 #include "ui/views/widget/widget_delegate.h"
@@ -33,6 +34,10 @@ namespace ash {
 
 namespace {
 
+// The width and height of the app window created in `CreateWindowWidget`.
+constexpr int kWindowWidth = 300;
+constexpr int kWindowHeight = 300;
+
 std::unique_ptr<views::Widget> CreateWindowWidget(aura::Window* context) {
   auto widget = std::make_unique<views::Widget>();
 
@@ -40,6 +45,7 @@ std::unique_ptr<views::Widget> CreateWindowWidget(aura::Window* context) {
       views::Widget::InitParams::CLIENT_OWNS_WIDGET,
       views::Widget::InitParams::TYPE_WINDOW);
   params.context = context;
+  params.bounds = gfx::Rect(0, 0, kWindowWidth, kWindowHeight);
   widget->Init(std::move(params));
   widget->Show();
   return widget;
@@ -193,6 +199,141 @@ TEST_F(SetShapeServiceImplTest, SetShapeFailsIfGivenTooManyRects) {
 
   EXPECT_EQ(bad_message_observer.WaitForBadMessage(),
             "SetShape called with too many rects.");
+}
+
+TEST_F(SetShapeServiceImplTest,
+       SetShapeFailsIfNoRectMeetsMinimumSizeInWindowBounds) {
+  // Rectangles located completely outside window bounds.
+  std::vector<gfx::Rect> rects = {
+      gfx::Rect(-kWindowWidth - 20, -kWindowHeight - 20, 10, 10),
+      gfx::Rect(kWindowWidth + 20, kWindowHeight + 20, 50, 50),
+  };
+
+  base::test::TestFuture<blink::mojom::SetShapeResult> future;
+  remote_->SetShape(rects, future.GetCallback());
+  EXPECT_EQ(future.Get(), blink::mojom::SetShapeResult::kOutOfBounds);
+}
+
+TEST_F(SetShapeServiceImplTest,
+       SetShapeFailsIfIntersectionWithWindowBoundsIsTooSmall) {
+  // Rectangle is only 5px width inside the window.
+  std::vector<gfx::Rect> rects = {gfx::Rect(kWindowWidth - 5, 0, 10, 10)};
+
+  base::test::TestFuture<blink::mojom::SetShapeResult> future;
+  remote_->SetShape(rects, future.GetCallback());
+  EXPECT_EQ(future.Get(), blink::mojom::SetShapeResult::kOutOfBounds);
+}
+
+TEST_F(SetShapeServiceImplTest,
+       SetShapeSucceedsWithOnePixelToleranceAtWindowBoundary) {
+  // Rectangle is 9px inside the window on the bottom-right. Accepted because
+  // the service allows 1px tolerance on the bottom/right edges.
+  std::vector<gfx::Rect> rects = {
+      gfx::Rect(kWindowWidth - 9, kWindowHeight - 9, 10, 10),
+  };
+
+  base::test::TestFuture<blink::mojom::SetShapeResult> future;
+  remote_->SetShape(rects, future.GetCallback());
+  EXPECT_EQ(future.Get(), blink::mojom::SetShapeResult::kSuccess);
+}
+
+TEST_F(SetShapeServiceImplTest,
+       SetShapeSucceedsWithRectanglesExceedingWindowBounds) {
+  // Rectangle is larger than window bounds, simulates an async window resize.
+  std::vector<gfx::Rect> rects = {
+      gfx::Rect(0, 0, kWindowWidth + 100, kWindowHeight + 50),
+  };
+
+  base::test::TestFuture<blink::mojom::SetShapeResult> future;
+  remote_->SetShape(rects, future.GetCallback());
+  EXPECT_EQ(future.Get(), blink::mojom::SetShapeResult::kSuccess);
+
+  ASSERT_TRUE(widget_->GetNativeWindow()->layer()->alpha_shape());
+  EXPECT_EQ(*widget_->GetNativeWindow()->layer()->alpha_shape(), rects);
+}
+
+TEST_F(SetShapeServiceImplTest,
+       SetShapeSucceedsIfPartiallyOutsideWithValidIntersection) {
+  // Rectangle is partially outside but has 10px inside the window.
+  std::vector<gfx::Rect> rects = {gfx::Rect(-5, 0, 15, 10)};
+
+  base::test::TestFuture<blink::mojom::SetShapeResult> future;
+  remote_->SetShape(rects, future.GetCallback());
+  EXPECT_EQ(future.Get(), blink::mojom::SetShapeResult::kSuccess);
+
+  ASSERT_TRUE(widget_->GetNativeWindow()->layer()->alpha_shape());
+  EXPECT_EQ(*widget_->GetNativeWindow()->layer()->alpha_shape(), rects);
+}
+
+TEST_F(SetShapeServiceImplTest, DestructorResetsShape) {
+  base::test::TestFuture<blink::mojom::SetShapeResult> future;
+  remote_->SetShape({gfx::Rect(10, 10, 50, 50)}, future.GetCallback());
+  EXPECT_EQ(future.Get(), blink::mojom::SetShapeResult::kSuccess);
+
+  EXPECT_TRUE(widget_->GetNativeWindow()->targeter());
+  EXPECT_NE(widget_->GetNativeWindow()->layer()->alpha_shape(), nullptr);
+
+  SetShapeServiceImpl::DeleteForCurrentDocument(
+      web_contents_->GetPrimaryMainFrame());
+
+  EXPECT_FALSE(widget_->GetNativeWindow()->targeter());
+  EXPECT_EQ(widget_->GetNativeWindow()->layer()->alpha_shape(), nullptr);
+}
+
+TEST_F(SetShapeServiceImplTest, ResetsShapeWhenWindowShrinksPastShape) {
+  base::test::TestFuture<blink::mojom::SetShapeResult> future;
+  remote_->SetShape({gfx::Rect(200, 200, 50, 50)}, future.GetCallback());
+  EXPECT_EQ(future.Get(), blink::mojom::SetShapeResult::kSuccess);
+
+  EXPECT_TRUE(widget_->GetNativeWindow()->targeter());
+  EXPECT_NE(widget_->GetNativeWindow()->layer()->alpha_shape(), nullptr);
+
+  // Shrink window so the shape is entirely outside the new window bounds.
+  widget_->SetBounds(gfx::Rect(0, 0, 150, 150));
+
+  EXPECT_FALSE(widget_->GetNativeWindow()->targeter());
+  EXPECT_EQ(widget_->GetNativeWindow()->layer()->alpha_shape(), nullptr);
+}
+
+TEST_F(SetShapeServiceImplTest, KeepsShapeWhenWindowResizeStillContainsShape) {
+  base::test::TestFuture<blink::mojom::SetShapeResult> future;
+  remote_->SetShape({gfx::Rect(10, 10, 50, 50)}, future.GetCallback());
+  EXPECT_EQ(future.Get(), blink::mojom::SetShapeResult::kSuccess);
+
+  EXPECT_TRUE(widget_->GetNativeWindow()->targeter());
+  EXPECT_NE(widget_->GetNativeWindow()->layer()->alpha_shape(), nullptr);
+
+  // Resize window but shape is still within window bounds.
+  widget_->SetBounds(gfx::Rect(0, 0, 200, 200));
+
+  EXPECT_TRUE(widget_->GetNativeWindow()->targeter());
+  ASSERT_NE(widget_->GetNativeWindow()->layer()->alpha_shape(), nullptr);
+  EXPECT_EQ(*widget_->GetNativeWindow()->layer()->alpha_shape(),
+            std::vector<gfx::Rect>{gfx::Rect(10, 10, 50, 50)});
+}
+
+TEST_F(SetShapeServiceImplTest, KeepsShapeOnResizeWithOnePixelTolerance) {
+  // 300x300 window with a shape at (191, 191, 10, 10).
+  base::test::TestFuture<blink::mojom::SetShapeResult> future;
+  remote_->SetShape({gfx::Rect(191, 191, 10, 10)}, future.GetCallback());
+  EXPECT_EQ(future.Get(), blink::mojom::SetShapeResult::kSuccess);
+
+  EXPECT_TRUE(widget_->GetNativeWindow()->targeter());
+  EXPECT_NE(widget_->GetNativeWindow()->layer()->alpha_shape(), nullptr);
+
+  // Resize window to 200x200. Shape has 9px inside window (191..200).
+  // With 1px tolerance, it is kept.
+  widget_->SetBounds(gfx::Rect(0, 0, 200, 200));
+
+  EXPECT_TRUE(widget_->GetNativeWindow()->targeter());
+  EXPECT_NE(widget_->GetNativeWindow()->layer()->alpha_shape(), nullptr);
+
+  // Shrink window further to 199x199. Shape now only has 8px inside window.
+  // Resets shape.
+  widget_->SetBounds(gfx::Rect(0, 0, 199, 199));
+
+  EXPECT_FALSE(widget_->GetNativeWindow()->targeter());
+  EXPECT_EQ(widget_->GetNativeWindow()->layer()->alpha_shape(), nullptr);
 }
 
 }  // namespace ash

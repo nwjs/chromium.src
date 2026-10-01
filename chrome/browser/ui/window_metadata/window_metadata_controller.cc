@@ -24,6 +24,7 @@
 #include "components/captive_portal/core/buildflags.h"
 #include "components/favicon/content/content_favicon_driver.h"
 #include "components/favicon/core/favicon_driver.h"
+#include "components/sessions/core/session_id.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/web_contents.h"

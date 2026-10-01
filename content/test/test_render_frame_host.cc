@@ -83,8 +83,8 @@ TestRenderFrameHost::TestRenderFrameHost(
     const blink::LocalFrameToken& frame_token,
     const blink::DocumentToken& document_token,
     base::UnguessableToken devtools_frame_token,
-    const base::UnguessableToken& initiator_state_token,
-    RenderFrameHostImpl::LifecycleStateImpl lifecycle_state,
+    const blink::InitiatorStateToken& initiator_state_token,
+    RenderFrameHostLifecycleStateImpl lifecycle_state,
     scoped_refptr<BrowsingContextState> browsing_context_state)
     : RenderFrameHostImpl(site_instance,
                           render_view_host,
@@ -208,7 +208,7 @@ TestRenderFrameHost* TestRenderFrameHost::AppendChildWithPolicy(
       CreateStubAssociatedInterfaceProviderReceiver(),
       blink::mojom::TreeScopeType::kDocument, frame_name, frame_unique_name,
       false, blink::LocalFrameToken(), base::UnguessableToken::Create(),
-      blink::DocumentToken(), base::UnguessableToken::Create(),
+      blink::DocumentToken(), blink::InitiatorStateToken(),
       blink::FramePolicy({network::mojom::WebSandboxFlags::kNone,
                           allow,
                           {},
@@ -505,7 +505,8 @@ void TestRenderFrameHost::SendRendererInitiatedNavigationRequest(
           false /* started_with_transient_activation */,
           false /* started_by_ad */, false /* is_container_initiated */,
           false /* has_rel_opener */,
-          std::nullopt /* script_tool_invocation_id */);
+          std::nullopt /* script_tool_invocation_id */,
+          /*script_injector_host=*/"");
   auto common_params = blink::CreateCommonNavigationParams();
   common_params->url = url;
   common_params->initiator_origin = GetLastCommittedOrigin();

@@ -53,7 +53,8 @@ class BlockLayoutAlgorithmTest : public BaseLayoutAlgorithmTest {
         space, node, /* break_token */ nullptr, /* is_intrinsic */ true);
 
     BlockLayoutAlgorithm algorithm({node, fragment_geometry, space});
-    return algorithm.ComputeMinMaxSizes(MinMaxSizesFloatInput()).sizes;
+    return algorithm.ComputeMinMaxSizes(MinMaxSizesInput::Unconstrained())
+        .sizes;
   }
 
   const LayoutResult* RunCachedLayoutResult(const ConstraintSpace& space,
@@ -79,7 +80,7 @@ class BlockLayoutAlgorithmTest : public BaseLayoutAlgorithmTest {
     auto* layout_object = element->GetLayoutObject();
     ComputedStyleBuilder builder(layout_object->StyleRef());
     update(builder);
-    layout_object->SetStyle(builder.TakeStyle(),
+    layout_object->SetStyle(*builder.TakeStyle(),
                             LayoutObject::ApplyStyleChanges::kNo);
     layout_object->SetNeedsLayout("");
     UpdateAllLifecyclePhasesForTest();
@@ -120,7 +121,7 @@ TEST_F(BlockLayoutAlgorithmTest, Caching) {
         {WritingMode::kHorizontalTb, TextDirection::kLtr},
         LogicalSize(LayoutUnit(100), LayoutUnit(100)));
 
-    const LayoutResult* result = node.Layout(space, nullptr);
+    const LayoutResult* result = node.Layout(space);
     EXPECT_EQ(PhysicalSize(30, 40), result->GetPhysicalFragment().Size());
 
     // Test pointer-equal constraint space.
@@ -175,7 +176,7 @@ TEST_F(BlockLayoutAlgorithmTest, MinInlineSizeCaching) {
         {WritingMode::kHorizontalTb, TextDirection::kLtr},
         LogicalSize(LayoutUnit(100), LayoutUnit(100)));
 
-    const LayoutResult* result = node.Layout(space, nullptr);
+    const LayoutResult* result = node.Layout(space);
     EXPECT_EQ(PhysicalSize(30, 40), result->GetPhysicalFragment().Size());
 
     // Test pointer-equal constraint space.
@@ -2471,11 +2472,18 @@ TEST_F(BlockLayoutAlgorithmTest, ComputeInitialBlockStartAnnotationSpace) {
         overflow: visible;
         contain: paint;
       }
+      #target5 {
+        margin-top: -20px;
+        padding-top: 10px;
+        border-top: 0 solid black;
+        overflow: visible;
+      }
     </style>
     <div id="target1"><ruby>base<rt>annotation</rt></ruby></div>
     <div id="target2"></div>
     <div id="target3"></div>
     <div id="target4"></div>
+    <div id="target5"></div>
   )HTML");
 
   BlockNode node1(GetLayoutBoxByElementId("target1"));
@@ -2560,6 +2568,28 @@ TEST_F(BlockLayoutAlgorithmTest, ComputeInitialBlockStartAnnotationSpace) {
     FragmentGeometry fragment_geometry4 = CalculateInitialFragmentGeometry(
         space4, node4, /* break_token */ nullptr, /* is_intrinsic */ false);
     BlockLayoutAlgorithm algorithm({node4, fragment_geometry4, space4});
+    // Should fallback to padding-top (10)
+    EXPECT_EQ(LayoutUnit(10),
+              algorithm.ComputeInitialBlockStartAnnotationSpace());
+  }
+
+  // 6. Flag ON & negative margin test
+  {
+    ScopedAnnotationSpaceOnStartForTest enable_flag(true);
+    BlockNode node5(GetLayoutBoxByElementId("target5"));
+    ConstraintSpaceBuilder builder(
+        WritingMode::kHorizontalTb,
+        {WritingMode::kHorizontalTb, TextDirection::kLtr},
+        node5.CreatesNewFormattingContext());
+    builder.SetAvailableSize(LogicalSize(LayoutUnit(1000), kIndefiniteSize));
+    builder.SetPercentageResolutionSize(
+        LogicalSize(LayoutUnit(1000), kIndefiniteSize));
+    builder.SetInlineAutoBehavior(AutoSizeBehavior::kStretchImplicit);
+    builder.SetContainsAnnotations(true);
+    ConstraintSpace space = builder.ToConstraintSpace();
+    FragmentGeometry fragment_geometry5 = CalculateInitialFragmentGeometry(
+        space, node5, /* break_token */ nullptr, /* is_intrinsic */ false);
+    BlockLayoutAlgorithm algorithm({node5, fragment_geometry5, space});
     // Should fallback to padding-top (10)
     EXPECT_EQ(LayoutUnit(10),
               algorithm.ComputeInitialBlockStartAnnotationSpace());

@@ -19,13 +19,16 @@ namespace content {
 SaveFile::SaveFile(std::unique_ptr<SaveFileCreateInfo> info,
                    bool calculate_hash)
     : file_(download::DownloadItem::kInvalidId), info_(std::move(info)) {
-  DCHECK(download::GetDownloadTaskRunner()->RunsTasksInCurrentSequence());
+  CHECK(download::GetDownloadTaskRunner()->RunsTasksInCurrentSequence(),
+        base::NotFatalUntil::M159);
 
-  DCHECK(info_);
-  DCHECK(info_->path.empty());
+  CHECK(info_, base::NotFatalUntil::M159);
+  CHECK(info_->path.empty(), base::NotFatalUntil::M159);
 }
 
 SaveFile::~SaveFile() {
+  // TODO(crbug.com/561396069): CHECK-exclusion: Convert to a CHECK once we are
+  // confident it won't be triggered.
   DCHECK(download::GetDownloadTaskRunner()->RunsTasksInCurrentSequence());
 }
 
@@ -34,7 +37,7 @@ download::DownloadInterruptReason SaveFile::Initialize() {
   download::DownloadInterruptReason reason = file_.Initialize(
       /*full_path=*/base::FilePath(), /*default_directory=*/base::FilePath(),
       /*file=*/base::File(), /*bytes_so_far=*/0, /*hash_so_far=*/std::string(),
-      /*hash_state=*/nullptr, /*is_sparse_file=*/false,
+      /*hash_state=*/std::nullopt, /*is_sparse_file=*/false,
       /*bytes_wasted*/ &bytes_wasted);
   info_->path = FullPath();
   return reason;

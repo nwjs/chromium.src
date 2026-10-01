@@ -126,8 +126,7 @@ class FakeBrowser {
   bool IsClosed() { return closed_future_.IsReady(); }
 
   bool IsFullscreen() {
-    return browser_->GetFeatures()
-        .exclusive_access_manager()
+    return ExclusiveAccessManager::From(browser_.get())
         ->fullscreen_controller()
         ->IsFullscreenForBrowser();
   }
@@ -239,9 +238,7 @@ template <typename KioskBrowserSessionParamType>
 class KioskBrowserSessionBaseTest
     : public ::testing::TestWithParam<KioskBrowserSessionParamType> {
  public:
-  KioskBrowserSessionBaseTest()
-      : testing_profile_manager_(TestingBrowserProcess::GetGlobal()) {}
-
+  KioskBrowserSessionBaseTest() = default;
   KioskBrowserSessionBaseTest(const KioskBrowserSessionBaseTest&) = delete;
   KioskBrowserSessionBaseTest& operator=(const KioskBrowserSessionBaseTest&) =
       delete;
@@ -252,9 +249,26 @@ class KioskBrowserSessionBaseTest
 
   void SetUp() override {
     ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
-    ash_test_helper_.SetUp(ash::AshTestHelper::InitParams());
-    ASSERT_TRUE(testing_profile_manager_.SetUp());
-    profile_ = testing_profile_manager_.CreateTestingProfile("test@user");
+    ash::AshTestHelper::InitParams init_params;
+    init_params.post_subsystems_teardown_callback =
+        base::BindOnce(&KioskBrowserSessionBaseTest::OnSubsystemsTornDown,
+                       base::Unretained(this));
+    ash_test_helper_.SetUp(std::move(init_params));
+    testing_profile_manager_ = std::make_unique<TestingProfileManager>(
+        TestingBrowserProcess::GetGlobal());
+    ASSERT_TRUE(testing_profile_manager_->SetUp());
+    profile_ = testing_profile_manager_->CreateTestingProfile("test@user");
+  }
+
+  void TearDown() override {
+    kiosk_browser_session_.reset();
+    web_kiosk_main_browser_.reset();
+    ash_test_helper_.TearDown();
+  }
+
+  void OnSubsystemsTornDown() {
+    profile_ = nullptr;
+    testing_profile_manager_.reset();
   }
 
   static void TearDownTestSuite() { chromeos::PowerManagerClient::Shutdown(); }
@@ -307,7 +321,7 @@ class KioskBrowserSessionBaseTest
     CreateWebKioskMainBrowser(web_app_id);
 
     kiosk_browser_session_ = KioskBrowserSession::CreateForTesting(
-        profile(), base::DoNothing(), local_state(), {crash_path().value()});
+        local_state(), profile(), base::DoNothing(), {crash_path().value()});
     kiosk_browser_session_->InitForWebKiosk(web_app_id);
 
     task_environment_.RunUntilIdle();
@@ -319,14 +333,14 @@ class KioskBrowserSessionBaseTest
     CreateWebKioskMainBrowser(iwa_id);
 
     kiosk_browser_session_ = KioskBrowserSession::CreateForTesting(
-        profile(), base::DoNothing(), local_state(), {crash_path().value()});
+        local_state(), profile(), base::DoNothing(), {crash_path().value()});
     kiosk_browser_session_->InitForIwaKiosk(iwa_id);
   }
 
   // Simulate starting a chrome app kiosk session.
   void StartChromeAppKioskSession() {
     kiosk_browser_session_ = std::make_unique<KioskBrowserSession>(
-        profile(), base::DoNothing(), local_state());
+        local_state(), profile(), base::DoNothing());
     kiosk_browser_session_->InitForChromeAppKiosk(kTestAppId);
   }
 
@@ -392,7 +406,7 @@ class KioskBrowserSessionBaseTest
   // `RenderViewHostTestEnabled` is required to make the navigation work that
   // happens in the tab added to `TestBrowserWindow` in `FakeBrowser`.
   content::RenderViewHostTestEnabler enabler_;
-  TestingProfileManager testing_profile_manager_;
+  std::unique_ptr<TestingProfileManager> testing_profile_manager_;
   raw_ptr<TestingProfile> profile_;
   // Main browser window created when launching a web or IWA kiosk app.
   // Will be nullptr if `CreateWebKioskMainBrowser` function was not called.

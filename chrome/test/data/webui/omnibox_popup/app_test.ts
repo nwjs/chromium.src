@@ -40,7 +40,6 @@ suite('AppTest', function() {
     loadTimeData.overrideValues({
       hideClassicContextButton: false,
       composeboxShowContextMenuDescription: false,
-      omniboxShowContextButtonSuggestionLabel: false,
       addContext: 'Add tabs and more',
       contextButtonShapeIsOblong: false,
       composeboxShowLensIcon: false,
@@ -120,6 +119,7 @@ suite('AppTest', function() {
   test('LensIconShown', async () => {
     loadTimeData.overrideValues({
       composeboxShowLensIcon: true,
+      composeboxShowChip: false,
     });
 
     // Re-create app to apply loadTimeData overrides.
@@ -241,7 +241,6 @@ suite('AppTest', function() {
       document.body.innerHTML = window.trustedTypes!.emptyHTML;
       loadTimeData.overrideValues({
         omniboxAimPopupEnabled: true,
-        omniboxShowContextButtonSuggestionLabel: false,
         searchboxLayoutMode: 'TallBottomContext',
       });
 
@@ -290,7 +289,6 @@ suite('AppTest', function() {
       // Re-create app with `hideClassicContextButton` set to true.
       document.body.innerHTML = window.trustedTypes!.emptyHTML;
       loadTimeData.overrideValues({
-        omniboxShowContextButtonSuggestionLabel: false,
         hideClassicContextButton: true,
       });
       localApp = document.createElement('omnibox-popup-app');
@@ -318,7 +316,6 @@ suite('AppTest', function() {
       document.body.innerHTML = window.trustedTypes!.emptyHTML;
       loadTimeData.overrideValues({
         omniboxAimPopupEnabled: true,
-        omniboxShowContextButtonSuggestionLabel: false,
         composeboxShowContextMenuDescription: true,
         searchboxLayoutMode: 'TallBottomContext',
       });
@@ -427,7 +424,6 @@ suite('AppTestSelectionControl', () => {
   setup(() => {
     document.body.innerHTML = window.trustedTypes!.emptyHTML;
     loadTimeData.overrideValues({
-      omniboxShowContextButtonSuggestionLabel: false,
       webuiOmniboxPopupSelectionControlEnabled: true,
     });
     testProxy = new TestSearchboxBrowserProxy();

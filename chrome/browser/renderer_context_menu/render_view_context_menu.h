@@ -67,6 +67,7 @@ class SendTabToSelfContextMenuDelegate;
 }
 
 namespace content {
+class NavigationHandle;
 class RenderFrameHost;
 class WebContents;
 }  // namespace content
@@ -217,6 +218,10 @@ class RenderViewContextMenu
 #endif
   void RecordUsedItem(int id) override;
 
+  // Platform-specific subclasses can override this method to handle commands.
+  // Returns true if the command was handled.
+  virtual bool ExecPlatformCommand(int command_id, int event_flags);
+
   // Returns true if the browser is in HTML fullscreen mode, initiated by the
   // page (as opposed to the user). Used to determine which shortcut to display.
   bool IsHTML5Fullscreen() const;
@@ -237,13 +242,16 @@ class RenderViewContextMenu
   // The |initiator| parameter is the origin that supplied the URL being
   // navigated to; it may be an opaque origin with no precursor if the URL came
   // from the browser itself or the user.
-  void OpenURLWithExtraHeaders(const GURL& url,
-                               const GURL& referring_url,
-                               const url::Origin& initiator,
-                               WindowOpenDisposition disposition,
-                               ui::PageTransition transition,
-                               const std::string& extra_headers,
-                               bool started_from_context_menu) override;
+  void OpenURLWithExtraHeaders(
+      const GURL& url,
+      const GURL& referring_url,
+      const url::Origin& initiator,
+      WindowOpenDisposition disposition,
+      ui::PageTransition transition,
+      const std::string& extra_headers,
+      bool started_from_context_menu,
+      base::OnceCallback<void(content::NavigationHandle&)>
+          navigation_handle_callback) override;
 
  private:
   std::u16string GetElidedSelectionText(size_t max_length,

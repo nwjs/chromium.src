@@ -84,6 +84,7 @@
 #include "content/public/browser/storage_partition.h"
 #include "content/public/common/url_constants.h"
 #include "crypto/crypto_buildflags.h"
+#include "extensions/buildflags/buildflags.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "net/base/features.h"
 #include "net/cert/asn1_util.h"
@@ -124,10 +125,10 @@
 #include "net/cert/x509_util.h"
 #endif
 
-#if BUILDFLAG(USE_NSS_CERTS)
+#if BUILDFLAG(USE_NSS_CLIENT_CERTS)
 #include "chrome/browser/ui/crypto_module_delegate_nss.h"
 #include "net/ssl/client_cert_store_nss.h"
-#endif  // BUILDFLAG(USE_NSS_CERTS)
+#endif  // BUILDFLAG(USE_NSS_CLIENT_CERTS)
 
 #if BUILDFLAG(IS_WIN)
 #include "net/ssl/client_cert_store_win.h"
@@ -670,7 +671,6 @@ void ProfileNetworkContextService::RegisterProfilePrefs(
   registry->RegisterBooleanPref(prefs::kCAPlatformIntegrationEnabled, true);
 #endif
 #if BUILDFLAG(IS_CHROMEOS)
-  net::ServerCertificateDatabaseService::RegisterProfilePrefs(registry);
   // The following two prefs are primarily used (elsewhere) as local_state
   // prefs, but they are also used here as Profile prefs, for the login screen
   // Profile on ChromeOS. Their value is only used if managed.
@@ -719,10 +719,6 @@ void ProfileNetworkContextService::OnThirdPartyCookieBlockingChanged(
 }
 
 std::string ProfileNetworkContextService::ComputeAcceptLanguage() const {
-  // TODO:(https://crbug.com/40224802) Return only single language without
-  // expanding the language list if the DisableReduceAcceptLanguage deprecation
-  // trial ends.
-
   return ComputeAcceptLanguageFromPref(
       content::ReduceAcceptLanguageUtils::GetLanguagesWithMaxCount(
           profile_->IsOffTheRecord() ? language::GetIncognitoLanguageList(
@@ -1295,7 +1291,7 @@ ProfileNetworkContextService::CreateClientCertStore() {
       std::move(certificate_provider), kcer::KcerFactoryAsh::GetKcer(profile_),
       GetClientCertIssuerSourceFactory());
 
-#elif BUILDFLAG(USE_NSS_CERTS)
+#elif BUILDFLAG(USE_NSS_CLIENT_CERTS)
   std::unique_ptr<net::ClientCertStore> store =
       std::make_unique<net::ClientCertStoreNSS>(
           base::BindRepeating(&CreateCryptoModuleBlockingPasswordDelegate,

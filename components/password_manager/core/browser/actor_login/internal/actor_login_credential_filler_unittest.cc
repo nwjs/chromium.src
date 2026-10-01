@@ -15,6 +15,7 @@
 #include "base/test/test_future.h"
 #include "base/types/expected.h"
 #include "build/build_config.h"
+#include "components/affiliations/core/browser/match_type.h"
 #include "components/affiliations/core/browser/mock_affiliation_service.h"
 #include "components/autofill/core/common/aliases.h"
 #include "components/autofill/core/common/autofill_test_util.h"
@@ -238,8 +239,8 @@ class ActorLoginCredentialFillerTest : public ::testing::TestWithParam<bool> {
 #endif  // BUILDFLAG(IS_ANDROID)
   }
 
-  base::WeakPtr<MockActorLoginQualityLogger> mqls_logger() {
-    return mock_mqls_logger_.AsWeakPtr();
+  scoped_refptr<MockActorLoginQualityLogger> mqls_logger() {
+    return mock_mqls_logger_;
   }
 
   std::unique_ptr<PasswordFormManager> CreateFormManagerWithParsedForm(
@@ -296,7 +297,8 @@ class ActorLoginCredentialFillerTest : public ::testing::TestWithParam<bool> {
   testing::NiceMock<MockPasswordManagerClient> mock_client_;
   MockStubPasswordManagerDriver mock_driver_;
   FakeFormFetcher form_fetcher_;
-  MockActorLoginQualityLogger mock_mqls_logger_;
+  scoped_refptr<MockActorLoginQualityLogger> mock_mqls_logger_ =
+      base::MakeRefCounted<MockActorLoginQualityLogger>();
   testing::NiceMock<affiliations::MockAffiliationService>
       mock_affiliation_service_;
 };
@@ -325,7 +327,7 @@ TEST_P(ActorLoginCredentialFillerTest, NoSigninForm_NoManagers) {
           ActorLoginQuality_AttemptLoginDetails_AttemptLoginOutcome_NO_SIGN_IN_FORM);
   expected_details.set_attempt_login_time_ms(0);
   EXPECT_CALL(
-      mock_mqls_logger_,
+      *mock_mqls_logger_,
       AddAttemptLoginDetails(EqualsAttemptLoginDetails(expected_details)));
   // Destroy the filler, because it sends logs in the destructor.
   filler.reset();
@@ -348,7 +350,7 @@ TEST_P(ActorLoginCredentialFillerTest, PrimaryPageChanged) {
           ActorLoginQuality_AttemptLoginDetails_AttemptLoginOutcome_FILLING_INTERRUPTED_BY_PAGE_CHANGE);
   expected_details.set_attempt_login_time_ms(0);
   EXPECT_CALL(
-      mock_mqls_logger_,
+      *mock_mqls_logger_,
       AddAttemptLoginDetails(EqualsAttemptLoginDetails(expected_details)));
 
   filler->OnPrimaryPageChanged();
@@ -473,7 +475,7 @@ TEST_P(ActorLoginCredentialFillerTest,
       /*is_password_visible=*/true);
 
   EXPECT_CALL(
-      mock_mqls_logger_,
+      *mock_mqls_logger_,
       AddAttemptLoginDetails(EqualsAttemptLoginDetails(expected_details)));
   // Destroy the filler, because it sends logs in the destructor.
   filler.reset();
@@ -545,7 +547,7 @@ TEST_P(ActorLoginCredentialFillerTest, DontFillGroupedMatch) {
   std::vector<password_manager::PasswordForm> saved_forms;
   PasswordForm form =
       CreateSavedPasswordForm(GURL("https://otherexample.com"), kTestUsername);
-  form.match_type = password_manager::PasswordForm::MatchType::kGrouped;
+  form.match_type = affiliations::MatchType::kGrouped;
   saved_forms.push_back(std::move(form));
   form_fetcher_.SetBestMatches(saved_forms);
 
@@ -769,7 +771,7 @@ TEST_P(ActorLoginCredentialFillerTest, FillsNestedFrameWithSameOrigin) {
   form_result->set_was_username_filled(true);
   form_result->set_was_password_filled(true);
   EXPECT_CALL(
-      mock_mqls_logger_,
+      *mock_mqls_logger_,
       AddAttemptLoginDetails(EqualsAttemptLoginDetails(expected_details)));
   // Destroy the filler, because it sends logs in the destructor.
   filler.reset();
@@ -1013,7 +1015,7 @@ TEST_P(ActorLoginCredentialFillerTest,
       CreateExpectedFormData(*password_only_parsed_form);
   form_result3->set_was_password_filled(true);
   EXPECT_CALL(
-      mock_mqls_logger_,
+      *mock_mqls_logger_,
       AddAttemptLoginDetails(EqualsAttemptLoginDetails(expected_details)));
   // Destroy the filler, because it sends logs in the destructor.
   filler.reset();
@@ -1124,7 +1126,7 @@ TEST_P(ActorLoginCredentialFillerTest,
   form_result2->set_was_username_filled(true);
   form_result2->set_was_password_filled(true);
   EXPECT_CALL(
-      mock_mqls_logger_,
+      *mock_mqls_logger_,
       AddAttemptLoginDetails(EqualsAttemptLoginDetails(expected_details)));
   // Destroy the filler, because it sends logs in the destructor.
   filler.reset();
@@ -1150,8 +1152,7 @@ TEST_P(ActorLoginCredentialFillerTest,
   FakeFormFetcher sibling_form_fetcher;
   PasswordForm sibling_psl_match = CreateSavedPasswordForm(
       same_site_origin_1.GetURL(), kTestUsername, kTestPassword);
-  sibling_psl_match.match_type =
-      password_manager::PasswordForm::MatchType::kPSL;
+  sibling_psl_match.match_type = affiliations::MatchType::kPSL;
   sibling_form_fetcher.SetBestMatches({sibling_psl_match});
 
   std::vector<std::unique_ptr<PasswordFormManager>> form_managers;
@@ -1231,8 +1232,7 @@ TEST_P(ActorLoginCredentialFillerTest,
   FakeFormFetcher sibling_form_fetcher;
   PasswordForm sibling_psl_match = CreateSavedPasswordForm(
       same_site_origin_2.GetURL(), kTestUsername, kTestPassword);
-  sibling_psl_match.match_type =
-      password_manager::PasswordForm::MatchType::kPSL;
+  sibling_psl_match.match_type = affiliations::MatchType::kPSL;
   sibling_form_fetcher.SetBestMatches({sibling_psl_match});
 
   std::vector<std::unique_ptr<PasswordFormManager>> form_managers;
@@ -1310,16 +1310,14 @@ TEST_P(ActorLoginCredentialFillerTest,
   // Saved credential is an affiliated match for same_site_origin_1.
   PasswordForm matching_form = CreateSavedPasswordForm(
       same_site_origin_1.GetURL(), kTestUsername, kTestPassword);
-  matching_form.match_type =
-      password_manager::PasswordForm::MatchType::kAffiliated;
+  matching_form.match_type = affiliations::MatchType::kAffiliated;
   form_fetcher_.SetBestMatches({matching_form});
 
   // Sibling iframe (same_site_origin_2) has a PSL match.
   FakeFormFetcher sibling_form_fetcher;
   PasswordForm sibling_psl_match = CreateSavedPasswordForm(
       same_site_origin_1.GetURL(), kTestUsername, kTestPassword);
-  sibling_psl_match.match_type =
-      password_manager::PasswordForm::MatchType::kPSL;
+  sibling_psl_match.match_type = affiliations::MatchType::kPSL;
   sibling_form_fetcher.SetBestMatches({sibling_psl_match});
 
   std::vector<std::unique_ptr<PasswordFormManager>> form_managers;
@@ -1398,15 +1396,14 @@ TEST_P(
   // Saved credential is an exact match for same_site_origin_1.
   PasswordForm matching_form = CreateSavedPasswordForm(
       same_site_origin_1.GetURL(), kTestUsername, kTestPassword);
-  matching_form.match_type = password_manager::PasswordForm::MatchType::kExact;
+  matching_form.match_type = affiliations::MatchType::kExact;
   form_fetcher_.SetBestMatches({matching_form});
 
   // Sibling iframe (same_site_origin_2) has an affiliated match.
   FakeFormFetcher sibling_form_fetcher;
   PasswordForm sibling_affiliated_match = CreateSavedPasswordForm(
       same_site_origin_1.GetURL(), kTestUsername, kTestPassword);
-  sibling_affiliated_match.match_type =
-      password_manager::PasswordForm::MatchType::kAffiliated;
+  sibling_affiliated_match.match_type = affiliations::MatchType::kAffiliated;
   sibling_form_fetcher.SetBestMatches({sibling_affiliated_match});
 
   std::vector<std::unique_ptr<PasswordFormManager>> form_managers;
@@ -1489,8 +1486,7 @@ TEST_P(ActorLoginCredentialFillerTest,
   FakeFormFetcher main_frame_fetcher;
   PasswordForm main_frame_psl_match = CreateSavedPasswordForm(
       saved_origin.GetURL(), kTestUsername, kTestPassword);
-  main_frame_psl_match.match_type =
-      password_manager::PasswordForm::MatchType::kPSL;
+  main_frame_psl_match.match_type = affiliations::MatchType::kPSL;
   main_frame_fetcher.SetBestMatches({main_frame_psl_match});
 
   // Iframe form manager also uses a fetcher where this credential is a PSL
@@ -1498,7 +1494,7 @@ TEST_P(ActorLoginCredentialFillerTest,
   FakeFormFetcher iframe_fetcher;
   PasswordForm iframe_psl_match = CreateSavedPasswordForm(
       saved_origin.GetURL(), kTestUsername, kTestPassword);
-  iframe_psl_match.match_type = password_manager::PasswordForm::MatchType::kPSL;
+  iframe_psl_match.match_type = affiliations::MatchType::kPSL;
   iframe_fetcher.SetBestMatches({iframe_psl_match});
 
   std::vector<std::unique_ptr<PasswordFormManager>> form_managers;
@@ -1862,7 +1858,7 @@ TEST_P(ActorLoginCredentialFillerTest, StoresPermissionWhenFillingAllFields) {
       CreateExpectedFormData(*password_only_parsed_form);
   form_result3->set_was_password_filled(true);
   EXPECT_CALL(
-      mock_mqls_logger_,
+      *mock_mqls_logger_,
       AddAttemptLoginDetails(EqualsAttemptLoginDetails(expected_details)));
   // Destroy the filler, because it sends logs in the destructor.
   filler.reset();
@@ -1975,7 +1971,7 @@ TEST_P(ActorLoginCredentialFillerTest, FillOnlyUsernameInAllEligibleFields) {
       CreateExpectedFormData(*password_only_parsed_form);
   form_result3->set_was_password_filled(false);
   EXPECT_CALL(
-      mock_mqls_logger_,
+      *mock_mqls_logger_,
       AddAttemptLoginDetails(EqualsAttemptLoginDetails(expected_details)));
   // Destroy the filler, because it sends logs in the destructor.
   filler.reset();
@@ -2087,7 +2083,7 @@ TEST_P(ActorLoginCredentialFillerTest, FillOnlyPasswordInAllEligibleFields) {
       CreateExpectedFormData(*password_only_parsed_form);
   form_result3->set_was_password_filled(false);
   EXPECT_CALL(
-      mock_mqls_logger_,
+      *mock_mqls_logger_,
       AddAttemptLoginDetails(EqualsAttemptLoginDetails(expected_details)));
   // Destroy the filler, because it sends logs in the destructor.
   filler.reset();
@@ -2196,7 +2192,7 @@ TEST_P(ActorLoginCredentialFillerTest, FillingFailsInAllEligibleFields) {
       CreateExpectedFormData(*password_only_parsed_form);
   form_result3->set_was_password_filled(false);
   EXPECT_CALL(
-      mock_mqls_logger_,
+      *mock_mqls_logger_,
       AddAttemptLoginDetails(EqualsAttemptLoginDetails(expected_details)));
   // Destroy the filler, because it sends logs in the destructor.
   filler.reset();
@@ -2227,7 +2223,7 @@ TEST_P(ActorLoginCredentialFillerTest, FillingIsDisabled) {
           ActorLoginQuality_AttemptLoginDetails_AttemptLoginOutcome_FILLING_NOT_ALLOWED);
   expected_details.set_attempt_login_time_ms(0);
   EXPECT_CALL(
-      mock_mqls_logger_,
+      *mock_mqls_logger_,
       AddAttemptLoginDetails(EqualsAttemptLoginDetails(expected_details)));
   // Destroy the filler, because it sends logs in the destructor.
   filler.reset();
@@ -2386,7 +2382,7 @@ TEST_P(ActorLoginCredentialFillerTest,
       /*is_password_visible=*/false, kRequestDurationMs);
 
   EXPECT_CALL(
-      mock_mqls_logger_,
+      *mock_mqls_logger_,
       AddAttemptLoginDetails(EqualsAttemptLoginDetails(expected_details)));
 
   filler->AttemptLogin(&mock_password_manager_);
@@ -2500,7 +2496,7 @@ TEST_P(ActorLoginCredentialFillerTest,
       /*is_password_visible=*/true);
 
   EXPECT_CALL(
-      mock_mqls_logger_,
+      *mock_mqls_logger_,
       AddAttemptLoginDetails(EqualsAttemptLoginDetails(expected_details)));
 
   filler->AttemptLogin(&mock_password_manager_);
@@ -2552,7 +2548,7 @@ TEST_P(ActorLoginCredentialFillerTest,
       /*is_password_visible=*/false);
 
   EXPECT_CALL(
-      mock_mqls_logger_,
+      *mock_mqls_logger_,
       AddAttemptLoginDetails(EqualsAttemptLoginDetails(expected_details)));
 
   filler.AttemptLogin(&mock_password_manager_);
@@ -2600,12 +2596,11 @@ TEST_P(ActorLoginCredentialFillerTest,
       *form_managers[0]->GetParsedObservedForm(), /*is_username_visible=*/true,
       /*is_password_visible=*/true);
   EXPECT_CALL(
-      mock_mqls_logger_,
+      *mock_mqls_logger_,
       AddAttemptLoginDetails(EqualsAttemptLoginDetails(expected_details)));
   // Destroy the filler, because it sends logs in the destructor.
   filler.reset();
 }
-
 
 TEST_P(ActorLoginCredentialFillerTest, DoesntFillIfReauthFails) {
   const url::Origin origin = url::Origin::Create(GURL(kLoginUrl));
@@ -2664,7 +2659,7 @@ TEST_P(ActorLoginCredentialFillerTest, DoesntFillIfReauthFails) {
       *parsed_form, /*is_username_visible=*/true, /*is_password_visible=*/true);
 
   EXPECT_CALL(
-      mock_mqls_logger_,
+      *mock_mqls_logger_,
       AddAttemptLoginDetails(EqualsAttemptLoginDetails(expected_details)));
   // Destroy the filler, because it sends logs in the destructor.
   filler.reset();
@@ -2724,7 +2719,6 @@ TEST_P(ActorLoginCredentialFillerTest, AffiliatedOrigin_FillSuccess) {
 
 TEST_P(ActorLoginCredentialFillerTest,
        UsesChosenAffiliatedCredentialOverExactMatch) {
-
   // The origin where the credential is being filled.
   url::Origin current_origin = url::Origin::Create(GURL("https://example.com"));
   // This is the origin where the credential is saved for, and also the origin
@@ -2908,7 +2902,7 @@ TEST_P(ActorLoginCredentialFillerTest,
   // The credential was saved on login.example.com.
   password_manager::PasswordForm saved_form = CreateSavedPasswordForm(
       saved_origin.GetURL(), kTestUsername, kTestPassword);
-  saved_form.match_type = password_manager::PasswordForm::MatchType::kPSL;
+  saved_form.match_type = affiliations::MatchType::kPSL;
   form_fetcher_.SetBestMatches({saved_form});
 
   ON_CALL(mock_driver_, GetLastCommittedOrigin)
@@ -3006,14 +3000,13 @@ TEST_P(ActorLoginCredentialFillerTest,
   const FormData form_data = CreateSigninFormData(origin.GetURL());
   PasswordForm exact_match =
       CreateSavedPasswordForm(origin.GetURL(), kTestUsername);
-  exact_match.match_type = password_manager::PasswordForm::MatchType::kExact;
+  exact_match.match_type = affiliations::MatchType::kExact;
   FakeFormFetcher& exact_match_fetcher = form_fetcher_;
   exact_match_fetcher.SetBestMatches({exact_match});
 
   PasswordForm affiliated_match =
       CreateSavedPasswordForm(origin.GetURL(), kTestUsername);
-  affiliated_match.match_type =
-      password_manager::PasswordForm::MatchType::kAffiliated;
+  affiliated_match.match_type = affiliations::MatchType::kAffiliated;
   FakeFormFetcher affiliated_match_fetcher;
   affiliated_match_fetcher.SetBestMatches({affiliated_match});
 

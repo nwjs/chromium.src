@@ -12,7 +12,6 @@
 #include "base/component_export.h"
 #include "base/containers/flat_map.h"
 #include "base/containers/span.h"
-#include "base/memory/raw_ptr.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/no_destructor.h"
 #include "base/synchronization/lock.h"
@@ -150,8 +149,12 @@ class COMPONENT_EXPORT(WEBNN_SERVICE) Environment
                            const EpDeviceInfo& target_device);
 
   // Compiles a trivial graph on the target device to ensure the required
-  // libraries are loaded for the Compiler process.
-  void WarmupEpDeviceForCompilerProcess(const EpDeviceInfo& target_device);
+  // libraries are loaded for the Compiler process. Fails if the EP cannot
+  // compile in this process, which is not necessarily a defect: an EP may
+  // depend on libraries that cannot be loaded under the compiler process's
+  // mitigations.
+  base::expected<void, std::string> WarmupEpDeviceForCompilerProcess(
+      const EpDeviceInfo& target_device);
 
   ~Environment();
 
@@ -162,7 +165,10 @@ class COMPONENT_EXPORT(WEBNN_SERVICE) Environment
 
   static base::Lock& GetLock();
   // Make `Environment` a singleton to avoid duplicate `OrtEnv` creation.
-  static raw_ptr<Environment> instance_ GUARDED_BY(GetLock());
+  // A plain pointer is used rather than `raw_ptr` so that this static does not
+  // require a dynamic initializer or an exit-time destructor. `instance_` is
+  // cleared in `Release()` before the object is deleted, so it never dangles.
+  static Environment* instance_ GUARDED_BY(GetLock());
   // Returns the set of dependent EP package family names to prevent repeated
   // calls to `AddPackageDependency` for EP packages in the GPU process
   // whenever an `Environment` is created. This set is only accessed in

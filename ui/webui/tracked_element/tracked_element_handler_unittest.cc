@@ -15,6 +15,7 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/bind.h"
 #include "base/test/run_until.h"
+#include "base/test/test_future.h"
 #include "content/public/browser/content_browser_client.h"
 #include "content/public/browser/visibility.h"
 #include "content/public/browser/web_ui_controller.h"
@@ -80,8 +81,11 @@ class TestTrackedElementManager
   }
 
   void ClickElement(tracked_element::mojom::TrackedElementIdentifierPtr id,
+                    tracked_element::mojom::InputType input_type,
                     ClickElementCallback callback) override {
-    interaction_events_.push_back("Click:" + id->native_identifier);
+    interaction_events_.push_back(
+        base::StringPrintf("Click:%s:%d", id->native_identifier.c_str(),
+                           static_cast<int>(input_type)));
     std::move(callback).Run(true);
   }
 
@@ -518,8 +522,19 @@ TEST_F(TrackedElementHandlerTest, Interaction) {
 
   const std::string name = kTestElementIdentifier1.GetName();
   EXPECT_TRUE(handler()->ClickElement(element));
-  EXPECT_THAT(manager.TakeInteractionEvents(),
-              testing::ElementsAre("Click:" + name));
+  EXPECT_THAT(
+      manager.TakeInteractionEvents(),
+      testing::ElementsAre(base::StringPrintf(
+          "Click:%s:%d", name.c_str(),
+          static_cast<int>(tracked_element::mojom::InputType::kDontCare))));
+
+  EXPECT_TRUE(handler()->ClickElement(
+      element, tracked_element::mojom::InputType::kKeyboard));
+  EXPECT_THAT(
+      manager.TakeInteractionEvents(),
+      testing::ElementsAre(base::StringPrintf(
+          "Click:%s:%d", name.c_str(),
+          static_cast<int>(tracked_element::mojom::InputType::kKeyboard))));
 
   EXPECT_TRUE(handler()->FocusElement(element));
   EXPECT_THAT(manager.TakeInteractionEvents(),
@@ -920,6 +935,35 @@ TEST_F(TrackedElementHandlerTest, DocumentSingleton) {
   EXPECT_EQ(
       handler.get(),
       TrackedElementHandlerDocumentSingleton::GetOrCreate(main_rfh()).get());
+}
+
+TEST_F(TrackedElementHandlerTest, DocumentSingletonAsync) {
+  content::TestWebUI test_web_ui;
+  test_web_ui.set_web_contents(web_contents());
+  auto controller = std::make_unique<TestWebUIController>(&test_web_ui);
+
+  base::test::TestFuture<base::WeakPtr<TrackedElementHandler>> future;
+
+  // Initially should not invoke callback
+  TrackedElementHandlerDocumentSingleton::GetOrCreateAsync(
+      main_rfh(), future.GetCallback());
+  task_environment()->RunUntilIdle();
+  EXPECT_FALSE(future.IsReady());
+
+  // Register.
+  TrackedElementHandlerDocumentSingleton::Register(controller.get(),
+                                                   {kTestElementIdentifier1});
+
+  // Now should be able to get the value.
+  auto handler = future.Get();
+  ASSERT_TRUE(handler);
+  EXPECT_EQ(web_contents(), handler->web_contents());
+
+  // Retrieving again should return the same handler.
+  base::test::TestFuture<base::WeakPtr<TrackedElementHandler>> future2;
+  TrackedElementHandlerDocumentSingleton::GetOrCreateAsync(
+      main_rfh(), future2.GetCallback());
+  EXPECT_EQ(handler.get(), future2.Get().get());
 }
 
 // TODO(crbug.com/40243115): add tests for element screen bounds. This requires

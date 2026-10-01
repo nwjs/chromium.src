@@ -124,7 +124,8 @@ base::DictValue SampleTextAttributesDict() {
   text_attributes.Set("styles", base::DictValue()
                                     .Set("bold", true)
                                     .Set("italic", true)
-                                    .Set("strikethrough", true));
+                                    .Set("strikethrough", true)
+                                    .Set("underline", true));
   return text_attributes;
 }
 
@@ -153,6 +154,7 @@ InkTextBoxAttributes SampleInkTextBoxAttributesWithText(std::string text) {
       .is_bold = false,
       .is_italic = true,
       .is_strikethrough = false,
+      .is_underline = false,
       .text = std::move(text),
   };
 }
@@ -177,6 +179,7 @@ SampleInkTextBoxAttributesMatcherWith(const std::string& text,
       .is_bold = true,
       .is_italic = true,
       .is_strikethrough = true,
+      .is_underline = true,
       .text = text,
   });
 }
@@ -207,6 +210,16 @@ testing::Matcher<const InkTextInfo&> SampleInkTextInfoMatcher(
                        /*glyph_positions=*/std::vector<float>(2),
                        /*location=*/gfx::RectF(10.0f, 20.0f, 30.0f, 40.0f),
                        /*is_horizontal=*/true);
+}
+
+testing::Matcher<const InkTextLine&> SampleInkTextLineMatcher(
+    FontId typeface_id) {
+  return testing::AllOf(
+      testing::Field(&InkTextLine::location,
+                     gfx::RectF(10.0f, 20.0f, 30.0f, 40.0f)),
+      testing::Field(
+          &InkTextLine::text_info,
+          testing::ElementsAre(SampleInkTextInfoMatcher(typeface_id))));
 }
 
 base::DictValue SampleSerializedTypeface(FontId font_id,
@@ -305,6 +318,7 @@ void PrintTo(const InkTextBoxAttributes& info, std::ostream* os) {
       << ",\n  is_bold=" << base::ToString(info.is_bold)
       << ",\n  is_italic=" << base::ToString(info.is_italic)
       << ",\n  is_strikethrough=" << base::ToString(info.is_strikethrough)
+      << ",\n  is_underline=" << base::ToString(info.is_underline)
       << ",\n  text=" << info.text << "\n}";
 }
 

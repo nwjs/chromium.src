@@ -112,6 +112,7 @@
 #include "net/device_bound_sessions/session_service.h"
 #endif  // BUILDFLAG(ENABLE_DEVICE_BOUND_SESSIONS)
 
+#include "net/disk_cache/buildflags.h"
 #include "net/disk_cache/cache_util.h"
 #include "net/disk_cache/disk_cache.h"
 #include "net/disk_cache/memory/mem_backend_impl.h"
@@ -3866,6 +3867,67 @@ TEST_F(NetworkContextTest, ClearReportingCacheReportsWithNoService) {
   network_context->ClearReportingCacheReports(nullptr /* filter */,
                                               run_loop.QuitClosure());
   run_loop.Run();
+}
+
+TEST_F(NetworkContextTest, SendReportsForSource) {
+  auto reporting_context = std::make_unique<net::TestReportingContext>(
+      base::DefaultClock::GetInstance(), base::DefaultTickClock::GetInstance(),
+      net::ReportingPolicy());
+  net::ReportingCache* reporting_cache = reporting_context->cache();
+  std::unique_ptr<NetworkContext> network_context = CreateContextWithParams(
+      CreateNetworkContextParamsForTesting(),
+      net::ReportingService::CreateForTesting(std::move(reporting_context)));
+
+  base::UnguessableToken reporting_source = base::UnguessableToken::Create();
+  GURL url("https://google.com");
+  GURL endpoint1("https://google.com/report1");
+  GURL endpoint2("https://google.com/report2");
+  url::Origin origin = url::Origin::Create(url);
+  net::IsolationInfo isolation_info = net::IsolationInfo::Create(
+      net::IsolationInfo::RequestType::kOther, origin, origin,
+      net::SiteForCookies::FromOrigin(origin));
+  base::flat_map<std::string, std::string> endpoints = {
+      {"group1", endpoint1.spec()},
+      {"group2", endpoint2.spec()},
+  };
+
+  network_context->SetDocumentReportingEndpoints(reporting_source, origin,
+                                                 isolation_info, endpoints);
+
+  net::ReportingService* reporting_service =
+      network_context->url_request_context()->reporting_service();
+  // 1st report: sent immediately and starts delivery agent timer.
+  reporting_service->QueueReport(
+      url, reporting_source, isolation_info.network_anonymization_key(),
+      "Mozilla/1.0", "group1", "type", base::DictValue(), 0,
+      net::ReportingTargetType::kDeveloper);
+
+  EXPECT_EQ(0u, reporting_cache->GetReportCountWithStatusForTesting(
+                    net::ReportingReport::Status::QUEUED));
+  EXPECT_EQ(1u, reporting_cache->GetReportCountWithStatusForTesting(
+                    net::ReportingReport::Status::PENDING));
+
+  // 2nd report for group2: remains queued because delivery timer is already
+  // running.
+  reporting_service->QueueReport(
+      url, reporting_source, isolation_info.network_anonymization_key(),
+      "Mozilla/1.0", "group2", "type", base::DictValue(), 0,
+      net::ReportingTargetType::kDeveloper);
+
+  EXPECT_EQ(1u, reporting_cache->GetReportCountWithStatusForTesting(
+                    net::ReportingReport::Status::QUEUED));
+  EXPECT_EQ(1u, reporting_cache->GetReportCountWithStatusForTesting(
+                    net::ReportingReport::Status::PENDING));
+
+  network_context_remote_->SendReportsForSource(reporting_source);
+  network_context_remote_.FlushForTesting();
+
+  // Both reports should now be pending.
+  EXPECT_EQ(0u, reporting_cache->GetReportCountWithStatusForTesting(
+                    net::ReportingReport::Status::QUEUED));
+  EXPECT_EQ(2u, reporting_cache->GetReportCountWithStatusForTesting(
+                    net::ReportingReport::Status::PENDING));
+  EXPECT_FALSE(reporting_cache->GetExpiredSources().contains(reporting_source));
 }
 
 TEST_F(NetworkContextTest, ClearReportingCacheClients) {
@@ -9796,6 +9858,16 @@ TEST_F(NetworkContextTest, EnableTrustTokens) {
   EXPECT_TRUE(success);
 }
 
+TEST_F(NetworkContextTest, ClearTrustTokenSessionOnlyDataNoSessionOnlyRules) {
+  std::unique_ptr<NetworkContext> network_context =
+      CreateContextWithParams(CreateNetworkContextParamsForTesting());
+  ASSERT_TRUE(network_context->trust_token_store());
+
+  base::test::TestFuture<bool> future;
+  network_context->ClearTrustTokenSessionOnlyData(future.GetCallback());
+  EXPECT_FALSE(future.Get());
+}
+
 // NotifyExternalCacheHit currently assumes that the cache hits are for
 // resources, so ensure that entries corresponding to subframe navigations don't
 // get updated unexpectedly.
@@ -13333,6 +13405,30 @@ TEST_F(EarlyCookieLoadOnPreconnectTest, Basic) {
   histogram_tester.ExpectUniqueSample("Cookie.OnPreconnect.LoadCookie", true,
                                       1);
 }
+
+#if BUILDFLAG(ENABLE_DISK_CACHE_SQL_BACKEND)
+TEST_F(NetworkContextTest,
+       ProcessSharedCacheEligibleEntriesWithoutSharedCacheSupport) {
+  mojom::NetworkContextParamsPtr context_params =
+      CreateNetworkContextParamsForTesting();
+  context_params->http_cache_enabled = true;
+  std::unique_ptr<NetworkContext> network_context =
+      CreateContextWithParams(std::move(context_params));
+  net::HttpCache* cache = network_context->url_request_context()
+                              ->http_transaction_factory()
+                              ->GetCache();
+  ASSERT_TRUE(cache);
+  auto [rv, backend] = cache->GetBackend(base::DoNothing());
+  ASSERT_EQ(rv, net::OK);
+  ASSERT_NE(backend, nullptr);
+  ASSERT_FALSE(backend->SupportsSharedCache());
+
+  base::RunLoop run_loop;
+  network_context->ProcessSharedCacheEligibleEntriesForTesting(
+      run_loop.QuitClosure());
+  run_loop.Run();
+}
+#endif  // BUILDFLAG(ENABLE_DISK_CACHE_SQL_BACKEND)
 
 }  // namespace
 

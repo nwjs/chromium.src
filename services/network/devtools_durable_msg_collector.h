@@ -9,8 +9,6 @@
 
 #include "base/containers/queue.h"
 #include "base/memory/weak_ptr.h"
-#include "mojo/public/cpp/bindings/receiver.h"
-#include "mojo/public/cpp/bindings/receiver_set.h"
 #include "services/network/devtools_durable_msg.h"
 #include "services/network/devtools_durable_msg_accounting_delegate.h"
 #include "services/network/public/mojom/network_service.mojom.h"
@@ -36,6 +34,10 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) DevtoolsDurableMessageCollector
                  ConfigureCallback) override;
   void Retrieve(const std::string& devtools_request_id,
                 RetrieveCallback callback) override;
+  void Search(const std::string& devtools_request_id,
+              const std::string& query_regex,
+              bool case_sensitive,
+              SearchCallback callback) override;
   base::WeakPtr<DevtoolsDurableMessage> CreateDurableMessage(
       const std::string& devtools_request_id);
   base::WeakPtr<DevtoolsDurableMessageCollector> GetWeakPtr() {

@@ -19,6 +19,7 @@
 #include "chrome/browser/ui/performance_controls/memory_saver_bubble_observer.h"
 #include "chrome/browser/ui/performance_controls/performance_controls_metrics.h"
 #include "chrome/browser/ui/performance_controls/test_support/memory_saver_browser_test_mixin.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/toolbar_button_provider.h"
 #include "chrome/browser/ui/views/location_bar/location_bar_view.h"
@@ -30,12 +31,15 @@
 #include "chrome/grit/generated_resources.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
+#include "components/enterprise/isolated_mode/isolated_mode_features.h"
+#include "components/profile_metrics/browser_profile_type.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/base/interaction/element_identifier.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/page_transition_types.h"
 #include "ui/base/text/bytes_formatting.h"
 #include "ui/events/event_utils.h"
 #include "ui/events/types/event_type.h"
@@ -259,6 +263,76 @@ IN_PROC_BROWSER_TEST_F(MemorySaverBubbleViewTest,
 #endif
 
 IN_PROC_BROWSER_TEST_F(MemorySaverBubbleViewTest,
+                       ShowDialogWithoutExcludeSiteButtonInIncognitoMode) {
+  BrowserWindowInterface* incognito_browser = CreateIncognitoBrowser();
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(incognito_browser,
+                                           GetURL("foo.com", "/title1.html")));
+
+  content::WebContents* const contents =
+      incognito_browser->GetTabStripModel()->GetActiveWebContents();
+  performance_manager::user_tuning::UserPerformanceTuningManager::
+      PreDiscardResourceUsage::CreateForWebContents(
+          contents, kMemorySavings,
+          ::mojom::LifecycleUnitDiscardReason::PROACTIVE);
+
+  auto* manager = performance_manager::user_tuning::
+      UserPerformanceTuningManager::GetInstance();
+  manager->DiscardPageForTesting(contents);
+
+  ClickPageActionChip(incognito_browser);
+
+  // Exclude site button shouldn't be shown since incognito users can't exclude
+  // sites from being discarded
+  views::Button* const cancel_button = GetMatchingView<views::Button>(
+      MemorySaverBubbleView::kMemorySaverDialogCancelButton, incognito_browser);
+  EXPECT_EQ(cancel_button, nullptr);
+  views::Widget* widget = GetBubbleView(incognito_browser)->GetWidget();
+  EXPECT_EQ(widget->widget_delegate()->AsBubbleDialogDelegate()->GetSubtitle(),
+            std::u16string());
+}
+
+class MemorySaverBubbleViewIsolatedTest : public MemorySaverBubbleViewTest {
+ public:
+  void SetUpCommandLine(base::CommandLine* command_line) override {
+    MemorySaverBubbleViewTest::SetUpCommandLine(command_line);
+    command_line->AppendSwitch(
+        enterprise_isolated_mode::switches::
+            kForceEnterpriseIsolatedModeReplacesIncognito);
+  }
+};
+
+IN_PROC_BROWSER_TEST_F(MemorySaverBubbleViewIsolatedTest,
+                       ShowDialogWithoutExcludeSiteButtonInIsolatedMode) {
+  BrowserWindowInterface* isolated_browser = CreateIncognitoBrowser();
+  EXPECT_TRUE(
+      isolated_browser->GetProfile()->IsEnterpriseIsolatedModeProfile());
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(isolated_browser,
+                                           GetURL("foo.com", "/title1.html")));
+
+  content::WebContents* const contents =
+      isolated_browser->GetTabStripModel()->GetActiveWebContents();
+  performance_manager::user_tuning::UserPerformanceTuningManager::
+      PreDiscardResourceUsage::CreateForWebContents(
+          contents, kMemorySavings,
+          ::mojom::LifecycleUnitDiscardReason::PROACTIVE);
+
+  auto* manager = performance_manager::user_tuning::
+      UserPerformanceTuningManager::GetInstance();
+  manager->DiscardPageForTesting(contents);
+
+  ClickPageActionChip(isolated_browser);
+
+  // Exclude site button shouldn't be shown since isolated users can't exclude
+  // sites from being discarded
+  views::Button* const cancel_button = GetMatchingView<views::Button>(
+      MemorySaverBubbleView::kMemorySaverDialogCancelButton, isolated_browser);
+  EXPECT_EQ(cancel_button, nullptr);
+  views::Widget* widget = GetBubbleView(isolated_browser)->GetWidget();
+  EXPECT_EQ(widget->widget_delegate()->AsBubbleDialogDelegate()->GetSubtitle(),
+            std::u16string());
+}
+
+IN_PROC_BROWSER_TEST_F(MemorySaverBubbleViewTest,
                        ShouldCollapseChipAfterNavigatingTabsWithDialogOpen) {
   AddNewTab(kMemorySavings, ::mojom::LifecycleUnitDiscardReason::PROACTIVE);
   TabStripModel* tab_strip_model = browser()->GetTabStripModel();
@@ -271,7 +345,7 @@ IN_PROC_BROWSER_TEST_F(MemorySaverBubbleViewTest,
   EXPECT_TRUE(base::test::RunUntil([&]() {
     return page_actions::PageActionTestAccessor(browser(),
                                                 kActionShowMemorySaverChip)
-        .IsChipVisible();
+        .ShouldShowSuggestionChip();
   }));
 
   SetTabDiscardState(0, true);
@@ -281,7 +355,7 @@ IN_PROC_BROWSER_TEST_F(MemorySaverBubbleViewTest,
   EXPECT_TRUE(base::test::RunUntil([&]() {
     return page_actions::PageActionTestAccessor(browser(),
                                                 kActionShowMemorySaverChip)
-        .IsChipVisible();
+        .ShouldShowSuggestionChip();
   }));
 
   ClickPageActionChip();
@@ -289,7 +363,7 @@ IN_PROC_BROWSER_TEST_F(MemorySaverBubbleViewTest,
   EXPECT_TRUE(base::test::RunUntil([&]() {
     return !page_actions::PageActionTestAccessor(browser(),
                                                  kActionShowMemorySaverChip)
-                .IsChipVisible();
+                .ShouldShowSuggestionChip();
   }));
 }
 
@@ -329,7 +403,15 @@ IN_PROC_BROWSER_TEST_P(MemorySaverBubbleViewSavingsTest,
                        ShowsCorrectLabelsForDifferentSavings) {
   AddNewTab(std::get<0>(GetParam()),
             ::mojom::LifecycleUnitDiscardReason::PROACTIVE);
-  SetTabDiscardState(0, true);
+  TabStripModel* tab_strip_model = browser()->GetTabStripModel();
+  tab_strip_model->ActivateTabAt(0);
+  SetTabDiscardState(1, true);
+  tab_strip_model->ActivateTabAt(1);
+  ASSERT_TRUE(base::test::RunUntil([&]() {
+    return page_actions::PageActionTestAccessor(browser(),
+                                                kActionShowMemorySaverChip)
+        .ShouldShowSuggestionChip();
+  }));
 
   ClickPageActionChip();
 

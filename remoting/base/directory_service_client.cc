@@ -238,6 +238,7 @@ void DirectoryServiceClient::RegisterHost(const std::string& host_id,
   register_host_request->set_host_name(host_name);
   register_host_request->set_public_key(public_key);
   register_host_request->set_host_client_id(host_client_id);
+  register_host_request->set_host_version(STRINGIZE(VERSION));
 
   // RegisterHost is non-idempotent (potentially multiple host records will be
   // created), so retries may not be safe.
@@ -273,6 +274,11 @@ void DirectoryServiceClient::ExecuteRequest(
       std::make_unique<ProtobufHttpRequestConfig>(traffic_annotation);
   request_config->path = path;
   request_config->request_message = std::move(request_message);
+#if !defined(NDEBUG)
+  // Debug builds default to sandbox endpoints which require client certificate
+  // authentication (mTLS) at the edge.
+  request_config->provide_certificate = true;
+#endif
   if (enable_retries) {
     request_config->UseSimpleRetryPolicy();
   }

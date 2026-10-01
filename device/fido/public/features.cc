@@ -125,16 +125,10 @@ BASE_FEATURE(kWebAuthnEnclaveAttestation,
              "WebAuthenticationEnclaveAttestation",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-
-
 BASE_FEATURE(kWebAuthnCrossDeviceFallbackUrl,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kWebAuthnRemoteClientDataJson, base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Enabled by default in M149. Remove in or after M152.
-BASE_FEATURE(kWebAuthnIWARemoteDesktopAllowedOriginsPolicy,
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enabled by default in M152. Remove in or after M155.
 BASE_FEATURE(kWebAuthnOpportunisticRetrieval, base::FEATURE_ENABLED_BY_DEFAULT);
@@ -163,15 +157,6 @@ BASE_FEATURE(kWebAuthnGpmPinResetUsesAccountIndex,
 // Enabled by default in M147. Remove in or after M150.
 BASE_FEATURE(kWebAuthnWinPrfOnCreate, base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // BUILDFLAG(IS_WIN)
-
-// Enabled by default in M150. Remove in or after M153.
-COMPONENT_EXPORT(FIDO_PUBLIC)
-BASE_FEATURE(kWebAuthnSocketMaxPriorityMode, base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Enabled by default in M151. Remove in or after M154.
-COMPONENT_EXPORT(FIDO_PUBLIC)
-BASE_FEATURE(kWebAuthnStripUnusedEnclaveParameters,
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Disabled by default.
 COMPONENT_EXPORT(FIDO_PUBLIC)

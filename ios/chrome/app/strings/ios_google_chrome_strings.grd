@@ -349,6 +349,12 @@ Try waiting a few minutes before switching accounts. If you switch accounts now,
       <message name="IDS_IOS_DEFAULT_BROWSER_NON_MODAL_OMNIBOX_NAVIGATION_TITLE" desc="Title for the non-modal default browser promotion banner after Omnibox URL copy/paste and navigation.">
         Set Chrome as default?
       </message>
+      <message name="IDS_IOS_DEFAULT_BROWSER_NON_MODAL_PROMO_STRINGS_FEWER_STEPS_SUBTITLE" desc="Description for the non-modal default browser promotion banner after Omnibox URL copy/paste and navigation [iOS only].">
+        Make Chrome your default browser to open links in one tap
+      </message>
+      <message name="IDS_IOS_DEFAULT_BROWSER_NON_MODAL_PROMO_STRINGS_SKIP_COPY_PASTE_SUBTITLE" desc="Description for the non-modal default browser promotion banner after Omnibox URL copy/paste and navigation [iOS only].">
+        Set Chrome as your default browser to open links in one tap
+      </message>
       <message name="IDS_IOS_DEFAULT_BROWSER_NON_MODAL_SHARE_DESCRIPTION" desc="Description for the non-modal default browser promotion banner when sharing a URL via the 'Share Chrome' action or the share icon in the Omnibox.">
         Set Chrome as your default browser to easily share and open links
       </message>
@@ -360,6 +366,9 @@ Try waiting a few minutes before switching accounts. If you switch accounts now,
       </message>
       <message name="IDS_IOS_DEFAULT_BROWSER_PIP_ACCESSIBILITY_ANNOUNCEMENT" desc="Accessibility announcement for the default browser fullscreen video instructions. [iOS only]" is_accessibility_with_no_ui="true">
         Full screen video of how to set Chrome as default
+      </message>
+      <message name="IDS_IOS_DEFAULT_BROWSER_PIP_TEXT_VIDEO_ACCESSIBILITY_DESCRIPTION" desc="Accessibility description for the default browser picture-in-picture text video instructions. [iOS only]" is_accessibility_with_no_ui="true">
+        Full screen video of how to set Chrome as default: Open Chrome settings in iOS, tap on "Default Browser App", and select Chrome.
       </message>
       <message name="IDS_IOS_DEFAULT_BROWSER_TAILORED_ALL_TABS_DESCRIPTION" desc="Description of the 'All your tabs' default browser promotion modal. [iOS only]">
         Set Chrome as default to sync your tabs, passwords, and payment info on all your devices
@@ -400,23 +409,8 @@ Try waiting a few minutes before switching accounts. If you switch accounts now,
       <message name="IDS_IOS_DOCKING_PROMO_FIRST_INSTRUCTION" desc="Title of the first step instruction shown in the Docking Promo, which tells users to hold down on the Chrome icon to put their iOS device into Edit Mode.">
         Press and hold the Chrome icon and click "Edit home screen"
       </message>
-      <message name="IDS_IOS_DOCKING_PROMO_SUBTITLE" desc="Subtitle of the fullscreen, instructional Docking Promo which shows users how to add the Chrome app to their iOS dock.">
-        Open Chrome instantly when you're on your iPhone
-      </message>
-      <message name="IDS_IOS_DOCKING_PROMO_SUBTITLE_IPAD" desc="Subtitle of the fullscreen, instructional Docking Promo which shows users how to add the Chrome app to their iOS dock. iPad experimental version.">
-        Open Chrome instantly when you're on your iPad
-      </message>
       <message name="IDS_IOS_DOCKING_PROMO_TITLE" desc="Title of the fullscreen, instructional Docking Promo which shows users how to add the Chrome app to their iOS dock.">
         Access Chrome faster from your home screen dock
-      </message>
-      <message name="IDS_IOS_DOCKING_PROMO_TITLE_0" desc="Title of the fullscreen, instructional Docking Promo which shows users how to add the Chrome app to their iOS dock.">
-        Access Chrome faster from your dock
-      </message>
-      <message name="IDS_IOS_DOCKING_PROMO_TITLE_1" desc="Title of the fullscreen, instructional Docking Promo which shows users how to add the Chrome app to their iOS dock.">
-        Move Chrome to your dock
-      </message>
-      <message name="IDS_IOS_DOCKING_PROMO_TITLE_2" desc="Title of the fullscreen, instructional Docking Promo which shows users how to add the Chrome app to their iOS dock.">
-        Place Chrome in the bottom area to access it anytime
       </message>
       <message name="IDS_IOS_ENHANCED_SAFE_BROWSING_PROMO_INSTRUCTIONS_STEP1" desc="Step 1 of instructions telling the user how to enable Enhanced Safe Browsing.">
         Open Chrome Settings
@@ -477,12 +471,6 @@ Try waiting a few minutes before switching accounts. If you switch accounts now,
       </message>
       <message name="IDS_IOS_FIRST_RUN_SIGNIN_SUBTITLE_SIGNIN_FORCED" desc="Subtitle of a dialog to sign in to Chrome when sign-in is required because of an enterprise policy. [iOS only]">
         Your organization requires you to sign in to use Chrome.
-      </message>
-      <message name="IDS_IOS_FIRST_RUN_SIGNIN_TITLE" desc="Title of the screen suggesting to the user to sign in. [iOS only]">
-        Make Chrome your own
-      </message>
-      <message name="IDS_IOS_FIRST_RUN_SIGNIN_TITLE_0" desc="Variations option 1. Title of the screen suggesting to the user to sign in. [iOS only]">
-        Take your Chrome with you
       </message>
       <message name="IDS_IOS_FIRST_RUN_SIGNIN_TITLE_SIGNIN_FORCED" meaning="Title" desc="Title of a dialog to sign in to Chrome when sign-in is required because of an enterprise policy. [iOS only]">
         Sign in to Chrome
@@ -1299,12 +1287,6 @@ Your data was encrypted with your passphrase on <ph name="TIME">$2<ex>Sept 1, 20
       </message>
       <message name="IDS_IOS_UNO_UPGRADE_PROMO_SIGNIN_SUBTITLE_SYNC_DISABLED" desc="This string is on a sign-in page, shown several weeks after the user has installed Chrome. It explains the overarching user benefit of signing in (access to bookmarks, passwords, history, settings, etc.). However, we introduce a caveat, because the user has a managed account (such as Enterprise); this means that, depending on their organization's settings, the user might not be able to save all types of data in their Google Account. We want users to understand why signing in is beneficial, and click 'Continue as name' to sign in to their Google Account.">
         Get the most out of Chrome.
-      </message>
-      <message name="IDS_IOS_UNO_UPGRADE_PROMO_SIGNIN_TITLE" desc="Title of the screen suggesting to the user to sign in. The user may see this screen when Chrome is opened, but only several weeks after installation.">
-        Make Chrome your own
-      </message>
-       <message name="IDS_IOS_UNO_UPGRADE_PROMO_SIGNIN_TITLE_0" desc="Variations option 1. Title of the screen suggesting to the user to sign in. The user may see this screen when Chrome is opened, but only several weeks after installation.">
-        Take your Chrome with you
       </message>
       <message name="IDS_IOS_UPGRADE_AVAILABLE" desc="Text to inform the user of the presence of a new version of the application">
         Chrome just got better! A new version is available.

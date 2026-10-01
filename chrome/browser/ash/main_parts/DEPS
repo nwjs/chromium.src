@@ -1,8 +1,6 @@
 include_rules = [
   "-chrome",
 
-  "+chromeos/ash/components/mojo_service_manager",
-  "+chromeos/ash/components/scheduler_config",
   "+chrome/browser/ash/main_parts",
   "+chrome/browser/ash/accessibility",
   "+chrome/browser/ash/ambient",
@@ -38,7 +36,6 @@ include_rules = [
   "+chrome/browser/ash/note_taking",
   "+chrome/browser/ash/notifications",
   "+chrome/browser/ash/ownership",
-  "+chrome/browser/ash/pcie_peripheral",
   "+chrome/browser/ash/performance",
   "+chrome/browser/ash/platform_keys/key_permissions",
   "+chrome/browser/ash/policy/core",
@@ -74,11 +71,10 @@ include_rules = [
   "+chrome/browser/ui/ash/keyboard",
   "+chrome/browser/ui/ash/login",
   "+chrome/browser/ui/ash/session",
+  "+chrome/browser/ui/webui/ash/config",
   "+chrome/browser/ui/webui/ash/emoji",
   "+chrome/common/chrome_constants.h",
-  "+chrome/common/chrome_features.h",
   "+chrome/common/chrome_paths.h",
-  "+chrome/common/chrome_switches.h",
   "+chrome/common/logging_chrome.h",
   "+chrome/common/pref_names.h",
 ]

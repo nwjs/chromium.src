@@ -52,6 +52,7 @@ import org.chromium.chrome.browser.settings.search.ChromeBaseSearchIndexProvider
 import org.chromium.chrome.browser.signin.services.IdentityServicesProvider;
 import org.chromium.chrome.browser.signin.services.ProfileDataCache;
 import org.chromium.chrome.browser.sync.SyncServiceFactory;
+import org.chromium.chrome.browser.sync.SyncSettingsUtils;
 import org.chromium.chrome.browser.sync.ui.PassphraseCreationDialogFragment;
 import org.chromium.chrome.browser.sync.ui.PassphraseDialogFragment;
 import org.chromium.chrome.browser.sync.ui.PassphraseTypeDialogFragment;
@@ -113,20 +114,21 @@ public class ManageSyncSettings extends ChromeBaseSettingsFragment
                 BatchUploadCardPreference.Listener {
     @VisibleForTesting public static final String FRAGMENT_ENTER_PASSPHRASE = "enter_password";
     @VisibleForTesting public static final String FRAGMENT_CUSTOM_PASSPHRASE = "custom_password";
-    @VisibleForTesting public static final String FRAGMENT_PASSPHRASE_TYPE = "password_type";
+    private static final String FRAGMENT_PASSPHRASE_TYPE = "password_type";
 
-    @VisibleForTesting
     private static final String PREF_CENTRAL_ACCOUNT_CARD_PREFERENCE = "central_account_card";
 
     @VisibleForTesting
     public static final String PREF_IDENTITY_ERROR_CARD_PREFERENCE = "identity_error_card";
 
-    @VisibleForTesting
     private static final String PREF_SETTINGS_SYNC_DISABLED_BY_ADMINISTRATOR =
             "settings_sync_disabled_by_administrator";
 
     @VisibleForTesting
     public static final String PREF_BATCH_UPLOAD_CARD_PREFERENCE = "batch_upload_card";
+
+    @VisibleForTesting
+    public static final String PREF_ACCOUNT_SECTION_HEADER = "account_section_header";
 
     @VisibleForTesting
     public static final String PREF_ACCOUNT_SECTION_HISTORY_TOGGLE =
@@ -162,6 +164,9 @@ public class ManageSyncSettings extends ChromeBaseSettingsFragment
 
     @VisibleForTesting
     public static final String PREF_ACCOUNT_SECTION_THEMES_TOGGLE = "account_section_themes_toggle";
+
+    @VisibleForTesting
+    public static final String PREF_ACCOUNT_ADVANCED_HEADER = "account_advanced_header";
 
     @VisibleForTesting
     public static final String PREF_GOOGLE_ACTIVITY_CONTROLS = "google_activity_controls";
@@ -438,7 +443,10 @@ public class ManageSyncSettings extends ChromeBaseSettingsFragment
         Preference reviewSyncData = findPreference(preference);
         reviewSyncData.setOnPreferenceClickListener(
                 SyncSettingsUtils.toOnClickListener(
-                        this, () -> SyncSettingsUtils.openSyncDashboard(getActivity())));
+                        this,
+                        () ->
+                                SyncSettingsUtils.openSyncDashboard(
+                                        getContext(), getCustomTabLauncher())));
     }
 
     private void setupAccountManagementPreferences() {
@@ -447,7 +455,8 @@ public class ManageSyncSettings extends ChromeBaseSettingsFragment
                 SyncSettingsUtils.toOnClickListener(
                         this,
                         () -> {
-                            SyncSettingsUtils.openGoogleMyAccount(getActivity());
+                            SyncSettingsUtils.openGoogleMyAccount(
+                                    getContext(), getCustomTabLauncher());
                         }));
         Preference manageAccountsOnThisDevice =
                 findPreference(PREF_ACCOUNT_ANDROID_DEVICE_ACCOUNTS);
@@ -512,12 +521,16 @@ public class ManageSyncSettings extends ChromeBaseSettingsFragment
                     requireContext(),
                     profile,
                     ((ModalDialogManagerHolder) getActivity()).getModalDialogManager());
-            if (DeviceInfo.isDesktop()
-                    && SigninFeatureMap.isEnabled(SigninFeatures.SIGN_OUT_OF_CHROME)) {
-                mSignOutPreference.setTitle(R.string.manage_sync_settings_sign_out_of_chrome);
-            }
+            mSignOutPreference.setTitle(getSignOutTitle());
         }
         mSignOutPreference.setSnackbarManagerSupplier(assumeNonNull(mSnackbarManagerSupplier));
+    }
+
+    private static @StringRes int getSignOutTitle() {
+        return DeviceInfo.isDesktop()
+                        && SigninFeatureMap.isEnabled(SigninFeatures.SIGN_OUT_OF_CHROME)
+                ? R.string.manage_sync_settings_sign_out_of_chrome
+                : R.string.sign_out;
     }
 
     private static boolean shouldShowSignOutPref(Profile profile) {
@@ -706,7 +719,7 @@ public class ManageSyncSettings extends ChromeBaseSettingsFragment
 
     private void onGoogleActivityControlsClicked(String signedInAccountName) {
         if (isEeaChoiceCountry()) {
-            SettingsNavigationFactory.createSettingsNavigation()
+            SettingsNavigationFactory.createSettingsNavigation(getContext())
                     .startSettings(
                             getContext(),
                             PersonalizeGoogleServicesSettings.class,
@@ -900,9 +913,10 @@ public class ManageSyncSettings extends ChromeBaseSettingsFragment
                 return;
             case UserActionableError.BOOKMARKS_LIMIT_EXCEEDED:
                 SyncSettingsUtils.openBookmarkLimitHelpPage(
-                        getActivity(),
+                        getContext(),
                         mSyncService,
-                        BookmarksLimitExceededHelpClickedSource.SETTINGS);
+                        BookmarksLimitExceededHelpClickedSource.SETTINGS,
+                        getCustomTabLauncher());
                 return;
             case UserActionableError.NONE:
             default:
@@ -981,6 +995,12 @@ public class ManageSyncSettings extends ChromeBaseSettingsFragment
                 public void updateDynamicPreferences(
                         Context context, SettingsIndexData indexData, Profile profile) {
                     var frag = ManageSyncSettings.class.getName();
+
+                    // These preferences should not be searchable - transient or informational UI.
+                    indexData.removeEntryForKey(frag, PREF_IDENTITY_ERROR_CARD_PREFERENCE);
+                    indexData.removeEntryForKey(frag, PREF_BATCH_UPLOAD_CARD_PREFERENCE);
+                    indexData.removeEntryForKey(frag, PREF_SETTINGS_SYNC_DISABLED_BY_ADMINISTRATOR);
+
                     if (!shouldShowExtensionsItem(profile)) {
                         indexData.removeEntryForKey(frag, PREF_ACCOUNT_SECTION_EXTENSIONS_TOGGLE);
                     }
@@ -990,6 +1010,8 @@ public class ManageSyncSettings extends ChromeBaseSettingsFragment
                     }
                     if (!shouldShowSignOutPref(profile)) {
                         indexData.removeEntryForKey(frag, PREF_SIGN_OUT);
+                    } else if (indexData.getEntryForKey(frag, PREF_SIGN_OUT) != null) {
+                        indexData.updateEntryForKey(frag, PREF_SIGN_OUT, getSignOutTitle());
                     }
                     if (!shouldShowSwitchToIncognitoPref(profile)) {
                         indexData.removeEntryForKey(frag, PREF_SWITCH_TO_INCOGNITO);

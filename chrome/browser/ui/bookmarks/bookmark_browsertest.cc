@@ -21,6 +21,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/tab_group_sync/tab_group_sync_service_factory.h"
+#include "chrome/browser/ui/bookmarks/bookmark_bar.h"
 #include "chrome/browser/ui/bookmarks/bookmark_bar_controller.h"
 #include "chrome/browser/ui/bookmarks/bookmark_drag_drop.h"
 #include "chrome/browser/ui/bookmarks/bookmark_tab_helper.h"
@@ -46,6 +47,7 @@
 #include "components/saved_tab_groups/public/tab_group_sync_service.h"
 #include "components/security_interstitials/content/security_interstitial_tab_helper.h"
 #include "components/signin/public/base/signin_switches.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
@@ -56,7 +58,9 @@
 #include "ui/base/dragdrop/mojom/drag_drop_types.mojom-shared.h"
 #include "ui/base/dragdrop/os_exchange_data.h"
 #include "ui/base/interaction/element_tracker.h"
+#include "ui/base/page_transition_types.h"
 #include "ui/base/ui_base_features.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/gfx/image/image_skia.h"
 #include "ui/views/controls/button/checkbox.h"
 #include "ui/views/interaction/element_tracker_views.h"
@@ -319,8 +323,13 @@ IN_PROC_BROWSER_TEST_F(
   EXPECT_EQ(browser_tabs + 1, browser()->GetTabStripModel()->count());
 }
 
-
-IN_PROC_BROWSER_TEST_F(BookmarkBrowsertest, OpenAllBookmarks) {
+#if !defined(NDEBUG) || defined(ADDRESS_SANITIZER) || defined(MEMORY_SANITIZER)
+// TODO(https://crbug.com/556290954): de-flake and re-enable.
+#define MAYBE_OpenAllBookmarks DISABLED_OpenAllBookmarks
+#else
+#define MAYBE_OpenAllBookmarks OpenAllBookmarks
+#endif
+IN_PROC_BROWSER_TEST_F(BookmarkBrowsertest, MAYBE_OpenAllBookmarks) {
   BrowserWindowInterface* regular_browser = browser();
   BookmarkModel* bookmark_model =
       WaitForBookmarkModel(regular_browser->GetProfile());

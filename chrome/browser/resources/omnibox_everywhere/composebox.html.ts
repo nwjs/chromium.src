@@ -26,6 +26,14 @@ export function getHtml(this: OmniboxEverywhereComposeboxElement) {
           exportparts="composebox-background">
       </search-animated-glow>
     ` : ''}
+    ${this.errorMessage ? html`
+      <ntp-error-scrim id="errorScrim" part="error-scrim"
+          ?compact-mode="${this.searchboxLayoutMode === 'Compact' &&
+                          this.files.size === 0}"
+          .errorMessage="${this.errorMessage}"
+          @dismiss-error-scrim="${this.onDismissErrorScrim}">
+      </ntp-error-scrim>`
+    : ''}
     <div id="composebox" part="composebox" ?inert="${!!this.errorMessage}"
       @keydown="${this.onKeydown}"
       @dragenter="${this.dragAndDropHandler.handleDragEnter}"
@@ -72,7 +80,9 @@ export function getHtml(this: OmniboxEverywhereComposeboxElement) {
             <cr-composebox-dropdown
                 id="matches"
                 part="dropdown"
-                exportparts="match-text-container"
+                exportparts="match-text-container, match-container,
+                             match-icon-container, match-focus-indicator,
+                             match-icon, match-remove-button"
                 role="listbox"
                 .result="${this.result}"
                 .selectedMatchIndex="${this.selectedMatchIndex}"
@@ -83,7 +93,7 @@ export function getHtml(this: OmniboxEverywhereComposeboxElement) {
                     this.onSelectedMatchIndexChanged}"
                 @match-focusin="${this.onMatchFocusin}"
                 @match-click="${this.onMatchClick}"
-                ?hidden="${!this.showDropdown || !this.dropdownNeeded}"
+                ?hidden="${this.shouldHideDropdown()}"
                 .lastQueriedInput="${this.lastQueriedInput}">
             </cr-composebox-dropdown>
             <div id="bottomControls">
@@ -93,49 +103,24 @@ export function getHtml(this: OmniboxEverywhereComposeboxElement) {
                     @mousedown="${this.onContextMenuContainerMousedown}"
                     @click="${this.onContextMenuContainerClick}">
                   ${hasAllowedInputs(this.inputState, this.usePecApi) ? html`
-                    <cr-composebox-contextual-entrypoint-and-menu
+                    <cr-composebox-contextual-entrypoint-button
                         id="contextEntrypoint"
                         part="composebox-entrypoint"
                         exportparts="context-menu-entrypoint-icon,
                                      entrypoint-button"
                         class="upload-button no-overlap"
-                        @add-tab-context="${this.onAddTabContext}"
-                        @delete-tab-context="${this.onDeleteTabContext}"
-                        @tool-click="${this.onToolClick}"
-                        @model-click="${this.onModelClick}"
-                        @get-tab-preview="${this.onGetTabPreview}"
-                        @context-menu-closed="${this.onContextMenuClosed}"
-                        @context-menu-opened="${this.onContextMenuOpened}"
-                        @open-image-upload="${this.onOpenImageUpload}"
-                        @open-file-upload="${this.onOpenFileUpload}"
-                        @open-drive-upload="${this.onOpenDriveUpload}"
-                        @smart-tab-sharing-active-changed="${
-                            this.onSmartTabSharingActiveChanged}"
-                        @share-tabs-flyout-open-changed="${
-                            this.onShareTabsFlyoutOpenChanged}"
-                        @request-tab-suggestions-load="${
-                            this.onRequestTabSuggestionsLoad}"
-                        .shareTabsFlyoutOpen="${this.shareTabsFlyoutOpen}"
-                        .smartTabSharingVisible="${this.smartTabSharingVisible}"
-                        .tabSuggestionsState="${this.tabSuggestionsState}"
                         .inputState="${this.inputState}"
-                        .usePecApi="${this.usePecApi}"
-                        .smartTabSharingActive="${this.smartTabSharingActive}"
-                        .contextManagementInComposeboxEnabled="${
-                            this.contextManagementInComposeboxEnabled}"
-                        .searchboxLayoutMode="${this.searchboxLayoutMode}"
-                        .tabSuggestions="${this.tabSuggestions}"
-                        .recentTabId="${this.recentTabId}"
-                        .hasImageFiles="${this.hasImageFiles()}"
-                        .selectedTabIds="${this.addedTabsIds}"
-                        .aimThreadRestoredTabs="${this.aimThreadRestoredTabs}"
-                        .fileNum="${this.attachedContext.size}"
                         .sharedTabs="${this.getSharedTabs()}"
+                        .restoredTabs="${this.aimThreadRestoredTabs}"
+                        .smartTabSharingActive="${this.smartTabSharingActive}"
+                        .energyEffectAnimationEnabled="${
+                            this.energyEffectAnimationEnabled}"
                         ?upload-button-disabled="${this.uploadButtonDisabled}"
-                        unbounded-menu-enabled
                         ?show-context-menu-description="${
-                            this.showContextMenuDescription}">
-                    </cr-composebox-contextual-entrypoint-and-menu>
+                            this.showContextMenuDescription}"
+                        @context-menu-entrypoint-click="${
+                            this.onContextMenuEntrypointClick_}">
+                    </cr-composebox-contextual-entrypoint-button>
                   ` : ''}
                   ${this.inToolMode ? html`
                     <cr-composebox-tool-chip
@@ -157,8 +142,11 @@ export function getHtml(this: OmniboxEverywhereComposeboxElement) {
                 </div>
                 ` : ''}
                 <div class="searchbox-icon-button-container lens ${
-                    this.isScreenshotMenuOpen ? 'menu-open' : ''}">
+                    this.isScreenshotMenuOpen ? 'menu-open' : ''} ${
+                    this.isLensHelpBubbleShowing ? 'help-bubble-open' : ''}">
                   <button id="lensSearchButton" class="searchbox-icon-button"
+                      @pointerdown="${this.onLensSearchPointerdown_}"
+                      @pointercancel="${this.onLensSearchPointercancel_}"
                       @click="${this.onLensSearchClick_}"
                       title="${this.i18n('lensSearchButtonLabel')}">
                   </button>

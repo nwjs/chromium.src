@@ -15,7 +15,6 @@
 #include "base/command_line.h"
 #include "base/containers/flat_map.h"
 #include "base/functional/bind.h"
-#include "base/logging.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/values.h"
 #include "chrome/browser/accessibility/phrase_segmentation/dependency_parser_model_loader.h"
@@ -33,6 +32,7 @@
 #include "chrome/browser/ui/read_anything/read_anything_prefs.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/browser/ui/toolbar/pinned_toolbar/pinned_toolbar_actions_model.h"
+#include "chrome/browser/ui/user_education/browser_user_education_interface.h"
 #include "chrome/common/chrome_isolated_world_ids.h"
 #include "chrome/common/extensions/extension_constants.h"
 #include "chrome/common/read_anything/read_anything.mojom-shared.h"
@@ -43,6 +43,7 @@
 #include "components/dom_distiller/core/distiller_page.h"
 #include "components/dom_distiller/core/dom_distiller_service.h"
 #include "components/dom_distiller/core/task_tracker.h"
+#include "components/feature_engagement/public/feature_constants.h"
 #include "components/language/core/browser/language_model.h"
 #include "components/language/core/browser/language_model_manager.h"
 #include "components/language/core/common/locale_util.h"
@@ -611,7 +612,7 @@ void ReadAnythingUntrustedPageHandler::OnUpdateLanguageStatus(
   const bool shouldSendGuestStatus =
       statusProfile->IsGuestSession() && profile_->IsGuestSession();
   if (!shouldSendGuestStatus && !profile_->IsIncognitoProfile() &&
-      statusProfile->UniqueId() != profile_->UniqueId()) {
+      statusProfile->UniqueToken() != profile_->UniqueToken()) {
     return;
   }
   auto voicePackInfo = read_anything::mojom::VoicePackInfo::New();
@@ -903,86 +904,36 @@ void ReadAnythingUntrustedPageHandler::OnLinksEnabledChanged(bool enabled) {
       prefs::kAccessibilityReadAnythingLinksEnabled, enabled);
 }
 
-std::string ReadAnythingUntrustedPageHandler::GetDisplayLanguage() {
-  std::string source_lang = current_language_code_;
-
-  content::WebContents* main_contents = GetWebContents();
-  if (!main_contents) {
-    return source_lang;
-  }
-
-  ChromeTranslateClient* main_client =
-      ChromeTranslateClient::FromWebContents(main_contents);
-  if (!main_client) {
-    return source_lang;
-  }
-
-  const translate::LanguageState& main_language_state =
-      main_client->GetLanguageState();
-
-  // Use the main page's translated language if it has already been translated.
-  if (main_language_state.IsPageTranslated()) {
-    return main_language_state.current_language();
-  }
-
-  // Fall back to the main page's source language if ours is unknown.
-  if (source_lang.empty() || source_lang == "und" || source_lang == "und-und") {
-    return main_language_state.source_language();
-  }
-
-  return source_lang;
-}
-
 void ReadAnythingUntrustedPageHandler::OnTranslationRequested() {
   if (!features::IsReadAnythingTranslateEntryPointEnabled()) {
     mojo::ReportBadMessage("Translate entry point not enabled");
     return;
   }
-  content::WebContents* side_panel_contents = web_ui_->GetWebContents();
-  if (!side_panel_contents) {
+
+  // Translating the tab also translates the content displayed in reading mode:
+  // while reading mode is open, ContentTranslateDriver dispatches the
+  // translation to both the tab's and the side panel's TranslateAgent. See
+  // ContentTranslateDriver::GetTranslateAgents().
+  content::WebContents* main_contents =
+      main_observer_ ? main_observer_->web_contents() : nullptr;
+  if (!main_contents) {
     return;
   }
 
-  ChromeTranslateClient::CreateForWebContents(side_panel_contents);
   ChromeTranslateClient* translate_client =
-      ChromeTranslateClient::FromWebContents(side_panel_contents);
+      ChromeTranslateClient::FromWebContents(main_contents);
   if (!translate_client) {
     return;
   }
 
   translate::TranslateManager* translate_manager =
       translate_client->GetTranslateManager();
-  if (translate_manager) {
-    // Sync the article's true source language to the side panel
-    // TranslateManager (using the current language if the main page was
-    // translated) and preserve any existing target language before opening the
-    // Translate bubble.
-    std::optional<std::string> target_lang;
-    translate::LanguageState* language_state =
-        translate_manager->GetLanguageState();
-
-    if (language_state) {
-      if (language_state->IsPageTranslated()) {
-        target_lang = language_state->current_language();
-      }
-
-      std::string source_lang = GetDisplayLanguage();
-
-      if (target_lang == source_lang) {
-        target_lang = std::nullopt;
-      }
-      if (!source_lang.empty() && source_lang != "und" &&
-          source_lang != "und-und") {
-        language_state->LanguageDetermined(
-            source_lang, /*page_level_translation_criteria_met=*/true);
-      }
-      language_state->set_translation_pending(false);
-    }
-    translate_manager->ShowTranslateUI(/*source_code=*/std::nullopt,
-                                       /*target_code=*/target_lang,
-                                       /*auto_translate=*/true,
-                                       /*triggered_from_menu=*/true);
+  if (!translate_manager) {
+    return;
   }
+
+  translate_manager->ShowTranslateUI(/*auto_translate=*/true,
+                                     /*triggered_from_menu=*/true);
 }
 
 void ReadAnythingUntrustedPageHandler::OnImagesEnabledChanged(bool enabled) {
@@ -1039,6 +990,19 @@ void ReadAnythingUntrustedPageHandler::OnLineFocusChanged(
     profile_->GetPrefs()->SetInteger(
         prefs::kAccessibilityReadAnythingLastNonDisabledLineFocus,
         static_cast<size_t>(last_non_disabled_line_focus));
+
+    if (current_line_focus == read_anything::mojom::LineFocus::kOff) {
+      return;
+    }
+
+    if (tab_ && tab_->GetBrowserWindowInterface()) {
+      if (auto* user_ed = BrowserUserEducationInterface::From(
+              tab_->GetBrowserWindowInterface())) {
+        user_ed->NotifyFeaturePromoFeatureUsed(
+            feature_engagement::kIPHReadingModeLineFocusFeature,
+            FeaturePromoFeatureUsedAction::kClosePromoIfPresent);
+      }
+    }
   }
 }
 
@@ -1358,6 +1322,23 @@ void ReadAnythingUntrustedPageHandler::OnCollapseSelection() {
 void ReadAnythingUntrustedPageHandler::OnDistillationStatus(
     read_anything::mojom::DistillationStatus status,
     int word_count) {
+#if BUILDFLAG(ENABLE_PDF)
+  if (last_open_trigger_ == ReadAnythingOpenTrigger::kPdfTranslation &&
+      status == read_anything::mojom::DistillationStatus::kSuccess) {
+    // Target main_observer_'s WebContents because ContentTranslateDriver is
+    // attached to the outer primary tab WebContents, not the inner GuestView
+    // WebContents (pdf_observer_).
+    content::WebContents* web_contents =
+        main_observer_ ? main_observer_->web_contents() : nullptr;
+    if (web_contents) {
+      auto* driver =
+          translate::ContentTranslateDriver::FromWebContents(web_contents);
+      if (driver) {
+        driver->MaybeTriggerPendingPdfTranslation();
+      }
+    }
+  }
+#endif  // BUILDFLAG(ENABLE_PDF)
   if (last_open_trigger_ == ReadAnythingOpenTrigger::kOmniboxChip) {
     if (status != read_anything::mojom::DistillationStatus::kStillRunning) {
       last_open_trigger_ = ReadAnythingOpenTrigger::kUnknown;

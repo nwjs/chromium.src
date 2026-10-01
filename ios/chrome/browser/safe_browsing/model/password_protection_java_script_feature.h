@@ -60,6 +60,12 @@ class PasswordProtectionJavaScriptFeature : public web::JavaScriptFeature {
   // Maps WebStates to the timestamp of the last allowed keydown event.
   absl::flat_hash_map<web::WebState*, base::TimeTicks> last_keydown_timestamps_;
 
+  // Process-wide (all WebStates combined) rate-limit window state.
+  base::TimeTicks keydown_interval_start_;
+  int keydown_events_in_interval_ = 0;
+  base::TimeTicks paste_interval_start_;
+  int paste_events_in_interval_ = 0;
+
   // Returns true if a paste event (shortcut or actual paste) for `web_state`
   // should be ignored due to rate limiting. Otherwise, updates the last paste
   // timestamp and returns false.

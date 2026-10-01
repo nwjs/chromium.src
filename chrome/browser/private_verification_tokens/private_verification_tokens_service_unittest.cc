@@ -17,6 +17,7 @@
 #include "base/scoped_observation.h"
 #include "base/strings/stringprintf.h"
 #include "base/test/bind.h"
+#include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/test_future.h"
 #include "base/test/values_test_util.h"
@@ -26,9 +27,10 @@
 #include "chrome/browser/private_verification_tokens/private_verification_tokens_service_factory.h"
 #include "chrome/test/base/testing_profile.h"
 #include "components/content_settings/core/browser/host_content_settings_map.h"
-#include "components/private_verification_tokens/common/athm_test_issuer.h"
+#include "components/private_verification_tokens/common/athm_ffi/athm_ffi.h"
 #include "components/private_verification_tokens/common/private_verification_tokens_database.h"
 #include "components/private_verification_tokens/common/private_verification_tokens_issuer_config.h"
+#include "components/private_verification_tokens/common/private_verification_tokens_parameters.h"
 #include "components/private_verification_tokens/common/private_verification_tokens_test_util.h"
 #include "components/private_verification_tokens/common/private_verification_tokens_token.h"
 #include "content/public/test/browser_task_environment.h"
@@ -38,11 +40,13 @@
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/storage_key/storage_key.h"
+#include "third_party/crubit/support/rs_std/slice_ref.h"
 #include "url/gurl.h"
 #include "url/origin.h"
 
 namespace {
 
+using ::private_verification_tokens::test::CreateTestIssuer;
 using ::private_verification_tokens::test::FutureExpiration;
 using ::private_verification_tokens::test::GetFutureExpiration;
 
@@ -52,9 +56,7 @@ const base::FilePath::CharType kDatabaseName[] =
 class PrivateVerificationTokensServiceTest : public testing::Test {
  public:
   PrivateVerificationTokensServiceTest()
-      : test_issuer_(private_verification_tokens::AthmTestIssuer::Create(
-            2,
-            base::as_byte_span(std::string_view("1")))) {
+      : test_issuer_(CreateTestIssuer(2, "1")) {
     scoped_feature_list_.InitAndEnableFeature(
         net::features::kEnablePrivateVerificationTokens);
   }
@@ -113,7 +115,8 @@ class PrivateVerificationTokensServiceTest : public testing::Test {
   const base::FilePath& temp_dir_path() const { return temp_dir_.GetPath(); }
   const base::FilePath& db_path() const { return db_path_; }
 
-  const private_verification_tokens::AthmTestIssuer& test_issuer() const {
+  const private_verification_tokens::PrivacyPassAthmIssuer& test_issuer()
+      const {
     return *test_issuer_;
   }
 
@@ -190,9 +193,9 @@ class PrivateVerificationTokensServiceTest : public testing::Test {
     const GURL issuer_request_url_d("https://d.com/pvt/i");
     const url::Origin redeemer_d = url::Origin::Create(GURL("https://d.com"));
     const std::string encoded_public_key =
-        base::Base64Encode(test_issuer_->public_key());
+        base::Base64Encode(test_issuer_->public_key_bytes());
     const std::string encoded_public_key_proof =
-        base::Base64Encode(test_issuer_->public_key_proof());
+        base::Base64Encode(test_issuer_->public_key_proof_bytes());
     const FutureExpiration future_expiration = GetFutureExpiration();
     const std::string expiration_str = future_expiration.string_rep;
     const std::string json_str = base::StringPrintf(
@@ -264,8 +267,14 @@ class PrivateVerificationTokensServiceTest : public testing::Test {
     target_service->SetIssuerConfig(config);
   }
 
+  void AdvanceTime(base::TimeDelta time_delta) {
+    ASSERT_FALSE(time_delta.is_negative());
+    task_environment_.FastForwardBy(time_delta);
+  }
+
  private:
-  std::optional<private_verification_tokens::AthmTestIssuer> test_issuer_;
+  std::optional<private_verification_tokens::PrivacyPassAthmIssuer>
+      test_issuer_;
   base::test::ScopedFeatureList scoped_feature_list_;
   content::BrowserTaskEnvironment task_environment_{
       base::test::TaskEnvironment::TimeSource::MOCK_TIME};
@@ -833,11 +842,13 @@ TEST_F(PrivateVerificationTokensServiceEmptyDatabaseTest,
           }
         }
 
-        std::optional<std::string> response =
-            test_issuer().BatchIssue(request_body, /*hidden_metadata=*/0);
+        auto response = test_issuer().issue_batch_from_bytes(
+            rs_std::SliceRef<const uint8_t>(base::as_byte_span(request_body)),
+            /*hidden_metadata=*/0);
         ASSERT_TRUE(response.has_value());
-        test_url_loader_factory.AddResponse(request.url.spec(),
-                                            std::move(*response));
+        test_url_loader_factory.AddResponse(
+            request.url.spec(),
+            std::string(response->begin(), response->end()));
       }));
 
   service()->MaybeFetchTokens(GURL("https://c.net/pvt/issue"),
@@ -889,6 +900,81 @@ TEST_F(PrivateVerificationTokensServiceTest,
   EXPECT_EQ(test_url_loader_factory.NumPending(), 1);
   EXPECT_EQ(test_url_loader_factory.GetPendingRequest(0)->request.url,
             GURL("https://a.com/pvt/issue"));
+}
+
+TEST_F(PrivateVerificationTokensServiceEmptyDatabaseTest,
+       MaybeFetchTokens_MaxBatchSize_FetchesTokens) {
+  WaitForInitialization(service());
+
+  std::optional<
+      private_verification_tokens::PrivateVerificationTokensParameters>
+      params = private_verification_tokens::GetParametersForVersion(1);
+  ASSERT_TRUE(params.has_value());
+
+  const std::string encoded_public_key =
+      base::Base64Encode(test_issuer().public_key_bytes());
+  const std::string encoded_public_key_proof =
+      base::Base64Encode(test_issuer().public_key_proof_bytes());
+  const FutureExpiration future_expiration = GetFutureExpiration();
+  const std::string json_str = base::StringPrintf(
+      R"({
+      "issuers": [
+        {
+          "issuerRequestUrl": "https://max-batch.com/pvt/issue",
+          "version": 1,
+          "publicKey": "%s",
+          "publicKeyProof": "%s",
+          "batchSize": %d,
+          "expiration": "%s",
+          "redeemers": [
+            "https://r.max-batch.com"
+          ],
+          "deploymentId": "1"
+        }
+      ]
+    })",
+      encoded_public_key.c_str(), encoded_public_key_proof.c_str(),
+      params->max_batch_size, future_expiration.string_rep.c_str());
+
+  auto config =
+      private_verification_tokens::PrivateVerificationTokensIssuerConfig::
+          Create(base::test::ParseJsonDict(json_str));
+  ASSERT_TRUE(config);
+  service()->SetIssuerConfig(config);
+
+  network::TestURLLoaderFactory test_url_loader_factory;
+  test_url_loader_factory.SetInterceptor(
+      base::BindLambdaForTesting([&](const network::ResourceRequest& request) {
+        EXPECT_EQ(request.url, GURL("https://max-batch.com/pvt/issue"));
+        std::string request_body;
+        if (request.request_body) {
+          for (const auto& element : *request.request_body->elements()) {
+            if (element.type() == network::DataElement::Tag::kBytes) {
+              const auto& bytes =
+                  element.As<network::DataElementBytes>().bytes();
+              request_body.append(bytes.begin(), bytes.end());
+            }
+          }
+        }
+        auto response = test_issuer().issue_batch_from_bytes(
+            rs_std::SliceRef<const uint8_t>(base::as_byte_span(request_body)),
+            /*hidden_metadata=*/0);
+        ASSERT_TRUE(response.has_value());
+        test_url_loader_factory.AddResponse(
+            request.url.spec(),
+            std::string(response->begin(), response->end()));
+      }));
+
+  service()->MaybeFetchTokens(GURL("https://max-batch.com/pvt/issue"),
+                              test_url_loader_factory.GetSafeWeakWrapper());
+
+  WaitForTokensStored(service());
+
+  base::test::TestFuture<std::vector<url::Origin>> future;
+  service()->GetTokenIssuers(future.GetCallback());
+  auto issuers = future.Take();
+  EXPECT_THAT(issuers, testing::ElementsAre(
+                           url::Origin::Create(GURL("https://max-batch.com"))));
 }
 
 TEST_F(PrivateVerificationTokensServiceTest,
@@ -961,11 +1047,13 @@ TEST_F(PrivateVerificationTokensServiceEmptyDatabaseTest,
             }
           }
         }
-        std::optional<std::string> response =
-            test_issuer().BatchIssue(request_body, /*hidden_metadata=*/0);
+        auto response = test_issuer().issue_batch_from_bytes(
+            rs_std::SliceRef<const uint8_t>(base::as_byte_span(request_body)),
+            /*hidden_metadata=*/0);
         ASSERT_TRUE(response.has_value());
-        test_url_loader_factory.AddResponse(request.url.spec(),
-                                            std::move(*response));
+        test_url_loader_factory.AddResponse(
+            request.url.spec(),
+            std::string(response->begin(), response->end()));
       }));
 
   service()->MaybeFetchTokens(GURL("https://c.net/pvt/issue"),
@@ -984,4 +1072,130 @@ TEST_F(PrivateVerificationTokensServiceEmptyDatabaseTest,
               testing::ElementsAre(url::Origin::Create(GURL("https://c.net"))));
 }
 
+TEST_F(PrivateVerificationTokensServiceTest,
+       MaybeFetchTokens_ConfigExpired_ReturnsEarly) {
+  WaitForInitialization(service());
+  SetTestIssuerConfig(service());
+
+  auto origin = url::Origin::Create(GURL("https://c.net"));
+  base::Time expiration =
+      service()->issuer_config()->config().at(origin).public_key.expiration();
+  base::TimeDelta advance_delta = expiration - base::Time::Now();
+  AdvanceTime(advance_delta);
+
+  network::TestURLLoaderFactory test_url_loader_factory;
+  service()->MaybeFetchTokens(GURL("https://c.net/pvt/issue"),
+                              test_url_loader_factory.GetSafeWeakWrapper());
+
+  EXPECT_EQ(test_url_loader_factory.NumPending(), 0);
+}
+
+TEST_F(PrivateVerificationTokensServiceTest,
+       GetTokenForRedemption_ConfigExpired_ReturnsNullopt) {
+  WaitForInitialization(service());
+  SetTestIssuerConfig(service());
+
+  auto origin = url::Origin::Create(GURL("https://a.com"));
+  base::Time expiration =
+      service()->issuer_config()->config().at(origin).public_key.expiration();
+  base::TimeDelta advance_delta = expiration - base::Time::Now();
+  AdvanceTime(advance_delta);
+
+  const url::Origin redeemer_a = url::Origin::Create(GURL("https://r1.a.com"));
+  auto token = service()->GetTokenForRedemption(redeemer_a);
+  EXPECT_FALSE(token.has_value());
+}
+
+TEST_F(PrivateVerificationTokensServiceTest,
+       IsRegisteredRedeemer_ConfigExpired_ReturnsFalse) {
+  WaitForInitialization(service());
+  SetTestIssuerConfig(service());
+
+  auto origin = url::Origin::Create(GURL("https://a.com"));
+  base::Time expiration =
+      service()->issuer_config()->config().at(origin).public_key.expiration();
+  base::TimeDelta advance_delta = expiration - base::Time::Now();
+  AdvanceTime(advance_delta);
+
+  EXPECT_FALSE(service()->IsRegisteredRedeemer(
+      url::Origin::Create(GURL("https://r1.a.com"))));
+}
+
 }  // namespace
+
+TEST_F(PrivateVerificationTokensServiceEmptyDatabaseTest,
+       OtrProfileRedemptionLimit) {
+  base::HistogramTester histogram_tester;
+  auto* otr_profile =
+      profile()->GetPrimaryOTRProfile(/*create_if_needed=*/true);
+
+  SetTestIssuerConfig(service());
+
+  std::vector<private_verification_tokens::PrivateVerificationTokensToken>
+      tokens;
+  const auto expiration = base::Time::Now() + base::Hours(2);
+  tokens.emplace_back(url::Origin::Create(GURL("https://a.com")),
+                      std::vector<uint8_t>{1}, 1, expiration, 1);
+  tokens.emplace_back(url::Origin::Create(GURL("https://b.org")),
+                      std::vector<uint8_t>{1}, 1, expiration, 1);
+  tokens.emplace_back(url::Origin::Create(GURL("https://c.net")),
+                      std::vector<uint8_t>{1}, 1, expiration, 1);
+  tokens.emplace_back(url::Origin::Create(GURL("https://d.com")),
+                      std::vector<uint8_t>{1}, 1, expiration, 1);
+  StoreInDatabase(db_path(), tokens);
+
+  WaitForInitialization(service());
+
+  // 1st issuer redemption (a.com via r1.a.com)
+  EXPECT_TRUE(
+      service()
+          ->GetTokenForRedemption(url::Origin::Create(GURL("https://r1.a.com")),
+                                  otr_profile)
+          .has_value());
+  service()->TrackerInsert(otr_profile,
+                           url::Origin::Create(GURL("https://r1.a.com")));
+  histogram_tester.ExpectTotalCount(
+      "PrivateVerificationTokens.RedemptionLimitHit", 0);
+
+  // 2nd issuer redemption (b.org via r2.b.org)
+  EXPECT_TRUE(
+      service()
+          ->GetTokenForRedemption(url::Origin::Create(GURL("https://r2.b.org")),
+                                  otr_profile)
+          .has_value());
+  service()->TrackerInsert(otr_profile,
+                           url::Origin::Create(GURL("https://r2.b.org")));
+  histogram_tester.ExpectTotalCount(
+      "PrivateVerificationTokens.RedemptionLimitHit", 0);
+
+  // 1st issuer redemption AGAIN (fails per-issuer limit)
+  EXPECT_FALSE(
+      service()
+          ->GetTokenForRedemption(url::Origin::Create(GURL("https://r1.a.com")),
+                                  otr_profile)
+          .has_value());
+
+  // 3rd issuer redemption (c.net) -> fails limit!
+  EXPECT_FALSE(service()
+                   ->GetTokenForRedemption(
+                       url::Origin::Create(GURL("https://c.net")), otr_profile)
+                   .has_value());
+  histogram_tester.ExpectBucketCount(
+      "PrivateVerificationTokens.RedemptionLimitHit", true, 1);
+}
+
+TEST_F(PrivateVerificationTokensServiceTest, GetAllTokens) {
+  WaitForInitialization(service());
+
+  base::test::TestFuture<std::vector<private_verification_tokens::TokenWithId>>
+      future;
+  service()->GetAllTokens(future.GetCallback());
+  auto tokens = future.Take();
+
+  ASSERT_EQ(tokens.size(), 2u);
+  EXPECT_EQ(tokens[0].token.issuer(),
+            url::Origin::Create(GURL("https://a.com")));
+  EXPECT_EQ(tokens[0].token.token(), (std::vector<uint8_t>{1, 2, 3}));
+  EXPECT_EQ(tokens[1].token.issuer(),
+            url::Origin::Create(GURL("https://b.org")));
+}

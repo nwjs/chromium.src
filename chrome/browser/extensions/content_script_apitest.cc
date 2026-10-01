@@ -19,7 +19,6 @@
 #include "base/threading/platform_thread.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
-#include "chrome/browser/extensions/api/permissions/permissions_api.h"
 #include "chrome/browser/extensions/extension_apitest.h"
 #include "chrome/browser/extensions/extension_management_test_util.h"
 #include "chrome/browser/extensions/extension_service.h"
@@ -51,6 +50,7 @@
 #include "content/public/test/prerender_test_util.h"
 #include "content/public/test/test_navigation_observer.h"
 #include "content/public/test/test_utils.h"
+#include "extensions/browser/api/permissions/permissions_api.h"
 #include "extensions/browser/browsertest_util.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/script_injection_tracker.h"
@@ -76,6 +76,7 @@
 #include "third_party/blink/public/common/features.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/page_transition_types.h"
+#include "ui/base/window_open_disposition.h"
 #include "url/gurl.h"
 
 #if BUILDFLAG(ENABLE_PDF)
@@ -970,10 +971,10 @@ IN_PROC_BROWSER_TEST_F(ContentScriptApiTest, ContentScriptBlockingScript) {
 
   // Navigate! Both extensions will try to inject. Use WebContents::OpenURL() to
   // avoid waits on navigation/load, which cause the test to time out.
-  content::OpenURLParams params(
-      embedded_test_server()->GetURL("/empty.html"), content::Referrer(),
-      WindowOpenDisposition::CURRENT_TAB, ui::PAGE_TRANSITION_TYPED,
-      /*is_renderer_initiated=*/false);
+  content::OpenURLParams params =
+      content::OpenURLParams::CreateBrowserInitiated(
+          embedded_test_server()->GetURL("/empty.html"),
+          WindowOpenDisposition::CURRENT_TAB, ui::PAGE_TRANSITION_TYPED);
   web_contents->OpenURL(params,
                         /*navigation_handle_callback=*/{});
 
@@ -1024,10 +1025,10 @@ IN_PROC_BROWSER_TEST_F(ContentScriptApiTest,
 
   // Navigate! Use WebContents::OpenURL() to avoid waits that can cause the
   // test to time out.
-  content::OpenURLParams params(
-      embedded_test_server()->GetURL("/empty.html"), content::Referrer(),
-      WindowOpenDisposition::CURRENT_TAB, ui::PAGE_TRANSITION_TYPED,
-      /*is_renderer_initiated=*/false);
+  content::OpenURLParams params =
+      content::OpenURLParams::CreateBrowserInitiated(
+          embedded_test_server()->GetURL("/empty.html"),
+          WindowOpenDisposition::CURRENT_TAB, ui::PAGE_TRANSITION_TYPED);
   web_contents->OpenURL(params,
                         /*navigation_handle_callback=*/{});
 
@@ -1065,10 +1066,10 @@ IN_PROC_BROWSER_TEST_F(ContentScriptApiTest,
 
   // Navigate! Use WebContents::OpenURL() to avoid waits that can cause the
   // test to time out.
-  content::OpenURLParams params(
-      embedded_test_server()->GetURL("/empty.html"), content::Referrer(),
-      WindowOpenDisposition::CURRENT_TAB, ui::PAGE_TRANSITION_TYPED,
-      /*is_renderer_initiated=*/false);
+  content::OpenURLParams params =
+      content::OpenURLParams::CreateBrowserInitiated(
+          embedded_test_server()->GetURL("/empty.html"),
+          WindowOpenDisposition::CURRENT_TAB, ui::PAGE_TRANSITION_TYPED);
   web_contents->OpenURL(params,
                         /*navigation_handle_callback=*/{});
 
@@ -2426,22 +2427,7 @@ IN_PROC_BROWSER_TEST_P(ContentScriptApiPrerenderingMV3Test, SpeculationRules) {
 }
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 
-class ContentScriptApiFencedFrameTest : public ContentScriptApiTest {
- protected:
-  ContentScriptApiFencedFrameTest() {
-    feature_list_.InitWithFeaturesAndParameters(
-        {{blink::features::kFencedFrames, {{"implementation_type", "mparch"}}},
-         {features::kPrivacySandboxAdsAPIsOverride, {}},
-         {blink::features::kFencedFramesAPIChanges, {}},
-         {blink::features::kFencedFramesDefaultMode, {}}},
-        {/* disabled_features */});
-    UseHttpsTestServer();
-  }
-  ~ContentScriptApiFencedFrameTest() override = default;
 
- private:
-  base::test::ScopedFeatureList feature_list_;
-};
 
 // Inject two extensions with matching rules. Only the extension
 // that matches the outermost extension's content_scripts should
@@ -2449,83 +2435,7 @@ class ContentScriptApiFencedFrameTest : public ContentScriptApiTest {
 // The documentIdle extension should execute (sending 'done').
 // The documentStart extension should not-execute (sending 'fail') since it
 // isn't the parent extension of the fenced frame.
-IN_PROC_BROWSER_TEST_F(ContentScriptApiFencedFrameTest,
-                       InjectionMatchesCorrectExtension) {
-  ASSERT_TRUE(StartEmbeddedTestServer());
 
-  const char kDocumentIdleExtensionManifest[] =
-      R"MANIFEST({
-        "name": "Document Idle Extesnsion",
-        "version": "0.1",
-        "manifest_version": 3,
-        "content_scripts": [{
-          "matches": ["https://*/fenced_frames/title1.html"],
-          "js": ["script.js"],
-          "run_at": "document_idle",
-          "all_frames": true
-        }]
-      })MANIFEST";
-
-  const char kDocumentStartExtensionManifest[] =
-      R"MANIFEST({
-        "name": "Document Start extension",
-        "version": "0.1",
-        "manifest_version": 3,
-        "content_scripts": [{
-          "matches": ["https://*/fenced_frames/title1.html"],
-          "js": ["script.js"],
-          "run_at": "document_start",
-          "all_frames": true
-        }]
-      })MANIFEST";
-
-  GURL fenced_frame_url =
-      embedded_test_server()->GetURL("a.test", "/fenced_frames/title1.html");
-
-  TestExtensionDir document_idle_extension_dir;
-  document_idle_extension_dir.WriteManifest(kDocumentIdleExtensionManifest);
-
-  document_idle_extension_dir.WriteFile(FILE_PATH_LITERAL("test.html"), R"HTML(
-    <html>
-      Fenced Frame Test!
-      <fencedframe></fencedframe>
-      <script src="navigation.js"></script>
-    </html>
-  )HTML");
-
-  document_idle_extension_dir.WriteFile(
-      FILE_PATH_LITERAL("navigation.js"),
-      content::JsReplace(
-          "const fencedframe = document.querySelector('fencedframe');"
-          "fencedframe.config = new FencedFrameConfig($1);",
-          fenced_frame_url));
-
-  document_idle_extension_dir.WriteFile(FILE_PATH_LITERAL("script.js"),
-                                        kNonBlockingScript);
-  const Extension* extension =
-      LoadExtension(document_idle_extension_dir.UnpackedPath());
-  ASSERT_TRUE(extension);
-
-  TestExtensionDir document_start_extension_dir;
-  const char kFailureScript[] = "chrome.test.sendMessage('fail');";
-
-  document_start_extension_dir.WriteManifest(kDocumentStartExtensionManifest);
-  document_start_extension_dir.WriteFile(FILE_PATH_LITERAL("script.js"),
-                                         kFailureScript);
-
-  ASSERT_TRUE(LoadExtension(document_start_extension_dir.UnpackedPath()));
-
-  ExtensionTestMessageListener listener;
-  content::WebContents* tab_contents = GetActiveWebContents();
-
-  GURL extension_test_url = extension->GetResourceURL("test.html");
-  ASSERT_TRUE(NavigateToURL(tab_contents, extension_test_url));
-
-  EXPECT_EQ(extension_test_url,
-            tab_contents->GetPrimaryMainFrame()->GetLastCommittedURL());
-  EXPECT_TRUE(listener.WaitUntilSatisfied());
-  EXPECT_EQ("done", listener.message());
-}
 
 class ContentScriptApiTestWithActivityLog : public ContentScriptApiTest {
   void SetUpCommandLine(base::CommandLine* command_line) override {
@@ -2710,10 +2620,10 @@ IN_PROC_BROWSER_TEST_P(ContentScriptApiTestWithBackgroundCompilation,
 
   // Navigate, the script will be injected.
   content::WebContents* web_contents = GetActiveWebContents();
-  content::OpenURLParams params(
-      embedded_test_server()->GetURL("/empty.html"), content::Referrer(),
-      WindowOpenDisposition::CURRENT_TAB, ui::PAGE_TRANSITION_TYPED,
-      /*is_renderer_initiated=*/false);
+  content::OpenURLParams params =
+      content::OpenURLParams::CreateBrowserInitiated(
+          embedded_test_server()->GetURL("/empty.html"),
+          WindowOpenDisposition::CURRENT_TAB, ui::PAGE_TRANSITION_TYPED);
   web_contents->OpenURL(params,
                         /*navigation_handle_callback=*/{});
 

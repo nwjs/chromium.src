@@ -212,8 +212,7 @@ struct SESSIONS_EXPORT Window : public Entry {
   size_t EstimateMemoryUsage() const override;
 
   // Type of window.
-  sessions::SessionWindow::WindowType window_type =
-      sessions::SessionWindow::TYPE_NORMAL;
+  sessions::SessionWindow::WindowType window_type;
 
   // The tabs that comprised the window, in order.
   std::vector<std::unique_ptr<Tab>> tabs;

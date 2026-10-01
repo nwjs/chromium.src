@@ -1565,7 +1565,7 @@ gn_args.config(
 
 # For Android >=Q, only userdebug/eng
 gn_args.config(
-    name = "webview_trichrome",
+    name = "webview_debug_package_name",
     args = {
         "system_webview_package_name": "com.google.android.webview.debug",
     },
@@ -1627,13 +1627,6 @@ gn_args.config(
     name = "ios_chrome_enable_profile_altering_tests",
     args = {
         "ios_chrome_enable_profile_altering_tests": True,
-    },
-)
-
-gn_args.config(
-    name = "high_end_fuzzer_targets",
-    args = {
-        "high_end_fuzzer_targets": True,
     },
 )
 

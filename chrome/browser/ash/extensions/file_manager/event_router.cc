@@ -15,7 +15,9 @@
 #include <vector>
 
 #include "ash/constants/ash_extension_constants.h"
+#include "ash/constants/ash_features.h"
 #include "ash/constants/ash_pref_names.h"
+#include "ash/constants/chrome_switches.h"
 #include "ash/webui/file_manager/file_manager_ui.h"
 #include "base/command_line.h"
 #include "base/files/file_path.h"
@@ -59,8 +61,6 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/ui/ash/login/login_display_host.h"
-#include "chrome/common/chrome_features.h"
-#include "chrome/common/chrome_switches.h"
 #include "chrome/common/extensions/api/file_manager_private.h"
 #include "chromeos/ash/components/disks/disk.h"
 #include "chromeos/ash/components/drivefs/drivefs_host.h"
@@ -68,7 +68,6 @@
 #include "chromeos/ash/experiences/arc/arc_prefs.h"
 #include "chromeos/ash/experiences/arc/intent_helper/arc_intent_helper_bridge.h"
 #include "chromeos/components/disks/disks_prefs.h"
-#include "chromeos/constants/chromeos_features.h"
 #include "chromeos/dbus/power/power_manager_client.h"
 #include "components/drive/drive_pref_names.h"
 #include "components/prefs/pref_change_registrar.h"
@@ -301,7 +300,7 @@ bool ShouldShowNotificationForVolume(
   // If the disable-default-apps flag is on, the Files app is not opened
   // automatically on device mount not to obstruct the manual test.
   if (base::CommandLine::ForCurrentProcess()->HasSwitch(
-          switches::kDisableDefaultApps)) {
+          ash::chrome_switches::kDisableDefaultApps)) {
     return false;
   }
 
@@ -1011,20 +1010,6 @@ void EventRouter::OnFormatCompleted(const std::string& device_path,
   // Do nothing.
 }
 
-void EventRouter::OnPartitionStarted(const std::string& device_path,
-                                     const std::string& device_label,
-                                     bool success) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
-  // Do nothing.
-}
-
-void EventRouter::OnPartitionCompleted(const std::string& device_path,
-                                       const std::string& device_label,
-                                       bool success) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
-  // Do nothing.
-}
-
 void EventRouter::OnRenameStarted(const std::string& device_path,
                                   const std::string& device_label,
                                   bool success) {
@@ -1215,26 +1200,24 @@ void EventRouter::OnIOTaskStatus(const io_task::ProgressStatus& status) {
   // If copying to/from ODFS, mark the provider's request manager
   // as "interacting with user" to prevent long operation warnings when
   // progress UI is already displayed.
-  if (chromeos::features::IsUploadOfficeToCloudEnabled()) {
-    if (status.IsCompleted()) {
-      office_tasks_->odfs_interactions.erase(status.task_id);
-    } else {
-      auto it = office_tasks_->odfs_interactions.find(status.task_id);
-      if (it == office_tasks_->odfs_interactions.end()) {
-        auto interaction = MaybeStartInteractionWithODFS(
-            status.GetDestinationFolder(), profile_);
-        if (!interaction) {
-          for (const io_task::EntryStatus& entry : status.sources) {
-            interaction = MaybeStartInteractionWithODFS(entry.url, profile_);
-            if (interaction) {
-              break;
-            }
+  if (status.IsCompleted()) {
+    office_tasks_->odfs_interactions.erase(status.task_id);
+  } else {
+    auto it = office_tasks_->odfs_interactions.find(status.task_id);
+    if (it == office_tasks_->odfs_interactions.end()) {
+      auto interaction = MaybeStartInteractionWithODFS(
+          status.GetDestinationFolder(), profile_);
+      if (!interaction) {
+        for (const io_task::EntryStatus& entry : status.sources) {
+          interaction = MaybeStartInteractionWithODFS(entry.url, profile_);
+          if (interaction) {
+            break;
           }
         }
-        if (interaction) {
-          office_tasks_->odfs_interactions[status.task_id] =
-              std::move(interaction);
-        }
+      }
+      if (interaction) {
+        office_tasks_->odfs_interactions[status.task_id] =
+            std::move(interaction);
       }
     }
   }
@@ -1567,7 +1550,7 @@ void EventRouter::OnConnectionChanged(
 }
 
 void EventRouter::OnLocalUserFilesPolicyChanged() {
-  if (!base::FeatureList::IsEnabled(features::kSkyVault)) {
+  if (!base::FeatureList::IsEnabled(ash::features::kSkyVault)) {
     return;
   }
   OnFileManagerPrefsChanged();

@@ -37,6 +37,7 @@
 #include "chrome/browser/ui/collected_cookies_infobar_delegate.h"
 #include "chrome/browser/ui/omnibox/alternate_nav_infobar_delegate.h"
 #include "chrome/browser/ui/page_info/page_info_infobar_delegate.h"
+#include "chrome/browser/ui/startup/bad_flags_prompt.h"
 #include "chrome/browser/ui/startup/google_api_keys_infobar_delegate.h"
 #include "chrome/browser/ui/startup/obsolete_system_infobar_delegate.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
@@ -52,19 +53,17 @@
 #include "components/prefs/pref_service.h"
 #include "components/strings/grit/components_strings.h"
 #include "components/tabs/public/tab_interface.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/web_ui.h"
 #include "content/public/common/buildflags.h"
 #include "extensions/buildflags/buildflags.h"
 #include "mojo/public/cpp/bindings/receiver.h"
+#include "sandbox/policy/switches.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "url/gurl.h"
 
 #if BUILDFLAG(CHROME_FOR_TESTING)
 #include "chrome/browser/ui/startup/chrome_for_testing_infobar_delegate.h"
-#endif
-
-#if BUILDFLAG(ENABLE_PLUGINS)
-#include "chrome/browser/plugins/reload_plugin_infobar_delegate.h"
 #endif
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
@@ -94,6 +93,8 @@
 #include "chrome/browser/ui/startup/default_browser_prompt/default_browser_prompt_manager.h"  // nogncheck
 #include "chrome/browser/ui/startup/default_browser_prompt/default_browser_prompt_prefs.h"  // nogncheck
 #include "chrome/browser/ui/views/session_restore_infobar/session_restore_infobar_manager.h"
+#include "chrome/browser/web_applications/web_app_provider.h"
+#include "chrome/browser/web_applications/web_app_registrar.h"
 #endif
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
@@ -121,6 +122,7 @@ struct TriggerRequirements {
 TriggerRequirements RequirementsFor(InfoBarType type) {
   switch (type) {
     case InfoBarType::kAlternateNav:
+    case InfoBarType::kBadFlags:
     case InfoBarType::kCollectedCookies:
     case InfoBarType::kDevTools:
     case InfoBarType::kDevToolsSharedProcess:
@@ -128,9 +130,6 @@ TriggerRequirements RequirementsFor(InfoBarType type) {
     case InfoBarType::kKnownInterception:
     case InfoBarType::kObsoleteSystem:
     case InfoBarType::kPageInfo:
-#if BUILDFLAG(ENABLE_PLUGINS)
-    case InfoBarType::kReloadPlugin:
-#endif
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
     case InfoBarType::kPdf:
 #endif
@@ -143,6 +142,7 @@ TriggerRequirements RequirementsFor(InfoBarType type) {
     case InfoBarType::kExtensionDevTools:
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
     case InfoBarType::kDefaultBrowser:
+    case InfoBarType::kEnableLinkCapturing:
     case InfoBarType::kSessionRestore:
 #endif
 #if BUILDFLAG(IS_MAC)
@@ -191,6 +191,9 @@ void InfoBarInternalsHandler::GetInfoBars(GetInfoBarsCallback callback) {
               "The Alternate Nav infobar is shown when a user searches for a "
               "term they may have meant to navigate to.");
   }
+  add_entry(InfoBarType::kBadFlags, "Bad Flags",
+            "The Bad Flags infobar warns users that they are running Chrome "
+            "with an unsupported command-line flag.");
 #if BUILDFLAG(CHROME_FOR_TESTING)
   add_entry(InfoBarType::kChromeForTesting, "Chrome for Testing",
             "The Chrome for Testing infobar warns users that this version is "
@@ -217,6 +220,13 @@ void InfoBarInternalsHandler::GetInfoBars(GetInfoBarsCallback callback) {
             "shares a renderer process and offers a restart with "
             "process-per-site disabled. This trigger shows the infobar on the "
             "active tab.");
+
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+  add_entry(InfoBarType::kEnableLinkCapturing, "Enable Link Capturing",
+            "The Enable Link Capturing infobar asks the user if they want to "
+            "open supported links in an installed web app. This trigger "
+            "shows the infobar.");
+#endif
 
   add_entry(InfoBarType::kExtensionDevTools, "Extension DevTools",
             "The Extension DevTools infobar is used to globally warn users "
@@ -277,13 +287,6 @@ void InfoBarInternalsHandler::GetInfoBars(GetInfoBarsCallback callback) {
             "This can only be triggered on Windows or Mac.");
 #endif
 
-#if BUILDFLAG(ENABLE_PLUGINS)
-  add_entry(InfoBarType::kReloadPlugin, "Reload Plugin",
-            "The Reload Plugin infobar is used to ask the user to reload a "
-            "page when a plugin has crashed or disconnected. This trigger "
-            "shows the infobar.");
-#endif
-
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
   add_entry(InfoBarType::kSessionRestore, "Session Restore",
             "Triggers the session restore infobar. This infobar can only be "
@@ -330,6 +333,11 @@ bool InfoBarInternalsHandler::TriggerInfoBarInternal(InfoBarType type) {
 
       AlternateNavInfoBarDelegate::CreateForOmniboxNavigation(
           web_contents, u"test", match, GURL("https://youtube.com/"));
+      return true;
+    }
+    case InfoBarType::kBadFlags: {
+      ShowBadFlagsInfoBar(web_contents, IDS_BAD_FLAGS_WARNING_MESSAGE,
+                          sandbox::policy::switches::kNoSandbox);
       return true;
     }
 #if BUILDFLAG(CHROME_FOR_TESTING)
@@ -393,6 +401,35 @@ bool InfoBarInternalsHandler::TriggerInfoBarInternal(InfoBarType type) {
                  std::make_unique<ProcessSharingInfobarDelegate>(
                      web_contents))) != nullptr;
     }
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+    case InfoBarType::kEnableLinkCapturing: {
+      if (!infobars::IsInfoBarMigrated(
+              infobars::InfoBarDelegate::
+                  ENABLE_LINK_CAPTURING_INFOBAR_DELEGATE) ||
+          !browser_infobar_manager) {
+        return false;
+      }
+      std::u16string app_name = u"Example App";
+      if (auto* provider = web_app::WebAppProvider::GetForWebApps(profile)) {
+        const auto& app_ids = provider->registrar_unsafe().GetAppIds();
+        if (!app_ids.empty()) {
+          app_name = base::UTF8ToUTF16(
+              provider->registrar_unsafe().GetAppShortName(app_ids[0]));
+        }
+      }
+
+      infobars::InfoBarShowParams params;
+      params.message_text = l10n_util::GetStringFUTF16(
+          IDR_INTENT_PICKER_SUPPORTED_LINKS_INFOBAR_MESSAGE, app_name);
+      params.ok_button_callback = base::DoNothing();
+      params.cancel_button_callback = base::DoNothing();
+      return browser_infobar_manager->Show(
+                 active_tab,
+                 infobars::InfoBarDelegate::
+                     ENABLE_LINK_CAPTURING_INFOBAR_DELEGATE,
+                 std::move(params)) != nullptr;
+    }
+#endif
     case InfoBarType::kExtensionDevTools: {
 #if BUILDFLAG(ENABLE_EXTENSIONS)
       if (infobars::IsInfoBarMigrated(
@@ -552,7 +589,17 @@ bool InfoBarInternalsHandler::TriggerInfoBarInternal(InfoBarType type) {
     case InfoBarType::kKeystone: {
 #if BUILDFLAG(ENABLE_UPDATER)
       profile->GetPrefs()->SetBoolean(prefs::kShowUpdatePromotionInfoBar, true);
-      ShowUpdaterPromotionInfoBar();
+      if (infobars::IsInfoBarMigrated(
+              infobars::InfoBarDelegate::
+                  KEYSTONE_PROMOTION_INFOBAR_DELEGATE_MAC)) {
+        if (!browser_infobar_manager) {
+          return false;
+        }
+        browser_infobar_manager->ShowGlobally(
+            infobars::InfoBarDelegate::KEYSTONE_PROMOTION_INFOBAR_DELEGATE_MAC);
+      } else {
+        KeystonePromotionInfoBarDelegate::Create(web_contents);
+      }
       return true;
 #else
       return false;
@@ -656,16 +703,7 @@ bool InfoBarInternalsHandler::TriggerInfoBarInternal(InfoBarType type) {
       return true;
     }
 #endif
-#if BUILDFLAG(ENABLE_PLUGINS)
-    case InfoBarType::kReloadPlugin: {
-      ReloadPluginInfoBarDelegate::Create(
-          infobars::ContentInfoBarManager::FromWebContents(web_contents),
-          &web_contents->GetController(),
-          l10n_util::GetStringFUTF16(IDS_PLUGIN_CRASHED_PROMPT,
-                                     u"Infobar Internals"));
-      return true;
-    }
-#endif
+
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
     case InfoBarType::kSessionRestore: {
       session_restore_infobar::SessionRestoreInfoBarManager::GetInstance()

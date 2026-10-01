@@ -1027,7 +1027,9 @@ struct Spec {
   };
 
   enum class RestoreFeatureState {
+#if !BUILDFLAG(IS_IOS)
     kDisabled,
+#endif
     kEnableJustInTime,
     kEnabledRetroactive
   };
@@ -1078,7 +1080,15 @@ class SearchEngineChoiceEligibilityOnRestoreTest
     if (state_changes.has_value()) {
       if (state_changes->set_restored) {
         restore_detected_in_current_session = true;
-        latest_restore_time_ = base::Time::Now();
+        latest_restore_time_ = base::Time::Now() - base::Minutes(1);
+        if (base::expected<search_engines::ChoiceCompletionMetadata,
+                           search_engines::ChoiceCompletionMetadata::ParseError>
+                metadata =
+                    search_engines::GetChoiceCompletionMetadata(pref_service_);
+            metadata.has_value()) {
+          metadata->timestamp = latest_restore_time_.value() - base::Minutes(1);
+          search_engines::SetChoiceCompletionMetadata(pref_service_, *metadata);
+        }
       }
 
       if (state_changes->device_country_id.IsValid()) {
@@ -1159,6 +1169,7 @@ TEST_P(SearchEngineChoiceEligibilityOnRestoreTest, Run) {
   base::test::ScopedFeatureList scoped_feature_list;
   std::vector<base::test::FeatureRefAndParams> enabled_features;
   std::vector<base::test::FeatureRef> disabled_features;
+#if !BUILDFLAG(IS_IOS)
   if (param.restore_feature_state == Spec::RestoreFeatureState::kDisabled) {
     disabled_features.push_back(
         switches::kInvalidateSearchEngineChoiceOnDeviceRestoreDetection);
@@ -1171,6 +1182,7 @@ TEST_P(SearchEngineChoiceEligibilityOnRestoreTest, Run) {
                ? "true"
                : "false"}}});
   }
+#endif  // !BUILDFLAG(IS_IOS)
   if (param.waffle_restrict_to_associated_countries_feature_enabled
           .has_value()) {
     if (param.waffle_restrict_to_associated_countries_feature_enabled.value()) {
@@ -1417,6 +1429,7 @@ INSTANTIATE_TEST_SUITE_P(
                       },
                   }},
 #endif  // BUILDFLAG(IS_IOS)
+#if !BUILDFLAG(IS_IOS)
          Spec{
              .test_name = "1pNoRestoreDetection",
              .restore_feature_state = Spec::RestoreFeatureState::kDisabled,
@@ -1461,6 +1474,7 @@ INSTANTIATE_TEST_SUITE_P(
                      },
                  },
          },
+#endif  // !BUILDFLAG(IS_IOS)
          Spec{.test_name = "3p",
               .restore_feature_state =
                   Spec::RestoreFeatureState::kEnableJustInTime,
@@ -1540,6 +1554,7 @@ INSTANTIATE_TEST_SUITE_P(
                           .expect_choice_status_after = ChoiceStatus::kValid,
                       },
                   }},
+#if !BUILDFLAG(IS_IOS)
          Spec{
              .test_name = "3pNoRestoreDetection",
              .restore_feature_state = Spec::RestoreFeatureState::kDisabled,
@@ -1596,6 +1611,7 @@ INSTANTIATE_TEST_SUITE_P(
                      },
                  },
          },
+#endif  // !BUILDFLAG(IS_IOS)
          Spec{
              .test_name = "custom",
              .restore_feature_state =

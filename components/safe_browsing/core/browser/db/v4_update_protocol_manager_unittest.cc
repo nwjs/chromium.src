@@ -18,8 +18,8 @@
 #include "build/build_config.h"
 #include "components/safe_browsing/buildflags.h"
 #include "components/safe_browsing/core/browser/db/safebrowsing.pb.h"
+#include "components/safe_browsing/core/browser/db/sb_test_util.h"
 #include "components/safe_browsing/core/browser/db/util.h"
-#include "components/safe_browsing/core/browser/db/v4_test_util.h"
 #include "components/safe_browsing/core/common/features.h"
 #include "net/base/load_flags.h"
 #include "net/base/net_errors.h"
@@ -88,7 +88,7 @@ class V4UpdateProtocolManagerTest : public PlatformTest {
       ExtendedReportingLevel erl = SBER_LEVEL_OFF) {
     return std::make_unique<V4UpdateProtocolManager>(
         test_shared_loader_factory_,
-        GetTestV4ProtocolConfig(disable_auto_update),
+        GetTestSBProtocolConfig(disable_auto_update),
         base::BindRepeating(
             &V4UpdateProtocolManagerTest::ValidateGetUpdatesResults,
             base::Unretained(this), expected_lurs),

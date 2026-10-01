@@ -6,14 +6,18 @@
 
 #include <optional>
 
+#include "base/auto_reset.h"
 #include "base/check_op.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/strings/strcat.h"
+#include "base/task/sequenced_task_runner.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/time/time.h"
+#include "base/trace_event/trace_event.h"
 #include "chrome/browser/ui/omnibox/omnibox_controller.h"
+#include "chrome/browser/ui/omnibox/omnibox_next_features.h"
 #include "chrome/browser/ui/views/location_bar/location_bar_view.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_popup_presenter_delegate.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_popup_webui_content.h"
@@ -50,10 +54,25 @@ OmniboxPopupPresenterBase::OmniboxPopupPresenterBase(
 
 OmniboxPopupPresenterBase::~OmniboxPopupPresenterBase() {
   ReleaseWidget();
+  // `ReleaseWidget()` only queues the widget for deferred destruction, so drain
+  // the queue here: this destroys both the widget just closed above and any
+  // left over from earlier `Hide()`s. Teardown is therefore still synchronous
+  // for the destructor, and nothing may outlive `this`.
+  widgets_pending_deletion_.clear();
 }
 
 void OmniboxPopupPresenterBase::Show() {
   if (IsShown()) {
+    // If a re-entrant `Show()` occurs while the widget is still visible but
+    // WebContents was set to hidden by a preceding `Hide()`, ensure it is woken
+    // up.
+    if (auto* content = GetWebUIContent()) {
+      if (auto* web_contents = content->GetWebContents();
+          web_contents &&
+          web_contents->GetVisibility() == content::Visibility::HIDDEN) {
+        web_contents->WasShown();
+      }
+    }
     return;
   }
 
@@ -251,6 +270,7 @@ void OmniboxPopupPresenterBase::OnWidgetPresented(
 }
 
 void OmniboxPopupPresenterBase::Hide() {
+  TRACE_EVENT("omnibox", "OmniboxPopupPresenterBase::Hide");
   permission_observation_.Reset();
   is_prompt_showing_ = false;
   is_handling_prompt_dismissal_ = false;
@@ -268,9 +288,24 @@ void OmniboxPopupPresenterBase::Hide() {
     if (auto* content = GetWebUIContent()) {
       if (base::FeatureList::IsEnabled(
               omnibox::kOmniboxWebUIPopupMarkAsHidden)) {
-        content->GetWebContents()->WasHidden();
+        if (content->GetWebContents()) {
+          content->GetWebContents()->WasHidden();
+        }
       }
       content->Clear();
+    }
+
+    // Discard the widget so the next show gets a brand new native window that
+    // has never presented a frame, instead of one that may still hold content
+    // from this show. `OnWidgetClosed()` extracts the WebUI container before
+    // the widget is destroyed, so the WebContents (and the pre-warmed
+    // renderer) survives and is re-parented by `EnsureWidgetCreated()`.
+    if (ShouldDestroyWidgetOnHide()) {
+      // Flag the teardown as deliberate so `WidgetDestroyed()` overrides don't
+      // mistake it for the widget being closed out from under us (e.g. by the
+      // OS) and re-enter the popup state teardown already in progress.
+      base::AutoReset<bool> destroying(&is_destroying_widget_, true);
+      ReleaseWidget();
     }
   }
 }
@@ -365,6 +400,12 @@ void OmniboxPopupPresenterBase::SetWebUIContent(
   }
 }
 
+bool OmniboxPopupPresenterBase::ShouldDestroyWidgetOnHide() const {
+  return omnibox::IsWebUIOmniboxFullPopupEnabled() &&
+         base::FeatureList::IsEnabled(
+             omnibox::kOmniboxFullWebUIDestroyWidgetOnHide);
+}
+
 void OmniboxPopupPresenterBase::EnsureWidgetCreated() {
   if (widget_) {
     return;
@@ -446,7 +487,33 @@ void OmniboxPopupPresenterBase::OnWidgetClosed(
   // that subclasses can safely access the widget (e.g., to reset observations)
   // before it is destroyed, avoiding dangling pointer issues.
   WidgetDestroyed();
-  widget_.reset();
+
+  // Clearing `widget_` here is what makes the next `Show()` build a fresh
+  // native window, but the object itself must outlive the current call stack.
+  // Every close defers, because the one that cannot be synchronous is not
+  // distinguishable here: `Hide()` runs from inside
+  // `WidgetObserver::OnWidgetActivationChanged()` on the click-outside path,
+  // and `Widget::OnNativeWidgetActivationChanged()` still touches `this` after
+  // notifying its observers. Retain ownership rather than using `DeleteSoon()`
+  // so the widget is still destroyed if the message loop stops before the task
+  // runs, as happens during shutdown; the destructor drains the queue inline
+  // for the same reason.
+  //
+  // Append rather than overwrite: a `Hide()`/`Show()`/`Hide()` sequence within
+  // a single task would otherwise drop the previous widget here, destroying it
+  // synchronously from inside this one's teardown.
+  widgets_pending_deletion_.push_back(std::move(widget_));
+  base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+      FROM_HERE,
+      base::BindOnce(&OmniboxPopupPresenterBase::DeletePendingWidgets,
+                     weak_factory_.GetWeakPtr()));
+}
+
+void OmniboxPopupPresenterBase::DeletePendingWidgets() {
+  // Destroy from a local so that anything re-entrant triggered by widget
+  // destruction sees an empty queue and can safely append to it.
+  std::vector<std::unique_ptr<views::Widget>> widgets;
+  widgets.swap(widgets_pending_deletion_);
 }
 
 void OmniboxPopupPresenterBase::ReleaseWidget() {
@@ -456,7 +523,10 @@ void OmniboxPopupPresenterBase::ReleaseWidget() {
 }
 
 RoundedOmniboxResultsFrame* OmniboxPopupPresenterBase::GetResultsFrame() const {
-  CHECK(widget_);
+  // The widget may be absent while hidden; see `ShouldDestroyWidgetOnHide()`.
+  if (!widget_) {
+    return nullptr;
+  }
   return views::AsViewClass<RoundedOmniboxResultsFrame>(
       widget_->GetContentsView());
 }

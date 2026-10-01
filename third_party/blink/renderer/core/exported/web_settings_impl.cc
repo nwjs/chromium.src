@@ -37,6 +37,7 @@
 #include "third_party/blink/renderer/core/frame/settings.h"
 #include "third_party/blink/renderer/core/inspector/dev_tools_emulator.h"
 #include "third_party/blink/renderer/platform/graphics/deferred_image_decoder.h"
+#include "third_party/blink/renderer/platform/weborigin/kurl.h"
 
 namespace blink {
 
@@ -158,7 +159,7 @@ void WebSettingsImpl::SetAutoZoomFocusedEditableToLegibleScale(
 }
 
 void WebSettingsImpl::SetTextSizeAdjustEnabled(bool enabled) {
-  settings_->SetTextSizeAdjustEnabled(enabled);
+  dev_tools_emulator_->SetTextSizeAdjustEnabled(enabled);
 }
 
 // TODO(pdr): Rename this OSTextScaleFactor.
@@ -328,6 +329,10 @@ void WebSettingsImpl::SetAllowUnrestrictedWindowFocus(bool allow) {
   settings_->SetAllowUnrestrictedWindowFocus(allow);
 }
 
+void WebSettingsImpl::SetClipboardFocusExempt(bool exempt) {
+  settings_->SetClipboardFocusExempt(exempt);
+}
+
 void WebSettingsImpl::SetWideViewportQuirkEnabled(
     bool wide_viewport_quirk_enabled) {
   settings_->SetWideViewportQuirkEnabled(wide_viewport_quirk_enabled);
@@ -425,7 +430,7 @@ void WebSettingsImpl::SetMainFrameClipsContent(bool enabled) {
 }
 
 void WebSettingsImpl::SetMaxTouchPoints(int max_touch_points) {
-  settings_->SetMaxTouchPoints(max_touch_points);
+  dev_tools_emulator_->SetMaxTouchPoints(max_touch_points);
 }
 
 void WebSettingsImpl::SetAllowUniversalAccessFromFileURLs(bool allow) {
@@ -622,6 +627,10 @@ void WebSettingsImpl::SetWebAppScope(const WebString& scope) {
   settings_->SetWebAppScope(scope);
 }
 
+void WebSettingsImpl::SetWebAppCustomManifestUrl(const WebURL& url) {
+  settings_->SetWebAppCustomManifestUrl(KURL(url).GetString());
+}
+
 void WebSettingsImpl::SetIsInitialProfile(bool is_initial_profile) {
   settings_->SetIsInitialProfile(is_initial_profile);
 }
@@ -770,7 +779,7 @@ void WebSettingsImpl::SetLazyLoadingImageMarginPx4G(int distance_px) {
 }
 
 void WebSettingsImpl::SetForceDarkModeEnabled(bool enabled) {
-  settings_->SetForceDarkModeEnabled(enabled);
+  dev_tools_emulator_->SetForceDarkModeEnabled(enabled);
 }
 
 void WebSettingsImpl::SetInForcedColors(bool in_forced_colors) {

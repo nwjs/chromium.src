@@ -5,7 +5,7 @@
 package org.chromium.chrome.browser.omnibox.suggestions;
 
 import static org.junit.Assert.assertEquals;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.lenient;
 
 import static org.chromium.components.omnibox.GroupConfigTestSupport.SECTION_1_NO_HEADER;
 import static org.chromium.components.omnibox.GroupConfigTestSupport.SECTION_2_WITH_HEADER;
@@ -21,13 +21,13 @@ import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
+import org.mockito.quality.Strictness;
 
 import org.chromium.base.ContextUtils;
 import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.base.supplier.SettableNonNullObservableSupplier;
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.chrome.browser.omnibox.fusebox.FuseboxCoordinator.FuseboxLayoutMode;
-import org.chromium.chrome.browser.omnibox.styles.OmniboxResourceProvider;
 import org.chromium.chrome.browser.omnibox.suggestions.SuggestionCommonProperties.RoundSides;
 import org.chromium.chrome.browser.ui.theme.BrandedColorScheme;
 import org.chromium.components.omnibox.suggestions.OmniboxSuggestionUiType;
@@ -42,13 +42,13 @@ import java.util.List;
 /** Tests for {@link DropdownItemViewInfoListManager}. */
 @RunWith(BaseRobolectricTestRunner.class)
 public class DropdownItemViewInfoListManagerUnitTest {
-    @Rule public final MockitoRule mockitoRule = MockitoJUnit.rule();
+    @Rule
+    public final MockitoRule mMockitoRule = MockitoJUnit.rule().strictness(Strictness.STRICT_STUBS);
 
     @Spy private SuggestionProcessor mBasicSuggestionProcessor;
     @Spy private SuggestionProcessor mEditUrlSuggestionProcessor;
     @Mock private PropertyModel mModel;
     @Mock private ListObserver<Void> mListObserver;
-    @Mock private OmniboxResourceProvider mResourceProvider;
 
     private ModelList mSuggestionModels;
     private SettableNonNullObservableSupplier<Integer> mRoundSidesSupplier;
@@ -56,8 +56,11 @@ public class DropdownItemViewInfoListManagerUnitTest {
 
     @Before
     public void setUp() {
-        when(mBasicSuggestionProcessor.getViewTypeId()).thenReturn(OmniboxSuggestionUiType.DEFAULT);
-        when(mEditUrlSuggestionProcessor.getViewTypeId())
+        lenient()
+                .when(mBasicSuggestionProcessor.getViewTypeId())
+                .thenReturn(OmniboxSuggestionUiType.DEFAULT);
+        lenient()
+                .when(mEditUrlSuggestionProcessor.getViewTypeId())
                 .thenReturn(OmniboxSuggestionUiType.EDIT_URL_SUGGESTION);
 
         mSuggestionModels = new ModelList();
@@ -67,7 +70,7 @@ public class DropdownItemViewInfoListManagerUnitTest {
         mRoundSidesSupplier = ObservableSuppliers.createNonNull(RoundSides.TOP_AND_BOTTOM);
         mManager =
                 new DropdownItemViewInfoListManager(
-                        mSuggestionModels, context, mRoundSidesSupplier, mResourceProvider);
+                        mSuggestionModels, context, mRoundSidesSupplier);
         mManager.onNativeInitialized();
     }
 
@@ -175,21 +178,33 @@ public class DropdownItemViewInfoListManagerUnitTest {
         mManager.setSourceViewInfoList(list);
         verifyModelEquals(list);
         verifyPropertyValues(
-                View.LAYOUT_DIRECTION_INHERIT, BrandedColorScheme.LIGHT_BRANDED_THEME, true);
+                View.LAYOUT_DIRECTION_INHERIT,
+                BrandedColorScheme.LIGHT_BRANDED_THEME,
+                /* applySideSpacing= */ true);
 
         mManager.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
         verifyPropertyValues(
-                View.LAYOUT_DIRECTION_RTL, BrandedColorScheme.LIGHT_BRANDED_THEME, true);
+                View.LAYOUT_DIRECTION_RTL,
+                BrandedColorScheme.LIGHT_BRANDED_THEME,
+                /* applySideSpacing= */ true);
 
         mManager.setBrandedColorScheme(BrandedColorScheme.DARK_BRANDED_THEME);
         verifyPropertyValues(
-                View.LAYOUT_DIRECTION_RTL, BrandedColorScheme.DARK_BRANDED_THEME, true);
+                View.LAYOUT_DIRECTION_RTL,
+                BrandedColorScheme.DARK_BRANDED_THEME,
+                /* applySideSpacing= */ true);
 
         mManager.setBrandedColorScheme(BrandedColorScheme.INCOGNITO);
-        verifyPropertyValues(View.LAYOUT_DIRECTION_RTL, BrandedColorScheme.INCOGNITO, true);
+        verifyPropertyValues(
+                View.LAYOUT_DIRECTION_RTL,
+                BrandedColorScheme.INCOGNITO,
+                /* applySideSpacing= */ true);
 
         mManager.setFuseboxLayoutMode(FuseboxLayoutMode.SUGGESTIONS_POPOVER);
-        verifyPropertyValues(View.LAYOUT_DIRECTION_RTL, BrandedColorScheme.INCOGNITO, false);
+        verifyPropertyValues(
+                View.LAYOUT_DIRECTION_RTL,
+                BrandedColorScheme.INCOGNITO,
+                /* applySideSpacing= */ false);
 
         // Finally, set the new list and confirm that the values are still applied.
         list =
@@ -208,7 +223,10 @@ public class DropdownItemViewInfoListManagerUnitTest {
                                 SECTION_2_WITH_HEADER));
         mManager.setSourceViewInfoList(list);
         verifyModelEquals(list);
-        verifyPropertyValues(View.LAYOUT_DIRECTION_RTL, BrandedColorScheme.INCOGNITO, false);
+        verifyPropertyValues(
+                View.LAYOUT_DIRECTION_RTL,
+                BrandedColorScheme.INCOGNITO,
+                /* applySideSpacing= */ false);
     }
 
     @Test

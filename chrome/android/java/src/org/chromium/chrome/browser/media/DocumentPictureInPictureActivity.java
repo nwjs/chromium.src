@@ -29,6 +29,7 @@ import org.jni_zero.CalledByNative;
 import org.jni_zero.NativeMethods;
 
 import org.chromium.base.AconfigFlaggedApiDelegate;
+import org.chromium.base.IntentUtils;
 import org.chromium.base.Log;
 import org.chromium.base.ResettersForTesting;
 import org.chromium.base.supplier.ObservableSuppliers;
@@ -40,9 +41,7 @@ import org.chromium.build.annotations.MonotonicNonNull;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.R;
-import org.chromium.chrome.browser.app.tab_activity_glue.PopupCreatorImpl;
 import org.chromium.chrome.browser.browser_controls.BrowserStateBrowserControlsVisibilityDelegate;
-import org.chromium.chrome.browser.customtabs.PopupCreatorFactory;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.init.AsyncInitializationActivity;
 import org.chromium.chrome.browser.media.document_picture_in_picture_header.DocumentPictureInPictureHeaderCoordinator;
@@ -71,6 +70,7 @@ import org.chromium.components.thinwebview.ThinWebView;
 import org.chromium.components.thinwebview.ThinWebViewAttachParams;
 import org.chromium.components.thinwebview.ThinWebViewConstraints;
 import org.chromium.components.thinwebview.ThinWebViewFactory;
+import org.chromium.content_public.browser.RenderFrameHost;
 import org.chromium.content_public.browser.Visibility;
 import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.common.ResourceRequestBody;
@@ -195,11 +195,11 @@ public class DocumentPictureInPictureActivity extends AsyncInitializationActivit
             // It's guaranteed that savedInstanceState is not null if we are coming from activity
             // recreation.
             assert savedInstanceState != null;
-            return savedInstanceState.getParcelable(WEB_CONTENTS_KEY);
+            return IntentUtils.safeGetParcelable(savedInstanceState, WEB_CONTENTS_KEY);
         }
 
         intent.setExtrasClassLoader(WebContents.class.getClassLoader());
-        return intent.getParcelableExtra(WEB_CONTENTS_KEY);
+        return IntentUtils.safeGetParcelableExtra(intent, WEB_CONTENTS_KEY);
     }
 
     private @Nullable Bundle getWindowOptionsBundleFromInstanceStateOrIntent(
@@ -269,7 +269,8 @@ public class DocumentPictureInPictureActivity extends AsyncInitializationActivit
                         null);
 
         mAppThemeColorProvider =
-                new AppThemeColorProvider(this, getLifecycleDispatcher(), mAppHeaderCoordinator);
+                new AppThemeColorProvider(
+                        this, getLifecycleDispatcher(), getMultiWindowModeStateDispatcher());
         mAppThemeColorProvider.onIncognitoStateChanged(mInitiatorTab.isIncognitoBranded());
     }
 
@@ -320,7 +321,6 @@ public class DocumentPictureInPictureActivity extends AsyncInitializationActivit
             finish();
             return;
         }
-        PopupCreatorFactory.setInstance(new PopupCreatorImpl());
         ActivityWindowAndroid windowAndroid = getWindowAndroid();
         if (windowAndroid == null) {
             windowAndroid = createWindowAndroid();
@@ -876,17 +876,32 @@ public class DocumentPictureInPictureActivity extends AsyncInitializationActivit
      * @param parentWebContents The opener's WebContents.
      * @return True if the origins match, or if verification is skipped; false on mismatch.
      */
-    private boolean verifyOpenerOrigin(Intent intent, WebContents parentWebContents) {
+    @VisibleForTesting
+    boolean verifyOpenerOrigin(Intent intent, WebContents parentWebContents) {
         if (mIsFromActivityRecreation) {
             return true; // Already verified on initial startup.
         }
         final String initialOpenerOriginStr = intent.getStringExtra(INITIAL_OPENER_ORIGIN_KEY);
-        if (initialOpenerOriginStr == null) {
-            Log.e(TAG, "No initial opener origin in intent! Finishing.");
+        if (initialOpenerOriginStr == null || initialOpenerOriginStr.isEmpty()) {
+            Log.e(TAG, "Missing or empty initial opener origin, finishing.");
             return false;
         }
-        final GURL currentOpenerUrl = parentWebContents.getLastCommittedUrl();
-        final String currentOpenerOriginStr = Origin.create(currentOpenerUrl).toString();
+        if (parentWebContents == null) {
+            Log.e(TAG, "Parent WebContents is null, finishing.");
+            return false;
+        }
+        final RenderFrameHost openerFrame = parentWebContents.getMainFrame();
+        final Origin currentOpenerOrigin =
+                openerFrame != null
+                        ? openerFrame.getLastCommittedOrigin()
+                        : (parentWebContents.getLastCommittedUrl() != null
+                                ? Origin.create(parentWebContents.getLastCommittedUrl())
+                                : null);
+        if (currentOpenerOrigin == null || currentOpenerOrigin.isOpaque()) {
+            Log.e(TAG, "Current opener origin is missing or opaque, finishing.");
+            return false;
+        }
+        final String currentOpenerOriginStr = currentOpenerOrigin.toString();
         if (!initialOpenerOriginStr.equals(currentOpenerOriginStr)) {
             Log.e(
                     TAG,

@@ -128,17 +128,17 @@ void HungPagesTableModel::RestartHangMonitorTimeout() {
 ///////////////////////////////////////////////////////////////////////////////
 // HungPagesTableModel, ui::TableModel implementation:
 
-size_t HungPagesTableModel::RowCount() {
+size_t HungPagesTableModel::RowCount() const {
   return tab_observers_.size();
 }
 
-std::u16string HungPagesTableModel::GetText(size_t row, int column_id) {
+std::u16string HungPagesTableModel::GetText(size_t row, int column_id) const {
   DCHECK(row < RowCount());
   return GetHungWebContentsTitle(tab_observers_[row]->web_contents(),
                                  render_widget_host_->GetProcess());
 }
 
-ui::ImageModel HungPagesTableModel::GetIcon(size_t row) {
+ui::ImageModel HungPagesTableModel::GetIcon(size_t row) const {
   DCHECK(row < RowCount());
   return ui::ImageModel::FromImage(
       favicon::ContentFaviconDriver::FromWebContents(
@@ -455,7 +455,7 @@ void HungRendererDialogView::ForceCrashHungRenderer() {
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
     // A generic |CrashDumpHungChildProcess()| is not implemented for Linux.
     // Instead we send an explicit IPC to crash on the renderer's IO thread.
-    rph->ForceCrash();
+    rph->CrashHungProcess();
 #else
     // Try to generate a crash report for the hung process.
     CrashDumpHungChildProcess(rph->GetProcess().Handle());

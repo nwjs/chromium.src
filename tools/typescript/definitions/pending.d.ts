@@ -29,6 +29,16 @@ interface HTMLDialogElement {
   showModal(): void;
 }
 
+/**
+ * Extends HTMLDialogElement with optional methods provided at runtime when
+ * the Blink UnboundedElement feature is enabled.
+ */
+interface UnboundedDialogElement extends HTMLDialogElement {
+  hideUnboundedElement(): Promise<void>;
+  showUnboundedElement(): Promise<void>;
+  unbounded: boolean;
+}
+
 // https://developer.mozilla.org/en-US/docs/Web/API/UIEvent/sourceCapabilities
 interface UIEvent extends Event {
   readonly sourceCapabilities: InputDeviceCapabilities|null;
@@ -113,6 +123,19 @@ interface ImageCapture {
 // https://developer.mozilla.org/en-US/docs/Web/API/PerformanceObserver/observe
 interface PerformanceObserverInit {
   durationThreshold?: number;
+}
+
+// https://developer.mozilla.org/en-US/docs/Web/API/VirtualKeyboard
+interface VirtualKeyboard extends EventTarget {
+  readonly boundingRect: DOMRect;
+  overlaysContent: boolean;
+  ongeometrychange: ((this: VirtualKeyboard, event: Event) => any)|null;
+  hide(): void;
+  show(): void;
+}
+
+interface Navigator {
+  readonly virtualKeyboard: VirtualKeyboard;
 }
 
 // See https://github.com/microsoft/TypeScript/issues/46135.

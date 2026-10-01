@@ -307,6 +307,16 @@ autofill::LocalFrameToken GetLocalFrameToken(web::WebFrame* frame) {
   return _delegate.passwordManagerClient->IsOffTheRecord();
 }
 
+#pragma mark - ActorLoginToolDelegate
+
+- (void)actorLoginToolFindsFormsInWebState:(web::WebState*)webState
+                         completionHandler:
+                             (void (^)(BOOL found))completionHandler {
+  if (completionHandler) {
+    completionHandler(NO);
+  }
+}
+
 #pragma mark - PasswordGenerationProvider
 
 - (void)triggerPasswordGeneration {
@@ -797,11 +807,7 @@ autofill::LocalFrameToken GetLocalFrameToken(web::WebFrame* frame) {
   return autofill::FillingProduct::kPassword;
 }
 
-#pragma mark - PasswordManagerDriverDelegate
-
-- (const GURL&)lastCommittedURL {
-  return _webState ? _webState->GetLastCommittedURL() : GURL::EmptyGURL();
-}
+#pragma mark - PasswordManagerDriverBridge
 
 - (void)processPasswordFormFillData:
             (const autofill::PasswordFormFillData&)formData

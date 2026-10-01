@@ -90,6 +90,8 @@ class ProgressWnd : public CompleteWnd, public AppInstallProgress {
   FRIEND_TEST_ALL_PREFIXES(ProgressWndTest, FlatButtonSubclass);
   FRIEND_TEST_ALL_PREFIXES(ProgressWndTest, SetAppLogoDynamicSizing);
   FRIEND_TEST_ALL_PREFIXES(ProgressWndTest, SetAppLogoThemeSwitching);
+  FRIEND_TEST_ALL_PREFIXES(ProgressWndTest, ErrorIllustrationThemeSwitching);
+  FRIEND_TEST_ALL_PREFIXES(ProgressWndTest, ApplyDpiScalingIconMetrics);
 
   enum class States {
     STATE_INIT = 0,
@@ -147,8 +149,13 @@ class ProgressWnd : public CompleteWnd, public AppInstallProgress {
 
   void SetControlText(int id, const std::wstring& text);
   void SetAppLogo(HBITMAP light_bitmap, HBITMAP dark_bitmap);
-  void UpdateAppLogo();
+  void UpdateAppLogo(UINT target_dpi = 0);
   HBITMAP GetCurrentAppLogoBitmap() const;
+  void UpdateErrorIllustration() override;
+  // Returns the cached error illustration bitmap for the specified theme,
+  // loading it from resources on first request.
+  HBITMAP GetErrorIllustrationBitmap(bool is_dark_mode);
+  void ResetThemeResources();
 
   // Returns true if this window is closed.
   bool MaybeCloseWindow() override;
@@ -158,7 +165,7 @@ class ProgressWnd : public CompleteWnd, public AppInstallProgress {
 
   void HandleCancelRequest();
   void UpdateWindowRgn();
-  void ApplyDpiScaling(int dpi);
+  void ApplyDpiScaling(UINT dpi) override;
   int GetScaledCornerRadius() const;
 
   void DeterminePostInstallUrls(const ObserverCompletionInfo& info);
@@ -187,6 +194,10 @@ class ProgressWnd : public CompleteWnd, public AppInstallProgress {
   // Background image cache for both light and dark themes.
   base::win::ScopedGDIObject<HBITMAP> light_bg_bmp_;
   base::win::ScopedGDIObject<HBITMAP> dark_bg_bmp_;
+
+  // Error illustration image cache for both light and dark themes.
+  base::win::ScopedGDIObject<HBITMAP> light_error_illustration_bmp_;
+  base::win::ScopedGDIObject<HBITMAP> dark_error_illustration_bmp_;
 
   // Cached original app logo bitmaps for light and dark themes received via
   // WM_SET_APP_LOGO.

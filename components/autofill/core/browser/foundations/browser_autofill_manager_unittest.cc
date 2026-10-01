@@ -788,6 +788,7 @@ class MockAutofillDriver : public TestAutofillDriver {
               SendTypePredictionsToRenderer,
               ((const FormStructure&)),
               (override));
+  MOCK_METHOD(bool, CanShowAutofillUi, (), (const override));
 };
 
 class MockAmountExtractionManager : public payments::AmountExtractionManager {
@@ -1007,6 +1008,7 @@ class BrowserAutofillManagerTest
     payments_autofill_client()
         .SetUpDeviceBiometricAuthenticatorSuccessOnAutomotive();
 #endif
+    ON_CALL(autofill_driver(), CanShowAutofillUi).WillByDefault(Return(true));
   }
 
   void TearDown() override { DestroyAutofillClient(); }
@@ -1042,7 +1044,7 @@ class BrowserAutofillManagerTest
                           size_t field_index = 0,
                           SuggestionType type = SuggestionType::kAddressEntry) {
     autofill_manager().DidShowSuggestions(
-        {Suggestion(type)}, std::nullopt, form.global_id(),
+        {Suggestion(type)}, /*metadata=*/{}, form.global_id(),
         form.fields()[field_index].global_id(), {});
   }
 
@@ -1440,7 +1442,7 @@ TEST_F(BrowserAutofillManagerAtMemoryTest, TriggerDroppedWhenNotEligible) {
       personal_context::PersonalContextEligibilityState::kDisabledNotEligible);
 
   OnAskForValuesToFill(form, form.fields()[0],
-                       AutofillSuggestionTriggerSource::kAtMemoryTriggerString);
+                       AutofillSuggestionTriggerSource::kAtMemoryDoubleCtrl);
 
   // No suggestions should be returned, not even empty ones.
   EXPECT_FALSE(external_delegate()->on_suggestions_returned_seen());
@@ -1458,7 +1460,7 @@ TEST_F(BrowserAutofillManagerAtMemoryTest, TriggerDroppedWhenToggleOff) {
       false);
 
   OnAskForValuesToFill(form, form.fields()[0],
-                       AutofillSuggestionTriggerSource::kAtMemoryTriggerString);
+                       AutofillSuggestionTriggerSource::kAtMemoryDoubleCtrl);
 
   // No suggestions should be returned, not even empty ones.
   EXPECT_FALSE(external_delegate()->on_suggestions_returned_seen());
@@ -1471,12 +1473,12 @@ TEST_F(BrowserAutofillManagerAtMemoryTest,
 
   // Trigger suggestions with AtMemory.
   OnAskForValuesToFill(form, form.fields()[0],
-                       AutofillSuggestionTriggerSource::kAtMemoryTriggerString);
+                       AutofillSuggestionTriggerSource::kAtMemoryDoubleCtrl);
 
   // Verify that suggestions were shown (empty suggestions for AtMemory).
   EXPECT_TRUE(autofill_client().IsShowingAutofillPopup());
   EXPECT_EQ(external_delegate()->trigger_source(),
-            AutofillSuggestionTriggerSource::kAtMemoryTriggerString);
+            AutofillSuggestionTriggerSource::kAtMemoryDoubleCtrl);
 
   // Trigger suggestions with ComposeDelayedProactiveNudge.
   // This should be ignored because AtMemory suggestions are already showing.
@@ -1488,7 +1490,7 @@ TEST_F(BrowserAutofillManagerAtMemoryTest,
   // or replaced by the nudge).
   EXPECT_TRUE(autofill_client().IsShowingAutofillPopup());
   EXPECT_EQ(external_delegate()->trigger_source(),
-            AutofillSuggestionTriggerSource::kAtMemoryTriggerString);
+            AutofillSuggestionTriggerSource::kAtMemoryDoubleCtrl);
 }
 
 // Tests that if the main frame URL is blocked, AtMemory is blocked.
@@ -1511,7 +1513,7 @@ TEST_F(BrowserAutofillManagerAtMemoryTest,
       .WillByDefault(Return(false));
 
   OnAskForValuesToFill(form, form.fields()[0],
-                       AutofillSuggestionTriggerSource::kAtMemoryTriggerString);
+                       AutofillSuggestionTriggerSource::kAtMemoryDoubleCtrl);
 
   // Trigger should be dropped, no suggestions returned.
   EXPECT_FALSE(external_delegate()->on_suggestions_returned_seen());
@@ -1535,7 +1537,7 @@ TEST_F(BrowserAutofillManagerAtMemoryTest, TriggerDroppedWhenFieldUrlBlocked) {
   ON_CALL(*decider, ShouldBlockAtMemory(field_url)).WillByDefault(Return(true));
 
   OnAskForValuesToFill(form, form.fields()[0],
-                       AutofillSuggestionTriggerSource::kAtMemoryTriggerString);
+                       AutofillSuggestionTriggerSource::kAtMemoryDoubleCtrl);
 
   // Trigger should be dropped, no suggestions returned.
   EXPECT_FALSE(external_delegate()->on_suggestions_returned_seen());
@@ -1704,6 +1706,7 @@ TEST_F(BrowserAutofillManagerTest,
                   SuggestionType::kAddressEntry),
        Suggestion(SuggestionType::kSeparator),
        Suggestion(SuggestionType::kWebauthnPasskeyQrCode),
+       Suggestion(SuggestionType::kSeparator),
        Suggestion(SuggestionType::kWebauthnSignInWithAnotherDevice),
        CreateManageAddressesSuggestion()});
 }
@@ -1775,6 +1778,7 @@ TEST_F(
   external_delegate()->CheckSuggestions(
       form.fields()[0].global_id(),
       {Suggestion(SuggestionType::kWebauthnPasskeyQrCode),
+       Suggestion(SuggestionType::kSeparator),
        Suggestion(SuggestionType::kWebauthnSignInWithAnotherDevice)});
 }
 
@@ -4074,13 +4078,6 @@ TEST_F(BrowserAutofillManagerTest, OnLoadedServerPredictionsFromApi) {
       .OnLoadedServerPredictions(base::Base64Encode(response_string),
                                  signatures, {form, form2});
 
-  // Verify whether the relevant histograms were updated.
-  histogram_tester.ExpectBucketCount("Autofill.ServerQueryResponse",
-                                     AutofillMetrics::QUERY_RESPONSE_RECEIVED,
-                                     1);
-  histogram_tester.ExpectBucketCount("Autofill.ServerQueryResponse",
-                                     AutofillMetrics::QUERY_RESPONSE_PARSED, 1);
-
   // We expect the server suggestions to have been applied to the first field of
   // the first form.
   EXPECT_THAT(form_structure->field(0)->Type().GetTypes(),
@@ -4146,12 +4143,6 @@ TEST_F(BrowserAutofillManagerTest, DetermineHeuristicsWithOverallPrediction) {
       .OnLoadedServerPredictions(base::Base64Encode(response_string),
                                  test::GetEncodedSignatures(*form_structure),
                                  {form});
-  // Verify that FormStructure::ParseQueryResponse was called (here and below).
-  histogram_tester.ExpectBucketCount("Autofill.ServerQueryResponse",
-                                     AutofillMetrics::QUERY_RESPONSE_RECEIVED,
-                                     1);
-  histogram_tester.ExpectBucketCount("Autofill.ServerQueryResponse",
-                                     AutofillMetrics::QUERY_RESPONSE_PARSED, 1);
 
   // Since the card holder name appears as the first name + last name (rather
   // than the full name), and since they appears as the first fields of the
@@ -4771,7 +4762,7 @@ TEST_F(BrowserAutofillManagerTest,
 
   base::HistogramTester histogram_tester;
   autofill_manager().DidShowSuggestions(
-      {Suggestion(SuggestionType::kAutocompleteEntry)}, std::nullopt,
+      {Suggestion(SuggestionType::kAutocompleteEntry)}, /*metadata=*/{},
       form.global_id(), form.fields().back().global_id(), {});
   // No Autofill logs.
   const std::string histograms = histogram_tester.GetAllHistogramsRecorded();
@@ -4852,11 +4843,11 @@ TEST_F(BrowserAutofillManagerTest,
 
   base::HistogramTester histogram_tester;
   autofill_manager().DidShowSuggestions(
-      {Suggestion(SuggestionType::kIbanEntry)}, std::nullopt, form.global_id(),
-      form.fields().back().global_id(), {});
+      {Suggestion(SuggestionType::kIbanEntry)}, /*metadata=*/{},
+      form.global_id(), form.fields().back().global_id(), {});
   autofill_manager().DidShowSuggestions(
-      {Suggestion(SuggestionType::kIbanEntry)}, std::nullopt, form.global_id(),
-      form.fields().back().global_id(), {});
+      {Suggestion(SuggestionType::kIbanEntry)}, /*metadata=*/{},
+      form.global_id(), form.fields().back().global_id(), {});
 
   EXPECT_THAT(
       histogram_tester.GetAllSamples("Autofill.Iban.Suggestions"),
@@ -5369,7 +5360,7 @@ TEST_F(BrowserAutofillManagerTest,
   EXPECT_CALL(cc_access_manager(), PrepareToFetchCreditCard)
       .Times(IsCreditCardFidoAuthenticationEnabled() ? 1 : 0);
   autofill_manager().DidShowSuggestions(
-      {Suggestion(SuggestionType::kCreditCardEntry)}, std::nullopt,
+      {Suggestion(SuggestionType::kCreditCardEntry)}, /*metadata=*/{},
       form.global_id(), form.fields()[0].global_id(), {});
 }
 
@@ -5380,7 +5371,7 @@ TEST_F(BrowserAutofillManagerTest,
 
   EXPECT_CALL(cc_access_manager(), PrepareToFetchCreditCard).Times(0);
   autofill_manager().DidShowSuggestions(
-      {Suggestion(SuggestionType::kAddressEntry)}, std::nullopt,
+      {Suggestion(SuggestionType::kAddressEntry)}, /*metadata=*/{},
       form.global_id(), form.fields()[0].global_id(), {});
 }
 
@@ -5418,9 +5409,9 @@ TEST_F(BrowserAutofillManagerTest, DidShowSuggestions_FormNonSecureContext) {
         updated_suggestions = std::move(suggestions);
       });
   autofill_manager().DidShowSuggestions(
-      {Suggestion(SuggestionType::kAddressEntry)}, std::nullopt,
+      {Suggestion(SuggestionType::kAddressEntry)}, /*metadata=*/{},
       insecure_form.global_id(), test::MakeFieldGlobalId(), update_callback,
-      AutofillSuggestionTriggerSource::kAtMemoryTriggerString);
+      AutofillSuggestionTriggerSource::kAtMemoryDoubleCtrl);
 
   // Submit search query. This should invoke Query on mock query service.
   base::RepeatingCallback<void(MemorySearchResults)> search_callback;
@@ -6145,41 +6136,6 @@ TEST_F(BrowserAutofillManagerTest_MockAutofillAi,
   EXPECT_THAT(external_delegate()->suggestions(), IsEmpty());
 }
 
-// Tests that the Autofill AI IPH is attempted to be shown if there are no
-// Autofill suggestions and the delegate returns that IPH should show.
-TEST_F(BrowserAutofillManagerTest_MockAutofillAi, AutofillAiIph) {
-  FormData form = CreateTestAddressFormData();
-  FormsSeen({form});
-  ON_CALL(mock_ai_manager(), ShouldDisplayIph).WillByDefault(Return(true));
-  personal_data().test_address_data_manager().ClearProfiles();
-
-  EXPECT_CALL(autofill_client(),
-              ShowAutofillFieldIphForFeature(
-                  _, AutofillClient::IphFeature::kAutofillAi));
-  OnAskForValuesToFill(
-      form, form.fields().front(),
-      AutofillSuggestionTriggerSource::kFormControlElementClicked);
-}
-
-// Tests that the Autofill AI IPH is not shown if there are Autofill
-// suggestions.
-TEST_F(BrowserAutofillManagerTest_MockAutofillAi,
-       NoAutofillAiIphWhenThereAreAutofillSuggestions) {
-  FormData form = CreateTestAddressFormData();
-  FormsSeen({form});
-  ON_CALL(mock_ai_manager(), ShouldDisplayIph).WillByDefault(Return(false));
-  ASSERT_THAT(personal_data().test_address_data_manager().GetProfiles(),
-              Not(IsEmpty()));
-
-  EXPECT_CALL(autofill_client(),
-              ShowAutofillFieldIphForFeature(
-                  _, AutofillClient::IphFeature::kAutofillAi))
-      .Times(0);
-  OnAskForValuesToFill(
-      form, form.fields().front(),
-      AutofillSuggestionTriggerSource::kFormControlElementClicked);
-}
-
 // Tests that an Autofill profile is not imported into the address data manager
 // when the submitted form was imported by AutofillAI.
 TEST_F(BrowserAutofillManagerTest_MockAutofillAi,
@@ -6246,6 +6202,32 @@ TEST_F(BrowserAutofillManagerTest_MockAutofillAi,
                        /*form_element_was_clicked=*/true);
   EXPECT_THAT(external_delegate()->suggestions(), IsEmpty());
   EXPECT_FALSE(external_delegate()->on_suggestions_returned_seen());
+}
+
+// Tests that Autofill suggestions are shown if TouchToFillAutofill is not
+// eligible.
+TEST_F(BrowserAutofillManagerTest_MockAutofillAi,
+       PrivateInferenceNotice_DoesNotShowIfAutofillUiCantBeShown) {
+  EXPECT_CALL(autofill_driver(), CanShowAutofillUi)
+      .WillRepeatedly(Return(false));
+  SeeForm(/*may_run_model=*/false);
+
+  std::vector<Suggestion> suggestions = {
+      Suggestion(SuggestionType::kAutofillAiPrivateInferenceNotice)};
+  EXPECT_CALL(mock_ai_manager(), GetSuggestions).WillOnce(Return(suggestions));
+
+  EXPECT_CALL(touch_to_fill_autofill_delegate(), TryToShowTouchToFill)
+      .WillOnce(testing::Return(false));
+  // The private inference notice should be shown when touch to fill bottom
+  // sheet is shown.
+  EXPECT_CALL(autofill_client(), ShowAutofillAiPrivateInferenceNotice).Times(0);
+  TryToShowTouchToFill(passport_form(), passport_form().fields().front(),
+                       /*form_element_was_clicked=*/true);
+  EXPECT_THAT(external_delegate()->suggestions(),
+              ElementsAre(Field(
+                  &Suggestion::type,
+                  Eq(SuggestionType::kAutofillAiPrivateInferenceNotice))));
+  EXPECT_TRUE(external_delegate()->on_suggestions_returned_seen());
 }
 
 // Tests that Autofill suggestions are shown if TouchToFillAutofill is not
@@ -6404,6 +6386,48 @@ TEST_F(BrowserAutofillManagerTest_MockAutofillAi_WithModel, CacheResultUsed) {
   EXPECT_EQ(fs->field(3)->format_string()->value, u"D.M.YYYY");
   EXPECT_EQ(fs->field(3)->format_string_source(),
             AutofillFormatStringSource::kModelResult);
+}
+
+// Tests that invalid format strings from cache results are not applied to
+// fields.
+TEST_F(BrowserAutofillManagerTest_MockAutofillAi_WithModel,
+       CacheResultInvalidFormatStringIgnored) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeatureWithParameters(
+      features::kAutofillAiServerModel,
+      {{"autofill_ai_model_use_cache_results", "true"}});
+
+  const FormData form = passport_form();
+  const FieldSignature field_signature =
+      CalculateFieldSignatureForField(form.fields()[3]);
+  const FormSignature form_signature = CalculateFormSignature(form);
+
+  AutofillFormatString invalid_format_string;
+  invalid_format_string.value = u"invalid_format";
+  invalid_format_string.type = FormatString_Type_DATE;
+
+  using FieldIdentifier = AutofillAiModelCache::FieldIdentifier;
+  using ModelFieldPrediction = AutofillAiModelCache::FieldPrediction;
+  auto predictions =
+      base::flat_map<FieldIdentifier, ModelFieldPrediction>({std::pair{
+          FieldIdentifier{.signature = field_signature},
+          ModelFieldPrediction({PASSPORT_ISSUE_DATE}, invalid_format_string)}});
+
+  EXPECT_CALL(cache(), Contains(form_signature)).WillOnce(Return(true));
+  EXPECT_CALL(cache(), GetFieldPredictions(form_signature))
+      .WillOnce(Return(predictions));
+  EXPECT_CALL(executor(), GetPredictions).Times(0);
+  const FormGlobalId form_id =
+      SeeForm(/*may_run_model=*/true, /*add_autofill_ai_predictions=*/false);
+
+  const FormStructure* const fs =
+      autofill_manager().FindCachedFormById(form_id);
+  ASSERT_TRUE(fs);
+  EXPECT_THAT(fs->field(3)->Type().GetAutofillAiTypes(),
+              ElementsAre(PASSPORT_ISSUE_DATE));
+  EXPECT_FALSE(fs->field(3)->format_string().has_value());
+  EXPECT_EQ(fs->field(3)->format_string_source(),
+            AutofillFormatStringSource::kUnset);
 }
 
 // Tests that if the form has at least one existing AutofillAI prediction, then
@@ -6975,70 +6999,7 @@ TEST_F(BrowserAutofillManagerTest,
               Optional(credit_card_form->form_signature()));
 }
 
-class BrowserAutofillManagerIdentityCredentialTest
-    : public BrowserAutofillManagerTest {
- protected:
-  void SetUp() override {
-    BrowserAutofillManagerTest::SetUp();
-    auto identity_credential_delegate =
-        std::make_unique<NiceMock<MockIdentityCredentialDelegate>>();
-    autofill_client().set_identity_credential_delegate(
-        std::move(identity_credential_delegate));
-  }
 
-  MockIdentityCredentialDelegate& identity_credential_delegate() {
-    return static_cast<MockIdentityCredentialDelegate&>(
-        *autofill_client().GetIdentityCredentialDelegate());
-  }
-};
-
-// Tests that verified fields are shown above unverified fields.
-TEST_F(BrowserAutofillManagerIdentityCredentialTest,
-       CreateVerifiedEmailSuggestionShownBeforeAddressSuggestions) {
-  EXPECT_CALL(identity_credential_delegate(), GetVerifiedAutofillSuggestions)
-      .WillOnce([](const FormData& form, const FormStructure* form_structure,
-                   const FormFieldData& field,
-                   const AutofillField* autofill_field,
-                   const AutofillClient& client) {
-        std::vector<Suggestion> suggestions = {
-            Suggestion(SuggestionType::kIdentityCredential)};
-        return suggestions;
-      });
-
-  // Set up our form data. Notably, the first field is an email address
-  // with webidentity.
-  FormData form = test::GetFormData(
-      {.fields = {{.role = EMAIL_ADDRESS,
-                   .autocomplete_attribute = "email webidentity"}}});
-  FormsSeen({form});
-
-  OnAskForValuesToFill(form, form.fields()[0]);
-  EXPECT_TRUE(external_delegate()->on_suggestions_returned_seen());
-  EXPECT_THAT(external_delegate()->suggestions(),
-              ElementsAre(EqualsSuggestion(SuggestionType::kIdentityCredential),
-                          EqualsSuggestion(SuggestionType::kAddressEntry),
-                          EqualsSuggestion(SuggestionType::kAddressEntry),
-                          EqualsSuggestion(SuggestionType::kSeparator),
-                          EqualsSuggestion(SuggestionType::kManageAddress)));
-}
-
-// Tests that verified fields are not shown with the email field alone.
-TEST_F(BrowserAutofillManagerIdentityCredentialTest,
-       EmailFieldAloneDoesNotTriggerIdentityCredentialSuggestion) {
-  EXPECT_CALL(identity_credential_delegate(), GetVerifiedAutofillSuggestions)
-      .Times(0);
-
-  // Set up our form data. Notably, the first field is an email address
-  // without webidentity.
-  FormData form = test::GetFormData(
-      {.fields = {{.role = EMAIL_ADDRESS, .autocomplete_attribute = "email"}}});
-  FormsSeen({form});
-  OnAskForValuesToFill(form, form.fields()[0]);
-  EXPECT_TRUE(external_delegate()->on_suggestions_returned_seen());
-  EXPECT_THAT(
-      external_delegate()->suggestions(),
-      Not(Contains(EqualsSuggestion(SuggestionType::kIdentityCredential))));
-}
 
 // Test that the BAM queries the password delegate as soon as it's present.
 TEST_F(BrowserAutofillManagerTest, QueriesDelegateWhenGeneratingSuggestions) {
@@ -7287,30 +7248,7 @@ TEST_F(BrowserAutofillManagerSuggestionMergingTest, AddressOnly) {
                                      SuggestionType::kManageAddress));
 }
 
-// Tests that address and identity suggestions are merged, with identity
-// suggestions coming first.
-TEST_F(BrowserAutofillManagerSuggestionMergingTest, AddressAndIdentity) {
-  const FormData form = test::GetFormData(
-      {.fields = {{.label = u"Field",
-                   .form_control_type = FormControlType::kInputText}}});
 
-  const std::vector<SuggestionGenerator::ReturnedSuggestions> input = {
-      WithAddressFooter({Suggestion(SuggestionType::kAddressEntry)}),
-      {SuggestionGenerator::SuggestionDataSource::kIdentityCredential,
-       {Suggestion(SuggestionType::kWebauthnCredential)}}};
-
-  test_api(autofill_manager())
-      .OnIndividualSuggestionsGenerated(
-          form, form.fields()[0],
-          AutofillSuggestionTriggerSource::kFormControlElementClicked,
-          base::TimeTicks::Now(), input);
-
-  EXPECT_THAT(external_delegate()->suggestions(),
-              SuggestionVectorIdsAre(SuggestionType::kWebauthnCredential,
-                                     SuggestionType::kAddressEntry,
-                                     SuggestionType::kSeparator,
-                                     SuggestionType::kManageAddress));
-}
 
 // Tests that address and passkey suggestions can be merged, with address
 // suggestions coming first.

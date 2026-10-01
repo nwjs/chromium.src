@@ -37,6 +37,7 @@
 #include "content/browser/site_instance_impl.h"
 #include "content/browser/storage_partition_impl.h"
 #include "content/common/content_navigation_policy.h"
+#include "content/common/features.h"
 #include "content/common/frame.mojom.h"
 #include "content/public/browser/child_process_security_policy.h"
 #include "content/public/browser/content_browser_client.h"
@@ -95,6 +96,7 @@
 #include "third_party/blink/public/mojom/page/page_visibility_state.mojom.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/base/ui_base_features.h"
+#include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/size.h"
 #include "ui/gfx/geometry/skia_conversions.h"
 #include "ui/native_theme/native_theme.h"
@@ -3807,29 +3809,38 @@ TEST_F(WebContentsImplTest, OnColorProviderChangedTriggersPageBroadcast) {
   testing::NiceMock<MockPageBroadcast> mock_page_broadcast(
       broadcast_remote.BindNewEndpointAndPassDedicatedReceiver());
   contents()->GetRenderViewHost()->BindPageBroadcast(broadcast_remote.Unbind());
-  blink::ColorProviderColorMaps color_maps =
-      contents()->GetColorProviderColorMaps();
-  mock_page_broadcast.FlushForTesting();
 
-  // Set a new source, which should broadcast a change.
-  color_maps.light_colors_map = color_provider_source.GetRendererColorMap(
-      ui::ColorProviderKey::ColorMode::kLight,
-      ui::ColorProviderKey::ForcedColors::kNone);
-  color_maps.dark_colors_map = color_provider_source.GetRendererColorMap(
-      ui::ColorProviderKey::ColorMode::kDark,
-      ui::ColorProviderKey::ForcedColors::kNone);
-  EXPECT_CALL(mock_page_broadcast, UpdateColorProviders(color_maps));
+  blink::ColorProviderColorMaps expected_color_maps{
+      color_provider_source.GetRendererColorMap(
+          ui::ColorProviderKey::ColorMode::kLight,
+          ui::ColorProviderKey::ForcedColors::kNone),
+      color_provider_source.GetRendererColorMap(
+          ui::ColorProviderKey::ColorMode::kDark,
+          ui::ColorProviderKey::ForcedColors::kNone),
+      contents()->GetColorProviderColorMaps().forced_colors_map};
+
+  // Setting a new source should broadcast a change.
+  base::test::TestFuture<blink::ColorProviderColorMaps> setup_future;
+  EXPECT_CALL(mock_page_broadcast, UpdateColorProviders(::testing::_))
+      .WillOnce([&](const blink::ColorProviderColorMaps& maps) {
+        setup_future.SetValue(maps);
+      });
   contents()->SetColorProviderSource(&color_provider_source);
-  mock_page_broadcast.FlushForTesting();
+  EXPECT_EQ(setup_future.Take(), expected_color_maps);
   ::testing::Mock::VerifyAndClearExpectations(&mock_page_broadcast);
 
   // Change something, then notify, which should broadcast another change. (If
   // nothing has changed, the broadcast won't occur.)
-  color_maps.light_colors_map.swap(color_maps.dark_colors_map);
-  EXPECT_CALL(mock_page_broadcast, UpdateColorProviders(color_maps));
+  expected_color_maps.light_colors_map.swap(
+      expected_color_maps.dark_colors_map);
+  base::test::TestFuture<blink::ColorProviderColorMaps> run_future;
+  EXPECT_CALL(mock_page_broadcast, UpdateColorProviders(::testing::_))
+      .WillOnce([&](const blink::ColorProviderColorMaps& maps) {
+        run_future.SetValue(maps);
+      });
   color_provider_source.SwapMaps();
   color_provider_source.NotifyColorProviderChanged();
-  mock_page_broadcast.FlushForTesting();
+  EXPECT_EQ(run_future.Take(), expected_color_maps);
 }
 
 TEST_F(WebContentsImplTest, ColorRelatedStateChangesCoalesced) {
@@ -4156,7 +4167,7 @@ TEST_F(WebContentsImplTest, IsLoadingExcludingAdFrames) {
                   .root()
                   ->child_at(0)
                   ->current_frame_host();
-  child_rfh->UpdateIsAdFrame(/*is_ad_frame=*/true);
+  child_rfh->UpdateToAdFrame();
 
   // Start the navigation again for the ad frame.
   auto ad_frame_navigation =
@@ -4292,6 +4303,60 @@ TEST_F(WebContentsImplTest, MultipleDragProvenancesAreIsolated) {
   EXPECT_EQ(WebContents::FromDragId(contents()->GetBrowserContext(),
                                     WebContents::DragId(id2)),
             contents());
+}
+
+TEST_F(WebContentsImplTest, ConstrainPopupBounds) {
+  TestRenderWidgetHostView* view = static_cast<TestRenderWidgetHostView*>(
+      contents()->GetRenderWidgetHostView());
+  const int kLineOfDeath = 150;
+  view->SetBounds(gfx::Rect(50, kLineOfDeath, 800, 600));
+
+  // A popup whose top is above the line of death is clamped to the line of
+  // death.
+  gfx::Rect above_line_of_death(100, 50, 200, 100);
+  EXPECT_EQ(contents()->ConstrainPopupBounds(above_line_of_death),
+            gfx::Rect(100, kLineOfDeath, 200, 100));
+
+  // A popup whose top is exactly at the line of death is unchanged.
+  gfx::Rect at_line_of_death(100, kLineOfDeath, 200, 100);
+  EXPECT_EQ(contents()->ConstrainPopupBounds(at_line_of_death),
+            at_line_of_death);
+
+  // A popup whose top is below the line of death is unchanged.
+  gfx::Rect below_line_of_death(100, 200, 200, 100);
+  EXPECT_EQ(contents()->ConstrainPopupBounds(below_line_of_death),
+            below_line_of_death);
+
+  // If the line of death moves, clamping respects the new line of death.
+  const int kNewLineOfDeath = 250;
+  view->SetBounds(gfx::Rect(50, kNewLineOfDeath, 800, 600));
+  EXPECT_EQ(contents()->ConstrainPopupBounds(above_line_of_death),
+            gfx::Rect(100, kNewLineOfDeath, 200, 100));
+
+  // When the feature is disabled, popups above the line of death are not
+  // clamped.
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(features::kLimitPopupWidgetHostPosition);
+  EXPECT_EQ(contents()->ConstrainPopupBounds(above_line_of_death),
+            above_line_of_death);
+}
+
+TEST_F(WebContentsImplTest, DestroyWebContentsWithFrameSinkIdOwnerView) {
+  std::unique_ptr<WebContents> web_contents = CreateTestWebContents();
+  auto* web_contents_impl = static_cast<WebContentsImpl*>(web_contents.get());
+  RenderWidgetHostImpl* rwh =
+      web_contents_impl->GetPrimaryMainFrame()->GetRenderWidgetHost();
+  ASSERT_TRUE(rwh);
+  EXPECT_EQ(rwh->delegate(), web_contents_impl);
+
+  RenderWidgetHostViewBase* view = rwh->GetView();
+  ASSERT_TRUE(view);
+  view->SetIsFrameSinkIdOwner(true);
+
+  // Destroy WebContents. Its destructor must detach the delegate from
+  // the main frame widget so that subsequent FrameTree destruction does
+  // not dereference a dead delegate in DestroyOrDefer().
+  web_contents.reset();
 }
 
 }  // namespace content

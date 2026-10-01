@@ -246,7 +246,7 @@ class CORE_EXPORT LocalFrame final
   void Init(
       Frame* opener,
       const DocumentToken& document_token,
-      const base::UnguessableToken& initiator_state_token,
+      const InitiatorStateToken& initiator_state_token,
       std::unique_ptr<PolicyContainer> policy_container,
       const StorageKey& storage_key,
       ukm::SourceId document_ukm_source_id,
@@ -844,7 +844,7 @@ class CORE_EXPORT LocalFrame final
 
   // A helper that returns the initiator state token from the LocalFrame's
   // LocalDomWindow.
-  const base::UnguessableToken& GetInitiatorStateToken() const;
+  const InitiatorStateToken& GetInitiatorStateToken() const;
 
   // A helper that returns the document token from the LocalFrame's Document.
   DocumentToken GetDocumentToken() const;
@@ -861,6 +861,10 @@ class CORE_EXPORT LocalFrame final
   void Discard();
 
   void LoadJavaScriptURL(const KURL& url);
+
+  // Executes scripts in the given `world_id`. If `script_injector_id` is
+  // non-empty, execution occurs within a ScopedInjectedExtensionScriptExecution
+  // scope attributing the script execution to that extension injector ID.
   void RequestExecuteScript(int32_t world_id,
                             base::span<const WebScriptSource> sources,
                             mojom::blink::UserActivationOption,
@@ -870,7 +874,7 @@ class CORE_EXPORT LocalFrame final
                             BackForwardCacheAware back_forward_cache_aware,
                             mojom::blink::WantResultOption,
                             mojom::blink::PromiseResultOption,
-                            bool is_injected_extension_script);
+                            const String& script_injector_id);
 
   void SetEvictCachedSessionStorageOnFreezeOrUnload();
 

@@ -795,6 +795,74 @@ TEST_P(CanvasRenderingContext2DTestAccelerated,
   EXPECT_FALSE(!!CanvasElement().RateLimiter());
 }
 
+TEST_P(CanvasRenderingContext2DTestAccelerated,
+       DeferredFlushInFinalizeFrameWhenComposited) {
+  ScopedCanvas2dDeferredFlushForTest enable_feature(true);
+  CreateContext(kNonOpaque);
+
+  gfx::Size size = CanvasElement().Size();
+  auto provider = std::make_unique<FakeCanvasResourceProvider>(
+      size, RasterModeHint::kPreferGPU, &CanvasElement());
+  Context2D()->SetCanvas2DResourceProviderForTesting(std::move(provider), size);
+  ASSERT_TRUE(Context2D()->IsComposited());
+  ASSERT_TRUE(CanvasElement().GetOrCreateCcLayerForCanvas2DIfNeeded());
+
+  // Flush is deferred on kCanvasPushFrame for composited canvas.
+  Context2D()->fillRect(0, 0, 10, 10);
+  EXPECT_TRUE(Context2D()->Recorder()->HasRecordedDrawOps());
+
+  Context2D()->FinalizeFrame(FlushReason::kCanvasPushFrame);
+  // Flush is deferred; paint ops remain recorded in the buffer.
+  EXPECT_TRUE(Context2D()->Recorder()->HasRecordedDrawOps());
+
+  // PrepareTransferableResource flushes the recording.
+  viz::TransferableResource resource;
+  viz::ReleaseCallback release_callback;
+  ASSERT_TRUE(CanvasElement().PrepareTransferableResource(&resource,
+                                                          &release_callback));
+  EXPECT_FALSE(Context2D()->Recorder()->HasRecordedDrawOps());
+  if (release_callback) {
+    std::move(release_callback).Run(gpu::SyncToken(), /*lost_resource=*/true);
+  }
+
+  // A non-push-frame reason (e.g. kOther) flushes immediately.
+  Context2D()->fillRect(0, 0, 10, 10);
+  EXPECT_TRUE(Context2D()->Recorder()->HasRecordedDrawOps());
+  Context2D()->FinalizeFrame(FlushReason::kOther);
+  EXPECT_FALSE(Context2D()->Recorder()->HasRecordedDrawOps());
+
+  // Disable the feature flag for Canvas2dDeferredFlush to verify it returns
+  // to flushing composited canvas frames for FlushReason::kCanvasPushFrame.
+  ScopedCanvas2dDeferredFlushForTest disable_feature(false);
+  Context2D()->fillRect(0, 0, 10, 10);
+  EXPECT_TRUE(Context2D()->Recorder()->HasRecordedDrawOps());
+  Context2D()->FinalizeFrame(FlushReason::kCanvasPushFrame);
+  EXPECT_FALSE(Context2D()->Recorder()->HasRecordedDrawOps());
+}
+
+TEST_P(CanvasRenderingContext2DTest, FlushNotDeferredWhenNonComposited) {
+  ScopedCanvas2dDeferredFlushForTest enable_feature(true);
+  CreateContext(kNonOpaque);
+
+  // Install a CanvasResourceProvider that does not support direct compositing.
+  gfx::Size size = CanvasElement().Size();
+  auto provider = Canvas2DBitmapProvider::CreateForTesting(
+      size, Canvas2DColorParams(PredefinedColorSpace::kSRGB, gfx::HDRMetadata(),
+                                CanvasPixelFormat::kUint8,
+                                /*has_alpha=*/true));
+  Context2D()->SetBitmapProviderForTesting(std::move(provider), size);
+  ASSERT_FALSE(Context2D()->IsComposited());
+
+  // Non-composited canvas flushes immediately on kCanvasPushFrame.
+  Context2D()->fillRect(0, 0, 10, 10);
+  EXPECT_TRUE(Context2D()->Recorder()->HasRecordedDrawOps());
+
+  Context2D()->FinalizeFrame(FlushReason::kCanvasPushFrame);
+  EXPECT_FALSE(Context2D()->Recorder()->HasRecordedDrawOps());
+
+  Context2D()->ResetResourceProvider();
+}
+
 TEST_P(CanvasRenderingContext2DTest, GetImageWithAccelerationDisabled) {
   CreateContext(kNonOpaque);
 
@@ -1345,6 +1413,35 @@ TEST_P(CanvasRenderingContext2DTest, Path_FullCoverage) {
   EXPECT_THAT(Context2D()->FlushCanvas(FlushReason::kOther),
               Optional(RecordedOpsAre(PaintOpIs<DrawRectOp>(),
                                       PaintOpIs<DrawPathOp>())));
+}
+
+TEST_P(CanvasRenderingContext2DTest, WritePixelsDoesNotClearFrame) {
+  CreateContext(kNonOpaque);
+  CanvasElement().SetSize(gfx::Size(10, 10));
+
+  // A fresh canvas starts with clear_frame() == true.
+  EXPECT_TRUE(Context2D()->clear_frame());
+
+  // Calling putImageData (WritePixels) covering the entire canvas writes raw
+  // pixels directly to the backing store without recording paint ops. Thus,
+  // clear_frame() must become false so that subsequent draws are not
+  // mistakenly vector-printed without these pixels.
+  NonThrowableExceptionState exception_state;
+  Context2D()->putImageData(full_image_data_.Get(), 0, 0, exception_state);
+  EXPECT_FALSE(Context2D()->clear_frame());
+
+  // Subsequent drawing and flushing must also leave clear_frame() as false.
+  Context2D()->fillRect(0, 0, 5, 5);
+  Context2D()->FlushCanvas(FlushReason::kOther);
+  EXPECT_FALSE(Context2D()->clear_frame());
+
+  // An explicit clear resets clear_frame() back to true.
+  Context2D()->clearRect(0, 0, 10, 10);
+  EXPECT_TRUE(Context2D()->clear_frame());
+
+  // Partial-coverage putImageData also leaves clear_frame() as false.
+  Context2D()->putImageData(partial_image_data_.Get(), 0, 0, exception_state);
+  EXPECT_FALSE(Context2D()->clear_frame());
 }
 
 //==============================================================================
@@ -2071,6 +2168,74 @@ TEST_P(CanvasRenderingContext2DTestAccelerated,
   EXPECT_FALSE(box->NeedsPaintPropertyUpdate());
   EXPECT_EQ(features::IsCanvas2DHibernationEnabled(),
             painting_layer->SelfNeedsRepaint());
+}
+
+TEST_P(CanvasRenderingContext2DTestAccelerated,
+       ClearFramePreservedAcrossHibernation) {
+  base::test::ScopedFeatureList enable_hibernation{
+      features::kCanvas2DHibernation};
+  CreateContext(kNonOpaque);
+  CanvasElement().SetPreferred2DRasterMode(RasterModeHint::kPreferGPU);
+  CanvasElement().SetSize(gfx::Size(300, 300));
+
+  // A new context starts with clear_frame() == true.
+  EXPECT_TRUE(Context2D()->clear_frame());
+
+  // Draw something and flush it.
+  Context2D()->fillRect(3, 3, 1, 1);
+  Context2D()->FlushCanvas(FlushReason::kOther);
+  EXPECT_FALSE(Context2D()->clear_frame());
+
+  // Hide element to trigger hibernation.
+  SetDocumentVisibility(GetDocument(), PageVisibilityState::kHidden);
+  CanvasRenderingContext::GetCanvasPerformanceMonitor().ResetForTesting();
+  WaitForHibernation();
+
+  auto& handler = CHECK_DEREF(Context2D()->GetHibernationHandler());
+  EXPECT_TRUE(handler.IsHibernating());
+  EXPECT_FALSE(Context2D()->clear_frame());
+
+  // Wake up again.
+  SetDocumentVisibility(GetDocument(), PageVisibilityState::kVisible);
+  EXPECT_FALSE(handler.IsHibernating());
+
+  // After waking up, clear_frame() must remain false because the backbuffer
+  // was restored from the pre-hibernation image.
+  EXPECT_FALSE(Context2D()->clear_frame());
+
+  // Explicit clear resets clear_frame() to true.
+  Context2D()->clearRect(0, 0, 300, 300);
+  EXPECT_TRUE(Context2D()->clear_frame());
+}
+
+TEST_P(CanvasRenderingContext2DTestAccelerated,
+       ClearFrameSetOnResetDuringHibernation) {
+  base::test::ScopedFeatureList enable_hibernation{
+      features::kCanvas2DHibernation};
+  CreateContext(kNonOpaque);
+  CanvasElement().SetPreferred2DRasterMode(RasterModeHint::kPreferGPU);
+  CanvasElement().SetSize(gfx::Size(300, 300));
+
+  // Draw something and flush it so clear_frame() is false.
+  Context2D()->fillRect(3, 3, 1, 1);
+  Context2D()->FlushCanvas(FlushReason::kOther);
+  EXPECT_FALSE(Context2D()->clear_frame());
+
+  // Hide element to trigger hibernation.
+  SetDocumentVisibility(GetDocument(), PageVisibilityState::kHidden);
+  CanvasRenderingContext::GetCanvasPerformanceMonitor().ResetForTesting();
+  WaitForHibernation();
+
+  auto& handler = CHECK_DEREF(Context2D()->GetHibernationHandler());
+  EXPECT_TRUE(handler.IsHibernating());
+  EXPECT_FALSE(Context2D()->clear_frame());
+
+  // Resizing the canvas resets the context and clears the frame.
+  CanvasElement().SetSize(gfx::Size(400, 400));
+  EXPECT_FALSE(handler.IsHibernating());
+
+  // After reset, clear_frame() must be true.
+  EXPECT_TRUE(Context2D()->clear_frame());
 }
 
 TEST_P(CanvasRenderingContext2DTestAccelerated, NoHibernationForSmallCanvas) {

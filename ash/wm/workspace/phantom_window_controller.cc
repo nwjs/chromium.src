@@ -10,7 +10,7 @@
 #include "ash/root_window_controller.h"
 #include "ash/strings/grit/ash_strings.h"
 #include "ash/style/ash_color_id.h"
-#include "ash/style/ash_color_provider.h"
+#include "ash/style/style_util.h"
 #include "ash/wm/window_util.h"
 #include "ui/aura/window.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -50,7 +50,7 @@ constexpr base::TimeDelta kScrimEntranceOpacityAnimationDurationMs =
 // The elevation of the shadow for the phantom window should match that of an
 // active window.
 // The shadow ninebox requires a minimum size to work well. See
-// ui/compositor_extra/shadow.cc
+// ui/decoration/shadow.cc
 constexpr int kMinWidthWithShadow = 2 * wm::kShadowElevationActiveWindow;
 constexpr int kMinHeightWithShadow = 4 * wm::kShadowElevationActiveWindow;
 
@@ -255,8 +255,8 @@ std::unique_ptr<views::Widget> PhantomWindowController::CreateMaximizeCue(
   maximize_cue_widget->Init(std::move(params));
 
   ui::Layer* layer = maximize_cue_widget->GetLayer();
-  layer->SetBackgroundBlur(ColorProvider::kBackgroundBlurSigma);
-  layer->SetBackdropFilterQuality(ColorProvider::kBackgroundBlurQuality);
+  layer->SetBackgroundBlur(StyleUtil::kBackgroundBlurSigma);
+  layer->SetBackdropFilterQuality(StyleUtil::kBackgroundBlurQuality);
   layer->SetRoundedCornerRadius(gfx::RoundedCornersF(kMaximizeCueHeight / 2.f));
 
   aura::Window* maximize_cue_widget_window =

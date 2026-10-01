@@ -61,6 +61,7 @@
 #include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/ui/signin/signin_view_controller.h"
 #include "chrome/browser/ui/simple_message_box_internal.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/views/profiles/dice_web_signin_interception_bubble_view.h"
 #include "chrome/browser/ui/webui/signin/history_sync_optin_service.h"
 #include "chrome/browser/ui/webui/signin/history_sync_optin_service_factory.h"
@@ -127,6 +128,7 @@
 #include "components/signin/public/identity_manager/access_token_fetcher.h"
 #include "components/signin/public/identity_manager/access_token_info.h"
 #include "crypto/scoped_fake_unexportable_key_provider.h"
+#include "crypto/sign.h"
 #endif  // BUILDFLAG(ENABLE_BOUND_SESSION_CREDENTIALS)
 
 using net::test_server::BasicHttpResponse;
@@ -957,7 +959,7 @@ class DiceBrowserTestWithTokenBindingUpgrade : public DiceBrowserTest {
     // key which is going to be reused for the upgrade flow. Completion of this
     // callback ensures that we're ready for the upgrade flow.
     bool success = GetIdentityManager()->GenerateBindingKeyRegistrationToken(
-        {crypto::SignatureVerifier::ECDSA_SHA256}, "dummy_auth_code",
+        {crypto::sign::ECDSA_SHA256}, "dummy_auth_code",
         base::IgnoreArgs<
             std::optional<signin::BindingKeyRegistrationTokenResult>>(
             run_loop.QuitClosure()));
@@ -1342,7 +1344,7 @@ IN_PROC_BROWSER_TEST_F(DiceBrowserTest, SignInAfterToken) {
   // Signin using the Chrome Sync endpoint.
   signin_metrics::AccessPoint access_point =
       signin_metrics::AccessPoint::kSettings;
-  browser()->GetFeatures().signin_view_controller()->ShowDiceEnableSyncTab(
+  SigninViewController::From(browser())->ShowDiceEnableSyncTab(
       access_point,
       signin_metrics::PromoAction::PROMO_ACTION_NEW_ACCOUNT_NO_EXISTING_ACCOUNT,
       /*email_hint=*/std::string());
@@ -1439,7 +1441,7 @@ IN_PROC_BROWSER_TEST_F(DiceBrowserTest, ProfileSignInBeforeToken) {
       https_server_.GetURL(kEnableSyncURL));
 
   // Signin using the Chrome Sync endpoint.
-  browser()->GetFeatures().signin_view_controller()->ShowSignin(
+  SigninViewController::From(browser())->ShowSignin(
       signin_metrics::AccessPoint::kSettings);
 
   // Receive ENABLE_SYNC.
@@ -1532,7 +1534,7 @@ IN_PROC_BROWSER_TEST_F(DiceBrowserTestWithoutReplaceSyncPromosWithSignInPromos,
   sync_confirmation_url_observer.StartWatchingNewWebContents();
 
   // Signin using the Chrome Sync endpoint.
-  browser()->GetFeatures().signin_view_controller()->ShowDiceEnableSyncTab(
+  SigninViewController::From(browser())->ShowDiceEnableSyncTab(
       signin_metrics::AccessPoint::kAvatarBubbleSignInWithSyncPromo,
       signin_metrics::PromoAction::PROMO_ACTION_NEW_ACCOUNT_NO_EXISTING_ACCOUNT,
       /*email_hint=*/std::string());
@@ -1598,7 +1600,7 @@ IN_PROC_BROWSER_TEST_F(DiceBrowserSiginInInterceptionInteractiveTest,
   // Signin using the Chrome Sync endpoint.
   signin_metrics::AccessPoint access_point =
       signin_metrics::AccessPoint::kSettings;
-  browser()->GetFeatures().signin_view_controller()->ShowDiceEnableSyncTab(
+  SigninViewController::From(browser())->ShowDiceEnableSyncTab(
       access_point,
       signin_metrics::PromoAction::PROMO_ACTION_NEW_ACCOUNT_NO_EXISTING_ACCOUNT,
       /*email_hint=*/std::string());
@@ -1647,7 +1649,7 @@ IN_PROC_BROWSER_TEST_F(DiceBrowserSiginInInterceptionInteractiveTest,
 IN_PROC_BROWSER_TEST_F(DiceBrowserTest, BrowserSignInFromAddAccountTab) {
   base::HistogramTester histogram_tester;
   // Signin using the Add account endpoint.
-  browser()->GetFeatures().signin_view_controller()->ShowDiceAddAccountTab(
+  SigninViewController::From(browser())->ShowDiceAddAccountTab(
       signin_metrics::AccessPoint::kAddressBubble,
       /*email_hint=*/std::string());
 
@@ -1698,7 +1700,7 @@ IN_PROC_BROWSER_TEST_F(DiceBrowserTestWithSyncOptinScreen,
   // Signin from the settings page.
   signin_metrics::AccessPoint access_point =
       signin_metrics::AccessPoint::kSettings;
-  browser()->GetFeatures().signin_view_controller()->ShowDiceEnableSyncTab(
+  SigninViewController::From(browser())->ShowDiceEnableSyncTab(
       access_point,
       signin_metrics::PromoAction::PROMO_ACTION_NEW_ACCOUNT_NO_EXISTING_ACCOUNT,
       /*email_hint=*/std::string());
@@ -1731,10 +1733,7 @@ IN_PROC_BROWSER_TEST_F(DiceBrowserTestWithSyncOptinScreen,
 
   // Wait until the next modal screen (history sync optin) is present.
   base::test::RunUntil([&] {
-    return browser()
-        ->GetFeatures()
-        .signin_view_controller()
-        ->ShowsModalDialog();
+    return SigninViewController::From(browser())->ShowsModalDialog();
   });
 
   // Dismiss the History Sync Optin UI.
@@ -1758,7 +1757,7 @@ IN_PROC_BROWSER_TEST_F(DiceBrowserTestWithSyncOptinScreen,
   // Open the sign-in tab from the settings page but do not complete the signin.
   signin_metrics::AccessPoint access_point =
       signin_metrics::AccessPoint::kSettings;
-  browser()->GetFeatures().signin_view_controller()->ShowDiceEnableSyncTab(
+  SigninViewController::From(browser())->ShowDiceEnableSyncTab(
       access_point,
       signin_metrics::PromoAction::PROMO_ACTION_NEW_ACCOUNT_NO_EXISTING_ACCOUNT,
       /*email_hint=*/std::string());
@@ -1914,9 +1913,7 @@ IN_PROC_BROWSER_TEST_F(
       GetIdentityManager()->HasPrimaryAccount(signin::ConsentLevel::kSignin),
       true);
   // In auto signin, we don't show a modal, just fail silently
-  EXPECT_EQ(
-      browser()->GetFeatures().signin_view_controller()->ShowsModalDialog(),
-      false);
+  EXPECT_EQ(SigninViewController::From(browser())->ShowsModalDialog(), false);
 }
 
 IN_PROC_BROWSER_TEST_F(
@@ -1932,9 +1929,7 @@ IN_PROC_BROWSER_TEST_F(
       GetIdentityManager()->HasPrimaryAccount(signin::ConsentLevel::kSignin),
       false);
   // In auto signin, we don't show a modal, just fail silently
-  EXPECT_EQ(
-      browser()->GetFeatures().signin_view_controller()->ShowsModalDialog(),
-      false);
+  EXPECT_EQ(SigninViewController::From(browser())->ShowsModalDialog(), false);
 }
 
 IN_PROC_BROWSER_TEST_F(
@@ -1946,7 +1941,7 @@ IN_PROC_BROWSER_TEST_F(
   // Signin using the Chrome Sync endpoint.
   signin_metrics::AccessPoint access_point =
       signin_metrics::AccessPoint::kSettings;
-  browser()->GetFeatures().signin_view_controller()->ShowDiceEnableSyncTab(
+  SigninViewController::From(browser())->ShowDiceEnableSyncTab(
       access_point,
       signin_metrics::PromoAction::PROMO_ACTION_NEW_ACCOUNT_NO_EXISTING_ACCOUNT,
       /*email_hint=*/std::string());
@@ -1969,7 +1964,7 @@ IN_PROC_BROWSER_TEST_F(
   // Signin using the Chrome Sync endpoint.
   signin_metrics::AccessPoint access_point =
       signin_metrics::AccessPoint::kSettings;
-  browser()->GetFeatures().signin_view_controller()->ShowDiceEnableSyncTab(
+  SigninViewController::From(browser())->ShowDiceEnableSyncTab(
       access_point,
       signin_metrics::PromoAction::PROMO_ACTION_NEW_ACCOUNT_NO_EXISTING_ACCOUNT,
       /*email_hint=*/std::string());

@@ -17,11 +17,8 @@ include_rules = [
   "+chrome/app/vector_icons",
   "+chrome/browser/ash/login",
   "+chrome/browser/ash/profiles",
-  "+chrome/browser/notifications",
-  "+chrome/browser/prefs",
   "+chrome/browser/profiles",
   "+chrome/browser/ui/dialogs/browser_dialogs.h",
-  "+chrome/common/chrome_features.h",
   "+chrome/grit",
   "+chrome/test/base",
 ]
@@ -29,11 +26,11 @@ include_rules = [
 specific_include_rules = {
   "hats_notification_controller\\.cc": [
     "+chrome/browser/themes/theme_service.h",
-    "+chrome/browser/themes/theme_service_factory.h",
     "+ui/message_center/message_center.h",
   ],
 
   "hats_notification_controller_unittest\\.cc": [
+    "+chrome/browser/prefs",
     "+ui/message_center/message_center.h",
   ],
 }

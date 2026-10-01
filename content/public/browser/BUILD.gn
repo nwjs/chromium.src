@@ -57,7 +57,6 @@ source_set("browser_sources") {
     "background_sync_parameters.h",
     "background_sync_registration.cc",
     "background_sync_registration.h",
-    "background_tracing.h",
     "blob_handle.h",
     "bluetooth_chooser.cc",
     "bluetooth_chooser.h",
@@ -357,9 +356,6 @@ source_set("browser_sources") {
     "process_selection_user_data.cc",
     "process_selection_user_data.h",
     "process_visibility_util.h",
-    "provision_fetcher_factory.h",
-    "provision_fetcher_impl.cc",
-    "provision_fetcher_impl.h",
     "push_messaging_service.cc",
     "push_messaging_service.h",
     "reduce_accept_language_controller_delegate.h",
@@ -420,8 +416,8 @@ source_set("browser_sources") {
     "service_worker_running_info.h",
     "service_worker_version_base_info.cc",
     "service_worker_version_base_info.h",
-    "session_storage_namespace.cc",
-    "session_storage_namespace.h",
+    "session_storage_namespace_handle.cc",
+    "session_storage_namespace_handle.h",
     "session_storage_usage_info.h",
     "shape_detection_service.h",
     "shared_cors_origin_access_list.h",
@@ -564,6 +560,14 @@ source_set("browser_sources") {
 
   if (is_android) {
     sources += [ "color_chooser.h" ]
+  }
+
+  if (enable_cdm_provision_fetcher) {
+    sources += [
+      "provision_fetcher_factory.h",
+      "provision_fetcher_impl.cc",
+      "provision_fetcher_impl.h",
+    ]
   }
 
   if (is_linux || is_mac) {
@@ -733,7 +737,7 @@ source_set("browser_sources") {
     sources += [ "zygote_host/zygote_host_linux.h" ]
   }
 
-  if (allow_oop_video_decoder) {
+  if (enable_oop_video_decoder) {
     sources += [ "oop_video_decoder_factory.h" ]
     public_deps += [ "//media/mojo/mojom" ]
   }
@@ -743,8 +747,8 @@ source_set("browser_sources") {
       "chromeos/delegate_to_browser_gpu_service_accelerator_factory.h",
       "lock_screen_storage.h",
       "smart_card_delegate.h",
-      "tts_controller_delegate.cc",
-      "tts_controller_delegate.h",
+      "tts_controller_delegate_chromeos.cc",
+      "tts_controller_delegate_chromeos.h",
     ]
   }
 
@@ -783,15 +787,18 @@ if (is_android) {
   java_cpp_enum("contacts_picker_properties_javagen") {
     sources = [ "contacts_picker_properties.h" ]
   }
+
   java_cpp_enum("bluetooth_chooser_event_javagen") {
     sources = [ "bluetooth_chooser.h" ]
   }
+
   java_cpp_enum("digital_identity_enum") {
     sources = [
       "digital_identity_interstitial_type.h",
       "digital_identity_provider.h",
     ]
   }
+
   java_cpp_enum("transfer_input_to_viz_result_enum") {
     sources = [ "android/transfer_input_to_viz_result.h" ]
   }

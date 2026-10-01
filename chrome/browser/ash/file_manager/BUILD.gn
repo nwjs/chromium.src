@@ -37,8 +37,6 @@ static_library("file_manager") {
     "file_manager_copy_or_move_hook_delegate.h",
     "file_manager_copy_or_move_hook_file_check_delegate.cc",
     "file_manager_copy_or_move_hook_file_check_delegate.h",
-    "file_manager_pref_names.cc",
-    "file_manager_pref_names.h",
     "file_manager_string_util.cc",
     "file_manager_string_util.h",
     "file_tasks.cc",
@@ -222,7 +220,6 @@ static_library("file_manager") {
     "//chrome/browser/ash/fileapi",
     "//chrome/browser/ash/guest_os/public",
     "//chrome/browser/ash/policy/dlp",
-    "//chrome/browser/ash/smb_client",
   ]
 
   # TODO(crbug.com/40031409): Fix code that adds exit-time destructors and
@@ -497,6 +494,7 @@ source_set("browser_tests") {
     "//chrome/common:non_code_constants",
     "//chrome/test:test_support",
     "//chrome/test:test_support_ui",
+    "//chrome/test/base:test_switches",
     "//chromeos/ash/components/browser_context_helper",
     "//chromeos/ash/components/dbus:vm_applications_apps_proto",
     "//chromeos/ash/components/dbus/cros_disks",

@@ -26,6 +26,7 @@
 #include "base/test/scoped_feature_list.h"
 #include "base/test/test_future.h"
 #include "base/test/test_timeouts.h"
+#include "base/threading/thread_restrictions.h"
 #include "base/types/expected.h"
 #include "base/version.h"
 #include "chrome/browser/prefs/session_startup_pref.h"
@@ -33,6 +34,7 @@
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/views/web_apps/isolated_web_apps/isolated_web_app_installer_coordinator.h"
 #include "chrome/browser/ui/views/web_apps/isolated_web_apps/isolated_web_app_installer_view_controller.h"
 #include "chrome/browser/ui/views/web_apps/isolated_web_apps/test_isolated_web_app_installer_model_observer.h"
@@ -1711,7 +1713,7 @@ IN_PROC_BROWSER_TEST_F(IsolatedWebAppUpdateManagerBrowserTest,
       AppBrowserController::FindForWebApp(*profile(), GetAppId());
   ASSERT_THAT(app_window, NotNull());
   content::WebContents* web_contents =
-      app_window->GetFeatures().tab_strip_model()->GetActiveWebContents();
+      app_window->GetTabStripModel()->GetActiveWebContents();
 
   content::TitleWatcher title_watcher(web_contents, u"7.0.6");
   title_watcher.AlsoWaitForTitle(u"3.0.4");

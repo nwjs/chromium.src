@@ -42,6 +42,9 @@ enum class ActorTaskState {
   kFailed = 8
 };
 
+// Returns whether `state` corresponds to a terminal actor task state.
+bool IsTerminalState(ActorTaskState state);
+
 // Reasons why an ActorTask was stopped.
 enum class ActorTaskStoppedReason {
   // Task was explicitly stopped by the user.
@@ -54,7 +57,8 @@ enum class ActorTaskStoppedReason {
   kBrowserFailure = 3,
   // One of the tabs executing the task was detached or destroyed.
   kTabDetached = 4,
-  // System or browser is shutting down.
+  // System or browser is shutting down (including a cancelled/expired
+  // background task).
   kShutdown = 5,
   // User started a new chat session, aborting the current task.
   kUserStartedNewChat = 6

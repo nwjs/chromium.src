@@ -12,6 +12,7 @@
 #include "base/containers/circular_deque.h"
 #include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
+#include "base/memory/weak_ptr.h"
 #include "content/common/content_export.h"
 #include "content/public/browser/page.h"
 #include "content/public/browser/page_user_data.h"
@@ -63,6 +64,12 @@ class CONTENT_EXPORT EmbeddedPermissionControlChecker
           pending_client,
       RegisterPageEmbeddedPermissionCallback callback);
 
+  // Checks if the page currently has an allowed embedded permission control
+  // registered for the given source and permissions.
+  bool HasPageEmbeddedPermission(
+      Source source,
+      const std::set<blink::mojom::PermissionName>& permissions) const;
+
  private:
   friend class content::PageUserData<EmbeddedPermissionControlChecker>;
 
@@ -93,6 +100,8 @@ class CONTENT_EXPORT EmbeddedPermissionControlChecker
     // registration is allowed. Ignore if we are notifying multiple times.
     void OnEmbeddedPermissionControlRegistered(bool allow);
 
+    base::WeakPtr<Client> AsWeakPtr() { return weak_factory_.GetWeakPtr(); }
+
    private:
     // This client is owned by `EmbeddedPermissionControlChecker`, it is safe to
     // use raw_ptr here.
@@ -101,6 +110,7 @@ class CONTENT_EXPORT EmbeddedPermissionControlChecker
     std::set<blink::mojom::PermissionName> permissions_;
     mojo::Remote<blink::mojom::EmbeddedPermissionControlClient> client_;
     RegisterPageEmbeddedPermissionCallback callback_;
+    base::WeakPtrFactory<Client> weak_factory_{this};
   };
 
   // The given client disconnected, it will be removed from the corresponding

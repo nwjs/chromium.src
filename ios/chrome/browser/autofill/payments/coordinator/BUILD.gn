@@ -2,14 +2,18 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+source_set("exit_reason") {
+  sources = [ "payments_suggestion_bottom_sheet_exit_reason.h" ]
+}
+
 source_set("coordinator") {
   sources = [
     "credit_card_suggestion_bottom_sheet_mediator.h",
     "credit_card_suggestion_bottom_sheet_mediator.mm",
     "payments_suggestion_bottom_sheet_coordinator.h",
     "payments_suggestion_bottom_sheet_coordinator.mm",
-    "payments_suggestion_bottom_sheet_exit_reason.h",
   ]
+  public_deps = [ ":exit_reason" ]
   deps = [
     "//base",
     "//components/autofill/core/browser",
@@ -63,6 +67,7 @@ source_set("unit_tests") {
     "//ios/chrome/browser/shared/model/profile/test",
     "//ios/chrome/browser/shared/model/web_state_list",
     "//ios/chrome/browser/shared/model/web_state_list/test:test_support",
+    "//ios/chrome/browser/shared/public/commands",
     "//ios/chrome/browser/signin/model:authentication_service_factory",
     "//ios/chrome/browser/signin/model:test_support",
     "//ios/chrome/browser/sync/model",

@@ -7,6 +7,8 @@
 
 #import <UIKit/UIKit.h>
 
+#import <optional>
+
 #import "base/containers/enum_set.h"
 #import "base/memory/weak_ptr.h"
 #import "base/observer_list.h"
@@ -74,7 +76,10 @@ class FullscreenBrowserAgent : public BrowserUserData<FullscreenBrowserAgent> {
   // Returns whether an animated transition is currently in progress.
   bool is_animating() const { return is_animating_; }
 
-  // Returns the last settled fullscreen state (kUIExpanded or kUICollapsed).
+  // Returns the fullscreen state the UI has settled on, or is settling on
+  // (kUIExpanded or kUICollapsed). This is committed as soon as a transition
+  // starts, so it stays consistent with the progress even if the transition
+  // animation is interrupted.
   FullscreenState settled_state() const { return settled_state_; }
 
   // Returns the duration of the current animation, if this is called inside of
@@ -146,11 +151,24 @@ class FullscreenBrowserAgent : public BrowserUserData<FullscreenBrowserAgent> {
   void NotifyObserversOfUpdatedState(
       base::TimeDelta duration = base::TimeDelta());
 
-  // Handles animation completion.
-  void AnimationDidComplete(FullscreenTransition transition, bool finished);
+  // Handles the completion of the transition animation started by the
+  // `generation`-th transition. Completions belonging to a superseded
+  // transition are ignored.
+  void AnimationDidComplete(FullscreenTransition transition,
+                            int generation,
+                            bool finished);
 
   // Notifies observers of transition completion.
   void NotifyFullscreenDidTransition(FullscreenTransition transition);
+
+  // Records metrics and timing when an incremental scroll reaches a boundary.
+  void RecordIncrementalScrollMetrics(CGFloat pre_scroll_top_progress,
+                                      CGFloat pre_scroll_bottom_progress);
+
+  // Records timing histograms and updates timestamps when entering/exiting
+  // fullscreen.
+  void RecordEnterFullscreenTiming();
+  void RecordExitFullscreenTiming();
 
   base::ObserverList<FullscreenBrowserAgentObserver, true> observers_;
 
@@ -189,8 +207,21 @@ class FullscreenBrowserAgent : public BrowserUserData<FullscreenBrowserAgent> {
   // True if an animated fullscreen transition is currently in progress.
   bool is_animating_ = false;
 
-  // The last settled fullscreen state (kUIExpanded or kUICollapsed).
+  // Incremented every time a transition starts. Bound into the animation
+  // completion callback so that a completion fired by an animation that has
+  // since been superseded can be identified and discarded.
+  int animation_generation_ = 0;
+
+  // The fullscreen state the UI has settled on, or is settling on. Committed
+  // when the transition starts, alongside the progress.
   FullscreenState settled_state_ = FullscreenState::kUIExpanded;
+
+  // The time at which the user entered fullscreen.
+  std::optional<base::TimeTicks> time_entered_fullscreen_ = std::nullopt;
+
+  // The time at which the user exited fullscreen.
+  std::optional<base::TimeTicks> time_exited_fullscreen_ =
+      base::TimeTicks::Now();
 
   // The animation duration for the current transition.
   base::TimeDelta animation_duration_ = base::TimeDelta();

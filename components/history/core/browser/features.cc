@@ -131,6 +131,11 @@ BASE_FEATURE(kBrowsingHistoryActorIntegrationM3,
              base::FEATURE_ENABLED_BY_DEFAULT);
 #endif  // !BUILDFLAG(IS_IOS)
 
+// If enabled, improves hostname suffix matching for browsing history, so that
+// example.com matches example.com as well as subdomains like www.example.com.
+BASE_FEATURE(kBrowsingHistoryImprovedHostnameSuffixMatching,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // If enabled, the WebHistoryService will use a new API for querying browsing
 // history (https://footprints-pa.googleapis.com/...) instead of the old and
 // deprecated one (https://history.google.com/history/api/...).
@@ -143,19 +148,7 @@ BASE_FEATURE(kWebHistoryUseNewApi, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kHistoryDatabaseWriteAheadLogging,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Allows tuning the task priority of the History backend task runner during
-// startup.
-BASE_FEATURE(kHistoryInitPrioritySettings, base::FEATURE_DISABLED_BY_DEFAULT);
-
-constexpr base::FeatureParam<base::TaskPriority>::Option
-    kHistoryInitPriorityOptions[] = {
-        {base::TaskPriority::BEST_EFFORT, "best_effort"},
-        {base::TaskPriority::USER_VISIBLE, "user_visible"},
-        {base::TaskPriority::USER_BLOCKING, "user_blocking"},
-};
-
-const base::FeatureParam<base::TaskPriority> kHistoryInitPriority{
-    &kHistoryInitPrioritySettings, "priority",
-    base::TaskPriority::USER_BLOCKING, &kHistoryInitPriorityOptions};
+// Defers HistoryBackend initialization to after startup or until it is needed.
+BASE_FEATURE(kDeferHistoryBackendInit, base::FEATURE_DISABLED_BY_DEFAULT);
 
 }  // namespace history

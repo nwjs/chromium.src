@@ -72,7 +72,6 @@ BASE_DECLARE_FEATURE(kContextualTasksSendContextualInputUploadType);
 // contextual tasks URL and redirect to aim URL.
 BASE_DECLARE_FEATURE(kContextualTasksUrlRedirectToAimUrl);
 
-
 // If enabled, animates the caret.
 BASE_DECLARE_FEATURE(kContextualTasksAnimatedCaret);
 
@@ -141,6 +140,10 @@ BASE_DECLARE_FEATURE(kContextualTasksSidePanelRearchitecture);
 // Enables sticky conversation UI that follows the user around.
 BASE_DECLARE_FEATURE(kContextualTasksEnableStickyConversation);
 
+// Enables clicking links in contextual tasks side panel to clobber the active
+// tab next to the side panel instead of opening a new tab.
+BASE_DECLARE_FEATURE(kContextualTasksClobberActiveTab);
+
 // When enabled, allows AIM search URLs to be created and navigated immediately
 // upon starting contextual input uploads without waiting for background
 // network uploads to complete.
@@ -148,6 +151,13 @@ BASE_DECLARE_FEATURE(kContextualTasksNonBlockingUrlNavigation);
 
 // Returns whether non-blocking AIM URL navigation is enabled.
 bool GetIsContextualTasksNonBlockingUrlNavigationEnabled();
+
+// Allows signed-out users to use side panel cobrowse in Desktop Android.
+BASE_DECLARE_FEATURE(kAllowSignedOutUserInDesktopAndroid);
+
+// Returns whether signed-out users are allowed to use side panel cobrowse in
+// Desktop Android.
+bool IsAllowSignedOutUserInDesktopAndroidEnabled();
 
 BASE_DECLARE_FEATURE(kContextualTasksEnableSpatialModelToolbarLayout);
 
@@ -223,6 +233,10 @@ extern const base::FeatureParam<base::TimeDelta> kPreviousTabRecencyThreshold;
 // Whether Smart Tab Sharing is enabled for the ContextualTasksContext feature.
 extern const base::FeatureParam<bool> kContextualTasksContextSmartTabSharing;
 
+// Whether Smart Tab Sharing should toggle off after query submission.
+extern const base::FeatureParam<bool>
+    kContextualTasksContextToggleOffAfterSubmit;
+
 // Option for smart tab sharing IPH first time prompt.
 enum class SmartTabSharingIphFirstTimePromptOption {
   kIphFirstTimePromptV1,
@@ -276,6 +290,15 @@ extern const base::FeatureParam<bool>
 
 // Controls whether the contextual task page action should show
 extern const base::FeatureParam<EntryPointOption, true> kShowEntryPoint;
+
+// Returns whether the right hand contextual tasks ephemeral button is enabled
+// when the side panel is right-aligned.
+extern bool GetEnableRightHandContextualTasksEphemeralButton();
+
+// Controls whether the contextual tasks ephemeral button is placed as a regular
+// circular button with drop shadow next to the battery saver button.
+BASE_DECLARE_FEATURE_PARAM(bool,
+                           kEnableCircularEphemeralButtonNextToBatterySaver);
 
 // UI Options to expand the contextual tasks side panel to tab.
 extern const base::FeatureParam<ExpandButtonOption, true> kExpandButtonOptions;
@@ -343,7 +366,6 @@ extern int GetContextualTasksOnboardingTooltipImpressionDelay();
 // Expired side panel WebContents will be destroyed.
 extern int ContextualTasksInactiveSidePanelKeepInCacheMinutes();
 
-
 // Returns if the protected page error is enabled.
 extern bool GetIsProtectedPageErrorEnabled();
 
@@ -393,6 +415,8 @@ extern bool GetIsContextualTasksSuggestionsEnabled();
 // Returns the timeout for smart tab sharing tab selection.
 extern base::TimeDelta GetSmartTabSharingTabSelectionTimeout();
 
+// Returns whether Smart Tab Sharing should toggle off after query submission.
+extern bool ShouldToggleOffAfterSubmit();
 
 // Enables tab auto-chip for contextual tasks. When disabled, no suggested
 // chips will be shown in the composebox automatically.
@@ -439,7 +463,6 @@ extern bool GetEnableContextualTasksSmartCompose();
 // zero state suggestions are enabled for Contextual Tasks.
 extern bool GetEnableNativeZeroStateSuggestions();
 
-
 // Returns whether basic mode should be enabled.
 extern bool GetIsBasicModeEnabled();
 
@@ -456,7 +479,6 @@ extern bool ShouldEnableCookiePrefetch();
 // Returns whether the input plate can be locked and unlocked by a message
 // from AIM.
 extern bool ShouldEnableLockAndUnlockInputCapability();
-
 
 // Returns whether the file hint is enabled in the composebox.
 extern bool GetEnableFileHint();
@@ -482,6 +504,7 @@ extern bool GetIsWebpageApcComparisonEnabled();
 
 extern bool IsContextualTasksRearchitectureEnabled();
 extern bool IsContextualTasksSidePanelRearchitectureEnabled();
+extern bool IsContextualTasksClobberActiveTabEnabled();
 extern bool IsContextualTasksUnboundedMenuEnabled();
 
 inline constexpr char kContextualTasksSearchCapabilitiesHeaderName[] =
@@ -529,6 +552,8 @@ extern const char kContextualTasksEphemeralBrandedEntryPointName[];
 extern const char kContextualTasksEphemeralBrandedEntryPointDescription[];
 extern const char kContextualTasksSidePanelRearchitectureName[];
 extern const char kContextualTasksSidePanelRearchitectureDescription[];
+extern const char kContextualTasksClobberActiveTabName[];
+extern const char kContextualTasksClobberActiveTabDescription[];
 extern const char kContextualTasksBypassDismissedCapName[];
 extern const char kContextualTasksBypassDismissedCapDescription[];
 extern const char kEphemeralPinningVisibleWhenPermanentlyPinnedName[];

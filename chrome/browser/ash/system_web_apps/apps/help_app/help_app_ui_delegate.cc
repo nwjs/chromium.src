@@ -21,7 +21,6 @@
 #include "chrome/browser/ash/borealis/borealis_service.h"
 #include "chrome/browser/ash/borealis/borealis_service_factory.h"
 #include "chrome/browser/ash/login/session/user_session_manager.h"
-#include "chrome/browser/browser_process.h"
 #include "chrome/browser/chromeos/upload_office_to_cloud/upload_office_to_cloud.h"
 #include "chrome/browser/feedback/show_feedback_page.h"
 #include "chrome/browser/profiles/profile.h"
@@ -33,6 +32,7 @@
 #include "chromeos/ash/components/browser_context_helper/browser_context_helper.h"
 #include "chromeos/ash/experiences/settings_ui/settings_app_manager.h"
 #include "content/public/browser/web_contents.h"
+#include "ui/base/page_transition_types.h"
 #include "url/gurl.h"
 #include "url/origin.h"
 #include "url/url_constants.h"
@@ -126,10 +126,6 @@ void ChromeHelpAppUIDelegate::TriggerWelcomeTipCallToAction(
   // TODO(crbug.com/385152937): ScalableIph is under cleanup. This method should
   // be removed too.
   return;
-}
-
-PrefService* ChromeHelpAppUIDelegate::GetLocalState() {
-  return g_browser_process->local_state();
 }
 
 void ChromeHelpAppUIDelegate::LaunchMicrosoft365Setup() {

@@ -10,7 +10,6 @@
 #include <optional>
 #include <string>
 #include <utility>
-#include <variant>
 
 #include "base/barrier_callback.h"
 #include "base/functional/bind.h"
@@ -24,6 +23,7 @@
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/thread_pool.h"
 #include "base/trace_event/trace_event.h"
+#include "base/types/expected.h"
 #include "build/build_config.h"
 #include "components/affiliations/core/browser/affiliation_service.h"
 #include "components/autofill/core/common/form_data.h"
@@ -47,10 +47,10 @@ namespace {
 void InvokeCallbacksForSuspectedChanges(
     PasswordChangesOrErrorReply notifying_callback,
     base::OnceCallback<void(bool)> completion_callback,
-    PasswordChangesOrError changes_or_error) {
+    base::expected<std::optional<PasswordStoreChangeList>,
+                   PasswordStoreBackendError> changes_or_error) {
   DCHECK(notifying_callback);
-  bool success =
-      !std::holds_alternative<PasswordStoreBackendError>(changes_or_error);
+  bool success = changes_or_error.has_value();
 
   std::move(notifying_callback).Run(std::move(changes_or_error));
   if (completion_callback) {
@@ -60,7 +60,8 @@ void InvokeCallbacksForSuspectedChanges(
 
 void ConsumerReplyConverter(base::WeakPtr<PasswordStoreConsumer> consumer,
                             PasswordStoreInterface* store,
-                            BackendLoginsResultOrError result) {
+                            base::expected<std::vector<StoredCredential>,
+                                           PasswordStoreBackendError> result) {
   if (!consumer) {
     return;
   }
@@ -114,7 +115,8 @@ void PasswordStore::AddLogins(std::vector<StoredCredential> forms,
     return;
   }
 
-  auto barrier_callback = base::BarrierCallback<PasswordChangesOrError>(
+  auto barrier_callback = base::BarrierCallback<base::expected<
+      std::optional<PasswordStoreChangeList>, PasswordStoreBackendError>>(
       forms.size(), base::BindOnce(&JoinPasswordStoreChanges)
                         .Then(base::BindOnce(
                             &PasswordStore::NotifyLoginsChangedOnMainSequence,
@@ -151,7 +153,8 @@ void PasswordStore::UpdateLogins(std::vector<StoredCredential> forms,
     return;
   }
 
-  auto barrier_callback = base::BarrierCallback<PasswordChangesOrError>(
+  auto barrier_callback = base::BarrierCallback<base::expected<
+      std::optional<PasswordStoreChangeList>, PasswordStoreBackendError>>(
       forms.size(), base::BindOnce(&JoinPasswordStoreChanges)
                         .Then(base::BindOnce(
                             &PasswordStore::NotifyLoginsChangedOnMainSequence,
@@ -202,7 +205,8 @@ void PasswordStore::UpdateLoginWithPrimaryKey(
         InsecureType::kPhished);
   }
 
-  auto barrier_callback = base::BarrierCallback<PasswordChangesOrError>(
+  auto barrier_callback = base::BarrierCallback<base::expected<
+      std::optional<PasswordStoreChangeList>, PasswordStoreBackendError>>(
       2, base::BindOnce(&JoinPasswordStoreChanges)
              .Then(base::BindOnce(
                  &PasswordStore::NotifyLoginsChangedOnMainSequence, this,
@@ -467,7 +471,8 @@ void PasswordStore::OnInitCompleted(bool success) {
 
 void PasswordStore::NotifyLoginsChangedOnMainSequence(
     LoginsChangedTrigger logins_changed_trigger,
-    PasswordChangesOrError changes_or_error) {
+    base::expected<std::optional<PasswordStoreChangeList>,
+                   PasswordStoreBackendError> changes_or_error) {
   DCHECK(main_task_runner_->RunsTasksInCurrentSequence());
 
   // Don't propagate reference to this store after its shutdown. No caller
@@ -476,18 +481,16 @@ void PasswordStore::NotifyLoginsChangedOnMainSequence(
     return;
   }
 
-  PasswordChanges changes = std::nullopt;
+  std::optional<PasswordStoreChangeList> changes = std::nullopt;
   std::optional<ActionableError> error;
-  if (std::holds_alternative<PasswordStoreBackendError>(changes_or_error)) {
-    const PasswordStoreBackendError& backend_error =
-        std::get<PasswordStoreBackendError>(changes_or_error);
+  if (!changes_or_error.has_value()) {
+    const PasswordStoreBackendError& backend_error = changes_or_error.error();
     error = BackendErrorToActionableError(backend_error.type);
   } else {
-    changes = std::move(std::get<PasswordChanges>(changes_or_error));
-    // On Android the `nullopt` value of `PasswordChangesOrError` is interpreted
-    // as not knowing the actual error state yet. On other platforms the
-    // `nullopt` value of `PasswordChangesOrError` means that there no
-    // actionable errors.
+    changes = std::move(*changes_or_error);
+    // On Android a successful result containing `nullopt` is interpreted
+    // as not knowing the actual error state yet. On other platforms it means
+    // that there are no actionable errors.
     // TODO(crbug.com/535288574): Interpret the `nullopt` value consistently
     // across platforms (or avoid using `nullopt`).
 #if BUILDFLAG(IS_ANDROID)
@@ -496,7 +499,7 @@ void PasswordStore::NotifyLoginsChangedOnMainSequence(
     // leave `error` as std::nullopt to defer propagation. The error state
     // will be determined and propagated when the subsequent `GetAllLoginsAsync`
     // call completes in `NotifyLoginsRetainedOnMainSequence`.
-    if (changes.has_value()) {
+    if (changes) {
       error = ActionableError::kNoError;
     }
 #else
@@ -514,7 +517,7 @@ void PasswordStore::NotifyLoginsChangedOnMainSequence(
   // issuing the list call seems to be the most relevant and expensive step.
   base::UmaHistogramEnumeration(
       "PasswordManager.PasswordStore.OnLoginsRetained", logins_changed_trigger);
-  if (!changes.has_value()) {
+  if (!changes) {
     TRACE_EVENT_INSTANT("passwords", "LoginsRetrievedForOnLoginsRetained",
                         perfetto::Flow::FromPointer(this));
     // If the changes aren't provided, the store propagates the latest logins.
@@ -523,7 +526,7 @@ void PasswordStore::NotifyLoginsChangedOnMainSequence(
     return;
   }
 #else
-  if (!changes.has_value()) {
+  if (!changes) {
     // The error has already been propagated. A changelist doesn't exist.
     return;
   }
@@ -534,12 +537,13 @@ void PasswordStore::NotifyLoginsChangedOnMainSequence(
   }
 
   for (auto& observer : observers_) {
-    observer.OnLoginsChanged(this, changes.value());
+    observer.OnLoginsChanged(this, *changes);
   }
 }
 
 void PasswordStore::NotifyLoginsRetainedOnMainSequence(
-    BackendLoginsResultOrError result) {
+    base::expected<std::vector<StoredCredential>, PasswordStoreBackendError>
+        result) {
   DCHECK(main_task_runner_->RunsTasksInCurrentSequence());
   // Don't propagate reference to this store after its shutdown. No caller
   // should expect any notifications from a shut down store in any case.
@@ -553,21 +557,19 @@ void PasswordStore::NotifyLoginsRetainedOnMainSequence(
   // error). This does not cause duplicate signals because the propagation
   // was skipped in `NotifyLoginsChangedOnMainSequence`.
   ActionableError error = ActionableError::kNoError;
-  if (std::holds_alternative<PasswordStoreBackendError>(result)) {
-    const PasswordStoreBackendError& backend_error =
-        std::get<PasswordStoreBackendError>(result);
+  if (!result) {
+    const PasswordStoreBackendError& backend_error = result.error();
     error = BackendErrorToActionableError(backend_error.type);
   }
 
   NotifyObserversIfErrorStateChanged(error);
 
   // Clients don't expect errors yet, so just wait for the next notification.
-  if (std::holds_alternative<PasswordStoreBackendError>(result)) {
+  if (!result) {
     return;
   }
 
-  const std::vector<StoredCredential>& retained_credentials =
-      std::get<BackendLoginsResult>(result);
+  const std::vector<StoredCredential>& retained_credentials = *result;
   for (auto& observer : observers_) {
     observer.OnLoginsRetained(this, retained_credentials);
   }
@@ -599,11 +601,11 @@ void PasswordStore::NotifyObserversIfErrorStateChanged(ActionableError error) {
 
 void PasswordStore::ForwardLoginsResultOrError(
     base::WeakPtr<PasswordStoreConsumer> consumer,
-    BackendLoginsResultOrError result) {
+    base::expected<std::vector<StoredCredential>, PasswordStoreBackendError>
+        result) {
   DCHECK(main_task_runner_->RunsTasksInCurrentSequence());
-  if (std::holds_alternative<PasswordStoreBackendError>(result)) {
-    const PasswordStoreBackendError& backend_error =
-        std::get<PasswordStoreBackendError>(result);
+  if (!result) {
+    const PasswordStoreBackendError& backend_error = result.error();
     NotifyObserversIfErrorStateChanged(
         BackendErrorToActionableError(backend_error.type));
   }
@@ -611,7 +613,7 @@ void PasswordStore::ForwardLoginsResultOrError(
 }
 
 void PasswordStore::UnblocklistInternal(base::OnceClosure completion,
-                                        LoginsResult forms) {
+                                        std::vector<StoredCredential> forms) {
   DCHECK(main_task_runner_->RunsTasksInCurrentSequence());
   if (!backend_) {
     return;  // Once the shutdown started, ignore new requests.
@@ -639,7 +641,8 @@ void PasswordStore::UnblocklistInternal(base::OnceClosure completion,
     notify_callback = std::move(notify_callback).Then(std::move(completion));
   }
 
-  auto barrier_callback = base::BarrierCallback<PasswordChangesOrError>(
+  auto barrier_callback = base::BarrierCallback<base::expected<
+      std::optional<PasswordStoreChangeList>, PasswordStoreBackendError>>(
       forms_to_remove.size(), base::BindOnce(&JoinPasswordStoreChanges)
                                   .Then(std::move(notify_callback)));
 

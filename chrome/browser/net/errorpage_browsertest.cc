@@ -42,6 +42,7 @@
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/browsing_data/content/browsing_data_helper.h"
+#include "components/enterprise/isolated_mode/isolated_mode_features.h"
 #include "components/error_page/content/browser/net_error_auto_reloader.h"
 #include "components/google/core/common/google_util.h"
 #include "components/language/core/browser/pref_names.h"
@@ -56,6 +57,7 @@
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/browsing_data_remover.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_view_host.h"
@@ -80,6 +82,7 @@
 #include "net/test/url_request/url_request_mock_http_job.h"
 #include "services/network/public/cpp/features.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/window_open_disposition.h"
 
 #if BUILDFLAG(IS_CHROMEOS)
 #include "ash/constants/ash_features.h"
@@ -773,6 +776,43 @@ IN_PROC_BROWSER_TEST_F(DNSErrorPageTest, Incognito) {
   EXPECT_EQ(WebContentsCanShowDiagnosticsTool(
                 incognito_browser->tab_strip_model()->GetActiveWebContents()),
             IsDisplayingDiagnosticsLink(incognito_browser));
+}
+
+class DNSErrorPageIsolatedModeTest : public DNSErrorPageTest {
+ public:
+  void SetUpCommandLine(base::CommandLine* command_line) override {
+    DNSErrorPageTest::SetUpCommandLine(command_line);
+    command_line->AppendSwitch(
+        enterprise_isolated_mode::switches::
+            kForceEnterpriseIsolatedModeReplacesIncognito);
+  }
+};
+
+// Test error page in Enterprise Isolated Mode. This should behave like
+// incognito mode: no network diagnostic link is included, except on ChromeOS.
+IN_PROC_BROWSER_TEST_F(DNSErrorPageIsolatedModeTest, IsolatedMode) {
+  BrowserWindowInterface* isolated_browser = CreateIncognitoBrowser();
+  ASSERT_TRUE(
+      isolated_browser->GetProfile()->IsEnterpriseIsolatedModeProfile());
+
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(
+      isolated_browser,
+      URLRequestFailedJob::GetMockHttpsUrl(net::ERR_NAME_NOT_RESOLVED)));
+
+  // Verify that the expected error page is being displayed.
+  ExpectDisplayingErrorPage(isolated_browser, net::ERR_NAME_NOT_RESOLVED);
+
+#if !BUILDFLAG(IS_CHROMEOS)
+  // The diagnostics tool logs the URLs it is run with, so it must not be
+  // available in Isolated Mode, just like in incognito mode.
+  EXPECT_FALSE(WebContentsCanShowDiagnosticsTool(
+      isolated_browser->tab_strip_model()->GetActiveWebContents()));
+#endif
+
+  // Diagnostics button should be displayed, if available.
+  EXPECT_EQ(WebContentsCanShowDiagnosticsTool(
+                isolated_browser->tab_strip_model()->GetActiveWebContents()),
+            IsDisplayingDiagnosticsLink(isolated_browser));
 }
 
 class ErrorPageAutoReloadTest : public InProcessBrowserTest {

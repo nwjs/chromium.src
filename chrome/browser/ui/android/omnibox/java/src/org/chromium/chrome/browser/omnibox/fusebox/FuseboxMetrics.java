@@ -64,7 +64,7 @@ public class FuseboxMetrics {
             "Android.Omnibox.MobileFusebox.ReanchorViews.Duration";
 
     // LINT.IfChange(ToolMode)
-    @VisibleForTesting /* package */ static final int TOOL_MODE_HISTOGRAM_BOUND = 12;
+    @VisibleForTesting /* package */ static final int TOOL_MODE_HISTOGRAM_BOUND = 13;
     // LINT.ThenChange(//tools/metrics/histograms/metadata/omnibox/enums.xml:OmniboxToolMode)
     // LINT.IfChange(ModelMode)
     @VisibleForTesting /* package */ static final int MODEL_MODE_HISTOGRAM_BOUND = 8;
@@ -384,6 +384,8 @@ public class FuseboxMetrics {
                     model.get(FuseboxProperties.POPUP_ATTACH_GALLERY_VISIBLE);
             case FuseboxAttachmentButtonType.FILES ->
                     model.get(FuseboxProperties.POPUP_ATTACH_FILE_VISIBLE);
+            case FuseboxAttachmentButtonType.DRIVE_FILES ->
+                    model.get(FuseboxProperties.POPUP_ATTACH_DRIVE_VISIBLE);
             case FuseboxAttachmentButtonType.RECENT_TAB ->
                     model.get(FuseboxProperties.POPUP_RECENT_TABS_HEADER_VISIBLE);
             default -> false;

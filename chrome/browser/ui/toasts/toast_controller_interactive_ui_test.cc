@@ -23,6 +23,7 @@
 #include "chrome/browser/ui/omnibox/omnibox_edit_model.h"
 #include "chrome/browser/ui/omnibox/omnibox_tab_helper.h"
 #include "chrome/browser/ui/omnibox/omnibox_view.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/toasts/api/toast_id.h"
 #include "chrome/browser/ui/toasts/toast_controller.h"
 #include "chrome/browser/ui/toasts/toast_features.h"
@@ -146,7 +147,7 @@ class ToastControllerInteractiveTest
   }
 
   ToastController* GetToastController() {
-    return browser()->GetFeatures().toast_controller();
+    return ToastController::From(browser());
   }
 
   auto ShowToast(ToastParams params) {
@@ -645,10 +646,7 @@ IN_PROC_BROWSER_TEST_F(ToastControllerInteractiveTest,
                        ToastRendersOverWebContents) {
 #if BUILDFLAG(IS_MAC)
   FullscreenController* const fullscreen_controller =
-      browser()
-          ->GetFeatures()
-          .exclusive_access_manager()
-          ->fullscreen_controller();
+      ExclusiveAccessManager::From(browser())->fullscreen_controller();
   fullscreen_controller->set_is_tab_fullscreen_for_testing(true);
 #else
   ui_test_utils::FullscreenWaiter waiter(browser(), {.tab_fullscreen = true});

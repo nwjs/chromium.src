@@ -1261,7 +1261,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="History.DatabaseTooOld" enum="HistoryDatabaseVersion"
-    expires_after="2026-09-12">
+    expires_after="2027-01-17">
   <owner>jpgravel@chromium.org</owner>
   <owner>etienneb@chromium.org</owner>
   <component>1456716</component>
@@ -1751,7 +1751,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="History.Embeddings.Embedder.EmbeddingsModelLoadDuration"
-    units="ms" expires_after="2027-01-03">
+    units="ms" expires_after="2027-03-07">
   <owner>sophiechang@chromium.org</owner>
   <owner>zekunjiang@google.com</owner>
   <summary>
@@ -2544,7 +2544,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="History.RemoveVisitsFromWebHistory.EntryCount" units="entries"
-    expires_after="2026-12-27">
+    expires_after="2027-02-28">
   <owner>treib@chromium.org</owner>
   <owner>src/components/sync/OWNERS</owner>
   <summary>
@@ -2798,7 +2798,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="History.WebHistory.QueryHistoryResultsCount" units="visits"
-    expires_after="2027-01-03">
+    expires_after="2027-03-07">
   <owner>treib@chromium.org</owner>
   <owner>src/components/history/OWNERS</owner>
   <component>1456716</component>
@@ -2809,7 +2809,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="History.WebHistory.QueryWebAndAppActivityResult"
-    enum="BooleanOptedIn" expires_after="2027-01-03">
+    enum="BooleanOptedIn" expires_after="2027-03-07">
   <owner>treib@chromium.org</owner>
   <owner>src/components/history/OWNERS</owner>
   <component>1456716</component>

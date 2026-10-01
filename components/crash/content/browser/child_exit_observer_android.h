@@ -149,6 +149,9 @@ class ChildExitObserver : public content::BrowserChildProcessObserver,
 
  private:
   // content::BrowserChildProcessObserver implementation:
+  void BrowserChildProcessLaunchedAndConnected(
+      const content::ChildProcessData& data,
+      const base::Process& process) override;
   void BrowserChildProcessHostDisconnected(
       const content::ChildProcessData& data) override;
   void BrowserChildProcessKilled(
@@ -183,6 +186,7 @@ class ChildExitObserver : public content::BrowserChildProcessObserver,
 
   // Key is process_host_id. Only used for BrowserChildProcessHost. Only
   // accessed on the UI thread.
+  std::map<int, base::ProcessHandle> browser_child_process_id_to_pid_;
   std::map<int, TerminationInfo> browser_child_process_info_;
 
   base::ScopedMultiSourceObservation<content::RenderProcessHost,

@@ -92,7 +92,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Startup.Android.BrowserProcessCreationReason"
-    enum="ProcessCreationReason" expires_after="2027-01-03">
+    enum="ProcessCreationReason" expires_after="2027-03-07">
   <owner>mthiesse@chromium.org</owner>
   <owner>pasko@chromium.org</owner>
   <summary>
@@ -362,7 +362,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Startup.Android.Cold.TimeToStartupFcpOrPaintPreview"
-    units="ms" expires_after="2026-12-27">
+    units="ms" expires_after="2027-02-28">
   <owner>ckitagawa@chromium.org</owner>
   <owner>nafisabedin@google.com</owner>
   <improvement direction="LOWER_IS_BETTER"/>
@@ -676,7 +676,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Startup.Android.StartComponent" enum="ProcessCreationReason"
-    expires_after="2027-01-03">
+    expires_after="2027-03-07">
   <owner>nafisabedin@google.com</owner>
   <owner>mthiesse@chromium.org</owner>
   <summary>
@@ -698,7 +698,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Startup.Android.Warm.MainIntentTimeToFirstDraw" units="ms"
-    expires_after="2027-01-03">
+    expires_after="2027-03-07">
   <owner>nafisabedin@google.com</owner>
   <owner>mthiesse@chromium.org</owner>
   <improvement direction="LOWER_IS_BETTER"/>
@@ -1138,7 +1138,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Startup.FirstWebContents.NonEmptyPaint3.AutoLaunchByOs"
-    units="ms" expires_after="2026-12-27">
+    units="ms" expires_after="2027-02-28">
   <owner>atharvmaan@google.com</owner>
   <owner>chrome-desktop-ui-waterloo@google.com</owner>
   <summary>
@@ -1193,6 +1193,41 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram
+    name="Startup.FirstWebContents.PdfFirstContentPaint{StartupTemperature}"
+    units="ms" expires_after="2027-05-10">
+  <owner>fdoray@chromium.org</owner>
+  <owner>gab@chromium.org</owner>
+  <owner>chrdavis@microsoft.com</owner>
+  <improvement direction="LOWER_IS_BETTER"/>
+  <summary>
+    [Desktop] Measure the elapsed time from the application start to the moment
+    the PDF plugin in the first web contents first paints document content. Only
+    comprised of cases where the initial foreground tab gets to complete its
+    rendering task unimpeded.
+
+    This is the PDF counterpart of
+    Startup.FirstWebContents.FirstContentfulPaint: a full-page PDF never reports
+    a first or largest contentful paint because its content is painted by the
+    plugin rather than produced by Blink layout, so those two metrics silently
+    exclude PDF startups.
+
+    Not directly comparable to Startup.FirstWebContents.FirstContentfulPaint:
+    the end timestamp is taken in the renderer when the plugin finishes
+    rasterizing the first page of real content, whereas the contentful paints
+    are timestamped when the frame is presented. This one therefore excludes
+    compositing and presentation, and reads earlier than a true contentful paint
+    would.
+
+    Application start is a time recorded as early as possible in the startup
+    process. See Startup.FirstWebContents.NonEmptyPaint3 for a definition of
+    application start.
+
+    {StartupTemperature}
+  </summary>
+  <token key="StartupTemperature" variants="StartupTemperature"/>
+</histogram>
+
 <histogram name="Startup.GPU.LoadTime.ApplicationStartToGpuInitialized"
     units="ms" expires_after="2027-02-14">
   <owner>spvm@chromium.org</owner>
@@ -1233,7 +1268,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Startup.GPU.LoadTime.ProcessCreationToGpuInitialized"
-    units="ms" expires_after="2027-01-03">
+    units="ms" expires_after="2027-03-07">
   <owner>spvm@chromium.org</owner>
   <owner>etienneb@chromium.org</owner>
   <improvement direction="LOWER_IS_BETTER"/>
@@ -1481,7 +1516,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Startup.Temperature" enum="StartupTemperature"
-    expires_after="2026-12-27">
+    expires_after="2027-02-28">
 <!-- expires-after: Diagnosis metric for changes in StartupTemperature suffix.
      Shouldn't truly expire but kColdStartHardFaultCountThreshold should be
      surveyed yearly. -->

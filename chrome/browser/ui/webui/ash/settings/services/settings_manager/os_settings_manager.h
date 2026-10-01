@@ -16,13 +16,19 @@
 #include "chrome/browser/ui/webui/ash/settings/pages/device/input_device_settings/input_device_settings_provider.h"
 #include "components/keyed_service/core/keyed_service.h"
 
+class ApplicationLocaleStorage;
 class ArcAppListPrefs;
+class PrefService;
 class Profile;
 
 namespace content {
 class WebUI;
 class WebUIDataSource;
 }  // namespace content
+
+namespace policy {
+class BrowserPolicyConnectorAsh;
+}  // namespace policy
 
 namespace signin {
 class IdentityManager;
@@ -85,7 +91,12 @@ class SettingsUserActionTracker;
 //     and the settings app (JS), via content::WebUIMessageHandler objects.
 class OsSettingsManager : public KeyedService {
  public:
+  // `local_state`, `application_locale_storage`, and
+  // `browser_policy_connector_ash` must be non-null and must outlive `this`.
   OsSettingsManager(
+      PrefService* local_state,
+      const ApplicationLocaleStorage* application_locale_storage,
+      policy::BrowserPolicyConnectorAsh* browser_policy_connector_ash,
       Profile* profile,
       local_search_service::LocalSearchServiceProxy* local_search_service_proxy,
       multidevice_setup::MultiDeviceSetupClient* multidevice_setup_client,

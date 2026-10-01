@@ -11,7 +11,10 @@
 #include "chrome/browser/actor/android/ui/actor_ui_tab_controller_android.h"
 #include "chrome/browser/android/tab_android.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_tab_visit_tracker.h"
+#include "chrome/browser/enterprise/data_protection/data_protection_features.h"
 #include "chrome/browser/enterprise/data_protection/data_protection_navigation_controller.h"
+#include "chrome/browser/enterprise/net/enterprise_proxy_error_service_factory.h"
+#include "chrome/browser/enterprise/net/enterprise_proxy_tab_helper_delegate.h"
 #include "chrome/browser/enterprise/reporting/saas_usage/saas_usage_navigation_observer.h"
 #include "chrome/browser/enterprise/util/managed_browser_utils.h"
 #include "chrome/browser/flags/android/chrome_feature_list.h"
@@ -45,20 +48,46 @@
 #include "components/contextual_tasks/public/features.h"
 #include "components/enterprise/browser/reporting/reporting_features.h"
 #include "components/enterprise/data_protection/features.h"
+#include "components/enterprise/net/content/enterprise_proxy_tab_helper.h"
 #include "components/favicon/content/content_favicon_driver.h"
 #include "components/payments/core/features.h"
 #include "components/search/ntp_features.h"
 #include "components/security_interstitials/core/features.h"
 #include "components/tabs/public/tab_interface.h"
+#include "content/public/browser/navigation_controller.h"
+#include "extensions/buildflags/buildflags.h"
 #include "net/base/features.h"
 #include "ui/base/unowned_user_data/user_data_factory.h"
 #include "ui/webui/buildflags.h"
+
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+#include "chrome/browser/ui/extensions/extension_side_panel_manager.h"
+#endif
 
 #if BUILDFLAG(ENABLE_WEBUI_NTP)
 #include "chrome/browser/ui/customize_chrome/side_panel_controller_android.h"
 #endif
 
 namespace tabs {
+
+namespace {
+
+// The data protection controller drives all per-navigation enterprise data
+// protection work on Android: screenshot restrictions and tab title reporting
+// for URL filtering events. It is only useful for managed profiles, and only
+// when at least one of the features it powers is enabled.
+bool ShouldCreateDataProtectionController(Profile* profile) {
+  if (!enterprise_util::IsBrowserManaged(profile)) {
+    return false;
+  }
+  return base::FeatureList::IsEnabled(
+             enterprise_data_protection::
+                 kEnableAndroidEnterpriseScreenshotProtection) ||
+         base::FeatureList::IsEnabled(
+             enterprise_data_protection::kEnterpriseTabTitleReporting);
+}
+
+}  // namespace
 
 TabFeatures::TabFeatures(content::WebContents* web_contents, Profile* profile) {
   TabInterface* const tab = TabInterface::GetFromContents(web_contents);
@@ -102,6 +131,14 @@ TabFeatures::TabFeatures(content::WebContents* web_contents, Profile* profile) {
           ? std::make_unique<SidePanelRegistry>(tab)
           : nullptr;
 
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+  if (tab_scoped_side_panel_registry_) {
+    extension_side_panel_manager_ =
+        std::make_unique<extensions::ExtensionSidePanelManager>(
+            profile, tab, tab_scoped_side_panel_registry_.get());
+  }
+#endif
+
   if (tab_scoped_side_panel_registry_ &&
       base::FeatureList::IsEnabled(
           chrome::android::kEnableAndroidSidePanelDevFeature)) {
@@ -138,13 +175,18 @@ TabFeatures::TabFeatures(content::WebContents* web_contents, Profile* profile) {
       GetUserDataFactory().CreateInstance<lens::TabContextualizationController>(
           *tab, tab);
 
-  if (base::FeatureList::IsEnabled(
-          enterprise_data_protection::
-              kEnableAndroidEnterpriseScreenshotProtection) &&
-      enterprise_util::IsBrowserManaged(profile)) {
+  if (ShouldCreateDataProtectionController(profile)) {
     data_protection_tab_controller_ = std::make_unique<
         enterprise_data_protection::DataProtectionNavigationController>(tab);
   }
+
+  enterprise_proxy_tab_helper_ =
+      GetUserDataFactory()
+          .CreateInstance<enterprise_net::EnterpriseProxyTabHelper>(
+              *tab, *tab, web_contents,
+              EnterpriseProxyErrorServiceFactory::GetForProfile(profile),
+              std::make_unique<
+                  enterprise_net::EnterpriseProxyTabHelperDelegate>());
 
   glic_instance_helper_ =
       GetUserDataFactory().CreateInstance<glic::GlicInstanceHelper>(*tab, tab);

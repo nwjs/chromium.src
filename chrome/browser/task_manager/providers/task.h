@@ -32,36 +32,38 @@ class TaskProviderObserver;
 // shared by multiple tasks.
 class Task {
  public:
-  // Note that the declaration order here determines the default sort order
-  // in the task manager.
+  // GENERATED_JAVA_ENUM_PACKAGE: org.chromium.chrome.browser.task_manager
+  // GENERATED_JAVA_CLASS_NAME_OVERRIDE: TaskType
   enum Type {
     UNKNOWN = 0,
 
-    /* Singleton processes first that don't belong to a particular tab. */
-    BROWSER,   /* The main browser process. */
-    GPU,       /* A graphics process. */
-    ARC,       /* An ARC process. */
-    CROSTINI,  /* A Crostini VM process. */
-    ZYGOTE,    /* A Linux zygote process. */
-    UTILITY,   /* A browser utility process. */
+    // Singleton processes first that don't belong to a particular tab.
+    BROWSER,   // The main browser process.
+    GPU,       // A graphics process.
+    ARC,       // An ARC process.
+    CROSTINI,  // A Crostini VM process.
+    ZYGOTE,    // A Linux zygote process.
+    UTILITY,   // A browser utility process.
 
-    /* Per-Tab processes next. */
-    RENDERER,  /* A normal WebContents renderer process. */
-    EXTENSION, /* An extension or app process. */
+    // Per-Tab processes next.
+    RENDERER,   // A normal WebContents renderer process.
+    EXTENSION,  // An extension or app process.
 
-    /* Plugin processes last.*/
-    GUEST,            /* A browser plugin guest process. */
-    SANDBOX_HELPER,   /* A sandbox helper process. */
-    DEDICATED_WORKER, /* A dedicated worker running on the renderer process. */
-    SHARED_WORKER,    /* A shared worker running on the renderer process. */
-    SERVICE_WORKER,   /* A service worker running on the renderer process. */
+    // Plugin processes last.
+    GUEST,             // A browser plugin guest process.
+    SANDBOX_HELPER,    // A sandbox helper process.
+    DEDICATED_WORKER,  // A dedicated worker running on the renderer process.
+    SHARED_WORKER,     // A shared worker running on the renderer process.
+    SERVICE_WORKER,    // A service worker running on the renderer process.
   };
 
   // Additional Type Information about a Task.
+  // GENERATED_JAVA_ENUM_PACKAGE: org.chromium.chrome.browser.task_manager
+  // GENERATED_JAVA_CLASS_NAME_OVERRIDE: TaskSubType
   enum class SubType {
     kNoSubType = 0,
 
-    /* Renderer Processes may also be marked as a specific renderer subtype. */
+    // Renderer Processes may also be marked as a specific renderer subtype.
     kSpareRenderer,
     kUnknownRenderer,
   };
@@ -157,6 +159,11 @@ class Task {
   virtual std::optional<base::ByteSize> GetV8MemoryAllocated() const;
   virtual std::optional<base::ByteSize> GetV8MemoryUsed() const;
 
+  // Getting the allocated and used CppGC memory (in bytes). Not all tasks
+  // report CppGC memory, in this case a nullopt will be returned.
+  virtual std::optional<base::ByteSize> GetCppGCMemoryAllocated() const;
+  virtual std::optional<base::ByteSize> GetCppGCMemoryUsed() const;
+
   // Checking if the task reports Webkit resource cache statistics and getting
   // them if it does.
   virtual bool ReportsWebCacheStats() const;
@@ -181,6 +188,14 @@ class Task {
   int64_t task_id() const { return task_id_; }
   const std::u16string& title() const { return title_; }
   const gfx::ImageSkia& icon() const { return icon_; }
+  // Returns true if icon() is a themeable favicon: one the UI must recolor to
+  // keep it visible against the background it's painted on. This is the case
+  // for the default favicon, shown while a page has no favicon of its own, and
+  // for the favicons of chrome:// pages such as the NTP. Both are monochrome
+  // and illegible on a dark background as is. These are the same favicons the
+  // tab strip themifies for the tab background (see
+  // TabIcon::UpdateThemedFavicon()).
+  bool should_themify_icon() const { return should_themify_icon_; }
   const base::ProcessHandle& process_handle() const { return process_handle_; }
   const base::ProcessId& process_id() const { return process_id_; }
 
@@ -192,7 +207,13 @@ class Task {
   // Returns |*result_image|.
   static gfx::ImageSkia* FetchIcon(int id, gfx::ImageSkia** result_image);
   void set_title(const std::u16string& new_title) { title_ = new_title; }
-  void set_icon(const gfx::ImageSkia& new_icon) { icon_ = new_icon; }
+  // Sets the favicon, and whether it is a themeable favicon the UI must
+  // recolor (see should_themify_icon()).
+  void set_icon(const gfx::ImageSkia& new_icon,
+                bool should_themify_icon = false) {
+    icon_ = new_icon;
+    should_themify_icon_ = should_themify_icon;
+  }
 
  private:
   // The unique ID of this task.
@@ -229,6 +250,9 @@ class Task {
 
   // The favicon.
   gfx::ImageSkia icon_;
+
+  // Whether |icon_| is a themeable favicon.
+  bool should_themify_icon_ = false;
 
   // The handle of the process on which this task is running.
   base::ProcessHandle process_handle_;

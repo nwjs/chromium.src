@@ -9,6 +9,7 @@ import {I18nMixinLit} from '//resources/cr_elements/i18n_mixin_lit.js';
 import {assert} from '//resources/js/assert.js';
 import {loadTimeData} from '//resources/js/load_time_data.js';
 import {MetricsReporterImpl} from '//resources/js/metrics_reporter/metrics_reporter.js';
+import type {PropertyValues} from '//resources/lit/v3_0/lit.rollup.js';
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
 import {KeywordType} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 import type {AutocompleteMatch, InputKeywordModel, PageCallbackRouter} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
@@ -17,7 +18,7 @@ import {SearchboxBrowserProxy} from './searchbox_browser_proxy.js';
 import type {SearchboxIconElement} from './searchbox_icon.js';
 import {getCss} from './searchbox_input.css.js';
 import {getHtml} from './searchbox_input.html.js';
-import {markOnce} from './utils.js';
+import {afterNextPaint, markOnce} from './utils.js';
 
 // Register --placeholder-opacity as type <number> so that we can animate it.
 CSS.registerProperty({
@@ -39,6 +40,7 @@ export interface InputUpdate {
   inline?: string;
   moveCursorToEnd?: boolean;
   isDeletingInput?: boolean;
+  isMatchPreview?: boolean;
 }
 
 const SearchboxInputElementBase = I18nMixinLit(CrLitElement);
@@ -68,6 +70,12 @@ export class SearchboxInputElement extends SearchboxInputElementBase {
       dropdownIsVisible: {type: Boolean, reflect: true},
       inputAriaLive: {type: String},
       multiLineEnabled: {type: Boolean, reflect: true},
+      singleLineOnInlineAutocomplete: {type: Boolean},
+      forceSingleLine_:
+          {type: Boolean, reflect: true, attribute: 'force-single-line'},
+      showEllipsis_: {type: Boolean, reflect: true, attribute: 'show-ellipsis'},
+      hasInlineSelection_:
+          {type: Boolean, reflect: true, attribute: 'has-inline-selection'},
       placeholderText: {type: String},
       searchboxAriaDescription: {type: String},
       searchboxIcon: {type: String},
@@ -87,6 +95,10 @@ export class SearchboxInputElement extends SearchboxInputElementBase {
   accessor dropdownIsVisible: boolean = false;
   accessor inputAriaLive: string = '';
   accessor multiLineEnabled: boolean = false;
+  accessor singleLineOnInlineAutocomplete: boolean = false;
+  accessor forceSingleLine_: boolean = false;
+  accessor showEllipsis_: boolean = false;
+  accessor hasInlineSelection_: boolean = false;
   accessor placeholderText: string|undefined = undefined;
   accessor searchboxAriaDescription: string = '';
   accessor searchboxIcon: string = '';
@@ -99,8 +111,11 @@ export class SearchboxInputElement extends SearchboxInputElementBase {
   private callbackRouter_: PageCallbackRouter;
   private inputTextChangedListenerId_: number|null = null;
   private lastInput_: Input = {text: '', inline: ''};
+  private lastUserInput_: string = '';
   private isDeletingInput_: boolean = false;
   private pastedInInput_: boolean = false;
+  private resizeObserver_: ResizeObserver|null = null;
+  private onDocumentSelectionChangeBound_ = () => this.updateEllipsisState_();
 
   constructor() {
     super();
@@ -112,6 +127,9 @@ export class SearchboxInputElement extends SearchboxInputElementBase {
     this.inputTextChangedListenerId_ =
         this.callbackRouter_.setInputText.addListener(
             this.onSetInputText_.bind(this));
+    document.addEventListener(
+        'selectionchange', this.onDocumentSelectionChangeBound_);
+    this.setupResizeObserver_();
   }
 
   override disconnectedCallback() {
@@ -119,6 +137,35 @@ export class SearchboxInputElement extends SearchboxInputElementBase {
 
     assert(this.inputTextChangedListenerId_);
     this.callbackRouter_.removeListener(this.inputTextChangedListenerId_);
+    document.removeEventListener(
+        'selectionchange', this.onDocumentSelectionChangeBound_);
+    if (this.resizeObserver_) {
+      this.resizeObserver_.disconnect();
+      this.resizeObserver_ = null;
+    }
+  }
+
+  override willUpdate(changedProperties: PropertyValues<this>) {
+    super.willUpdate(changedProperties);
+    if (changedProperties.has('inputKeywordModel')) {
+      this.toggleAttribute('in-keyword-mode', this.inKeywordMode_());
+    }
+  }
+
+  override firstUpdated(changedProperties: PropertyValues<this>) {
+    super.firstUpdated(changedProperties);
+    this.setupResizeObserver_();
+  }
+
+  private setupResizeObserver_() {
+    if (!this.resizeObserver_) {
+      this.resizeObserver_ = new ResizeObserver(() => {
+        this.updateEllipsisState_();
+      });
+    }
+    if (this.$.input) {
+      this.resizeObserver_.observe(this.$.input);
+    }
   }
 
   get inputElement(): HTMLInputElement|HTMLTextAreaElement {
@@ -154,11 +201,15 @@ export class SearchboxInputElement extends SearchboxInputElementBase {
   }
 
   setInputText(text: string) {
-    // TODO(crbug.com/553005514): Investigate a way to track the rendering time
-    // and modify these markings accordingly.
-    markOnce('SearchboxInputElement::setInputText:Start');
+    markOnce('SearchboxInputElement::setInputText:StartupStart');
     this.onSetInputText_(text);
-    markOnce('SearchboxInputElement::setInputText:End');
+    if (markOnce('SearchboxInputElement::setInputText:StartupEnd')) {
+      // Records a user timing mark after the initial startup input text has
+      // been painted and presented to the display.
+      afterNextPaint(() => {
+        markOnce('SearchboxInputElement::setInputText:StartupRendered');
+      });
+    }
   }
 
   setInput(update: InputUpdate) {
@@ -171,6 +222,9 @@ export class SearchboxInputElement extends SearchboxInputElementBase {
 
   isMultiline(): boolean {
     if (!this.$.input) {
+      return false;
+    }
+    if (this.forceSingleLine_) {
       return false;
     }
     return this.multiLineEnabled &&
@@ -194,6 +248,14 @@ export class SearchboxInputElement extends SearchboxInputElementBase {
   //============================================================================
   // Event handlers
   //============================================================================
+
+  protected onInputFocus_() {
+    this.updateEllipsisState_();
+  }
+
+  protected onInputBlur_() {
+    this.updateEllipsisState_();
+  }
 
   protected onInputCopy_(e: ClipboardEvent) {
     this.onInputCutCopy_(e);
@@ -219,6 +281,7 @@ export class SearchboxInputElement extends SearchboxInputElementBase {
         this.fire('searchbox-input-text-updated', {
           value: '',
           isComposing: false,
+          event: e,
         });
       }
     }
@@ -232,9 +295,20 @@ export class SearchboxInputElement extends SearchboxInputElementBase {
     }
 
     this.updateInput_({text: inputValue, inline: ''});
+    // Record a user timing mark if the input has content.
+    if (inputValue.length > 0 &&
+        markOnce('SearchboxInputElement::onInputInput_:HasContent')) {
+      // Records a user timing mark after the user's typed character echo and
+      // trailing caret have been painted to the display.
+      afterNextPaint(() => {
+        markOnce('SearchboxInputElement::onInputInput_:ContentRendered');
+      });
+    }
+
     this.fire('searchbox-input-text-updated', {
       value: inputValue,
       isComposing: e.isComposing,
+      event: e,
     });
 
     // If a character has been typed, mark 'CharTyped'. Otherwise clear it. If
@@ -284,6 +358,7 @@ export class SearchboxInputElement extends SearchboxInputElementBase {
       this.fire('searchbox-input-text-updated', {
         value: this.lastInput_.text,
         isComposing: false,
+        event: e,
       });
 
       // If 'CharTyped' mark already exists, there's a pending typed character
@@ -348,8 +423,23 @@ export class SearchboxInputElement extends SearchboxInputElementBase {
     const newInputValue = newInput.text + newInput.inline;
     const lastInputValue = this.lastInput_.text + this.lastInput_.inline;
 
+    const isMatchPreview = update.isMatchPreview ?? false;
+    if (!isMatchPreview) {
+      this.lastUserInput_ = newInput.text;
+    }
+
+    // If the user has explicitly entered a multiline query (containing '\n'),
+    // respect the user's multiline intent and do not force single-line mode.
+    // Otherwise, clamp single-line queries with inline autocomplete or match
+    // preview to a single line.
+    const hasInlineAutocomplete = newInput.inline !== '';
+    this.forceSingleLine_ = this.singleLineOnInlineAutocomplete &&
+        (hasInlineAutocomplete || isMatchPreview) &&
+        !this.lastUserInput_.includes('\n');
+
     const inlineDiffers = newInput.inline !== this.lastInput_.inline;
-    const preserveSelection = !inlineDiffers && !update.moveCursorToEnd;
+    const preserveSelection =
+        !inlineDiffers && !update.moveCursorToEnd && !isMatchPreview;
     let needsSelectionUpdate = !preserveSelection;
 
     const oldSelectionStart = this.$.input?.selectionStart || null;
@@ -364,7 +454,7 @@ export class SearchboxInputElement extends SearchboxInputElementBase {
       // If the cursor is to be moved to the end (implies selection should not
       // be preserved), set the selection start to same as the selection end.
       this.$.input.selectionStart = preserveSelection ? oldSelectionStart :
-          update.moveCursorToEnd                      ? newInputValue.length :
+          (update.moveCursorToEnd || isMatchPreview)  ? newInputValue.length :
                                                         newInput.text.length;
       this.$.input.selectionEnd =
           preserveSelection ? oldSelectionEnd : newInputValue.length;
@@ -374,10 +464,62 @@ export class SearchboxInputElement extends SearchboxInputElementBase {
         (lastInputValue.length > newInputValue.length &&
          lastInputValue.startsWith(newInputValue));
     this.lastInput_ = newInput;
+    this.updateEllipsisState_();
+  }
+
+  private updateEllipsisState_() {
+    if (!this.singleLineOnInlineAutocomplete) {
+      this.showEllipsis_ = false;
+      return;
+    }
+
+    // Abort early if the searchbox input does not have focus or is missing.
+    if (this.shadowRoot?.activeElement !== this.$.input || !this.$.input) {
+      this.showEllipsis_ = false;
+      return;
+    }
+
+    const hasInlineAutocomplete = this.lastInput_.inline !== '';
+    // Verifies that the selection spans the entire autocompleted suffix
+    // (from the end of user-typed text to the end of input), confirming
+    // the user hasn't moved the cursor or edited the selection.
+    const hasInlineSelection =
+        this.$.input.selectionStart === this.lastInput_.text.length &&
+        this.$.input.selectionEnd === this.$.input.value.length &&
+        this.$.input.selectionStart !== this.$.input.selectionEnd;
+
+    if (hasInlineAutocomplete && !hasInlineSelection) {
+      this.lastInput_ = {text: this.$.input.value, inline: ''};
+      this.forceSingleLine_ = false;
+    } else if (
+        // If the user clicks into or moves the cursor within preview text,
+        // exit forced single-line mode so they can edit normally.
+        !hasInlineAutocomplete && this.forceSingleLine_ &&
+        (this.$.input.selectionStart !== this.lastInput_.text.length ||
+         this.$.input.selectionEnd !== this.lastInput_.text.length)) {
+      this.forceSingleLine_ = false;
+    }
+
+    this.hasInlineSelection_ = hasInlineSelection;
+    // Only force a reflow if the preconditions for showing the ellipsis are
+    // met.
+    this.showEllipsis_ = this.forceSingleLine_ &&
+        this.$.input.scrollWidth > this.$.input.clientWidth;
   }
 
   protected computePlaceholderText_(): string {
+    if (this.inKeywordMode_()) {
+      return this.inputKeywordModel?.placeholder || '';
+    }
     return this.placeholderText ?? this.i18n('searchBoxHint');
+  }
+
+  protected computeDefaultIcon_(): string {
+    if (this.inKeywordMode_()) {
+      return this.inputKeywordModel?.iconPath ||
+          '//resources/cr_components/searchbox/icons/search_cr23.svg';
+    }
+    return this.searchboxIcon;
   }
 
   protected inKeywordMode_(): boolean {

@@ -8,10 +8,8 @@ assert(is_chromeos)
 
 static_library("config") {
   sources = [
-    "chrome_untrusted_web_ui_configs_chromeos.cc",
-    "chrome_untrusted_web_ui_configs_chromeos.h",
-    "chrome_web_ui_configs_chromeos.cc",
-    "chrome_web_ui_configs_chromeos.h",
+    "ash_web_ui_config_manager.cc",
+    "ash_web_ui_config_manager.h",
   ]
 
   deps = [
@@ -39,6 +37,7 @@ static_library("config") {
     "//ash/webui/vc_background_ui",
     "//chrome/browser:browser_process",
     "//chrome/browser:global_features",
+    "//chrome/browser/app_mode",
     "//chrome/browser/ash/annotator",
     "//chrome/browser/ash/app_mode",
     "//chrome/browser/ash/boca/receiver",
@@ -115,6 +114,7 @@ static_library("config") {
     "//chromeos/ash/components/browser_context_helper",
     "//chromeos/ash/components/signin:identity_manager_provider",
     "//chromeos/ash/experiences/guest_os/borealis/motd",
+    "//components/application_locale_storage",
     "//components/cross_device/logging",
     "//ui/webui",
   ]
@@ -122,4 +122,21 @@ static_library("config") {
   if (!is_official_build) {
     deps += [ "//ash/webui/sample_system_web_app_ui" ]
   }
+}
+
+source_set("unit_tests") {
+  testonly = true
+
+  sources = [ "ash_web_ui_config_manager_unittest.cc" ]
+
+  deps = [
+    ":config",
+    "//base",
+    "//base/test:test_support",
+    "//chrome/browser:global_features",
+    "//chrome/test:test_support",
+    "//content/test:test_support",
+    "//testing/gtest",
+    "//url",
+  ]
 }

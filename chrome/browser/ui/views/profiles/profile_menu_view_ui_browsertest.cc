@@ -19,7 +19,6 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/test/test_browser_dialog.h"
 #include "chrome/browser/ui/test/test_browser_ui.h"
-#include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/top_container_view.h"
 #include "chrome/browser/ui/views/profiles/profile_menu_coordinator.h"
@@ -29,6 +28,7 @@
 #include "chrome/browser/ui/views/toolbar/webui_test_utils.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/ui_test_utils.h"
+#include "components/enterprise/isolated_mode/isolated_mode_features.h"
 #include "components/policy/core/common/management/scoped_management_service_override_for_testing.h"
 #include "components/signin/core/browser/test_account_preview_data_service.h"
 #include "components/signin/public/base/signin_pref_names.h"
@@ -57,6 +57,7 @@ enum class ProfileTypePixelTestParam {
   kRegular,
   kIncognito,
   kGuest,
+  kIsolated,
 };
 
 enum class SigninStatusPixelTestParam {
@@ -100,6 +101,7 @@ struct ProfileMenuViewPixelTestParam {
   bool with_cross_device_signin_promo = false;
   bool with_cross_device_signin_new_badge = false;
   bool with_account_preview_preference = false;
+  bool from_avatar_promo = false;
 
   // Features and parameters that are enabled in addition to the features
   // enabled by default.
@@ -278,6 +280,11 @@ const ProfileMenuViewPixelTestParam kPixelTestParams[] = {
         .profile_type_param = ProfileTypePixelTestParam::kIncognito,
     },
     {
+        .pixel_test_param = {.test_suffix = "Isolated"},
+        .profile_type_param = ProfileTypePixelTestParam::kIsolated,
+        .management_status = ManagementStatus::kBrowserManaged,
+    },
+    {
         .pixel_test_param = {.test_suffix = "HistorySyncOptinExperiment"},
         .signin_status = SigninStatusPixelTestParam::kSignedInNoSync,
         .extra_features_and_params =
@@ -303,6 +310,7 @@ const ProfileMenuViewPixelTestParam kPixelTestParams[] = {
         .pixel_test_param = {.test_suffix = "BatchUploadPrimaryPromo"},
         .signin_status = SigninStatusPixelTestParam::kSignedInWithHistorySync,
         .with_local_data = WithLocalData::kMultipleLocalData,
+        .from_avatar_promo = true,
         .extra_features_and_params =
             {{switches::kSigninWindows10DepreciationStateBypassForTesting, {}}},
     },
@@ -310,6 +318,7 @@ const ProfileMenuViewPixelTestParam kPixelTestParams[] = {
         .pixel_test_param = {.test_suffix = "BatchUploadBookmarksPrimaryPromo"},
         .signin_status = SigninStatusPixelTestParam::kSignedInNoSync,
         .with_local_data = WithLocalData::kWithBookmarksLocalData,
+        .from_avatar_promo = true,
         .extra_features_and_params =
             {{switches::kSigninWindows10DepreciationStateBypassForTesting, {}}},
     },
@@ -318,6 +327,7 @@ const ProfileMenuViewPixelTestParam kPixelTestParams[] = {
             {.test_suffix = "BatchUploadWindows10DepreciationPrimaryPromo"},
         .signin_status = SigninStatusPixelTestParam::kSignedInNoSync,
         .with_local_data = WithLocalData::kMultipleLocalData,
+        .from_avatar_promo = true,
         .extra_features_and_params =
             {{switches::kSigninWindows10DepreciationStateForTesting, {}}},
     },
@@ -396,7 +406,6 @@ class ProfileMenuViewPixelTest
 
     // 3. Get default-enabled features.
     std::vector<base::test::FeatureRefAndParams> enabled_features_and_params = {
-        {features::kEnterpriseProfileBadgingForMenu, {}},
         {syncer::kReplaceSyncPromosWithSignInPromos, {}}};
 
     if (GetParam().with_ai_avatar_ring) {
@@ -510,6 +519,11 @@ class ProfileMenuViewPixelTest
       command_line->AppendSwitch(
           user_education::features::kDisableRateLimitingCommandLine);
     }
+    if (GetProfileType() == ProfileTypePixelTestParam::kIsolated) {
+      command_line->AppendSwitch(
+          enterprise_isolated_mode::switches::
+              kForceEnterpriseIsolatedModeReplacesIncognito);
+    }
   }
 
   ProfileTypePixelTestParam GetProfileType() const {
@@ -584,6 +598,13 @@ class ProfileMenuViewPixelTest
         new_browser = browser_created_observer->Wait();
         ASSERT_TRUE(new_browser);
         ASSERT_TRUE(new_browser->GetProfile()->IsGuestSession());
+        break;
+      case ProfileTypePixelTestParam::kIsolated:
+        CreateIncognitoBrowser();
+        new_browser = browser_created_observer->Wait();
+        ASSERT_TRUE(new_browser);
+        ASSERT_TRUE(
+            new_browser->GetProfile()->IsEnterpriseIsolatedModeProfile());
         break;
     }
     browser_created_observer.reset();
@@ -660,16 +681,19 @@ class ProfileMenuViewPixelTest
       case ManagementStatus::kNonManaged:
         break;
       case ManagementStatus::kAccountManaged:
-        enterprise_util::SetUserAcceptedAccountManagement(GetProfile(), true);
+        enterprise_util::SetUserAcceptedAccountManagement(
+            GetProfile()->GetOriginalProfile(), true);
         scoped_browser_management_ =
             std::make_unique<policy::ScopedManagementServiceOverrideForTesting>(
-                policy::ManagementServiceFactory::GetForProfile(GetProfile()),
+                policy::ManagementServiceFactory::GetForProfile(
+                    GetProfile()->GetOriginalProfile()),
                 policy::EnterpriseManagementAuthority::CLOUD);
         break;
       case ManagementStatus::kBrowserManaged:
         scoped_browser_management_ =
             std::make_unique<policy::ScopedManagementServiceOverrideForTesting>(
-                policy::ManagementServiceFactory::GetForProfile(GetProfile()),
+                policy::ManagementServiceFactory::GetForProfile(
+                    GetProfile()->GetOriginalProfile()),
                 policy::EnterpriseManagementAuthority::COMPUTER_LOCAL);
         break;
       case ManagementStatus::kSupervisedUser:
@@ -820,10 +844,17 @@ class ProfileMenuViewPixelTest
 
  private:
   void OpenProfileMenu() {
-    // Click the avatar button to open the menu.
-    AvatarToolbarButtonTestAccessor avatar_accessor(browser());
-    ASSERT_TRUE(avatar_accessor.GetEnabled());
-    avatar_accessor.Click();
+    if (GetParam().from_avatar_promo) {
+      auto* coordinator = ProfileMenuCoordinator::From(browser());
+      ASSERT_TRUE(coordinator);
+      coordinator->Show(/*is_source_accelerator=*/false,
+                        /*from_avatar_promo=*/true);
+    } else {
+      // Click the avatar button to open the menu.
+      AvatarToolbarButtonTestAccessor avatar_accessor(browser());
+      ASSERT_TRUE(avatar_accessor.GetEnabled());
+      avatar_accessor.Click();
+    }
 
     ASSERT_TRUE(profile_menu_view());
     profile_menu_view()->set_close_on_deactivate(false);

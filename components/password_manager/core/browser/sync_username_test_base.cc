@@ -5,6 +5,7 @@
 #include "components/password_manager/core/browser/sync_username_test_base.h"
 
 #include "base/strings/utf_string_conversions.h"
+#include "components/affiliations/core/browser/match_type.h"
 #include "components/autofill/core/common/form_data.h"
 #include "components/autofill/core/common/form_data_test_api.h"
 #include "components/password_manager/core/browser/password_form.h"
@@ -65,7 +66,8 @@ void SyncUsernameTestBase::FakeSigninAs(const std::string& email,
     CHECK_EQ(sync_service_.GetAccountInfo().email, email);
   } else {
     CoreAccountInfo account =
-        identity_test_env_.MakePrimaryAccountAvailable(email, consent_level);
+        identity_test_env_.MakePrimaryAccountAvailable(email, consent_level)
+            .GetCoreAccountInfo();
     sync_service_.SetSignedIn(consent_level, account);
   }
 }
@@ -78,7 +80,7 @@ PasswordForm SyncUsernameTestBase::SimpleGaiaForm(const char* username) {
   form.username_value = ASCIIToUTF16(username);
   form.form_data = CreateSigninFormData(GURL(form.signon_realm), username);
   form.in_store = PasswordForm::Store::kProfileStore;
-  form.match_type = PasswordForm::MatchType::kExact;
+  form.match_type = affiliations::MatchType::kExact;
   return form;
 }
 
@@ -90,7 +92,7 @@ PasswordForm SyncUsernameTestBase::SimpleNonGaiaForm(const char* username) {
   form.username_value = ASCIIToUTF16(username);
   form.form_data = CreateSigninFormData(GURL(form.signon_realm), username);
   form.in_store = PasswordForm::Store::kProfileStore;
-  form.match_type = PasswordForm::MatchType::kExact;
+  form.match_type = affiliations::MatchType::kExact;
   return form;
 }
 
@@ -103,7 +105,7 @@ PasswordForm SyncUsernameTestBase::SimpleNonGaiaForm(const char* username,
   form.url = GURL(origin);
   form.form_data = CreateSigninFormData(GURL(form.signon_realm), username);
   form.in_store = PasswordForm::Store::kProfileStore;
-  form.match_type = PasswordForm::MatchType::kExact;
+  form.match_type = affiliations::MatchType::kExact;
   return form;
 }
 

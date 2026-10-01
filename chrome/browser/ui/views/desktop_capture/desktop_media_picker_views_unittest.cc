@@ -18,6 +18,7 @@
 #include "base/test/scoped_feature_list.h"
 #include "base/types/expected.h"
 #include "build/build_config.h"
+#include "chrome/browser/enterprise/data_protection/data_protection_features.h"
 #include "chrome/browser/media/webrtc/desktop_media_picker_controller.h"
 #include "chrome/browser/media/webrtc/desktop_media_picker_manager.h"
 #include "chrome/browser/media/webrtc/desktop_media_picker_utils.h"
@@ -30,6 +31,7 @@
 #include "chrome/browser/ui/views/desktop_capture/desktop_media_source_view.h"
 #include "chrome/grit/generated_resources.h"
 #include "chrome/test/views/chrome_test_views_delegate.h"
+#include "components/enterprise/buildflags/buildflags.h"
 #include "content/public/test/browser_task_environment.h"
 #include "media/base/media_switches.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -37,6 +39,7 @@
 #include "third_party/blink/public/mojom/mediastream/media_stream.mojom.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/mojom/dialog_button.mojom.h"
+#include "ui/base/ui_base_types.h"
 #include "ui/events/event_utils.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/bubble/bubble_frame_view.h"
@@ -310,24 +313,25 @@ class DesktopMediaPickerDefaultAudioOnTest
              DesktopMediaList::Type::kWebContents}) {}
   ~DesktopMediaPickerDefaultAudioOnTest() override = default;
 
+  void TearDown() override {
+    DesktopMediaPickerController::SetSystemAudioCaptureSupportedForTesting(
+        std::nullopt);
+    DesktopMediaPickerViewsTestBase::TearDown();
+  }
+
   void MaybeCreatePickerViews() override {
     // CreatePickerViews() called directly from tests.
   }
 
  protected:
-  void InitFeatures(bool is_system_audio_capture = true) {
+  void InitFeatures(bool is_system_audio_capture_supported = true) {
+    DesktopMediaPickerController::SetSystemAudioCaptureSupportedForTesting(
+        is_system_audio_capture_supported);
+
     std::vector<base::test::FeatureRef> enabled_features, disabled_features;
 
     (GetParam() ? enabled_features : disabled_features)
         .push_back(blink::features::kGetDisplayMediaAudioSelection);
-
-#if BUILDFLAG(IS_LINUX)
-    (is_system_audio_capture ? enabled_features : disabled_features)
-        .push_back(media::kPulseaudioLoopbackForScreenShare);
-#elif BUILDFLAG(IS_MAC)
-    (is_system_audio_capture ? enabled_features : disabled_features)
-        .push_back(media::kMacCatapLoopbackAudioForScreenShare);
-#endif
 
     feature_list_.InitWithFeatures(enabled_features, disabled_features);
   }
@@ -448,7 +452,7 @@ TEST_P(DesktopMediaPickerDefaultAudioOnTest,
 TEST_P(DesktopMediaPickerDefaultAudioOnTest,
        LabelHintShownWhenAudioNotSupported) {
   const bool audio_toggle_on = GetParam();
-  InitFeatures(/*is_system_audio_capture=*/false);
+  InitFeatures(/*is_system_audio_capture_supported=*/false);
 
   CreatePickerViewsForGetDisplayMedia(/*audio_selection_preferred=*/true);
 
@@ -484,6 +488,32 @@ TEST_P(DesktopMediaPickerViewsTest, DoneCallbackCalledOnOkButtonPressed) {
   GetPickerDialogView()->AcceptDialog();
   EXPECT_EQ(kFakeId, WaitForPickerResult());
 }
+
+#if BUILDFLAG(ENTERPRISE_SCREENSHOT_PROTECTION)
+TEST_P(DesktopMediaPickerViewsTest, BlockedSourceOkButtonDisabled) {
+  base::test::ScopedFeatureList feature_list(
+      enterprise_data_protection::kEnableTabSharingProtection);
+
+  DesktopMediaID fake_id(DesktopMediaID::TYPE_WEB_CONTENTS, 222);
+
+  media_lists_[DesktopMediaList::Type::kWebContents]->AddSourceByFullMediaID(
+      fake_id);
+  media_lists_[DesktopMediaList::Type::kWebContents]->SetSourceSharingBlocked(
+      0, true);
+
+  test_api_.SelectTabForSourceType(DesktopMediaList::Type::kWebContents);
+  test_api_.FocusSourceAtIndex(0);
+
+  // Ok button should remain disabled because the tab is blocked by policy.
+  EXPECT_FALSE(GetPickerDialogView()->IsDialogButtonEnabled(
+      ui::mojom::DialogButton::kOk));
+  EXPECT_FALSE(test_api_.IsOkButtonEnabled());
+
+  // Attempting to accept via controller/Enter key should not succeed.
+  GetPickerDialogView()->AcceptSource();
+  EXPECT_FALSE(has_picker_result());
+}
+#endif  // BUILDFLAG(ENTERPRISE_SCREENSHOT_PROTECTION)
 
 // Regression test for https://crbug.com/40052774
 TEST_P(DesktopMediaPickerViewsTest, DoneCallbackNotCalledOnDoubleTap) {
@@ -667,6 +697,50 @@ TEST_P(DesktopMediaPickerViewsTest, OnPermissionUpdateWithoutPermissions) {
   EXPECT_TRUE(test_api_.GetActivePane()->IsContentPaneVisible());
   EXPECT_FALSE(test_api_.GetActivePane()->IsPermissionPaneVisible());
 }
+
+// A floating picker (one opened from a floating companion surface) stays
+// floating while the permission pane is merely visible, so that it remains
+// usable over fullscreen spaces.
+TEST_P(DesktopMediaPickerViewsTest, PermissionPaneKeepsPickerFloating) {
+  views::Widget* const widget = GetPickerDialogView()->GetWidget();
+  widget->SetZOrderLevel(ui::ZOrderLevel::kFloatingWindow);
+  widget->SetActivationIndependence(true);
+
+  test_api_.SelectTabForSourceType(DesktopMediaList::Type::kScreen);
+  test_api_.OnPermissionUpdate(false);
+
+  EXPECT_EQ(ui::ZOrderLevel::kFloatingWindow, widget->GetZOrderLevel());
+}
+
+// Clicking the button sends the user to System Settings, which a floating
+// picker would cover. The picker must get out of the way at that point.
+TEST_P(DesktopMediaPickerViewsTest, PermissionButtonLowersFloatingPicker) {
+  views::Widget* const widget = GetPickerDialogView()->GetWidget();
+  widget->SetZOrderLevel(ui::ZOrderLevel::kFloatingWindow);
+  widget->SetActivationIndependence(true);
+
+  test_api_.SelectTabForSourceType(DesktopMediaList::Type::kScreen);
+  test_api_.OnPermissionUpdate(false);
+  ASSERT_TRUE(test_api_.GetActivePane()->IsPermissionPaneVisible());
+
+  test_api_.GetActivePane()->SimulatePermissionButtonClickForTesting();
+
+  EXPECT_EQ(ui::ZOrderLevel::kNormal, widget->GetZOrderLevel());
+}
+
+TEST_P(DesktopMediaPickerViewsTest, PermissionButtonKeepsNormalPickerZOrder) {
+  views::Widget* const widget = GetPickerDialogView()->GetWidget();
+  ASSERT_EQ(ui::ZOrderLevel::kNormal, widget->GetZOrderLevel());
+
+  test_api_.SelectTabForSourceType(DesktopMediaList::Type::kScreen);
+  test_api_.OnPermissionUpdate(false);
+  ASSERT_TRUE(test_api_.GetActivePane()->IsPermissionPaneVisible());
+
+  test_api_.GetActivePane()->SimulatePermissionButtonClickForTesting();
+
+  EXPECT_EQ(ui::ZOrderLevel::kNormal, widget->GetZOrderLevel());
+}
+
 #endif
 
 class DesktopMediaPickerViewsPerTypeTest
@@ -891,10 +965,7 @@ class DesktopMediaPickerViewsSystemAudioTest
 
   void SetUp() override {
 #if BUILDFLAG(IS_MAC)
-    feature_list_.InitWithFeatures(
-        {media::kMacCatapLoopbackAudioForCast,
-         media::kMacCatapLoopbackAudioForScreenShare},
-        {});
+    feature_list_.InitWithFeatures({media::kMacCatapLoopbackAudioForCast}, {});
 #endif
     DesktopMediaPickerViewsTestBase::SetUp();
   }
@@ -1168,7 +1239,7 @@ TEST_P(DesktopMediaPickerViewsApplicationAudioTest, AudioCheckbox) {
   EXPECT_EQ(test_api_.IsWindowAudioOffered(), ShouldOfferWindowAudio());
   // By default, the audio sharing toggle is unchecked for window capture.
   if (ShouldOfferWindowAudio()) {
-      EXPECT_FALSE(test_api_.IsAudioSharingApprovedByUser());
+    EXPECT_FALSE(test_api_.IsAudioSharingApprovedByUser());
   }
   EXPECT_EQ(test_api_.GetAudioLabelText(), GetExpectedWindowAudioLabel());
 

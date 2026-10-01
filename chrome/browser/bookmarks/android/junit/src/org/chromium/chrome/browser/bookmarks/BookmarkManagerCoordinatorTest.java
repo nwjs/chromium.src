@@ -56,8 +56,10 @@ import org.chromium.chrome.browser.sync.SyncServiceFactory;
 import org.chromium.chrome.browser.ui.favicon.FaviconHelperJni;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.chrome.browser.ui.signin.PersonalizedSigninPromoView;
+import org.chromium.chrome.browser.ui.signin.SigninAndHistorySyncActivityLauncher;
 import org.chromium.chrome.test.util.browser.signin.AccountManagerTestRule;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
+import org.chromium.components.browser_ui.device_lock.DeviceLockActivityLauncher;
 import org.chromium.components.commerce.core.CommerceFeatureUtils;
 import org.chromium.components.commerce.core.CommerceFeatureUtilsJni;
 import org.chromium.components.commerce.core.ShoppingService;
@@ -79,7 +81,6 @@ import java.util.Collection;
  * MAKE_IDENTITY_MANAGER_SOURCE_OF_ACCOUNTS launch.
  */
 @RunWith(ParameterizedRobolectricTestRunner.class)
-@Config(manifest = Config.NONE)
 @CommandLineFlags.Add({
     ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE,
     BaseSwitches.DISABLE_NATIVE_INITIALIZATION
@@ -129,6 +130,8 @@ public class BookmarkManagerCoordinatorTest {
     @Mock private ReauthenticatorBridge mReauthenticatorMock;
     @Mock private BookmarkOpener mBookmarkOpener;
     @Mock private BookmarkManagerOpener mBookmarkManagerOpener;
+    @Mock private SigninAndHistorySyncActivityLauncher mSigninAndHistorySyncActivityLauncher;
+    @Mock private DeviceLockActivityLauncher mDeviceLockActivityLauncher;
     @Mock private PriceDropNotificationManager mPriceDropNotificationManager;
 
     private Activity mActivity;
@@ -184,7 +187,9 @@ public class BookmarkManagerCoordinatorTest {
                                             mBookmarkManagerOpener,
                                             mPriceDropNotificationManager,
                                             /* edgeToEdgePadAdjusterGenerator= */ null,
-                                            /* backPressManager= */ null);
+                                            /* backPressManager= */ null,
+                                            mSigninAndHistorySyncActivityLauncher,
+                                            mDeviceLockActivityLauncher);
                             mActivity.setContentView(mCoordinator.getView());
                         });
     }
@@ -217,8 +222,8 @@ public class BookmarkManagerCoordinatorTest {
         assertNotNull(mCoordinator.buildBatchUploadCardView(parent));
         assertNotNull(mCoordinator.buildSectionHeaderView(parent));
         assertNotNull(BookmarkManagerCoordinator.buildDividerView(parent));
-        assertNotNull(BookmarkManagerCoordinator.buildCompactImprovedBookmarkRow(parent));
-        assertNotNull(BookmarkManagerCoordinator.buildVisualImprovedBookmarkRow(parent));
+        assertNotNull(ImprovedBookmarkRow.buildCompactRow(parent));
+        assertNotNull(ImprovedBookmarkRow.buildVisualRow(parent));
         assertNotNull(mCoordinator.buildSearchBoxRow(parent));
         assertNotNull(mCoordinator.buildSigninPromoView(parent));
     }
@@ -314,7 +319,9 @@ public class BookmarkManagerCoordinatorTest {
                         mBookmarkManagerOpener,
                         mPriceDropNotificationManager,
                         /* edgeToEdgePadAdjusterGenerator= */ null,
-                        /* backPressManager= */ null);
+                        /* backPressManager= */ null,
+                        mSigninAndHistorySyncActivityLauncher,
+                        mDeviceLockActivityLauncher);
 
         assertNotNull(desktopCoordinator.getView());
         assertNotNull(desktopCoordinator.getView().findViewById(R.id.navigation_pane));
@@ -338,7 +345,9 @@ public class BookmarkManagerCoordinatorTest {
                         mBookmarkManagerOpener,
                         mPriceDropNotificationManager,
                         /* edgeToEdgePadAdjusterGenerator= */ null,
-                        /* backPressManager= */ null);
+                        /* backPressManager= */ null,
+                        mSigninAndHistorySyncActivityLauncher,
+                        mDeviceLockActivityLauncher);
         mActivity.setContentView(mCoordinator.getView());
         ShadowLooper.runUiThreadTasksIncludingDelayedTasks();
     }

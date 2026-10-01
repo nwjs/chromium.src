@@ -32,7 +32,6 @@ import org.chromium.build.annotations.Nullable;
 import org.chromium.build.annotations.RequiresNonNull;
 import org.chromium.components.browser_ui.media.MediaSessionUma.MediaSessionActionSource;
 import org.chromium.components.favicon.LargeIconBridge;
-import org.chromium.components.url_formatter.UrlFormatter;
 import org.chromium.content_public.browser.MediaSession;
 import org.chromium.content_public.browser.MediaSessionObserver;
 import org.chromium.content_public.browser.NavigationHandle;
@@ -70,7 +69,9 @@ public class MediaSessionHelper implements MediaImageCallback {
     private @Nullable Bitmap mPageMediaImage;
     @VisibleForTesting public @Nullable Bitmap mFavicon;
     private @Nullable Bitmap mCurrentMediaImage;
-    private @Nullable String mOrigin;
+    // The origin of the media session. Defaults to an empty string to guarantee
+    // a non-null origin when constructing MediaNotificationInfo before the origin is resolved.
+    private String mOrigin = "";
     private int mPreviousVolumeControlStream = AudioManager.USE_DEFAULT_STREAM_TYPE;
     @VisibleForTesting public MediaNotificationInfo.@Nullable Builder mNotificationInfoBuilder;
     // The fallback title if |mPageMetadata| is null or its title is empty.
@@ -323,15 +324,14 @@ public class MediaSessionHelper implements MediaImageCallback {
                     return;
                 }
                 assumeNonNull(mWebContents);
-                assumeNonNull(mOrigin);
 
-                Intent contentIntent = mDelegate.createBringTabToFrontIntent();
-
-                if (mFallbackTitle == null) mFallbackTitle = sanitizeMediaTitle(mOrigin);
+                // Initialize fallback title from origin if no page title was set yet.
+                maybeSetFallbackTitleFromOrigin(null);
 
                 mCurrentMetadata = getMetadata();
                 mCurrentMediaImage = getCachedNotificationImage();
                 rebaseMediaPosition(isPaused);
+                Intent contentIntent = mDelegate.createBringTabToFrontIntent();
                 mNotificationInfoBuilder =
                         mDelegate
                                 .createMediaNotificationInfoBuilder()
@@ -339,7 +339,6 @@ public class MediaSessionHelper implements MediaImageCallback {
                                 .setPaused(isPaused)
                                 .setOrigin(mOrigin)
                                 .setPrivate(mWebContents.isIncognito())
-                                .setNotificationSmallIcon(R.drawable.chrome_product_vd_24)
                                 .setNotificationLargeIcon(mCurrentMediaImage)
                                 .setMediaSessionImage(mPageMediaImage)
                                 .setActions(
@@ -355,6 +354,11 @@ public class MediaSessionHelper implements MediaImageCallback {
                 // Also show a default icon if we won't get a favicon from {@link mDelegate}. If the
                 // delegate will pass a favicon later, show nothing for now; we expect the favicon
                 // to arrive quickly.
+                // TODO(cchen): This default is Chrome-branded. Unlike the small
+                // icon, it works in any embedder (it is decoded to a bitmap in-process before
+                // reaching the system), but non-Chrome embedders such as WebView end up showing
+                // the Chrome logo as fallback artwork. Move the choice of default artwork into
+                // the Delegate in a follow-up.
                 if (mWebContents.isIncognito()
                         || (mCurrentMediaImage == null && !fetchLargeFaviconImage())) {
                     mNotificationInfoBuilder.setDefaultNotificationLargeIcon(
@@ -368,8 +372,13 @@ public class MediaSessionHelper implements MediaImageCallback {
             }
 
             @Override
-            public void mediaSessionMetadataChanged(MediaMetadata metadata) {
+            public void mediaSessionMetadataChanged(@Nullable MediaMetadata metadata) {
                 mPageMetadata = metadata;
+                String previousOrigin = mOrigin;
+                mOrigin = (metadata != null) ? metadata.getSourceTitle() : "";
+                // If mFallbackTitle was previously tracking the old origin, update it to
+                // the new origin without overriding any page title set via titleWasSet().
+                maybeSetFallbackTitleFromOrigin(previousOrigin);
                 updateNotificationMetadata();
             }
 
@@ -442,9 +451,7 @@ public class MediaSessionHelper implements MediaImageCallback {
                             return;
                         }
 
-                        mOrigin =
-                                UrlFormatter.formatUrlForDisplayOmitSchemeOmitTrivialSubdomains(
-                                        webContents.getVisibleUrl().getOrigin().getSpec());
+                        mOrigin = "";
                         mFavicon = null;
                         mPageMediaImage = null;
                         mPageMetadata = null;
@@ -522,8 +529,12 @@ public class MediaSessionHelper implements MediaImageCallback {
         /** Returns an intent that brings the associated web contents to the front. */
         Intent createBringTabToFrontIntent();
 
-        /** Returns the {@link LargeIconBridge} to be used while obtaining icons. */
-        LargeIconBridge getLargeIconBridge();
+        /**
+         * Returns the {@link LargeIconBridge} to be used while obtaining icons, or null if the
+         * embedder doesn't provide a LargeIconService (e.g. WebView), in which case favicons won't
+         * be used as fallback artwork.
+         */
+        @Nullable LargeIconBridge getLargeIconBridge();
 
         /**
          * Creates a {@link MediaNotificationInfo.Builder} with basic embedder-specific
@@ -635,6 +646,7 @@ public class MediaSessionHelper implements MediaImageCallback {
         int size = MediaNotificationImageUtils.MINIMAL_MEDIA_IMAGE_SIZE_PX;
         if (mLargeIconBridge == null) {
             mLargeIconBridge = mDelegate.getLargeIconBridge();
+            if (mLargeIconBridge == null) return false;
         }
         LargeIconBridge.LargeIconCallback callback =
                 new LargeIconBridge.LargeIconCallback() {
@@ -694,6 +706,18 @@ public class MediaSessionHelper implements MediaImageCallback {
     }
 
     /**
+     * Updates {@link #mFallbackTitle} to track {@link #mOrigin} if uninitialized or if previously
+     * derived from {@code previousOrigin}. Preserves real page titles set via {@link #titleWasSet}.
+     */
+    private void maybeSetFallbackTitleFromOrigin(@Nullable String previousOrigin) {
+        if (TextUtils.isEmpty(mFallbackTitle)
+                || (!TextUtils.isEmpty(previousOrigin)
+                        && TextUtils.equals(mFallbackTitle, sanitizeMediaTitle(previousOrigin)))) {
+            mFallbackTitle = sanitizeMediaTitle(mOrigin);
+        }
+    }
+
+    /**
      * Updates the metadata in media notification. This method should be called whenever
      * |mPageMetadata| or |mFallbackTitle| is changed.
      */
@@ -705,6 +729,7 @@ public class MediaSessionHelper implements MediaImageCallback {
 
         mCurrentMetadata = newMetadata;
         mNotificationInfoBuilder.setMetadata(mCurrentMetadata);
+        mNotificationInfoBuilder.setOrigin(mOrigin);
         showNotification();
     }
 
@@ -716,7 +741,11 @@ public class MediaSessionHelper implements MediaImageCallback {
     private MediaMetadata getMetadata() {
         String artist = "";
         String album = "";
+        String sourceTitle = mOrigin;
         if (mPageMetadata != null) {
+            if (!TextUtils.isEmpty(mPageMetadata.getSourceTitle())) {
+                sourceTitle = mPageMetadata.getSourceTitle();
+            }
             if (!TextUtils.isEmpty(mPageMetadata.getTitle())) return mPageMetadata;
 
             artist = mPageMetadata.getArtist();
@@ -726,11 +755,12 @@ public class MediaSessionHelper implements MediaImageCallback {
         if (mCurrentMetadata != null
                 && TextUtils.equals(mFallbackTitle, mCurrentMetadata.getTitle())
                 && TextUtils.equals(artist, mCurrentMetadata.getArtist())
-                && TextUtils.equals(album, mCurrentMetadata.getAlbum())) {
+                && TextUtils.equals(album, mCurrentMetadata.getAlbum())
+                && TextUtils.equals(sourceTitle, mCurrentMetadata.getSourceTitle())) {
             return mCurrentMetadata;
         }
 
-        return new MediaMetadata(mFallbackTitle, artist, album);
+        return new MediaMetadata(mFallbackTitle, artist, album, sourceTitle);
     }
 
     private void updateNotificationActions() {

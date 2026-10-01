@@ -81,6 +81,8 @@
 #import "ios/chrome/browser/scene/ui/scene_view_controller.h"
 #import "ios/chrome/browser/scene/ui/scene_view_controller_delegate.h"
 #import "ios/chrome/browser/settings/ui_bundled/password/password_checkup/password_checkup_coordinator.h"
+#import "ios/chrome/browser/settings/ui_bundled/password/password_settings/password_settings_coordinator.h"
+#import "ios/chrome/browser/settings/ui_bundled/password/password_settings/password_settings_coordinator_delegate.h"
 #import "ios/chrome/browser/settings/ui_bundled/settings_navigation_controller.h"
 #import "ios/chrome/browser/shared/coordinator/layout_guide/layout_guide_util.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
@@ -197,6 +199,7 @@ inline LayoutStateScenePassKey PassKey() {
                                 IncognitoInterstitialCoordinatorDelegate,
                                 ManagedProfileCreationCoordinatorDelegate,
                                 PasswordCheckupCoordinatorDelegate,
+                                PasswordSettingsCoordinatorDelegate,
                                 PolicyWatcherBrowserAgentObserving,
                                 SafariDataImportMainCoordinatorDelegate,
                                 SceneViewControllerDelegate,
@@ -238,6 +241,8 @@ inline LayoutStateScenePassKey PassKey() {
   GeminiEntryFlowCoordinator* _geminiEntryFlowCoordinator;
   // Coordinator for display of the Password Checkup.
   PasswordCheckupCoordinator* _passwordCheckupCoordinator;
+  // Coordinator for display of Password Settings.
+  PasswordSettingsCoordinator* _passwordSettingsCoordinator;
   // Coordinator for displaying history.
   HistoryCoordinator* _historyCoordinator;
   // Coordinator for the Youtube Incognito interstitial.
@@ -424,7 +429,7 @@ inline LayoutStateScenePassKey PassKey() {
 }
 
 - (BOOL)isTabAvailableToPresentViewController {
-  if (self.isSigninInProgress) {
+  if (self.sceneState.signinInProgress) {
     return NO;
   }
   if (_settingsNavigationController) {
@@ -585,15 +590,21 @@ inline LayoutStateScenePassKey PassKey() {
       _regularBrowser->GetCommandDispatcher(), BookmarksCommands);
   [bookmarksHandler dismissBookmarkModalControllerAnimated:NO];
 
+  __weak __typeof(self) weakSelf = self;
   id<BrowserCoordinatorCommands> browserCoordinatorHandler = HandlerForProtocol(
       self.currentBrowser->GetCommandDispatcher(), BrowserCoordinatorCommands);
   ProceduralBlock closePresentedViewsCompletion = ^{
-    DCHECK(!self.isSigninInProgress);
+    ProceduralBlock finalCompletion = ^{
+      CHECK(!weakSelf.sceneState.signinInProgress, base::NotFatalUntil::M160);
+      if (completion) {
+        completion();
+      }
+    };
     if (self.isTabGridActive) {
-      [self stopChildCoordinatorsWithCompletion:completion];
+      [self stopChildCoordinatorsWithCompletion:finalCompletion];
     } else {
       [browserCoordinatorHandler
-          clearPresentedStateWithCompletion:completion
+          clearPresentedStateWithCompletion:finalCompletion
                              dismissOmnibox:dismissOmnibox];
     }
   };
@@ -630,7 +641,7 @@ inline LayoutStateScenePassKey PassKey() {
 }
 
 - (void)maybeShowSettingsFromViewController {
-  if (self.isSigninInProgress) {
+  if (self.sceneState.signinInProgress) {
     return;
   }
   [self showSettingsFromViewController:nil];
@@ -678,10 +689,8 @@ inline LayoutStateScenePassKey PassKey() {
     baseViewController = self.activeViewController;
   }
 
-  BOOL signinInProgress = self.isSigninInProgress;
-  if (signinInProgress) {
-    [self stopSigninCoordinatorWithCompletionAnimated:NO];
-  }
+  BOOL hadSigninCoordinator = self.sceneState.signinInProgress;
+  [self stopSigninCoordinatorWithCompletionAnimated:NO];
 
   if (_settingsNavigationController) {
     DCHECK(_settingsNavigationController.presentingViewController)
@@ -701,7 +710,7 @@ inline LayoutStateScenePassKey PassKey() {
               shouldShowLevelUpWalkthroughIPH:shouldShowLevelUpWalkthroughIPH];
   };
 
-  if (signinInProgress) {
+  if (hadSigninCoordinator) {
     // Defer presentation to the next runloop tick to allow the sign-in UI
     // dismissal to complete and clean up the view hierarchy. `dispatch_async`
     // is used instead of a Chromium task runner to closely align with UIKit's
@@ -713,7 +722,7 @@ inline LayoutStateScenePassKey PassKey() {
 }
 
 - (void)showPriceTrackingNotificationsSettings {
-  CHECK(!self.isSigninInProgress);
+  CHECK(!self.sceneState.signinInProgress, base::NotFatalUntil::M160);
   if (_settingsNavigationController) {
     __weak SceneCoordinator* weakSelf = self;
     [self closePresentedViews:NO
@@ -756,6 +765,11 @@ inline LayoutStateScenePassKey PassKey() {
   CHECK(!self.currentBrowser->GetProfile()->IsOffTheRecord())
       << "Current interface is incognito and should NOT show history. Call "
          "this on regular interface.";
+
+  if (_historyCoordinator) {
+    [self stopHistoryCoordinator];
+  }
+
   _historyCoordinator = CreateHistoryCoordinator(self.activeViewController,
                                                  _regularBrowser.get());
   _historyCoordinator.loadStrategy = UrlLoadStrategy::NORMAL;
@@ -840,15 +854,18 @@ inline LayoutStateScenePassKey PassKey() {
   BOOL incognito = self.currentBrowser->type() == Browser::Type::kIncognito;
   TabGridPage page =
       incognito ? TabGridPageIncognitoTabs : TabGridPageRegularTabs;
-  if (mode == TabGridOpeningMode::kRegular && incognito) {
-    [self.UIHandler setCurrentInterfaceForMode:ApplicationMode::NORMAL];
-    page = TabGridPageRegularTabs;
-  } else if (mode == TabGridOpeningMode::kIncognito && !incognito) {
-    [self.UIHandler setCurrentInterfaceForMode:ApplicationMode::INCOGNITO];
-    page = TabGridPageIncognitoTabs;
-  } else if (mode == TabGridOpeningMode::kTabGroups) {
-    [self.UIHandler setCurrentInterfaceForMode:ApplicationMode::NORMAL];
-    page = TabGridPageTabGroups;
+  switch (mode) {
+    case TabGridOpeningMode::kRegular:
+      page = TabGridPageRegularTabs;
+      break;
+    case TabGridOpeningMode::kIncognito:
+      page = TabGridPageIncognitoTabs;
+      break;
+    case TabGridOpeningMode::kTabGroups:
+      page = TabGridPageTabGroups;
+      break;
+    case TabGridOpeningMode::kDefault:
+      break;
   }
 
   [self showTabSwitcherAtPage:page];
@@ -1280,7 +1297,7 @@ inline LayoutStateScenePassKey PassKey() {
                                ![self isTabAvailableToPresentViewController])) {
     return;
   }
-  DCHECK(!self.isSigninInProgress);
+  CHECK(!self.sceneState.signinInProgress, base::NotFatalUntil::M160);
 
   if (self.currentBrowser->type() == Browser::Type::kIncognito) {
     // This can occur if the URL ended up loading while the user switched to
@@ -1351,7 +1368,7 @@ inline LayoutStateScenePassKey PassKey() {
 // TODO(crbug.com/41352590) : Do not pass baseViewController through dispatcher.
 - (void)showGoogleServicesSettingsFromViewController:
     (UIViewController*)baseViewController {
-  DCHECK(!self.isSigninInProgress);
+  CHECK(!self.sceneState.signinInProgress, base::NotFatalUntil::M160);
   if (!baseViewController) {
     baseViewController = self.activeViewController;
   }
@@ -1376,7 +1393,7 @@ inline LayoutStateScenePassKey PassKey() {
 // The user must be signed-in and sign-in must be enabled.
 - (void)showSyncSettingsFromViewController:
     (UIViewController*)baseViewController {
-  DCHECK(!self.isSigninInProgress);
+  CHECK(!self.sceneState.signinInProgress, base::NotFatalUntil::M160);
   if (_settingsNavigationController) {
     [_settingsNavigationController
         showSyncSettingsFromViewController:baseViewController];
@@ -1403,7 +1420,7 @@ inline LayoutStateScenePassKey PassKey() {
             (UIViewController*)baseViewController
                                           completion:
                                               (ProceduralBlock)completion {
-  DCHECK(!self.isSigninInProgress);
+  CHECK(!self.sceneState.signinInProgress, base::NotFatalUntil::M160);
   if (_settingsNavigationController) {
     [_settingsNavigationController
         showSyncPassphraseSettingsFromViewController:baseViewController];
@@ -1444,6 +1461,16 @@ inline LayoutStateScenePassKey PassKey() {
   }];
 }
 
+// TODO(crbug.com/41352590) : Do not pass baseViewController through dispatcher.
+- (void)showPasswordSettingsFromViewController:
+    (UIViewController*)baseViewController {
+  __weak SceneCoordinator* weakSelf = self;
+  [self dismissModalDialogsWithCompletion:^{
+    [weakSelf showPasswordSettingsAfterModalDismissFromViewController:
+                  baseViewController];
+  }];
+}
+
 - (void)showAutofillAndPasswordsSettingsWithReferrer:
     (autofill::autofill_metrics::AutofillSettingsReferrer)referrer {
   __weak SceneCoordinator* weakSelf = self;
@@ -1455,7 +1482,7 @@ inline LayoutStateScenePassKey PassKey() {
 
 - (void)showIdentityDocsWithReferrer:
     (autofill::autofill_metrics::AutofillSettingsReferrer)referrer {
-  CHECK(!self.isSigninInProgress);
+  CHECK(!self.sceneState.signinInProgress, base::NotFatalUntil::M160);
   if (_settingsNavigationController) {
     [_settingsNavigationController showIdentityDocsWithReferrer:referrer];
     return;
@@ -1472,7 +1499,7 @@ inline LayoutStateScenePassKey PassKey() {
 
 - (void)showTravelWithReferrer:
     (autofill::autofill_metrics::AutofillSettingsReferrer)referrer {
-  CHECK(!self.isSigninInProgress);
+  CHECK(!self.sceneState.signinInProgress, base::NotFatalUntil::M160);
   if (_settingsNavigationController) {
     [_settingsNavigationController showTravelWithReferrer:referrer];
     return;
@@ -1489,7 +1516,7 @@ inline LayoutStateScenePassKey PassKey() {
 
 - (void)showShoppingWithReferrer:
     (autofill::autofill_metrics::AutofillSettingsReferrer)referrer {
-  CHECK(!self.isSigninInProgress);
+  CHECK(!self.sceneState.signinInProgress, base::NotFatalUntil::M160);
   if (_settingsNavigationController) {
     [_settingsNavigationController showShoppingWithReferrer:referrer];
     return;
@@ -1519,7 +1546,7 @@ inline LayoutStateScenePassKey PassKey() {
 }
 
 - (void)showEnhancedAutofillSettingsWithCompletion:(ProceduralBlock)completion {
-  CHECK(!self.isSigninInProgress);
+  CHECK(!self.sceneState.signinInProgress, base::NotFatalUntil::M160);
 
   if (self.sceneState.isUIBlocked) {
     // This could occur due to race condition with multiple windows and
@@ -1605,7 +1632,7 @@ inline LayoutStateScenePassKey PassKey() {
 // TODO(crbug.com/41352590) : Do not pass baseViewController through dispatcher.
 - (void)showProfileSettingsFromViewController:
     (UIViewController*)baseViewController {
-  DCHECK(!self.isSigninInProgress);
+  CHECK(!self.sceneState.signinInProgress, base::NotFatalUntil::M160);
   if (_settingsNavigationController) {
     [_settingsNavigationController
         showProfileSettingsFromViewController:baseViewController];
@@ -1621,7 +1648,7 @@ inline LayoutStateScenePassKey PassKey() {
 }
 
 - (void)showCreditCardSettings {
-  DCHECK(!self.isSigninInProgress);
+  CHECK(!self.sceneState.signinInProgress, base::NotFatalUntil::M160);
   if (_settingsNavigationController) {
     [_settingsNavigationController showCreditCardSettings];
     return;
@@ -1810,9 +1837,6 @@ inline LayoutStateScenePassKey PassKey() {
       .browser;
 }
 
-- (BOOL)isSigninInProgress {
-  return _signinCoordinator != nil;
-}
 
 #pragma mark - PolicyWatcherBrowserAgentObserving
 
@@ -1866,6 +1890,14 @@ inline LayoutStateScenePassKey PassKey() {
     (PasswordCheckupCoordinator*)coordinator {
   CHECK_EQ(_passwordCheckupCoordinator, coordinator);
   [self stopPasswordCheckupCoordinator];
+}
+
+#pragma mark - PasswordSettingsCoordinatorDelegate
+
+- (void)passwordSettingsCoordinatorDidRemove:
+    (PasswordSettingsCoordinator*)coordinator {
+  CHECK_EQ(_passwordSettingsCoordinator, coordinator);
+  [self stopPasswordSettingsCoordinator];
 }
 
 #pragma mark - HistoryCoordinatorDelegate
@@ -2113,7 +2145,7 @@ inline LayoutStateScenePassKey PassKey() {
     // dispatched command.
     baseViewController = self.activeViewController;
   }
-  DCHECK(!self.isSigninInProgress);
+  CHECK(!self.sceneState.signinInProgress, base::NotFatalUntil::M160);
 
   if (_settingsNavigationController) {
     [_settingsNavigationController
@@ -2131,10 +2163,34 @@ inline LayoutStateScenePassKey PassKey() {
                                  completion:nil];
 }
 
+// Shows the Password Settings in the settings UI.
+- (void)showPasswordSettingsAfterModalDismissFromViewController:
+    (UIViewController*)baseViewController {
+  if (!baseViewController) {
+    // TODO(crbug.com/41352590): Don't pass base view controller through
+    // dispatched command.
+    baseViewController = self.activeViewController;
+  }
+  CHECK(!self.sceneState.signinInProgress, base::NotFatalUntil::M160);
+
+  if (_settingsNavigationController) {
+    [_settingsNavigationController
+        showPasswordSettingsFromViewController:baseViewController];
+    return;
+  }
+
+  [self stopPasswordSettingsCoordinator];
+  _passwordSettingsCoordinator = [[PasswordSettingsCoordinator alloc]
+      initWithBaseViewController:baseViewController
+                         browser:_regularBrowser.get()];
+  _passwordSettingsCoordinator.delegate = self;
+  [_passwordSettingsCoordinator start];
+}
+
 // Shows the Autofill and Passwords settings in the settings UI.
 - (void)showAutofillAndPasswordsSettingsAfterModalDismissWithReferrer:
     (autofill::autofill_metrics::AutofillSettingsReferrer)referrer {
-  DCHECK(!self.isSigninInProgress);
+  CHECK(!self.sceneState.signinInProgress, base::NotFatalUntil::M160);
 
   if (_settingsNavigationController) {
     [_settingsNavigationController
@@ -2152,7 +2208,7 @@ inline LayoutStateScenePassKey PassKey() {
 
 // Shows the Autofill settings in the settings UI.
 - (void)showAutofillSettingsAfterModalDismiss {
-  DCHECK(!self.isSigninInProgress);
+  CHECK(!self.sceneState.signinInProgress, base::NotFatalUntil::M160);
 
   if (_settingsNavigationController) {
     [_settingsNavigationController showAutofillSettings];
@@ -2173,7 +2229,7 @@ inline LayoutStateScenePassKey PassKey() {
 // Shows the Autofill settings in the settings UI from an Autofill notice (no
 // back button).
 - (void)showAutofillSettingsFromNoticeAfterModalDismiss {
-  DCHECK(!self.isSigninInProgress);
+  CHECK(!self.sceneState.signinInProgress, base::NotFatalUntil::M160);
 
   if (_settingsNavigationController) {
     [_settingsNavigationController showAutofillSettingsFromNotice];
@@ -2265,7 +2321,7 @@ inline LayoutStateScenePassKey PassKey() {
                                    timeout:(base::TimeDelta)timeout
                                 completion:
                                     (UserFeedbackDataCallback)completion {
-  DCHECK(!self.isSigninInProgress);
+  CHECK(!self.sceneState.signinInProgress, base::NotFatalUntil::M160);
   if (_settingsNavigationController) {
     return;
   }
@@ -2385,6 +2441,13 @@ inline LayoutStateScenePassKey PassKey() {
   [_passwordCheckupCoordinator stop];
   _passwordCheckupCoordinator.delegate = nil;
   _passwordCheckupCoordinator = nil;
+}
+
+// Stops the PasswordSettingsCoordinator.
+- (void)stopPasswordSettingsCoordinator {
+  [_passwordSettingsCoordinator stop];
+  _passwordSettingsCoordinator.delegate = nil;
+  _passwordSettingsCoordinator = nil;
 }
 
 // Creates the settings navigation controller for the safety check if it doesn't
@@ -2531,6 +2594,9 @@ inline LayoutStateScenePassKey PassKey() {
 
   // If the Safari data import workflow is active, stop it.
   [self stopSafariDataImportCoordinator];
+
+  // Stop the password settings.
+  [self stopPasswordSettingsCoordinator];
 
   // If the guided tour is active, stop it.
   FirstRunProfileAgent* firstRunAgent =
@@ -2798,6 +2864,13 @@ inline LayoutStateScenePassKey PassKey() {
 
 
 - (void)minimizeGeminiIfInvoked {
+  if (IsIOSGeminiBottomSheetMigrationEnabled()) {
+    [_geminiContainerCoordinator minimize];
+    return;
+  }
+
+  // Calling CollapseFloatyIfInvoked would minimize the floaty for the overlay
+  // use case.
   GeminiBrowserAgent* geminiBrowserAgent =
       GeminiBrowserAgent::FromBrowser(_regularBrowser.get());
   if (geminiBrowserAgent) {

@@ -29,6 +29,7 @@
 #include "components/actor/core/actor_switches.h"
 #include "components/actor/core/task_source_info.h"
 #include "components/actor/public/mojom/actor_types.mojom.h"
+#include "components/tabs/public/mock_tab_interface.h"
 #include "content/public/test/browser_task_environment.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -64,7 +65,7 @@ class ActorKeyedServiceTest : public testing::Test {
     profile_ = testing_profile_manager()->CreateTestingProfile("profile");
     auto* actor_service = ActorKeyedService::Get(profile());
     ASSERT_TRUE(actor_service);
-    actor_service->SetActorUiStateManagerForTesting(BuildUiStateManagerMock());
+    ui_state_manager_ = BuildUiStateManagerMock();
   }
 
   TestingProfileManager* testing_profile_manager() {
@@ -72,6 +73,16 @@ class ActorKeyedServiceTest : public testing::Test {
   }
 
   TestingProfile* profile() { return profile_.get(); }
+
+  ui::ActorUiStateManagerInterface* ui_state_manager() {
+    return ui_state_manager_.get();
+  }
+
+  std::unique_ptr<tabs::MockTabInterface> CreateMockTab() {
+    auto mock_tab = std::make_unique<tabs::MockTabInterface>();
+    ON_CALL(*mock_tab, GetProfile).WillByDefault(testing::Return(profile()));
+    return mock_tab;
+  }
 
   void RunTasksUntilIdle() { task_environment_.RunUntilIdle(); }
 
@@ -82,6 +93,7 @@ class ActorKeyedServiceTest : public testing::Test {
  private:
   base::test::ScopedFeatureList scoped_feature_list_;
   content::BrowserTaskEnvironment task_environment_;
+  std::unique_ptr<ui::ActorUiStateManagerInterface> ui_state_manager_;
   TestingProfileManager testing_profile_manager_;
   raw_ptr<TestingProfile> profile_;
 };
@@ -89,7 +101,9 @@ class ActorKeyedServiceTest : public testing::Test {
 // Adds a task to ActorKeyedService
 TEST_F(ActorKeyedServiceTest, AddActiveTask) {
   auto* actor_service = ActorKeyedService::Get(profile());
-  actor_service->CreateTask(TestTaskSourceInfo(), NoEnterprisePolicyChecker());
+  actor_service->CreateTaskWithOptions(
+      TestTaskSourceInfo(), NoEnterprisePolicyChecker(), /*options=*/nullptr,
+      /*delegate=*/nullptr, ui_state_manager());
   ASSERT_EQ(actor_service->GetActiveTasks().size(), 1u);
   EXPECT_EQ(actor_service->GetActiveTasks().begin()->second->GetState(),
             ActorTask::State::kCreated);
@@ -98,13 +112,16 @@ TEST_F(ActorKeyedServiceTest, AddActiveTask) {
 // Stops a task.
 TEST_F(ActorKeyedServiceTest, StopActiveTask) {
   auto* actor_service = ActorKeyedService::Get(profile());
-  TaskId id = actor_service->CreateTask(TestTaskSourceInfo(),
-                                        NoEnterprisePolicyChecker());
+  TaskId id = actor_service->CreateTaskWithOptions(
+      TestTaskSourceInfo(), NoEnterprisePolicyChecker(), /*options=*/nullptr,
+      /*delegate=*/nullptr, ui_state_manager());
 
   // Add a tab to the task
+  auto mock_tab = CreateMockTab();
+  const tabs::TabHandle tab_handle = mock_tab->GetHandle();
   base::WeakPtr<ActorTask> task = actor_service->GetTask(id)->GetWeakPtr();
   base::RunLoop loop;
-  task->AddTab(tabs::TabHandle(123),
+  task->AddTab(tab_handle,
                /*stop_task_on_detach=*/true,
                base::BindLambdaForTesting([&](mojom::ActionResultPtr result) {
                  EXPECT_TRUE(IsOk(*result));
@@ -112,8 +129,8 @@ TEST_F(ActorKeyedServiceTest, StopActiveTask) {
                }));
   loop.Run();
 
-  EXPECT_TRUE(task->IsActingOnTab(tabs::TabHandle(123)));
-  EXPECT_TRUE(task->HasTab(tabs::TabHandle(123)));
+  EXPECT_TRUE(task->IsActingOnTab(tab_handle));
+  EXPECT_TRUE(task->HasTab(tab_handle));
   actor_service->StopTask(id, ActorTask::StoppedReason::kTaskComplete);
 
   // Tasks are deleted asynchronously.
@@ -128,9 +145,12 @@ TEST_F(ActorKeyedServiceTest, StopActiveTask) {
 
 TEST_F(ActorKeyedServiceTest, FindTaskIdsInActive_ReturnsSuccessfully) {
   auto* actor_service = ActorKeyedService::Get(profile());
-  actor_service->CreateTask(TestTaskSourceInfo(), NoEnterprisePolicyChecker());
-  const TaskId id2 = actor_service->CreateTask(TestTaskSourceInfo(),
-                                               NoEnterprisePolicyChecker());
+  actor_service->CreateTaskWithOptions(
+      TestTaskSourceInfo(), NoEnterprisePolicyChecker(), /*options=*/nullptr,
+      /*delegate=*/nullptr, ui_state_manager());
+  const TaskId id2 = actor_service->CreateTaskWithOptions(
+      TestTaskSourceInfo(), NoEnterprisePolicyChecker(), /*options=*/nullptr,
+      /*delegate=*/nullptr, ui_state_manager());
   actor_service->GetTask(id2)->Pause(/*from_actor=*/true);
 
   // Find a single active task.
@@ -145,12 +165,14 @@ TEST_F(ActorKeyedServiceTest, FindTaskIdsInActive_ReturnsSuccessfully) {
 // Test that adding a tab to a paused or stopped task has no effect.
 TEST_F(ActorKeyedServiceTest, AddTabToPausedOrStoppedTask) {
   auto* actor_service = ActorKeyedService::Get(profile());
-  TaskId id = actor_service->CreateTask(TestTaskSourceInfo(),
-                                        NoEnterprisePolicyChecker());
+  TaskId id = actor_service->CreateTaskWithOptions(
+      TestTaskSourceInfo(), NoEnterprisePolicyChecker(), /*options=*/nullptr,
+      /*delegate=*/nullptr, ui_state_manager());
 
   base::WeakPtr<ActorTask> task = actor_service->GetTask(id)->GetWeakPtr();
   ASSERT_TRUE(task);
-  const tabs::TabHandle tab_handle(123);
+  auto mock_tab = CreateMockTab();
+  const tabs::TabHandle tab_handle = mock_tab->GetHandle();
 
   // Pause the task and try to add a tab.
   task->Pause(/*from_actor=*/true);
@@ -179,12 +201,14 @@ TEST_F(ActorKeyedServiceTest, AddTabToPausedOrStoppedTask) {
 // Test tab association to a paused task.
 TEST_F(ActorKeyedServiceTest, PausedTaskTabs) {
   auto* actor_service = ActorKeyedService::Get(profile());
-  TaskId id = actor_service->CreateTask(TestTaskSourceInfo(),
-                                        NoEnterprisePolicyChecker());
+  TaskId id = actor_service->CreateTaskWithOptions(
+      TestTaskSourceInfo(), NoEnterprisePolicyChecker(), /*options=*/nullptr,
+      /*delegate=*/nullptr, ui_state_manager());
 
   base::WeakPtr<ActorTask> task = actor_service->GetTask(id)->GetWeakPtr();
   ASSERT_TRUE(task);
-  const tabs::TabHandle tab_handle(123);
+  auto mock_tab = CreateMockTab();
+  const tabs::TabHandle tab_handle = mock_tab->GetHandle();
 
   {
     base::test::TestFuture<mojom::ActionResultPtr> future;
@@ -243,12 +267,14 @@ TEST_F(ActorKeyedServiceTest, SetsTaskSourceInfo) {
   const TaskSourceInfo::SourceDefinedId kId1 = "task1id";
   const TaskSourceInfo::SourceDefinedId kId2 = "task2id";
 
-  TaskId task1 = actor_service->CreateTask(
+  TaskId task1 = actor_service->CreateTaskWithOptions(
       TaskSourceInfo(TaskSourceInfo::Client::kTest, kId1),
-      NoEnterprisePolicyChecker());
-  TaskId task2 = actor_service->CreateTask(
+      NoEnterprisePolicyChecker(), /*options=*/nullptr, /*delegate=*/nullptr,
+      ui_state_manager());
+  TaskId task2 = actor_service->CreateTaskWithOptions(
       TaskSourceInfo(TaskSourceInfo::Client::kTest, kId2),
-      NoEnterprisePolicyChecker());
+      NoEnterprisePolicyChecker(), /*options=*/nullptr, /*delegate=*/nullptr,
+      ui_state_manager());
 
   EXPECT_EQ(actor_service->GetTask(task1)->source_info().id, kId1);
   EXPECT_EQ(actor_service->GetTask(task2)->source_info().id, kId2);
@@ -258,8 +284,9 @@ TEST_F(ActorKeyedServiceTest, SetsTaskSourceInfo) {
 // without crashing, even when a task is completing.
 TEST_F(ActorKeyedServiceTest, GetActiveTasksDuringStateChangeCallback) {
   auto* actor_service = ActorKeyedService::Get(profile());
-  TaskId id = actor_service->CreateTask(TestTaskSourceInfo(),
-                                        NoEnterprisePolicyChecker());
+  TaskId id = actor_service->CreateTaskWithOptions(
+      TestTaskSourceInfo(), NoEnterprisePolicyChecker(), /*options=*/nullptr,
+      /*delegate=*/nullptr, ui_state_manager());
 
   bool callback_called = false;
   auto subscription = actor_service->AddTaskStateChangedCallback(
@@ -277,13 +304,14 @@ TEST_F(ActorKeyedServiceTest, GetActiveTasksDuringStateChangeCallback) {
 
 TEST_F(ActorKeyedServiceTest, InitialTabAssociationOnCreate) {
   auto* actor_service = ActorKeyedService::Get(profile());
-  const tabs::TabHandle tab_handle(123);
+  auto mock_tab = CreateMockTab();
+  const tabs::TabHandle tab_handle = mock_tab->GetHandle();
   auto options = webui::mojom::TaskOptions::New();
   options->actuation_tab_id = tab_handle.raw_value();
 
   TaskId id = actor_service->CreateTaskWithOptions(
       TestTaskSourceInfo(), NoEnterprisePolicyChecker(), std::move(options),
-      /*delegate=*/nullptr);
+      /*delegate=*/nullptr, ui_state_manager());
 
   ActorTask* task = actor_service->GetTask(id);
   ASSERT_TRUE(task);
@@ -306,12 +334,12 @@ TEST_F(ActorKeyedServiceTest, TraceRecordingToFile) {
       testing_profile_manager()->CreateTestingProfile("trace_profile");
   auto* actor_service = ActorKeyedService::Get(test_profile);
   ASSERT_TRUE(actor_service);
-  actor_service->SetActorUiStateManagerForTesting(BuildUiStateManagerMock());
 
   RunTasksUntilIdle();
 
-  TaskId id = actor_service->CreateTask(TestTaskSourceInfo(),
-                                        NoEnterprisePolicyChecker());
+  TaskId id = actor_service->CreateTaskWithOptions(
+      TestTaskSourceInfo(), NoEnterprisePolicyChecker(), /*options=*/nullptr,
+      /*delegate=*/nullptr, ui_state_manager());
   actor_service->StopTask(id, ActorTask::StoppedReason::kTaskComplete);
   testing_profile_manager()->DeleteTestingProfile("trace_profile");
 
@@ -334,15 +362,15 @@ TEST_F(ActorKeyedServiceTest, TraceRecordingToDirectory) {
       testing_profile_manager()->CreateTestingProfile("trace_profile_dir");
   auto* actor_service = ActorKeyedService::Get(test_profile);
   ASSERT_TRUE(actor_service);
-  actor_service->SetActorUiStateManagerForTesting(BuildUiStateManagerMock());
 
   RunTasksUntilIdle();
 
   base::FilePath expected_trace_file =
       temp_dir.GetPath().AppendASCII("actor_trace.pb");
 
-  TaskId id = actor_service->CreateTask(TestTaskSourceInfo(),
-                                        NoEnterprisePolicyChecker());
+  TaskId id = actor_service->CreateTaskWithOptions(
+      TestTaskSourceInfo(), NoEnterprisePolicyChecker(), /*options=*/nullptr,
+      /*delegate=*/nullptr, ui_state_manager());
   actor_service->StopTask(id, ActorTask::StoppedReason::kTaskComplete);
   testing_profile_manager()->DeleteTestingProfile("trace_profile_dir");
 

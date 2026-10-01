@@ -113,7 +113,8 @@ DevToolsEmulator::DevToolsEmulator(WebViewImpl* web_view)
           web_view->GetPage()->GetSettings().GetTextSizeAdjustEnabled()),
       touch_event_emulation_enabled_(false),
       double_tap_to_zoom_enabled_(false),
-      original_max_touch_points_(0),
+      embedder_max_touch_points_(
+          web_view->GetPage()->GetSettings().GetMaxTouchPoints()),
       embedder_script_enabled_(
           web_view->GetPage()->GetSettings().GetScriptEnabled()),
       script_execution_disabled_(false),
@@ -228,14 +229,14 @@ void DevToolsEmulator::SetShrinksViewportContentToFit(
 
 void DevToolsEmulator::SetViewportEnabled(bool enabled) {
   embedder_viewport_enabled_ = enabled;
-  if (!emulate_mobile_enabled()) {
+  if (!force_viewport_meta_ && !emulate_mobile_enabled()) {
     web_view_->GetPage()->GetSettings().SetViewportEnabled(enabled);
   }
 }
 
 void DevToolsEmulator::SetViewportMetaEnabled(bool enabled) {
   embedder_viewport_meta_enabled_ = enabled;
-  if (!emulate_mobile_enabled()) {
+  if (!force_viewport_meta_) {
     web_view_->GetPage()->GetSettings().SetViewportMetaEnabled(enabled);
   }
 }
@@ -244,6 +245,13 @@ void DevToolsEmulator::SetTextSizeAdjustEnabled(bool enabled) {
   embedder_text_size_adjust_enabled_ = enabled;
   if (!emulate_mobile_enabled()) {
     web_view_->GetPage()->GetSettings().SetTextSizeAdjustEnabled(enabled);
+  }
+}
+
+void DevToolsEmulator::SetMaxTouchPoints(int max_touch_points) {
+  embedder_max_touch_points_ = max_touch_points;
+  if (!touch_event_emulation_enabled_) {
+    web_view_->GetPage()->GetSettings().SetMaxTouchPoints(max_touch_points);
   }
 }
 
@@ -289,7 +297,9 @@ gfx::Transform DevToolsEmulator::EnableDeviceEmulation(
       emulation_params_.viewport_offset == params.viewport_offset &&
       emulation_params_.viewport_scale == params.viewport_scale &&
       emulation_params_.force_android_overlay_scrollbar ==
-          params.force_android_overlay_scrollbar) {
+          params.force_android_overlay_scrollbar &&
+      emulation_params_.force_viewport_meta ==
+          params.force_viewport_meta) {
     return ComputeRootLayerTransform();
   }
   if ((emulation_params_.device_scale_factor != params.device_scale_factor ||
@@ -321,6 +331,7 @@ gfx::Transform DevToolsEmulator::EnableDeviceEmulation(
     UpdateLifecycleAfterEmulationProfileChange();
   }
 
+  SetForceViewportMeta(params.force_viewport_meta);
   SetForceAndroidOverlayScrollbar(params.force_android_overlay_scrollbar);
 
   web_view_->SetCompositorDeviceScaleFactorOverride(params.device_scale_factor);
@@ -358,6 +369,7 @@ void DevToolsEmulator::DisableDeviceEmulation() {
     UpdateLifecycleAfterEmulationProfileChange();
   }
   SetForceAndroidOverlayScrollbar(false);
+  SetForceViewportMeta(false);
   web_view_->SetCompositorDeviceScaleFactorOverride(0.f);
 
   if (web_view_->MainFrameImpl()) {
@@ -471,8 +483,9 @@ void DevToolsEmulator::EnableMobileEmulation() {
   global_overrides_ = ScopedGlobalOverrides::AssureInstalled();
   web_view_->GetPage()->GetSettings().SetViewportStyle(
       mojom::blink::ViewportStyle::kMobile);
+  // ViewportEnabled activates mobile viewport layout semantics and enables
+  // VisualViewport scrollbar layers (checked in VisualViewportSuppliesScrollbars).
   web_view_->GetPage()->GetSettings().SetViewportEnabled(true);
-  web_view_->GetPage()->GetSettings().SetViewportMetaEnabled(true);
   web_view_->GetPage()->GetSettings().SetTextSizeAdjustEnabled(true);
   web_view_->GetPage()->GetSettings().SetShrinksViewportContentToFit(true);
   web_view_->GetPage()->GetSettings().SetLCDTextPreference(
@@ -498,8 +511,6 @@ void DevToolsEmulator::DisableMobileEmulation() {
   global_overrides_.reset();
   web_view_->GetPage()->GetSettings().SetViewportEnabled(
       embedder_viewport_enabled_);
-  web_view_->GetPage()->GetSettings().SetViewportMetaEnabled(
-      embedder_viewport_meta_enabled_);
   web_view_->GetPage()->GetSettings().SetTextSizeAdjustEnabled(
       embedder_text_size_adjust_enabled_);
   web_view_->GetPage()->GetVisualViewport().InitializeScrollbars();
@@ -591,16 +602,12 @@ float DevToolsEmulator::InputEventsScaleForEmulation() {
 
 void DevToolsEmulator::SetTouchEventEmulationEnabled(bool enabled,
                                                      int max_touch_points) {
-  if (!touch_event_emulation_enabled_) {
-    original_max_touch_points_ =
-        web_view_->GetPage()->GetSettings().GetMaxTouchPoints();
-  }
   touch_event_emulation_enabled_ = enabled;
   web_view_->GetPage()
       ->GetSettings()
       .SetForceTouchEventFeatureDetectionForInspector(enabled);
   web_view_->GetPage()->GetSettings().SetMaxTouchPoints(
-      enabled ? max_touch_points : original_max_touch_points_);
+      enabled ? max_touch_points : embedder_max_touch_points_);
   web_view_->GetPage()->GetSettings().SetAvailablePointerTypes(
       enabled ? static_cast<int>(mojom::blink::PointerType::kPointerCoarseType)
               : embedder_available_pointer_types_);
@@ -654,12 +661,39 @@ void DevToolsEmulator::SetForceAndroidOverlayScrollbar(
   }
 }
 
+void DevToolsEmulator::SetForceViewportMeta(bool force_viewport_meta) {
+  if (force_viewport_meta_ == force_viewport_meta) {
+    return;
+  }
+  force_viewport_meta_ = force_viewport_meta;
+  // ViewportMetaEnabled enables parsing of <meta name="viewport">, while
+  // ViewportEnabled activates the layout constraint pipeline to apply the
+  // resolved viewport size to the main frame.
+  web_view_->GetPage()->GetSettings().SetViewportMetaEnabled(
+      force_viewport_meta_ || embedder_viewport_meta_enabled_);
+  web_view_->GetPage()->GetSettings().SetViewportEnabled(
+      force_viewport_meta_ || emulate_mobile_enabled() ||
+      embedder_viewport_enabled_);
+
+  if (web_view_->MainFrameImpl()) {
+    web_view_->MainFrameImpl()->GetFrameView()->UpdateLifecycleToLayoutClean(
+        DocumentUpdateReason::kInspector);
+  }
+}
+
 void DevToolsEmulator::SetDocumentCookieDisabled(bool disabled) {
   if (document_cookie_disabled_ == disabled)
     return;
   document_cookie_disabled_ = disabled;
   web_view_->GetPage()->GetSettings().SetCookieEnabled(
       !document_cookie_disabled_ && embedder_cookie_enabled_);
+}
+
+void DevToolsEmulator::SetForceDarkModeEnabled(bool enabled) {
+  embedder_force_dark_mode_enabled_ = enabled;
+  if (!auto_dark_overriden_) {
+    web_view_->GetPage()->GetSettings().SetForceDarkModeEnabled(enabled);
+  }
 }
 
 void DevToolsEmulator::SetAutoDarkModeOverride(bool enabled) {

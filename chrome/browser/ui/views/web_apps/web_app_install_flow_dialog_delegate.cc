@@ -26,7 +26,6 @@
 #include "base/task/sequenced_task_runner.h"
 #include "build/build_config.h"
 #include "chrome/browser/apps/app_service/app_icon/app_icon_factory.h"
-#include "chrome/browser/apps/icon_standardizer.h"
 #include "chrome/browser/feature_engagement/tracker_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/actions/chrome_action_id.h"
@@ -76,7 +75,9 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/models/dialog_model.h"
 #include "ui/base/mojom/dialog_button.mojom.h"
+#include "ui/base/page_transition_types.h"
 #include "ui/base/resource/resource_bundle.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/gfx/image/image_skia.h"
 #include "ui/gfx/image/image_skia_rep.h"
 #include "ui/gfx/text_elider.h"
@@ -341,10 +342,9 @@ bool WebAppInstallFlowDialogDelegate::AdvanceToNextStepOrClose() {
 
 void WebAppInstallFlowDialogDelegate::OnLearnMoreButtonClicked() {
   web_contents()->OpenURL(
-      content::OpenURLParams(
-          GURL(chrome::kInstallDialogFlowLearnMoreURL), content::Referrer(),
-          WindowOpenDisposition::NEW_FOREGROUND_TAB, ui::PAGE_TRANSITION_LINK,
-          /*is_renderer_initiated=*/false),
+      content::OpenURLParams::CreateBrowserInitiated(
+          GURL(chrome::kInstallDialogFlowLearnMoreURL),
+          WindowOpenDisposition::NEW_FOREGROUND_TAB, ui::PAGE_TRANSITION_LINK),
       base::DoNothing());
 }
 

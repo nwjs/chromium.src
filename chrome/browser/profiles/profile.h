@@ -393,8 +393,7 @@ class Profile : public content::BrowserContext {
 
   // IsRegularProfile(), IsSystemProfile(), IsIncognitoProfile(),
   // IsGuestSession() and IsEnterpriseIsolatedModeProfile() are mutually
-  // exclusive. Note: IsGuestSession() is not mutually exclusive with the rest
-  // of the methods mentioned above on ChromeOS. TODO(crbug.com/40233408).
+  // exclusive.
   //
   // IsSystemProfile() returns true for both regular and off-the-record profile
   //   of the system profile.
@@ -546,12 +545,6 @@ class Profile : public content::BrowserContext {
   }
 
   const std::optional<OTRProfileID> otr_profile_id_;
-
-#if BUILDFLAG(IS_CHROMEOS)
-  // TODO(40233408): Remove this when migration is completed.
-  // True if the guest profile uses BrowserProfileType::kGuest.
-  bool new_guest_profile_impl_;
-#endif
 
  private:
   LifecycleState lifecycle_state_ = LifecycleState::kNotRegistered;

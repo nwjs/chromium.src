@@ -27,6 +27,7 @@
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/mojom/dialog_button.mojom.h"
 #include "ui/base/mojom/ui_base_types.mojom-shared.h"
+#include "ui/base/page_transition_types.h"
 #include "ui/base/ui_base_types.h"
 #include "ui/base/window_open_disposition.h"
 #include "ui/base/window_open_disposition_utils.h"
@@ -130,10 +131,9 @@ void ForceInstalledPreinstalledDeprecatedAppDialogView::CreateAndShowDialog(
         base::UmaHistogramEnumeration(
             "Extensions.ForceInstalledPreInstalledDeprecatedAppOpenUrl", site);
         web_contents->OpenURL(
-            content::OpenURLParams(url, content::Referrer(),
-                                   WindowOpenDisposition::NEW_FOREGROUND_TAB,
-                                   ui::PAGE_TRANSITION_LINK,
-                                   /*is_renderer_initiated=*/false),
+            content::OpenURLParams::CreateBrowserInitiated(
+                url, WindowOpenDisposition::NEW_FOREGROUND_TAB,
+                ui::PAGE_TRANSITION_LINK),
             /*navigation_handle_callback=*/{});
       },
       web_contents->GetWeakPtr(), link_config.link, link_config.site));
@@ -189,12 +189,12 @@ ForceInstalledPreinstalledDeprecatedAppDialogView::
               return;
             }
             web_contents->OpenURL(
-                content::OpenURLParams(
-                    url, content::Referrer(),
+                content::OpenURLParams::CreateBrowserInitiated(
+                    url,
                     ui::DispositionFromEventFlags(
                         event.flags(),
                         WindowOpenDisposition::NEW_FOREGROUND_TAB),
-                    ui::PAGE_TRANSITION_LINK, /*is_renderer_initiated=*/false),
+                    ui::PAGE_TRANSITION_LINK),
                 /*navigation_handle_callback=*/{});
           },
           web_contents->GetWeakPtr(), app_link)));
@@ -208,12 +208,11 @@ ForceInstalledPreinstalledDeprecatedAppDialogView::
           return;
         }
         web_contents->OpenURL(
-            content::OpenURLParams(
+            content::OpenURLParams::CreateBrowserInitiated(
                 GURL(chrome::kChromeAppsDeprecationLearnMoreURL),
-                content::Referrer(),
                 ui::DispositionFromEventFlags(
                     event.flags(), WindowOpenDisposition::NEW_FOREGROUND_TAB),
-                ui::PAGE_TRANSITION_LINK, /*is_renderer_initiated=*/false),
+                ui::PAGE_TRANSITION_LINK),
             /*navigation_handle_callback=*/{});
       },
       web_contents->GetWeakPtr()));

@@ -16,6 +16,7 @@ import static org.chromium.chrome.browser.keyboard_accessory.bar_component.Keybo
 import static org.chromium.chrome.browser.keyboard_accessory.bar_component.KeyboardAccessoryProperties.HAS_SUGGESTIONS;
 import static org.chromium.chrome.browser.keyboard_accessory.bar_component.KeyboardAccessoryProperties.OBFUSCATED_CHILD_AT_CALLBACK;
 import static org.chromium.chrome.browser.keyboard_accessory.bar_component.KeyboardAccessoryProperties.ON_TOUCH_EVENT_CALLBACK;
+import static org.chromium.chrome.browser.keyboard_accessory.bar_component.KeyboardAccessoryProperties.SELECTED_SUGGESTION_INDEX;
 import static org.chromium.chrome.browser.keyboard_accessory.bar_component.KeyboardAccessoryProperties.SHEET_OPENER_ITEM;
 import static org.chromium.chrome.browser.keyboard_accessory.bar_component.KeyboardAccessoryProperties.SHOW_SWIPING_IPH;
 import static org.chromium.chrome.browser.keyboard_accessory.bar_component.KeyboardAccessoryProperties.SKIP_CLOSING_ANIMATION;
@@ -64,6 +65,8 @@ import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.widget.ButtonCompat;
 import org.chromium.ui.widget.RectProvider;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.function.Function;
 
 /**
@@ -147,6 +150,9 @@ class KeyboardAccessoryViewBinder {
          */
         protected void recycle() {}
 
+        /** Updates the visual selection state of the suggestion chips in this ViewHolder. */
+        void updateSelection() {}
+
         protected static boolean useLargeChips(Context context) {
             return ChromeFeatureList.isEnabled(ChromeFeatureList.ANDROID_ELEGANT_TEXT_HEIGHT)
                     && context.getResources().getConfiguration().fontScale >= LARGE_FONT_THRESHOLD;
@@ -158,6 +164,8 @@ class KeyboardAccessoryViewBinder {
         private final KeyboardAccessoryView mKeyboardAccessory;
         private final UiConfiguration mUiConfiguration;
         private final ViewGroup mParent;
+        private final List<BarItemViewHolder> mChildViewHolders = new ArrayList<>();
+        private final List<Integer> mChildViewTypes = new ArrayList<>();
 
         BarItemGroupViewHolder(
                 KeyboardAccessoryView keyboardAccessory,
@@ -172,13 +180,62 @@ class KeyboardAccessoryViewBinder {
         @Override
         @SuppressWarnings({"rawtypes", "unchecked"}) // Heterogeneous viewHolder dispatch by type.
         protected void bind(GroupBarItem group, KeyboardAccessoryChipGroup chipGroup) {
+            List<ActionBarItem> items = group.getActionBarItems();
+            if (canReuseChildHolders(items)) {
+                rebindChildHolders(items);
+                return;
+            }
+
+            recycle();
             chipGroup.removeAllViews();
-            for (ActionBarItem item : group.getActionBarItems()) {
+            for (ActionBarItem item : items) {
                 BarItemViewHolder viewHolder =
                         create(mKeyboardAccessory, mUiConfiguration, mParent, item.getViewType());
-
-                viewHolder.bind(item, viewHolder.itemView);
+                mChildViewHolders.add(viewHolder);
+                mChildViewTypes.add(item.getViewType());
+                viewHolder.bind(item);
                 chipGroup.addView(viewHolder.itemView);
+            }
+        }
+
+        @Override
+        protected void recycle() {
+            for (BarItemViewHolder viewHolder : mChildViewHolders) {
+                viewHolder.recycle();
+            }
+            mChildViewHolders.clear();
+            mChildViewTypes.clear();
+        }
+
+        /**
+         * Checks if the existing child view holders can be reused for the given items without
+         * recreating views. Child holders can be reused if the count and view types of items match
+         * exactly, avoiding unnecessary view inflation and visual flickering when only properties
+         * change.
+         */
+        private boolean canReuseChildHolders(List<ActionBarItem> items) {
+            if (mChildViewHolders.size() != items.size()) {
+                return false;
+            }
+            for (int i = 0; i < items.size(); i++) {
+                if (mChildViewTypes.get(i) != items.get(i).getViewType()) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        /** Rebinds the existing child view holders with updated item models. */
+        private void rebindChildHolders(List<ActionBarItem> items) {
+            for (int i = 0; i < items.size(); i++) {
+                mChildViewHolders.get(i).bind(items.get(i));
+            }
+        }
+
+        @Override
+        void updateSelection() {
+            for (BarItemViewHolder holder : mChildViewHolders) {
+                holder.updateSelection();
             }
         }
     }
@@ -188,6 +245,7 @@ class KeyboardAccessoryViewBinder {
         private final KeyboardAccessoryView mKeyboardAccessory;
         private final Function<@Nullable AutofillSuggestion, @Nullable Drawable>
                 mSuggestionDrawableFunction;
+        private @Nullable AutofillBarItem mCurrentItem;
 
         BarItemChipViewHolder(
                 ViewGroup parent,
@@ -211,8 +269,27 @@ class KeyboardAccessoryViewBinder {
         }
 
         @Override
+        protected void recycle() {
+            mCurrentItem = null;
+            ((ChipView) itemView).setHovered(false);
+        }
+
+        @Override
+        void updateSelection() {
+            if (mCurrentItem == null) return;
+
+            boolean isSelected =
+                    mCurrentItem.isEnabled()
+                            && !mCurrentItem.isLoading()
+                            && mCurrentItem.isSelected();
+            ChipView chipView = (ChipView) itemView;
+            chipView.setHovered(isSelected);
+        }
+
+        @Override
         protected void bind(AutofillBarItem item, ChipView chipView) {
             TraceEvent.begin("BarItemChipViewHolder#bind");
+            mCurrentItem = item;
             boolean iphShown =
                     KeyboardAccessoryIphUtils.maybeShowIph(
                             mKeyboardAccessory.getFeatureEngagementTracker(),
@@ -286,6 +363,7 @@ class KeyboardAccessoryViewBinder {
                         chipView.getResources().getDimensionPixelSize(R.dimen.chip_border_width),
                         chipView.getContext().getColorStateList(R.color.chip_stroke_color));
             }
+            updateSelection();
             Drawable iconDrawable = mSuggestionDrawableFunction.apply(item.getSuggestion());
             if (iconDrawable != null) {
                 iconDrawable.setAlpha((int) (255 * iconAlpha));
@@ -561,10 +639,23 @@ class KeyboardAccessoryViewBinder {
             view.setHasStickyLastItem(model.get(HAS_STICKY_LAST_ITEM));
         } else if (propertyKey == ANIMATE_SUGGESTIONS_FROM_TOP) {
             view.setAnimateSuggestionsFromTop(model.get(ANIMATE_SUGGESTIONS_FROM_TOP));
+        } else if (propertyKey == SELECTED_SUGGESTION_INDEX) {
+            updateSelectedSuggestion(view);
         } else if (propertyKey == SHEET_OPENER_ITEM || propertyKey == DISMISS_ITEM) {
             // No binding required.
         } else {
             assert false : "Every possible property update needs to be handled!";
+        }
+    }
+
+    private static void updateSelectedSuggestion(KeyboardAccessoryView view) {
+        if (view.mBarItemsView == null) return;
+        for (int i = 0; i < view.mBarItemsView.getChildCount(); i++) {
+            View child = view.mBarItemsView.getChildAt(i);
+            RecyclerView.ViewHolder holder = view.mBarItemsView.getChildViewHolder(child);
+            if (holder instanceof BarItemViewHolder barHolder) {
+                barHolder.updateSelection();
+            }
         }
     }
 

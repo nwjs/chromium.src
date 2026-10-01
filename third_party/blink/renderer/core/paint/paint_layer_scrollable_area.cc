@@ -447,8 +447,8 @@ void PaintLayerScrollableArea::UpdateScrollOffset(
   // The ScrollOffsetTranslation paint property depends on the scroll offset.
   // (see: PaintPropertyTreeBuilder::UpdateScrollAndScrollTranslation).
   GetLayoutBox()->SetNeedsPaintPropertyUpdate();
-  frame_view->UpdateIntersectionObservationStateOnScroll(new_offset -
-                                                         scroll_offset_);
+  frame_view->SetIntersectionObservationState(
+      LocalFrameView::kScrollAndVisibilityOnly);
 
   scroll_offset_ = new_offset;
 
@@ -617,10 +617,6 @@ bool PaintLayerScrollableArea::BackgroundNeedsRepaintOnScroll() const {
     return true;
   }
   return false;
-}
-
-gfx::Vector2d PaintLayerScrollableArea::ScrollOffsetInt() const {
-  return SnapScrollOffsetToPhysicalPixels(scroll_offset_);
 }
 
 ScrollOffset PaintLayerScrollableArea::GetScrollOffset() const {
@@ -1847,12 +1843,11 @@ void PaintLayerScrollableArea::ComputeScrollbarExistence(
     if (h_mode == mojom::blink::ScrollbarMode::kAuto) {
       // Don't add auto scrollbars if the box contents aren't visible.
       needs_horizontal_scrollbar =
-          GetLayoutBox()->IsRooted() && HasHorizontalOverflow() &&
+          HasHorizontalOverflow() &&
           VisibleContentRect(kIncludeScrollbars).height();
     }
     if (v_mode == mojom::blink::ScrollbarMode::kAuto) {
-      needs_vertical_scrollbar = GetLayoutBox()->IsRooted() &&
-                                 HasVerticalOverflow() &&
+      needs_vertical_scrollbar = HasVerticalOverflow() &&
                                  VisibleContentRect(kIncludeScrollbars).width();
     }
   }
@@ -2235,7 +2230,7 @@ void PaintLayerScrollableArea::UpdateScrollCornerStyle() {
       scroll_corner_ = LayoutCustomScrollbarPart::CreateAnonymous(
           GetLayoutBox()->GetDocument(), this);
     }
-    scroll_corner_->SetStyle(std::move(corner));
+    scroll_corner_->SetStyle(*corner);
   } else if (scroll_corner_) {
     scroll_corner_->Destroy();
     scroll_corner_ = nullptr;
@@ -2360,7 +2355,7 @@ void PaintLayerScrollableArea::UpdateResizerStyle(
       resizer_ = LayoutCustomScrollbarPart::CreateAnonymous(
           GetLayoutBox()->GetDocument(), this);
     }
-    resizer_->SetStyle(std::move(resizer));
+    resizer_->SetStyle(*resizer);
   } else if (resizer_) {
     resizer_->Destroy();
     resizer_ = nullptr;

@@ -12,10 +12,12 @@
 #include "chrome/browser/ui/page_action/page_action_icon_type.h"
 #include "chrome/browser/ui/page_action/page_action_observer.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/location_bar/location_bar_view.h"
 #include "chrome/browser/ui/views/page_action/page_action_container_view.h"
 #include "chrome/browser/ui/views/page_action/page_action_view.h"
+#include "chrome/browser/ui/views/page_action/test_support/page_action_test_accessor.h"
 #include "chrome/browser/ui/views/webid/fedcm_account_selection_view_desktop.h"
 #include "chrome/browser/ui/webid/identity_ui_utils.h"
 #include "chrome/test/base/in_process_browser_test.h"
@@ -25,6 +27,8 @@
 #include "content/public/test/browser_test.h"
 #include "content/public/test/test_navigation_observer.h"
 #include "testing/gmock/include/gmock/gmock.h"
+#include "ui/base/page_transition_types.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/events/event.h"
 
 namespace webid {
@@ -596,25 +600,10 @@ IN_PROC_BROWSER_TEST_F(FedCmAmbientUiBrowserTest, CollectsSignInMetrics) {
                                PageActionIconType::kFederation, 1);
 
   // Simulate click on the omnibox chip.
-  // Note: We use the real PageActionView and simulate mouse events to ensure
-  // that the PageAction framework's metric recording logic is triggered.
-  // Simply calling view()->OnPageActionClicked() would bypass the PageAction
-  // framework's CTR logging.
-  // TODO(crbug.com/493584925): consider using the ui::test::EventGenerator or
-  // views::test::InteractionTestUtilSimulatorViews to simulate the events.
-  BrowserView* browser_view = BrowserView::GetBrowserViewForBrowser(browser());
-  auto* page_action_view = browser_view->GetLocationBarView()
-                               ->page_action_container()
-                               ->GetPageActionView(kActionFederation);
-  ASSERT_TRUE(page_action_view);
-  ui::MouseEvent click_event(
-      ui::EventType::kMousePressed, gfx::Point(), gfx::Point(),
-      base::TimeTicks(), ui::EF_LEFT_MOUSE_BUTTON, ui::EF_LEFT_MOUSE_BUTTON);
-  page_action_view->OnEvent(&click_event);
-  ui::MouseEvent release_event(
-      ui::EventType::kMouseReleased, gfx::Point(), gfx::Point(),
-      base::TimeTicks(), ui::EF_LEFT_MOUSE_BUTTON, ui::EF_LEFT_MOUSE_BUTTON);
-  page_action_view->OnEvent(&release_event);
+  // Note: We use PageActionTestAccessor to simulate clicks so that both Views
+  // and WebUI toolbar implementations are supported and trigger the PageAction
+  // framework's metric recording logic.
+  page_actions::PageActionTestAccessor(browser(), kActionFederation).Click();
   histograms.ExpectBucketCount("Blink.FedCm.Ambient.ClickSource",
                                AmbientClick::kSignInChip, 1);
   // Re-assert shown metrics after the chip was clicked.
@@ -683,22 +672,10 @@ IN_PROC_BROWSER_TEST_F(FedCmAmbientUiBrowserTest, CollectsSignUpMetrics) {
   EXPECT_CALL(*delegate_, OnAccountsDisplayed);
 
   // Simulate click on the omnibox chip.
-  // Note: We use the real PageActionView and simulate mouse events to ensure
-  // that the PageAction framework's metric recording logic is triggered.
-  BrowserView* browser_view = BrowserView::GetBrowserViewForBrowser(browser());
-  auto* page_action_view = browser_view->GetLocationBarView()
-                               ->page_action_container()
-                               ->GetPageActionView(kActionFederation);
-  ASSERT_TRUE(page_action_view);
-  ui::MouseEvent click_event(
-      ui::EventType::kMousePressed, gfx::Point(), gfx::Point(),
-      base::TimeTicks(), ui::EF_LEFT_MOUSE_BUTTON, ui::EF_LEFT_MOUSE_BUTTON);
-  page_action_view->OnEvent(&click_event);
-  ui::MouseEvent release_event(
-      ui::EventType::kMouseReleased, gfx::Point(), gfx::Point(),
-      base::TimeTicks(), ui::EF_LEFT_MOUSE_BUTTON, ui::EF_LEFT_MOUSE_BUTTON);
-  page_action_view->OnEvent(&release_event);
-
+  // Note: We use PageActionTestAccessor to simulate clicks so that both Views
+  // and WebUI toolbar implementations are supported and trigger the PageAction
+  // framework's metric recording logic.
+  page_actions::PageActionTestAccessor(browser(), kActionFederation).Click();
   histograms.ExpectBucketCount("Blink.FedCm.Ambient.ClickSource",
                                AmbientClick::kSignUpChip, 1);
 
@@ -713,7 +690,10 @@ IN_PROC_BROWSER_TEST_F(FedCmAmbientUiBrowserTest, CollectsSignUpMetrics) {
   // being recorded.
 
   // Select the first account to complete the flow.
-  view()->OnAccountSelected(accounts_[0], release_event);
+  ui::MouseEvent event(ui::EventType::kMouseReleased, gfx::Point(),
+                       gfx::Point(), base::TimeTicks(),
+                       ui::EF_LEFT_MOUSE_BUTTON, ui::EF_LEFT_MOUSE_BUTTON);
+  view()->OnAccountSelected(accounts_[0], event);
 
   // In a fully integrated browser test (without MockDelegate), we would
   // expect the success status (Blink.FedCm.Status.RequestIdToken) to be

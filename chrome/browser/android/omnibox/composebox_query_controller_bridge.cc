@@ -48,6 +48,7 @@
 #include "components/page_content_annotations/content/page_content_extraction_service.h"
 #include "components/page_content_annotations/core/page_content_annotations_features.h"
 #include "components/sessions/content/session_tab_helper.h"
+#include "components/sessions/core/session_id.h"
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/web_contents.h"
 #include "mojo/public/cpp/base/big_buffer.h"
@@ -274,6 +275,24 @@ std::string ComposeboxQueryControllerBridge::AddFile(
   return file_token.ToString();
 }
 
+std::string ComposeboxQueryControllerBridge::AddDriveFile(
+    const std::string& drive_id,
+    const std::optional<std::string>& resource_key,
+    const std::string& file_name,
+    const std::string& mime_type) {
+  base::UnguessableToken file_token = session_handle_->CreateContextToken();
+
+  contextual_search::ContextualSearchSessionHandle::DriveUploadParams params{
+      .drive_id = drive_id,
+      .resource_key = resource_key,
+      .mime_type = mime_type,
+      .file_name = file_name,
+  };
+  session_handle_->StartDriveContextUploadFlow(file_token, params);
+
+  return file_token.ToString();
+}
+
 std::string ComposeboxQueryControllerBridge::AddTabContext(
     content::WebContents* web_contents,
     bool is_suggested_tab) {
@@ -397,22 +416,6 @@ void ComposeboxQueryControllerBridge::ContextualizeAndCreateSearchUrl(
   query_contextualizer_->Contextualize(std::move(params));
 }
 
-void ComposeboxQueryControllerBridge::GetAimUrl(
-    GURL url,
-    base::OnceCallback<void(GURL)> callback) {
-  ContextualizeAndCreateSearchUrl(
-      CreateSearchUrlRequestInfoFromUrl(std::move(url)), std::move(callback));
-}
-
-void ComposeboxQueryControllerBridge::GetImageGenerationUrl(
-    GURL url,
-    base::OnceCallback<void(GURL)> callback) {
-  auto search_url_request_info =
-      CreateSearchUrlRequestInfoFromUrl(std::move(url));
-  search_url_request_info->additional_params["imgn"] = "1";
-  ContextualizeAndCreateSearchUrl(std::move(search_url_request_info),
-                                  std::move(callback));
-}
 
 void ComposeboxQueryControllerBridge::GetAimUrlFromInputState(
     GURL url,
@@ -451,12 +454,6 @@ bool ComposeboxQueryControllerBridge::IsPdfUploadEligible() {
   AimEligibilityService* aim_service =
       AimEligibilityServiceFactory::GetForProfile(profile_);
   return aim_service && aim_service->IsPdfUploadEligible();
-}
-
-bool ComposeboxQueryControllerBridge::IsCreateImagesEligible() {
-  AimEligibilityService* aim_service =
-      AimEligibilityServiceFactory::GetForProfile(profile_);
-  return aim_service && aim_service->IsCreateImagesEligible();
 }
 
 void ComposeboxQueryControllerBridge::SetActiveTool(
@@ -683,29 +680,26 @@ void ComposeboxQueryControllerBridge::OnTaskChanged() {
 }
 
 void ComposeboxQueryControllerBridge::InitializeInputStateModel() {
-  if (OmniboxFieldTrial::kOmniboxShowModelPicker.Get()) {
-    AimEligibilityService* aim_service =
-        AimEligibilityServiceFactory::GetForProfile(profile_);
-    auto* ui_service = profile_
-                           ? contextual_tasks::ContextualTasksUiServiceFactory::
-                                 GetForBrowserContext(profile_)
-                           : nullptr;
-    bool is_signed_in =
-        ui_service && ui_service->IsSignedInToBrowserWithValidCredentials();
-    bool browser_identity_matches_aim_identity =
-        is_signed_in && ui_service->IsUrlForPrimaryAccount(GURL());
-    const omnibox::SearchboxConfig* config_ptr =
-        aim_service->GetSearchboxConfig();
-    input_state_model_ = std::make_unique<contextual_search::InputStateModel>(
-        *session_handle_, config_ptr ? *config_ptr : omnibox::SearchboxConfig(),
-        GURL(), profile_ ? profile_->IsOffTheRecord() : false, is_signed_in,
-        browser_identity_matches_aim_identity);
-    input_state_subscription_ =
-        input_state_model_->subscribe(base::BindRepeating(
-            &ComposeboxQueryControllerBridge::OnInputStateChanged,
-            weak_ptr_factory_.GetWeakPtr()));
-    input_state_model_->Initialize();
-  }
+  AimEligibilityService* aim_service =
+      AimEligibilityServiceFactory::GetForProfile(profile_);
+  auto* ui_service = profile_
+                         ? contextual_tasks::ContextualTasksUiServiceFactory::
+                               GetForBrowserContext(profile_)
+                         : nullptr;
+  bool is_signed_in =
+      ui_service && ui_service->IsSignedInToBrowserWithValidCredentials();
+  bool browser_identity_matches_aim_identity =
+      is_signed_in && ui_service->IsUrlForPrimaryAccount(GURL());
+  const omnibox::SearchboxConfig* config_ptr =
+      aim_service->GetSearchboxConfig();
+  input_state_model_ = std::make_unique<contextual_search::InputStateModel>(
+      *session_handle_, config_ptr ? *config_ptr : omnibox::SearchboxConfig(),
+      GURL(), profile_ ? profile_->IsOffTheRecord() : false, is_signed_in,
+      browser_identity_matches_aim_identity);
+  input_state_subscription_ = input_state_model_->subscribe(
+      base::BindRepeating(&ComposeboxQueryControllerBridge::OnInputStateChanged,
+                          weak_ptr_factory_.GetWeakPtr()));
+  input_state_model_->Initialize();
 }
 
 void ComposeboxQueryControllerBridge::UpdateStateFromUrl(const GURL& url) {

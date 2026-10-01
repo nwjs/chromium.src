@@ -239,7 +239,9 @@ TabStripActionContainer::TabStripActionContainer(
       this);
 
   if (glic::GlicEnabling::IsProfileEligible(
-          browser_window_interface_->GetProfile())) {
+          browser_window_interface_->GetProfile()) &&
+      !base::FeatureList::IsEnabled(
+          features::kGlicHorizontalTabToolbarButton)) {
     if (base::FeatureList::IsEnabled(features::kGlicActorUi) &&
         features::kGlicActorUiTaskIcon.Get()) {
       glic_actor_button_container_ =
@@ -280,6 +282,7 @@ TabStripActionContainer::TabStripActionContainer(
             base::BindRepeating(&TabStripActionContainer::DidBecomeInactive,
                                 base::Unretained(this))));
     separator_ = AddChildView(std::move(separator));
+    UpdateSeparatorVisibility();
 #endif  // !BUILDFLAG(IS_MAC)
   }
 
@@ -349,9 +352,7 @@ void TabStripActionContainer::SetGlicShowState(bool show) {
   if (glic_button_) {
     UpdateGlicButtonVisibility(show);
   }
-  if (separator_) {
-    separator_->SetVisible(show);
-  }
+  UpdateSeparatorVisibility();
 }
 
 void TabStripActionContainer::SetGlicPanelIsOpen(bool open) {
@@ -458,7 +459,7 @@ void TabStripActionContainer::SetGlicActorNudgeLabel(
 }
 
 void TabStripActionContainer::TriggerGlicActorNudge(
-    const std::u16string& nudge_text) {
+    const std::u16string& nudge_label) {
   if (!glic_button_ || !glic_actor_task_icon_) {
     return;
   }
@@ -469,7 +470,7 @@ void TabStripActionContainer::TriggerGlicActorNudge(
     HideTabStripNudge(glic_button_);
     OnGlicButtonAnimationEnded();
   }
-  ShowGlicActorNudge(nudge_text);
+  ShowGlicActorNudge(nudge_label);
 }
 
 void TabStripActionContainer::SetGlicActorNudgePressedState(bool pressed) {
@@ -513,14 +514,14 @@ bool TabStripActionContainer::IsActorTaskListBubbleShowing() {
 }
 
 void TabStripActionContainer::ShowGlicActorNudge(
-    const std::u16string& nudge_text) {
+    const std::u16string& nudge_label) {
   if (!glic_button_ || !glic_actor_task_icon_) {
     return;
   }
   // Start animation for minimizing the glic button.
   glic_button_->Collapse();
   ShowGlicActorTaskIcon();
-  glic_actor_task_icon_->ShowNudgeLabel(nudge_text);
+  glic_actor_task_icon_->ShowNudgeLabel(nudge_label);
   ShowTabStripNudge(glic_actor_task_icon_);
 }
 
@@ -960,6 +961,7 @@ void TabStripActionContainer::FinalizeHideGlicActorTaskIcon() {
 #if !BUILDFLAG(IS_MAC)
   // Re-add the separator so it's ordered after the GlicButton.
   separator_ = AddChildView(std::move(separator_));
+  UpdateSeparatorVisibility();
 #endif  // !BUILDFLAG(IS_MAC)
 }
 
@@ -991,6 +993,17 @@ void TabStripActionContainer::UpdateGlicButtonVisibility(bool should_show) {
     // glic_button_.
     glic_actor_button_container_->SetVisible(is_glic_visible);
   }
+}
+
+void TabStripActionContainer::UpdateSeparatorVisibility() {
+  if (!separator_) {
+    return;
+  }
+
+  const bool has_visible_button =
+      (glic_button_ && glic_button_->GetVisible()) ||
+      (geic_button_ && geic_button_->GetVisible());
+  separator_->SetVisible(has_visible_button);
 }
 
 BEGIN_METADATA(TabStripActionContainer)

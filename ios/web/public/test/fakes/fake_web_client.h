@@ -14,9 +14,6 @@
 #include "net/ssl/ssl_info.h"
 #include "url/gurl.h"
 
-@class CRWFakeFindSession;
-@class UIFindSession;
-
 namespace web {
 
 class BrowserState;
@@ -54,9 +51,7 @@ class FakeWebClient : public web::WebClient {
   UserAgentType GetDefaultUserAgent(web::WebState* web_state,
                                     const GURL& url) const override;
   bool IsSmoothScrollingSupported() const override;
-
-  // Sets `plugin_not_supported_text_`.
-  void SetPluginNotSupportedText(const std::u16string& text);
+  bool IsUniversalOptOutEnabled(BrowserState* browser_state) const override;
 
   // Changes Java Script Features for testing.
   void SetJavaScriptFeatures(std::vector<JavaScriptFeature*> features);
@@ -64,9 +59,9 @@ class FakeWebClient : public web::WebClient {
   void SetDefaultUserAgent(UserAgentType type) { default_user_agent_ = type; }
 
  private:
-  std::u16string plugin_not_supported_text_;
   std::vector<JavaScriptFeature*> java_script_features_;
   UserAgentType default_user_agent_ = UserAgentType::MOBILE;
+  bool universal_opt_out_enabled_ = false;
 };
 
 }  // namespace web

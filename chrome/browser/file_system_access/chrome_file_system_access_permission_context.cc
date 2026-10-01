@@ -282,6 +282,8 @@ bool ContainsInvalidDNSCharacter(base::FilePath::StringType hostname) {
   return false;
 }
 
+// Returns true if the path is a Universal Naming Convention (UNC) path pointing
+// to a local system path, device namespace, or WSL loopback redirector.
 bool MaybeIsLocalUNCPath(const base::FilePath& path) {
   if (!path.IsNetwork()) {
     return false;
@@ -296,6 +298,10 @@ bool MaybeIsLocalUNCPath(const base::FilePath& path) {
   if (components.size() >= 2 &&
       (base::FilePath::CompareEqualIgnoreCase(components[1],
                                               FILE_PATH_LITERAL("localhost")) ||
+       base::FilePath::CompareEqualIgnoreCase(
+           components[1], FILE_PATH_LITERAL("wsl.localhost")) ||
+       base::FilePath::CompareEqualIgnoreCase(
+           components[1], FILE_PATH_LITERAL("wsl.localhost.")) ||
        components[1] == FILE_PATH_LITERAL("127.0.0.1") ||
        components[1] == FILE_PATH_LITERAL(".") ||
        components[1] == FILE_PATH_LITERAL("?") ||
@@ -397,6 +403,10 @@ GenerateBlockPaths(bool should_normalize_file_path) {
       // And limit access to ~/.gnupg as well.
       BlockPath::CreateRelative(base::DIR_HOME, FILE_PATH_LITERAL(".gnupg"),
                                 BlockType::kBlockAllChildren),
+      // Block write access to */.git/hooks, see crbug.com/465668234 and
+      // crbug.com/553115714.
+      BlockPath::CreateSuffix(FILE_PATH_LITERAL(".git/hooks"),
+                              BlockType::kBlockWrite),
 #if BUILDFLAG(IS_WIN)
       // Some Windows specific directories to block, basically all apps, the
       // operating system itself, as well as configuration data for apps.
@@ -420,9 +430,6 @@ GenerateBlockPaths(bool should_normalize_file_path) {
       // directory, but not whole directories.
       BlockPath::CreateRelative(base::DIR_IE_INTERNET_CACHE,
                                 BlockType::kBlockNestedDirectories),
-      // Block */.git/hooks on Windows, see crbug.com/465668234.
-      BlockPath::CreateSuffix(FILE_PATH_LITERAL(".git/hooks"),
-                              BlockType::kBlockWrite),
 #endif
 #if BUILDFLAG(IS_MAC)
       // Similar Mac specific blocks.
@@ -630,9 +637,9 @@ bool ShouldBlockAccessToPath(
   // Checks if the path components contain the components of the suffix rule.
   // For example, if the rule is `.git/hooks`, it will block paths like
   // `/foo/bar/.git/hooks`. The `std::search` identifies the matching subrange
-  // and constructs a `current_path` from the root up to the end of the matched
-  // subrange (e.g., `/foo/bar/.git/hooks`). This path is then evaluated against
-  // the regular block rules.
+  // using case-insensitive comparison and constructs a `current_path` from the
+  // root up to the end of the matched subrange (e.g., `/foo/bar/.git/hooks`).
+  // This path is then evaluated against the regular block rules.
   for (const auto& rule : block_path_rules.suffix_block_path_rules_) {
     base::FilePath rule_path(rule.path);
     std::vector<base::FilePath::StringType> rule_components =
@@ -644,7 +651,8 @@ bool ShouldBlockAccessToPath(
     auto it = path_components.begin();
     while (true) {
       it = std::search(it, path_components.end(), rule_components.begin(),
-                       rule_components.end());
+                       rule_components.end(),
+                       base::FilePath::CompareEqualIgnoreCase);
       if (it == path_components.end()) {
         break;
       }

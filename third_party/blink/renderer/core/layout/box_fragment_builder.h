@@ -53,7 +53,8 @@ class CORE_EXPORT BoxFragmentBuilder final : public FragmentBuilder {
                         space,
                         writing_direction,
                         previous_break_token),
-        is_inline_formatting_context_(node.IsInline()) {}
+        is_inline_formatting_context_(node.IsInline()),
+        is_line_clamp_clipped_float_(space.IsLineClampClippedFloat()) {}
 
   // Build a fragment for LayoutObject without LayoutInputNode. LayoutInline
   // has InlineItem but does not have corresponding LayoutInputNode.
@@ -66,7 +67,8 @@ class CORE_EXPORT BoxFragmentBuilder final : public FragmentBuilder {
                         space,
                         writing_direction,
                         /*previous_break_token=*/nullptr),
-        is_inline_formatting_context_(true) {
+        is_inline_formatting_context_(true),
+        is_line_clamp_clipped_float_(space.IsLineClampClippedFloat()) {
     layout_object_ = layout_object;
   }
 
@@ -480,10 +482,10 @@ class CORE_EXPORT BoxFragmentBuilder final : public FragmentBuilder {
     return false;
   }
 
-  // Return true if we need to break inside this node, the way things are
-  // currently looking. This should only be called at the end of layout, right
-  // before creating a fragment.
-  bool ShouldBreakInside() const {
+  // Return true if we need to break inside this node, due to content needing
+  // space in a subsequent fragmentainer. This should only be called at the end
+  // of layout, after having laid out all children.
+  bool ShouldBreakInsideForContent() const {
     if (HasInsertedChildBreak())
       return true;
     // If there's an outgoing inline break-token at this point, and we're about
@@ -503,6 +505,15 @@ class CORE_EXPORT BoxFragmentBuilder final : public FragmentBuilder {
     // are to start in a later fragmentainer. But we still want the
     // fragmentainer to create a break token, since there's going to be more.
     return has_subsequent_children_;
+  }
+
+  // Return true if the node is going to break, and resume in a subsequent
+  // fragmentainer.
+  //
+  // Calling this before `FinishFragmentation()` has been performed on the node
+  // is undefined behavior.
+  bool ShouldBreak() const {
+    return DidBreakSelf() || ShouldBreakInsideForContent();
   }
 
   // Return true if we need to break before or inside any in-flow child that
@@ -836,6 +847,7 @@ class CORE_EXPORT BoxFragmentBuilder final : public FragmentBuilder {
   bool is_truncated_by_fragmentation_line = false;
   bool use_last_baseline_for_inline_baseline_ = false;
   bool has_moved_children_ = false;
+  bool is_line_clamp_clipped_float_ = false;
 
   // Whether the `text-box-trim` is effective for block-start/end edges of a
   // node.

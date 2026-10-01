@@ -1,0 +1,65 @@
+// Copyright 2026 The Chromium Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+import {html} from '//resources/lit/v3_0/lit.rollup.js';
+
+import type {SettingsSafetyHubModuleElement} from './safety_hub_module.js';
+
+export function getHtml(this: SettingsSafetyHubModuleElement) {
+  return html`<!--_html_template_start_-->
+<div id="headerWrapper">
+  ${this.headerIcon ? html`
+    <cr-icon id="headerIcon"
+      icon="${this.headerIcon}" class="${this.headerIconColor}">
+    </cr-icon>
+  ` : ''}
+  <div id="headerTextWrapper">
+    <h3 id="header">${this.header}</h3>
+    <div id="subheader" class="cr-secondary-text">${this.subheader}</div>
+  </div>
+  <slot name="button-container"></slot>
+</div>
+
+${this.sites && this.sites.length ? html`
+  <div id="line"></div>
+  <div id="siteList">
+    ${this.sites.map((item, index) => html`
+      <div class="list-item site-entry">
+        ${item.icon ? html`
+          <cr-icon class="item-icon" icon="${item.icon}"></cr-icon>
+        ` : html`
+          <site-favicon url="${item.origin}"></site-favicon>
+        `}
+        <div class="display-name cr-padded-text">
+          <div class="site-representation">${item.origin}</div>
+          <div class="cr-secondary-text link"
+              .innerHTML="${this.sanitizeInnerHtml_(item.detail)}">
+          </div>
+        </div>
+        ${this.buttonIcon ? html`
+          <cr-icon-button iron-icon="${this.buttonIcon}" id="mainButton"
+              data-index="${index}"
+              @click="${this.onItemButtonClick_}" actionable
+              aria-label="${this.getButtonAriaLabelForOrigin_(item.origin)}"
+              @focus="${this.onMainButtonFocus_}"
+              @mouseenter="${this.onMainButtonMouseenter_}">
+          </cr-icon-button>
+        ` : ''}
+        ${this.moreActionVisible ? html`
+          <cr-icon-button class="icon-more-vert" id="moreActionButton"
+              data-index="${index}"
+              @click="${this.onMoreActionClick_}" title="$i18n{moreActions}"
+              aria-label="${this.getMoreButtonAriaLabelForOrigin_(item.origin)}"
+              actionable>
+          </cr-icon-button>
+        ` : ''}
+      </div>
+    `)}
+  </div>
+  <cr-tooltip fit-to-visible-bounds manual-mode position="top" offset="3">
+    ${this.buttonTooltipText}
+  </cr-tooltip>
+` : ''}
+<!--_html_template_end_-->`;
+}

@@ -160,6 +160,8 @@ void FakeLocalFrameHost::DownloadURL(
 
 void FakeLocalFrameHost::ShowCaptionSettings() {}
 
+void FakeLocalFrameHost::UpdateToVideoAdFrame() {}
+
 void FakeLocalFrameHost::FocusedElementChanged(
     bool is_editable_element,
     bool is_richly_editable_element,
@@ -289,7 +291,8 @@ void FakeLocalFrameHost::StartDragging(
 
 void FakeLocalFrameHost::IssueKeepAliveHandle(
     mojo::PendingReceiver<mojom::blink::NavigationStateKeepAliveHandle>
-        receiver) {}
+        receiver,
+    const blink::InitiatorStateToken& initiator_state_token) {}
 
 void FakeLocalFrameHost::NotifyStorageAccessed(
     blink::mojom::StorageTypeAccessed storageType,

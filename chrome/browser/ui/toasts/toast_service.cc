@@ -55,6 +55,7 @@
 #include "components/vector_icons/vector_icons.h"
 #include "ui/base/base_window.h"
 #include "ui/base/ui_base_features.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/menus/simple_menu_model.h"
 #include "ui/strings/grit/ui_strings.h"
 
@@ -64,6 +65,9 @@
 
 namespace {
 const gfx::VectorIcon& GetTaskInProgressIcon() {
+  if (base::FeatureList::IsEnabled(features::kGlicActorUiNewIcon)) {
+    return kCursorSparkIcon;
+  }
   return glic::GlicVectorIconManager::GetVectorIcon(IDR_ACTOR_AUTO_BROWSE_ICON);
 }
 }  // namespace
@@ -132,7 +136,7 @@ void ToastService::RegisterToasts(
           .AddActionButton(IDS_READING_LIST_TOAST_BUTTON,
                            base::BindRepeating(
                                [](BrowserWindowInterface* window) {
-                                 window->GetFeatures().side_panel_ui()->Show(
+                                 SidePanelUI::From(window)->Show(
                                      SidePanelEntryId::kReadingList,
                                      SidePanelOpenTrigger::kReadingListToast);
                                },
@@ -147,6 +151,17 @@ void ToastService::RegisterToasts(
                                       : kTrashCanRefreshOldIcon,
                                   IDS_CLEAR_BROWSING_DATA_TOAST_BODY)
           .Build());
+
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
+  toast_registry_->RegisterToast(
+      ToastId::kScheduledRestartOnIdle,
+      ToastSpecification::Builder(features::IsRoundedIconsEnabled()
+                                      ? kChromeProductIcon
+                                      : kBrowserLogoOldIcon,
+                                  IDS_RELAUNCH_RECOMMENDED_SCHEDULED_IDLE_TOAST)
+          .AddGlobalScoped()
+          .Build());
+#endif
 
   // TODO(crbug.com/357930023): This registration only partially implements the
   // non-milestone update toast for testing purposes and will need to be
@@ -333,6 +348,10 @@ void ToastService::RegisterToasts(
           .SetPersistOnNavigation()
           .AddMenu()
           .Build());
+
+  toast_registry_->RegisterToast(
+      ToastId::kEmailVerificationLoading,
+      ToastSpecification::Builder().SetHasThrobber().Build());
 
   toast_registry_->RegisterToast(
       ToastId::kGlicShareImageFailed,

@@ -47,10 +47,8 @@ void HistorySyncOptinServiceDefaultDelegate::ShowHistorySyncOptinScreen(
         .Run(HistorySyncOptinHelper::ScreenChoiceResult::kScreenSkipped);
     return;
   }
-  browser->GetFeatures()
-      .signin_view_controller()
-      ->ShowModalHistorySyncOptInDialog(/*should_close_modal_dialog=*/true,
-                                        std::move(callback));
+  SigninViewController::From(browser)->ShowModalHistorySyncOptInDialog(
+      /*should_close_modal_dialog=*/true, std::move(callback));
 }
 
 void HistorySyncOptinServiceDefaultDelegate::ShowAccountManagementScreen(
@@ -263,6 +261,8 @@ void HistorySyncOptinService::OnPrimaryAccountChanged(
     case signin_metrics::AccessPoint::kCctAccountMismatchNotification:
     case signin_metrics::AccessPoint::kDriveFilePickerIos:
     case signin_metrics::AccessPoint::kGlicLaunchButton:
+    case signin_metrics::AccessPoint::kSkills:
+    case signin_metrics::AccessPoint::kAccountMenuSignedOutState:
     case signin_metrics::AccessPoint::kIndigo:
     case signin_metrics::AccessPoint::kHistoryPage:
     case signin_metrics::AccessPoint::kHistorySyncOptinExpansionPillOnStartup:

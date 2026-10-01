@@ -5,6 +5,7 @@
 #import "ios/chrome/browser/cobrowse/ui/assistant_aim_history_view_controller.h"
 
 #import "base/strings/sys_string_conversions.h"
+#import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/ui/symbols/symbols.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
 #import "ios/chrome/common/ui/util/constraints_ui_util.h"
@@ -144,7 +145,8 @@ NSString* const kHistorySectionIdentifier = @"kHistorySectionIdentifier";
 - (UIContextMenuConfiguration*)collectionView:(UICollectionView*)collectionView
     contextMenuConfigurationForItemAtIndexPath:(NSIndexPath*)indexPath
                                          point:(CGPoint)point {
-  if (static_cast<size_t>(indexPath.row) >= _items.size()) {
+  if (!IsAimHistoryThreadsManagementEnabled() ||
+      static_cast<size_t>(indexPath.row) >= _items.size()) {
     return nil;
   }
 

@@ -158,7 +158,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Accessibility.Android.CaretBrowsing.Enabled"
-    enum="BooleanEnabled" expires_after="2027-01-03">
+    enum="BooleanEnabled" expires_after="2027-03-07">
   <owner>lokeric@google.com</owner>
   <owner>mschillaci@google.com</owner>
   <owner>chrome-a11y-core@google.com</owner>
@@ -166,7 +166,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Accessibility.Android.CaretBrowsing.SelectedAction"
-    enum="AccessibilityCaretBrowsingAction" expires_after="2027-01-03">
+    enum="AccessibilityCaretBrowsingAction" expires_after="2027-03-07">
   <owner>lokeric@google.com</owner>
   <owner>mschillaci@google.com</owner>
   <owner>chrome-a11y-core@google.com</owner>
@@ -176,6 +176,7 @@ chromium-metrics-reviews@google.com.
 <histogram name="Accessibility.Android.ContentChanged.Subtree"
     enum="BooleanUsage" expires_after="2027-04-09">
   <owner>gmarcoesau@google.com</owner>
+  <owner>aerynm@google.com</owner>
   <owner>chrome-a11y-core@google.com</owner>
   <summary>
     Will count the amount of times we call an event with either
@@ -480,8 +481,9 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Accessibility.Android.Performance.FakeCache.NodeLifetime"
-    units="ms" expires_after="2026-09-02">
+    units="ms" expires_after="2027-04-09">
   <owner>gmarcoesau@google.com</owner>
+  <owner>aerynm@google.com</owner>
   <owner>chrome-a11y-core@google.com</owner>
   <summary>
     Tracks how long (in milliseconds) a node lived in the fake Android cache.
@@ -490,8 +492,9 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Accessibility.Android.Performance.FakeCache.Size"
-    units="nodes" expires_after="2026-09-02">
+    units="nodes" expires_after="2027-04-09">
   <owner>gmarcoesau@google.com</owner>
+  <owner>aerynm@google.com</owner>
   <owner>chrome-a11y-core@google.com</owner>
   <summary>Tracks the size of the fake Android cache.</summary>
 </histogram>
@@ -499,6 +502,7 @@ chromium-metrics-reviews@google.com.
 <histogram name="Accessibility.Android.Performance.FakeCache.{Metric}"
     units="%" expires_after="2027-04-09">
   <owner>gmarcoesau@google.com</owner>
+  <owner>aerynm@google.com</owner>
   <owner>chrome-a11y-core@google.com</owner>
   <summary>
     {Metric} which will be recorded every time a validation is performed on the
@@ -579,7 +583,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Accessibility.Android.RunningAccessibilityTools"
-    enum="AccessibilityAndroidAccessibilityTools" expires_after="2026-12-20">
+    enum="AccessibilityAndroidAccessibilityTools" expires_after="2027-02-28">
   <owner>aaronmoss@google.com</owner>
   <owner>davidsegovia@google.com</owner>
   <owner>chrome-a11y-core@google.com</owner>
@@ -1046,6 +1050,74 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="Accessibility.ChromeVox.Tenji.BackTranslate.Result"
+    enum="BooleanSuccess" expires_after="2027-09-01">
+  <owner>dtseng@chromium.org</owner>
+  <owner>orko@igalia.com</owner>
+  <owner>chrome-a11y-core@google.com</owner>
+  <summary>
+    Records whether a request to back-translate braille cells typed on a
+    hardware braille display to a Kana reading, via the Tenji WASM library,
+    succeeded or failed. Recorded once per back-translation request made by
+    ChromeVox (ChromeOS) while Japanese braille input is active.
+  </summary>
+</histogram>
+
+<histogram name="Accessibility.ChromeVox.Tenji.Convert.Latency" units="ms"
+    expires_after="2027-09-01">
+  <owner>dtseng@chromium.org</owner>
+  <owner>orko@igalia.com</owner>
+  <owner>chrome-a11y-core@google.com</owner>
+  <summary>
+    The duration of a successful request to convert a Kana reading to Kanji
+    candidates via the Mozc engine compiled into the Tenji WASM module. Recorded
+    once per successful conversion request made by ChromeVox (ChromeOS) while
+    Japanese braille input is active.
+  </summary>
+</histogram>
+
+<histogram name="Accessibility.ChromeVox.Tenji.Convert.Result"
+    enum="BooleanSuccess" expires_after="2027-09-01">
+  <owner>dtseng@chromium.org</owner>
+  <owner>orko@igalia.com</owner>
+  <owner>chrome-a11y-core@google.com</owner>
+  <summary>
+    Records whether a request to convert a Kana reading to Kanji candidates via
+    the Mozc engine compiled into the Tenji WASM module succeeded or failed. A
+    conversion that succeeds but returns no candidates still counts as a success
+    (no candidates being available is a valid, non-error result). Recorded once
+    per conversion request made by ChromeVox (ChromeOS) while Japanese braille
+    input is active.
+  </summary>
+</histogram>
+
+<histogram name="Accessibility.ChromeVox.Tenji.Init.Result"
+    enum="BooleanSuccess" expires_after="2027-09-01">
+  <owner>dtseng@chromium.org</owner>
+  <owner>orko@igalia.com</owner>
+  <owner>chrome-a11y-core@google.com</owner>
+  <summary>
+    Records whether initializing the Tenji WASM module succeeded or failed,
+    covering both the tenji-dlc install and starting the sandboxed worker that
+    loads the module. Recorded once per initialization attempt made by ChromeVox
+    (ChromeOS) the first time Japanese braille translation or input is used in a
+    session.
+  </summary>
+</histogram>
+
+<histogram name="Accessibility.ChromeVox.Tenji.Translate.Result"
+    enum="BooleanSuccess" expires_after="2027-09-01">
+  <owner>dtseng@chromium.org</owner>
+  <owner>orko@igalia.com</owner>
+  <owner>chrome-a11y-core@google.com</owner>
+  <summary>
+    Records whether a request to translate text to Tenji braille cells, via the
+    Tenji WASM library, succeeded or failed. Recorded once per translation
+    request made by ChromeVox (ChromeOS) while Tenji is the active braille
+    translator.
+  </summary>
+</histogram>
+
 <histogram name="Accessibility.CrosAutoclick.TrayMenu.ChangeAction"
     enum="AutoclickActionType" expires_after="2027-06-01">
   <owner>katie@chromium.org</owner>
@@ -1224,7 +1296,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Accessibility.CrosDisableTouchpad" enum="BooleanEnabled"
-    expires_after="2026-12-06">
+    expires_after="2027-02-28">
   <owner>lkupo@chromium.org</owner>
   <owner>chrome-a11y-core@google.com</owner>
   <summary>
@@ -1746,6 +1818,32 @@ recorded in the same way, even if they fit the naming pattern. -->
   </summary>
 </histogram>
 
+<histogram name="Accessibility.DlcInstallerTenjiInstallationDuration"
+    units="ms" expires_after="2027-09-01">
+  <owner>dtseng@chromium.org</owner>
+  <owner>orko@igalia.com</owner>
+  <owner>chrome-a11y-core@google.com</owner>
+  <summary>
+    The Tenji DLC installation is triggered when a feature using the DLC
+    (Japanese braille translation and input in ChromeVox) is enabled. This
+    histogram records the time taken to successfully install the Tenji DLC. Note
+    that this histogram is not recorded if the installation fails.
+  </summary>
+</histogram>
+
+<histogram name="Accessibility.DlcInstallerTenjiInstallationSuccess"
+    enum="BooleanSuccess" expires_after="2027-09-01">
+  <owner>dtseng@chromium.org</owner>
+  <owner>orko@igalia.com</owner>
+  <owner>chrome-a11y-core@google.com</owner>
+  <summary>
+    The Tenji DLC installation is triggered when a feature using the DLC
+    (Japanese braille translation and input in ChromeVox) is enabled. This
+    histogram is recorded once when Tenji DLC installation finishes with either
+    success or failure.
+  </summary>
+</histogram>
+
 <histogram name="Accessibility.EngineUse.PageNavsUntilStart" units="count"
     expires_after="2027-06-01">
   <owner>mschillaci@google.com</owner>
@@ -2240,7 +2338,7 @@ recorded in the same way, even if they fit the naming pattern. -->
 </histogram>
 
 <histogram name="Accessibility.LiveTranslate.GetTranslation.TargetLanguage"
-    enum="LocaleCodeBCP47" expires_after="2026-12-27">
+    enum="LocaleCodeBCP47" expires_after="2027-02-28">
   <owner>danft@google.com</owner>
   <owner>evliu@google.com</owner>
   <owner>chrome-media-ux@google.com</owner>
@@ -2269,7 +2367,7 @@ recorded in the same way, even if they fit the naming pattern. -->
 </histogram>
 
 <histogram name="Accessibility.LiveTranslate.OnDeviceTranslation.ErrorReason"
-    enum="OnDeviceTranslationErrorReason" expires_after="2027-01-01">
+    enum="OnDeviceTranslationErrorReason" expires_after="2027-03-07">
   <owner>danft@google.com</owner>
   <owner>chrome-a11y-core@google.com</owner>
   <summary>
@@ -3047,7 +3145,7 @@ recorded in the same way, even if they fit the naming pattern. -->
 <histogram
     name="Accessibility.ReadAnything.DistillationQuality.EvaluationStatus"
     enum="ReadAnythingDistillationQualityEvaluationStatus"
-    expires_after="2027-01-01">
+    expires_after="2027-03-07">
   <owner>alfredohiguera@google.com</owner>
   <owner>chrome-a11y-core@google.com</owner>
   <summary>
@@ -3060,7 +3158,7 @@ recorded in the same way, even if they fit the naming pattern. -->
 </histogram>
 
 <histogram name="Accessibility.ReadAnything.DistillationQuality.{Metric}"
-    units="%" expires_after="2027-01-01">
+    units="%" expires_after="2027-03-07">
   <owner>alfredohiguera@google.com</owner>
   <owner>chrome-irm-devs@google.com</owner>
   <summary>
@@ -3080,7 +3178,7 @@ recorded in the same way, even if they fit the naming pattern. -->
 </histogram>
 
 <histogram name="Accessibility.ReadAnything.DistillationScheme"
-    enum="ReadAnythingDistillationScheme" expires_after="2027-01-01">
+    enum="ReadAnythingDistillationScheme" expires_after="2027-03-07">
   <owner>davidsegovia@google.com</owner>
   <owner>ammedina@google.com</owner>
   <owner>chrome-a11y-core@google.com</owner>
@@ -3091,7 +3189,7 @@ recorded in the same way, even if they fit the naming pattern. -->
 </histogram>
 
 <histogram name="Accessibility.ReadAnything.DistillationStatusAfterOmnibox"
-    enum="ReadAnythingDistillationStatus" expires_after="2027-01-03">
+    enum="ReadAnythingDistillationStatus" expires_after="2027-03-07">
   <owner>kristislee@google.com</owner>
   <owner>komo-eng@google.com</owner>
   <summary>
@@ -3168,7 +3266,7 @@ recorded in the same way, even if they fit the naming pattern. -->
 </histogram>
 
 <histogram name="Accessibility.ReadAnything.EntryPointAfterOmnibox"
-    enum="ReadAnythingOpenTrigger" expires_after="2026-12-20">
+    enum="ReadAnythingOpenTrigger" expires_after="2027-02-28">
   <owner>kristislee@google.com</owner>
   <owner>komo-eng@google.com</owner>
   <summary>
@@ -3196,7 +3294,7 @@ recorded in the same way, even if they fit the naming pattern. -->
 </histogram>
 
 <histogram name="Accessibility.ReadAnything.HiddenBeforeShown"
-    enum="BooleanYesNo" expires_after="2027-01-01">
+    enum="BooleanYesNo" expires_after="2027-03-07">
   <owner>gusmartin@google.com</owner>
   <owner>chrome-irm-devs@google.com</owner>
   <summary>
@@ -3236,7 +3334,7 @@ recorded in the same way, even if they fit the naming pattern. -->
 </histogram>
 
 <histogram name="Accessibility.ReadAnything.LineFocusKeyboardToggle"
-    enum="Boolean" expires_after="2027-01-01">
+    enum="Boolean" expires_after="2027-03-07">
   <owner>kristislee@google.com</owner>
   <owner>komo-eng@google.com</owner>
   <summary>
@@ -3307,7 +3405,7 @@ recorded in the same way, even if they fit the naming pattern. -->
 </histogram>
 
 <histogram name="Accessibility.ReadAnything.MainPanelSelectionOnOpen"
-    enum="Boolean" expires_after="2027-01-01">
+    enum="Boolean" expires_after="2027-03-07">
   <owner>gusmartin@google.com</owner>
   <owner>chrome-irm-devs@google.com</owner>
   <summary>
@@ -3490,7 +3588,7 @@ recorded in the same way, even if they fit the naming pattern. -->
 </histogram>
 
 <histogram name="Accessibility.ReadAnything.ReadabilityMapping.SuccessRate"
-    units="%" expires_after="2027-01-01">
+    units="%" expires_after="2027-03-07">
   <owner>gusmartin@google.com</owner>
   <owner>chrome-irm-devs@google.com</owner>
   <summary>
@@ -3502,7 +3600,7 @@ recorded in the same way, even if they fit the naming pattern. -->
 
 <histogram
     name="Accessibility.ReadAnything.ReadabilityMapping.{Step}.ExecutionTime"
-    units="ms" expires_after="2027-01-01">
+    units="ms" expires_after="2027-03-07">
   <owner>gusmartin@google.com</owner>
   <owner>chrome-irm-devs@google.com</owner>
   <summary>
@@ -3555,7 +3653,7 @@ recorded in the same way, even if they fit the naming pattern. -->
 </histogram>
 
 <histogram name="Accessibility.ReadAnything.ReadAloud.PlaybackContext"
-    enum="ReadAnythingPlaybackContext" expires_after="2027-01-01">
+    enum="ReadAnythingPlaybackContext" expires_after="2027-03-07">
   <owner>ericchao@google.com</owner>
   <owner>ammedina@google.com</owner>
   <owner>chrome-a11y-core@google.com</owner>
@@ -3688,7 +3786,7 @@ recorded in the same way, even if they fit the naming pattern. -->
 </histogram>
 
 <histogram name="Accessibility.ReadAnything.ShownDurationMax1Day" units="ms"
-    expires_after="2027-01-01">
+    expires_after="2027-03-07">
   <owner>gusmartin@google.com</owner>
   <owner>chrome-irm-devs@google.com</owner>
   <summary>
@@ -3704,7 +3802,7 @@ recorded in the same way, even if they fit the naming pattern. -->
 </histogram>
 
 <histogram name="Accessibility.ReadAnything.ShowTriggered"
-    enum="ReadAnythingOpenTrigger" expires_after="2027-01-01">
+    enum="ReadAnythingOpenTrigger" expires_after="2027-03-07">
   <owner>gusmartin@google.com</owner>
   <owner>chrome-irm-devs@google.com</owner>
   <summary>
@@ -3714,7 +3812,7 @@ recorded in the same way, even if they fit the naming pattern. -->
 </histogram>
 
 <histogram name="Accessibility.ReadAnything.SidePanelTriggeredByEmptyState"
-    enum="ReadAnythingOpenTrigger" expires_after="2027-01-01">
+    enum="ReadAnythingOpenTrigger" expires_after="2027-03-07">
   <owner>martinglopez@google.com</owner>
   <owner>chrome-irm-devs@google.com</owner>
   <summary>
@@ -3725,7 +3823,7 @@ recorded in the same way, even if they fit the naming pattern. -->
 </histogram>
 
 <histogram name="Accessibility.ReadAnything.SpeechError"
-    enum="ReadAnythingSpeechError" expires_after="2026-12-27">
+    enum="ReadAnythingSpeechError" expires_after="2027-02-28">
   <owner>lwinston@google.com</owner>
   <owner>chrome-a11y-core@google.com</owner>
   <summary>
@@ -3875,7 +3973,7 @@ recorded in the same way, even if they fit the naming pattern. -->
 </histogram>
 
 <histogram name="Accessibility.ReadAnything.WordsDistilled{Type}" units="words"
-    expires_after="2027-01-01">
+    expires_after="2027-03-07">
   <owner>lwinston@google.com</owner>
   <owner>kristislee@google.com</owner>
   <owner>martinglopez@google.com</owner>
@@ -3903,7 +4001,7 @@ recorded in the same way, even if they fit the naming pattern. -->
 </histogram>
 
 <histogram name="Accessibility.ReadAnything.WordsHeard" units="words"
-    expires_after="2026-12-27">
+    expires_after="2027-02-28">
   <owner>kristislee@google.com</owner>
   <owner>komo-eng@google.com</owner>
   <summary>
@@ -4171,16 +4269,16 @@ recorded in the same way, even if they fit the naming pattern. -->
   </summary>
 </histogram>
 
-<histogram name="Accessibility.ScreenAI.VulnerableToTlsDtvCrash" enum="Boolean"
-    expires_after="2027-06-01">
+<histogram name="Accessibility.ScreenAI.VulnerableToTlsDtvCrash2"
+    enum="Boolean" expires_after="2027-06-01">
   <owner>rhalavati@chromium.org</owner>
   <owner>chrome-a11y-core@google.com</owner>
   <summary>
     Records true if the system environment is vulnerable to glibc DTV TLS
-    allocation races (glibc &lt; 2.35 with Static TLS pool exhausted) when
-    Screen AI OCR initialization is attempted, or false otherwise. This metric
-    is recorded during Screen AI OCR initialization, only on Linux and when
-    glibc is used.
+    allocation races (glibc &lt; 2.32, or glibc &lt; 2.35 with Static TLS pool
+    exhausted) when Screen AI OCR initialization is attempted, or false
+    otherwise. This metric is recorded during Screen AI OCR initialization, only
+    on Linux and when glibc is used.
   </summary>
 </histogram>
 

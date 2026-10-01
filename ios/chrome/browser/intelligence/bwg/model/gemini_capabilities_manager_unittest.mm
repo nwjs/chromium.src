@@ -17,11 +17,11 @@
 #import "ios/chrome/browser/intelligence/features/features.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/profile/test/test_profile_ios.h"
+#import "ios/chrome/browser/shared/model/profile/test/test_profile_manager_ios.h"
 #import "ios/chrome/browser/signin/model/authentication_service.h"
 #import "ios/chrome/browser/signin/model/authentication_service_factory.h"
 #import "ios/chrome/browser/signin/model/chrome_account_manager_service.h"
 #import "ios/chrome/browser/signin/model/chrome_account_manager_service_factory.h"
-#import "ios/chrome/browser/signin/model/fake_authentication_service_delegate.h"
 #import "ios/chrome/browser/signin/model/fake_system_identity.h"
 #import "ios/chrome/browser/signin/model/fake_system_identity_manager.h"
 #import "ios/chrome/browser/signin/model/identity_manager_factory.h"
@@ -43,8 +43,7 @@ class GeminiCapabilitiesManagerTest : public PlatformTest {
     TestProfileIOS::Builder builder;
     builder.AddTestingFactory(
         AuthenticationServiceFactory::GetInstance(),
-        AuthenticationServiceFactory::GetFactoryWithDelegateForTesting(
-            std::make_unique<FakeAuthenticationServiceDelegate>()));
+        AuthenticationServiceFactory::GetDefaultFactory());
     builder.AddTestingFactory(
         IdentityManagerFactory::GetInstance(),
         base::BindRepeating(IdentityTestEnvironmentBrowserStateAdaptor::
@@ -57,11 +56,11 @@ class GeminiCapabilitiesManagerTest : public PlatformTest {
             [](ProfileIOS* profile) -> std::unique_ptr<KeyedService> {
               return std::make_unique<FakeGeminiService>();
             }));
-    profile_ = std::move(builder).Build();
+    profile_ = profile_manager_.AddProfileWithBuilder(std::move(builder));
 
-    auth_service_ = AuthenticationServiceFactory::GetForProfile(profile_.get());
+    auth_service_ = AuthenticationServiceFactory::GetForProfile(profile_);
     fake_gemini_service_ = static_cast<FakeGeminiService*>(
-        GeminiServiceFactory::GetForProfile(profile_.get()));
+        GeminiServiceFactory::GetForProfile(profile_));
   }
 
   void SetUp() override {
@@ -72,6 +71,9 @@ class GeminiCapabilitiesManagerTest : public PlatformTest {
   }
 
   void TearDown() override {
+    auth_service_ = nullptr;
+    fake_gemini_service_ = nullptr;
+    profile_ = nullptr;
     NSUserDefaults* defaults = app_group::GetCommonGroupUserDefaults();
     [defaults removeObjectForKey:app_group::kChromeCapabilitiesPreference];
     PlatformTest::TearDown();
@@ -84,12 +86,12 @@ class GeminiCapabilitiesManagerTest : public PlatformTest {
 
   web::WebTaskEnvironment task_environment_;
   IOSChromeScopedTestingLocalState scoped_testing_local_state_;
+  TestProfileManagerIOS profile_manager_;
+  raw_ptr<TestProfileIOS> profile_ = nullptr;
   base::test::ScopedFeatureList scoped_feature_list_;
-  std::unique_ptr<TestProfileIOS> profile_;
   raw_ptr<AuthenticationService> auth_service_;
   raw_ptr<FakeGeminiService> fake_gemini_service_;
 };
-
 
 // Tests that when the feature is enabled and there is no signed-in user,
 // SupportsAISummarization is YES and UserIsEligibleForGemini is NO.
@@ -97,7 +99,7 @@ TEST_F(GeminiCapabilitiesManagerTest, FeatureEnabledNoUser) {
   scoped_feature_list_.InitWithFeatures(
       {kPageActionMenu, kAppSwitcherAISummarization}, {});
 
-  GeminiCapabilitiesManagerImpl manager(profile_.get(), auth_service_,
+  GeminiCapabilitiesManagerImpl manager(profile_, auth_service_,
                                         fake_gemini_service_);
   manager.UpdateCapabilities();
   fake_gemini_service_->SetIsEligible(false);
@@ -123,7 +125,7 @@ TEST_F(GeminiCapabilitiesManagerTest, FeatureEnabledWithUser) {
   fake_system_identity_manager()->AddIdentity(identity);
 
   signin::IdentityManager* identity_manager =
-      IdentityManagerFactory::GetForProfile(profile_.get());
+      IdentityManagerFactory::GetForProfile(profile_);
   signin::AccountAvailabilityOptionsBuilder options_builder;
   options_builder.AsPrimary(signin::ConsentLevel::kSignin);
   options_builder.WithGaiaId(identity.gaiaId);
@@ -133,7 +135,7 @@ TEST_F(GeminiCapabilitiesManagerTest, FeatureEnabledWithUser) {
 
   auth_service_->SignIn(identity, signin_metrics::AccessPoint::kStartPage);
 
-  GeminiCapabilitiesManagerImpl manager(profile_.get(), auth_service_,
+  GeminiCapabilitiesManagerImpl manager(profile_, auth_service_,
                                         fake_gemini_service_);
   manager.UpdateCapabilities();
   fake_gemini_service_->SetIsEligible(true);
@@ -155,7 +157,7 @@ TEST_F(GeminiCapabilitiesManagerTest, PreservesExistingCapabilitiesOnRestart) {
   scoped_feature_list_.InitWithFeatures(
       {kPageActionMenu, kAppSwitcherAISummarization}, {});
 
-  GeminiCapabilitiesManagerImpl manager(profile_.get(), auth_service_,
+  GeminiCapabilitiesManagerImpl manager(profile_, auth_service_,
                                         fake_gemini_service_);
   manager.UpdateCapabilities();
 

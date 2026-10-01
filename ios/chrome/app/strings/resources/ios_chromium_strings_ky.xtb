@@ -8,12 +8,10 @@
 <translation id="1091252999271033193">Chromium'ду ар дайым мобилдик түзмөктө ачуу керек болот.</translation>
 <translation id="1115463765356382667">Chromium'дун бардык мүмкүнчүлүктөрүн пайдалануу үчүн төмөндө сунушталган аракеттерди аткарыңыз.</translation>
 <translation id="1185134272377778587">Chromium жөнүндө</translation>
-<translation id="119044033865561140">iPad'да Chromium'ду ыкчам ачасыз</translation>
 <translation id="1229234641991056119">Safari'деги сырсөздөрүңүздү, таржымалыңызды, кыстармаларыңызды жана насыя карталарыңызды Chromium'да колдонуңуз</translation>
 <translation id="1257458525759135959">Сүрөттөрдү сактоо үчүн, Параметрлерди таптап, Chromium'га сүрөттөрүңүздү кошууга уруксат бериңиз.</translation>
 <translation id="1260702988262336471">Chromium менюсун ачуу</translation>
 <translation id="12739128458173458">Бул өтмөктү башка түзмөккө жөнөтүү үчүн эки түзмөктөн тең Chromium'га кириңиз.</translation>
-<translation id="1279797561821266129">Chromium'ду док бекеттен тезирээк ачасыз</translation>
 <translation id="1361748954329991663">Chromium эскирип калган. Эгер <ph name="BEGIN_LINK" />Колдонмолор дүкөнүндө<ph name="END_LINK" /> жаңыртуу болбосо, түзмөгүңүз Chromium'дун жаңы версияларын мындан ары колдоого албай калышы мүмкүн.</translation>
 <translation id="1383876407941801731">Издөө</translation>
 <translation id="1423007117030725713">Chromium'дун жаңы өтмөгүндө издеңиз.</translation>
@@ -32,7 +30,6 @@
 <translation id="1553657876656159572">Сиз үчүн жасалган жеке түрмөк. Жаңылыктар, спорт жана аба ырайы камтылат.</translation>
 <translation id="1561849081734670621">Chromium'да бекем кулпулоо режимин iPhone түзмөгүңүздө өчүрүңүз.</translation>
 <translation id="1569258826720962327">iOS түзмөктөрүндө Chromium аракеттерин колдонуңуз</translation>
-<translation id="1573441572176948907">Chromium'ду док бекетке жылдырыңыз</translation>
 <translation id="159029779861043703">Chromium Face ID'нин жардамы менен купуя маалыматтарыңызды коопсуз сактайт.</translation>
 <translation id="1591119736686995611">Chromium'дагы өтмөк торчосу ачылат.</translation>
 <translation id="16001233025397167">Коопсуздукту текшерүү функциясы маалыматтарды коопсуз сактап, кооптуу вебсайттардан жана башкалардан коргойт. Chromium купуялык же коопсуздукка байланыштуу көйгөйлөрдү аныктаганда, эскертүүлөрдү алыңыз.</translation>
@@ -145,6 +142,7 @@ Chromium'дун ишин жакшыртуу үчүн маалыматтарды 
 <translation id="3855938650519180865">Chromium'да эмне жаңылык</translation>
 <translation id="3886689467633467988">Кыстармаларды жана башкаларды бардык түзмөктөрүңүздө колдонуу үчүн ушул сайтка жана Chromium'га кириңиз.</translation>
 <translation id="3949514465204582407">Chromium кеңеши: Сырсөздөрдү каалаган колдонмодо териңиз</translation>
+<translation id="3983298990898629929">Шилтемелерди бир таптоо менен ачуу үчүн Chromium'ду демейки серепчиңиз кылыңыз</translation>
 <translation id="4005283307739974863">Chromium'да Коопсуздукту текшерүүнү ачып, иштетет.</translation>
 <translation id="4043291146360695975">Сырсөздөр ушул түзмөктө гана Сырсөздөрдү башкаргычка сакталат.</translation>
 <translation id="4046625794029820944">URL даректерин көчүрүүнү токтотуңуз. Беттерди түздөн-түз жүктөө үчүн Chromium'ду демейки серепчи катары коюңуз.</translation>
@@ -182,7 +180,6 @@ Chromium'дун ишин жакшыртуу үчүн маалыматтарды 
 <translation id="4790638144988730920">Google аккаунтуңуздагы Chromium маалыматын колдоно бериңиз.</translation>
 <translation id="4828317641996116749">Chromium бардык сырсөздөрдү текшере алган жок. Кийинчерээк кайталаңыз.</translation>
 <translation id="4856138222358683580">Chromium аракеттери</translation>
-<translation id="4869706986935301458">iPhone'до Chromium'ду ыкчам ачасыз</translation>
 <translation id="4904452304169763785">Chromium аныктаган купуялык же коопсуздукка байланыштуу көйгөйлөр тууралуу эскертүүлөр.</translation>
 <translation id="4962295957157529683">Жасап жаткан нерсени Chromium'дун ачык терезесинде улантыңыз.</translation>
 <translation id="4985291216379576555">Оффлайнсыз. Chromium жаңыртууларды текшере алган жок</translation>
@@ -277,6 +274,7 @@ Chromium'дун ишин жакшыртуу үчүн маалыматтарды 
 <translation id="6680609900732453726">Chromium'ду жапканда түзмөктүн аныктыгын текшерүү аркылуу серептөөңүздү купуя сактаңыз</translation>
 <translation id="6696512128741076907">Башка колдонмолордогу шилтемелерди дароо ачуу үчүн Chromium'ду демейки серепчи катары коюңуз.</translation>
 <translation id="6752854822223394465">Уюмуңуз Chromium'ду жөндөп жатат...</translation>
+<translation id="6777348401413221846">Chromium'ду демейки серепчи катары коюу боюнча толук экрандуу видео: iOS'то Chromium параметрлерин ачып, "Демейки серепчини" таптап, Chromium'ду тандаңыз.</translation>
 <translation id="6794054469102824109">Chromium Dino оюнун ачат.</translation>
 <translation id="6820823224820483452">Chromium бардык сырсөздөрдү текшере алган жок. Эртең кайталап көрүңүз.</translation>
 <translation id="6830782797004194206">Chromium'дун автотолтуруу функциясы менен аккаунтуңузга тезирээк кириңиз</translation>
@@ -306,8 +304,8 @@ Chromium'дун ишин жакшыртуу үчүн маалыматтарды 
 <translation id="7337881442233988129">Chromium</translation>
 <translation id="7395825497086981028">Сырсөзүңүз <ph name="EMAIL" /> аккаунту үчүн Google'дун Сырсөздөрдү башкаргычына сакталат.</translation>
 <translation id="7434848749522628428">Бул киргизүүчү ачкыч <ph name="USER_EMAIL" /> аккаунту үчүн Сырсөздөрдү башкаргычка сакталат</translation>
+<translation id="7453822113116681031">Шилтемелерди бир таптоо менен ачуу үчүн Chromium'ду демейки серепчиңиз кылыңыз</translation>
 <translation id="7504829997542308412">Chromium'ду ачуу</translation>
-<translation id="7507535968973352823">Каалаган убакта ачуу үчүн Chromium'ду төмөнкү аймакка жайгаштырыңыз</translation>
 <translation id="7531461704633548377">Chromium'дан</translation>
 <translation id="7554983317097061001">Chromium кеңеши: Chromium'ду док бекетке жылдырыңыз</translation>
 <translation id="7576863740961052505">Chromium параметрлерин тескөө</translation>
@@ -357,7 +355,6 @@ Chromium'дун ишин жакшыртуу үчүн маалыматтарды 
 <translation id="8730503818204408000">Chromium'ду демейки серепчи катары коюу үчүн Chromium жөндөөсүн ачат.</translation>
 <translation id="8754966941001340678">Chromium мыктылап коргоону сунуштайт</translation>
 <translation id="8759037115129007407">Үй-бүлөлүк тобуңуздун мүчөсү учурда сырсөздөрдү ала албайт. Андан Chromium'ду жаңыртуусун жана сырсөздөрдү шайкештирүүсүн сураныңыз. <ph name="BEGIN_LINK" />Кеңири маалымат<ph name="END_LINK" /></translation>
-<translation id="8769418653786388149">Chromium'ду ала жүрүңүз</translation>
 <translation id="8776843108004031667">Бул аккаунт жана башка сакталбаган маалымат Chromium'дан өчүрүлөт.</translation>
 <translation id="8793333988063379360">Chromium параметрлери жана башкалар бул жерде</translation>
 <translation id="8805148242934787134">Chromium'ду демейки серепчи катары коюу</translation>

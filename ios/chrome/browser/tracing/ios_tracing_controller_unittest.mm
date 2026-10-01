@@ -53,22 +53,24 @@ class IOSTracingControllerTest : public PlatformTest {
  protected:
   void SetUp() override {
     PlatformTest::SetUp();
+    startup_config_.emplace();
     IOSTracingController::MaybeCreateInstanceForTesting();
     IOSTracingController::GetInstance().InitializeForTesting();
   }
 
   void TearDown() override {
     IOSTracingController::GetInstance().ResetForTesting();
+    startup_config_.reset();
     PlatformTest::TearDown();
   }
 
   bool IsRecordingAllowed(IOSTracingController& instance,
-                          bool privacy_filter_enabled,
                           base::TimeTicks scenario_start_time) {
-    return instance.IsRecordingAllowed(privacy_filter_enabled,
+    return instance.IsRecordingAllowed(/*is_local_scenario=*/false,
                                        scenario_start_time);
   }
 
+  std::optional<tracing::TraceStartupConfig> startup_config_;
   base::test::TaskEnvironment task_environment_;
 };
 
@@ -133,8 +135,8 @@ TEST_F(IOSTracingControllerTest, StartupTraceRecording) {
   scoped_command_line.GetProcessCommandLine()->AppendSwitchASCII(
       switches::kTraceStartupFormat, "proto");
 
-  // Reset the config to pick up the new command line switches.
-  tracing::TraceStartupConfig::ResetForTesting();
+  // Reset and create the config to pick up the new command line switches.
+  startup_config_.emplace(*scoped_command_line.GetProcessCommandLine());
 
   // Reset and re-initialize to restart startup tracing.
   IOSTracingController::GetInstance().ResetForTesting();
@@ -346,26 +348,16 @@ TEST_F(IOSTracingControllerTest, IsRecordingAllowedOTRProtection) {
 
   base::TimeTicks now = base::TimeTicks::Now();
 
-  // 1. Without privacy filter enabled, recording is always allowed.
-  EXPECT_TRUE(
-      IsRecordingAllowed(instance, /*privacy_filter_enabled=*/false, now));
+  // 1. If no incognito session was ever launched, recording is allowed.
+  EXPECT_TRUE(IsRecordingAllowed(instance, now));
 
-  // 2. With privacy filter enabled:
-  // - If no incognito session was ever launched, recording is allowed.
-  EXPECT_TRUE(
-      IsRecordingAllowed(instance, /*privacy_filter_enabled=*/true, now));
-
-  // - If an incognito session was launched AFTER the tracing session started
-  // (session <= incognito),
-  //   recording is blocked.
+  // 2. If an incognito session was launched AFTER the tracing session started
+  // (session <= incognito), recording is blocked.
   instance.SetLatestIncognitoLaunchedForTesting(now + base::Seconds(5));
-  EXPECT_FALSE(
-      IsRecordingAllowed(instance, /*privacy_filter_enabled=*/true, now));
+  EXPECT_FALSE(IsRecordingAllowed(instance, now));
 
-  // - If an incognito session was launched BEFORE the tracing session started
-  // (session > incognito),
-  //   recording is allowed again.
+  // 3. If an incognito session was launched BEFORE the tracing session started
+  // (session > incognito), recording is allowed again.
   instance.SetLatestIncognitoLaunchedForTesting(now - base::Seconds(5));
-  EXPECT_TRUE(
-      IsRecordingAllowed(instance, /*privacy_filter_enabled=*/true, now));
+  EXPECT_TRUE(IsRecordingAllowed(instance, now));
 }

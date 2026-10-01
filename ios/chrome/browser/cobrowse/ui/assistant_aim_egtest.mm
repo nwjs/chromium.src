@@ -20,12 +20,15 @@
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/public/snackbar/snackbar_constants.h"
 #import "ios/chrome/browser/start_surface/ui_bundled/home_surface_egtest_utils.h"
+#import "ios/chrome/browser/tab_picker/ui/tab_picker_ui_constants.h"
 #import "ios/chrome/browser/tab_switcher/ui_bundled/tab_grid/tab_grid_constants.h"
+#import "ios/chrome/browser/tab_switcher/ui_bundled/test/tabs_egtest_util.h"
 #import "ios/chrome/grit/ios_strings.h"
 #import "ios/chrome/test/earl_grey/chrome_earl_grey.h"
 #import "ios/chrome/test/earl_grey/chrome_earl_grey_ui.h"
 #import "ios/chrome/test/earl_grey/chrome_matchers.h"
 #import "ios/chrome/test/earl_grey/chrome_test_case.h"
+#import "ios/chrome/test/scoped_eg_synchronization_disabler.h"
 #import "ios/testing/earl_grey/app_launch_manager.h"
 #import "ios/testing/earl_grey/earl_grey_test.h"
 #import "net/test/embedded_test_server/embedded_test_server.h"
@@ -37,6 +40,11 @@
 using chrome_test_util::OmniboxText;
 
 namespace {
+
+constexpr char kPonyPagePath[] = "/pony.html";
+constexpr char kChromiumLogoPagePath[] = "/chromium_logo_page.html";
+NSString* const kPonyPageTitle = @"ponies";
+NSString* const kChromiumLogoPageTitle = @"chromium logo";
 
 // Handles simulated search requests to provide an AIM-eligible page with a
 // link.
@@ -136,6 +144,138 @@ id<GREYMatcher> CloseButton() {
   return grey_accessibilityID(kAssistantAIMCloseButtonAccessibilityIdentifier);
 }
 
+// Verifies that the Shared Tabs sheet displays the expected tabs (by title)
+// and does not contain the absent tabs. Note that this helper requires
+// `kComposeboxPlusButtonBottomSheet` to be enabled to display the Shared Tabs
+// menu item under the plus button. If `dismissAfterVerification` is YES,
+// dismisses the Shared Tabs sheet and the plus menu.
+void VerifySharedTabs(NSArray<NSString*>* expectedTitles,
+                      NSArray<NSString*>* absentTitles,
+                      BOOL dismissAfterVerification) {
+  id<GREYMatcher> plusButton = grey_allOf(
+      grey_accessibilityID(kComposeboxPlusButtonAccessibilityIdentifier),
+      grey_sufficientlyVisible(), nil);
+  [ChromeEarlGrey waitForUIElementToAppearWithMatcher:plusButton];
+  [[EarlGrey selectElementWithMatcher:plusButton] performAction:grey_tap()];
+
+  id<GREYMatcher> sharedTabsMenuItem = grey_allOf(
+      grey_text(l10n_util::GetNSString(IDS_IOS_COMPOSEBOX_MENU_SHARED_TABS)),
+      grey_sufficientlyVisible(), nil);
+
+  if (expectedTitles.count == 0) {
+    [[EarlGrey selectElementWithMatcher:sharedTabsMenuItem]
+        assertWithMatcher:grey_nil()];
+    if (dismissAfterVerification) {
+      id<GREYMatcher> selectTabsMenuItem =
+          grey_allOf(grey_accessibilityID(
+                         kComposeboxSelectTabsActionAccessibilityIdentifier),
+                     grey_sufficientlyVisible(), nil);
+      [[EarlGrey selectElementWithMatcher:selectTabsMenuItem]
+          performAction:grey_swipeFastInDirection(kGREYDirectionDown)];
+      [ChromeEarlGrey
+          waitForUIElementToDisappearWithMatcher:selectTabsMenuItem];
+    }
+    return;
+  }
+
+  [ChromeEarlGrey waitForUIElementToAppearWithMatcher:sharedTabsMenuItem];
+  [[EarlGrey selectElementWithMatcher:sharedTabsMenuItem]
+      performAction:grey_tap()];
+
+  auto cellMatcher = [](NSString* title) {
+    return grey_allOf(
+        grey_text(title),
+        grey_ancestor(grey_kindOfClassName(@"UICollectionViewListCell")), nil);
+  };
+
+  {
+    ScopedSynchronizationDisabler disabler;
+    for (NSString* title in expectedTitles) {
+      [[EarlGrey selectElementWithMatcher:cellMatcher(title)]
+          assertWithMatcher:grey_sufficientlyVisible()];
+    }
+    for (NSString* title in absentTitles) {
+      [[EarlGrey selectElementWithMatcher:cellMatcher(title)]
+          assertWithMatcher:grey_nil()];
+    }
+
+    if (dismissAfterVerification) {
+      id<GREYMatcher> sharedTabsCloseButton =
+          grey_allOf(grey_accessibilityLabel(@"Close"),
+                     grey_ancestor(grey_kindOfClassName(@"UINavigationBar")),
+                     grey_sufficientlyVisible(), nil);
+      [[EarlGrey selectElementWithMatcher:sharedTabsCloseButton]
+          performAction:grey_tap()];
+    }
+  }
+
+  if (dismissAfterVerification) {
+    id<GREYMatcher> selectTabsMenuItem =
+        grey_allOf(grey_accessibilityID(
+                       kComposeboxSelectTabsActionAccessibilityIdentifier),
+                   grey_sufficientlyVisible(), nil);
+    [[EarlGrey selectElementWithMatcher:selectTabsMenuItem]
+        performAction:grey_swipeFastInDirection(kGREYDirectionDown)];
+    [ChromeEarlGrey waitForUIElementToDisappearWithMatcher:selectTabsMenuItem];
+  }
+}
+
+// Removes a shared tab with `title` from the Shared Tabs sheet and dismisses
+// the sheet.
+void RemoveSharedTab(NSString* title) {
+  id<GREYMatcher> plusButton = grey_allOf(
+      grey_accessibilityID(kComposeboxPlusButtonAccessibilityIdentifier),
+      grey_sufficientlyVisible(), nil);
+  [ChromeEarlGrey waitForUIElementToAppearWithMatcher:plusButton];
+  [[EarlGrey selectElementWithMatcher:plusButton] performAction:grey_tap()];
+
+  id<GREYMatcher> sharedTabsMenuItem = grey_allOf(
+      grey_text(l10n_util::GetNSString(IDS_IOS_COMPOSEBOX_MENU_SHARED_TABS)),
+      grey_sufficientlyVisible(), nil);
+  [ChromeEarlGrey waitForUIElementToAppearWithMatcher:sharedTabsMenuItem];
+  [[EarlGrey selectElementWithMatcher:sharedTabsMenuItem]
+      performAction:grey_tap()];
+
+  id<GREYMatcher> cellMatcher = grey_allOf(
+      grey_text(title),
+      grey_ancestor(grey_kindOfClassName(@"UICollectionViewListCell")), nil);
+  [ChromeEarlGrey waitForUIElementToAppearWithMatcher:cellMatcher];
+  [[EarlGrey selectElementWithMatcher:cellMatcher]
+      performAction:grey_longPress()];
+
+  id<GREYMatcher> removeActionMatcher = grey_allOf(
+      grey_text(l10n_util::GetNSString(IDS_IOS_COMPOSEBOX_MENU_REMOVE_TAB)),
+      grey_sufficientlyVisible(), nil);
+  [ChromeEarlGrey waitForUIElementToAppearWithMatcher:removeActionMatcher];
+  [[EarlGrey selectElementWithMatcher:removeActionMatcher]
+      performAction:grey_tap()];
+
+  {
+    ScopedSynchronizationDisabler disabler;
+    id<GREYMatcher> sharedTabsCloseButton =
+        grey_allOf(grey_accessibilityLabel(@"Close"),
+                   grey_ancestor(grey_kindOfClassName(@"UINavigationBar")),
+                   grey_sufficientlyVisible(), nil);
+    [[EarlGrey selectElementWithMatcher:sharedTabsCloseButton]
+        performAction:grey_tap()];
+  }
+
+  id<GREYMatcher> selectTabsMenuItem = grey_allOf(
+      grey_accessibilityID(kComposeboxSelectTabsActionAccessibilityIdentifier),
+      grey_sufficientlyVisible(), nil);
+  [[EarlGrey selectElementWithMatcher:selectTabsMenuItem]
+      performAction:grey_swipeFastInDirection(kGREYDirectionDown)];
+  [ChromeEarlGrey waitForUIElementToDisappearWithMatcher:selectTabsMenuItem];
+
+  // Dismiss the "Tab removed" snackbar by tapping it so it doesn't obscure
+  // elements on the input plate.
+  id<GREYMatcher> snackbarMatcher = chrome_test_util::SnackbarViewMatcher();
+  [ChromeEarlGrey waitForSufficientlyVisibleElementWithMatcher:snackbarMatcher];
+  [[EarlGrey selectElementWithMatcher:snackbarMatcher]
+      performAction:grey_tap()];
+  [ChromeEarlGrey waitForUIElementToDisappearWithMatcher:snackbarMatcher];
+}
+
 }  // namespace
 
 @interface AssistantAIMTestCase : ChromeTestCase
@@ -152,19 +292,13 @@ id<GREYMatcher> CloseButton() {
 
 - (AppLaunchConfiguration)appConfigurationForTestCase {
   AppLaunchConfiguration config = [super appConfigurationForTestCase];
-  // Enable features needed for composebox.
-  config.features_enabled.push_back(kComposeboxIpad);
   config.features_enabled.push_back(kAimCobrowse);
   config.features_enabled.push_back(kAssistantContainer);
   config.features_enabled.push_back(kComposeboxPhysicalKeyboardReturnKeys);
-  config.features_disabled.push_back(kComposeboxAIMDisabled);
   config.features_disabled.push_back(omnibox::kAimServerEligibilityEnabled);
   config.features_disabled.push_back(kAssistantAimMinimizedState);
   config.features_disabled.push_back(kComposeboxServerSideState);
   config.features_disabled.push_back(kPreventCobrowseOnAimSrpTap);
-  // TODO(crbug.com/536079613): Re-enable kAppBarHideInFullscreen once these
-  // tests are updated to support it.
-  config.features_disabled.push_back(kAppBarHideInFullscreen);
 
   // Enable omnibox debugging flags.
   config.additional_args.push_back("-EnableOmniboxDebugging");
@@ -1342,6 +1476,264 @@ id<GREYMatcher> CloseButton() {
   GREYAssertNotEqual(
       [ChromeEarlGrey webStateVisibleURL], _defaultURL,
       @"Tab should have navigated away instead of staying on the current page");
+}
+
+// Tests that focusing the Co-browse input plate auto-attaches the current tab,
+// and when navigating to a new URL while minimized, re-expanding and focusing
+// the input plate updates the auto-attached tab to the new page.
+- (void)testCobrowseAutoAttachesCurrentTabAfterNavigation {
+  if ([ComposeboxAppInterface isServerSideStateEnabled]) {
+    EARL_GREY_TEST_SKIPPED(
+        @"Skipped when kComposeboxServerSideState is enabled.");
+  }
+  AppLaunchConfiguration config = [self appConfigurationForTestCase];
+  config.features_enabled.push_back(kComposeboxPlusButtonBottomSheet);
+  config.relaunch_policy = ForceRelaunchByCleanShutdown;
+  [[AppLaunchManager sharedManager] ensureAppLaunchedWithConfiguration:config];
+
+  // 1. Open Co-browse on Tab A (/pony.html).
+  OpenCoBrowse(self.testServer->GetURL(kPonyPagePath));
+
+  // Wait for the assistant to appear in medium detent.
+  [ChromeEarlGrey waitForUIElementToAppearWithMatcher:CloseButton()];
+  WaitForDetent(AssistantContainerDetent::kMedium);
+
+  // 2. Focus the input plate inside the Cobrowse assistant to expand to Large
+  // and trigger auto-attachment of the active tab.
+  id<GREYMatcher> cobrowseOmniboxMedium = grey_allOf(
+      chrome_test_util::Omnibox(),
+      grey_ancestor(
+          grey_accessibilityID(kAssistantContainerDetentMediumIdentifier)),
+      nil);
+  [[EarlGrey selectElementWithMatcher:cobrowseOmniboxMedium]
+      performAction:grey_tap()];
+  WaitForDetent(AssistantContainerDetent::kLarge);
+
+  // Verify that pony.html is auto-attached.
+  VerifySharedTabs(@[ kPonyPageTitle ], @[],
+                   /*dismissAfterVerification=*/YES);
+
+  // 3. Minimize the assistant container.
+  [[EarlGrey
+      selectElementWithMatcher:grey_accessibilityID(
+                                   kAssistantContainerDetentLargeIdentifier)]
+      performAction:grey_swipeFastInDirection(kGREYDirectionDown)];
+  WaitForDetent(AssistantContainerDetent::kMinimized);
+
+  // 4. Navigate the main browser to Tab B (/chromium_logo_page.html).
+  [ChromeEarlGrey loadURL:self.testServer->GetURL(kChromiumLogoPagePath)];
+  [ChromeEarlGrey waitForPageToFinishLoading];
+
+  // 5. Re-expand the assistant container to Large.
+  [[EarlGrey
+      selectElementWithMatcher:
+          grey_accessibilityID(kAssistantContainerDetentMinimizedIdentifier)]
+      performAction:grey_swipeFastInDirection(kGREYDirectionUp)];
+  WaitForDetent(AssistantContainerDetent::kLarge);
+
+  // Focus the input plate in Large to ensure it's active and unhides the plus
+  // button.
+  id<GREYMatcher> cobrowseOmniboxLarge = grey_allOf(
+      chrome_test_util::Omnibox(),
+      grey_ancestor(
+          grey_accessibilityID(kAssistantContainerDetentLargeIdentifier)),
+      nil);
+  [[EarlGrey selectElementWithMatcher:cobrowseOmniboxLarge]
+      performAction:grey_tap()];
+
+  // 6. Verify that only chromium_logo_page.html is shared and pony.html was
+  // replaced.
+  VerifySharedTabs(@[ kChromiumLogoPageTitle ], @[ kPonyPageTitle ],
+                   /*dismissAfterVerification=*/YES);
+}
+
+// Tests that focusing the Co-browse input plate auto-attaches the current tab,
+// and after sending a query (interacting with the page), navigating to a new
+// URL preserves the previously shared tab while auto-attaching the new page.
+- (void)testCobrowsePreservesAutoAttachedTabAfterSendingQueryAndNavigation {
+  if ([ComposeboxAppInterface isServerSideStateEnabled]) {
+    EARL_GREY_TEST_SKIPPED(
+        @"Skipped when kComposeboxServerSideState is enabled.");
+  }
+  AppLaunchConfiguration config = [self appConfigurationForTestCase];
+  config.features_enabled.push_back(kComposeboxPlusButtonBottomSheet);
+  config.relaunch_policy = ForceRelaunchByCleanShutdown;
+  [[AppLaunchManager sharedManager] ensureAppLaunchedWithConfiguration:config];
+
+  // 1. Open Co-browse on Tab A (/pony.html).
+  OpenCoBrowse(self.testServer->GetURL(kPonyPagePath));
+
+  // Wait for the assistant to appear in medium detent.
+  [ChromeEarlGrey waitForUIElementToAppearWithMatcher:CloseButton()];
+  WaitForDetent(AssistantContainerDetent::kMedium);
+
+  // 2. Focus the input plate inside the Cobrowse assistant to expand to Large
+  // and trigger auto-attachment of the active tab.
+  id<GREYMatcher> cobrowseOmniboxMedium = grey_allOf(
+      chrome_test_util::Omnibox(),
+      grey_ancestor(
+          grey_accessibilityID(kAssistantContainerDetentMediumIdentifier)),
+      nil);
+  [[EarlGrey selectElementWithMatcher:cobrowseOmniboxMedium]
+      performAction:grey_tap()];
+  WaitForDetent(AssistantContainerDetent::kLarge);
+
+  // Verify that pony.html is auto-attached.
+  VerifySharedTabs(@[ kPonyPageTitle ], @[],
+                   /*dismissAfterVerification=*/YES);
+
+  // 3. Send a followup query in Large detent to interact with Tab A.
+  id<GREYMatcher> cobrowseOmniboxLarge = grey_allOf(
+      chrome_test_util::Omnibox(),
+      grey_ancestor(
+          grey_accessibilityID(kAssistantContainerDetentLargeIdentifier)),
+      nil);
+  [[EarlGrey selectElementWithMatcher:cobrowseOmniboxLarge]
+      performAction:grey_tap()];
+  [ChromeEarlGrey simulatePhysicalKeyboardEvent:@"Explain this page" flags:0];
+  base::test::ios::SpinRunLoopWithMinDelay(base::Seconds(1));
+
+  id<GREYMatcher> sendButton = grey_allOf(
+      grey_accessibilityID(kComposeboxSendButtonAccessibilityIdentifier),
+      grey_ancestor(
+          grey_accessibilityID(kAssistantContainerDetentLargeIdentifier)),
+      grey_sufficientlyVisible(), nil);
+  [ChromeEarlGrey waitForUIElementToAppearWithMatcher:sendButton];
+  [[EarlGrey selectElementWithMatcher:sendButton] performAction:grey_tap()];
+
+  // 4. Minimize the assistant container.
+  [[EarlGrey
+      selectElementWithMatcher:grey_accessibilityID(
+                                   kAssistantContainerDetentLargeIdentifier)]
+      performAction:grey_swipeFastInDirection(kGREYDirectionDown)];
+  WaitForDetent(AssistantContainerDetent::kMinimized);
+
+  // 5. Open a new tab (Tab B) and navigate to /chromium_logo_page.html.
+  [ChromeEarlGrey openNewTab];
+  [ChromeEarlGrey loadURL:self.testServer->GetURL(kChromiumLogoPagePath)];
+  [ChromeEarlGrey waitForPageToFinishLoading];
+
+  // 6. Re-expand the assistant container to Large.
+  [[EarlGrey
+      selectElementWithMatcher:
+          grey_accessibilityID(kAssistantContainerDetentMinimizedIdentifier)]
+      performAction:grey_swipeFastInDirection(kGREYDirectionUp)];
+  WaitForDetent(AssistantContainerDetent::kLarge);
+
+  // Focus the input plate in Large to ensure it's active and unhides the plus
+  // button.
+  [[EarlGrey selectElementWithMatcher:cobrowseOmniboxLarge]
+      performAction:grey_tap()];
+
+  // 7. Verify that BOTH pony.html (preserved from previous turn) and
+  // chromium_logo_page.html (newly auto-attached) are shared.
+  VerifySharedTabs(@[ kPonyPageTitle, kChromiumLogoPageTitle ], @[],
+                   /*dismissAfterVerification=*/YES);
+}
+
+// Tests that removing an auto-attached tab prevents it from being automatically
+// re-added when refocusing the Co-browse omnibox, and that navigating to a new
+// URL allows the new page to be auto-attached.
+- (void)testCobrowseRemovedTabStaysRemovedAfterRefocusingOrQuery {
+  if ([ComposeboxAppInterface isServerSideStateEnabled]) {
+    EARL_GREY_TEST_SKIPPED(
+        @"Skipped when kComposeboxServerSideState is enabled.");
+  }
+  AppLaunchConfiguration config = [self appConfigurationForTestCase];
+  config.features_enabled.push_back(kComposeboxPlusButtonBottomSheet);
+  config.relaunch_policy = ForceRelaunchByCleanShutdown;
+  [[AppLaunchManager sharedManager] ensureAppLaunchedWithConfiguration:config];
+
+  // 1. Open Co-browse on Tab A (/pony.html).
+  OpenCoBrowse(self.testServer->GetURL(kPonyPagePath));
+
+  // Wait for the assistant to appear in medium detent.
+  [ChromeEarlGrey waitForUIElementToAppearWithMatcher:CloseButton()];
+  WaitForDetent(AssistantContainerDetent::kMedium);
+
+  // 2. Focus the input plate inside the Cobrowse assistant to expand to Large
+  // and trigger auto-attachment of the active tab.
+  id<GREYMatcher> cobrowseOmniboxMedium = grey_allOf(
+      chrome_test_util::Omnibox(),
+      grey_ancestor(
+          grey_accessibilityID(kAssistantContainerDetentMediumIdentifier)),
+      nil);
+  [[EarlGrey selectElementWithMatcher:cobrowseOmniboxMedium]
+      performAction:grey_tap()];
+  WaitForDetent(AssistantContainerDetent::kLarge);
+
+  // 3. Verify that pony.html was auto-attached by removing it from the Shared
+  // Tabs sheet (which asserts its presence before removal).
+  RemoveSharedTab(kPonyPageTitle);
+
+  // 4. Focus the input plate again in Large detent.
+  id<GREYMatcher> cobrowseOmniboxLarge = grey_allOf(
+      chrome_test_util::Omnibox(),
+      grey_ancestor(
+          grey_accessibilityID(kAssistantContainerDetentLargeIdentifier)),
+      nil);
+  [[EarlGrey selectElementWithMatcher:cobrowseOmniboxLarge]
+      performAction:grey_tap()];
+
+  // 5. Verify that pony.html was NOT automatically re-added.
+  VerifySharedTabs(@[], @[ kPonyPageTitle ],
+                   /*dismissAfterVerification=*/YES);
+
+  // 6. Explicitly re-add pony.html manually via the Tab Picker.
+  [[EarlGrey
+      selectElementWithMatcher:
+          grey_accessibilityID(kComposeboxPlusButtonAccessibilityIdentifier)]
+      performAction:grey_tap()];
+  id<GREYMatcher> selectTabsMatcher = grey_allOf(
+      grey_accessibilityID(kComposeboxSelectTabsActionAccessibilityIdentifier),
+      grey_sufficientlyVisible(), nil);
+  [ChromeEarlGrey waitForUIElementToAppearWithMatcher:selectTabsMatcher];
+  [[EarlGrey selectElementWithMatcher:selectTabsMatcher]
+      performAction:grey_tap()];
+  [ChromeEarlGrey waitForUIElementToAppearWithMatcher:
+                      grey_accessibilityID(
+                          kTabPickerCollectionViewAccessibilityIdentifier)];
+  [[EarlGrey selectElementWithMatcher:TabWithTitle(kPonyPageTitle)]
+      performAction:grey_tap()];
+  [[EarlGrey
+      selectElementWithMatcher:chrome_test_util::NavigationBarDoneButton()]
+      performAction:grey_tap()];
+  [ChromeEarlGrey waitForUIElementToDisappearWithMatcher:
+                      grey_accessibilityID(
+                          kTabPickerCollectionViewAccessibilityIdentifier)];
+
+  // 7. Verify that pony.html IS attached now that it was manually selected.
+  VerifySharedTabs(@[ kPonyPageTitle ], @[],
+                   /*dismissAfterVerification=*/YES);
+
+  // 8. Remove pony.html again to verify navigation behavior.
+  RemoveSharedTab(kPonyPageTitle);
+
+  // 9. Minimize the assistant container.
+  [[EarlGrey
+      selectElementWithMatcher:grey_accessibilityID(
+                                   kAssistantContainerDetentLargeIdentifier)]
+      performAction:grey_swipeFastInDirection(kGREYDirectionDown)];
+  WaitForDetent(AssistantContainerDetent::kMinimized);
+
+  // 10. Navigate the main browser to Tab B (/chromium_logo_page.html).
+  [ChromeEarlGrey loadURL:self.testServer->GetURL(kChromiumLogoPagePath)];
+  [ChromeEarlGrey waitForPageToFinishLoading];
+
+  // 11. Re-expand the assistant container to Large and focus the input plate.
+  [[EarlGrey
+      selectElementWithMatcher:
+          grey_accessibilityID(kAssistantContainerDetentMinimizedIdentifier)]
+      performAction:grey_swipeFastInDirection(kGREYDirectionUp)];
+  WaitForDetent(AssistantContainerDetent::kLarge);
+
+  [[EarlGrey selectElementWithMatcher:cobrowseOmniboxLarge]
+      performAction:grey_tap()];
+
+  // 12. Verify that chromium_logo_page.html IS auto-attached and pony.html is
+  // still absent.
+  VerifySharedTabs(@[ kChromiumLogoPageTitle ], @[ kPonyPageTitle ],
+                   /*dismissAfterVerification=*/YES);
 }
 
 @end

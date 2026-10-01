@@ -14,8 +14,7 @@ import {SubmitButtonIconType} from '//resources/cr_components/composebox/compose
           <div id="oneGoogleBarScrim" ?hidden="${!this.showBackgroundImage_}"
               ?fixed="${this.scrolledToTop_}"></div>
           <ntp-iframe id="oneGoogleBar" src="${this.oneGoogleBarIframePath_}"
-              ?hidden="${!this.oneGoogleBarLoaded_}"
-              allow="camera ${this.oneGoogleBarIframeOrigin_}; display-capture ${this.oneGoogleBarIframeOrigin_}"> <!-- presubmit: ignore-long-line -->
+              ?hidden="${!this.oneGoogleBarLoaded_}">
           </ntp-iframe>
         </div>
         ` :
@@ -23,8 +22,7 @@ import {SubmitButtonIconType} from '//resources/cr_components/composebox/compose
         <div id="oneGoogleBarScrim" ?hidden="${!this.showBackgroundImage_}"
             ?fixed="${this.scrolledToTop_}"></div>
         <ntp-iframe id="oneGoogleBar" src="${this.oneGoogleBarIframePath_}"
-            ?hidden="${!this.oneGoogleBarLoaded_}"
-            allow="camera ${this.oneGoogleBarIframeOrigin_}; display-capture ${this.oneGoogleBarIframeOrigin_}"> <!-- presubmit: ignore-long-line -->
+            ?hidden="${!this.oneGoogleBarLoaded_}">
         </ntp-iframe>
         `
     ) : ''}
@@ -199,8 +197,7 @@ ${this.voiceSearchCoherenceAnySearchboxExperimentEnabled_ &&
       @close="${this.onVoiceSearchOverlayClose}"
       @click="${this.onVoiceSearchDialogClick_}">
     <div id="voiceSearchCardContainer">
-      ${!this.hasVoiceSearchError &&
-          !this.voiceSearchCoherenceSearchboxWithLiveTranscriptionEnabled_ ? html`
+      ${this.showVoiceSearchGlow_() ? html`
         <search-animated-glow id="voiceSearchGlow"
             .coloredTicTacVoiceAnimationEnabled="${true}"
             .isListening="${this.voiceSearchListening_}"
@@ -212,6 +209,8 @@ ${this.voiceSearchCoherenceAnySearchboxExperimentEnabled_ &&
       <!-- Pass metricSource synchronously to avoid microtask race in unit tests. -->
       <cr-composebox-voice-search id="voiceSearch"
           in-voice-search-mode
+          .audioWaveEnabled="${
+            this.voiceSearchCoherenceRealboxHelperTextEnabled_}"
           @voice-permission-changed="${this.onVoicePermissionChanged_}"
           @voice-search-cancel="${this.onVoiceSearchCancel_}"
           @voice-search-final-result="${this.onVoiceSearchFinalResult_}"
@@ -222,12 +221,16 @@ ${this.voiceSearchCoherenceAnySearchboxExperimentEnabled_ &&
           @recording-stopped="${this.onVoiceSearchRecordingStopped_}"
           .hasErrorTimer="${true}"
           .pageCallbackRouter="${this.searchboxCallbackRouter_}"
-          .autosubmitEnabled="${true}"
-          .dynamicTimeoutEnabled="${true}"
+          .autosubmitEnabled="${
+            this.voiceSearchCoherenceRealboxAutoEndpointEnabled_}"
+          .dynamicTimeoutEnabled="${false}"
           .queryLengthLimit="${this.voiceQueryLengthLimit_}"
-          .idleTimeout="${this.voiceIdleTimeoutMs_}"
+          .idleTimeout="${this.voiceAutoSubmitIdleTimeoutMs_}"
+          .manualSubmitIdleTimeout="${this.voiceManualSubmitIdleTimeoutMs_}"
           .liveTranscriptEnabled="${
             this.voiceSearchCoherenceSearchboxWithLiveTranscriptionEnabled_}"
+          .helperTextEnabled="${
+            this.voiceSearchCoherenceRealboxHelperTextEnabled_}"
           .submitStopButtonsEnabled="${true}"
           .metricSource="${'NTP_REALBOX'}">
       </cr-composebox-voice-search>

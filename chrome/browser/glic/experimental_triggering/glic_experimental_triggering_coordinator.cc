@@ -17,6 +17,7 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/time/time.h"
+#include "base/types/expected.h"
 #include "chrome/browser/actor/actor_keyed_service.h"
 #include "chrome/browser/actor/actor_task.h"
 #include "chrome/browser/glic/experimental_opt_in/glic_experimental_opt_in_controller.h"
@@ -45,6 +46,8 @@
 
 #if !BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/ui/browser_commands.h"  // nogncheck
+#else
+#include "base/android/application_status_listener.h"
 #endif
 
 namespace glic {
@@ -162,7 +165,6 @@ ExperimentalTriggeringResponse CreateResponseMessage(
   return response;
 }
 
-#if !BUILDFLAG(IS_ANDROID)
 // Builds a device opt-in response for synchronous request replies.
 ExperimentalTriggeringResponse CreateDeviceOptInResponse(
     const std::string& context_id,
@@ -174,7 +176,34 @@ ExperimentalTriggeringResponse CreateDeviceOptInResponse(
   response.device_opt_in_result = opt_in_result;
   return response;
 }
-#endif
+
+// Builds a screenshot result with the specified status and tokens.
+ScreenshotResult CreateScreenshotResult(
+    ScreenshotResult::Status status,
+    std::string_view file_token = {},
+    std::vector<uint8_t> request_token = {}) {
+  ScreenshotResult result;
+  result.status = status;
+  if (!file_token.empty()) {
+    result.file_token = std::string(file_token);
+  }
+  if (!request_token.empty()) {
+    result.request_token = std::move(request_token);
+  }
+  return result;
+}
+
+// Builds a screenshot result response for synchronous request replies.
+ExperimentalTriggeringResponse CreateScreenshotResultResponse(
+    const std::string& context_id,
+    ScreenshotResult screenshot_result,
+    const TaskMetadata* request_task_metadata,
+    int64_t sender_sequence_number) {
+  ExperimentalTriggeringResponse response = CreateBaseResponseMessage(
+      context_id, request_task_metadata, sender_sequence_number);
+  response.screenshot_result = std::move(screenshot_result);
+  return response;
+}
 
 // Builds base response metadata for asynchronous Mojo updates and callbacks
 // (using instance state).
@@ -196,6 +225,12 @@ ExperimentalTriggeringResponse CreateBaseResponse(
   response.task_metadata = std::move(metadata);
   return response;
 }
+
+#if BUILDFLAG(IS_ANDROID)
+bool CanShowDeviceOptInUi() {
+  return base::android::ApplicationStatusListener::HasVisibleActivities();
+}
+#endif
 
 }  // namespace
 
@@ -222,7 +257,12 @@ class ExperimentalTriggeringUpdatesHandler
     if (!request.task_metadata.has_value()) {
       result_logger.set_result(GlicExperimentalTriggeringIncomingMessageResult::
                                    kMissingTaskMetadata);
-      return std::nullopt;
+      return CreateResponseMessage(
+          context_id_, TaskUpdate::State::kFailed,
+          TaskUpdate::DataType::kErrorMessage,
+          "Received GlicExperimentalTriggering message with missing task "
+          "metadata.",
+          /*request_task_metadata=*/nullptr, sequence_generator_.GetNext());
     }
 
     if (request.task_metadata->sender_sequence_number.has_value()) {
@@ -592,6 +632,16 @@ class ExperimentalTriggeringUpdatesHandler
           sequence_generator_.GetNext());
     }
 
+    if (screenshot_req.request_token.empty()) {
+      result_logger.set_result(GlicExperimentalTriggeringIncomingMessageResult::
+                                   kUnexpectedRequestPayload);
+      return CreateScreenshotResultResponse(
+          context_id_,
+          CreateScreenshotResult(
+              ScreenshotResult::Status::kErrorInvalidRequest),
+          task_metadata, sequence_generator_.GetNext());
+    }
+
     auto response = CreateResponseMessage(
         context_id_, TaskUpdate::State::kStarting, std::nullopt, "",
         task_metadata, sequence_generator_.GetNext());
@@ -602,21 +652,23 @@ class ExperimentalTriggeringUpdatesHandler
         base::BindOnce(
             [](base::WeakPtr<ExperimentalTriggeringUpdatesHandler> handler,
                std::vector<uint8_t> request_token,
-               const std::optional<std::string>& file_token) {
+               base::expected<std::string, ScreenshotResult::Status> result) {
               if (!handler) {
                 return;
               }
-              if (file_token.has_value()) {
-                handler->SendScreenshotResult(
-                    ScreenshotResult::Status::kSuccess, *file_token,
-                    /*error_message=*/{}, std::move(request_token));
-              } else {
-                handler->SendScreenshotResult(
-                    ScreenshotResult::Status::kErrorCapture,
-                    /*file_token=*/std::string_view(),
-                    "Failed to capture or upload screenshot.",
-                    std::move(request_token));
+              if (!result.has_value() || result.value().empty()) {
+                ScreenshotResult::Status status =
+                    !result.has_value()
+                        ? result.error()
+                        : ScreenshotResult::Status::kErrorServer;
+                handler->SendScreenshotResult(status,
+                                              /*file_token=*/std::string_view(),
+                                              std::move(request_token));
+                return;
               }
+              handler->SendScreenshotResult(ScreenshotResult::Status::kSuccess,
+                                            result.value(),
+                                            std::move(request_token));
             },
             weak_ptr_factory_.GetWeakPtr(), screenshot_req.request_token));
 
@@ -698,13 +750,16 @@ class ExperimentalTriggeringUpdatesHandler
       base::ScopedClosureRunner cleanup_runner,
       ScopedIncomingMessageResultLogger result_logger) {
 #if BUILDFLAG(IS_ANDROID)
-    result_logger.set_result(GlicExperimentalTriggeringIncomingMessageResult::
-                                 kAndroidOptInUnsupported);
-    return CreateResponseMessage(context_id_, TaskUpdate::State::kFailed,
-                                 TaskUpdate::DataType::kErrorMessage,
-                                 "Ignoring unexpected Android Opt-in request.",
-                                 task_metadata, sequence_generator_.GetNext());
-#else
+    if (!CanShowDeviceOptInUi()) {
+      result_logger.set_result(GlicExperimentalTriggeringIncomingMessageResult::
+                                   kAndroidOptInUnsupported);
+      return CreateResponseMessage(
+          context_id_, TaskUpdate::State::kFailed,
+          TaskUpdate::DataType::kErrorMessage,
+          "Ignoring unexpected Android Opt-in request.", task_metadata,
+          sequence_generator_.GetNext());
+    }
+#endif
     if (!coordinator_) {
       result_logger.set_result(GlicExperimentalTriggeringIncomingMessageResult::
                                    kCoordinatorUnavailable);
@@ -758,7 +813,6 @@ class ExperimentalTriggeringUpdatesHandler
     result_logger.set_result(
         GlicExperimentalTriggeringIncomingMessageResult::kSuccess);
     return std::nullopt;
-#endif
   }
 
   void SendTaskUpdateMessage(
@@ -781,7 +835,6 @@ class ExperimentalTriggeringUpdatesHandler
   }
 
   void SendDeviceOptInResult(bool accepted) {
-#if !BUILDFLAG(IS_ANDROID)
     if (update_callback_) {
       ExperimentalTriggeringResponse response =
           CreateBaseResponse(context_id_, sequence_generator_.GetNext(),
@@ -793,29 +846,17 @@ class ExperimentalTriggeringUpdatesHandler
     if (coordinator_) {
       coordinator_->OnUpdatesHandlerCleanup(context_id_);
     }
-#endif
   }
 
   void SendScreenshotResult(ScreenshotResult::Status status,
                             std::string_view file_token = {},
-                            std::string_view error_message = {},
                             std::vector<uint8_t> request_token = {}) {
     if (update_callback_) {
       ExperimentalTriggeringResponse response =
           CreateBaseResponse(context_id_, sequence_generator_.GetNext(),
                              last_seen_sequence_number_, instance_.get());
-      ScreenshotResult result;
-      result.status = status;
-      if (!file_token.empty()) {
-        result.file_token = std::string(file_token);
-      }
-      if (!error_message.empty()) {
-        result.error_message = std::string(error_message);
-      }
-      if (!request_token.empty()) {
-        result.request_token = std::move(request_token);
-      }
-      response.screenshot_result = std::move(result);
+      response.screenshot_result =
+          CreateScreenshotResult(status, file_token, std::move(request_token));
       update_callback_.Run(std::move(response));
     }
   }
@@ -877,6 +918,10 @@ GlicExperimentalTriggeringCoordinator::OnProtoMessage(
       actor::ActorKeyedService::Get(profile_);
   LogGlicExperimentalTriggeringProto(
       actor_service, "GlicExperimentalTriggering", context_id, proto);
+
+  if (!HasUpdatesHandler(context_id)) {
+    MaybeRecordInitialSharingMessageDeliveryLatency(proto);
+  }
 
   auto request_metadata = ProtoToTaskMetadata(proto);
   const TaskMetadata* request_metadata_ptr =

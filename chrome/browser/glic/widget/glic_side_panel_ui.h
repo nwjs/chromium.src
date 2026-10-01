@@ -19,6 +19,7 @@
 #include "chrome/browser/glic/public/glic_side_panel_coordinator.h"
 #include "chrome/browser/glic/service/glic_ui_embedder.h"
 #include "chrome/browser/glic/widget/glic_view.h"
+#include "chrome/browser/glic/widget/scoped_modal_dialog_manager_delegate.h"
 #include "components/web_modal/web_contents_modal_dialog_host.h"
 #include "components/web_modal/web_contents_modal_dialog_manager_delegate.h"
 #include "ui/gfx/geometry/rect.h"
@@ -40,6 +41,7 @@ class GlicInstanceMetrics;
 class GlicSidePanelUi
     : public GlicUiEmbedder,
       public Host::EmbedderDelegate,
+      public Host::Observer,
       public LocalHotkeyManager::Panel,
       public web_modal::WebContentsModalDialogManagerDelegate {
  public:
@@ -76,6 +78,9 @@ class GlicSidePanelUi
   void OnReload() override;
   void OnMicrophoneStatusChanged(mojom::MicrophoneStatus status) override {}
 
+  // Host::Observer:
+  void ActiveWebContentsChanged(content::WebContents* new_contents) override;
+
   void SidePanelStateChanged(GlicSidePanelCoordinator::State state);
 
   // LocalHotkeyManager::Panel:
@@ -97,8 +102,8 @@ class GlicSidePanelUi
   void OnBrowserWindowDeactivated(BrowserWindowInterface* bwi);
   // Focuses on embedder's webcontens.
   void SetFocusDelayed();
-  void SetModalDialogDelegate(
-      web_modal::WebContentsModalDialogManagerDelegate* delegate);
+
+  ScopedModalDialogManagerDelegate scoped_modal_dialog_delegate_{this};
 
   GlicSidePanelCoordinator* GetGlicSidePanelCoordinator() const;
   base::CallbackListSubscription panel_visibility_subscription_;
@@ -117,6 +122,8 @@ class GlicSidePanelUi
   base::CallbackListSubscription deactivation_subscription_;
 
   std::unique_ptr<GlicScreenshotCapturer> screenshot_capturer_;
+
+  base::ScopedObservation<Host, Host::Observer> host_observation_{this};
 
   base::WeakPtrFactory<GlicSidePanelUi> weak_ptr_factory_{this};
 };

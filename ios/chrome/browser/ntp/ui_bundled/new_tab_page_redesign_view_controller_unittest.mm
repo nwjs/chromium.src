@@ -9,19 +9,29 @@
 #import "ios/chrome/browser/content_suggestions/most_visited_tiles/ui/most_visited_item.h"
 #import "ios/chrome/browser/content_suggestions/most_visited_tiles/ui/most_visited_tiles_collection_view.h"
 #import "ios/chrome/browser/content_suggestions/most_visited_tiles/ui/most_visited_tiles_config.h"
+#import "ios/chrome/browser/content_suggestions/public/ntp_home_constants.h"
 #import "ios/chrome/browser/content_suggestions/ui/content_suggestions_collection_utils.h"
 #import "ios/chrome/browser/ntp/search_engine_logo/ui/search_engine_logo_state.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_bottom_sheet_view_controller.h"
+#import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_constants.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_content_delegate.h"
 #import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_feature.h"
+#import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_header_commands.h"
+#import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_mutator.h"
+#import "ios/chrome/browser/ntp/ui_bundled/new_tab_page_shortcuts_handler.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
+#import "ios/chrome/browser/shared/ui/elements/extended_touch_target_button.h"
+#import "ios/chrome/browser/shared/ui/util/layout_guide_names.h"
+#import "ios/chrome/browser/shared/ui/util/util_swift.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
+#import "ios/chrome/grit/ios_strings.h"
 #import "testing/gtest/include/gtest/gtest.h"
 #import "testing/gtest_mac.h"
 #import "testing/platform_test.h"
 #import "third_party/ocmock/OCMock/OCMock.h"
 #import "third_party/ocmock/gtest_support.h"
 #import "ui/base/device_form_factor.h"
+#import "ui/base/l10n/l10n_util.h"
 
 namespace {
 const CGFloat kMinDragHandleHeight = 24.0;
@@ -338,4 +348,303 @@ TEST_F(NewTabPageRedesignViewControllerTest, TestConsistentLogoDoodleHeight) {
 
   EXPECT_EQ(omnibox_top_with_logo, omnibox_top_with_doodle);
   EXPECT_EQ(resting_offset_with_logo, resting_offset_with_doodle);
+}
+
+// Tests that fakebox subviews are created once and not re-created on setter
+// calls.
+TEST_F(NewTabPageRedesignViewControllerTest,
+       TestFakeboxSubviewsReusedOnStateChange) {
+  [view_controller_ loadViewIfNeeded];
+
+  UIView* plus_button = [view_controller_ valueForKey:@"_plusButton"];
+  UIView* logo_view = [view_controller_ valueForKey:@"_logoView"];
+  UIView* voice_button = [view_controller_ valueForKey:@"_voiceSearchButton"];
+  UIView* hint_label = [view_controller_ valueForKey:@"_hintLabel"];
+
+  ASSERT_TRUE(plus_button != nil);
+  ASSERT_TRUE(logo_view != nil);
+  ASSERT_TRUE(voice_button != nil);
+  ASSERT_TRUE(hint_label != nil);
+
+  // Trigger state updates
+  [view_controller_ setDefaultSearchEngineName:@"Yahoo"];
+  [view_controller_ setVoiceSearchIsEnabled:YES];
+  [view_controller_ setVoiceSearchIsEnabled:NO];
+  [view_controller_ setAIMAllowed:YES];
+  [view_controller_ setFuseboxEligible:YES];
+
+  // Subviews should be identical instances (not reallocated)
+  EXPECT_EQ(plus_button, [view_controller_ valueForKey:@"_plusButton"]);
+  EXPECT_EQ(logo_view, [view_controller_ valueForKey:@"_logoView"]);
+  EXPECT_EQ(voice_button, [view_controller_ valueForKey:@"_voiceSearchButton"]);
+  EXPECT_EQ(hint_label, [view_controller_ valueForKey:@"_hintLabel"]);
+}
+
+// Tests that setDefaultSearchEngineName updates hint label text and
+// accessibility label.
+TEST_F(NewTabPageRedesignViewControllerTest,
+       TestDefaultSearchEngineNameUpdatesHintLabel) {
+  [view_controller_ loadViewIfNeeded];
+
+  UILabel* hint_label = [view_controller_ valueForKey:@"_hintLabel"];
+  UIView* fake_location_bar =
+      [view_controller_ valueForKey:@"_fakeLocationBar"];
+  ASSERT_TRUE(hint_label != nil);
+  ASSERT_TRUE(fake_location_bar != nil);
+
+  [view_controller_ setDefaultSearchEngineName:@"DuckDuckGo"];
+  EXPECT_TRUE([hint_label.text containsString:@"DuckDuckGo"]);
+  EXPECT_TRUE(
+      [fake_location_bar.accessibilityLabel containsString:@"DuckDuckGo"]);
+}
+
+// Tests that toggling AIM and fusebox eligibility toggles plusButton vs
+// logoView visibility.
+TEST_F(NewTabPageRedesignViewControllerTest,
+       TestPlusButtonVsLogoViewVisibility) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeatures(
+      /*enabled_features=*/{kPlusButtonInFakebox},
+      /*disabled_features=*/{});
+
+  [view_controller_ loadViewIfNeeded];
+
+  UIButton* plus_button = [view_controller_ valueForKey:@"_plusButton"];
+  UIImageView* logo_view = [view_controller_ valueForKey:@"_logoView"];
+  ASSERT_TRUE(plus_button != nil);
+  ASSERT_TRUE(logo_view != nil);
+
+  // Initially AIM and fusebox not allowed -> Logo shown, plus hidden
+  EXPECT_TRUE(plus_button.hidden);
+  EXPECT_FALSE(logo_view.hidden);
+
+  // Enable AIM and Fusebox -> Plus shown, logo hidden
+  [view_controller_ setAIMAllowed:YES];
+  [view_controller_ setFuseboxEligible:YES];
+  EXPECT_FALSE(plus_button.hidden);
+  EXPECT_TRUE(logo_view.hidden);
+
+  // Disable Fusebox -> Logo shown, plus hidden
+  [view_controller_ setFuseboxEligible:NO];
+  EXPECT_TRUE(plus_button.hidden);
+  EXPECT_FALSE(logo_view.hidden);
+}
+
+// Tests that setVoiceSearchIsEnabled updates voice search button state.
+TEST_F(NewTabPageRedesignViewControllerTest, TestSetVoiceSearchIsEnabled) {
+  [view_controller_ loadViewIfNeeded];
+
+  UIButton* voice_button = [view_controller_ valueForKey:@"_voiceSearchButton"];
+  ASSERT_TRUE(voice_button != nil);
+
+  [view_controller_ setVoiceSearchIsEnabled:YES];
+  EXPECT_TRUE(voice_button.enabled);
+  EXPECT_TRUE(voice_button.isAccessibilityElement);
+
+  [view_controller_ setVoiceSearchIsEnabled:NO];
+  EXPECT_FALSE(voice_button.enabled);
+  EXPECT_FALSE(voice_button.isAccessibilityElement);
+}
+
+// Tests that tapping the plus button invokes openMultimodalActionsMenu on
+// shortcuts handler.
+TEST_F(NewTabPageRedesignViewControllerTest, TestPlusButtonAction) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeatures(
+      /*enabled_features=*/{kPlusButtonInFakebox},
+      /*disabled_features=*/{});
+
+  [view_controller_ loadViewIfNeeded];
+  [view_controller_ setAIMAllowed:YES];
+  [view_controller_ setFuseboxEligible:YES];
+
+  id mock_shortcuts_handler =
+      OCMProtocolMock(@protocol(NewTabPageShortcutsHandler));
+  view_controller_.NTPShortcutsHandler = mock_shortcuts_handler;
+
+  UIButton* plus_button = [view_controller_ valueForKey:@"_plusButton"];
+  ASSERT_TRUE(plus_button != nil);
+
+  OCMExpect([mock_shortcuts_handler openMultimodalActionsMenu]);
+  [plus_button sendActionsForControlEvents:UIControlEventTouchUpInside];
+  EXPECT_OCMOCK_VERIFY(mock_shortcuts_handler);
+}
+
+// Tests that tapping the voice search button invokes loadVoiceSearchFromView on
+// shortcuts handler.
+TEST_F(NewTabPageRedesignViewControllerTest, TestVoiceSearchButtonAction) {
+  [view_controller_ loadViewIfNeeded];
+  [view_controller_ setVoiceSearchIsEnabled:YES];
+
+  id mock_shortcuts_handler =
+      OCMProtocolMock(@protocol(NewTabPageShortcutsHandler));
+  view_controller_.NTPShortcutsHandler = mock_shortcuts_handler;
+
+  UIButton* voice_button = [view_controller_ valueForKey:@"_voiceSearchButton"];
+  ASSERT_TRUE(voice_button != nil);
+
+  OCMExpect([mock_shortcuts_handler preloadVoiceSearch]);
+  OCMExpect([mock_shortcuts_handler loadVoiceSearchFromView:voice_button]);
+  [voice_button sendActionsForControlEvents:UIControlEventTouchUpInside];
+  EXPECT_OCMOCK_VERIFY(mock_shortcuts_handler);
+}
+
+// Tests that touching down on the voice search button invokes
+// preloadVoiceSearch on shortcuts handler.
+TEST_F(NewTabPageRedesignViewControllerTest,
+       TestVoiceSearchButtonTouchDownAction) {
+  [view_controller_ loadViewIfNeeded];
+  [view_controller_ setVoiceSearchIsEnabled:YES];
+
+  id mock_shortcuts_handler =
+      OCMProtocolMock(@protocol(NewTabPageShortcutsHandler));
+  view_controller_.NTPShortcutsHandler = mock_shortcuts_handler;
+
+  UIButton* voice_button = [view_controller_ valueForKey:@"_voiceSearchButton"];
+  ASSERT_TRUE(voice_button != nil);
+
+  OCMExpect([mock_shortcuts_handler preloadVoiceSearch]);
+  [voice_button sendActionsForControlEvents:UIControlEventTouchDown];
+  EXPECT_OCMOCK_VERIFY(mock_shortcuts_handler);
+}
+
+// Tests that tapping the Lens button invokes openLensViewFinder on shortcuts
+// handler.
+TEST_F(NewTabPageRedesignViewControllerTest, TestLensButtonAction) {
+  [view_controller_ loadViewIfNeeded];
+
+  id mock_shortcuts_handler =
+      OCMProtocolMock(@protocol(NewTabPageShortcutsHandler));
+  view_controller_.NTPShortcutsHandler = mock_shortcuts_handler;
+
+  UIButton* lens_button = [view_controller_ valueForKey:@"_lensButton"];
+  ASSERT_TRUE(lens_button != nil);
+
+  OCMExpect([mock_shortcuts_handler openLensViewFinder]);
+  [lens_button sendActionsForControlEvents:UIControlEventTouchUpInside];
+  EXPECT_OCMOCK_VERIFY(mock_shortcuts_handler);
+}
+
+// Tests that notifyLensBadgeDisplayed is not called when lensButton is hidden.
+TEST_F(NewTabPageRedesignViewControllerTest,
+       TestLensBadgeNotNotifiedWhenLensButtonHidden) {
+  id mock_mutator = OCMProtocolMock(@protocol(NewTabPageMutator));
+  view_controller_.mutator = mock_mutator;
+  view_controller_.useNewBadgeForLensButton = YES;
+
+  [view_controller_ loadViewIfNeeded];
+
+  UIButton* lens_button = [view_controller_ valueForKey:@"_lensButton"];
+  ASSERT_TRUE(lens_button != nil);
+  lens_button.hidden = YES;
+
+  [[mock_mutator reject] notifyLensBadgeDisplayed];
+  [view_controller_ viewDidAppear:NO];
+  EXPECT_OCMOCK_VERIFY(mock_mutator);
+}
+
+// Tests that notifyLensBadgeDisplayed is called when lensButton is visible.
+TEST_F(NewTabPageRedesignViewControllerTest,
+       TestLensBadgeNotifiedWhenLensButtonVisible) {
+  id mock_mutator = OCMProtocolMock(@protocol(NewTabPageMutator));
+  view_controller_.mutator = mock_mutator;
+  view_controller_.useNewBadgeForLensButton = YES;
+
+  [view_controller_ loadViewIfNeeded];
+
+  UIButton* lens_button = [view_controller_ valueForKey:@"_lensButton"];
+  ASSERT_TRUE(lens_button != nil);
+  lens_button.hidden = NO;
+
+  OCMExpect([mock_mutator notifyLensBadgeDisplayed]);
+  [view_controller_ viewDidAppear:NO];
+  EXPECT_OCMOCK_VERIFY(mock_mutator);
+}
+
+// Tests that the customization menu button is created with proper accessibility
+// identifier and label.
+TEST_F(NewTabPageRedesignViewControllerTest,
+       TestCustomizationMenuButtonCreated) {
+  [view_controller_ loadViewIfNeeded];
+
+  ExtendedTouchTargetButton* button = view_controller_.customizationMenuButton;
+  ASSERT_TRUE(button != nil);
+  EXPECT_NSEQ(kNTPCustomizationMenuButtonIdentifier,
+              button.accessibilityIdentifier);
+  EXPECT_NSEQ(
+      l10n_util::GetNSString(IDS_IOS_HOME_CUSTOMIZATION_ACCESSIBILITY_LABEL),
+      button.accessibilityLabel);
+}
+
+// Tests that layout guide kFeedIPHNamedGuide references the customization menu
+// button.
+TEST_F(NewTabPageRedesignViewControllerTest,
+       TestCustomizationMenuButtonLayoutGuideRegistered) {
+  id mock_guide_center = OCMClassMock([LayoutGuideCenter class]);
+  view_controller_.layoutGuideCenter = mock_guide_center;
+
+  OCMExpect([mock_guide_center referenceView:[OCMArg any]
+                                   underName:kFeedIPHNamedGuide]);
+  [view_controller_ loadViewIfNeeded];
+
+  EXPECT_OCMOCK_VERIFY(mock_guide_center);
+}
+
+// Tests that notifyCustomizationBadgeDisplayed is not called when
+// useNewBadgeForCustomizationMenu is NO.
+TEST_F(NewTabPageRedesignViewControllerTest,
+       TestCustomizationBadgeNotNotifiedWhenBadgeDisabled) {
+  id mock_mutator = OCMProtocolMock(@protocol(NewTabPageMutator));
+  view_controller_.mutator = mock_mutator;
+  view_controller_.useNewBadgeForCustomizationMenu = NO;
+
+  [view_controller_ loadViewIfNeeded];
+
+  [[mock_mutator reject] notifyCustomizationBadgeDisplayed];
+  [view_controller_ viewDidAppear:NO];
+  EXPECT_OCMOCK_VERIFY(mock_mutator);
+}
+
+// Tests that notifyCustomizationBadgeDisplayed is called when
+// useNewBadgeForCustomizationMenu is YES.
+TEST_F(NewTabPageRedesignViewControllerTest,
+       TestCustomizationBadgeNotifiedWhenBadgeEnabled) {
+  id mock_mutator = OCMProtocolMock(@protocol(NewTabPageMutator));
+  view_controller_.mutator = mock_mutator;
+  view_controller_.useNewBadgeForCustomizationMenu = YES;
+
+  [view_controller_ loadViewIfNeeded];
+
+  OCMExpect([mock_mutator notifyCustomizationBadgeDisplayed]);
+  [view_controller_ viewDidAppear:NO];
+  EXPECT_OCMOCK_VERIFY(mock_mutator);
+}
+
+// Tests that tapping the customization menu button invokes
+// customizationMenuWasTapped on header commands handler and fades the badge.
+TEST_F(NewTabPageRedesignViewControllerTest,
+       TestCustomizationMenuButtonAction) {
+  [view_controller_ loadViewIfNeeded];
+  view_controller_.useNewBadgeForCustomizationMenu = YES;
+
+  id mock_header_commands =
+      OCMProtocolMock(@protocol(NewTabPageHeaderCommands));
+  view_controller_.headerCommandsHandler = mock_header_commands;
+
+  ExtendedTouchTargetButton* button = view_controller_.customizationMenuButton;
+  ASSERT_TRUE(button != nil);
+
+  OCMExpect([mock_header_commands customizationMenuWasTapped:button]);
+  [button sendActionsForControlEvents:UIControlEventTouchUpInside];
+  EXPECT_OCMOCK_VERIFY(mock_header_commands);
+  EXPECT_FALSE(view_controller_.useNewBadgeForCustomizationMenu);
+}
+
+// Tests that scrollToTopAnimated and isScrolledToTop properly interact with the
+// bottom sheet.
+TEST_F(NewTabPageRedesignViewControllerTest, TestScrollToTop) {
+  [view_controller_ loadViewIfNeeded];
+
+  [view_controller_ scrollToTopAnimated:YES];
+  EXPECT_TRUE([view_controller_ isScrolledToTop]);
 }

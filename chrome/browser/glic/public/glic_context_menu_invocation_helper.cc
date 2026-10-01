@@ -19,6 +19,7 @@
 #include "ui/base/l10n/l10n_util.h"
 
 #if !BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/glic/glic_selection_observer.h"
 #include "chrome/browser/ui/tabs/page_context_eligibility_helper.h"
 #endif
 
@@ -77,7 +78,17 @@ void GlicContextMenuInvocationHelper::HandleContextualMenuClick(
 
       options.additional_context = glic::AdditionalTabContext(
           std::move(context), rfh_id, glic::PolicyCheck::kClipboard);
-      options.fre_override = glic::mojom::FreOverride::kTrustFirstClick;
+      options.fre_override =
+          features::kGlicTextSelectionContextMenuMessageFirstFre.Get()
+              ? glic::mojom::FreOverride::kTrustFirstInline
+              : glic::mojom::FreOverride::kTrustFirstClick;
+
+#if !BUILDFLAG(IS_ANDROID)
+      if (auto* observer = GlicSelectionObserver::From(tab)) {
+        observer->UpdateSelectionStateFromContextMenu(
+            std::u16string(trimmed_selection));
+      }
+#endif
 
       glic_service->Invoke(std::move(options));
       return;

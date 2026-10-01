@@ -40,16 +40,23 @@
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
 #include "base/test/test_future.h"
+#include "base/values.h"
 #include "components/history/core/browser/features.h"
 #include "components/history/core/browser/history_backend.h"
 #include "components/history/core/browser/history_client.h"
 #include "components/history/core/browser/history_database_params.h"
 #include "components/history/core/browser/history_db_task.h"
 #include "components/history/core/browser/history_types.h"
+#include "components/history/core/browser/journeys/journey.h"
+#include "components/history/core/browser/journeys/journey_row.h"
 #include "components/history/core/browser/keyword_search_term.h"
 #include "components/history/core/browser/visit_delegate.h"
 #include "components/history/core/test/database_test_utils.h"
 #include "components/history/core/test/test_history_database.h"
+#include "components/sync/model/data_type_controller_delegate.h"
+#include "components/sync_device_info/device_info_tracker.h"
+#include "components/sync_device_info/local_device_info_provider.h"
+#include "components/version_info/channel.h"
 #include "components/visitedlink/core/visited_link.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -107,6 +114,46 @@ void TestVisitDelegate::AddVisitedLink(const VisitedLink& link) {
   }
 }
 
+class TestDeviceInfoTracker : public syncer::DeviceInfoTracker {
+ public:
+  bool IsSyncing() const override { return true; }
+  const syncer::DeviceInfo* GetDeviceInfo(
+      const std::string& client_id) const override {
+    return nullptr;
+  }
+  std::vector<const syncer::DeviceInfo*> GetAllDeviceInfo() const override {
+    return {};
+  }
+  std::vector<const syncer::DeviceInfo*> GetAllChromeDeviceInfo()
+      const override {
+    return {};
+  }
+  void AddObserver(Observer* observer) override {}
+  void RemoveObserver(Observer* observer) override {}
+  absl::flat_hash_map<syncer::DeviceInfo::FormFactor, int>
+  CountActiveDevicesByType() const override {
+    return {};
+  }
+  void ForcePulseForTest() override {}
+  bool IsRecentLocalCacheGuid(const std::string& cache_guid) const override {
+    return false;
+  }
+};
+
+class TestLocalDeviceInfoProvider : public syncer::LocalDeviceInfoProvider {
+ public:
+  version_info::Channel GetChannel() const override {
+    return version_info::Channel::UNKNOWN;
+  }
+  const syncer::DeviceInfo* GetLocalDeviceInfo() const override {
+    return nullptr;
+  }
+  base::CallbackListSubscription RegisterOnInitializedCallback(
+      const base::RepeatingClosure& callback) override {
+    return {};
+  }
+};
+
 class HistoryServiceTest : public testing::Test {
  public:
   HistoryServiceTest() = default;
@@ -121,11 +168,7 @@ class HistoryServiceTest : public testing::Test {
     history_dir_ = temp_dir_.GetPath().AppendASCII("HistoryServiceTest");
     ASSERT_TRUE(base::CreateDirectory(history_dir_));
     history_service_ = std::make_unique<history::HistoryService>();
-    if (!history_service_->Init(
-            TestHistoryDatabaseParamsForPath(history_dir_))) {
-      history_service_.reset();
-      ADD_FAILURE();
-    }
+    history_service_->Init(TestHistoryDatabaseParamsForPath(history_dir_));
   }
 
   void TearDown() override {
@@ -1469,6 +1512,83 @@ TEST_F(HistoryServiceTest, GetMostRecentVisitsForGurl) {
                                  testing::Field(&VisitRow::visit_id, 4))));
 }
 
+namespace {
+
+class AddJourneysDBTask : public HistoryDBTask {
+ public:
+  explicit AddJourneysDBTask(std::vector<journeys::JourneyRow> journeys)
+      : journeys_(std::move(journeys)) {}
+
+  bool RunOnDBThread(HistoryBackend* backend, HistoryDatabase* db) override {
+    backend->AddOrUpdateJourneyRows(journeys_);
+    return true;
+  }
+
+  void DoneRunOnMainThread() override {}
+
+ private:
+  std::vector<journeys::JourneyRow> journeys_;
+};
+
+}  // namespace
+
+TEST_F(HistoryServiceTest, GetAllJourneys) {
+  HistoryService* history = history_service_.get();
+  ASSERT_TRUE(history);
+
+  // When no journeys exist, GetAllJourneys returns an empty vector.
+  {
+    base::test::TestFuture<std::vector<journeys::Journey>> future;
+    history->GetAllJourneys(future.GetCallback(), &tracker_);
+    EXPECT_THAT(future.Take(), testing::IsEmpty());
+  }
+
+  const GURL visited_url("https://www.example.com/test");
+  const base::Time visit_time =
+      base::Time::FromDeltaSinceWindowsEpoch(base::Microseconds(1000));
+  const std::u16string page_title = u"Example Title";
+
+  history->AddPage(visited_url, visit_time, /*context_id=*/0,
+                   /*nav_entry_id=*/0, GURL(), history::RedirectList(),
+                   ui::PAGE_TRANSITION_LINK, history::SOURCE_BROWSED,
+                   VisitResponseCodeCategory::kNot404,
+                   /*did_replace_entry=*/false);
+  history->SetPageTitle(visited_url, page_title);
+
+  const base::Time creation_time =
+      base::Time::FromDeltaSinceWindowsEpoch(base::Microseconds(5000));
+  journeys::JourneyRow journey_row(
+      "test_journey", "Example Journey", creation_time,
+      /*emoji=*/std::nullopt, /*overview=*/std::nullopt,
+      /*short_overview=*/std::nullopt,
+      /*history_entries=*/{journeys::JourneyHistoryEntry(visit_time)});
+
+  // A journey with an unresolvable visit timestamp must be excluded.
+  const base::Time unvisited_time =
+      base::Time::FromDeltaSinceWindowsEpoch(base::Microseconds(9999));
+  journeys::JourneyRow unresolved_journey_row(
+      "unresolved_journey", "Unresolved Journey", creation_time,
+      /*emoji=*/std::nullopt, /*overview=*/std::nullopt,
+      /*short_overview=*/std::nullopt,
+      /*history_entries=*/{journeys::JourneyHistoryEntry(unvisited_time)});
+
+  history->ScheduleDBTask(
+      FROM_HERE,
+      std::make_unique<AddJourneysDBTask>(std::vector<journeys::JourneyRow>{
+          journey_row, unresolved_journey_row}),
+      &tracker_);
+
+  base::test::TestFuture<std::vector<journeys::Journey>> future;
+  history->GetAllJourneys(future.GetCallback(), &tracker_);
+
+  journeys::Journey expected_journey(
+      "test_journey", "Example Journey", creation_time,
+      /*emoji=*/std::nullopt, /*overview=*/std::nullopt,
+      /*short_overview=*/std::nullopt,
+      /*visits=*/{journeys::JourneyVisit(visited_url, page_title)});
+  EXPECT_THAT(future.Take(), testing::ElementsAre(expected_journey));
+}
+
 // This class mocks the VisitDelegate in HistoryService to ensure that
 // partitioned visited links are not added immediately, but rather are posted to
 // the HistoryBackend before notifying the VisitDelegate.
@@ -1498,11 +1618,7 @@ class OrderingHistoryServiceTest : public HistoryServiceTest {
     // Set up the HistoryService.
     history_service_ = std::make_unique<history::HistoryService>(
         nullptr, std::move(visit_delegate), nullptr, nullptr);
-    if (!history_service_->Init(
-            TestHistoryDatabaseParamsForPath(history_dir_))) {
-      history_service_.reset();
-      ADD_FAILURE();
-    }
+    history_service_->Init(TestHistoryDatabaseParamsForPath(history_dir_));
   }
 
   base::RunLoop run_loop_;
@@ -1590,6 +1706,76 @@ TEST_F(OrderingHistoryServiceTest, EnsureAddPageConstructsSelfLink) {
   ASSERT_TRUE(weak_visit_delegate_);
   EXPECT_TRUE(weak_visit_delegate_->visit_delegate_was_called());
   EXPECT_EQ(weak_visit_delegate_->get_added_links(), expected_links);
+}
+
+TEST_F(HistoryServiceTest, DeferredInitWithSyncControllerDelegate) {
+  // Tear down the default HistoryService created by SetUp().
+  CleanupHistoryService();
+
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(kDeferHistoryBackendInit);
+
+  history_service_ = std::make_unique<history::HistoryService>();
+  history_service_->Init(TestHistoryDatabaseParamsForPath(history_dir_));
+
+  // The backend init should not be scheduled yet because init is deferred.
+  EXPECT_FALSE(history_service_->is_backend_init_scheduled_for_testing());
+  EXPECT_FALSE(history_service_->backend_loaded());
+
+  // Getting the sync controller delegate should not cause backend init to be
+  // scheduled or run.
+  auto delegate = history_service_->GetHistorySyncControllerDelegate();
+  ASSERT_TRUE(delegate);
+  EXPECT_FALSE(history_service_->is_backend_init_scheduled_for_testing());
+  EXPECT_FALSE(history_service_->backend_loaded());
+
+  // Invoking a method on the delegate triggers the DelegateProvider on the
+  // backend sequence, which ensures the backend is initialized.
+  base::test::TestFuture<base::ListValue> future;
+  delegate->GetAllNodesForDebugging(future.GetCallback());
+  EXPECT_TRUE(future.Wait());
+
+  EXPECT_TRUE(history_service_->backend_loaded());
+}
+
+TEST_F(HistoryServiceTest, DeferredInitNotTriggeredByEarlyCallsAndShutdown) {
+  // Tear down the default HistoryService created by SetUp().
+  CleanupHistoryService();
+
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(kDeferHistoryBackendInit);
+
+  TestDeviceInfoTracker device_info_tracker;
+  TestLocalDeviceInfoProvider local_device_info_provider;
+  history_service_ = std::make_unique<history::HistoryService>(
+      nullptr, nullptr, &device_info_tracker, &local_device_info_provider);
+  history_service_->Init(TestHistoryDatabaseParamsForPath(history_dir_));
+
+  // Init() notifies device info and local device cache GUID, which should not
+  // cause backend init to be scheduled.
+  EXPECT_FALSE(history_service_->is_backend_init_scheduled_for_testing());
+  EXPECT_FALSE(history_service_->backend_loaded());
+
+  // In-memory early calls should also not trigger backend initialization.
+  history_service_->SetCanAddForeignVisitsToSegmentsOnBackend(true);
+  EXPECT_FALSE(history_service_->is_backend_init_scheduled_for_testing());
+
+  history_service_->SetSyncTransportState(
+      syncer::SyncService::TransportState::INITIALIZING);
+  EXPECT_FALSE(history_service_->is_backend_init_scheduled_for_testing());
+
+  history_service_->ClearCachedDataForContextID(0);
+  EXPECT_FALSE(history_service_->is_backend_init_scheduled_for_testing());
+
+  // Setting the destroy task and shutting down should also not trigger backend
+  // initialization.
+  base::RunLoop run_loop;
+  history_service_->SetOnBackendDestroyTask(run_loop.QuitClosure());
+  EXPECT_FALSE(history_service_->is_backend_init_scheduled_for_testing());
+
+  history_service_->Shutdown();
+  history_service_.reset();
+  run_loop.Run();
 }
 
 }  // namespace history

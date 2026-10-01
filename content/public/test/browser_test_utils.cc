@@ -123,6 +123,7 @@
 #include "net/test/embedded_test_server/http_request.h"
 #include "net/test/embedded_test_server/http_response.h"
 #include "net/traffic_annotation/network_traffic_annotation_test_helper.h"
+#include "partition_alloc/page_allocator.h"
 #include "services/network/public/cpp/features.h"
 #include "services/network/public/cpp/simple_url_loader.h"
 #include "services/network/public/mojom/cookie_manager.mojom.h"
@@ -950,6 +951,18 @@ void SimulateUnresponsivePrimaryMainFrameAndWaitForExit(
   EXPECT_TRUE(web_contents->IsCrashed());
 }
 
+void SimulateOOMPrimaryMainFrameAndWaitForExit(WebContents* web_contents) {
+  RenderProcessHost* rph = web_contents->GetPrimaryMainFrame()->GetProcess();
+  RenderProcessHostWatcher watcher(
+      rph, RenderProcessHostWatcher::WATCH_FOR_PROCESS_EXIT);
+
+  EXPECT_TRUE(
+      rph->Shutdown(partition_alloc::kTerminateOnCommitFailureExitCode));
+  watcher.Wait();
+  EXPECT_FALSE(watcher.did_exit_normally());
+  EXPECT_TRUE(web_contents->IsCrashed());
+}
+
 void PwnCommitIPC(WebContents* web_contents,
                   const GURL& target_url,
                   const GURL& new_url,
@@ -965,9 +978,10 @@ bool CanCommitURLForTesting(int child_id, const GURL& url) {
 
 void SimulateUnresponsiveRenderer(WebContents* web_contents,
                                   RenderWidgetHost* widget) {
-  static_cast<WebContentsImpl*>(web_contents)
-      ->RendererUnresponsive(RenderWidgetHostImpl::From(widget),
-                             base::DoNothing());
+  RenderWidgetHostImpl::From(widget)->RendererIsUnresponsive(
+      RenderWidgetHostImpl::RendererIsUnresponsiveReason::
+          kOnInputEventAckTimeout,
+      base::DoNothing());
 }
 
 #if defined(USE_AURA)
@@ -3698,7 +3712,7 @@ void TestNavigationManager::RenderFrameCreated(
   NavigationRequest* request =
       host_impl->frame_tree_node()->navigation_request();
   if (host_impl->lifecycle_state() ==
-          RenderFrameHostImpl::LifecycleStateImpl::kSpeculative &&
+          RenderFrameHostLifecycleStateImpl::kSpeculative &&
       IsRequestCompatibleWithSpeculativeRFH(request) &&
       request->GetURL() == url_ &&
       (request == request_ || request_ == nullptr)) {
@@ -4356,6 +4370,11 @@ void PwnMessageHelper::OpenURL(RenderFrameHost* render_frame_host,
   params->disposition = WindowOpenDisposition::CURRENT_TAB;
   params->should_replace_current_entry = false;
   params->user_gesture = true;
+  params->initiator_state_token =
+      static_cast<RenderFrameHostImpl*>(render_frame_host)
+          ->current_initiator_state_token();
+  params->initiator_document_token =
+      static_cast<RenderFrameHostImpl*>(render_frame_host)->GetDocumentToken();
   static_cast<mojom::FrameHost*>(
       static_cast<RenderFrameHostImpl*>(render_frame_host))
       ->OpenURL(std::move(params));
@@ -4938,7 +4957,7 @@ void SpeculativeRenderFrameHostObserver::RenderFrameCreated(
   NavigationRequest* request =
       host_impl->frame_tree_node()->navigation_request();
   if (host_impl->lifecycle_state() ==
-          RenderFrameHostImpl::LifecycleStateImpl::kSpeculative &&
+          RenderFrameHostLifecycleStateImpl::kSpeculative &&
       IsRequestCompatibleWithSpeculativeRFH(request) &&
       request->GetURL() == url_) {
     run_loop_.Quit();

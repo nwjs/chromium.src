@@ -18,6 +18,7 @@
 #include "chrome/browser/enterprise/browser_management/management_service_factory.h"
 #include "chrome/browser/glic/actor/glic_actor_task_manager.h"
 #include "chrome/browser/glic/experimental_opt_in/glic_experimental_opt_in_controller.h"
+#include "chrome/browser/glic/experimental_triggering/glic_experimental_triggering_manager.h"
 #include "chrome/browser/glic/experimental_triggering/glic_experimental_triggering_metrics.h"
 #include "chrome/browser/glic/experimental_triggering/glic_experimental_triggering_types.h"
 #include "chrome/browser/glic/glic_pref_names.h"
@@ -73,6 +74,23 @@ class TestGlicExperimentalTriggeringCoordinator
  private:
   raw_ptr<BrowserWindowInterface> browser_window_ = nullptr;
   raw_ptr<tabs::TabInterface> active_tab_ = nullptr;
+};
+
+class MockGlicExperimentalTriggeringManager
+    : public GlicExperimentalTriggeringManager {
+ public:
+  MockGlicExperimentalTriggeringManager()
+      : GlicExperimentalTriggeringManager(/*instance=*/nullptr,
+                                          /*sharing_manager=*/nullptr) {}
+  ~MockGlicExperimentalTriggeringManager() override = default;
+
+  MOCK_METHOD(void,
+              CaptureAndUploadEncryptedScreenshot,
+              (const std::vector<uint8_t>&,
+               const std::vector<uint8_t>&,
+               base::OnceCallback<void(
+                   base::expected<std::string, ScreenshotResult::Status>)>),
+              (override));
 };
 
 class GlicExperimentalTriggeringCoordinatorTest : public testing::Test {
@@ -189,7 +207,14 @@ TEST_F(GlicExperimentalTriggeringCoordinatorTest, NoTaskMetadata) {
   request.payload = TriggerActuationRequest{.initial_prompt = "hello"};
 
   auto response = SendRequest(request);
-  EXPECT_FALSE(response.has_value());
+  ASSERT_TRUE(response.has_value());
+  ASSERT_TRUE(response->task_update.has_value());
+  EXPECT_EQ(response->task_update->state, TaskUpdate::State::kFailed);
+  EXPECT_EQ(response->task_update->data_type,
+            TaskUpdate::DataType::kErrorMessage);
+  EXPECT_EQ(response->task_update->data,
+            "Received GlicExperimentalTriggering message with missing task "
+            "metadata.");
 }
 
 TEST_F(GlicExperimentalTriggeringCoordinatorTest, NoServerChannelConfig) {
@@ -385,7 +410,6 @@ TEST_F(GlicExperimentalTriggeringCoordinatorTest,
   EXPECT_EQ(coordinator_->GetUpdatesHandlerMapSizeForTesting(), 0u);
 }
 
-#if !BUILDFLAG(IS_ANDROID)
 TEST_F(GlicExperimentalTriggeringCoordinatorTest,
        HandlesMultipleConcurrentDeviceOptInRequests) {
   auto web_contents = content::WebContents::Create(
@@ -499,7 +523,6 @@ TEST_F(GlicExperimentalTriggeringCoordinatorTest,
   EXPECT_EQ(result2.task_metadata->sender_sequence_number, 0);
   EXPECT_EQ(result2.task_metadata->last_seen_sequence_number, 43);
 }
-#endif  // !BUILDFLAG(IS_ANDROID)
 
 TEST_F(GlicExperimentalTriggeringCoordinatorTest,
        OnProtoMessage_MissingPayload) {
@@ -612,12 +635,43 @@ class GlicExperimentalTriggeringCoordinatorWithTabTest
         .WillByDefault(testing::ReturnRef(unowned_user_data_host_));
     instance_helper_ = std::make_unique<GlicInstanceHelper>(&mock_tab_);
     coordinator_->set_active_tab(&mock_tab_);
+    ON_CALL(mock_glic_instance_, GetExperimentalTriggeringManager())
+        .WillByDefault(testing::Return(&mock_triggering_manager_));
   }
 
   void TearDown() override {
     instance_helper_.reset();
     web_contents_.reset();
     GlicExperimentalTriggeringCoordinatorTest::TearDown();
+  }
+
+  void StartActuationSession(std::string_view conversation_id = "conv_123") {
+    ExperimentalTriggeringRequest init_request;
+    init_request.version = 1;
+    init_request.context_id = kTestContextId;
+    init_request.task_metadata =
+        TaskMetadata{.conversation_id = std::string(conversation_id)};
+    init_request.payload = TriggerActuationRequest{.initial_prompt = "hello"};
+    auto response = SendRequest(init_request);
+    ASSERT_TRUE(response.has_value());
+    ASSERT_TRUE(response->task_update.has_value());
+    EXPECT_EQ(response->task_update->state, TaskUpdate::State::kStarting);
+  }
+
+  ExperimentalTriggeringRequest CreateScreenshotRequest(
+      std::vector<uint8_t> request_token = {'t', 'o', 'k', 'e', 'n'},
+      std::string_view conversation_id = "conv_123") {
+    ExperimentalTriggeringRequest screenshot_request;
+    screenshot_request.version = 1;
+    screenshot_request.context_id = kTestContextId;
+    screenshot_request.task_metadata =
+        TaskMetadata{.conversation_id = std::string(conversation_id)};
+    screenshot_request.payload = GetScreenshotRequest{
+        .public_key = {'k', 'e', 'y'},
+        .auth_secret = {'s', 'e', 'c'},
+        .request_token = std::move(request_token),
+    };
+    return screenshot_request;
   }
 
  protected:
@@ -627,6 +681,8 @@ class GlicExperimentalTriggeringCoordinatorWithTabTest
   base::WeakPtrFactory<tabs::TabInterface> tab_weak_factory_{&mock_tab_};
   ui::UnownedUserDataHost unowned_user_data_host_;
   std::unique_ptr<GlicInstanceHelper> instance_helper_;
+  testing::NiceMock<MockGlicExperimentalTriggeringManager>
+      mock_triggering_manager_;
 };
 
 TEST_F(GlicExperimentalTriggeringCoordinatorWithTabTest,
@@ -653,15 +709,7 @@ TEST_F(GlicExperimentalTriggeringCoordinatorWithTabTest,
 
 TEST_F(GlicExperimentalTriggeringCoordinatorWithTabTest,
        RelaysParentConversationMetadataUpdated) {
-  ExperimentalTriggeringRequest init_request;
-  init_request.version = 1;
-  init_request.context_id = kTestContextId;
-  init_request.task_metadata = TaskMetadata{.conversation_id = "conv_123"};
-  init_request.payload = TriggerActuationRequest{.initial_prompt = "hello"};
-  auto init_response = SendRequest(init_request);
-  ASSERT_TRUE(init_response.has_value());
-  ASSERT_TRUE(init_response->task_update.has_value());
-  EXPECT_EQ(init_response->task_update->state, TaskUpdate::State::kStarting);
+  StartActuationSession();
 
   ExperimentalTriggeringRequest update_request;
   update_request.version = 1;
@@ -685,15 +733,7 @@ TEST_F(GlicExperimentalTriggeringCoordinatorWithTabTest,
 
 TEST_F(GlicExperimentalTriggeringCoordinatorWithTabTest,
        RespectsLastSeenSequenceNumber) {
-  ExperimentalTriggeringRequest init_request;
-  init_request.version = 1;
-  init_request.context_id = kTestContextId;
-  init_request.task_metadata = TaskMetadata{.conversation_id = "conv_123"};
-  init_request.payload = TriggerActuationRequest{.initial_prompt = "hello"};
-  auto init_response = SendRequest(init_request);
-  ASSERT_TRUE(init_response.has_value());
-  ASSERT_TRUE(init_response->task_update.has_value());
-  EXPECT_EQ(init_response->task_update->state, TaskUpdate::State::kStarting);
+  StartActuationSession();
 
   ExperimentalTriggeringRequest stop_request;
   stop_request.version = 1;
@@ -709,6 +749,233 @@ TEST_F(GlicExperimentalTriggeringCoordinatorWithTabTest,
   ASSERT_TRUE(response->task_update.has_value());
   EXPECT_EQ(response->task_update->state, TaskUpdate::State::kStopped);
   EXPECT_EQ(response->task_metadata->last_seen_sequence_number, 42);
+}
+
+TEST_F(GlicExperimentalTriggeringCoordinatorWithTabTest,
+       GetScreenshotRequest_InvalidRequest_EmptyRequestToken) {
+  StartActuationSession();
+
+  EXPECT_CALL(mock_triggering_manager_, CaptureAndUploadEncryptedScreenshot)
+      .Times(0);
+
+  base::test::TestFuture<ExperimentalTriggeringResponse> update_future;
+  base::HistogramTester histogram_tester;
+  auto response = coordinator_->OnRequest(
+      kTestContextId, CreateScreenshotRequest(/*request_token=*/{}),
+      ScopedIncomingMessageResultLogger(
+          ScopedIncomingMessageResultLogger::Channel::kSharingMessage),
+      update_future.GetRepeatingCallback(), nullptr);
+
+  ASSERT_TRUE(response.has_value());
+  ASSERT_TRUE(response->screenshot_result.has_value());
+  EXPECT_EQ(response->screenshot_result->status,
+            ScreenshotResult::Status::kErrorInvalidRequest);
+  EXPECT_TRUE(response->screenshot_result->file_token.empty());
+  EXPECT_TRUE(response->screenshot_result->request_token.empty());
+  EXPECT_FALSE(response->task_update.has_value());
+  EXPECT_FALSE(update_future.IsReady());
+
+  histogram_tester.ExpectUniqueSample(
+      "Glic.ExperimentalTriggering.IncomingMessageResult.SharingMessage",
+      GlicExperimentalTriggeringIncomingMessageResult::
+          kUnexpectedRequestPayload,
+      1);
+}
+
+struct ScreenshotCaptureTestCase {
+  const char* test_name;
+  base::expected<std::string, ScreenshotResult::Status> manager_result;
+  ScreenshotResult::Status expected_status;
+  std::string expected_file_token;
+};
+
+class GlicExperimentalTriggeringCoordinatorScreenshotCaptureTest
+    : public GlicExperimentalTriggeringCoordinatorWithTabTest,
+      public testing::WithParamInterface<ScreenshotCaptureTestCase> {};
+
+TEST_P(GlicExperimentalTriggeringCoordinatorScreenshotCaptureTest,
+       HandlesCaptureResult) {
+  StartActuationSession();
+
+  const auto& test_case = GetParam();
+  const std::vector<uint8_t> expected_token = {'t', 'o', 'k', 'e', 'n'};
+  EXPECT_CALL(mock_triggering_manager_, CaptureAndUploadEncryptedScreenshot)
+      .WillOnce(testing::WithArg<2>(
+          [&test_case](
+              base::OnceCallback<void(
+                  base::expected<std::string, ScreenshotResult::Status>)>
+                  callback) {
+            std::move(callback).Run(test_case.manager_result);
+          }));
+
+  base::test::TestFuture<ExperimentalTriggeringResponse> update_future;
+  auto response = coordinator_->OnRequest(
+      kTestContextId, CreateScreenshotRequest(expected_token),
+      ScopedIncomingMessageResultLogger(
+          ScopedIncomingMessageResultLogger::Channel::kSharingMessage),
+      update_future.GetRepeatingCallback(), nullptr);
+
+  ASSERT_TRUE(response.has_value());
+  ASSERT_TRUE(response->task_update.has_value());
+  EXPECT_EQ(response->task_update->state, TaskUpdate::State::kStarting);
+
+  auto async_response = update_future.Take();
+  ASSERT_TRUE(async_response.screenshot_result.has_value());
+  EXPECT_EQ(async_response.screenshot_result->status,
+            test_case.expected_status);
+  EXPECT_EQ(async_response.screenshot_result->file_token,
+            test_case.expected_file_token);
+  EXPECT_EQ(async_response.screenshot_result->request_token, expected_token);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    GetScreenshotRequest,
+    GlicExperimentalTriggeringCoordinatorScreenshotCaptureTest,
+    testing::Values(
+        ScreenshotCaptureTestCase{
+            .test_name = "Success",
+            .manager_result = base::ok("file_token_123"),
+            .expected_status = ScreenshotResult::Status::kSuccess,
+            .expected_file_token = "file_token_123",
+        },
+        ScreenshotCaptureTestCase{
+            .test_name = "EmptyFileToken_ReturnsErrorServer",
+            .manager_result = base::ok(""),
+            .expected_status = ScreenshotResult::Status::kErrorServer,
+            .expected_file_token = "",
+        },
+        ScreenshotCaptureTestCase{
+            .test_name = "ErrorCapture",
+            .manager_result =
+                base::unexpected(ScreenshotResult::Status::kErrorCapture),
+            .expected_status = ScreenshotResult::Status::kErrorCapture,
+            .expected_file_token = "",
+        },
+        ScreenshotCaptureTestCase{
+            .test_name = "ErrorDisabled",
+            .manager_result =
+                base::unexpected(ScreenshotResult::Status::kErrorDisabled),
+            .expected_status = ScreenshotResult::Status::kErrorDisabled,
+            .expected_file_token = "",
+        },
+        ScreenshotCaptureTestCase{
+            .test_name = "ErrorServer",
+            .manager_result =
+                base::unexpected(ScreenshotResult::Status::kErrorServer),
+            .expected_status = ScreenshotResult::Status::kErrorServer,
+            .expected_file_token = "",
+        }),
+    [](const testing::TestParamInfo<ScreenshotCaptureTestCase>& info) {
+      return info.param.test_name;
+    });
+
+TEST_F(GlicExperimentalTriggeringCoordinatorTest,
+       RecordsInitialMessageDeliveryLatency) {
+  base::HistogramTester histogram_tester;
+  components_sharing_message::GlicExperimentalTriggering proto;
+  proto.set_context_id(kTestContextId);
+  proto.set_glic_experimental_triggering_version(1);
+  proto.mutable_request()->mutable_device_opt_in_request();
+
+  base::Time sent_time = base::Time::Now() - base::Seconds(5);
+  auto* timestamp = proto.mutable_task_metadata()->mutable_server_time_stamp();
+  timestamp->set_seconds((sent_time - base::Time::UnixEpoch()).InSeconds());
+  timestamp->set_nanos(0);
+
+  coordinator_->OnProtoMessage(
+      kTestContextId, proto,
+      ScopedIncomingMessageResultLogger(
+          ScopedIncomingMessageResultLogger::Channel::kSharingMessage),
+      base::DoNothing(), nullptr);
+
+  histogram_tester.ExpectTotalCount(
+      "Glic.ExperimentalTriggering.FirstFCMMessageLatency", 1);
+}
+
+TEST_F(GlicExperimentalTriggeringCoordinatorTest,
+       DoesNotRecordLatencyForInvalidServerTimestamp) {
+  base::HistogramTester histogram_tester;
+  components_sharing_message::GlicExperimentalTriggering proto;
+  proto.set_context_id(kTestContextId);
+  proto.set_glic_experimental_triggering_version(1);
+  proto.mutable_request()->mutable_device_opt_in_request();
+
+  // Default/empty server timestamp (seconds = 0, nanos = 0).
+  proto.mutable_task_metadata()->mutable_server_time_stamp();
+
+  coordinator_->OnProtoMessage(
+      kTestContextId, proto,
+      ScopedIncomingMessageResultLogger(
+          ScopedIncomingMessageResultLogger::Channel::kSharingMessage),
+      base::DoNothing(), nullptr);
+
+  histogram_tester.ExpectTotalCount(
+      "Glic.ExperimentalTriggering.FirstFCMMessageLatency", 0);
+}
+
+TEST_F(GlicExperimentalTriggeringCoordinatorTest,
+       ClampsNegativeDeliveryLatencyToZero) {
+  base::HistogramTester histogram_tester;
+  components_sharing_message::GlicExperimentalTriggering proto;
+  proto.set_context_id(kTestContextId);
+  proto.set_glic_experimental_triggering_version(1);
+  proto.mutable_request()->mutable_device_opt_in_request();
+
+  // Server timestamp is 10 seconds in the future due to clock skew.
+  base::Time sent_time = base::Time::Now() + base::Seconds(10);
+  auto* timestamp = proto.mutable_task_metadata()->mutable_server_time_stamp();
+  timestamp->set_seconds((sent_time - base::Time::UnixEpoch()).InSeconds());
+  timestamp->set_nanos(0);
+
+  coordinator_->OnProtoMessage(
+      kTestContextId, proto,
+      ScopedIncomingMessageResultLogger(
+          ScopedIncomingMessageResultLogger::Channel::kSharingMessage),
+      base::DoNothing(), nullptr);
+
+  histogram_tester.ExpectBucketCount(
+      "Glic.ExperimentalTriggering.FirstFCMMessageLatency", 0, 1);
+}
+
+TEST_F(GlicExperimentalTriggeringCoordinatorWithTabTest,
+       DoesNotRecordLatencyForSubsequentMessagesInSameContext) {
+  base::HistogramTester histogram_tester;
+  components_sharing_message::GlicExperimentalTriggering proto;
+  proto.set_context_id(kTestContextId);
+  proto.set_glic_experimental_triggering_version(1);
+  proto.mutable_request()->mutable_trigger_actuation_request();
+
+  base::Time sent_time = base::Time::Now() - base::Seconds(5);
+  auto* timestamp = proto.mutable_task_metadata()->mutable_server_time_stamp();
+  timestamp->set_seconds((sent_time - base::Time::UnixEpoch()).InSeconds());
+  timestamp->set_nanos(0);
+
+  // 1. First message initializes the updates handler and logs latency.
+  coordinator_->OnProtoMessage(
+      kTestContextId, proto,
+      ScopedIncomingMessageResultLogger(
+          ScopedIncomingMessageResultLogger::Channel::kSharingMessage),
+      base::DoNothing(), nullptr);
+  histogram_tester.ExpectTotalCount(
+      "Glic.ExperimentalTriggering.FirstFCMMessageLatency", 1);
+
+  // 2. Second message for the same context_id must not log latency again.
+  components_sharing_message::GlicExperimentalTriggering proto2;
+  proto2.set_context_id(kTestContextId);
+  proto2.set_glic_experimental_triggering_version(1);
+  proto2.mutable_request()->mutable_continue_actuation_request();
+  auto* timestamp2 =
+      proto2.mutable_task_metadata()->mutable_server_time_stamp();
+  timestamp2->set_seconds((sent_time - base::Time::UnixEpoch()).InSeconds());
+  timestamp2->set_nanos(0);
+
+  coordinator_->OnProtoMessage(
+      kTestContextId, proto2,
+      ScopedIncomingMessageResultLogger(
+          ScopedIncomingMessageResultLogger::Channel::kSharingMessage),
+      base::DoNothing(), nullptr);
+  histogram_tester.ExpectTotalCount(
+      "Glic.ExperimentalTriggering.FirstFCMMessageLatency", 1);
 }
 
 }  // namespace

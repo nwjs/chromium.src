@@ -38,10 +38,6 @@ class BookmarksSidePanelCoordinator;
 class BookmarksServiceFeature;
 class BreadcrumbManagerBrowserAgent;
 
-namespace geic {
-class GeicSidePanelCoordinator;
-}  // namespace geic
-class Browser;
 class BrowserActions;
 class BrowserActiveStateManager;
 class BrowserAnimationController;
@@ -95,7 +91,7 @@ class LocationBarModel;
 class MemorySaverOptInIPHController;
 class PinnedToolbarActions;
 class ProfileMenuCoordinator;
-class OrganizerPanelStateController;
+class OrganizerPanelController;
 class ReadingListSidePanelCoordinator;
 class RecentActivityBubbleCoordinator;
 class ScrimViewController;
@@ -104,7 +100,6 @@ class SessionServiceBrowserHelper;
 class SharingWindowController;
 class SidePanelCoordinator;
 class SidePanelRegistry;
-class SidePanelUI;
 class SigninViewController;
 class SplitViewIphController;
 class TabDragServiceFeature;
@@ -117,7 +112,6 @@ class TabMenuModelDelegate;
 class TabStripModel;
 class TabStripServiceFeature;
 class TabsFromOtherDevicesSidePanelCoordinator;
-class ToastController;
 class ToastService;
 class TranslateBubbleController;
 class UIControllerFactory;
@@ -150,10 +144,6 @@ class OverscrollPrefManager;
 #if BUILDFLAG(ENABLE_EXTENSIONS) && (BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC))
 class DefaultSearchExtensionControlledController;
 #endif
-
-namespace actions {
-class ActionItem;
-}  // namespace actions
 
 #if BUILDFLAG(IS_CHROMEOS)
 namespace ash::boca {
@@ -197,7 +187,6 @@ class ExtensionSidePanelManager;
 
 namespace glic {
 class GlicIphController;
-class GlicNudgeController;
 class GlicSplitButtonController;
 }  // namespace glic
 
@@ -274,10 +263,6 @@ namespace ttc {
 class AiOverlayDialogController;
 }  // namespace ttc
 
-namespace ui {
-class AcceleratorProvider;
-}  // namespace ui
-
 namespace web_app {
 class AppBrowserController;
 }  // namespace web_app
@@ -308,7 +293,7 @@ class BrowserWindowFeatures {
 
   // Called exactly once to initialize features that depend on the window object
   // being created.
-  void InitPostWindowConstruction(Browser* browser);
+  void InitPostWindowConstruction(BrowserWindowInterface* browser);
 
   // Called exactly once to initialize features that depend on the view
   // hierarchy in BrowserView.
@@ -317,46 +302,12 @@ class BrowserWindowFeatures {
   // Called exactly once to tear down state that depends on the window object.
   void TearDownPreBrowserWindowDestruction();
 
-  ui::AcceleratorProvider* accelerator_provider() {
-    return accelerator_provider_;
-  }
-
-  chrome::BrowserCommandController* browser_command_controller() const {
-    return browser_command_controller_.get();
-  }
-
-  content_settings::CookieControlsController* cookie_controls_controller() {
-    return cookie_controls_controller_.get();
-  }
-
-  ExclusiveAccessManager* exclusive_access_manager() {
-    return exclusive_access_manager_.get();
-  }
-
-  ExtensionInstalledWatcher* extension_installed_watcher() {
-    return extension_installed_watcher_.get();
-  }
-
-  ExtensionKeybindingRegistryViews* extension_keybinding_registry() {
-    return extension_keybinding_registry_.get();
-  }
-
-  extensions::ExtensionSidePanelManager* extension_side_panel_manager() {
-    return extension_side_panel_manager_.get();
-  }
-
   // Get the FindBarController for this browser window, creating it if it does
   // not yet exist.
   FindBarController* GetFindBarController();
 
-  actions::ActionItem* GetRootActionItem();
-
-  glic::GlicNudgeController* glic_nudge_controller();
-
   // Returns true if a FindBarController exists for this browser window.
   bool HasFindBarController() const;
-
-  sessions::LiveTabContext* live_tab_context();
 
   // Returns the LocationBar for this browser window. Currently delegates to
   // BrowserWindow::GetLocationBar() via downcast, but should eventually become
@@ -379,37 +330,6 @@ class BrowserWindowFeatures {
     return pinned_toolbar_actions_;
   }
 
-  ProfileMenuCoordinator* profile_menu_coordinator() {
-    return profile_menu_coordinator_.get();
-  }
-
-  // TODO(crbug.com/346158959): For historical reasons, side_panel_ui is an
-  // abstract base class that contains some, but not all of the public interface
-  // of SidePanelCoordinator. One of the accessors side_panel_ui() or
-  // side_panel_coordinator() should be removed. For consistency with the rest
-  // of this class, we use lowercase_with_underscores even though the
-  // implementation is not inlined.
-  SidePanelUI* side_panel_ui();
-
-  SigninViewController* signin_view_controller() {
-    return signin_view_controller_.get();
-  }
-
-  BrowserSyncedWindowDelegate* synced_window_delegate() {
-    return synced_window_delegate_.get();
-  }
-
-  TabMenuModelDelegate* tab_menu_model_delegate() {
-    return tab_menu_model_delegate_.get();
-  }
-
-  TabStripModel* tab_strip_model() { return tab_strip_model_; }
-
-  // Returns a pointer to the ToastController for the browser window. This can
-  // return nullptr for non-normal browser windows because toasts are not
-  // supported for those cases.
-  ToastController* toast_controller();
-
   static ui::UserDataFactoryWithOwner<BrowserWindowInterface>&
   GetUserDataFactoryForTesting();
 
@@ -431,7 +351,6 @@ class BrowserWindowFeatures {
   std::unique_ptr<BookmarksServiceFeature> bookmarks_service_feature_;
   std::unique_ptr<BookmarksSidePanelCoordinator>
       bookmarks_side_panel_coordinator_;
-  std::unique_ptr<geic::GeicSidePanelCoordinator> geic_side_panel_coordinator_;
 
   // Listens for browser-related breadcrumb events to be added to crash reports.
   std::unique_ptr<BreadcrumbManagerBrowserAgent>
@@ -534,8 +453,7 @@ class BrowserWindowFeatures {
   std::unique_ptr<tab_groups::MostRecentSharedTabUpdateStore>
       most_recent_shared_tab_update_store_;
   std::unique_ptr<ProfileMenuCoordinator> profile_menu_coordinator_;
-  std::unique_ptr<OrganizerPanelStateController>
-      organizer_panel_state_controller_;
+  std::unique_ptr<OrganizerPanelController> organizer_panel_controller_;
   std::unique_ptr<qrcode_generator::QRCodeWindowController>
       qrcode_window_controller_;
   std::unique_ptr<ReadingListSidePanelCoordinator>
@@ -668,11 +586,6 @@ class BrowserWindowFeatures {
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 
   // Non-owning references.
-  // TODO(webium): Current both BrowserView and WebUIBrowserWindow implement
-  // AcceleratorProvider. Consider eliminating this inheritance and composing
-  // this functionality into its own class.
-  raw_ptr<ui::AcceleratorProvider> accelerator_provider_;
-
   // TODO(crbug.com/423956131): Remove this.
   raw_ptr<BrowserWindowInterface> browser_ = nullptr;
 

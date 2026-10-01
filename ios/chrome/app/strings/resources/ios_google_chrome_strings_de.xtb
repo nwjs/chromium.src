@@ -1,7 +1,6 @@
 <?xml version="1.0" ?>
 <!DOCTYPE translationbundle>
 <translationbundle lang="de">
-<translation id="1035560095760914532">Chrome unten platzieren, um jederzeit darauf zugreifen zu können</translation>
 <translation id="1076643793026027628">In Chrome werden YouTube-Inkognitolinks automatisch im Inkognitomodus geöffnet.</translation>
 <translation id="1081114897601629648">Die folgenden Passwörter wurden nicht in den Google Passwortmanager importiert, da sie die Anforderungen nicht erfüllen.</translation>
 <translation id="1086486568852410168">Mit Google Lens suchen</translation>
@@ -41,6 +40,7 @@ Wichtige Hinweise:
 <translation id="1580570086594302477">Dadurch wird ein neuer Chrome-Inkognitotab geöffnet.</translation>
 <translation id="1605168141396675642">Kein lästiges Kopieren mehr. Du kannst Links direkt in Chrome öffnen.</translation>
 <translation id="1646463005043273333">Öffnet die Chrome-Einstellung, mit der Chrome als Standardbrowser festgelegt wird.</translation>
+<translation id="1665695109862533986">Du kannst Chrome als Standardbrowser festlegen, um Links mit nur einem Tippen zu öffnen</translation>
 <translation id="1668930590094369898">Chrome als Standardbrowser verwenden</translation>
 <translation id="1670609221633730681">Chrome-Tipp: Position der Adressleiste auswählen</translation>
 <translation id="1683863426423719967">Wenn du Tab-Erinnerungen von Chrome erhalten möchtest, aktiviere Benachrichtigungen in deinen iOS-Einstellungen.</translation>
@@ -92,7 +92,6 @@ Wichtige Hinweise:
 <translation id="288992067439702510">Du hast das Chrome-Limit von <ph name="LIMIT" /> Lesezeichen erreicht. Einige deiner Lesezeichen wurden daher noch nicht in deinem Google-Konto gespeichert.
 
 Du kannst erst neue Lesezeichen in deinem Konto speichern, wenn du einige gelöscht hast. Wenn du dich jetzt abmeldest, werden nicht gespeicherte Lesezeichen gelöscht.</translation>
-<translation id="2901621928549457170">Chrome sofort öffnen, wenn du dein iPad verwendest</translation>
 <translation id="2922914028977213693">Tippe hier, um Chrome auf deinem iPad optimal zu nutzen.</translation>
 <translation id="292371311537977079">Chrome-Einstellungen</translation>
 <translation id="2923827943290349720">Inkognitotabs sperren, wenn Chrome geschlossen wird</translation>
@@ -151,6 +150,7 @@ Du kannst erst neue Lesezeichen in deinem Konto speichern, wenn du einige gelös
 <translation id="4523886039239821078">Einige Add-ons führen zum Ausfall von Chrome. Bitte deinstalliere:</translation>
 <translation id="4568024439284012497">Über den Startbildschirm deines iPhones kannst du schneller auf Chrome zugreifen.</translation>
 <translation id="4574806550936185355">Aktiviere die Option „Inkognitotabs sperren, wenn Chrome geschlossen wird“</translation>
+<translation id="457825396414281646">Du kannst Chrome zu deinem Standardbrowser machen, um Links mit nur einem Tippen zu öffnen</translation>
 <translation id="4633328489441962921">Chrome kann nicht nach Aktualisierungen suchen</translation>
 <translation id="4636900170638246267">Melde dich bei dieser Website und in Chrome an.</translation>
 <translation id="4647910807533196601">Aktuellen Tab in Chrome öffnen.</translation>
@@ -177,8 +177,6 @@ Du kannst erst neue Lesezeichen in deinem Konto speichern, wenn du einige gelös
 <translation id="5119391094379141756">Wähle Chrome aus</translation>
 <translation id="5123188916260706415">Sprachsuche in Chrome</translation>
 <translation id="5162467219239570114">Chrome ist veraltet. Wenn im <ph name="BEGIN_LINK" />App Store<ph name="END_LINK" /> kein Update verfügbar ist, unterstützt dein Gerät neuere Versionen von Chrome möglicherweise nicht mehr.</translation>
-<translation id="5172049865623113551">Chrome sofort öffnen, wenn du dein iPhone verwendest</translation>
-<translation id="5179095426828744632">Über das Dock schneller auf Chrome zugreifen</translation>
 <translation id="5184329579814168207">In Chrome öffnen</translation>
 <translation id="5190139289262548459">Deine Organisation, <ph name="DOMAIN" />, verwaltet das Konto, in dem du angemeldet bist, und die Nutzung von Chrome.</translation>
 <translation id="5209238444239954363">Chrome konnte nicht nach Updates suchen. Versuche es später noch einmal.</translation>
@@ -242,7 +240,6 @@ Warte einige Minuten, bevor du das Konto wechselst. Wenn du jetzt das Konto wech
 <translation id="6484712497741564393">Angemeldet als <ph name="EMAIL" />.
 
 Deine Daten werden mit deiner Passphrase verschlüsselt. Gib sie ein, um Chrome-Daten in deinem Google-Konto zu verwenden und zu speichern.</translation>
-<translation id="6511034852811155835">Chrome überall nutzen</translation>
 <translation id="6533470733797826516">Mit Chrome Autofill schneller anmelden</translation>
 <translation id="6536544321553662809">Lege Chrome als Standardbrowser fest, um Links ganz einfach zu teilen und zu öffnen</translation>
 <translation id="6545449117344801102">Chrome erkennt Adressen über Google Maps, um dir Wegbeschreibungen und lokale Informationen bereitzustellen.</translation>
@@ -266,7 +263,6 @@ Weitere Einstellungen, bei denen Daten zur Verbesserung von Chrome verwendet wer
 <translation id="6924922227983877439">Links standardmäßig in Chrome öffnen</translation>
 <translation id="6926395711547387358">Chrome als Standardbrowser festlegen</translation>
 <translation id="6975725306479268850">Chrome für Autofill auswählen</translation>
-<translation id="7001031184470316752">Chrome in dein Dock verschieben</translation>
 <translation id="7038674195294813388">Öffne unter iOS die Einstellungen für Standard-Apps, tippe auf „Browser-App“ und wähle „Chrome“ aus.</translation>
 <translation id="7056826488869329999">Dadurch wird der Sicherheitscheck in Chrome geöffnet und ausgeführt.</translation>
 <translation id="7061455974939528301">Halte das Chrome-Symbol gedrückt und klicke auf „Startbildschirm bearbeiten“</translation>
@@ -363,6 +359,7 @@ Deine Daten wurden am <ph name="TIME" /> mit deiner Passphrase verschlüsselt. G
 <translation id="8610372330814566250">In Safari gespeicherte Passwörter, Verlauf, Lesezeichen und Kreditkarten in Chrome verwenden</translation>
 <translation id="8630122478628016441">Aktiviere die Option „Inkognitotabs sperren, wenn Chrome geschlossen wird“.</translation>
 <translation id="8673726683583791503">Mit Google Lens einkaufen</translation>
+<translation id="869525545193934083">Video im Vollbildmodus, in dem gezeigt wird, wie Chrome als Standardbrowser festgelegt werden kann: Öffne unter iOS die Chrome-Einstellungen, tippe auf „Standard-Browser-App“ und wähle „Chrome“ aus.</translation>
 <translation id="8765470054473112089">Wenn du etwas in die Adressleiste oder das Suchfeld eingibst, sendet Chrome deine Eingabe an deine Standardsuchmaschine, damit du bessere Vorschläge erhältst. Im Inkognitomodus ist diese Funktion deaktiviert.</translation>
 <translation id="8772179140489533211">Aufforderungen für die Anmeldung in Chrome werden angezeigt.</translation>
 <translation id="8788269841521769222">Du musst dir dieses Passwort nicht merken. Es wird im Google Passwortmanager für <ph name="EMAIL" /> gespeichert.</translation>

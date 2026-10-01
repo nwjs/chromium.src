@@ -24,8 +24,6 @@
 #include "components/webapps/common/web_page_metadata.mojom.h"
 #include "content/public/browser/media_player_id.h"
 #include "content/public/browser/web_contents_observer.h"
-#include "mojo/public/cpp/bindings/receiver.h"
-#include "mojo/public/cpp/bindings/remote.h"
 #include "third_party/blink/public/common/manifest/manifest.h"
 #include "third_party/blink/public/mojom/app_banner/app_banner.mojom.h"
 #include "third_party/blink/public/mojom/manifest/display_mode.mojom-forward.h"
@@ -361,8 +359,7 @@ class AppBannerManager final : public content::WebContentsObserver {
 
   // Returns the URL type, allowing the banner logic to ignore urls that aren't
   // the primary frame or aren't a valid URL.
-  UrlType GetUrlType(content::RenderFrameHost* render_frame_host,
-                     const GURL& url);
+  UrlType GetUrlType(content::RenderFrameHost& render_frame_host);
 
   // Callback invoked by the InstallableManager once it has fetched the page's
   // manifest.
@@ -461,10 +458,6 @@ class AppBannerManager final : public content::WebContentsObserver {
   AppBannerMode mode_ = AppBannerMode::kWebApp;
   std::optional<WebAppBannerData> web_app_data_;
   std::optional<NativeAppBannerData> native_app_data_;
-
-  // If a banner is requested before the page has finished loading, defer
-  // triggering the pipeline until the load is complete.
-  bool load_finished_ = false;
 
   std::unique_ptr<BeforeInstallPromptEvent> before_install_prompt_event_;
 

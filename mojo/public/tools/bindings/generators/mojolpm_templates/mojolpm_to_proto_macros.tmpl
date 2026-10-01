@@ -26,16 +26,20 @@ bool ToProto(
 {%-   endif %}
 {%- endmacro %}
 
+
 {%- macro declare_map(type, kind) %}
 {%-   set mojom_key_type = kind.key_kind|cpp_wrapper_call_type(add_same_module_namespaces=true) %}
 {%-   set mojom_value_type = kind.value_kind|cpp_wrapper_call_type(add_same_module_namespaces=true) %}
+{%-   if kind|is_nullable_kind %}
+{%-     set mojom_map_type = kind|to_unnullable_kind|cpp_wrapper_type(add_same_module_namespaces=true) %}
+{%-   else %}
+{%-     set mojom_map_type = kind|cpp_wrapper_type(add_same_module_namespaces=true) %}
+{%-   endif %}
 bool ToProto(
 {%-   if kind.key_kind|is_move_only_kind or kind.value_kind|is_move_only_kind %}
-  base::flat_map<{{mojom_key_type}},
-                 {{mojom_value_type}}>&& input,
+  {{mojom_map_type}}&& input,
 {%-   else %}
-  const base::flat_map<{{mojom_key_type}},
-                 {{mojom_value_type}}>& input,
+  const {{mojom_map_type}}& input,
 {%-   endif %}
   {{type}}& output);{{"\n"-}}
 {%-   if kind.key_kind|is_array_kind %}
@@ -115,7 +119,22 @@ bool ToProto(
   // Then, assign the element proto to the corresponding field in the
   // output proto.
 {% for i in range(kind.length) %}
-    ToProto(std::move(input[{{i}}]), *output.mutable_value_{{i}}());
+  auto* out_value_{{i}} = output.mutable_value_{{i}}();
+{%-   if kind.kind|is_nullable_kind %}
+  if ({{util.not_null(kind.kind, "input[" ~ i ~ "]")}}) {
+    {% if kind.kind|is_move_only_kind %}
+      ToProto(std::move({{util.value(kind.kind, "input[" ~ i ~ "]")}}), *out_value_{{i}});
+    {% else %}
+      ToProto({{util.value(kind.kind, "input[" ~ i ~ "]")}}, *out_value_{{i}});
+    {%endif%}
+  }
+{%-   else %}
+  {% if kind.kind|is_move_only_kind %}
+    ToProto(std::move(input[{{i}}]), *out_value_{{i}});
+  {% else %}
+    ToProto(input[{{i}}], *out_value_{{i}});
+{%-   endif %}
+{%- endif %}
 {% endfor %}
 {% endif %}
 
@@ -156,13 +175,16 @@ bool ToProto(
 {%-   set mojom_key_type = kind.key_kind|cpp_wrapper_call_type(add_same_module_namespaces=true) %}
 {%-   set maybe_const_value = "const " if not kind.key_kind|is_move_only_kind else "" %}
 {%-   set mojom_value_type = kind.value_kind|cpp_wrapper_call_type(add_same_module_namespaces=true) %}
+{%-   if kind|is_nullable_kind %}
+{%-     set mojom_map_type = kind|to_unnullable_kind|cpp_wrapper_type(add_same_module_namespaces=true) %}
+{%-   else %}
+{%-     set mojom_map_type = kind|cpp_wrapper_type(add_same_module_namespaces=true) %}
+{%-   endif %}
 bool ToProto(
 {%-   if kind.key_kind|is_move_only_kind or kind.value_kind|is_move_only_kind %}
-    base::flat_map<{{mojom_key_type}},
-                   {{mojom_value_type}}>&& input,
+    {{mojom_map_type}}&& input,
 {%-   else %}
-    const base::flat_map<{{mojom_key_type}},
-                         {{mojom_value_type}}>& input,
+    const {{mojom_map_type}}& input,
 {%-   endif %}
     {{type}}& output) {
   bool result = true;

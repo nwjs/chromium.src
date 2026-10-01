@@ -10,6 +10,7 @@
 #import "base/memory/raw_ptr.h"
 #import "base/scoped_observation.h"
 #import "base/timer/timer.h"
+#import "components/content_settings/core/common/content_settings_types.h"
 #import "components/infobars/core/confirm_infobar_delegate.h"
 #import "components/infobars/core/infobar.h"
 #import "ios/web/public/permissions/permissions.h"
@@ -22,6 +23,10 @@ class OverlayRequestQueue;
 namespace base {
 class OneShotTimer;
 }  // namespace base
+
+// Returns the corresponding ContentSettingsType for `permission`.
+ContentSettingsType ContentSettingsTypeForPermission(
+    web::Permission permission);
 
 // Tab helper that observes changes to web permissions and creates/replaces the
 // respective infobar accordingly.

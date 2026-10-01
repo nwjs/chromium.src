@@ -13,16 +13,15 @@
 
 #include "components/autofill/core/browser/autofill_type.h"
 #include "components/autofill/core/browser/country_type.h"
+#include "components/autofill/core/browser/data_model/addresses/address.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_normalization_util.h"
 #include "components/autofill/core/browser/data_model/addresses/autofill_profile.h"
+#include "components/autofill/core/browser/data_model/addresses/company_info.h"
+#include "components/autofill/core/browser/data_model/addresses/email_info.h"
+#include "components/autofill/core/browser/data_model/addresses/phone_number.h"
 #include "components/autofill/core/browser/field_types.h"
 
 namespace autofill {
-
-class Address;
-class CompanyInfo;
-class EmailInfo;
-class PhoneNumber;
 
 struct ProfileValueDifference {
   // The type of the field that is different.
@@ -92,60 +91,46 @@ class AutofillProfileComparator {
                                       const AutofillProfile& second_profile,
                                       const std::string& app_locale);
 
-  // Populates `email_info` with the result of merging the email addresses in
-  // `new_profile` and `old_profile`. Returns the merge result.
+  // Merges the email addresses in `new_profile` and `old_profile`. Returns an
+  // `EmailInfo` on success or `std::nullopt` if the merge fails.
   //
   // Heuristic: If one email address is empty, use the other; otherwise, prefer
   // the most recently used version of the email address.
-  // TODO(crbug.com/453945181): Return a newly created `EmailInfo` instead of
-  // modifying `email_info`.
-  AutofillProfile::ProfileMergeResult MergeEmailAddresses(
+  std::optional<EmailInfo> MergeEmailAddresses(
       const AutofillProfile& new_profile,
-      const AutofillProfile& old_profile,
-      EmailInfo& email_info) const;
+      const AutofillProfile& old_profile) const;
 
-  // Populates `company_info` with the result of merging the company names in
-  // `new_profile` and `old_profile` if the merge succeeds. Returns the merge
-  // result.
+  // Merges the company names in `new_profile` and `old_profile`. Returns a
+  // `CompanyInfo` on success or `std::nullopt` if the merge fails.
   //
   // Heuristic: If one is empty, use the other; otherwise, if the tokens in one
   // company name are a superset of those in the other, prefer the former; and,
   // as a tiebreaker, prefer the most recently used version of the company name.
-  // TODO(crbug.com/453945181): Return a newly created `CompanyInfo` instead of
-  // modifying `company_info`.
-  AutofillProfile::ProfileMergeResult MergeCompanyNames(
+  std::optional<CompanyInfo> MergeCompanyNames(
       const AutofillProfile& new_profile,
-      const AutofillProfile& old_profile,
-      CompanyInfo& company_info) const;
+      const AutofillProfile& old_profile) const;
 
-  // Populates `phone_number` with the result of merging the phone numbers in
-  // `new_profile` and `old_profile` if the merge succeeds. Returns the merge
-  // result.
+  // Merges the phone numbers in `new_profile` and `old_profile`. Returns a
+  // `PhoneNumber` on success or `std::nullopt` if the merge fails.
   //
   // Heuristic: Populate the missing parts of each number from the other.
-  // TODO(crbug.com/453945181): Return a newly created `PhoneNumber` instead of
-  // modifying `phone_number`.
-  AutofillProfile::ProfileMergeResult MergePhoneNumbers(
+  std::optional<PhoneNumber> MergePhoneNumbers(
       const AutofillProfile& new_profile,
-      const AutofillProfile& old_profile,
-      PhoneNumber& phone_number) const;
+      const AutofillProfile& old_profile) const;
 
-  // Populates `address` with the result of merging the addresses in
-  // `new_profile` and `old_profile`. Returns the merge result.
+  // Merges the addresses in `new_profile` and `old_profile` if the merge
+  // succeeds. Returns an `Address` on success or `std::nullopt` if the merge
+  // fails.
   //
   // Heuristic: Populate the missing parts of each address from the other.
   // Prefer the abbreviated state, the shorter zip code and routing code, the
   // more verbose city, dependent locality, and address.
   //
-  // If one of the profiles is `kAccountNameEmail`, sets `address` to the
-  // address tree of the other profile.
-  //
-  // TODO(crbug.com/453945181): Return a newly created `Address` instead of
-  // modifying `address`.
-  AutofillProfile::ProfileMergeResult MergeAddresses(
+  // If one of the profiles is `kAccountNameEmail`, uses the address tree of the
+  // other profile.
+  std::optional<Address> MergeAddresses(
       const AutofillProfile& new_profile,
-      const AutofillProfile& old_profile,
-      Address& address) const;
+      const AutofillProfile& old_profile) const;
 
   // Returns the subset of setting-visible types whose values in `a` and `b` are
   // non-mergeable. This means that `a` and `b` become mergeable, if the values

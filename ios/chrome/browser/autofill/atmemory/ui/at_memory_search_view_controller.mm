@@ -23,6 +23,7 @@
 #import "ios/chrome/browser/shared/ui/buildflags.h"
 #import "ios/chrome/browser/shared/ui/symbols/symbols.h"
 #import "ios/chrome/browser/shared/ui/table_view/cells/table_view_link_header_footer_item.h"
+#import "ios/chrome/browser/shared/ui/table_view/cells/table_view_text_header_footer_item.h"
 #import "ios/chrome/browser/shared/ui/table_view/content_configuration/activity_indicator_content_configuration.h"
 #import "ios/chrome/browser/shared/ui/table_view/content_configuration/colorful_symbol_content_configuration.h"
 #import "ios/chrome/browser/shared/ui/table_view/content_configuration/table_view_cell_content_configuration.h"
@@ -78,6 +79,8 @@ enum class ItemIdentifier {
 
   // Search results to display in the UI.
   NSArray<AtMemorySearchItem*>* _searchResults;
+  // Recent fills to display in the initial empty search state.
+  NSArray<AtMemorySearchItem*>* _recentFills;
   // Search query for which the current search results or state was produced.
   NSString* _currentSearchQuery;
 
@@ -87,6 +90,8 @@ enum class ItemIdentifier {
   BOOL _recentFillsAreVisible;
   // The current error type.
   AtMemoryErrorType _errorType;
+  // Subtitle to display in the fetching state cell.
+  NSString* _fetchingSubtitle;
 }
 
 #pragma mark - UIViewController
@@ -118,6 +123,7 @@ enum class ItemIdentifier {
   self.title = l10n_util::GetNSString(IDS_IOS_AUTOFILL_AI_FIND_AND_FILL_TITLE);
 
   RegisterTableViewHeaderFooter<TableViewLinkHeaderFooterView>(self.tableView);
+  RegisterTableViewHeaderFooter<TableViewTextHeaderFooterView>(self.tableView);
   self.tableView.backgroundColor =
       [UIColor colorNamed:kGroupedPrimaryBackgroundColor];
   [self loadModel];
@@ -159,15 +165,9 @@ enum class ItemIdentifier {
 - (void)updateSearchResultsForSearchController:
     (UISearchController*)searchController {
   NSString* query = searchController.searchBar.text;
-  BOOL isSearchItemPresent =
-      [[_dataSource snapshot]
-          indexOfItemIdentifier:@(static_cast<int>(
-                                    ItemIdentifier::kSearchItem))] !=
-      NSNotFound;
 
-  // Return to the initial state if the search bar is cleared and the current
-  // state view is not the search state.
-  if (query.length == 0 && !isSearchItemPresent) {
+  // Return to the initial state if the search bar is cleared.
+  if (query.length == 0) {
     _currentSearchQuery = nil;
     _searchResults = nil;
     [self createSnapshotForInitialState];
@@ -182,6 +182,12 @@ enum class ItemIdentifier {
 
   _currentSearchQuery = nil;
   _searchResults = nil;
+
+  BOOL isSearchItemPresent =
+      [[_dataSource snapshot]
+          indexOfItemIdentifier:@(static_cast<int>(
+                                    ItemIdentifier::kSearchItem))] !=
+      NSNotFound;
 
   if (isSearchItemPresent) {
     [self updateSnapshotForItemIdentifier:ItemIdentifier::kSearchItem];
@@ -222,6 +228,34 @@ enum class ItemIdentifier {
     [self.mutator didSelectSearchResultItem:searchItem];
   }
   [tableView deselectRowAtIndexPath:indexPath animated:YES];
+}
+
+- (UIView*)tableView:(UITableView*)tableView
+    viewForHeaderInSection:(NSInteger)section {
+  SectionIdentifier sectionIdentifier = static_cast<SectionIdentifier>(
+      [_dataSource sectionIdentifierForIndex:section].integerValue);
+
+  if (sectionIdentifier == SectionIdentifier::kRecentFillsSection) {
+    TableViewTextHeaderFooterView* header =
+        DequeueTableViewHeaderFooter<TableViewTextHeaderFooterView>(tableView);
+    [header setTitle:l10n_util::GetNSString(
+                         IDS_AUTOFILL_AT_MEMORY_PREVIOUSLY_FILLED)];
+    return header;
+  }
+
+  return nil;
+}
+
+- (CGFloat)tableView:(UITableView*)tableView
+    heightForHeaderInSection:(NSInteger)section {
+  SectionIdentifier sectionIdentifier = static_cast<SectionIdentifier>(
+      [_dataSource sectionIdentifierForIndex:section].integerValue);
+
+  if (sectionIdentifier == SectionIdentifier::kRecentFillsSection) {
+    return UITableViewAutomaticDimension;
+  }
+
+  return 0;
 }
 
 - (UIView*)tableView:(UITableView*)tableView
@@ -323,12 +357,17 @@ enum class ItemIdentifier {
   [self updateTableViewBackgroundStyle];
 }
 
-- (void)setFetchingSubtitle {
-  // TODO(crbug.com/541237598): Implement fetching subtitle.
+- (void)setFetchingSubtitle:(NSString*)subtitle {
+  _fetchingSubtitle = [subtitle copy];
+  [self updateSnapshotForItemIdentifier:ItemIdentifier::kFetchingItem];
 }
 
-- (void)setRecentFills {
-  // TODO(crbug.com/540877897): Implement recent fills.
+- (void)setRecentFills:(NSArray<AtMemorySearchItem*>*)recentFills {
+  _recentFills = [recentFills copy];
+  _recentFillsAreVisible = _recentFills.count > 0;
+  if (_searchController.searchBar.text.length == 0) {
+    [self createSnapshotForInitialState];
+  }
 }
 
 - (void)setSearchResults:(NSArray<AtMemorySearchItem*>*)searchResults {
@@ -368,8 +407,9 @@ enum class ItemIdentifier {
     [snapshot appendSectionsWithIdentifiers:@[
       @(static_cast<int>(SectionIdentifier::kRecentFillsSection))
     ]];
-    // TODO(crbug.com/540877897): Call a method that adds the recentFill
-    // results into the kRecentFillsSection.
+    [snapshot appendItemsWithIdentifiers:_recentFills
+               intoSectionWithIdentifier:
+                   @(static_cast<int>(SectionIdentifier::kRecentFillsSection))];
   }
 
   [_dataSource applySnapshot:snapshot animatingDifferences:YES];
@@ -722,7 +762,9 @@ enum class ItemIdentifier {
   configuration.title = _searchController.searchBar.text;
   configuration.titleColor = [UIColor colorNamed:kTextPrimaryColor];
   configuration.subtitle =
-      l10n_util::GetNSString(IDS_AUTOFILL_AT_MEMORY_SEARCH_AFFORDANCE_SUBTITLE);
+      _fetchingSubtitle
+          ?: l10n_util::GetNSString(
+                 IDS_AUTOFILL_AT_MEMORY_FETCHING_FINDING_INFO_WITH_GEMINI);
 
   ActivityIndicatorContentConfiguration* activityIndicatorConfiguration =
       [[ActivityIndicatorContentConfiguration alloc] init];
@@ -760,6 +802,8 @@ enum class ItemIdentifier {
 // Starts an AtMemory search for `query` and transitions to the fetching state.
 - (void)startSearchWithQuery:(NSString*)query {
   _currentSearchQuery = [query copy];
+  _fetchingSubtitle = l10n_util::GetNSString(
+      IDS_AUTOFILL_AT_MEMORY_FETCHING_FINDING_INFO_WITH_GEMINI);
   [self createSnapshotForFetchingState];
   [self.mutator startSearchWithQuery:query];
 }

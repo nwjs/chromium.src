@@ -5,40 +5,33 @@
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
 #include "build/branding_buildflags.h"
+#include "build/build_config.h"
 #include "chrome/browser/chrome_content_browser_client.h"
 #include "chrome/browser/content_settings/generated_javascript_optimizer_pref.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
 #include "chrome/browser/history/history_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/safe_browsing/safe_browsing_service.h"
-#include "chrome/browser/safe_browsing/test_safe_browsing_service.h"
-#include "chrome/browser/site_protection/site_familiarity_fetcher.h"
-#include "chrome/browser/site_protection/site_familiarity_utils.h"
 #include "chrome/browser/ui/views/infobars/confirm_infobar.h"
 #include "chrome/browser/ui/views/js_optimization/js_optimizations_infobar_delegate.h"
 #include "components/policy/core/browser/browser_policy_connector.h"
 #include "components/policy/core/common/mock_configuration_policy_provider.h"
 #include "components/policy/policy_constants.h"
+#include "components/safe_browsing/buildflags.h"
+#include "ui/base/window_open_disposition.h"
 
 #if !BUILDFLAG(IS_ANDROID)
 #include "base/test/bind.h"
 #include "base/test/run_until.h"
 #include "chrome/browser/ui/browser_actions.h"
 #include "chrome/browser/ui/page_action/action_ids.h"
-#include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
-#include "chrome/browser/ui/views/frame/toolbar_button_provider.h"
 #include "chrome/browser/ui/views/js_optimization/js_optimizations_page_action_controller.h"
-#include "chrome/browser/ui/views/location_bar/icon_label_bubble_view.h"
 #include "chrome/browser/ui/views/page_action/test_support/page_action_interactive_test_mixin.h"
 #include "chrome/browser/ui/views/page_action/test_support/page_action_test_accessor.h"
-#include "chrome/browser/ui/views/page_action/test_support/page_action_test_support.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "chrome/test/interaction/interactive_browser_test.h"
 #include "ui/actions/actions.h"
 #include "ui/base/interaction/element_tracker.h"
-#include "ui/views/animation/ink_drop.h"
-#include "ui/views/animation/test/ink_drop_host_test_api.h"
 #include "ui/views/bubble/bubble_dialog_model_host.h"
 #include "ui/views/interaction/element_tracker_views.h"
 #endif  // !BUILDFLAG(IS_ANDROID)
@@ -50,9 +43,6 @@
 #include "components/history/core/browser/history_service.h"
 #include "components/keyed_service/core/service_access_type.h"
 #include "components/prefs/pref_service.h"
-#include "components/safe_browsing/core/browser/db/fake_database_manager.h"
-#include "components/safe_browsing/core/common/features.h"
-#include "components/safe_browsing/core/common/safe_browsing_prefs.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/process_selection_deferring_condition.h"
@@ -74,7 +64,17 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "url/origin.h"
 
-typedef site_protection::SiteFamiliarityFetcher::Verdict FamiliarityVerdict;
+#if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
+#include "chrome/browser/safe_browsing/safe_browsing_service.h"
+#include "chrome/browser/safe_browsing/test_safe_browsing_service.h"
+#include "chrome/browser/site_protection/site_familiarity_fetcher.h"
+#include "chrome/browser/site_protection/site_familiarity_utils.h"
+#include "components/safe_browsing/core/browser/db/fake_database_manager.h"
+#include "components/safe_browsing/core/common/features.h"
+#include "components/safe_browsing/core/common/safe_browsing_prefs.h"
+
+using FamiliarityVerdict = site_protection::SiteFamiliarityFetcher::Verdict;
+#endif  // BUILDFLAG(SAFE_BROWSING_AVAILABLE)
 
 template <typename T>
 class JavascriptOptimizerBrowserTestMixin : public T {
@@ -825,6 +825,7 @@ IN_PROC_BROWSER_TEST_F(JavascriptOptimizerBrowserTest_CustomDeferralCondition,
   EXPECT_TRUE(frame->GetProcess()->AreV8OptimizationsDisabled());
 }
 
+#if BUILDFLAG(SAFE_BROWSING_AVAILABLE)
 // Base class for integration tests which enable/disable the "disable JavaScript
 // optimization for unfamiliar sites" feature.
 class JavascriptOptimizerBrowserTest_UseSiteFamiliarityBase
@@ -1290,6 +1291,7 @@ IN_PROC_BROWSER_TEST_F(JavascriptOptimizerBrowserTest_DoNotUseSiteFamiliarity,
                                 ContentSetting::CONTENT_SETTING_BLOCK);
   NavigateToUnfamiliarSite(/*expect_v8_optimizations_enabled=*/false);
 }
+#endif  // BUILDFLAG(SAFE_BROWSING_AVAILABLE)
 
 #if !BUILDFLAG(IS_ANDROID)
 
@@ -1538,15 +1540,8 @@ IN_PROC_BROWSER_TEST_F(JavascriptOptimizerBubbleBrowserTest,
   ASSERT_FALSE(IsOmnibarIconVisible());
 }
 
-#if BUILDFLAG(IS_MAC)
-#define MAYBE_IconHighlightClearedOnBubbleClose \
-    DISABLED_IconHighlightClearedOnBubbleClose
-#else
-#define MAYBE_IconHighlightClearedOnBubbleClose \
-    IconHighlightClearedOnBubbleClose
-#endif
 IN_PROC_BROWSER_TEST_F(JavascriptOptimizerBubbleBrowserTest,
-                       MAYBE_IconHighlightClearedOnBubbleClose) {
+                       IconHighlightClearedOnBubbleClose) {
   auto* map = HostContentSettingsMapFactory::GetForProfile(profile());
   map->SetDefaultContentSetting(ContentSettingsType::JAVASCRIPT_OPTIMIZER,
                                 ContentSetting::CONTENT_SETTING_BLOCK);
@@ -1563,46 +1558,25 @@ IN_PROC_BROWSER_TEST_F(JavascriptOptimizerBubbleBrowserTest,
       WaitForShow(JsOptimizationsPageActionController::kBubbleBodyElementId));
   EXPECT_TRUE(IsBubbleVisible());
 
-  // TODO(crbug.com/545160323): Test WebUI page action highlight.
-  if (!features::IsWebUILocationBarEnabled()) {
-    // Check icon is highlighted.
-    auto* provider = BrowserView::GetBrowserViewForBrowser(browser())
-                         ->toolbar_button_provider();
-    auto* icon = page_actions::GetIconLabelBubbleViewForTesting(
-        provider->GetPageActionViewInterface(kActionShowJsOptimizationsIcon),
-        kActionShowJsOptimizationsIcon);
-    EXPECT_TRUE(icon);
-    views::test::InkDropHostTestApi ink_drop_test_api(
-        views::InkDrop::Get(icon));
-    ASSERT_EQ(ink_drop_test_api.GetInkDrop()->GetTargetInkDropState(),
-              views::InkDropState::ACTIVATED);
+  // Check icon is highlighted.
+  page_actions::PageActionTestAccessor page_action_test_accessor(
+      browser(), kActionShowJsOptimizationsIcon);
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return page_action_test_accessor.HasIconHighlight(); }));
 
-    // Close bubble.
-    RunTestSequence(
-        WithElement(JsOptimizationsPageActionController::kBubbleBodyElementId,
-                    base::BindOnce([](ui::TrackedElement* element) {
-                      auto* view_element =
-                          element->AsA<views::TrackedElementViews>();
-                      view_element->view()->GetWidget()->Close();
-                    })),
-        WaitForHide(JsOptimizationsPageActionController::kBubbleBodyElementId));
+  // Close bubble.
+  RunTestSequence(
+      WithElement(JsOptimizationsPageActionController::kBubbleBodyElementId,
+                  base::BindOnce([](ui::TrackedElement* element) {
+                    auto* view_element =
+                        element->AsA<views::TrackedElementViews>();
+                    view_element->view()->GetWidget()->Close();
+                  })),
+      WaitForHide(JsOptimizationsPageActionController::kBubbleBodyElementId));
 
-    // Check icon is no longer highlighted.
-    ASSERT_TRUE(base::test::RunUntil([&]() {
-      return ink_drop_test_api.GetInkDrop()->GetTargetInkDropState() ==
-             views::InkDropState::HIDDEN;
-    }));
-  } else {
-    // Close bubble.
-    RunTestSequence(
-        WithElement(JsOptimizationsPageActionController::kBubbleBodyElementId,
-                    base::BindOnce([](ui::TrackedElement* element) {
-                      auto* view_element =
-                          element->AsA<views::TrackedElementViews>();
-                      view_element->view()->GetWidget()->Close();
-                    })),
-        WaitForHide(JsOptimizationsPageActionController::kBubbleBodyElementId));
-  }
+  // Check icon is no longer highlighted.
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return !page_action_test_accessor.HasIconHighlight(); }));
 }
 
 IN_PROC_BROWSER_TEST_F(JavascriptOptimizerBubbleBrowserTest,
@@ -1696,7 +1670,13 @@ IN_PROC_BROWSER_TEST_F(JavascriptOptimizerUiTest, OmniboxIconPixelTest) {
                              /*baseline_cl=*/kScreenshotBaselineCL));
 }
 
-IN_PROC_BROWSER_TEST_F(JavascriptOptimizerUiTest, BubblePixelTest) {
+// TODO(crbug.com/558994551): Failing on Linux UBSan.
+#if BUILDFLAG(IS_LINUX) && defined(UNDEFINED_SANITIZER)
+#define MAYBE_BubblePixelTest DISABLED_BubblePixelTest
+#else
+#define MAYBE_BubblePixelTest BubblePixelTest
+#endif
+IN_PROC_BROWSER_TEST_F(JavascriptOptimizerUiTest, MAYBE_BubblePixelTest) {
   auto* map = HostContentSettingsMapFactory::GetForProfile(profile());
   map->SetDefaultContentSetting(ContentSettingsType::JAVASCRIPT_OPTIMIZER,
                                 ContentSetting::CONTENT_SETTING_BLOCK);
@@ -1717,7 +1697,14 @@ IN_PROC_BROWSER_TEST_F(JavascriptOptimizerUiTest, BubblePixelTest) {
           /*baseline_cl=*/kScreenshotBaselineCL));
 }
 
-IN_PROC_BROWSER_TEST_F(JavascriptOptimizerUiTest, BubbleWithPolicyPixelTest) {
+// TODO(crbug.com/558994551): Failing on Linux UBSan.
+#if BUILDFLAG(IS_LINUX) && defined(UNDEFINED_SANITIZER)
+#define MAYBE_BubbleWithPolicyPixelTest DISABLED_BubbleWithPolicyPixelTest
+#else
+#define MAYBE_BubbleWithPolicyPixelTest BubbleWithPolicyPixelTest
+#endif
+IN_PROC_BROWSER_TEST_F(JavascriptOptimizerUiTest,
+                       MAYBE_BubbleWithPolicyPixelTest) {
   EnableEnterprisePolicy();
 
   ASSERT_TRUE(content::NavigateToURL(

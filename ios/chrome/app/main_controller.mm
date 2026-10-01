@@ -29,6 +29,7 @@
 #import "base/values.h"
 #import "components/application_locale_storage/application_locale_storage.h"
 #import "components/component_updater/component_updater_service.h"
+#import "components/component_updater/installer_policies/actor_safety_lists_component_installer.h"
 #import "components/component_updater/installer_policies/on_device_head_suggest_component_installer.h"
 #import "components/component_updater/installer_policies/optimization_hints_component_installer.h"
 #import "components/component_updater/installer_policies/safety_tips_component_installer.h"
@@ -49,9 +50,13 @@
 #import "ios/chrome/app/application_delegate/app_state.h"
 #import "ios/chrome/app/application_delegate/memory_warning_helper.h"
 #import "ios/chrome/app/application_delegate/metrics_mediator.h"
+#import "ios/chrome/app/background_mode_buildflags.h"
 #import "ios/chrome/app/background_refresh/background_refresh_app_agent.h"
 #import "ios/chrome/app/background_refresh/discover_feed_provider.h"
 #import "ios/chrome/app/background_refresh/test_refresher.h"
+#if BUILDFLAG(IOS_BACKGROUND_CONTINUED_PROCESSING_ENABLED)
+#import "ios/chrome/app/background_task/background_continued_processing_app_agent.h"
+#endif
 #import "ios/chrome/app/blocking_scene_commands.h"
 #import "ios/chrome/app/change_profile_animator.h"
 #import "ios/chrome/app/change_profile_commands.h"
@@ -97,6 +102,7 @@
 #import "ios/chrome/browser/download/model/download_directory_util.h"
 #import "ios/chrome/browser/first_run/model/first_run.h"
 #import "ios/chrome/browser/first_run/public/first_run_util.h"
+#import "ios/chrome/browser/intelligence/features/features.h"
 #import "ios/chrome/browser/memory/model/memory_debugger_manager.h"
 #import "ios/chrome/browser/metrics/model/first_user_action_recorder.h"
 #import "ios/chrome/browser/metrics/model/incognito_usage_app_state_agent.h"
@@ -122,7 +128,6 @@
 #import "ios/chrome/browser/shared/model/browser/browser_provider.h"
 #import "ios/chrome/browser/shared/model/paths/paths.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
-#import "ios/chrome/browser/shared/model/profile/features.h"
 #import "ios/chrome/browser/shared/model/profile/profile_attributes_ios.h"
 #import "ios/chrome/browser/shared/model/profile/profile_attributes_storage_ios.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
@@ -241,6 +246,10 @@ void RegisterComponentsForUpdate() {
       cus, GetApplicationContext()->GetApplicationLocaleStorage()->Get());
   RegisterSafetyTipsComponent(cus);
   RegisterOptimizationHintsComponent(cus);
+  if (IsActorEnabled()) {
+    component_updater::RegisterActorSafetyListsComponent(cus,
+                                                         base::DoNothing());
+  }
 }
 
 // The delay before beginning memory experimentation.
@@ -267,14 +276,6 @@ enum class ProfileChoice {
 
 // Returns the available ProfileChoices.
 base::span<const ProfileChoice> GetProfileChoices() {
-  if (!AreSeparateProfilesForManagedAccountsEnabled()) {
-    // Note: Separate profiles for managed accounts are launched; this code path
-    // is only relevant for some EG tests covering the migration.
-    static constexpr auto kSingleProfileChoices = std::to_array<ProfileChoice>({
-        ProfileChoice::kPersonalProfile,
-    });
-    return kSingleProfileChoices;
-  }
   static constexpr auto kProfileChoices = std::to_array<ProfileChoice>({
       ProfileChoice::kProfileFromTask,
       ProfileChoice::kProfileForScene,
@@ -286,14 +287,14 @@ base::span<const ProfileChoice> GetProfileChoices() {
   return kProfileChoices;
 }
 
-// Returns the profile name associated with a pending task for `scene_state` in
-// `orchestrator`, if any.
-std::string GetProfileNameFromTask(std::string_view scene_state_id,
+// Returns the profile name associated with a pending task for
+// `scene_state` in `orchestrator`, if any.
+std::string GetProfileNameFromTask(SceneState* scene_state,
                                    TaskOrchestrator* orchestrator) {
   if (!orchestrator) {
     return std::string();
   }
-  NSString* gaia_id = [orchestrator gaiaIDForScene:scene_state_id];
+  NSString* gaia_id = [orchestrator gaiaIDForScene:scene_state];
   if (!gaia_id) {
     return std::string();
   }
@@ -314,8 +315,10 @@ std::string GetProfileNameFromTask(std::string_view scene_state_id,
 
 // Returns the name of the profile for `choice`. May be empty in some cases,
 // e.g. when a corresponding pref isn't set yet.
+// TODO(crbug.com/558220430): Refactor this method.
 std::string GetProfileNameForChoice(ProfileChoice choice,
                                     std::string_view scene_state_id,
+                                    SceneState* scene_state,
                                     UISceneConnectionOptions* options,
                                     TaskOrchestrator* orchestrator,
                                     ProfileManagerIOS* manager,
@@ -323,7 +326,7 @@ std::string GetProfileNameForChoice(ProfileChoice choice,
                                     PrefService* local_state) {
   switch (choice) {
     case ProfileChoice::kProfileFromTask:
-      return GetProfileNameFromTask(scene_state_id, orchestrator);
+      return GetProfileNameFromTask(scene_state, orchestrator);
     case ProfileChoice::kProfileFromActivity: {
       for (NSUserActivity* activity in options.userActivities) {
         std::string profile_name = GetProfileNameFromActivity(activity);
@@ -571,6 +574,12 @@ std::string GetProfileNameForChoice(ProfileChoice choice,
         self.appState,
         applicationContext->GetProfileManager()->GetProfileAttributesStorage(),
         base::ios::IsMultipleScenesSupported());
+
+    // Clear preferences used by SceneIdentifierMapImpl (in case the feature
+    // has been enabled and then disabled).
+    PrefService* localState = applicationContext->GetLocalState();
+    localState->ClearPref(prefs::kLastConnectedSceneIdentifier);
+    localState->ClearPref(prefs::kSceneSessionIdentifierMap);
   }
   CHECK(_sceneIdentifierMap);
 
@@ -1147,12 +1156,14 @@ std::string GetProfileNameForChoice(ProfileChoice choice,
   refreshAgent.audience = _appState;
   [_appState addAgent:refreshAgent];
   // Register background refresh providers.
-  if (IsDiscoverBackgroundRefreshEnabled()) {
-    [refreshAgent addAppRefreshProvider:[[DiscoverFeedProvider alloc] init]];
-  }
+  [refreshAgent addAppRefreshProvider:[[DiscoverFeedProvider alloc] init]];
 
   [refreshAgent addAppRefreshProvider:[[TestRefresher alloc]
                                           initWithAppState:self.appState]];
+
+#if BUILDFLAG(IOS_BACKGROUND_CONTINUED_PROCESSING_ENABLED)
+  [appState addAgent:[[BackgroundContinuedProcessingAppAgent alloc] init]];
+#endif
 
   // TODO(crbug.com/355142171): Remove the DiscoverFeedAppAgent.
   [appState addAgent:[[DiscoverFeedAppAgent alloc] init]];
@@ -1380,8 +1391,10 @@ std::string GetProfileNameForChoice(ProfileChoice choice,
           boolForKey:kWidgetKitRefreshFiveMinutes]),
       kFieldTrialVersionKey : @1,
     },
+    // TODO(crbug.com/407498240): Remove this key and its usages, since
+    // multi-profile is now always enabled.
     kMultiprofileKey : @{
-      kFieldTrialValueKey : @(AreSeparateProfilesForManagedAccountsEnabled()),
+      kFieldTrialValueKey : @YES,
       kFieldTrialVersionKey : @1,
     },
   };
@@ -1649,7 +1662,6 @@ std::string GetProfileNameForChoice(ProfileChoice choice,
              forScene:(SceneState*)sceneState
                reason:(ChangeProfileReason)reason
          continuation:(ChangeProfileContinuation)continuation {
-  CHECK(AreSeparateProfilesForManagedAccountsEnabled());
   CHECK_EQ(self.appState.initStage, AppInitStage::kFinal);
 
   CHECK(sceneState);
@@ -1715,7 +1727,6 @@ std::string GetProfileNameForChoice(ProfileChoice choice,
 }
 
 - (void)deleteProfile:(std::string_view)profileName {
-  CHECK(AreSeparateProfilesForManagedAccountsEnabled());
   CHECK_EQ(self.appState.initStage, AppInitStage::kFinal);
   ProfileManagerIOS* manager = GetApplicationContext()->GetProfileManager();
   CHECK(manager->CanDeleteProfileWithName(profileName));
@@ -1796,7 +1807,7 @@ std::string GetProfileNameForChoice(ProfileChoice choice,
   std::string profileName;
   for (ProfileChoice choice : GetProfileChoices()) {
     profileName = GetProfileNameForChoice(
-        choice, sceneStateID, sceneState.connectionOptions,
+        choice, sceneStateID, sceneState, sceneState.connectionOptions,
         self.appState.taskOrchestrator, manager, storage, localState);
 
     // Pick the first valid profile name found.

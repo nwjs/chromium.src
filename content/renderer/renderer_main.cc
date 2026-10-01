@@ -248,7 +248,7 @@ int RendererMain(MainFunctionParams parameters) {
   // zygote_main_linux.cc.  However, calling multiple times from the same thread
   // is OK.
   InitializeWebRtcModuleBeforeSandbox();
-  webnn::PreSandboxWebNNInitialization();
+  webnn::PreSandboxWebNNInitialization(/*is_gpu_process=*/false);
 
   std::optional<LastResortGCPolicy> last_resort_gc_policy;
   if (base::FeatureList::IsEnabled(kMemoryCoordinatorLastResortGC)) {
@@ -309,12 +309,9 @@ int RendererMain(MainFunctionParams parameters) {
 
 #if BUILDFLAG(IS_WIN)
     // Now that Mojo is initialized, but before the sandbox is enabled, set up
-    // DirectReceiver.
-    if (base::FeatureList::IsEnabled(
-            blink::features::kDirectCompositorThreadIpc)) {
-      // Pre-initialize a transport since a feature that will use it is enabled.
-      mojo::CreateDirectReceiverTransportBeforeSandbox();
-    }
+    // DirectReceiver. Pre-initialize a transport since DirectReceiver is
+    // supported.
+    mojo::CreateDirectReceiverTransportBeforeSandbox();
 #endif  // BUILDFLAG(IS_WIN)
 
     if (need_sandbox) {

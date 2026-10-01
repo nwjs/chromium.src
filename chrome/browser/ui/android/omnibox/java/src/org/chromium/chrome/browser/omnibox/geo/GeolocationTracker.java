@@ -161,27 +161,6 @@ class GeolocationTracker {
         }
     }
 
-    static void setLocationForTesting(
-            Location networkLocationForTesting, Location gpsLocationForTesting) {
-        sNetworkLocationForTesting = networkLocationForTesting;
-        sGpsLocationForTesting = gpsLocationForTesting;
-        sUseLocationForTesting = true;
-    }
-
-    static void setLocationAgeForTesting(Long locationAgeForTesting) {
-        if (locationAgeForTesting == null) {
-            sUseLocationAgeForTesting = false;
-            return;
-        }
-        sLocationAgeForTesting = locationAgeForTesting;
-        sUseLocationAgeForTesting = true;
-    }
-
-    static void setRefreshLastKnownLocationRunnableForTesting(Runnable runnable) {
-        sRefreshLastKnownLocationRunnableForTesting = runnable;
-        ResettersForTesting.register(() -> sRefreshLastKnownLocationRunnableForTesting = null);
-    }
-
     private static boolean hasPermission(Context context, String permission) {
         return ApiCompatibilityUtils.checkPermission(
                         context, permission, Process.myPid(), Process.myUid())
@@ -200,5 +179,33 @@ class GeolocationTracker {
 
         // Both are not null, take the younger one.
         return networkLocation.getTime() > gpsLocation.getTime() ? networkLocation : gpsLocation;
+    }
+
+    static void setLocationForTesting(
+            Location networkLocationForTesting, Location gpsLocationForTesting) {
+        sNetworkLocationForTesting = networkLocationForTesting;
+        sGpsLocationForTesting = gpsLocationForTesting;
+        sUseLocationForTesting = true;
+        ResettersForTesting.register(
+                () -> {
+                    sNetworkLocationForTesting = null;
+                    sGpsLocationForTesting = null;
+                    sUseLocationForTesting = false;
+                });
+    }
+
+    static void setLocationAgeForTesting(Long locationAgeForTesting) {
+        if (locationAgeForTesting == null) {
+            sUseLocationAgeForTesting = false;
+            return;
+        }
+        sLocationAgeForTesting = locationAgeForTesting;
+        sUseLocationAgeForTesting = true;
+        ResettersForTesting.register(() -> sUseLocationAgeForTesting = false);
+    }
+
+    static void setRefreshLastKnownLocationRunnableForTesting(Runnable runnable) {
+        sRefreshLastKnownLocationRunnableForTesting = runnable;
+        ResettersForTesting.register(() -> sRefreshLastKnownLocationRunnableForTesting = null);
     }
 }

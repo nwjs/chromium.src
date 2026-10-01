@@ -14,6 +14,7 @@
 #include "base/functional/bind.h"
 #include "base/logging.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/notreached.h"
 #include "base/strings/strcat.h"
 #include "chrome/browser/android/tab_android.h"
 #include "chrome/browser/flags/android/chrome_feature_list.h"
@@ -42,11 +43,6 @@
   }
 
 namespace {
-constexpr int kInvalidCoordinate = -1;
-const gfx::Rect kNoBounds(kInvalidCoordinate,
-                          kInvalidCoordinate,
-                          kInvalidCoordinate,
-                          kInvalidCoordinate);
 constexpr char kAndroidSidePanelHistogramPrefix[] = "SidePanel.Android";
 
 void RecordAutoCloseOrRestoreMetric(SidePanelEntry* entry, bool is_auto_close) {
@@ -105,34 +101,49 @@ void SidePanelCoordinatorAndroid::ClosePanel(bool suppress_animations) {
   Close(SidePanelEntryHideReason::kSidePanelClosed, suppress_animations);
 }
 
-bool SidePanelCoordinatorAndroid::HasContentToShow() {
-  switch (state_) {
-    case SidePanelState::kOpening:
-    case SidePanelState::kShown:
+bool SidePanelCoordinatorAndroid::HasContentToShow(TabAndroid* tab) {
+  CHECK(tab);
+
+  // Check if the tab has an active tab-scoped (contextual) entry.
+  if (auto* tab_scoped_registry = SidePanelRegistry::From(tab)) {
+    if (auto active_entry = tab_scoped_registry->GetActiveEntry()) {
+      SPLOG("HasContentToShow - tab-scoped (contextual) entry active for tab ("
+            << (*active_entry)->key().ToString() << "), returning true");
       return true;
-    case SidePanelState::kClosing:
-      // Unlike `kClosed`, we shouldn't check whether there is a deferred entry
-      // for `kClosing`.
-      //
-      // This is because a deferred entry is added before `Close()`, so by the
-      // time the state is `kClosing`, a deferred entry already exists.
-      // For the side panel to be closed, we have to return `false` without
-      // checking whether there is a deferred entry.
-      return false;
-    case SidePanelState::kClosed: {
-      // When the side panel is `kClosed`, whether there is content to show
-      // depends on whether there is a deferred entry.
-      //
-      // A deferred entry is an entry that could have been shown, but was
-      // deferred due to Android constraints such as narrow window size.
-      tabs::TabInterface* active_tab =
-          TabListInterface::From(browser())->GetActiveTab();
-      return active_tab &&
-             deferred_entry_tracker_
-                 .GetTabOrWindowScopedEntry(active_tab->GetHandle())
-                 .has_value();
     }
   }
+
+  // Check if the window registry has an active window-scoped (global) entry.
+  if (auto* window_scoped_registry = SidePanelRegistry::From(browser())) {
+    if (auto active_entry = window_scoped_registry->GetActiveEntry()) {
+      SPLOG("HasContentToShow - window-scoped (global) entry active ("
+            << (*active_entry)->key().ToString() << "), returning true");
+      return true;
+    }
+  }
+
+  // We shouldn't check whether there is a deferred entry for `kClosing`
+  // (unlike `kClosed`).
+  //
+  // This is because a deferred entry is added before `Close()`, so by the
+  // time the state is `kClosing`, a deferred entry already exists.
+  // For the side panel to be closed, we have to return `false` without
+  // checking whether there is a deferred entry.
+  if (state_ == SidePanelState::kClosing) {
+    SPLOG("HasContentToShow - state is kClosing, returning false");
+    return false;
+  }
+
+  // Check if there is a deferred entry for this tab or window.
+  if (auto deferred_entry =
+          deferred_entry_tracker_.GetTabOrWindowScopedEntry(tab->GetHandle())) {
+    SPLOG("HasContentToShow - deferred entry exists for tab ("
+          << deferred_entry->key.ToString() << "), returning true");
+    return true;
+  }
+
+  SPLOG("HasContentToShow - no entry found, returning false");
+  return false;
 }
 
 void SidePanelCoordinatorAndroid::OnPanelContainerUpdated(int old_width,
@@ -195,14 +206,16 @@ void SidePanelCoordinatorAndroid::OnActiveChanged(bool active) {
 void SidePanelCoordinatorAndroid::ShowFrom(
     SidePanelEntryKey entry_key,
     gfx::Rect starting_bounds_in_browser_coordinates) {
-  SPLOG("ShowFrom - entry_key: "
-        << entry_key.ToString() << ", starting_bounds: "
-        << starting_bounds_in_browser_coordinates.ToString());
-  std::optional<UniqueKey> unique_key = GetUniqueKeyForKey(entry_key);
-  CHECK(unique_key.has_value())
-      << "Entry should exist for the given key: " << entry_key.ToString();
-  last_starting_bounds_ = starting_bounds_in_browser_coordinates;
-  SidePanelUI::Show(entry_key);
+  // On WML, ShowFrom() is for content morph animations, such as when side panel
+  // content originates from a tab's WebContents and smoothly transitions into
+  // its final side panel position.
+  //
+  // As of Aug 31, 2026, the only use case on WML is the "Tab-to-Panel"
+  // transition for contextual tasks (AI Mode) and it is disabled (verified on
+  // Canary M154.0.8036.0).
+  //
+  // Android doesn't support this UX.
+  NOTREACHED() << "Not supported by Android UI";
 }
 
 void SidePanelCoordinatorAndroid::Close(SidePanelEntryHideReason hide_reason,
@@ -213,9 +226,6 @@ void SidePanelCoordinatorAndroid::Close(SidePanelEntryHideReason hide_reason,
 
   // Stop any pending load.
   waiter()->ResetLoadingEntryIfNecessary();
-
-  // If a ShowFrom() was pending, clear the starting bounds.
-  last_starting_bounds_.reset();
 
   // Nothing to do if the side panel is not showing or is already closing.
   if (!IsSidePanelShowing() || state_ == SidePanelState::kClosing) {
@@ -503,8 +513,6 @@ void SidePanelCoordinatorAndroid::Show(
   if (!entry) {
     return;
   }
-  CHECK(entry->type() == SidePanelType::kToolbar)
-      << "Android Side Panel only supports kToolbar entries.";
 
   // Defer the show request if there is insufficient space to show the side
   // panel.
@@ -542,9 +550,6 @@ void SidePanelCoordinatorAndroid::Show(
     // If the current entry is the same as the new entry we're trying to show,
     // we should cancel loading the new entry and keep the side panel visible.
     waiter()->ResetLoadingEntryIfNecessary();
-
-    // If a ShowFrom() was pending or attempted on a visible entry, clear it.
-    last_starting_bounds_.reset();
 
     if (state_ != SidePanelState::kClosing) {
       return;
@@ -630,15 +635,12 @@ void SidePanelCoordinatorAndroid::StartOpeningPanel(
   // On WML, when the View is being shown on the UI, the ownership of the View
   // is transferred to the UI and the cache in `SidePanelEntry` is empty.
   // When the View is removed from the UI, it'll be put back into the cache.
-  gfx::Rect start_bounds = last_starting_bounds_.value_or(kNoBounds);
-  last_starting_bounds_.reset();
   std::u16string_view title = SidePanelUtil::GetTitleText(entry, browser());
 
   JNIEnv* env = AttachCurrentThread();
   Java_SidePanelCoordinatorAndroidBridge_startOpeningPanel(
       env, java_coordinator(), browser()->GetProfile(), native_view->view(),
-      title, entry->should_show_header(), start_bounds.x(), start_bounds.y(),
-      start_bounds.width(), start_bounds.height(), suppress_animations);
+      title, entry->should_show_header(), suppress_animations);
   entry->CacheView(std::move(native_view));
 }
 

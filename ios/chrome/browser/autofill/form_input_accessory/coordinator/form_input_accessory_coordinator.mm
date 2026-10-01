@@ -13,6 +13,7 @@
 #import "base/feature_list.h"
 #import "base/functional/bind.h"
 #import "base/ios/ios_util.h"
+#import "base/memory/weak_ptr.h"
 #import "base/metrics/histogram_macros.h"
 #import "base/metrics/user_metrics.h"
 #import "base/metrics/user_metrics_action.h"
@@ -21,6 +22,7 @@
 #import "base/strings/utf_string_conversions.h"
 #import "base/task/sequenced_task_runner.h"
 #import "base/time/time.h"
+#import "components/autofill/core/browser/data_manager/autofill_ai/entity_suppression_manager.h"
 #import "components/autofill/core/browser/data_manager/personal_data_manager.h"
 #import "components/autofill/core/browser/data_model/autofill_ai/entity_instance.h"
 #import "components/autofill/core/browser/payments/payments_service_url.h"
@@ -55,6 +57,7 @@
 #import "ios/chrome/browser/autofill/model/autofill_tab_helper.h"
 #import "ios/chrome/browser/autofill/model/bottom_sheet/autofill_bottom_sheet_tab_helper.h"
 #import "ios/chrome/browser/autofill/model/features.h"
+#import "ios/chrome/browser/autofill/model/ios_autofill_entity_suppression_manager_factory.h"
 #import "ios/chrome/browser/autofill/model/personal_data_manager_factory.h"
 #import "ios/chrome/browser/autofill/ui_bundled/branding/branding_coordinator.h"
 #import "ios/chrome/browser/autofill/ui_bundled/util/autofill_credit_card_util.h"
@@ -81,7 +84,10 @@
 #import "ios/chrome/browser/shared/public/commands/scene_commands.h"
 #import "ios/chrome/browser/shared/public/commands/security_alert_commands.h"
 #import "ios/chrome/browser/shared/public/commands/settings_commands.h"
+#import "ios/chrome/browser/shared/public/commands/snackbar_commands.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
+#import "ios/chrome/browser/shared/public/snackbar/snackbar_message.h"
+#import "ios/chrome/browser/shared/public/snackbar/snackbar_message_action.h"
 #import "ios/chrome/browser/shared/ui/util/layout_guide_names.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
 #import "ios/chrome/browser/shared/ui/util/util_swift.h"
@@ -91,6 +97,8 @@
 #import "ios/web/public/web_state.h"
 #import "ui/base/l10n/l10n_util_mac.h"
 #import "url/gurl.h"
+
+using autofill::FieldGlobalId;
 
 namespace {
 // Delay between the time the view is shown, and the time the suggestion label
@@ -147,6 +155,25 @@ AutofillSettingsPage SuggestionToAutofillSettingsPage(
     }
     default:
       NOTREACHED();
+  }
+}
+
+// Returns the EntitySuppressionManager for `profile`, or nullptr if
+// unavailable.
+autofill::EntitySuppressionManager* GetEntitySuppressionManager(
+    ProfileIOS* profile) {
+  return profile ? IOSAutofillEntitySuppressionManagerFactory::GetForProfile(
+                       profile)
+                 : nullptr;
+}
+
+// Unsuppresses `entity` for `profile`.
+void UnsuppressEntity(base::WeakPtr<ProfileIOS> profile,
+                      const autofill::EntityInstance& entity) {
+  autofill::EntitySuppressionManager* suppressionManager =
+      GetEntitySuppressionManager(profile.get());
+  if (suppressionManager) {
+    suppressionManager->UnsuppressEntity(entity);
   }
 }
 
@@ -347,7 +374,13 @@ AutofillSettingsPage SuggestionToAutofillSettingsPage(
                       forDataType:(manual_fill::ManualFillDataType)dataType
          invokedOnObfuscatedField:(BOOL)invokedOnObfuscatedField {
   if (dataType == manual_fill::ManualFillDataType::kAtMemory) {
-    [self showAtMemory];
+    std::optional<FieldGlobalId> fieldId =
+        [_formInputAccessoryMediator lastFocusedFieldGlobalId];
+    // Explicitly using `has_value()` for `FieldGlobalId`.
+    if (!fieldId.has_value()) {
+      return;
+    }
+    [self showAtMemoryForField:fieldId.value()];
     return;
   }
 
@@ -583,7 +616,7 @@ AutofillSettingsPage SuggestionToAutofillSettingsPage(
 }
 
 - (void)suppressPersonalContextSuggestion:(FormSuggestion*)suggestion {
-  // TODO(crbug.com/551864564): Implement suppression/removal of the entity.
+  [self showConfirmationDialogToSuppressPersonalContextSuggestion:suggestion];
 }
 
 - (BOOL)hasSourcesForSuggestion:(FormSuggestion*)suggestion {
@@ -787,14 +820,15 @@ AutofillSettingsPage SuggestionToAutofillSettingsPage(
 
 #pragma mark - AtMemoryCommands
 
-- (void)showAtMemory {
-  if (_atMemoryCoordinator) {
+- (void)showAtMemoryForField:(FieldGlobalId)fieldId {
+  if (!fieldId.renderer_id || _atMemoryCoordinator) {
     return;
   }
   _atMemoryCoordinator = [[AtMemoryCoordinator alloc]
       initWithBaseViewController:self.baseViewController
                          browser:self.browser
-                 contentInjector:self.injectionHandler];
+                 contentInjector:self.injectionHandler
+                         fieldId:fieldId];
 
   [self.childCoordinators addObject:_atMemoryCoordinator];
 
@@ -888,6 +922,7 @@ AutofillSettingsPage SuggestionToAutofillSettingsPage(
 
 - (void)dismissAlertCoordinator {
   [_alertCoordinator stop];
+  [self.childCoordinators removeObject:_alertCoordinator];
   _alertCoordinator = nil;
 }
 
@@ -899,6 +934,98 @@ AutofillSettingsPage SuggestionToAutofillSettingsPage(
       feature_engagement::TrackerFactory::GetForProfile(self.profile);
   CHECK(tracker);
   return tracker;
+}
+
+// Shows confirmation dialog before removing/suppressing a personal context
+// suggestion.
+- (void)showConfirmationDialogToSuppressPersonalContextSuggestion:
+    (FormSuggestion*)suggestion {
+  [self dismissAlertCoordinator];
+
+  NSString* title =
+      l10n_util::GetNSString(IDS_IOS_AUTOFILL_AI_REMOVE_CONFIRMATION_TITLE);
+  NSString* message =
+      l10n_util::GetNSString(IDS_IOS_AUTOFILL_AI_REMOVE_CONFIRMATION_MESSAGE);
+
+  _alertCoordinator = [[AlertCoordinator alloc]
+      initWithBaseViewController:self.baseViewController
+                         browser:self.browser
+                           title:title
+                         message:message];
+  [self.childCoordinators addObject:_alertCoordinator];
+
+  __weak __typeof__(self) weakSelf = self;
+
+  [_alertCoordinator addItemWithTitle:l10n_util::GetNSString(IDS_CANCEL)
+                               action:^{
+                                 [weakSelf dismissAlertCoordinator];
+                               }
+                                style:UIAlertActionStyleCancel];
+
+  NSString* removeActionTitle =
+      l10n_util::GetNSString(IDS_IOS_AUTOFILL_AI_REMOVE_ACTION);
+  [_alertCoordinator
+      addItemWithTitle:removeActionTitle
+                action:^{
+                  [weakSelf suppressEntityForSuggestion:suggestion];
+                  [weakSelf dismissAlertCoordinator];
+                }
+                 style:UIAlertActionStyleDestructive
+             preferred:NO
+               enabled:YES];
+
+  [_alertCoordinator start];
+}
+
+// Suppresses the entity for `suggestion` and refreshes keyboard suggestions.
+- (void)suppressEntityForSuggestion:(FormSuggestion*)suggestion {
+  autofill::EntitySuppressionManager* suppressionManager =
+      GetEntitySuppressionManager(self.profile);
+  if (!suppressionManager) {
+    return;
+  }
+  base::optional_ref<const autofill::EntityInstance> entity =
+      autofill::GetEntityInstance(self.profile, suggestion.payload);
+  if (!entity.has_value()) {
+    return;
+  }
+  suppressionManager->SuppressEntity(*entity);
+  [self resetSuggestions];
+  [self showUndoSnackbarForEntity:*entity];
+}
+
+// Shows a snackbar allowing the user to undo removing `entity`.
+- (void)showUndoSnackbarForEntity:(const autofill::EntityInstance&)entity {
+  id<SnackbarCommands> snackbarHandler = HandlerForProtocol(
+      self.browser->GetCommandDispatcher(), SnackbarCommands);
+  if (!snackbarHandler) {
+    return;
+  }
+
+  SnackbarMessageAction* action = [[SnackbarMessageAction alloc] init];
+  action.title = l10n_util::GetNSString(IDS_IOS_AUTOFILL_AI_REMOVE_UNDO_ACTION);
+  __weak __typeof(self) weakSelf = self;
+  base::WeakPtr<ProfileIOS> weakProfile =
+      self.profile ? self.profile->AsWeakPtr() : nullptr;
+  autofill::EntityInstance capturedEntity = entity;
+  action.handler = ^{
+    UnsuppressEntity(weakProfile, capturedEntity);
+    [weakSelf resetSuggestions];
+  };
+
+  SnackbarMessage* message = [[SnackbarMessage alloc]
+      initWithTitle:l10n_util::GetNSString(
+                        IDS_IOS_AUTOFILL_AI_REMOVE_SNACKBAR_TITLE)];
+  message.subtitle =
+      l10n_util::GetNSString(IDS_IOS_AUTOFILL_AI_REMOVE_SNACKBAR_SUBTITLE);
+  message.action = action;
+
+  [snackbarHandler showSnackbarMessage:message];
+}
+
+// Resets suggestions in the form input accessory mediator.
+- (void)resetSuggestions {
+  [_formInputAccessoryMediator resetSuggestions];
 }
 
 // Shows confirmation dialog before opening Other passwords.

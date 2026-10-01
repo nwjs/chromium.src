@@ -59,14 +59,16 @@ pub trait MojomParse<Context = ()>: Sized + 'static {
         // TypeId to represent them at runtime.
         type WireTypeCache = HashMap<TypeId, &'static MojomWireType>;
 
-        // Sadly, we can't initialize an RwLock static directly because the initializer
-        // wouldn't be a constant expression, so have to wrap it in LazyLock.
+        // Sadly, we can't initialize an RwLock static directly because the
+        // initializer wouldn't be a constant expression, so have to
+        // wrap it in LazyLock.
         static WIRE_TYPE: LazyLock<RwLock<WireTypeCache>> =
             LazyLock::new(|| RwLock::new(WireTypeCache::new()));
 
-        // The read can only fail if a writer panicked at some point; packing never
-        // panics so we know it's safe to unwrap here.
-        // `cloned` transforms Option<&& MojomWireType> -> Option<& MojomWireType>
+        // The read can only fail if a writer panicked at some point; packing
+        // never panics so we know it's safe to unwrap here.
+        // `cloned` transforms Option<&& MojomWireType> -> Option<&
+        // MojomWireType>
         let contents: Option<&'static MojomWireType> =
             WIRE_TYPE.read().unwrap().get(&TypeId::of::<Self>()).cloned();
 
@@ -152,32 +154,6 @@ mojomparse_leaf_impl!(DataPipeConsumerHandle, Handle);
 mojomparse_leaf_impl!(DataPipeProducerHandle, Handle);
 mojomparse_leaf_impl!(SharedBuffer, Handle);
 
-// Implement MojomParse for any type that implements PrimitiveEnum and the other
-// requirements for MojomParse.
-impl<Context, T> MojomParse<Context> for T
-where
-    T: PrimitiveEnum + 'static,
-{
-    fn mojom_type() -> MojomType {
-        MojomType::Enum { is_valid: Predicate::new::<T>(&(Self::is_valid as fn(i32) -> bool)) }
-    }
-
-    fn into_mojom_value(self, _context: &Context) -> MojomValue {
-        MojomValue::Enum(self.into())
-    }
-
-    fn try_from_mojom_value(value: MojomValue, _context: &Context) -> anyhow::Result<Self> {
-        if let MojomValue::Enum(v) = value {
-            Ok(Self::try_from(v)?)
-        } else {
-            ::anyhow::bail!(
-                "Cannot construct a value of type {} from non-enum MojomValue {:?}",
-                std::any::type_name::<Self>(),
-                value
-            )
-        }
-    }
-}
 // Implement MojomParse for arrays and vectors
 // It would be neat to do this more generally, e.g. anything that can be cast
 // to a slice, but rust doesn't have a way for us to prove that the different
@@ -319,5 +295,22 @@ where
                 value
             );
         }
+    }
+}
+
+impl<Context, T> MojomParse<Context> for Box<T>
+where
+    T: MojomParse<Context>,
+{
+    fn mojom_type() -> MojomType {
+        T::mojom_type()
+    }
+
+    fn into_mojom_value(self, context: &Context) -> MojomValue {
+        (*self).into_mojom_value(context)
+    }
+
+    fn try_from_mojom_value(value: MojomValue, context: &Context) -> anyhow::Result<Self> {
+        T::try_from_mojom_value(value, context).map(Box::new)
     }
 }

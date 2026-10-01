@@ -10,6 +10,11 @@ import static androidx.test.espresso.action.ViewActions.click;
 import static androidx.test.espresso.assertion.ViewAssertions.doesNotExist;
 import static androidx.test.espresso.assertion.ViewAssertions.matches;
 import static androidx.test.espresso.contrib.RecyclerViewActions.scrollTo;
+import static androidx.test.espresso.intent.Intents.intended;
+import static androidx.test.espresso.intent.Intents.intending;
+import static androidx.test.espresso.intent.matcher.IntentMatchers.hasAction;
+import static androidx.test.espresso.intent.matcher.IntentMatchers.hasExtra;
+import static androidx.test.espresso.intent.matcher.IntentMatchers.hasFlag;
 import static androidx.test.espresso.matcher.PreferenceMatchers.withKey;
 import static androidx.test.espresso.matcher.RootMatchers.isDialog;
 import static androidx.test.espresso.matcher.ViewMatchers.hasDescendant;
@@ -20,7 +25,6 @@ import static androidx.test.espresso.matcher.ViewMatchers.withText;
 
 import static org.hamcrest.CoreMatchers.allOf;
 import static org.hamcrest.CoreMatchers.not;
-import static org.hamcrest.Matchers.is;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
@@ -34,6 +38,7 @@ import static org.mockito.Mockito.when;
 import static org.chromium.base.test.transit.ViewFinder.waitForNoView;
 
 import android.app.Activity;
+import android.app.Instrumentation.ActivityResult;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Looper;
@@ -43,7 +48,6 @@ import android.view.View;
 import android.widget.TextView;
 
 import androidx.annotation.Nullable;
-import androidx.annotation.StringRes;
 import androidx.preference.Preference;
 import androidx.test.espresso.contrib.RecyclerViewActions;
 import androidx.test.espresso.intent.Intents;
@@ -90,13 +94,12 @@ import org.chromium.chrome.browser.download.settings.DownloadSettings;
 import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
+import org.chromium.chrome.browser.homepage.HomepageManager;
 import org.chromium.chrome.browser.homepage.HomepageTestRule;
 import org.chromium.chrome.browser.homepage.settings.HomepageSettings;
 import org.chromium.chrome.browser.language.settings.LanguageSettings;
 import org.chromium.chrome.browser.password_manager.PasswordManagerUtilBridge;
 import org.chromium.chrome.browser.password_manager.PasswordManagerUtilBridgeJni;
-import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
-import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
 import org.chromium.chrome.browser.privacy.settings.PrivacySettings;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.safety_hub.SafetyHubFragment;
@@ -109,7 +112,6 @@ import org.chromium.chrome.browser.sync.SyncTestRule;
 import org.chromium.chrome.browser.sync.settings.ManageSyncSettings;
 import org.chromium.chrome.browser.sync.settings.SignInPreference;
 import org.chromium.chrome.browser.tasks.tab_management.TabsSettings;
-import org.chromium.chrome.browser.toolbar.ToolbarPositionController;
 import org.chromium.chrome.browser.toolbar.settings.AddressBarSettingsFragment;
 import org.chromium.chrome.browser.tracing.settings.DeveloperSettings;
 import org.chromium.chrome.browser.ui.default_browser_promo.DefaultBrowserPromoUtils;
@@ -138,8 +140,6 @@ import org.chromium.components.signin.test.util.AccountCapabilitiesBuilder;
 import org.chromium.components.signin.test.util.TestAccounts;
 import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.test.util.GmsCoreVersionRestriction;
-import org.chromium.ui.text.SpanApplier;
-import org.chromium.ui.text.SpanApplier.SpanInfo;
 
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -207,12 +207,6 @@ public class MainSettingsFragmentTest {
                 mSigninAndHistorySyncActivityLauncher);
         DeveloperSettings.setIsEnabledForTests(true);
         Intents.init();
-
-        // Keep render tests consistent by suppressing "new" labels.
-        final var prefs = ChromeSharedPreferences.getInstance();
-        prefs.writeInt(
-                ChromePreferenceKeys.ADDRESS_BAR_SETTINGS_VIEW_COUNT,
-                MainSettings.NEW_LABEL_MAX_VIEW_COUNT);
 
         when(mSigninAndHistorySyncActivityLauncher
                         .createBottomSheetSigninCoordinatorAndObserveAddAccountResult(
@@ -629,6 +623,45 @@ public class MainSettingsFragmentTest {
                 mMainSettings.findPreference(MainSettings.PREF_HOMEPAGE).getSummary().toString());
     }
 
+    /**
+     * Regression test for crbug.com/559967063: the homepage summary must refresh while the main
+     * settings page is visible, because in multi-column mode the homepage subpage is shown next to
+     * it and toggling the homepage does not restart the main settings page.
+     */
+    @Test
+    @SmallTest
+    public void testHomepageSummaryUpdatesOnHomepageStateChange() {
+        // Start with the homepage enabled.
+        mHomepageTestRule.useDefaultHomepageForTest();
+        startSettings();
+
+        // The summary reflects the initial homepage state (on).
+        Assert.assertEquals(
+                "Homepage summary is different than homepage state",
+                mMainSettings.getString(R.string.text_on),
+                mMainSettings.findPreference(MainSettings.PREF_HOMEPAGE).getSummary().toString());
+
+        // Simulate turning the homepage off from the homepage subpage.
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> HomepageManager.getInstance().setJavaPrefHomepageEnabled(false));
+
+        // The summary updates without the main settings page being restarted.
+        Assert.assertEquals(
+                "Homepage summary did not update after the homepage was disabled",
+                mMainSettings.getString(R.string.text_off),
+                mMainSettings.findPreference(MainSettings.PREF_HOMEPAGE).getSummary().toString());
+
+        // Simulate turning the homepage back on.
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> HomepageManager.getInstance().setJavaPrefHomepageEnabled(true));
+
+        // The summary updates again.
+        Assert.assertEquals(
+                "Homepage summary did not update after the homepage was enabled",
+                mMainSettings.getString(R.string.text_on),
+                mMainSettings.findPreference(MainSettings.PREF_HOMEPAGE).getSummary().toString());
+    }
+
     @Test
     @SmallTest
     @EnableFeatures(
@@ -838,6 +871,35 @@ public class MainSettingsFragmentTest {
 
     @Test
     @SmallTest
+    public void testNotificationSettings_launchesInNewTask() {
+        Assume.assumeTrue(supportNotificationSettings());
+        startSettings();
+
+        // Stub the intent to open the notification settings page.
+        ActivityResult intentResult = new ActivityResult(Activity.RESULT_OK, null);
+        intending(hasAction(Settings.ACTION_APP_NOTIFICATION_SETTINGS)).respondWith(intentResult);
+
+        onView(withId(R.id.recycler_view))
+                .perform(scrollTo(hasDescendant(withText(R.string.prefs_notifications))));
+        onView(withText(R.string.prefs_notifications)).perform(click());
+
+        // This is an instrumentation test, so it's hard to force device form factor. Instead,
+        // we just check that the flag is set the way we expect it to be set.
+        var flagMatcher =
+                SettingsInTab.isEnabled()
+                        ? hasFlag(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        : not(hasFlag(Intent.FLAG_ACTIVITY_NEW_TASK));
+        intended(
+                allOf(
+                        hasAction(Settings.ACTION_APP_NOTIFICATION_SETTINGS),
+                        hasExtra(
+                                Settings.EXTRA_APP_PACKAGE,
+                                ContextUtils.getApplicationContext().getPackageName()),
+                        flagMatcher));
+    }
+
+    @Test
+    @SmallTest
     public void testAndroidAddressBarFlagOn() {
         startSettings();
         // This setting should only appear for certain devices, even if the flag is enabled. Since
@@ -861,34 +923,6 @@ public class MainSettingsFragmentTest {
                             .getTitle()
                             .toString());
         }
-    }
-
-    @Test
-    @SmallTest
-    public void testAndroidAddressBar_newLabel() {
-        Assume.assumeThat(supportAddressBarSettings(), is(true));
-        testNewPreferenceLabel(
-                AddressBarSettingsFragment.class,
-                MainSettings.PREF_ADDRESS_BAR,
-                ChromePreferenceKeys.ADDRESS_BAR_SETTINGS_VIEW_COUNT,
-                R.string.address_bar_settings);
-    }
-
-    @Test
-    @SmallTest
-    public void testAndroidAddressBar_cleanUpBadPrefValue() {
-        ChromeSharedPreferences.getInstance()
-                .writeInt(ChromePreferenceKeys.ADDRESS_BAR_SETTINGS_CLICKED, 1);
-        startSettings();
-
-        if (!supportAddressBarSettings()) {
-            return;
-        }
-
-        assertSettingsExists(MainSettings.PREF_ADDRESS_BAR, AddressBarSettingsFragment.class);
-        Assert.assertEquals(
-                mMainSettings.getString(R.string.address_bar_settings),
-                mMainSettings.findPreference(MainSettings.PREF_ADDRESS_BAR).getTitle().toString());
     }
 
     @Test
@@ -1117,11 +1151,6 @@ public class MainSettingsFragmentTest {
         Assert.assertNotNull("SettingsActivity failed to launch.", mMainSettings);
     }
 
-    private void restartSettings() {
-        mSettingsTestRule.finishActivity();
-        startSettings();
-    }
-
     private void configureMockSearchEngine() {
         TemplateUrlServiceFactory.setInstanceForTesting(mMockTemplateUrlService);
         Mockito.doReturn(mMockSearchEngine)
@@ -1170,52 +1199,8 @@ public class MainSettingsFragmentTest {
         return pref;
     }
 
-    private boolean supportAddressBarSettings() {
-        return ToolbarPositionController.isToolbarPositionCustomizationEnabled(
-                ContextUtils.getApplicationContext(), false);
-    }
-
     private boolean supportNotificationSettings() {
         return PackageManagerUtils.canResolveActivity(
                 new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS));
-    }
-
-    private void testNewPreferenceLabel(
-            Class prefFragmentClass,
-            String prefKey,
-            String viewCountPrefKey,
-            @StringRes int titleId) {
-        // Set up.
-        final var prefs = ChromeSharedPreferences.getInstance();
-        prefs.writeInt(viewCountPrefKey, MainSettings.NEW_LABEL_MAX_VIEW_COUNT);
-        startSettings();
-
-        final String prefTitleWithoutNewLabel = mMainSettings.getString(titleId);
-
-        // Case: Pref has been viewed `NEW_LABEL_MAX_VIEW_COUNT` times.
-        assertSettingsExists(prefKey, prefFragmentClass);
-        Assert.assertEquals(
-                prefTitleWithoutNewLabel,
-                mMainSettings.findPreference(prefKey).getTitle().toString());
-
-        final String prefTitleWithNewLabel =
-                SpanApplier.applySpans(
-                                mMainSettings.getString(
-                                        R.string.prefs_new_label, prefTitleWithoutNewLabel),
-                                new SpanInfo("<new>", "</new>"))
-                        .toString();
-
-        // Case: Pref has been viewed fewer than `NEW_LABEL_MAX_VIEW_COUNT` times.
-        prefs.writeInt(viewCountPrefKey, MainSettings.NEW_LABEL_MAX_VIEW_COUNT - 1);
-        restartSettings();
-        Assert.assertEquals(
-                prefTitleWithNewLabel, mMainSettings.findPreference(prefKey).getTitle().toString());
-
-        // Case: Pref has been clicked.
-        mMainSettings.findPreference(prefKey).performClick();
-        restartSettings();
-        Assert.assertEquals(
-                prefTitleWithoutNewLabel,
-                mMainSettings.findPreference(prefKey).getTitle().toString());
     }
 }

@@ -50,6 +50,7 @@
 #include "ui/views/test/views_test_base.h"
 #include "ui/views/view_utils.h"
 #include "ui/views/widget/widget_utils.h"
+#include "ui/views/window/dialog_client_view.h"
 #include "url/gurl.h"
 #include "url/origin.h"
 
@@ -539,7 +540,46 @@ TEST_P(IntentPickerBubbleViewLayoutTest, DoubleClickToAccept) {
                        BubbleType::kLinkCapturing,
                        /*initiating_origin=*/std::nullopt);
 
+  // Bypass input protection cooldown.
+  bubble()->GetDialogClientView()->ResetViewShownTimeStampForTesting();
+
   views::test::ButtonTestApi button(GetButtonAtIndex(0));
+
+  button.NotifyClick(ui::MouseEvent(ui::EventType::kMousePressed, gfx::PointF(),
+                                    gfx::PointF(), ui::EventTimeForNow(),
+                                    ui::EF_NONE, ui::EF_NONE));
+  button.NotifyClick(ui::MouseEvent(ui::EventType::kMousePressed, gfx::PointF(),
+                                    gfx::PointF(), ui::EventTimeForNow(),
+                                    ui::EF_IS_DOUBLE_CLICK, ui::EF_NONE));
+
+  EXPECT_EQ(last_selected_launch_name(), "web_app_id");
+  EXPECT_EQ(last_close_reason(), apps::IntentPickerCloseReason::OPEN_APP);
+}
+
+TEST_P(IntentPickerBubbleViewLayoutTest,
+       DoubleClickBlockedDuringInputProtection) {
+  AddApp(apps::PickerEntryType::kWeb, "web_app_id", "Web App");
+  auto bubble_widget =
+      CreateBubbleView(/*use_icons=*/false, /*show_stay_in_chrome=*/false,
+                       BubbleType::kLinkCapturing,
+                       /*initiating_origin=*/std::nullopt);
+
+  views::test::ButtonTestApi button(GetButtonAtIndex(0));
+
+  // Double-click immediately upon bubble appearance (within protection window).
+  button.NotifyClick(ui::MouseEvent(ui::EventType::kMousePressed, gfx::PointF(),
+                                    gfx::PointF(), ui::EventTimeForNow(),
+                                    ui::EF_NONE, ui::EF_NONE));
+  button.NotifyClick(ui::MouseEvent(ui::EventType::kMousePressed, gfx::PointF(),
+                                    gfx::PointF(), ui::EventTimeForNow(),
+                                    ui::EF_IS_DOUBLE_CLICK, ui::EF_NONE));
+
+  EXPECT_FALSE(bubble_widget->IsClosed());
+  EXPECT_EQ(bubble()->GetSelectedIndex(), 0u);
+  EXPECT_TRUE(last_selected_launch_name().empty());
+
+  // Reset cooldown and verify double-click now succeeds.
+  bubble()->GetDialogClientView()->ResetViewShownTimeStampForTesting();
 
   button.NotifyClick(ui::MouseEvent(ui::EventType::kMousePressed, gfx::PointF(),
                                     gfx::PointF(), ui::EventTimeForNow(),
@@ -636,6 +676,41 @@ TEST_P(IntentPickerBubbleViewGridLayoutTest, MAYBE_OpenWithReturnKey) {
   GetButtonAtIndex(0)->RequestFocus();
   EXPECT_TRUE(GetButtonAtIndex(0)->HasFocus());
 
+  bubble()->ResetViewShownTimeStampForTesting();
+
+  event_generator().PressKey(ui::VKEY_RETURN, ui::EF_NONE);
+
+  EXPECT_EQ(last_close_reason(), apps::IntentPickerCloseReason::OPEN_APP);
+}
+
+// TODO(crbug.com/40843230): Fix flakiness on Windows.
+#if BUILDFLAG(IS_WIN)
+#define MAYBE_OpenWithReturnKeyBlockedByInputProtection \
+  DISABLED_OpenWithReturnKeyBlockedByInputProtection
+#else
+#define MAYBE_OpenWithReturnKeyBlockedByInputProtection \
+  OpenWithReturnKeyBlockedByInputProtection
+#endif
+TEST_P(IntentPickerBubbleViewGridLayoutTest,
+       MAYBE_OpenWithReturnKeyBlockedByInputProtection) {
+  AddDefaultApps();
+  auto bubble_widget =
+      CreateBubbleView(/*use_icons=*/false, /*show_stay_in_chrome=*/false,
+                       BubbleType::kLinkCapturing,
+                       /*initiating_origin=*/std::nullopt);
+
+  GetButtonAtIndex(0)->RequestFocus();
+  EXPECT_TRUE(GetButtonAtIndex(0)->HasFocus());
+
+  // Without resetting the input protection timestamp, the key event should be
+  // blocked by input protection and the bubble remains open.
+  event_generator().PressKey(ui::VKEY_RETURN, ui::EF_NONE);
+  EXPECT_FALSE(bubble_widget->IsClosed());
+  EXPECT_TRUE(last_selected_launch_name().empty());
+
+  // Resetting the timestamp disables the input protection window, allowing
+  // subsequent input to accept the dialog.
+  bubble()->ResetViewShownTimeStampForTesting();
   event_generator().PressKey(ui::VKEY_RETURN, ui::EF_NONE);
 
   EXPECT_EQ(last_close_reason(), apps::IntentPickerCloseReason::OPEN_APP);

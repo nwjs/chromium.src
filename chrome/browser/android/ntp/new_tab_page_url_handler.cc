@@ -16,6 +16,7 @@
 #include "chrome/common/webui_url_constants.h"
 #include "content/public/common/content_features.h"
 #include "content/public/common/url_constants.h"
+#include "extensions/buildflags/buildflags.h"
 #include "url/gurl.h"
 
 #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
@@ -44,10 +45,18 @@ bool HandleAndroidNativePageURL(GURL* url,
 
   if (url->SchemeIs(content::kChromeUIScheme)) {
     if (url->GetHost() == chrome::kChromeUINewTabHost) {
-      if (search::IsWebUiNtpEnabledForDesktopAndroid() &&
-          search::DefaultSearchProviderIsGoogle(
-              Profile::FromBrowserContext(browser_context))) {
-        *url = GURL(chrome::kChromeUINewTabPageURL);
+      // The url handler rewrites the url from chrome://newtab to the WebUI
+      // NTP if the WebUI NTP is enabled. Depending on the default search
+      // engine, it will either return a 1P or 3P NTP.
+      if (search::IsWebUiNtpEnabledForDesktopAndroid()) {
+        GURL new_tab_url = search::GetNewTabPageURL(
+            Profile::FromBrowserContext(browser_context));
+        if (new_tab_url.is_valid()) {
+          *url = new_tab_url;
+        } else {
+          // TODO(b/559771711): Add fallback WebUI NTP.
+          *url = GURL(chrome::kChromeUINativeNewTabURL);
+        }
       } else {
         *url = GURL(chrome::kChromeUINativeNewTabURL);
       }

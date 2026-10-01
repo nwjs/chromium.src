@@ -24,7 +24,7 @@
 #include "chrome/browser/private_verification_tokens/private_verification_tokens_service.h"
 #include "chrome/test/base/testing_profile.h"
 #include "components/content_settings/core/browser/host_content_settings_map.h"
-#include "components/private_verification_tokens/common/athm_test_issuer.h"
+#include "components/private_verification_tokens/common/athm_ffi/athm_ffi.h"
 #include "components/private_verification_tokens/common/private_verification_tokens_issuer_config.h"
 #include "components/private_verification_tokens/common/private_verification_tokens_test_util.h"
 #include "components/private_verification_tokens/common/private_verification_tokens_token.h"
@@ -36,17 +36,20 @@
 #include "net/url_request/redirect_util.h"
 #include "services/network/public/cpp/http_request_headers_update_params.h"
 #include "services/network/public/cpp/resource_request.h"
+#include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "services/network/public/cpp/weak_wrapper_shared_url_loader_factory.h"
 #include "services/network/public/mojom/fetch_api.mojom.h"
 #include "services/network/public/mojom/url_response_head.mojom.h"
 #include "services/network/test/test_url_loader_factory.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/crubit/support/rs_std/slice_ref.h"
 #include "url/gurl.h"
 #include "url/origin.h"
 
 namespace {
 
+using ::private_verification_tokens::test::CreateTestIssuer;
 using ::private_verification_tokens::test::FutureExpiration;
 using ::private_verification_tokens::test::GetFutureExpiration;
 
@@ -137,9 +140,9 @@ class PrivateVerificationTokensURLLoaderThrottleTest : public testing::Test {
     const GURL issuer_request_url_c("https://c.net/p/v/t/issue");
     const url::Origin redeemer_c = url::Origin::Create(GURL("https://c.net"));
     const std::string encoded_public_key =
-        base::Base64Encode(test_issuer_->public_key());
+        base::Base64Encode(test_issuer_->public_key_bytes());
     const std::string encoded_public_key_proof =
-        base::Base64Encode(test_issuer_->public_key_proof());
+        base::Base64Encode(test_issuer_->public_key_proof_bytes());
     const FutureExpiration future_expiration = GetFutureExpiration();
     const std::string expiration_str = future_expiration.string_rep;
     const std::string json_str = base::StringPrintf(
@@ -232,10 +235,8 @@ class PrivateVerificationTokensURLLoaderThrottleTest : public testing::Test {
 
  private:
   // All origins use the same test issuer.
-  std::optional<private_verification_tokens::AthmTestIssuer> test_issuer_ =
-      private_verification_tokens::AthmTestIssuer::Create(
-          /*num_buckets=*/2,
-          base::as_byte_span(std::string_view("dummy-deployment-id")));
+  std::optional<private_verification_tokens::PrivacyPassAthmIssuer>
+      test_issuer_ = CreateTestIssuer(/*num_buckets=*/2, "dummy-deployment-id");
   base::test::ScopedFeatureList scoped_feature_list_;
   content::BrowserTaskEnvironment task_environment_{
       base::test::TaskEnvironment::TimeSource::MOCK_TIME};
@@ -249,7 +250,7 @@ class PrivateVerificationTokensURLLoaderThrottleTest : public testing::Test {
 TEST_F(PrivateVerificationTokensURLLoaderThrottleTest,
        Create_NullService_ReturnsNull) {
   auto throttle = PrivateVerificationTokensURLLoaderThrottle::Create(
-      /*pvt_service=*/nullptr, /*is_off_the_record=*/false,
+      /*pvt_service=*/nullptr, profile()->GetWeakPtr(),
       shared_url_loader_factory());
   EXPECT_EQ(throttle, nullptr);
 }
@@ -257,7 +258,7 @@ TEST_F(PrivateVerificationTokensURLLoaderThrottleTest,
 TEST_F(PrivateVerificationTokensURLLoaderThrottleTest,
        Create_ValidService_ReturnsThrottle) {
   auto throttle = PrivateVerificationTokensURLLoaderThrottle::Create(
-      service(), /*is_off_the_record=*/false, shared_url_loader_factory());
+      service(), profile()->GetWeakPtr(), shared_url_loader_factory());
   EXPECT_NE(throttle, nullptr);
 }
 
@@ -272,7 +273,7 @@ TEST_F(PrivateVerificationTokensURLLoaderThrottleTest,
   SetTestIssuerConfig(service());
 
   auto throttle = PrivateVerificationTokensURLLoaderThrottle::Create(
-      service(), /*is_off_the_record=*/false, shared_url_loader_factory());
+      service(), profile()->GetWeakPtr(), shared_url_loader_factory());
   ASSERT_TRUE(throttle);
 
   auto request = CreateTopLevelNavigationRequest(GURL("https://r1.a.com/page"));
@@ -291,7 +292,7 @@ TEST_F(PrivateVerificationTokensURLLoaderThrottleTest,
   SetTestIssuerConfig(service());
 
   auto throttle = PrivateVerificationTokensURLLoaderThrottle::Create(
-      service(), /*is_off_the_record=*/false, shared_url_loader_factory());
+      service(), profile()->GetWeakPtr(), shared_url_loader_factory());
   ASSERT_TRUE(throttle);
 
   DestroyService();
@@ -311,7 +312,7 @@ TEST_F(PrivateVerificationTokensURLLoaderThrottleTest,
   SetTestIssuerConfig(service());
 
   auto throttle = PrivateVerificationTokensURLLoaderThrottle::Create(
-      service(), /*is_off_the_record=*/false, shared_url_loader_factory());
+      service(), profile()->GetWeakPtr(), shared_url_loader_factory());
   ASSERT_TRUE(throttle);
 
   auto request = CreateTopLevelNavigationRequest(GURL("https://c.net/index"));
@@ -330,7 +331,9 @@ TEST_F(PrivateVerificationTokensURLLoaderThrottleTest,
   SetTestIssuerConfig(service());
 
   auto throttle = PrivateVerificationTokensURLLoaderThrottle::Create(
-      service(), /*is_off_the_record=*/true, shared_url_loader_factory());
+      service(),
+      profile()->GetPrimaryOTRProfile(/*create_if_needed=*/true)->GetWeakPtr(),
+      shared_url_loader_factory());
   ASSERT_TRUE(throttle);
 
   auto request = CreateTopLevelNavigationRequest(GURL("https://c.net/index"));
@@ -347,7 +350,7 @@ TEST_F(PrivateVerificationTokensURLLoaderThrottleTest,
   SetTestIssuerConfig(service());
 
   auto throttle = PrivateVerificationTokensURLLoaderThrottle::Create(
-      service(), /*is_off_the_record=*/false, shared_url_loader_factory());
+      service(), profile()->GetWeakPtr(), shared_url_loader_factory());
   ASSERT_TRUE(throttle);
 
   auto request = CreateTopLevelNavigationRequest(GURL("https://c.net/index"));
@@ -366,7 +369,7 @@ TEST_F(PrivateVerificationTokensURLLoaderThrottleTest,
   SetTestIssuerConfig(service());
 
   auto throttle = PrivateVerificationTokensURLLoaderThrottle::Create(
-      service(), /*is_off_the_record=*/false, shared_url_loader_factory());
+      service(), profile()->GetWeakPtr(), shared_url_loader_factory());
   ASSERT_TRUE(throttle);
 
   auto request = CreateTopLevelNavigationRequest(GURL("https://r1.a.com/page"));
@@ -387,7 +390,7 @@ TEST_F(PrivateVerificationTokensURLLoaderThrottleTest,
   SetTestIssuerConfig(service());
 
   auto throttle = PrivateVerificationTokensURLLoaderThrottle::Create(
-      service(), /*is_off_the_record=*/false, shared_url_loader_factory());
+      service(), profile()->GetWeakPtr(), shared_url_loader_factory());
   ASSERT_TRUE(throttle);
 
   auto request = CreateTopLevelNavigationRequest(GURL("https://r1.a.com/page"));
@@ -406,7 +409,7 @@ TEST_F(PrivateVerificationTokensURLLoaderThrottleTest,
   SetTestIssuerConfig(service());
 
   auto throttle = PrivateVerificationTokensURLLoaderThrottle::Create(
-      service(), /*is_off_the_record=*/false, shared_url_loader_factory());
+      service(), profile()->GetWeakPtr(), shared_url_loader_factory());
   ASSERT_TRUE(throttle);
 
   auto request = CreateTopLevelNavigationRequest(GURL("https://r1.a.com/page"));
@@ -427,7 +430,7 @@ TEST_F(
   SetTestIssuerConfig(service());
 
   auto throttle = PrivateVerificationTokensURLLoaderThrottle::Create(
-      service(), /*is_off_the_record=*/false, shared_url_loader_factory());
+      service(), profile()->GetWeakPtr(), shared_url_loader_factory());
   ASSERT_TRUE(throttle);
 
   auto request = CreateTopLevelNavigationRequest(GURL("https://r1.a.com/page"));
@@ -447,7 +450,7 @@ TEST_F(PrivateVerificationTokensURLLoaderThrottleTest,
   SetTestIssuerConfig(service());
 
   auto throttle = PrivateVerificationTokensURLLoaderThrottle::Create(
-      service(), /*is_off_the_record=*/false, shared_url_loader_factory());
+      service(), profile()->GetWeakPtr(), shared_url_loader_factory());
   ASSERT_TRUE(throttle);
 
   auto request = CreateTopLevelNavigationRequest(GURL("https://r1.a.com/page"));
@@ -467,7 +470,7 @@ TEST_F(PrivateVerificationTokensURLLoaderThrottleTest,
   SetTestIssuerConfig(service());
 
   auto throttle = PrivateVerificationTokensURLLoaderThrottle::Create(
-      service(), /*is_off_the_record=*/false, shared_url_loader_factory());
+      service(), profile()->GetWeakPtr(), shared_url_loader_factory());
   ASSERT_TRUE(throttle);
 
   auto request = CreateTopLevelNavigationRequest(GURL("https://r1.a.com/page"));
@@ -490,7 +493,7 @@ TEST_F(
   SetTestIssuerConfig(service());
 
   auto throttle = PrivateVerificationTokensURLLoaderThrottle::Create(
-      service(), /*is_off_the_record=*/false, shared_url_loader_factory());
+      service(), profile()->GetWeakPtr(), shared_url_loader_factory());
   ASSERT_TRUE(throttle);
 
   auto request = CreateTopLevelNavigationRequest(GURL("https://r1.a.com/page"));
@@ -506,7 +509,7 @@ TEST_F(
 TEST_F(PrivateVerificationTokensURLLoaderThrottleTest,
        WillRedirectRequest_AddsTokenHeaderToRemovedHeaders) {
   auto throttle = PrivateVerificationTokensURLLoaderThrottle::Create(
-      service(), /*is_off_the_record=*/false, shared_url_loader_factory());
+      service(), profile()->GetWeakPtr(), shared_url_loader_factory());
   ASSERT_TRUE(throttle);
 
   net::RedirectInfo redirect_info;
@@ -530,7 +533,7 @@ TEST_F(PrivateVerificationTokensURLLoaderThrottleTest,
   SetTestIssuerConfig(service());
 
   auto throttle = PrivateVerificationTokensURLLoaderThrottle::Create(
-      service(), /*is_off_the_record=*/false, shared_url_loader_factory());
+      service(), profile()->GetWeakPtr(), shared_url_loader_factory());
   ASSERT_TRUE(throttle);
 
   auto request = CreateTopLevelNavigationRequest(GURL("https://r1.a.com/page"));
@@ -561,7 +564,7 @@ TEST_F(PrivateVerificationTokensURLLoaderThrottleTest,
   SetTestIssuerConfig(service());
 
   auto throttle = PrivateVerificationTokensURLLoaderThrottle::Create(
-      service(), /*is_off_the_record=*/false, shared_url_loader_factory());
+      service(), profile()->GetWeakPtr(), shared_url_loader_factory());
   ASSERT_TRUE(throttle);
 
   auto request = CreateTopLevelNavigationRequest(GURL("https://r1.a.com/page"));
@@ -591,7 +594,7 @@ TEST_F(PrivateVerificationTokensURLLoaderThrottleTest,
   SetTestIssuerConfig(service());
 
   auto throttle = PrivateVerificationTokensURLLoaderThrottle::Create(
-      service(), /*is_off_the_record=*/false, shared_url_loader_factory());
+      service(), profile()->GetWeakPtr(), shared_url_loader_factory());
   ASSERT_TRUE(throttle);
 
   auto request = CreateTopLevelNavigationRequest(GURL("https://r1.a.com/page"));
@@ -624,7 +627,7 @@ TEST_F(PrivateVerificationTokensURLLoaderThrottleTest,
   SetTestIssuerConfig(service());
 
   auto throttle = PrivateVerificationTokensURLLoaderThrottle::Create(
-      service(), /*is_off_the_record=*/false, shared_url_loader_factory());
+      service(), profile()->GetWeakPtr(), shared_url_loader_factory());
   ASSERT_TRUE(throttle);
 
   auto request = CreateTopLevelNavigationRequest(GURL("https://r1.a.com/page"));
@@ -659,7 +662,7 @@ TEST_F(
   SetTestIssuerConfig(service());
 
   auto throttle = PrivateVerificationTokensURLLoaderThrottle::Create(
-      service(), /*is_off_the_record=*/false, shared_url_loader_factory());
+      service(), profile()->GetWeakPtr(), shared_url_loader_factory());
   ASSERT_TRUE(throttle);
 
   // 1. Initial request starts for top-level navigation to a.com.
@@ -704,7 +707,7 @@ TEST_F(
           url::Origin::Create(request.url));
 
   auto restart_throttle = PrivateVerificationTokensURLLoaderThrottle::Create(
-      service(), /*is_off_the_record=*/false, shared_url_loader_factory());
+      service(), profile()->GetWeakPtr(), shared_url_loader_factory());
   ASSERT_TRUE(restart_throttle);
 
   restart_throttle->WillStartRequest(&request, &defer);
@@ -716,6 +719,104 @@ TEST_F(
   auto issuers = future.Take();
   EXPECT_FALSE(testing::Value(
       issuers, testing::Contains(url::Origin::Create(GURL("https://a.com")))));
+}
+
+TEST_F(PrivateVerificationTokensURLLoaderThrottleTest,
+       TokenRemovedDueToCookies_DoesNotLimitSubsequentRedemptions) {
+  WaitForInitialization(service());
+  StoreTestTokens(service());
+  SetTestIssuerConfig(service());
+
+  Profile* otr_profile =
+      profile()->GetPrimaryOTRProfile(/*create_if_needed=*/true);
+
+  // 1. Initial request gets a token.
+  auto throttle1 = PrivateVerificationTokensURLLoaderThrottle::Create(
+      service(), otr_profile->GetWeakPtr(), shared_url_loader_factory());
+  ASSERT_TRUE(throttle1);
+
+  auto request1 =
+      CreateTopLevelNavigationRequest(GURL("https://r1.a.com/page1"));
+  bool defer = false;
+  throttle1->WillStartRequest(&request1, &defer);
+
+  EXPECT_TRUE(request1.headers.HasHeader(
+      net::HttpRequestHeaders::kSecPrivateVerificationToken));
+
+  // 2. Token removed due to cookies.
+  network::mojom::URLResponseHead response_head;
+  response_head.pvt_token_removed_due_to_cookies = true;
+  throttle1->WillProcessResponse(GURL("https://r1.a.com/page1"), &response_head,
+                                 &defer);
+
+  WaitForTasksToComplete();
+
+  // 3. Second request for the same issuer should still get a token because the
+  // first one wasn't sent.
+  auto throttle2 = PrivateVerificationTokensURLLoaderThrottle::Create(
+      service(), otr_profile->GetWeakPtr(), shared_url_loader_factory());
+  ASSERT_TRUE(throttle2);
+
+  auto request2 =
+      CreateTopLevelNavigationRequest(GURL("https://r1.a.com/page2"));
+  throttle2->WillStartRequest(&request2, &defer);
+
+  EXPECT_TRUE(request2.headers.HasHeader(
+      net::HttpRequestHeaders::kSecPrivateVerificationToken));
+}
+
+TEST_F(PrivateVerificationTokensURLLoaderThrottleTest,
+       TokenSuccessfullySent_LimitsSubsequentRedemptions) {
+  WaitForInitialization(service());
+  // Store two tokens for a.com so the store isn't the limiting factor.
+  {
+    auto tokens = CreateTestTokens();
+    tokens.emplace_back(url::Origin::Create(GURL("https://a.com")),
+                        std::vector<uint8_t>{8, 9, 10}, 3,
+                        base::Time::Now() + base::Hours(2), 1);
+
+    base::test::TestFuture<void> store_future;
+    service()->StoreTokens(std::move(tokens), store_future.GetCallback());
+    EXPECT_TRUE(store_future.Wait());
+  }
+  SetTestIssuerConfig(service());
+
+  Profile* otr_profile =
+      profile()->GetPrimaryOTRProfile(/*create_if_needed=*/true);
+
+  // 1. Initial request gets a token.
+  auto throttle1 = PrivateVerificationTokensURLLoaderThrottle::Create(
+      service(), otr_profile->GetWeakPtr(), shared_url_loader_factory());
+  ASSERT_TRUE(throttle1);
+
+  auto request1 =
+      CreateTopLevelNavigationRequest(GURL("https://r1.a.com/page1"));
+  bool defer = false;
+  throttle1->WillStartRequest(&request1, &defer);
+
+  EXPECT_TRUE(request1.headers.HasHeader(
+      net::HttpRequestHeaders::kSecPrivateVerificationToken));
+
+  // 2. Token successfully sent (not removed by cookies).
+  network::mojom::URLResponseHead response_head;
+  response_head.pvt_token_removed_due_to_cookies = false;
+  throttle1->WillProcessResponse(GURL("https://r1.a.com/page1"), &response_head,
+                                 &defer);
+
+  WaitForTasksToComplete();
+
+  // 3. Second request for the same issuer should NOT get a token due to OTR
+  // tracking limiting logic.
+  auto throttle2 = PrivateVerificationTokensURLLoaderThrottle::Create(
+      service(), otr_profile->GetWeakPtr(), shared_url_loader_factory());
+  ASSERT_TRUE(throttle2);
+
+  auto request2 =
+      CreateTopLevelNavigationRequest(GURL("https://r1.a.com/page2"));
+  throttle2->WillStartRequest(&request2, &defer);
+
+  EXPECT_FALSE(request2.headers.HasHeader(
+      net::HttpRequestHeaders::kSecPrivateVerificationToken));
 }
 
 }  // namespace

@@ -13,6 +13,7 @@ import androidx.annotation.Px;
 import org.chromium.base.supplier.MonotonicObservableSupplier;
 import org.chromium.base.supplier.NonNullObservableSupplier;
 import org.chromium.build.annotations.NullMarked;
+import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.back_press.BackPressManager;
 import org.chromium.chrome.browser.keyboard_accessory.data.KeyboardAccessoryData;
 import org.chromium.chrome.browser.keyboard_accessory.data.Provider;
@@ -186,6 +187,22 @@ public interface ManualFillingComponent extends BackPressHandler {
     void setSuggestions(List<AutofillSuggestion> suggestions, AutofillDelegate delegate);
 
     /**
+     * Sets the selected suggestion in the accessory bar.
+     *
+     * @param suggestionIndex The index of the suggestion to set as selected, or null to unselect.
+     */
+    void setSelectedSuggestion(@Nullable Integer suggestionIndex);
+
+    /**
+     * Navigates to the next or previous suggestion in the accessory bar.
+     *
+     * @param direction The {@link NavigationDirection} indicating whether to navigate forward or
+     *     backward.
+     * @return True if a suggestion was selected, false otherwise.
+     */
+    boolean navigateSuggestions(@NavigationDirection int direction);
+
+    /**
      * Signals that the accessory has permission to show.
      *
      * @param waitForKeyboard signals if the keyboard is requested.
@@ -257,15 +274,37 @@ public interface ManualFillingComponent extends BackPressHandler {
      * Show a deletion confimation dialog.
      *
      * @param title A title of the confirmation dialog.
-     * @param message The message of the confirmation dialog.
+     * @param body The body of the confirmation dialog, possibly containing &lt;link&gt; tags.
+     * @param bodyLink The URL to open when the link tag in the body is clicked.
      * @param confirmButtonText The text on the confirmation button.
      * @param confirmedCallback A {@link Runnable} to trigger upon confirmation.
      * @param declinedCallback A {@link Runnable} to trigger upon rejection.
      */
     void confirmDeletionOperation(
             String title,
-            CharSequence message,
+            String body,
+            String bodyLink,
             String confirmButtonText,
+            Runnable confirmedCallback,
+            Runnable declinedCallback);
+
+    /**
+     * Show an Autofill AI suggestion details dialog with suppression action.
+     *
+     * @param title A title of the suggestion details dialog.
+     * @param body The body of the suggestion details dialog.
+     * @param confirmButtonText The text on the negative/secondary suppression button (e.g. "Remove
+     *     from Chrome").
+     * @param primaryButtonText The text on the positive/primary acknowledgment button (e.g. "Got
+     *     it").
+     * @param confirmedCallback A {@link Runnable} to trigger upon confirming suppression.
+     * @param declinedCallback A {@link Runnable} to trigger upon dismissing/acknowledging.
+     */
+    void showAutofillAiSuggestionDetails(
+            String title,
+            String body,
+            String confirmButtonText,
+            String primaryButtonText,
             Runnable confirmedCallback,
             Runnable declinedCallback);
 

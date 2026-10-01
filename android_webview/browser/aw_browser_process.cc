@@ -6,14 +6,13 @@
 
 #include "android_webview/browser/aw_browser_context.h"
 #include "android_webview/browser/aw_content_browser_client.h"
-#include "base/android/pre_freeze_background_memory_trimmer.h"
 #include "android_webview/browser/aw_enterprise_authentication_app_link_manager.h"
 #include "android_webview/browser/lifecycle/aw_contents_lifecycle_notifier.h"
 #include "android_webview/browser/metrics/visibility_metrics_logger.h"
-#include "android_webview/common/crash_reporter/crash_keys.h"
 #include "base/android/jni_array.h"
 #include "base/android/jni_string.h"
 #include "base/android/path_utils.h"
+#include "base/android/pre_freeze_background_memory_trimmer.h"
 #include "base/base_paths_posix.h"
 #include "base/functional/callback_helpers.h"
 #include "base/memory/memory_pressure_listener_registry.h"
@@ -26,16 +25,16 @@
 #include "base/task/single_thread_task_runner.h"
 #include "base/task/thread_pool.h"
 #include "base/time/time.h"
-#include "components/crash/core/common/crash_key.h"
 #include "components/embedder_support/origin_trials/origin_trials_settings_storage.h"
 #include "components/os_crypt/async/browser/os_crypt_async.h"
 #include "components/os_crypt/async/browser/posix_key_provider.h"
-#include "components/safe_browsing/core/browser/db/v4_protocol_config.h"
+#include "components/safe_browsing/core/browser/db/sb_protocol_config.h"
 #include "components/safe_browsing/core/common/features.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/process_visibility_util.h"
 #include "services/tracing/public/cpp/trace_startup.h"
+#include "services/tracing/public/cpp/trace_startup_config.h"
 #include "services/tracing/public/cpp/tracing_features.h"
 
 // Must come after all headers that specialize FromJniType() / ToJniType().
@@ -55,10 +54,6 @@ const char kAuthAndroidNegotiateAccountType[] =
 // Allowlist containing servers for which Integrated Authentication is enabled.
 // This pref should match |prefs::kAuthServerAllowlist|.
 const char kAuthServerAllowlist[] = "auth.server_allowlist";
-
-// This pref contains a list of authentication urls, for which when webview is
-// navigated to any of these urls, browse intent will be sent.
-const char kEnterpriseAuthAppLinkPolicy[] = "enterprise_auth_app_link_policy";
 
 // App is provided with a cache quota by the Android framework.
 // This pref contains the last known value of the cache quota which was queried
@@ -247,8 +242,8 @@ AwBrowserProcess::GetSafeBrowsingDBManager() {
   }
 
   if (!safe_browsing_db_manager_started_) {
-    // V4ProtocolConfig is not used. Just create one with empty values..
-    safe_browsing::V4ProtocolConfig config("", false, "", "");
+    // SBProtocolConfig is not used. Just create one with empty values..
+    safe_browsing::SBProtocolConfig config("", false, "", "");
     safe_browsing_db_manager_->StartOnUIThread(
         GetSafeBrowsingUIManager()->GetURLLoaderFactory(), config);
     safe_browsing_db_manager_started_ = true;
@@ -290,11 +285,6 @@ void AwBrowserProcess::RegisterNetworkContextLocalStatePrefs(
   pref_registry->RegisterStringPref(prefs::kAuthServerAllowlist, std::string());
   pref_registry->RegisterStringPref(prefs::kAuthAndroidNegotiateAccountType,
                                     std::string());
-}
-
-void AwBrowserProcess::RegisterEnterpriseAuthenticationAppLinkPolicyPref(
-    PrefRegistrySimple* pref_registry) {
-  pref_registry->RegisterListPref(prefs::kEnterpriseAuthAppLinkPolicy);
 }
 
 // static
@@ -371,24 +361,6 @@ void AwBrowserProcess::FetchHostAppCacheQuota() {
                      cache_quota));
 }
 
-// static
-void AwBrowserProcess::TriggerMinidumpUploading() {
-  Java_AwBrowserProcess_triggerMinidumpUploading(
-      base::android::AttachCurrentThread());
-}
-
-// static
-ApkType AwBrowserProcess::GetApkType() {
-  return static_cast<ApkType>(
-      Java_AwBrowserProcess_getApkType(base::android::AttachCurrentThread()));
-}
-
-// static
-bool AwBrowserProcess::IsAppVisibleToUser() {
-  return Java_AwBrowserProcess_isAppVisibleToUser(
-      base::android::AttachCurrentThread());
-}
-
 static void JNI_AwBrowserProcess_OnStartupComplete(JNIEnv* env) {
   AwBrowserProcess::GetInstance()->GetBrowserClient()->OnStartupComplete();
 }
@@ -398,12 +370,10 @@ static void JNI_AwBrowserProcess_SetNativeWebViewZygoteEnabled(JNIEnv* env,
   AwBrowserProcess::SetNativeWebViewZygoteEnabled(enabled);
 }
 
-static void JNI_AwBrowserProcess_SetProcessNameCrashKey(
-    JNIEnv* env,
-    const std::string& processName) {
-  static ::crash_reporter::CrashKeyString<64> crash_key(
-      crash_keys::kAppProcessName);
-  crash_key.Set(processName);
+static void JNI_AwBrowserProcess_ReadTracingCommandLineOnMainThread(
+    JNIEnv* env) {
+  tracing::TraceStartupConfig::InitializeFromCommandLine(
+      *base::CommandLine::ForCurrentProcess());
 }
 
 static void JNI_AwBrowserProcess_InitTracing(JNIEnv* env,

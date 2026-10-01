@@ -16,6 +16,7 @@ import org.chromium.chrome.browser.omnibox.fusebox.FuseboxCoordinator.FuseboxSta
 import org.chromium.chrome.browser.omnibox.fusebox.FuseboxCoordinator.PopupState;
 import org.chromium.chrome.browser.ui.theme.BrandedColorScheme;
 import org.chromium.components.omnibox.AutocompleteRequestType;
+import org.chromium.components.omnibox.IconResourceIdsProtoIntDef.IconResourceIds;
 import org.chromium.ui.modelutil.PropertyKey;
 import org.chromium.ui.modelutil.PropertyModel.ReadableBooleanPropertyKey;
 import org.chromium.ui.modelutil.PropertyModel.WritableBooleanPropertyKey;
@@ -32,6 +33,21 @@ import java.util.List;
 /** The properties associated with the Fusebox bar. */
 @NullMarked
 class FuseboxProperties {
+    @IntDef({
+        AnchoringMode.UNSET,
+        AnchoringMode.POPOVER,
+        AnchoringMode.TOOLBAR_SINGLE_LINE,
+        AnchoringMode.TOOLBAR_MULTI_LINE,
+    })
+    @Retention(RetentionPolicy.SOURCE)
+    @Target(ElementType.TYPE_USE)
+    public @interface AnchoringMode {
+        int UNSET = 0;
+        int POPOVER = 1;
+        int TOOLBAR_SINGLE_LINE = 2;
+        int TOOLBAR_MULTI_LINE = 3;
+    }
+
     @IntDef({PopupButtonType.RECENT_TAB, PopupButtonType.TOOL, PopupButtonType.MODEL})
     @Retention(RetentionPolicy.SOURCE)
     public @interface PopupButtonType {
@@ -108,6 +124,10 @@ class FuseboxProperties {
     public static final WritableObjectPropertyKey<SimpleRecyclerViewAdapter> ADAPTER =
             new WritableObjectPropertyKey<>();
 
+    /** The layout anchoring mode for views in Fusebox; see {@link AnchoringMode}. */
+    public static final WritableIntDefPropertyKey<AnchoringMode> ANCHORING_MODE =
+            new WritableIntDefPropertyKey<>(AnchoringMode.UNSET);
+
     /** Whether the attachments RecyclerView is visible. */
     public static final WritableBooleanPropertyKey ATTACHMENTS_VISIBLE =
             new WritableBooleanPropertyKey();
@@ -124,6 +144,14 @@ class FuseboxProperties {
     public static final WritableIntDefPropertyKey<FuseboxState> FUSEBOX_STATE =
             new WritableIntDefPropertyKey<>(FuseboxState.DISABLED);
 
+    /** The content description for the navigate button. */
+    public static final WritableObjectPropertyKey<String> NAVIGATE_BUTTON_CONTENT_DESCRIPTION =
+            new WritableObjectPropertyKey<>();
+
+    /** The style of the background for the plus button. */
+    public static final WritableIntDefPropertyKey<BackgroundStyle> PLUS_BUTTON_BACKGROUND_STYLE =
+            new WritableIntDefPropertyKey<>(BackgroundStyle.INTERACT_ONLY_SMALL);
+
     /** Action to perform when the user clicks the Plus button. */
     public static final WritableObjectPropertyKey<Runnable> PLUS_BUTTON_CLICKED =
             new WritableObjectPropertyKey<>();
@@ -132,9 +160,9 @@ class FuseboxProperties {
     public static final WritableBooleanPropertyKey PLUS_BUTTON_VISIBLE =
             new WritableBooleanPropertyKey();
 
-    /** The style of the background for the plus button. */
-    public static final WritableIntDefPropertyKey<BackgroundStyle> PLUS_BUTTON_BACKGROUND_STYLE =
-            new WritableIntDefPropertyKey<>(BackgroundStyle.INTERACT_ONLY_SMALL);
+    /** Whether the accordion menu in the popup is expanded. */
+    public static final WritableBooleanPropertyKey POPUP_ACCORDION_EXPANDED =
+            new WritableBooleanPropertyKey();
 
     /** Action to perform when the user clicks the Camera button in the popup. */
     public static final WritableObjectPropertyKey<Runnable> POPUP_ATTACH_CAMERA_CLICKED =
@@ -148,7 +176,7 @@ class FuseboxProperties {
     public static final WritableBooleanPropertyKey POPUP_ATTACH_CAMERA_VISIBLE =
             new WritableBooleanPropertyKey();
 
-    /** Action to perform when the user clicks the "add current tab" button */
+    /** Action to perform when the user clicks the "add current tab" button. */
     public static final WritableObjectPropertyKey<Runnable> POPUP_ATTACH_CURRENT_TAB_CLICKED =
             new WritableObjectPropertyKey<>();
 
@@ -168,6 +196,18 @@ class FuseboxProperties {
 
     /** Whether the current tab button is visible. */
     public static final WritableBooleanPropertyKey POPUP_ATTACH_CURRENT_TAB_VISIBLE =
+            new WritableBooleanPropertyKey();
+
+    /** Action to perform when the user clicks the Drive button in the popup. */
+    public static final WritableObjectPropertyKey<Runnable> POPUP_ATTACH_DRIVE_CLICKED =
+            new WritableObjectPropertyKey<>();
+
+    /** Whether the Drive button in the popup is enabled. */
+    public static final WritableBooleanPropertyKey POPUP_ATTACH_DRIVE_ENABLED =
+            new WritableBooleanPropertyKey();
+
+    /** Whether the Drive button in the popup is visible. */
+    public static final WritableBooleanPropertyKey POPUP_ATTACH_DRIVE_VISIBLE =
             new WritableBooleanPropertyKey();
 
     /** Action to perform when the user clicks the File button in the popup. */
@@ -226,6 +266,14 @@ class FuseboxProperties {
     public static final WritableBooleanPropertyKey POPUP_MODEL_HEADER_VISIBLE =
             new WritableBooleanPropertyKey();
 
+    /** Action to perform when the user clicks the More Options button in the popup. */
+    public static final WritableObjectPropertyKey<Runnable> POPUP_MORE_OPTIONS_CLICKED =
+            new WritableObjectPropertyKey<>();
+
+    /** Whether the More Options button in the popup is visible. */
+    public static final WritableBooleanPropertyKey POPUP_MORE_OPTIONS_VISIBLE =
+            new WritableBooleanPropertyKey();
+
     /** Holds button data objects for each recent tab that is to be shown. */
     public static final WritableObjectPropertyKey<List<PopupButtonData>>
             POPUP_RECENT_TABS_BUTTON_DATA_LIST = new WritableObjectPropertyKey<>();
@@ -262,6 +310,10 @@ class FuseboxProperties {
     public static final WritableBooleanPropertyKey POPUP_TOOL_HEADER_VISIBLE =
             new WritableBooleanPropertyKey();
 
+    /** Whether the popup should use the carousel layout. */
+    public static final ReadableBooleanPropertyKey POPUP_USE_CAROUSEL =
+            new ReadableBooleanPropertyKey();
+
     /** Tracks the {@link AutocompleteRequestType}. */
     public static final WritableIntDefPropertyKey<AutocompleteRequestType> REQUEST_TYPE =
             new WritableIntDefPropertyKey<>(AutocompleteRequestType.SEARCH);
@@ -269,6 +321,14 @@ class FuseboxProperties {
     /** Action to perform when the user clicks the request type button. */
     public static final WritableObjectPropertyKey<Runnable> REQUEST_TYPE_BUTTON_CLICKED =
             new WritableObjectPropertyKey<>();
+
+    /** The start icon, an {@link IconResourceIds} value, for the request type button. */
+    public static final WritableIntDefPropertyKey<IconResourceIds> REQUEST_TYPE_BUTTON_ICON_ID =
+            new WritableIntDefPropertyKey<>(IconResourceIds.PLACE_WHITE);
+
+    /** Whether to tint the start icon of the request type button. */
+    public static final WritableBooleanPropertyKey REQUEST_TYPE_BUTTON_SHOULD_TINT_ICON =
+            new WritableBooleanPropertyKey();
 
     /** The text for the request type button. */
     public static final WritableObjectPropertyKey<String> REQUEST_TYPE_BUTTON_TEXT =
@@ -281,13 +341,16 @@ class FuseboxProperties {
     public static final PropertyKey[] ALL_KEYS = {
         // go/keep-sorted start
         ADAPTER,
+        ANCHORING_MODE,
         ATTACHMENTS_VISIBLE,
         COLOR_SCHEME,
         FUSEBOX_LAYOUT_MODE,
         FUSEBOX_STATE,
+        NAVIGATE_BUTTON_CONTENT_DESCRIPTION,
         PLUS_BUTTON_BACKGROUND_STYLE,
         PLUS_BUTTON_CLICKED,
         PLUS_BUTTON_VISIBLE,
+        POPUP_ACCORDION_EXPANDED,
         POPUP_ATTACH_CAMERA_CLICKED,
         POPUP_ATTACH_CAMERA_ENABLED,
         POPUP_ATTACH_CAMERA_VISIBLE,
@@ -295,6 +358,9 @@ class FuseboxProperties {
         POPUP_ATTACH_CURRENT_TAB_ENABLED,
         POPUP_ATTACH_CURRENT_TAB_FAVICON,
         POPUP_ATTACH_CURRENT_TAB_VISIBLE,
+        POPUP_ATTACH_DRIVE_CLICKED,
+        POPUP_ATTACH_DRIVE_ENABLED,
+        POPUP_ATTACH_DRIVE_VISIBLE,
         POPUP_ATTACH_FILE_CLICKED,
         POPUP_ATTACH_FILE_ENABLED,
         POPUP_ATTACH_FILE_VISIBLE,
@@ -309,6 +375,8 @@ class FuseboxProperties {
         POPUP_MODEL_DIVIDER_VISIBLE,
         POPUP_MODEL_HEADER_TEXT,
         POPUP_MODEL_HEADER_VISIBLE,
+        POPUP_MORE_OPTIONS_CLICKED,
+        POPUP_MORE_OPTIONS_VISIBLE,
         POPUP_RECENT_TABS_BUTTON_DATA_LIST,
         POPUP_RECENT_TABS_DIVIDER_VISIBLE,
         POPUP_RECENT_TABS_ENABLED,
@@ -318,8 +386,11 @@ class FuseboxProperties {
         POPUP_TOOL_DIVIDER_VISIBLE,
         POPUP_TOOL_HEADER_TEXT,
         POPUP_TOOL_HEADER_VISIBLE,
+        POPUP_USE_CAROUSEL,
         REQUEST_TYPE,
         REQUEST_TYPE_BUTTON_CLICKED,
+        REQUEST_TYPE_BUTTON_ICON_ID,
+        REQUEST_TYPE_BUTTON_SHOULD_TINT_ICON,
         REQUEST_TYPE_BUTTON_TEXT,
         REQUEST_TYPE_BUTTON_VISIBLE
         // go/keep-sorted end

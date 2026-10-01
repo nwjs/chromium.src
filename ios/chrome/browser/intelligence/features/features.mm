@@ -22,6 +22,7 @@
 #import "components/prefs/pref_service.h"
 #import "components/variations/service/variations_service.h"
 #import "components/variations/service/variations_service_utils.h"
+#import "ios/chrome/app/background_task/features.h"
 #import "ios/chrome/browser/intelligence/actor/tools/utils/actor_tool_utils.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
@@ -440,7 +441,6 @@ base::TimeDelta GetGeminiSessionValidityDuration() {
       kGeminiSessionValidityDurationDefault));
 }
 
-
 BASE_FEATURE(kActorTools, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE_PARAM(std::string,
@@ -491,7 +491,7 @@ BASE_FEATURE_PARAM(base::TimeDelta,
                    kActorPageStabilityAutofillPredictionsTimeout,
                    &kActorTools,
                    base::Seconds(1));
-// LINT.ThenChange(//chrome/common/chrome_features.cc:kActorObservationDelayAutofillPredictionsTimeout)
+// LINT.ThenChange(//components/actor/core/actor_features.cc:kActorObservationDelayAutofillPredictionsTimeout)
 
 bool IsActorEnabled() {
   return base::FeatureList::IsEnabled(kActorTools);
@@ -618,16 +618,13 @@ PageActionMenuIconVariations GetPageActionMenuIcon() {
   }
 }
 
-BASE_FEATURE(kGeminiBackendMigration, base::FEATURE_DISABLED_BY_DEFAULT);
-
-bool IsGeminiBackendMigrationEnabled() {
-  if (!IsPageActionMenuEnabled()) {
-    return false;
-  }
-  return base::FeatureList::IsEnabled(kGeminiBackendMigration);
-}
-
 BASE_FEATURE(kGeminiAureus, base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE_PARAM(bool,
+                   kGeminiAureusForegroundQuotaRefresh,
+                   &kGeminiAureus,
+                   kGeminiAureusForegroundQuotaRefreshParam,
+                   false);
 
 bool IsGeminiAureusEnabled() {
   if (!IsPageActionMenuEnabled()) {
@@ -636,7 +633,22 @@ bool IsGeminiAureusEnabled() {
   return base::FeatureList::IsEnabled(kGeminiAureus);
 }
 
+bool IsGeminiAureusForegroundQuotaRefreshEnabled() {
+  if (!IsGeminiAureusEnabled()) {
+    return false;
+  }
+  return kGeminiAureusForegroundQuotaRefresh.Get();
+}
+
 BASE_FEATURE(kGeminiActor, base::FEATURE_DISABLED_BY_DEFAULT);
+
+const char kGeminiActorBackgroundingParam[] = "backgrounding_enabled";
+
+BASE_FEATURE_PARAM(bool,
+                   kGeminiActorBackgrounding,
+                   &kGeminiActor,
+                   kGeminiActorBackgroundingParam,
+                   true);
 
 bool IsGeminiActorEnabled() {
   if (!IsPageActionMenuEnabled() || !IsActorEnabled() ||
@@ -646,18 +658,14 @@ bool IsGeminiActorEnabled() {
   return base::FeatureList::IsEnabled(kGeminiActor);
 }
 
-BASE_FEATURE(kGeminiRichAPCExtraction, base::FEATURE_ENABLED_BY_DEFAULT);
-
-bool IsGeminiRichAPCExtractionEnabled() {
-  if (!IsPageActionMenuEnabled() ||
-      !IsPageContextExtractorRefactoredEnabled()) {
+bool IsGeminiActorBackgroundingEnabled() {
+  if (!IsGeminiActorEnabled() || !IsBackgroundContinuedProcessingEnabled()) {
     return false;
   }
-
-  return base::FeatureList::IsEnabled(kGeminiRichAPCExtraction);
+  return kGeminiActorBackgrounding.Get();
 }
 
-BASE_FEATURE(kGeminiUnaryMigration, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kGeminiUnaryMigration, base::FEATURE_ENABLED_BY_DEFAULT);
 
 bool IsGeminiUnaryMigrationEnabled() {
   if (!IsPageActionMenuEnabled()) {
@@ -666,7 +674,7 @@ bool IsGeminiUnaryMigrationEnabled() {
   return base::FeatureList::IsEnabled(kGeminiUnaryMigration);
 }
 
-BASE_FEATURE(kGeminiBinaryMigration, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kGeminiBinaryMigration, base::FEATURE_ENABLED_BY_DEFAULT);
 
 bool IsGeminiBinaryMigrationEnabled() {
   if (!IsPageActionMenuEnabled()) {
@@ -677,21 +685,15 @@ bool IsGeminiBinaryMigrationEnabled() {
 
 BASE_FEATURE(kPageContextIPCOptimization, base::FEATURE_ENABLED_BY_DEFAULT);
 
-const char kPageContextIPCOptimizationActionableParam[] = "enable_actionable";
-
-BASE_FEATURE_PARAM(bool,
-                   kPageContextIPCOptimizationActionable,
-                   &kPageContextIPCOptimization,
-                   kPageContextIPCOptimizationActionableParam,
-                   false);
-
 bool IsPageContextIPCOptimizationEnabled() {
   return base::FeatureList::IsEnabled(kPageContextIPCOptimization);
 }
 
-bool IsPageContextIPCOptimizationActionableEnabled() {
-  return IsPageContextIPCOptimizationEnabled() &&
-         kPageContextIPCOptimizationActionable.Get();
+BASE_FEATURE(kPageContextActionableOptimization,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+bool IsPageContextActionableOptimizationEnabled() {
+  return base::FeatureList::IsEnabled(kPageContextActionableOptimization);
 }
 
 BASE_FEATURE(kPageContextPdf, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -725,13 +727,6 @@ bool IsGeminiScreenContextMigrationEnabled() {
     return false;
   }
   return base::FeatureList::IsEnabled(kGeminiScreenContextMigration);
-}
-
-BASE_FEATURE(kAppStoreInAppEvents, base::FEATURE_ENABLED_BY_DEFAULT);
-
-bool IsAppStoreInAppEventsEnabled() {
-  return IsPageActionMenuEnabled() &&
-         base::FeatureList::IsEnabled(kAppStoreInAppEvents);
 }
 
 BASE_FEATURE(kGeneralizedGeminiEntryFlow, base::FEATURE_ENABLED_BY_DEFAULT);
@@ -791,6 +786,15 @@ BASE_FEATURE_PARAM(bool,
                    kGeminiContextualSuggestionsCuesTitleAndUrlOnlyParam,
                    true);
 
+const char kGeminiContextualSuggestionsCuesServerModelExecutionParam[] =
+    "enable_server_model_execution";
+
+BASE_FEATURE_PARAM(bool,
+                   kGeminiContextualSuggestionsCuesServerModelExecution,
+                   &kGeminiContextualSuggestionsCues,
+                   kGeminiContextualSuggestionsCuesServerModelExecutionParam,
+                   false);
+
 bool IsGeminiContextualSuggestionsCuesEnabled() {
   if (!IsPageActionMenuEnabled()) {
     return false;
@@ -810,6 +814,11 @@ bool IsGeminiContextualSuggestionsCuesAllowGpuExecutionEnabled() {
 
 bool IsGeminiContextualSuggestionsCuesTitleAndUrlOnlyEnabled() {
   return kGeminiContextualSuggestionsCuesTitleAndUrlOnly.Get();
+}
+
+bool IsGeminiContextualSuggestionsCuesServerModelExecutionEnabled() {
+  return IsGeminiContextualSuggestionsCuesEnabled() &&
+         kGeminiContextualSuggestionsCuesServerModelExecution.Get();
 }
 
 #pragma mark - Debugging Features

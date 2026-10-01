@@ -21,6 +21,7 @@
 #include "components/enterprise/common/proto/synced_from_google3/chrome_reporting_entity.pb.h"
 #include "components/enterprise/common/proto/upload_request_response.pb.h"
 #include "components/enterprise/connectors/core/reporting_constants.h"
+#include "components/enterprise/connectors/core/reporting_event_mappings.h"
 #include "components/policy/core/common/cloud/cloud_policy_constants.h"
 #include "components/policy/core/common/cloud/cloud_policy_util.h"
 #include "components/policy/core/common/cloud/device_management_service.h"
@@ -339,7 +340,7 @@ TEST_F(RealtimeReportingJobConfigurationTest, GetPayloadRecordsUmaMetrics) {
 
   histogram_.ExpectUniqueSample(
       enterprise_connectors::GetPayloadSizeUmaMetricName(
-          enterprise_connectors::kExtensionInstallEvent),
+          enterprise_connectors::EventCase::kBrowserExtensionInstallEvent),
       payload.size(), 1);
 }
 

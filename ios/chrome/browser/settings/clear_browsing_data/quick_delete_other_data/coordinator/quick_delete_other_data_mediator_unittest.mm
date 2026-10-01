@@ -18,9 +18,9 @@
 #import "ios/chrome/browser/settings/clear_browsing_data/quick_delete_other_data/ui/quick_delete_other_data_consumer.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/profile/test/test_profile_ios.h"
+#import "ios/chrome/browser/shared/model/profile/test/test_profile_manager_ios.h"
 #import "ios/chrome/browser/signin/model/authentication_service.h"
 #import "ios/chrome/browser/signin/model/authentication_service_factory.h"
-#import "ios/chrome/browser/signin/model/fake_authentication_service_delegate.h"
 #import "ios/chrome/browser/signin/model/fake_system_identity.h"
 #import "ios/chrome/browser/signin/model/fake_system_identity_manager.h"
 #import "ios/chrome/browser/signin/model/identity_manager_factory.h"
@@ -46,14 +46,13 @@ class QuickDeleteOtherDataMediatorTest : public PlatformTest {
         ios::TemplateURLServiceFactory::GetDefaultFactory());
     builder.AddTestingFactory(
         AuthenticationServiceFactory::GetInstance(),
-        AuthenticationServiceFactory::GetFactoryWithDelegateForTesting(
-            std::make_unique<FakeAuthenticationServiceDelegate>()));
+        AuthenticationServiceFactory::GetDefaultFactory());
     builder.AddTestingFactory(SyncServiceFactory::GetInstance(),
                               base::BindRepeating(&CreateTestSyncService));
 
-    profile_ = std::move(builder).Build();
+    profile_ = profile_manager_.AddProfileWithBuilder(std::move(builder));
 
-    auth_service_ = AuthenticationServiceFactory::GetForProfile(profile_.get());
+    auth_service_ = AuthenticationServiceFactory::GetForProfile(profile_);
 
     FakeSystemIdentityManager* system_identity_manager =
         FakeSystemIdentityManager::FromSystemIdentityManager(
@@ -75,12 +74,17 @@ class QuickDeleteOtherDataMediatorTest : public PlatformTest {
     mediator_ = [[QuickDeleteOtherDataMediator alloc]
         initWithAuthenticationService:auth_service_
                       identityManager:IdentityManagerFactory::GetForProfile(
-                                          profile_.get())
+                                          profile_)
                    templateURLService:template_url_service_];
   }
 
   void TearDown() override {
     [mediator_ disconnect];
+    mediator_ = nil;
+    consumer_ = nil;
+    auth_service_ = nullptr;
+    template_url_service_ = nullptr;
+    profile_ = nullptr;
     PlatformTest::TearDown();
   }
 
@@ -132,8 +136,9 @@ class QuickDeleteOtherDataMediatorTest : public PlatformTest {
  protected:
   web::WebTaskEnvironment task_environment_;
   IOSChromeScopedTestingLocalState scoped_testing_local_state_;
+  TestProfileManagerIOS profile_manager_;
+  raw_ptr<TestProfileIOS> profile_ = nullptr;
   search_engines::SearchEnginesTestEnvironment search_engines_test_environment_;
-  std::unique_ptr<TestProfileIOS> profile_;
   QuickDeleteOtherDataMediator* mediator_;
   id consumer_;
   id<SystemIdentity> fake_identity_;

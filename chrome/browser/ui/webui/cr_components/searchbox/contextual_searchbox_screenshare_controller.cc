@@ -14,6 +14,7 @@
 #include "base/functional/bind.h"
 #include "base/strings/strcat.h"
 #include "base/task/bind_post_task.h"
+#include "base/task/single_thread_task_runner.h"
 #include "base/task/task_traits.h"
 #include "base/task/thread_pool.h"
 #include "base/time/time.h"
@@ -105,7 +106,20 @@ std::optional<lens::ImageEncodingOptions> CreateImageEncodingOptions() {
       .compression_quality = image_upload_config.image_compression_quality()};
 }
 
+#if BUILDFLAG(IS_WIN)
+// Delay screen capture on Windows after the media picker dialog is destroyed
+// to allow the Desktop Window Manager (DWM) to complete a composition pass and
+// unmap the dialog's window from the desktop capture surface.
+// Matches GlicScreenshotCapturerImpl and DesktopMediaPickerDialogView delays.
+constexpr base::TimeDelta kDefaultScreenCaptureDelay = base::Milliseconds(500);
+#endif
+
 }  // namespace
+
+#if BUILDFLAG(IS_MAC)
+BASE_FEATURE(kOmniboxEverywhereNativeScreenPicker,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+#endif
 #endif  // !BUILDFLAG(IS_ANDROID)
 
 ContextualSearchboxScreenshareController::
@@ -172,6 +186,33 @@ void ContextualSearchboxScreenshareController::CaptureRegionScreenshot(
 #endif
 }
 
+bool ContextualSearchboxScreenshareController::CancelChromeDefaultPicker() {
+#if !BUILDFLAG(IS_ANDROID)
+  if (!screenshare_picker_controller_) {
+    return false;
+  }
+
+  // Resetting `screenshare_picker_controller_` destroys its `done_callback_`,
+  // which invokes the `mojo::WrapCallbackWithDefaultInvokeIfNotRun` wrapper
+  // created in `StartScreenshareInternal` with `std::nullopt`.
+  screenshare_picker_controller_.reset();
+  chrome_default_picker_destroyed_ = false;
+  pending_screenshare_source_.reset();
+  pending_region_capture_source_.reset();
+
+  auto callback = std::move(pending_screenshare_callback_);
+  weak_ptr_factory_.InvalidateWeakPtrs();
+  if (callback) {
+    std::move(callback).Run(std::nullopt);
+  }
+
+  NotifyScreensharePickerClosed();
+  return true;
+#else
+  return false;
+#endif
+}
+
 #if !BUILDFLAG(IS_ANDROID)
 void ContextualSearchboxScreenshareController::StartScreenshareInternal(
     bool prefer_entire_screen,
@@ -184,10 +225,10 @@ void ContextualSearchboxScreenshareController::StartScreenshareInternal(
 
   bool use_native_picker = false;
 #if BUILDFLAG(IS_MAC)
-  if (base::mac::MacOSMajorVersion() >= 14) {
-    use_native_picker =
-        base::FeatureList::IsEnabled(media::kUseSCContentSharingPicker);
-  }
+  use_native_picker =
+      base::mac::MacOSMajorVersion() >= 14 &&
+      base::FeatureList::IsEnabled(media::kUseSCContentSharingPicker) &&
+      base::FeatureList::IsEnabled(kOmniboxEverywhereNativeScreenPicker);
 #endif
 
   auto safe_callback = mojo::WrapCallbackWithDefaultInvokeIfNotRun(
@@ -301,20 +342,8 @@ void ContextualSearchboxScreenshareController::OnNativePickerSourceSelected(
 
   std::optional<RegionCaptureSource> region_source;
   if (is_region_capture) {
-    if (selected_source.display_id != webrtc::kInvalidDisplayId) {
-      region_source =
-          RegionCaptureSource::ForDisplay(selected_source.display_id);
-    } else {
-      region_source = RegionCaptureSource{
-          .type = RegionCaptureSource::Type::kSpecificDisplay};
-      if (auto* screen = display::Screen::Get()) {
-        // TODO(crbug.com/532198850): Native picker screenshots currently don't
-        // populate display_id, so we fallback to the display of the cursor,
-        // which isn't 100% correct. Once fixed, remove this fallback.
-        region_source->display_id =
-            screen->GetDisplayNearestPoint(screen->GetCursorScreenPoint()).id();
-      }
-    }
+    CHECK_NE(selected_source.display_id, webrtc::kInvalidDisplayId);
+    region_source = RegionCaptureSource::ForDisplay(selected_source.display_id);
   }
 
   CaptureAndUploadScreenshot(media_id, std::move(callback), region_source);
@@ -351,11 +380,16 @@ void ContextualSearchboxScreenshareController::FallbackToChromeDefaultPicker(
 
   gfx::NativeWindow parent_window = gfx::NativeWindow();
   if (web_contents_) {
-    auto* browser_window = webui::GetBrowserWindowInterface(web_contents_);
-    if (browser_window && browser_window->GetWindow()) {
-      parent_window = browser_window->GetWindow()->GetNativeWindow();
-    } else {
-      parent_window = web_contents_->GetTopLevelNativeWindow();
+    // Prefer `web_contents_->GetTopLevelNativeWindow()` so that when invoked
+    // from a standalone popup (e.g. Loomnibox / Omnibox Everywhere), the
+    // picker is positioned relative to the searchbox widget's monitor rather
+    // than the main browser window.
+    parent_window = web_contents_->GetTopLevelNativeWindow();
+    if (!parent_window) {
+      auto* browser_window = webui::GetBrowserWindowInterface(web_contents_);
+      if (browser_window && browser_window->GetWindow()) {
+        parent_window = browser_window->GetWindow()->GetNativeWindow();
+      }
     }
   }
 
@@ -437,6 +471,33 @@ void ContextualSearchboxScreenshareController::CaptureAndUploadScreenshot(
     StartScreenshareCallback callback,
     std::optional<RegionCaptureSource> region_capture_source) {
   is_capturing_ = true;
+
+#if BUILDFLAG(IS_WIN)
+  base::TimeDelta delay = screen_capture_delay_for_testing_.value_or(
+      source.type == content::DesktopMediaID::TYPE_WINDOW
+          ? base::TimeDelta()
+          : kDefaultScreenCaptureDelay);
+  if (!delay.is_zero()) {
+    content::GetUIThreadTaskRunner({})->PostDelayedTask(
+        FROM_HERE,
+        base::BindOnce(&ContextualSearchboxScreenshareController::
+                           CaptureAndUploadScreenshotInternal,
+                       weak_ptr_factory_.GetWeakPtr(), source,
+                       std::move(callback), std::move(region_capture_source)),
+        delay);
+    return;
+  }
+#endif
+
+  CaptureAndUploadScreenshotInternal(source, std::move(callback),
+                                     std::move(region_capture_source));
+}
+
+void ContextualSearchboxScreenshareController::
+    CaptureAndUploadScreenshotInternal(
+        content::DesktopMediaID source,
+        StartScreenshareCallback callback,
+        std::optional<RegionCaptureSource> region_capture_source) {
   auto safe_callback = mojo::WrapCallbackWithDefaultInvokeIfNotRun(
       std::move(callback), std::nullopt);
   active_screenshot_request_ = content::desktop_capture::CaptureScreenshot(

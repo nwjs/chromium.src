@@ -14,7 +14,7 @@
 #include "base/time/time.h"
 #include "build/build_config.h"
 #include "crypto/crypto_export.h"
-#include "crypto/signature_verifier.h"
+#include "crypto/sign.h"
 
 #if BUILDFLAG(IS_APPLE)
 #import <Security/Security.h>
@@ -46,7 +46,7 @@ class CRYPTO_EXPORT UnexportableSigningKey {
   virtual ~UnexportableSigningKey() = default;
 
   // Algorithm returns the algorithm of the key in this object.
-  virtual SignatureVerifier::SignatureAlgorithm Algorithm() const = 0;
+  virtual sign::SignatureKind Algorithm() const = 0;
 
   // GetSubjectPublicKeyInfo returns an SPKI that contains the public key of
   // this object.
@@ -118,22 +118,26 @@ class CRYPTO_EXPORT UnexportableSigningKey {
 struct CRYPTO_EXPORT AttestationStatement {
   enum Format {
     // TPM 2.0 platform attestation format.
-    // `statement` is a binary TPMS_ATTEST structure.
+    // `statement` is a binary TPMS_ATTEST structure. The qualifying data is the
+    // hash corresponding to `Algorithm()` of the server's challenge.
     // `signature` is a binary TPMT_SIGNATURE structure.
+    // `subject_key` is the TPM 2.0 `TPMT_PUBLIC` binary structure of the
+    // certified key.
     kTpm,
     // Custom Secure Enclave format used on macOS/iOS.
-    // `statement` is the concatenation of the server's challenge and the
-    // SHA-256 hash of the signing key's Subject PublicKey Info (SPKI).
-    // TODO(crbug.com/406190025): Make this generic once we use the
-    // crypto::sign algorithms.
+    // `statement` is the concatenation of the SHA-256 hash of the server's
+    // challenge and the SHA-256 hash of the signing key's Subject PublicKey
+    // Info (SPKI).
     // `signature` is the signature over `statement` signed using the Secure
     // Enclave attestation key in raw IEEE P1363 format (concatenation of
     // big-endian `r` and `s`, 64 bytes for P-256).
+    // `subject_key` is the signing key's Subject PublicKey Info (SPKI).
     kSecureEnclave,
   };
   Format format = kTpm;
   std::vector<uint8_t> statement;
   std::vector<uint8_t> signature;
+  std::vector<uint8_t> subject_key;
 };
 
 class CRYPTO_EXPORT UnexportableAttestationKey : public UnexportableSigningKey {
@@ -209,9 +213,8 @@ class CRYPTO_EXPORT UnexportableKeyProvider {
   // Therefore, it is acceptable to call this function on the UI thread after it
   // has been invoked at least once (e.g., during initialization on a background
   // thread) to avoid blocking the UI thread and causing potential hangs.
-  virtual std::optional<SignatureVerifier::SignatureAlgorithm> SelectAlgorithm(
-      base::span<const SignatureVerifier::SignatureAlgorithm>
-          acceptable_algorithms) = 0;
+  virtual std::optional<sign::SignatureKind> SelectAlgorithm(
+      base::span<const sign::SignatureKind> acceptable_algorithms) = 0;
 
   // GenerateSigningKeySlowly creates a new opaque signing key in hardware. The
   // first supported value of |acceptable_algorithms| determines the type of the
@@ -221,8 +224,7 @@ class CRYPTO_EXPORT UnexportableKeyProvider {
   //
   // Note: this may take one or two seconds to run.
   virtual std::unique_ptr<UnexportableSigningKey> GenerateSigningKeySlowly(
-      base::span<const SignatureVerifier::SignatureAlgorithm>
-          acceptable_algorithms) = 0;
+      base::span<const sign::SignatureKind> acceptable_algorithms) = 0;
 
   // FromWrappedSigningKey creates an |UnexportableSigningKey| from
   // |wrapped_key|, which must have resulted from calling |GetWrappedKey| on a
@@ -239,8 +241,7 @@ class CRYPTO_EXPORT UnexportableKeyProvider {
   // Generates a new hardware-backed attestation key (e.g., an AIK).
   virtual std::unique_ptr<UnexportableAttestationKey>
   GenerateAttestationKeySlowly(
-      base::span<const SignatureVerifier::SignatureAlgorithm>
-          acceptable_algorithms);
+      base::span<const sign::SignatureKind> acceptable_algorithms);
 
   // Reconstructs an attestation key from a previously wrapped key.
   virtual std::unique_ptr<UnexportableAttestationKey>
@@ -331,7 +332,7 @@ class CRYPTO_EXPORT VirtualUnexportableSigningKey {
   virtual ~VirtualUnexportableSigningKey();
 
   // Algorithm returns the algorithm of the key in this object.
-  virtual SignatureVerifier::SignatureAlgorithm Algorithm() const = 0;
+  virtual sign::SignatureKind Algorithm() const = 0;
 
   // GetSubjectPublicKeyInfo returns an SPKI that contains the public key of
   // this object.
@@ -366,9 +367,8 @@ class CRYPTO_EXPORT VirtualUnexportableKeyProvider {
   // SelectAlgorithm returns which signature algorithm from
   // |acceptable_algorithms| would be used if |acceptable_algorithms| was passed
   // to |GenerateSigningKeySlowly|.
-  virtual std::optional<SignatureVerifier::SignatureAlgorithm> SelectAlgorithm(
-      base::span<const SignatureVerifier::SignatureAlgorithm>
-          acceptable_algorithms) = 0;
+  virtual std::optional<sign::SignatureKind> SelectAlgorithm(
+      base::span<const sign::SignatureKind> acceptable_algorithms) = 0;
 
   // GenerateSigningKey creates a new opaque signing key in a virtual machine.
   // The first supported value of |acceptable_algorithms| determines the type of
@@ -382,8 +382,7 @@ class CRYPTO_EXPORT VirtualUnexportableKeyProvider {
   //
   // Note: This may take milliseconds to run.
   virtual std::unique_ptr<VirtualUnexportableSigningKey> GenerateSigningKey(
-      base::span<const SignatureVerifier::SignatureAlgorithm>
-          acceptable_algorithms,
+      base::span<const sign::SignatureKind> acceptable_algorithms,
       std::string name) = 0;
 
   // FromKeyName creates an |UnexportableSigningKey| from |name|, which is the

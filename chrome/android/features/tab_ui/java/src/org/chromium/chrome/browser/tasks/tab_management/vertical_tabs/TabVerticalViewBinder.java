@@ -26,6 +26,7 @@ import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.annotation.ColorInt;
+import androidx.annotation.DimenRes;
 import androidx.annotation.StringRes;
 import androidx.annotation.VisibleForTesting;
 import androidx.constraintlayout.widget.ConstraintLayout;
@@ -42,7 +43,6 @@ import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.actor.ui.ActorUiTabController.UiTabState;
 import org.chromium.chrome.browser.actor.ui.TabIndicatorStatus;
 import org.chromium.chrome.browser.incognito.IncognitoUtils;
-import org.chromium.chrome.browser.tab.MediaState;
 import org.chromium.chrome.browser.tab.TabUtils;
 import org.chromium.chrome.browser.tab_ui.TabCardThemeUtil;
 import org.chromium.chrome.browser.tasks.tab_management.TabActionButtonData;
@@ -50,7 +50,7 @@ import org.chromium.chrome.browser.tasks.tab_management.TabActionListener;
 import org.chromium.chrome.browser.tasks.tab_management.TabListViewBinderUtils;
 import org.chromium.chrome.browser.tasks.tab_management.TabProperties;
 import org.chromium.chrome.browser.tasks.tab_management.TabUiThemeUtil;
-import org.chromium.chrome.browser.tasks.tab_management.vertical_tabs.VerticalTabHoverCardController.TabHoverCardListener;
+import org.chromium.chrome.browser.tasks.tab_management.vertical_tabs.VerticalTabHoverController.TabHoverListener;
 import org.chromium.chrome.browser.tasks.tab_management.vertical_tabs.VerticalTabListProperties.RailCollapseState;
 import org.chromium.chrome.browser.ui.vertical_tabs.VerticalTabUtils;
 import org.chromium.chrome.tab_ui.R;
@@ -59,6 +59,7 @@ import org.chromium.components.browser_ui.styles.SemanticColorUtils;
 import org.chromium.components.browser_ui.util.TextResolver;
 import org.chromium.components.browser_ui.util.motion.MotionEventInfo;
 import org.chromium.components.tab_groups.TabGroupColorPickerUtils;
+import org.chromium.components.tabs.TabAlert;
 import org.chromium.ui.base.ViewUtils;
 import org.chromium.ui.modelutil.PropertyKey;
 import org.chromium.ui.modelutil.PropertyModel;
@@ -241,8 +242,8 @@ class TabVerticalViewBinder {
         } else if (TabProperties.TAB_CONTEXT_CLICK_LISTENER == propertyKey) {
             TabListViewBinderUtils.setNullableContextClickListener(
                     model.get(TabProperties.TAB_CONTEXT_CLICK_LISTENER), view, model);
-        } else if (TabProperties.MEDIA_INDICATOR == propertyKey) {
-            updateMediaIndicator(model, view);
+        } else if (TabProperties.ALERT_STATE == propertyKey) {
+            updateTabAlertIndicator(model, view);
             updateIcons(model, view);
             updateContentDescription(model, view);
         } else if (TabProperties.ACTOR_UI_STATE == propertyKey) {
@@ -288,8 +289,8 @@ class TabVerticalViewBinder {
     }
 
     // Icon Update Helpers.
-    // Icons priority when rail is collapsed: action > recording/sharing media > ai actuation >
-    // standard media > loading > favicon
+    // Icons priority when rail is collapsed: action > recording/sharing alert > ai actuation >
+    // standard alert > loading > favicon
 
     private static void updateFaviconImage(PropertyModel model, ViewGroup view) {
         @Nullable ImageView faviconView = view.findViewById(R.id.tab_favicon);
@@ -313,7 +314,7 @@ class TabVerticalViewBinder {
         View actionButton = view.findViewById(R.id.action_button);
         View actuationSpark = view.findViewById(R.id.actuation_spark);
         ImageView actuationSpinner = view.findViewById(R.id.actuation_spinner);
-        ImageView mediaIndicator = view.findViewById(R.id.media_indicator_icon);
+        ImageView alertIndicator = view.findViewById(R.id.alert_indicator_icon);
         CircularProgressIndicator spinner = view.findViewById(R.id.tab_loading_spinner);
         ImageView faviconView = view.findViewById(R.id.tab_favicon);
 
@@ -332,8 +333,12 @@ class TabVerticalViewBinder {
                 actuationSpark != null
                         && actuationSpinner != null
                         && TabListViewBinderUtils.isActorActive(actorState);
-        @MediaState int mediaState = model.get(TabProperties.MEDIA_INDICATOR);
-        boolean mediaWanted = mediaIndicator != null && mediaState != MediaState.NONE;
+        @TabAlert
+        int alertState =
+                model.containsKey(TabProperties.ALERT_STATE)
+                        ? model.get(TabProperties.ALERT_STATE)
+                        : TabAlert.NONE;
+        boolean alertWanted = alertIndicator != null && alertState != TabAlert.NONE;
         boolean loadingWanted = spinner != null && model.get(TabProperties.IS_LOADING);
         boolean faviconWanted =
                 faviconView != null
@@ -341,17 +346,21 @@ class TabVerticalViewBinder {
                         && !loadingWanted;
 
         // 2. Apply priority rules for collapsed state.
-        // Priority: Close > Recording/Sharing Media > AI Actuation > Standard Media >
+        // Priority: Close > Recording/Sharing Alert > AI Actuation > Standard Alert >
         // Loading/Favicon.
         if (isIconCompact) {
             boolean isRecordingOrSharing =
-                    mediaState == MediaState.RECORDING || mediaState == MediaState.SHARING;
-            boolean recordingOrSharingWanted = mediaWanted && isRecordingOrSharing;
-            boolean standardMediaWanted = mediaWanted && !isRecordingOrSharing;
+                    alertState == TabAlert.MEDIA_RECORDING
+                            || alertState == TabAlert.AUDIO_RECORDING
+                            || alertState == TabAlert.VIDEO_RECORDING
+                            || alertState == TabAlert.TAB_CAPTURING
+                            || alertState == TabAlert.DESKTOP_CAPTURING;
+            boolean recordingOrSharingWanted = alertWanted && isRecordingOrSharing;
+            boolean standardAlertWanted = alertWanted && !isRecordingOrSharing;
 
             if (actionWanted) {
                 actorActuationWanted = false;
-                mediaWanted = false;
+                alertWanted = false;
                 loadingWanted = false;
                 faviconWanted = false;
             } else if (recordingOrSharingWanted) {
@@ -359,10 +368,10 @@ class TabVerticalViewBinder {
                 loadingWanted = false;
                 faviconWanted = false;
             } else if (actorActuationWanted) {
-                mediaWanted = false;
+                alertWanted = false;
                 loadingWanted = false;
                 faviconWanted = false;
-            } else if (standardMediaWanted) {
+            } else if (standardAlertWanted) {
                 loadingWanted = false;
                 faviconWanted = false;
             }
@@ -391,23 +400,23 @@ class TabVerticalViewBinder {
                     actuationSpark,
                     isIconCompact,
                     UNSET,
-                    R.id.media_indicator_icon,
+                    R.id.alert_indicator_icon,
                     UNSET,
                     /* marginStartDimenId= */ 0,
-                    /* marginEndDimenId= */ R.dimen.vertical_tab_item_media_indicator_margin_end);
+                    /* marginEndDimenId= */ R.dimen.vertical_tab_item_alert_indicator_margin_end);
         }
 
-        // Media Indicator
-        if (mediaIndicator != null) {
+        // Tab Alert Indicator
+        if (alertIndicator != null) {
             updateViewConstraints(
-                    mediaIndicator,
+                    alertIndicator,
                     isIconCompact,
                     UNSET,
                     R.id.action_button,
                     UNSET,
                     /* marginStartDimenId= */ 0,
-                    /* marginEndDimenId= */ R.dimen.vertical_tab_item_media_indicator_margin_end);
-            mediaIndicator.setVisibility(mediaWanted ? View.VISIBLE : View.GONE);
+                    /* marginEndDimenId= */ R.dimen.vertical_tab_item_alert_indicator_margin_end);
+            alertIndicator.setVisibility(alertWanted ? View.VISIBLE : View.GONE);
         }
 
         // Favicon container constraints (loading spinner or tab favicon)
@@ -463,18 +472,18 @@ class TabVerticalViewBinder {
                     actionButton.getHitRect(rect);
                     Resources res = view.getResources();
                     boolean isTablet = isTablet(view.getContext());
-                    int minTouchTargetWidthPx =
-                            res.getDimensionPixelSize(
-                                    isTablet
-                                            ? R.dimen
-                                                    .vertical_tab_action_button_touch_target_width_tablet
-                                            : R.dimen.vertical_tab_action_button_touch_target_size);
-                    int minTouchTargetHeightPx =
-                            res.getDimensionPixelSize(
-                                    isTablet
-                                            ? R.dimen
-                                                    .vertical_tab_action_button_touch_target_height_tablet
-                                            : R.dimen.vertical_tab_action_button_touch_target_size);
+                    @DimenRes
+                    int widthRes =
+                            isTablet
+                                    ? R.dimen.vertical_tab_action_button_touch_target_width_tablet
+                                    : R.dimen.vertical_tab_action_button_touch_target_size;
+                    @DimenRes
+                    int heightRes =
+                            isTablet
+                                    ? R.dimen.vertical_tab_action_button_touch_target_height_tablet
+                                    : R.dimen.vertical_tab_action_button_touch_target_size;
+                    int minTouchTargetWidthPx = res.getDimensionPixelSize(widthRes);
+                    int minTouchTargetHeightPx = res.getDimensionPixelSize(heightRes);
 
                     if (rect.width() < minTouchTargetWidthPx) {
                         int deltaX = (minTouchTargetWidthPx - rect.width()) / 2;
@@ -502,17 +511,21 @@ class TabVerticalViewBinder {
     }
 
     /**
-     * Updates the media indicator icon drawable based on the current media state of the tab.
+     * Updates the tab alert indicator icon drawable based on the current alert state of the tab.
      *
      * @param model the model containing the tab properties.
      * @param view the root ViewGroup representing the tab row item.
      */
-    private static void updateMediaIndicator(PropertyModel model, ViewGroup view) {
-        ImageView mediaIndicator = view.findViewById(R.id.media_indicator_icon);
-        if (mediaIndicator != null) {
-            @MediaState int mediaState = model.get(TabProperties.MEDIA_INDICATOR);
-            if (mediaState != MediaState.NONE) {
-                mediaIndicator.setImageResource(TabUtils.getMediaIndicatorDrawable(mediaState));
+    private static void updateTabAlertIndicator(PropertyModel model, ViewGroup view) {
+        ImageView alertIndicator = view.findViewById(R.id.alert_indicator_icon);
+        if (alertIndicator != null) {
+            @TabAlert
+            int alertState =
+                    model.containsKey(TabProperties.ALERT_STATE)
+                            ? model.get(TabProperties.ALERT_STATE)
+                            : TabAlert.NONE;
+            if (alertState != TabAlert.NONE) {
+                alertIndicator.setImageResource(TabUtils.getTabAlertDrawable(alertState));
             }
             boolean isIncognito = isIncognito(model);
             boolean isSelected = model.get(TabProperties.IS_SELECTED);
@@ -523,10 +536,9 @@ class TabVerticalViewBinder {
                     getActionButtonTintList(context, isSelected, isIncognito).getDefaultColor();
 
             ImageViewCompat.setImageTintList(
-                    mediaIndicator,
+                    alertIndicator,
                     ColorStateList.valueOf(
-                            TabUtils.getMediaIndicatorTintColor(
-                                    context, mediaState, defaultIconColor)));
+                            TabUtils.getTabAlertTintColor(context, alertState, defaultIconColor)));
         }
     }
 
@@ -635,7 +647,7 @@ class TabVerticalViewBinder {
 
     /**
      * Updates the selected visual/accessibility state, background color tints, website favicon, and
-     * media indicator for both standard and pinned vertical tab rows.
+     * alert indicator for both standard and pinned vertical tab rows.
      *
      * <p>If active tab selection or multi-selection is enabled on this tab row, resolves and
      * mutates the background drawable with the selection color matching the current incognito
@@ -667,7 +679,7 @@ class TabVerticalViewBinder {
             ViewCompat.setBackgroundTintList(view, tintList);
         }
         updateFaviconImage(model, view);
-        updateMediaIndicator(model, view);
+        updateTabAlertIndicator(model, view);
         setupTabHoverListener(model, view, /* defaultBackgroundColor= */ tintList);
     }
 
@@ -838,7 +850,6 @@ class TabVerticalViewBinder {
      * {@code "<Title> [ - Gemini is working...], [Pinned] [Media] Tab"}.
      */
     private static void updateContentDescription(PropertyModel model, View view) {
-        // TODO(crbug.com/509226293): Align tab group header accessibility descriptions with HTS.
         Context context = view.getContext();
         @Nullable TextResolver contentDescriptionTextResolver =
                 model.get(TabProperties.CONTENT_DESCRIPTION_TEXT_RESOLVER);
@@ -849,11 +860,11 @@ class TabVerticalViewBinder {
         if (TextUtils.isEmpty(contentDescriptionString) && model.containsKey(TabProperties.TITLE)) {
             String title = model.get(TabProperties.TITLE);
             boolean isPinned = TabProperties.isPinnedTab(model);
-            @MediaState
-            int mediaState =
-                    model.containsKey(TabProperties.MEDIA_INDICATOR)
-                            ? model.get(TabProperties.MEDIA_INDICATOR)
-                            : MediaState.NONE;
+            @TabAlert
+            int alertState =
+                    model.containsKey(TabProperties.ALERT_STATE)
+                            ? model.get(TabProperties.ALERT_STATE)
+                            : TabAlert.NONE;
 
             @Nullable UiTabState actorState =
                     model.containsKey(TabProperties.ACTOR_UI_STATE)
@@ -866,7 +877,7 @@ class TabVerticalViewBinder {
 
             @StringRes
             int stringRes =
-                    TabListViewBinderUtils.getTabContentDescriptionStringId(isPinned, mediaState);
+                    TabListViewBinderUtils.getTabContentDescriptionStringId(isPinned, alertState);
             contentDescriptionString = context.getString(stringRes, title);
         }
         view.setContentDescription(contentDescriptionString);
@@ -1194,8 +1205,7 @@ class TabVerticalViewBinder {
 
         Runnable onHoverEnter =
                 () -> {
-                    TabHoverCardListener listener =
-                            model.get(TabProperties.TAB_HOVER_CARD_LISTENER);
+                    TabHoverListener listener = model.get(TabProperties.TAB_HOVER_LISTENER);
                     // Blocks new tab hover backgrounds to show when context menu or scroll occurs.
                     if (listener != null
                             && (listener.isContextMenuShowing() || listener.isScrolling())) {
@@ -1233,8 +1243,7 @@ class TabVerticalViewBinder {
 
         Runnable onHoverEnter =
                 () -> {
-                    TabHoverCardListener listener =
-                            model.get(TabProperties.TAB_HOVER_CARD_LISTENER);
+                    TabHoverListener listener = model.get(TabProperties.TAB_HOVER_LISTENER);
                     // Blocks new tab hover backgrounds to show when context menu or scroll occurs.
                     if (listener != null
                             && (listener.isContextMenuShowing() || listener.isScrolling())) {
@@ -1273,31 +1282,30 @@ class TabVerticalViewBinder {
     }
 
     /**
-     * Notifies {@link TabHoverCardListener} of hover or keyboard focus state transitions on tab
-     * items.
+     * Notifies {@link TabHoverListener} of hover or keyboard focus state transitions on tab items.
      */
     private static void notifyHoverChange(PropertyModel model, View view, boolean isHovered) {
-        TabHoverCardListener listener = model.get(TabProperties.TAB_HOVER_CARD_LISTENER);
+        TabHoverListener listener = model.get(TabProperties.TAB_HOVER_LISTENER);
         if (listener != null) {
             int tabId = model.get(TabProperties.TAB_ID);
-            listener.onTabHoverCardStateChanged(tabId, view, isHovered);
+            listener.onTabHoverStateChanged(tabId, view, isHovered);
         }
     }
 
     /**
-     * Notifies {@link TabHoverCardListener} of hover or keyboard focus state transitions on tab
-     * group headers.
+     * Notifies {@link TabHoverListener} of hover or keyboard focus state transitions on tab group
+     * headers.
      */
     private static void notifyGroupHeaderHoverChange(
             PropertyModel model, View view, boolean isHovered) {
-        TabHoverCardListener listener = model.get(TabProperties.TAB_HOVER_CARD_LISTENER);
+        TabHoverListener listener = model.get(TabProperties.TAB_HOVER_LISTENER);
         if (listener != null) {
             int tabId = model.get(TabProperties.TAB_ID);
             Token tabGroupId = model.get(TabProperties.TAB_GROUP_HEADER_ID);
             if (tabGroupId == null) {
                 tabGroupId = model.get(TabProperties.TAB_GROUP_ID);
             }
-            listener.onTabGroupHoverCardStateChanged(tabId, tabGroupId, view, isHovered);
+            listener.onTabGroupHoverStateChanged(tabId, tabGroupId, view, isHovered);
         }
     }
 }

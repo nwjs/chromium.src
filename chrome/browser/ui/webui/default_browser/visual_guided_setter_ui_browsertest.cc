@@ -8,11 +8,13 @@
 #include <utility>
 
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/webui/default_browser/visual_guided_setter.mojom.h"
 #include "chrome/browser/ui/webui/default_browser/visual_guided_setter_page_handler.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui.h"
 #include "content/public/test/browser_test.h"
@@ -33,6 +35,7 @@ class MockPage : public visual_guided_setter::mojom::Page {
   ~MockPage() override = default;
 
   void SetErrorState(bool has_error) override {}
+  void SetDockedSettingsBounds(const gfx::Rect& bounds) override {}
 
   mojo::PendingRemote<visual_guided_setter::mojom::Page> BindAndGetRemote() {
     return receiver_.BindNewPipeAndPassRemote();

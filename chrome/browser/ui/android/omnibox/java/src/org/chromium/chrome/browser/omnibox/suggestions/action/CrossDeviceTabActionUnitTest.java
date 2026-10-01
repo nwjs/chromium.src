@@ -6,7 +6,6 @@ package org.chromium.chrome.browser.omnibox.suggestions.action;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import org.junit.Before;
@@ -16,6 +15,7 @@ import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
+import org.mockito.quality.Strictness;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.components.embedder_support.util.UrlConstants;
@@ -26,7 +26,8 @@ import org.chromium.components.omnibox.action.OmniboxActionId;
 /** Tests for {@link CrossDeviceTabAction}. */
 @RunWith(BaseRobolectricTestRunner.class)
 public class CrossDeviceTabActionUnitTest {
-    @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
+    @Rule
+    public final MockitoRule mMockitoRule = MockitoJUnit.rule().strictness(Strictness.STRICT_STUBS);
 
     @Mock private OmniboxActionDelegate mGenericDelegate;
 
@@ -48,6 +49,6 @@ public class CrossDeviceTabActionUnitTest {
     @Test
     public void testExecute_success() {
         assertTrue(mAction.execute(mGenericDelegate));
-        verify(mGenericDelegate, times(1)).loadPageInCurrentTab(UrlConstants.RECENT_TABS_URL);
+        verify(mGenericDelegate).loadPageInCurrentTab(UrlConstants.RECENT_TABS_URL);
     }
 }

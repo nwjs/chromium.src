@@ -87,6 +87,8 @@ class NodeCloningData;
 class NodeList;
 class NodeListsNodeData;
 class QualifiedName;
+template <typename T>
+class RareDataUpdate;
 class RegisteredEventListener;
 class ScrollTimeline;
 class SetHTMLOptions;
@@ -100,7 +102,7 @@ class TextVisitor;
 class V8UnionNodeOrStringOrTrustedScript;
 class V8UnionStringOrTrustedHTML;
 class V8UnionStringOrTrustedScript;
-class V8UnionSetHTMLUnsafeOptionsOrTrustedParserOptions;
+class V8UnionSetHTMLUnsafeOptionsOrTrustedHTMLParserOptions;
 class WebPluginContainerImpl;
 class WritableStream;
 struct PhysicalRect;
@@ -271,35 +273,36 @@ class CORE_EXPORT Node : public EventTarget {
 
   void beforeHTML(const String& html, SetHTMLOptions* options, ExceptionState&);
   void beforeHTMLUnsafe(const V8UnionStringOrTrustedHTML* html,
-                        V8UnionSetHTMLUnsafeOptionsOrTrustedParserOptions*,
+                        V8UnionSetHTMLUnsafeOptionsOrTrustedHTMLParserOptions*,
                         ExceptionState&);
   void afterHTML(const String& html, SetHTMLOptions* options, ExceptionState&);
   void afterHTMLUnsafe(const V8UnionStringOrTrustedHTML* html,
-                       V8UnionSetHTMLUnsafeOptionsOrTrustedParserOptions*,
+                       V8UnionSetHTMLUnsafeOptionsOrTrustedHTMLParserOptions*,
                        ExceptionState&);
   void replaceWithHTML(const String& html,
                        SetHTMLOptions* options,
                        ExceptionState&);
-  void replaceWithHTMLUnsafe(const V8UnionStringOrTrustedHTML* html,
-                             V8UnionSetHTMLUnsafeOptionsOrTrustedParserOptions*,
-                             ExceptionState&);
+  void replaceWithHTMLUnsafe(
+      const V8UnionStringOrTrustedHTML* html,
+      V8UnionSetHTMLUnsafeOptionsOrTrustedHTMLParserOptions*,
+      ExceptionState&);
   WritableStream* streamBeforeHTMLUnsafe(
       ScriptState*,
-      V8UnionSetHTMLUnsafeOptionsOrTrustedParserOptions*,
+      V8UnionSetHTMLUnsafeOptionsOrTrustedHTMLParserOptions*,
       ExceptionState&);
   WritableStream* streamBeforeHTML(ScriptState*,
                                    SetHTMLOptions*,
                                    ExceptionState&);
   WritableStream* streamAfterHTMLUnsafe(
       ScriptState*,
-      V8UnionSetHTMLUnsafeOptionsOrTrustedParserOptions*,
+      V8UnionSetHTMLUnsafeOptionsOrTrustedHTMLParserOptions*,
       ExceptionState&);
   WritableStream* streamAfterHTML(ScriptState*,
                                   SetHTMLOptions*,
                                   ExceptionState&);
   WritableStream* streamReplaceWithHTMLUnsafe(
       ScriptState*,
-      V8UnionSetHTMLUnsafeOptionsOrTrustedParserOptions*,
+      V8UnionSetHTMLUnsafeOptionsOrTrustedHTMLParserOptions*,
       ExceptionState&);
   WritableStream* streamReplaceWithHTML(ScriptState*,
                                         SetHTMLOptions*,
@@ -1222,6 +1225,11 @@ class CORE_EXPORT Node : public EventTarget {
   // Defined in node-inl.h.
   ALWAYS_INLINE bool HasPseudoElements() const;
 
+  template <typename T>
+  void SetRareData(base::PassKey<RareDataUpdate<T>>, NodeRareData* new_data) {
+    data_ = new_data;
+  }
+
  private:
   enum NodeFlags : uint32_t {
     // getNodeType() is called extensively. As it's called quite a bit its
@@ -1370,15 +1378,6 @@ class CORE_EXPORT Node : public EventTarget {
 
   void InvalidateIfHasEffectiveAppearance() const;
 
-  // Use when calling RareData().EnsureFoo() to make sure the RareData pointer
-  // is updated if needed, as all Set...() and Ensure...() in RareData can
-  // return a new, reallocated data_.
-  template <class T>
-  T& UnpackAndRefresh(std::pair<std::reference_wrapper<T>, NodeRareData*>
-                          raredata_and_new_vec) {
-    data_ = raredata_and_new_vec.second;
-    return raredata_and_new_vec.first;
-  }
 
  private:
   static constexpr struct ParentNodeTag {
@@ -1430,8 +1429,6 @@ class CORE_EXPORT Node : public EventTarget {
   Member<Node> previous_;
   Member<Node> next_;
   Member<LayoutObject> layout_object_;
-
- protected:
   Member<NodeRareData> data_;
 };
 

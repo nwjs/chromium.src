@@ -85,7 +85,7 @@ bool IsolatedOriginPattern::Parse(const std::string_view& unparsed_pattern) {
     return false;
   }
 
-  DCHECK(!is_valid_ || !origin_.opaque());
+  CHECK(!is_valid_ || !origin_.opaque(), base::NotFatalUntil::M159);
   is_valid_ = true;
   return true;
 }
@@ -179,6 +179,36 @@ bool IsolatedOriginUtil::IsValidIsolatedOriginImpl(
   }
 
   return true;
+}
+
+// static
+std::optional<GURL> IsolatedOriginUtil::RemoveTrailingDotFromUrlIfNecessary(
+    const GURL& url) {
+  if (url.has_host() && url.host().back() == '.') {
+    GURL::Replacements replacements;
+    std::string_view host(url.host());
+    host.remove_suffix(1);
+    replacements.SetHostStr(host);
+    return url.ReplaceComponents(replacements);
+  }
+  return std::nullopt;
+}
+
+// static
+url::Origin IsolatedOriginUtil::CreateOriginWithDefaultPortIfNecessary(
+    const url::Origin& origin) {
+  // This helper should only be used when `origin` is non-opaque. This is
+  // guaranteed to be true because this helper is only used when `origin`
+  // matches a valid isolated origin (which cannot be opaque per
+  // `IsValidIsolatedOrigin()`).
+  CHECK(!origin.opaque());
+
+  uint16_t default_port = url::DefaultPortForScheme(origin.scheme());
+  if (origin.port() != default_port) {
+    return url::Origin::CreateFromNormalizedTuple(origin.scheme(),
+                                                  origin.host(), default_port);
+  }
+  return origin;
 }
 
 }  // namespace content

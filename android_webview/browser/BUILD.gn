@@ -8,7 +8,6 @@ import("//printing/buildflags/buildflags.gni")
 
 java_cpp_enum("browser_enums") {
   sources = [
-    "aw_apk_type.h",
     "aw_backforward_cache_not_restored_reason.h",
     "aw_renderer_priority.h",
     "aw_settings.h",
@@ -25,7 +24,6 @@ source_set("browser") {
   sources = [
     "android_protocol_handler.cc",
     "android_protocol_handler.h",
-    "aw_apk_type.h",
     "aw_backforward_cache_not_restored_reason.h",
     "aw_browser_context.cc",
     "aw_browser_context.h",
@@ -325,8 +323,8 @@ source_set("browser") {
     "//components/safe_browsing/core/browser",
     "//components/safe_browsing/core/browser/db:database_manager",
     "//components/safe_browsing/core/browser/db:safebrowsing_proto",
-    "//components/safe_browsing/core/browser/db:v4_protocol_config",
-    "//components/safe_browsing/core/browser/db:v4_protocol_manager_util",
+    "//components/safe_browsing/core/browser/db:sb_protocol_config",
+    "//components/safe_browsing/core/browser/db:sb_protocol_manager_util",
     "//components/safe_browsing/core/browser/web_ui:local_state_delegate",
     "//components/safe_browsing/core/common",
     "//components/safe_browsing/core/common:safe_browsing_prefs",

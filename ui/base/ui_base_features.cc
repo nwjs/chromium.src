@@ -113,20 +113,6 @@ bool IsNotificationsIgnoreRequireInteractionEnabled() {
   return base::FeatureList::IsEnabled(kNotificationsIgnoreRequireInteraction);
 }
 
-// TODO(b/544631920): To clean up the AreF11AndF12ShortcutsEnabled()
-bool AreF11AndF12ShortcutsEnabled() {
-  // TODO(crbug.com/40203434): Remove this once kDeviceI18nShortcutsEnabled
-  // policy is deprecated. This policy allows managed users to still be able to
-  // use deprecated legacy shortcuts which some enterprise customers rely on.
-  if (::ui::ShortcutMappingPrefDelegate::IsInitialized()) {
-    ::ui::ShortcutMappingPrefDelegate* instance =
-        ::ui::ShortcutMappingPrefDelegate::GetInstance();
-    if (instance && instance->IsDeviceEnterpriseManaged()) {
-      return instance->IsI18nShortcutPrefEnabled();
-    }
-  }
-  return true;
-}
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
 #if BUILDFLAG(IS_OZONE)
@@ -522,6 +508,8 @@ BASE_FEATURE(kWebUIRoundedIcons, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Updates the default dark neutrals for the theme palette.
 BASE_FEATURE(kChromeDarkNeutrals26, base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kDarkModeSurfaceTokens, base::FEATURE_DISABLED_BY_DEFAULT);
 
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
 BASE_FEATURE(kUsePortalAccentColor, base::FEATURE_ENABLED_BY_DEFAULT);

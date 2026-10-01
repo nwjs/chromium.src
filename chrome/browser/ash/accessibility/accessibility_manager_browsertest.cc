@@ -39,8 +39,6 @@
 #include "chrome/browser/profiles/profile_test_util.h"
 #include "chrome/browser/speech/speech_recognition_constants.h"
 #include "chrome/browser/speech/speech_recognition_test_helper.h"
-#include "chrome/browser/ui/browser.h"
-#include "chrome/common/chrome_switches.h"
 #include "chrome/test/base/interactive_test_utils.h"
 #include "chrome/test/base/mixin_based_in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
@@ -57,6 +55,7 @@
 #include "components/user_manager/user_manager.h"
 #include "components/user_manager/user_names.h"
 #include "content/public/browser/browser_thread.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/test_navigation_observer.h"
 #include "extensions/browser/extension_host_test_helper.h"
@@ -68,6 +67,7 @@
 #include "ui/base/ime/ash/component_extension_ime_manager.h"
 #include "ui/base/ime/ash/extension_ime_util.h"
 #include "ui/base/ime/ash/input_method_manager.h"
+#include "ui/base/page_transition_types.h"
 #include "ui/base/ui_base_switches.h"
 #include "ui/display/test/display_manager_test_api.h"
 #include "ui/gfx/scoped_animation_duration_scale_mode.h"
@@ -279,14 +279,6 @@ void SetSelectToSpeakEnabled(bool enabled) {
 
 bool IsSelectToSpeakEnabled() {
   return AccessibilityManager::Get()->IsSelectToSpeakEnabled();
-}
-
-void SetSwitchAccessEnabled(bool enabled) {
-  AccessibilityManager::Get()->SetSwitchAccessEnabled(enabled);
-}
-
-void SetMagnifierEnabled(bool enabled) {
-  MagnificationManager::Get()->SetMagnifierEnabled(enabled);
 }
 
 void SetDictationEnabled(bool enabled) {
@@ -505,7 +497,6 @@ class AccessibilityManagerTest : public MixinBasedInProcessBrowserTest {
   void SetUpCommandLine(base::CommandLine* command_line) override {
     scoped_feature_list_.InitWithFeatures(
         {features::kOnDeviceSpeechRecognition,
-         ::features::kAccessibilityReducedAnimations,
          ::features::kAccessibilityMouseKeys},
         {});
     MixinBasedInProcessBrowserTest::SetUpCommandLine(command_line);
@@ -1879,9 +1870,7 @@ class AccessibilityManagerLoginTest : public OobeBaseTest {
       : disable_animations_(
             gfx::ScopedAnimationDurationScaleMode::ZERO_DURATION) {
     scoped_feature_list_.InitWithFeatures(
-        {::features::kAccessibilityReducedAnimations,
-         ::features::kAccessibilityMouseKeys},
-        {});
+        {::features::kAccessibilityMouseKeys}, {});
   }
 
   AccessibilityManagerLoginTest(const AccessibilityManagerLoginTest&) = delete;
@@ -2208,39 +2197,6 @@ IN_PROC_BROWSER_TEST_P(AccessibilityManagerUserTypeTest, BrailleWhenLoggedIn) {
       "Accessibility.CrosSpokenFeedback.BrailleDisplayConnected."
       "ConnectionDuration",
       1);
-}
-
-
-
-class AccessibilityManagerWithManifestV3Test : public AccessibilityManagerTest {
- public:
-  AccessibilityManagerWithManifestV3Test() = default;
-  AccessibilityManagerWithManifestV3Test(
-      const AccessibilityManagerWithManifestV3Test&) = delete;
-  AccessibilityManagerWithManifestV3Test& operator=(
-      const AccessibilityManagerWithManifestV3Test&) = delete;
-  ~AccessibilityManagerWithManifestV3Test() override = default;
-
-  void SetUpCommandLine(base::CommandLine* command_line) override {
-    command_line->AppendSwitch(
-        ::switches::kEnableExperimentalAccessibilityManifestV3);
-  }
-};
-
-IN_PROC_BROWSER_TEST_F(AccessibilityManagerWithManifestV3Test, DoesNotCrash) {
-  SetSpokenFeedbackEnabled(true);
-  SetSelectToSpeakEnabled(true);
-  SetSwitchAccessEnabled(true);
-  SetAutoclickEnabled(true);
-  SetDictationEnabled(true);
-  SetMagnifierEnabled(true);
-
-  SetSpokenFeedbackEnabled(false);
-  SetSelectToSpeakEnabled(false);
-  SetSwitchAccessEnabled(false);
-  SetAutoclickEnabled(false);
-  SetDictationEnabled(false);
-  SetMagnifierEnabled(false);
 }
 
 enum class DictationKeyboardShortcutType { kKey, kKeyboardCombo };

@@ -28,6 +28,8 @@
 #include "content/public/browser/save_page_type.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_delegate.h"
+#include "ui/base/page_transition_types.h"
+#include "ui/base/window_open_disposition.h"
 #include "url/gurl.h"
 
 using content::NavigationController;
@@ -172,10 +174,10 @@ void ResumeAppleEventAndSendReply(NSAppleEventManagerSuspensionID suspension_id,
     return;
   }
 
-  _webContents->OpenURL(OpenURLParams(gurl, content::Referrer(),
-                                      WindowOpenDisposition::CURRENT_TAB,
-                                      ui::PAGE_TRANSITION_TYPED, false),
-                        /*navigation_handle_callback=*/{});
+  _webContents->OpenURL(
+      OpenURLParams::CreateBrowserInitiated(
+          gurl, WindowOpenDisposition::CURRENT_TAB, ui::PAGE_TRANSITION_TYPED),
+      /*navigation_handle_callback=*/{});
 }
 
 - (NSString*)title {

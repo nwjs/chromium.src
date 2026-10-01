@@ -4,6 +4,8 @@
 
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
+#include "base/test/test_future.h"
+#include "chrome/browser/glic/public/features.h"
 #include "chrome/browser/glic/selection/selection_overlay_controller.h"
 #include "chrome/browser/glic/test_support/glic_browser_test.h"
 #include "chrome/browser/glic/test_support/glic_test_util.h"
@@ -75,6 +77,153 @@ IN_PROC_BROWSER_TEST_F(SelectionOverlayBrowserTest,
       "Glic.Instance.InputSubmitted.SelectionCount", 0, 1);
   histogram_tester.ExpectTotalCount(
       "Glic.Instance.InputSubmitted.SelectionCount", 3);
+}
+
+namespace {
+
+class TestSuggestedActionsListener
+    : public selection::SuggestedActionsListener {
+ public:
+  TestSuggestedActionsListener() = default;
+  ~TestSuggestedActionsListener() override = default;
+
+  mojo::PendingRemote<selection::SuggestedActionsListener>
+  BindNewPipeAndPassRemote() {
+    return receiver_.BindNewPipeAndPassRemote();
+  }
+
+  void OnSuggestedActionsAvailable(
+      std::vector<selection::SuggestedActionPtr> actions) override {
+    for (auto& action : actions) {
+      actions_.push_back(std::move(action));
+    }
+    batches_received_++;
+    if (run_loop_ && batches_received_ >= expected_batches_) {
+      run_loop_->Quit();
+    }
+  }
+
+  void WaitForBatches(size_t expected_batches) {
+    if (batches_received_ >= expected_batches) {
+      return;
+    }
+    expected_batches_ = expected_batches;
+    run_loop_ = std::make_unique<base::RunLoop>();
+    run_loop_->Run();
+  }
+
+  const std::vector<selection::SuggestedActionPtr>& actions() const {
+    return actions_;
+  }
+
+ private:
+  mojo::Receiver<selection::SuggestedActionsListener> receiver_{this};
+  std::vector<selection::SuggestedActionPtr> actions_;
+  size_t batches_received_ = 0;
+  size_t expected_batches_ = 0;
+  std::unique_ptr<base::RunLoop> run_loop_;
+};
+
+}  // namespace
+
+IN_PROC_BROWSER_TEST_F(SelectionOverlayBrowserTest,
+                       SuggestedActionsDisabledByDefault) {
+  tabs::TabInterface* tab = CreateAndActivateTab(GetSimpleTestUrl());
+  content::WebContents* web_contents = tab->GetContents();
+  auto* controller =
+      SelectionOverlayController::FromTabWebContents(web_contents);
+  ASSERT_TRUE(controller);
+  controller->Show(/*options=*/nullptr);
+
+  TestSuggestedActionsListener listener;
+  static_cast<selection::SelectionOverlayPageHandler*>(controller)
+      ->GetSuggestedActions(listener.BindNewPipeAndPassRemote());
+  listener.WaitForBatches(1);
+  EXPECT_TRUE(listener.actions().empty());
+}
+
+class SelectionOverlayPromptBrowserTest : public GlicBrowserTest {
+ public:
+  SelectionOverlayPromptBrowserTest() {
+    scoped_feature_list_.InitWithFeatures(
+        {::features::kGlicCaptureRegion,
+         ::features::kGlicSelectionOverlayPrompt},
+        {});
+  }
+  ~SelectionOverlayPromptBrowserTest() override = default;
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(SelectionOverlayPromptBrowserTest,
+                       SuggestedActionsWhenEnabled) {
+  tabs::TabInterface* tab = CreateAndActivateTab(GetSimpleTestUrl());
+  content::WebContents* web_contents = tab->GetContents();
+  auto* controller =
+      SelectionOverlayController::FromTabWebContents(web_contents);
+  ASSERT_TRUE(controller);
+  controller->Show(/*options=*/nullptr);
+
+  TestSuggestedActionsListener listener;
+  static_cast<selection::SelectionOverlayPageHandler*>(controller)
+      ->GetSuggestedActions(listener.BindNewPipeAndPassRemote());
+  listener.WaitForBatches(1);
+  const auto& actions = listener.actions();
+  ASSERT_EQ(actions.size(), 3u);
+  EXPECT_FALSE(actions[0]->id.is_empty());
+  EXPECT_EQ(actions[0]->title, "Explain");
+  EXPECT_FALSE(actions[1]->id.is_empty());
+  EXPECT_EQ(actions[1]->title, "Summarize");
+  EXPECT_FALSE(actions[2]->id.is_empty());
+  EXPECT_EQ(actions[2]->title, "Create Image");
+  EXPECT_NE(actions[0]->id, actions[1]->id);
+  EXPECT_NE(actions[1]->id, actions[2]->id);
+}
+
+IN_PROC_BROWSER_TEST_F(SelectionOverlayPromptBrowserTest,
+                       ShowWithSelectionPopulatesSelection) {
+  tabs::TabInterface* tab = CreateAndActivateTab(GetSimpleTestUrl());
+  content::WebContents* web_contents = tab->GetContents();
+  auto* controller =
+      SelectionOverlayController::FromTabWebContents(web_contents);
+  ASSERT_TRUE(controller);
+
+  gfx::Rect view_bounds = web_contents->GetViewBounds();
+  gfx::Rect selection_bounds(view_bounds.x() + 10, view_bounds.y() + 10, 100,
+                             50);
+  controller->ShowWithSelection(selection_bounds);
+
+  EXPECT_EQ(controller->GetSelectedRegionCount(), 1u);
+
+  controller->Close();
+  EXPECT_EQ(controller->GetSelectedRegionCount(), 0u);
+}
+
+IN_PROC_BROWSER_TEST_F(SelectionOverlayPromptBrowserTest,
+                       SubmitPromptWithSelectedRegion) {
+  tabs::TabInterface* tab = CreateAndActivateTab(GetSimpleTestUrl());
+  ASSERT_TRUE(OpenGlicForActiveTab().has_value());
+  content::WebContents* web_contents = tab->GetContents();
+  auto* controller =
+      SelectionOverlayController::FromTabWebContents(web_contents);
+  ASSERT_TRUE(controller);
+
+  gfx::Rect view_bounds = web_contents->GetViewBounds();
+  gfx::Rect selection_bounds(view_bounds.x() + 10, view_bounds.y() + 10, 100,
+                             50);
+  controller->ShowWithSelection(selection_bounds);
+
+  EXPECT_EQ(controller->GetSelectedRegionCount(), 1u);
+
+  static_cast<selection::SelectionOverlayPageHandler*>(controller)
+      ->SubmitPrompt("Explain this selection");
+
+  // The browser started this session, so it dismisses the overlay itself.
+  EXPECT_EQ(controller->GetSelectedRegionCount(), 0u);
+
+  controller->Close();
+  EXPECT_EQ(controller->GetSelectedRegionCount(), 0u);
 }
 
 }  // namespace glic

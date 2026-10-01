@@ -17,9 +17,6 @@ namespace omnibox {
 // instead of in the co-browse tool bar and RHS dropdown.
 BASE_DECLARE_FEATURE(kContextManagementInComposebox);
 
-// If enabled, this feature will show tooltips in the composebox context menu.
-BASE_DECLARE_FEATURE(kContextMenuToolTips);
-
 // If enabled, this feature will gate the functionality of removing the existing
 // tab chips from the composebox and instead add favicon coins next to the "+"
 // button.
@@ -44,8 +41,20 @@ BASE_DECLARE_FEATURE(kComposeboxSkillsOmniboxEverywhere);
 BASE_DECLARE_FEATURE(kComposeboxSkillsOmniboxPopup);
 
 // If enabled, richer suggestions (e.g. image grids) for tools such as Create
-// Image will be shown in the Composebox.
-BASE_DECLARE_FEATURE(kComposeboxRichImageSuggestions);
+// Image will be shown in the Realbox Composebox.
+BASE_DECLARE_FEATURE(kComposeboxRichImageSuggestionsRealbox);
+
+// If enabled, richer suggestions (e.g. image grids) for tools such as Create
+// Image will be shown in the Omnibox Composebox.
+BASE_DECLARE_FEATURE(kComposeboxRichImageSuggestionsOmnibox);
+
+// If enabled, persists the AIM button in the Realbox Composebox.
+BASE_DECLARE_FEATURE(kComposeboxPersistentAimButtonRealbox);
+// If enabled, persists the AIM button in the Omnibox Composebox.
+BASE_DECLARE_FEATURE(kComposeboxPersistentAimButtonOmnibox);
+// If enabled, shows an X icon on the persistent AIM button. Only effective if
+// the persistent AIM button is also enabled for the surface.
+BASE_DECLARE_FEATURE(kComposeboxPersistentAimButtonWithX);
 
 // If enabled, suggest requests for multifile inputs will include the cinpts CGI param.
 BASE_DECLARE_FEATURE(kSuggestRequestSendsMultifileCgiParam);
@@ -72,6 +81,9 @@ bool IsTabDeselectionInComposeboxEnabled();
 
 // If enabled, tooltips will be shown in the composebox context menu.
 extern const base::FeatureParam<bool> kContextManagementInComposeboxTooltips;
+
+// Helper to check if context menu tooltips are enabled in the composebox.
+bool IsContextMenuTooltipsInComposeboxEnabled();
 
 }  // namespace omnibox
 

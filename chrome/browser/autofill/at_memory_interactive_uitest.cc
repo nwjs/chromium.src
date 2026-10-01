@@ -11,7 +11,6 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/run_until.h"
 #include "base/test/scoped_feature_list.h"
-#include "build/build_config.h"
 #include "chrome/browser/autofill/at_memory/at_memory_query_service_factory.h"
 #include "chrome/browser/autofill/autofill_flow_test_util.h"
 #include "chrome/browser/autofill/autofill_uitest.h"
@@ -21,7 +20,6 @@
 #include "chrome/browser/ui/autofill/autofill_popup_controller_impl_test_api.h"
 #include "chrome/browser/ui/autofill/autofill_suggestion_controller.h"
 #include "chrome/browser/ui/autofill/chrome_autofill_client.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/views/autofill/popup/popup_view_views.h"
 #include "chrome/browser/ui/views/autofill/popup/popup_view_views_test_api.h"
 #include "chrome/test/base/ui_test_utils.h"
@@ -32,6 +30,7 @@
 #include "components/autofill/core/common/autofill_features.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/render_widget_host.h"
+#include "content/public/browser/render_widget_host_view.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
 #include "net/dns/mock_host_resolver.h"
@@ -39,6 +38,8 @@
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/features.h"
+#include "third_party/blink/public/common/input/web_input_event.h"
+#include "ui/events/base_event_utils.h"
 #include "ui/events/keycodes/dom/dom_key.h"
 #include "ui/events/keycodes/keyboard_code_conversion.h"
 
@@ -170,7 +171,8 @@ class AtMemoryInteractiveUiTest : public AutofillUiTest,
       case TargetElementType::kInputText:
       case TargetElementType::kTextArea:
       case TargetElementType::kContentEditable:
-        return "Foo" + base::UTF16ToUTF8(GetFilledValue(type)) + "Bar";
+        // The spaces come from PasteText()'s smart replace.
+        return "Foo " + base::UTF16ToUTF8(GetFilledValue(type)) + " Bar";
       case TargetElementType::kInputNumber:
         return base::UTF16ToUTF8(GetFilledValue(type));
     }
@@ -199,11 +201,39 @@ class AtMemoryInteractiveUiTest : public AutofillUiTest,
         [&] { return GetTargetValue(GetParam()) == expected_value; });
   }
 
+  // Simulates pressing down the Ctrl (or Command on Mac) key.
+  void SendCtrlKeyDown() {
+    content::RenderWidgetHost* widget =
+        GetWebContents()->GetRenderWidgetHostView()->GetRenderWidgetHost();
+    int modifiers = 0;
+    ui::KeyboardCode key_code = ui::VKEY_UNKNOWN;
+    ui::DomCode dom_code = ui::DomCode::NONE;
+    ui::DomKey dom_key = ui::DomKey::NONE;
+    if constexpr (BUILDFLAG(IS_MAC)) {
+      modifiers = blink::WebInputEvent::kMetaKey;
+      key_code = ui::VKEY_COMMAND;
+      dom_code = ui::DomCode::META_LEFT;
+      dom_key = ui::DomKey::META;
+    } else {
+      modifiers = blink::WebInputEvent::kControlKey;
+      key_code = ui::VKEY_CONTROL;
+      dom_code = ui::DomCode::CONTROL_LEFT;
+      dom_key = ui::DomKey::CONTROL;
+    }
+    input::NativeWebKeyboardEvent event(
+        blink::WebKeyboardEvent::Type::kRawKeyDown, modifiers,
+        ui::EventTimeForNow());
+    event.windows_key_code = key_code;
+    event.dom_code = static_cast<int>(dom_code);
+    event.dom_key = dom_key;
+    widget->ForwardKeyboardEvent(event);
+  }
+
  private:
   base::test::ScopedFeatureList feature_list_;
 };
 
-INSTANTIATE_TEST_SUITE_P(All,
+INSTANTIATE_TEST_SUITE_P(,
                          AtMemoryInteractiveUiTest,
                          Values(TargetElementType::kInputText,
                                 TargetElementType::kInputNumber,
@@ -213,17 +243,12 @@ INSTANTIATE_TEST_SUITE_P(All,
                            return ToString(info.param);
                          });
 
-// Tests that typing the trigger string "@@" in various target elements
+// Tests that pressing Ctrl twice in various target elements
 // (input, number input, textarea, contenteditable) opens the AtMemory popup,
-// allows searching, and replaces the trigger string with the selected value
+// allows searching, and replaces the selection with the selected value
 // upon suggestion acceptance.
-// TODO(crbug.com/546877846): Fix the popup on ChromeOS.
-#if BUILDFLAG(IS_CHROMEOS)
-#define MAYBE_TriggerAndFill DISABLED_TriggerAndFill
-#else
-#define MAYBE_TriggerAndFill TriggerAndFill
-#endif
-IN_PROC_BROWSER_TEST_P(AtMemoryInteractiveUiTest, MAYBE_TriggerAndFill) {
+IN_PROC_BROWSER_TEST_P(AtMemoryInteractiveUiTest, TriggerAndFill) {
+  ASSERT_TRUE(ui_test_utils::BringBrowserWindowToFront(browser()));
   ASSERT_TRUE(ui_test_utils::NavigateToURL(
       browser(), embedded_test_server()->GetURL("/test.html")));
 
@@ -250,14 +275,11 @@ IN_PROC_BROWSER_TEST_P(AtMemoryInteractiveUiTest, MAYBE_TriggerAndFill) {
   // paint, so we need to wait for that to happen before sending the key events.
   content::SimulateEndOfPaintHoldingOnPrimaryMainFrame(GetWebContents());
 
-  // Type '@'.
-  ASSERT_TRUE(SendKeyToPageAndWait(ui::DomKey::FromCharacter('@'),
-                                   ui::DomCode::DIGIT2, ui::VKEY_2, {}));
-
-  // Type second '@', completing trigger string and showing suggestions.
-  ASSERT_TRUE(SendKeyToPageAndWait(ui::DomKey::FromCharacter('@'),
-                                   ui::DomCode::DIGIT2, ui::VKEY_2,
-                                   {ObservedUiEvents::kSuggestionsShown}));
+  // Press Ctrl twice, triggering Double Ctrl and showing suggestions.
+  test_delegate()->SetExpectations({ObservedUiEvents::kSuggestionsShown});
+  SendCtrlKeyDown();
+  SendCtrlKeyDown();
+  ASSERT_TRUE(test_delegate()->Wait());
 
   // Set search query in the popup search bar.
   base::WeakPtr<AutofillSuggestionController> controller =
@@ -289,7 +311,7 @@ IN_PROC_BROWSER_TEST_P(AtMemoryInteractiveUiTest, MAYBE_TriggerAndFill) {
   ASSERT_TRUE(SendKeyToPopupAndWait(ui::DomKey::ENTER,
                                     {ObservedUiEvents::kSuggestionsHidden}));
 
-  // Verify the trigger string "@@" is replaced with the filled value.
+  // Verify the selection is replaced with the filled value.
   EXPECT_TRUE(WaitForTargetValue(GetExpectedValue(GetParam())));
 }
 

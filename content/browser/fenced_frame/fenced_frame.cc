@@ -37,7 +37,7 @@ FrameTreeNode* CreateDelegateFrameTreeNode(
       /*associated_interface_provider_receiver=*/mojo::NullAssociatedReceiver(),
       blink::mojom::TreeScopeType::kDocument, "", "", true,
       blink::LocalFrameToken(), base::UnguessableToken::Create(),
-      blink::DocumentToken(), base::UnguessableToken::Create(),
+      blink::DocumentToken(), blink::InitiatorStateToken(),
       blink::FramePolicy(), blink::mojom::FrameOwnerProperties(), false,
       blink::FrameOwnerElementType::kFencedframe,
       /*is_dummy_frame_for_inner_tree=*/true);
@@ -86,27 +86,6 @@ void FencedFrame::Navigate(const GURL& url,
     bad_message::ReceivedBadMessage(owner_render_frame_host_->GetProcess(),
                                     bad_message::FF_NAVIGATION_INVALID_URL);
     return;
-  }
-
-  // Confirm that the navigation does not cause a mismatch with the embedder's
-  // mode, if the embedder is itself a fenced frame. The renderer should prevent
-  // this from happening.
-  DCHECK(outer_delegate_frame_tree_node_);
-  if (outer_delegate_frame_tree_node_->IsInFencedFrameTree()) {
-    bool is_nested_inside_opaque_ads_fenced_frame =
-        outer_delegate_frame_tree_node_->GetDeprecatedFencedFrameMode() ==
-        blink::FencedFrame::DeprecatedFencedFrameMode::kOpaqueAds;
-    bool is_nested_inside_default_fenced_frame =
-        !is_nested_inside_opaque_ads_fenced_frame;
-    if ((is_nested_inside_opaque_ads_fenced_frame &&
-         !blink::IsValidUrnUuidURL(url)) ||
-        (is_nested_inside_default_fenced_frame &&
-         !blink::IsValidFencedFrameURL(url))) {
-      bad_message::ReceivedBadMessage(
-          owner_render_frame_host_->GetProcess(),
-          bad_message::FF_DIFFERENT_MODE_THAN_EMBEDDER);
-      return;
-    }
   }
 
   GURL validated_url = url;
@@ -179,7 +158,7 @@ RenderFrameHostImpl* FencedFrame::GetProspectiveOuterDocument() {
 }
 
 FrameTree* FencedFrame::LoadingTree() {
-  CHECK_NE(RenderFrameHostImpl::LifecycleStateImpl::kPrerendering,
+  CHECK_NE(RenderFrameHostLifecycleStateImpl::kPrerendering,
            owner_render_frame_host_->lifecycle_state());
   return web_contents_->LoadingTree();
 }

@@ -115,6 +115,12 @@ class SaveUpdatePasswordMessageDelegate
     // vault key retrieval flow to finish.
     kWaitingForTrustedVault,
 
+    // The trusted vault key retrieval flow completed but the vault remains
+    // locked. The "Save password" message prompt is shown again to allow the
+    // user to retry, while the delegate continues observing the password store
+    // for background error resolution.
+    kRepromptShowing,
+
     // The password was successfully saved after resolving a trusted vault key
     // error, and a temporary confirmation message is currently displayed.
     kConfirmationShowing,
@@ -177,6 +183,7 @@ class SaveUpdatePasswordMessageDelegate
   void StartSavePasswordFlow();
   void SolveTrustedVaultCheck(bool is_device_lock_requirement_met);
   void OnTrustedVaultRecoveryDone();
+  void SaveAfterTrustedVaultResolution();
   void SaveFormManager(bool show_confirmation_message);
   void HandleNeverSaveClicked();
   void HandleUpdateButtonClicked();
@@ -214,6 +221,10 @@ class SaveUpdatePasswordMessageDelegate
   // Can be a nullopt, the account email, or the account full name.
   std::optional<std::string> account_email_;
   bool update_password_ = false;
+
+  // True while DismissAllActiveUI() is executing, to ignore re-entrant
+  // dismissal callbacks from UI bridges (e.g. HandleDialogDismissed).
+  bool is_programmatic_dismissal_ = false;
 
   State state_ = State::kIdle;
 

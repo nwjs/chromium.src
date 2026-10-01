@@ -9,12 +9,18 @@ import android.content.res.Resources;
 import android.view.LayoutInflater;
 import android.view.View;
 
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
+import androidx.recyclerview.widget.RecyclerView.Adapter;
+
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
-import org.chromium.chrome.browser.touch_to_fill.payments.R;
+import org.chromium.chrome.browser.touch_to_fill.R;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetContent;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetObserver;
+import org.chromium.components.browser_ui.bottomsheet.BottomSheetType;
+import org.chromium.components.browser_ui.bottomsheet.UserCriticalFeature;
 
 /**
  * This class is responsible for rendering the bottom sheet which displays the TouchToFillAutofill
@@ -22,6 +28,11 @@ import org.chromium.components.browser_ui.bottomsheet.BottomSheetObserver;
  */
 @NullMarked
 class TouchToFillAutofillView implements BottomSheetContent {
+    private static final BottomSheetType BOTTOM_SHEET_TYPE =
+            new BottomSheetType.Builder()
+                    .setUserCritical(UserCriticalFeature.TOUCH_TO_FILL_AUTOFILL)
+                    .build();
+
     private final BottomSheetController mBottomSheetController;
     private final View mContentView;
     private @Nullable Runnable mDismissHandler;
@@ -52,16 +63,13 @@ class TouchToFillAutofillView implements BottomSheetContent {
                                 null);
     }
 
-    void setAcknowledgeHandler(Runnable acknowledgeHandler) {
-        mContentView
-                .findViewById(R.id.notice_acknowledge_button)
-                .setOnClickListener(v -> acknowledgeHandler.run());
-    }
+    void setSheetItemListAdapter(Adapter adapter) {
+        RecyclerView recyclerView = getContentView().findViewById(R.id.sheet_item_list);
+        recyclerView.setLayoutManager(
+                new LinearLayoutManager(
+                        getContentView().getContext(), LinearLayoutManager.VERTICAL, false));
 
-    void setSettingsLinkHandler(Runnable settingsLinkHandler) {
-        mContentView
-                .findViewById(R.id.notice_manage_settings_link)
-                .setOnClickListener(v -> settingsLinkHandler.run());
+        recyclerView.setAdapter(adapter);
     }
 
     void setDismissHandler(Runnable dismissHandler) {
@@ -97,12 +105,18 @@ class TouchToFillAutofillView implements BottomSheetContent {
 
     @Override
     public int getVerticalScrollOffset() {
-        return 0;
+        RecyclerView recyclerView = mContentView.findViewById(R.id.sheet_item_list);
+        return recyclerView.computeVerticalScrollOffset();
     }
 
     @Override
     public void destroy() {
         mBottomSheetController.removeObserver(mBottomSheetObserver);
+    }
+
+    @Override
+    public BottomSheetType getSheetType() {
+        return BOTTOM_SHEET_TYPE;
     }
 
     @Override

@@ -19,6 +19,8 @@
 #include "components/strings/grit/components_strings.h"
 #include "content/public/browser/web_contents.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/page_transition_types.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/gfx/color_utils.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/animation/bounds_animator.h"
@@ -687,11 +689,9 @@ void ContentAnalysisDialogDelegate::AddLinksToDialogMessage() {
                 return;
               }
               web_contents->OpenURL(
-                  content::OpenURLParams(
-                      url, content::Referrer(),
-                      WindowOpenDisposition::NEW_FOREGROUND_TAB,
-                      ui::PAGE_TRANSITION_LINK,
-                      /*is_renderer_initiated=*/false),
+                  content::OpenURLParams::CreateBrowserInitiated(
+                      url, WindowOpenDisposition::NEW_FOREGROUND_TAB,
+                      ui::PAGE_TRANSITION_LINK),
                   /*navigation_handle_callback=*/{});
             },
             web_contents_getter_.Run()->GetWeakPtr(), range.second)));
@@ -803,6 +803,11 @@ void ContentAnalysisDialogDelegate::AddJustificationTextAreaToDialog() {
   bypass_justification_->GetViewAccessibility().SetName(
       *justification_text_label_);
   bypass_justification_->SetController(this);
+  if (!GetWidget()) {
+    SetInitiallyFocusedView(bypass_justification_);
+  } else {
+    bypass_justification_->RequestFocus();
+  }
 }
 
 void ContentAnalysisDialogDelegate::AddJustificationTextLengthToDialog() {
@@ -842,10 +847,9 @@ void ContentAnalysisDialogDelegate::LearnMoreLinkClickedCallback(
     const ui::Event& event) {
   DCHECK(has_learn_more_url());
   web_contents_getter_.Run()->OpenURL(
-      content::OpenURLParams((*delegate_base_->GetCustomLearnMoreUrl()),
-                             content::Referrer(),
-                             WindowOpenDisposition::NEW_FOREGROUND_TAB,
-                             ui::PAGE_TRANSITION_LINK, false),
+      content::OpenURLParams::CreateBrowserInitiated(
+          (*delegate_base_->GetCustomLearnMoreUrl()),
+          WindowOpenDisposition::NEW_FOREGROUND_TAB, ui::PAGE_TRANSITION_LINK),
       /*navigation_handle_callback=*/{});
 }
 

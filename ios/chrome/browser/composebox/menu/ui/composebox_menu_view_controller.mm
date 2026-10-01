@@ -22,7 +22,6 @@
 #import "ios/chrome/browser/composebox/shared/ui/composebox_ui_constants.h"
 #import "ios/chrome/browser/composebox/ui/composebox_ui_config.h"
 #import "ios/chrome/browser/composebox/ui/composebox_ui_input_state.h"
-#import "ios/chrome/browser/composebox/ui/composebox_ui_util.h"
 #import "ios/chrome/browser/keyboard/ui_bundled/UIKeyCommand+Chrome.h"
 #import "ios/chrome/browser/shared/ui/symbols/symbols.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
@@ -45,6 +44,11 @@ const CGFloat kCollectionViewTopPadding = 20.0f;
 
 // Spacing between attachment items.
 const CGFloat kAttachmentItemSpacing = 6.0f;
+
+// Minimum width for attachment items to prevent them from becoming taller than
+// wide. When items would be narrower than this, the section scrolls
+// horizontally.
+const CGFloat kAttachmentItemMinimumWidth = 60.0f;
 
 // Insets for the model and tools sections.
 const NSDirectionalEdgeInsets kListSectionInsets = {0, 16.0, 20.0, 16.0};
@@ -144,6 +148,10 @@ ComposeboxMenuItemType MenuItemTypeForModel(ComposeboxModelOption option) {
   NSArray<ComposeboxMenuSection*>* _sections;
   // The UI input state for the composebox.
   ComposeboxUIInputState* _inputState;
+}
+
+- (UICollectionView*)collectionView {
+  return _collectionView;
 }
 
 - (void)viewDidLoad {
@@ -360,8 +368,9 @@ ComposeboxMenuItemType MenuItemTypeForModel(ComposeboxModelOption option) {
     CGFloat availableWidth = containerWidth - kAttachmentSectionInsets.leading -
                              kAttachmentSectionInsets.trailing;
     CGFloat totalSpacing = (itemsCount - 1) * kAttachmentItemSpacing;
-    CGFloat itemWidth =
+    CGFloat naturalItemWidth =
         AlignValueToLowerPixel((availableWidth - totalSpacing) / itemsCount);
+    CGFloat itemWidth = MAX(naturalItemWidth, kAttachmentItemMinimumWidth);
 
     NSCollectionLayoutSize* itemSize = [NSCollectionLayoutSize
         sizeWithWidthDimension:[NSCollectionLayoutDimension

@@ -5,10 +5,15 @@
 #ifndef COMPONENTS_AUTOFILL_CORE_BROWSER_TEST_UTILS_ENTITY_DATA_TEST_UTIL_H_
 #define COMPONENTS_AUTOFILL_CORE_BROWSER_TEST_UTILS_ENTITY_DATA_TEST_UTIL_H_
 
+#include <string>
 #include <variant>
 
+#include "base/types/optional_ref.h"
 #include "components/autofill/core/browser/data_model/autofill_ai/entity_instance.h"
+#include "components/autofill/core/browser/data_model/autofill_ai/entity_type.h"
+#include "components/autofill/core/browser/data_model/autofill_ai/entity_type_names.h"
 #include "components/autofill/core/browser/test_utils/autofill_test_util.h"
+#include "testing/gmock/include/gmock/gmock.h"
 
 namespace autofill::test {
 
@@ -50,8 +55,8 @@ struct DriversLicenseOptionsT {
   const char16_t* name = u"Knecht Ruprecht";
   const char16_t* region = u"California";
   const char16_t* number = u"12312345";
-  const char16_t* expiration_date = u"01/12/2019";
-  const char16_t* issue_date = u"01/01/2010";
+  const char16_t* expiration_date = u"2019-12-01";
+  const char16_t* issue_date = u"2010-01-01";
   std::string_view guid = "00000000-0000-4000-8000-100000000000";
   std::string_view nickname = "License";
   base::Time date_modified = kJune2017;
@@ -103,8 +108,8 @@ struct NationalIdCardOptionsT {
   const char16_t* name = u"Name";
   const char16_t* number = u"987654321";
   const char16_t* country = u"United States";
-  const char16_t* issue_date = u"01/12/2020";
-  const char16_t* expiry_date = u"01/12/2030";
+  const char16_t* issue_date = u"2020-12-01";
+  const char16_t* expiry_date = u"2030-12-01";
   std::string_view guid = "00000000-0000-4000-8000-300000000000";
   std::string_view nickname = "IdCard";
   std::string_view app_locale = "en-US";
@@ -125,7 +130,7 @@ template <typename = void>
 struct KnownTravelerNumberOptionsT {
   const char16_t* name = u"Name";
   const char16_t* number = u"987654321";
-  const char16_t* expiration_date = u"01/12/2030";
+  const char16_t* expiration_date = u"2030-12-01";
   std::string_view guid = "00000000-0000-4000-8000-400000000000";
   std::string_view nickname = "Known Traveler Number";
   std::string_view app_locale = "en-US";
@@ -269,6 +274,47 @@ EntityInstance GetEntityInstance(std::vector<AttributeInstance> attributes,
 // Note that the masking is a toy version of what the server might do - it
 // simply takes the last 4 characters of obfuscated attributes.
 EntityInstance MaskEntityInstance(const EntityInstance& entity_instance);
+
+// Matches an EntityInstance's entity type.
+MATCHER_P(HasEntityType, expected_type, "") {
+  if (arg.type() != EntityType(expected_type)) {
+    *result_listener << "whose entity type is " << arg.type() << " (expected "
+                     << EntityType(expected_type) << ")";
+    return false;
+  }
+  return true;
+}
+
+// Matches that an EntityInstance has attribute `attribute_type_name` with a
+// value matching `value_matcher`.
+MATCHER_P2(HasAttributeWithValue, attribute_type_name, value_matcher, "") {
+  const AttributeType attr_type(attribute_type_name);
+  if (arg.type() != attr_type.entity_type()) {
+    *result_listener << "whose entity type is " << arg.type()
+                     << ", but attribute " << attr_type
+                     << " belongs to entity type " << attr_type.entity_type();
+    return false;
+  }
+  base::optional_ref<const AttributeInstance> attribute =
+      arg.attribute(attr_type);
+  if (!attribute) {
+    *result_listener << "which lacks attribute " << attr_type;
+    return false;
+  }
+  const std::u16string actual_value =
+      attribute->GetCompleteInfo(/*app_locale=*/"");
+  ::testing::StringMatchResultListener inner_listener;
+  const bool match = ::testing::ExplainMatchResult(
+      value_matcher, actual_value, &inner_listener);
+  if (!match) {
+    *result_listener << "whose attribute " << attr_type << " is "
+                     << ::testing::PrintToString(actual_value);
+    if (!inner_listener.str().empty()) {
+      *result_listener << " (" << inner_listener.str() << ")";
+    }
+  }
+  return match;
+}
 
 }  // namespace autofill::test
 

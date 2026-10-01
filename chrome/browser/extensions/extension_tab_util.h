@@ -81,7 +81,6 @@ class ExtensionTabUtil {
 
   enum ScrubTabBehaviorType {
     kScrubTabFully,
-    kScrubTabUrlToOrigin,
     kDontScrubTab,
   };
 
@@ -209,6 +208,16 @@ class ExtensionTabUtil {
                            tab_groups::TabGroupVisualData* out_visual_data,
                            std::string* error);
 
+  // Gets the metadata for the split with ID `split_id`. Sets the `error` if not
+  // found. `out_window` or `out_id` may be nullptr and will not be set within
+  // the function if so.
+  static bool GetSplitById(int split_id,
+                           content::BrowserContext* browser_context,
+                           bool include_incognito,
+                           WindowController** out_window,
+                           split_tabs::SplitTabId* out_id,
+                           std::string* error);
+
   // Returns whether the group is shared or not.
   static bool GetSharedStateOfGroup(const tab_groups::TabGroupId& id);
 
@@ -233,12 +242,6 @@ class ExtensionTabUtil {
   static std::vector<content::WebContents*> GetAllActiveWebContentsForContext(
       content::BrowserContext* browser_context,
       bool include_incognito);
-
-  // Determines if the `web_contents` is in `browser_context` or it's OTR
-  // BrowserContext if `include_incognito` is true.
-  static bool IsWebContentsInContext(content::WebContents* web_contents,
-                                     content::BrowserContext* browser_context,
-                                     bool include_incognito);
 
   // Takes `url_string` and returns a GURL which is either valid and absolute
   // or invalid. If `url_string` is not directly interpretable as a valid (it is

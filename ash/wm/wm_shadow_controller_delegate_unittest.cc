@@ -10,7 +10,7 @@
 #include "ui/aura/client/aura_constants.h"
 #include "ui/base/ui_base_types.h"
 #include "ui/compositor/layer.h"
-#include "ui/compositor_extra/shadow.h"
+#include "ui/decoration/shadow.h"
 #include "ui/views/test/test_widget_builder.h"
 #include "ui/views/widget/widget.h"
 #include "ui/wm/core/shadow_controller.h"
@@ -36,17 +36,17 @@ TEST_F(WmShadowControllerDelegateTest,
   // radius with its window.
   auto* shadow = shadow_controller->GetShadowForWindow(window.get());
   EXPECT_TRUE(window_rounded_corner);
-  EXPECT_EQ(shadow->rounded_corners_for_testing().upper_left(),
+  EXPECT_EQ(shadow->rounded_corners().upper_left(),
             window_rounded_corner->upper_left());
 
   // Enter Overview, the shadow's rounded corner radius becomes 0.
   ToggleOverview();
-  EXPECT_EQ(shadow->rounded_corners_for_testing(), gfx::RoundedCornersF());
+  EXPECT_EQ(shadow->rounded_corners(), gfx::RoundedCornersF());
 
   // Exit Overview, the shadow's rounded corner radius is reset to window
   // rounded corner radius.
   ToggleOverview();
-  EXPECT_EQ(shadow->rounded_corners_for_testing().upper_left(),
+  EXPECT_EQ(shadow->rounded_corners().upper_left(),
             window_rounded_corner->upper_left());
 }
 

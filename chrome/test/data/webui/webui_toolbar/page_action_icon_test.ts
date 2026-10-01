@@ -6,124 +6,15 @@ import 'chrome://webui-toolbar.top-chrome/app.js';
 
 import type {HelpBubbleOptions} from '//resources/cr_components/help_bubble/help_bubble_controller.js';
 import {hexColorToSkColor} from '//resources/js/color_utils.js';
+import type {CrIconElement} from 'chrome://resources/cr_elements/cr_icon/cr_icon.js';
+import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
-import {TestBrowserProxy} from 'chrome://webui-test/test_browser_proxy.js';
 import {microtasksFinished} from 'chrome://webui-test/test_util.js';
-import {BrowserProxyImpl, PageActionId, PageActionTrigger, TrackedElementManager} from 'chrome://webui-toolbar.top-chrome/app.js';
-import type {LhsChipIdentifier, PageActionIconElement, PageActionState} from 'chrome://webui-toolbar.top-chrome/app.js';
-import type {BrowserProxy} from 'chrome://webui-toolbar.top-chrome/browser_proxy.js';
-import type {ToolbarUIServiceInterface} from 'chrome://webui-toolbar.top-chrome/shared/toolbar_ui_api.mojom-webui.js';
+import {BrowserProxyImpl, IconTable, IconType, PageActionId, PageActionTrigger, TrackedElementManager} from 'chrome://webui-toolbar.top-chrome/app.js';
+import type {PageActionIconElement, PageActionState} from 'chrome://webui-toolbar.top-chrome/app.js';
 
-class TestToolbarUiHandler extends TestBrowserProxy implements
-    ToolbarUIServiceInterface {
-  constructor() {
-    super([
-      'onPageActionClick',
-      'onPageActionPointerDown',
-    ]);
-  }
-
-  bind() {
-    return new Promise<never>(() => {});
-  }
-  showContextMenu() {}
-  showOverflowMenu() {
-    return Promise.resolve({result: {}});
-  }
-  onOmniboxAction() {
-    return new Promise<never>(() => {});
-  }
-  onPageInitialized() {}
-  onContentSettingImagePointerDown() {}
-  onPageActionPointerDown(actionId: PageActionId) {
-    this.methodCalled('onPageActionPointerDown', actionId);
-  }
-  showContentSettingsBubble() {
-    return new Promise<never>(() => {});
-  }
-  onContentSettingImageAnimationEnded() {}
-  invokePinnedToolbarAction() {}
-  onHomeButtonDropUrl() {}
-  onHomeButtonDropFile() {}
-  onToolbarDropFile() {}
-  showAvatarMenu() {
-    return new Promise<never>(() => {});
-  }
-  setAvatarButtonHovered(_hovered: boolean) {
-    return Promise.resolve({result: {}});
-  }
-  setAvatarButtonFocused(_focused: boolean) {
-    return Promise.resolve({result: {}});
-  }
-  setAvatarButtonIphPromoShowing(_showing: boolean) {
-    return Promise.resolve({result: {}});
-  }
-  onAppMenuFocusChanged(_focused: boolean) {}
-  onLocationBarFocusWithinChanged(_focusInside: boolean) {}
-  onLhsChipMousePressed(_id: LhsChipIdentifier, _isMiddleClick: boolean) {}
-  onLhsChipClicked() {}
-  onLhsChipCollapseAnimationEnded() {}
-  onLhsChipExpandAnimationEnded() {}
-  onLhsChipPointerEntered() {}
-  onLhsChipPointerExited() {}
-  onLhsChipDrag() {}
-  movePinnedToolbarAction(_actionId: any, _targetIndex: any) {}
-  movePinnedToolbarActionBy(_actionId: any, _delta: any) {}
-  moveExtensionAction(_extensionId: string, _targetIndex: number) {}
-  moveExtensionActionBy(_extensionId: string, _delta: number) {}
-
-  onPageActionClick(actionId: PageActionId, trigger: PageActionTrigger) {
-    this.methodCalled('onPageActionClick', [actionId, trigger]);
-    return Promise.resolve({result: {}});
-  }
-
-  onPageActionChipShowingChanged(_actionId: PageActionId) {
-    return Promise.resolve({result: {}});
-  }
-
-  executeExtensionAction(_extensionId: string) {}
-
-  showExtensionContextMenu(_extensionId: string, _source: any) {}
-
-  adjustOmniboxTextForCopy(text: string, _selectionStart: number) {
-    return Promise.resolve({
-      adjustedText: text,
-      adjustedUrl: null,
-      pageTitle: null,
-    });
-  }
-
-  onPerformanceInterventionButtonClicked(_isMouseInteraction: boolean) {}
-
-  onPerformanceInterventionButtonMousePressed() {}
-}
-
-class TestToolbarBrowserProxy extends TestBrowserProxy implements BrowserProxy {
-  toolbarUIHandler: TestToolbarUiHandler;
-  browserControlsHandler: any;  // Not used in this test
-
-  constructor() {
-    super([]);
-    this.toolbarUIHandler = new TestToolbarUiHandler();
-  }
-
-  recordInHistogram() {}
-  addNavigationStateListener() {
-    return 0;
-  }
-  addFocusRequestListener() {
-    return 0;
-  }
-  removeNavigationStateListener() {}
-  removeFocusRequestListener() {}
-
-  onChipClicked(_chip: LhsChipIdentifier, _isPointerClick: boolean) {}
-  onChipPointerEntered(_chip: LhsChipIdentifier) {}
-  onChipPointerExited(_chip: LhsChipIdentifier) {}
-  onChipMousePressed(_chip: LhsChipIdentifier) {}
-  onChipExpandAnimationEnded(_chip: LhsChipIdentifier) {}
-  onChipCollapseAnimationEnded(_chip: LhsChipIdentifier) {}
-}
+import {TestToolbarBrowserProxy} from './test_toolbar_browser_proxy.js';
+import type {TestToolbarUiHandler} from './test_toolbar_browser_proxy.js';
 
 interface StartTrackingCall {
   element: HTMLElement;
@@ -154,7 +45,42 @@ suite('PageActionIconTest', function() {
         secondaryIdentifier: '',
       },
       isActive: false,
+      iconAnimationToken: 0,
     };
+  }
+
+  /**
+   * Helper that yields execution to the browser for two animation frames.
+   * This is used to ensure that any requestAnimationFrame callbacks scheduled
+   * by the implementation (such as triggering SVG SMIL icon animations) have
+   * completed and the browser has initialized the icon animation state before
+   * the test code queries or interacts with it.
+   */
+  function nextFrame(): Promise<void> {
+    return new Promise(resolve => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          resolve();
+        });
+      });
+    });
+  }
+
+  /**
+   * Helper that finds the SMIL animate element in the given icon, dispatches
+   * the 'endEvent' to simulate the icon animation finishing, and asserts that
+   * the element resets back to the static icon.
+   */
+  async function triggerAnimationEndAndVerify(animatedIcon: CrIconElement) {
+    const animate =
+        animatedIcon.shadowRoot?.querySelector('animate, animateTransform');
+    assertTrue(!!animate, 'animate element should be found');
+    animate.dispatchEvent(new Event('endEvent'));
+
+    await icon.updateComplete;
+
+    assertTrue(!!icon.shadowRoot.querySelector('icon-from-table'));
+    assertTrue(!icon.shadowRoot.querySelector('#animatedIcon'));
   }
 
   setup(async function() {
@@ -589,4 +515,228 @@ suite('PageActionIconTest', function() {
     await microtasksFinished();
     assertFalse(icon.$.button.hasAttribute('is-menu-open'));
   });
+
+  test('Glow up icon animation on bookmark star', async function() {
+    icon.glowUpEnabled = true;
+
+    const iconTable = IconTable.getInstance();
+    iconTable.applyUpdates([
+      {
+        handleId: 1n,
+        iconUrlOrName: 'webui-toolbar:star',
+        iconType: IconType.kIconSet,
+        color: null,
+      },
+      {
+        handleId: 2n,
+        iconUrlOrName: 'webui-toolbar:star_filled',
+        iconType: IconType.kIconSet,
+        color: null,
+      },
+    ]);
+
+    icon.state = {
+      ...createBaseState(),
+      pageActionId: PageActionId.kActionBookmarkThisTab,
+      icon: {handleId: 1n},
+    };
+    await microtasksFinished();
+
+    assertTrue(!!icon.shadowRoot.querySelector('icon-from-table'));
+    assertTrue(!icon.shadowRoot.querySelector('#animatedIcon'));
+
+    // Transition to starred
+    icon.state = {
+      ...icon.state,
+      icon: {handleId: 2n},
+    };
+    await icon.updateComplete;
+
+    const animatedIcon =
+        icon.shadowRoot.querySelector<CrIconElement>('#animatedIcon');
+    assertTrue(!!animatedIcon);
+    await animatedIcon.updateComplete;
+
+    // Wait for the requestAnimationFrame in playIconAnimation_ to run and
+    // attach the listener.
+    await nextFrame();
+
+    assertEquals('webui-toolbar:star_glow_up', animatedIcon.icon);
+    assertTrue(
+        !icon.shadowRoot.querySelector('icon-from-table'),
+        'icon-from-table should not be present');
+
+    await triggerAnimationEndAndVerify(animatedIcon);
+  });
+
+  test('Glow up icon animation on bookmark unstar', async function() {
+    icon.glowUpEnabled = true;
+
+    const iconTable = IconTable.getInstance();
+    iconTable.applyUpdates([
+      {
+        handleId: 1n,
+        iconUrlOrName: 'webui-toolbar:star',
+        iconType: IconType.kIconSet,
+        color: null,
+      },
+      {
+        handleId: 2n,
+        iconUrlOrName: 'webui-toolbar:star_filled',
+        iconType: IconType.kIconSet,
+        color: null,
+      },
+    ]);
+
+    // Initial state: starred
+    icon.state = {
+      ...createBaseState(),
+      pageActionId: PageActionId.kActionBookmarkThisTab,
+      icon: {handleId: 2n},
+    };
+    await microtasksFinished();
+
+    assertTrue(!!icon.shadowRoot.querySelector('icon-from-table'));
+    assertTrue(!icon.shadowRoot.querySelector('#animatedIcon'));
+
+    // Transition to unstarred
+    icon.state = {
+      ...icon.state,
+      icon: {handleId: 1n},
+    };
+    await icon.updateComplete;
+
+    const animatedIcon =
+        icon.shadowRoot.querySelector<CrIconElement>('#animatedIcon');
+    assertTrue(!!animatedIcon);
+    await animatedIcon.updateComplete;
+
+    // Wait for the requestAnimationFrame in playIconAnimation_ to run and
+    // attach the listener.
+    await nextFrame();
+
+    assertEquals('webui-toolbar:star_filled_glow_up', animatedIcon.icon);
+    assertTrue(
+        !icon.shadowRoot.querySelector('icon-from-table'),
+        'icon-from-table should not be present');
+
+    await triggerAnimationEndAndVerify(animatedIcon);
+  });
+
+  test(
+      'No glow up icon animation on tab switch or navigation',
+      async function() {
+        icon.glowUpEnabled = true;
+
+        const iconTable = IconTable.getInstance();
+        iconTable.applyUpdates([
+          {
+            handleId: 1n,
+            iconUrlOrName: 'webui-toolbar:star',
+            iconType: IconType.kIconSet,
+            color: null,
+          },
+          {
+            handleId: 2n,
+            iconUrlOrName: 'webui-toolbar:star_filled',
+            iconType: IconType.kIconSet,
+            color: null,
+          },
+        ]);
+
+        // Initial state: not bookmarked, token 1
+        icon.state = {
+          ...createBaseState(),
+          pageActionId: PageActionId.kActionBookmarkThisTab,
+          icon: {handleId: 1n},
+          iconAnimationToken: 1,
+        };
+        await microtasksFinished();
+
+        assertTrue(!!icon.shadowRoot.querySelector('icon-from-table'));
+        assertTrue(!icon.shadowRoot.querySelector('#animatedIcon'));
+
+        // Transition to starred, but with a different icon animation token (tab
+        // switch/navigation)
+        icon.state = {
+          ...icon.state,
+          icon: {handleId: 2n},
+          iconAnimationToken: 2,
+        };
+        await icon.updateComplete;
+
+        // Wait a couple of frames to ensure no animation was deferred and
+        // triggered
+        await nextFrame();
+
+        // Verify it remains on static icon and no animated icon is rendered
+        assertTrue(!!icon.shadowRoot.querySelector('icon-from-table'));
+        assertTrue(!icon.shadowRoot.querySelector('#animatedIcon'));
+      });
+});
+
+suite('PageActionIconsTest', function() {
+  function createState(id: PageActionId): PageActionState {
+    return {
+      pageActionId: id,
+      accessibleName: 'Action',
+      tooltipText: 'Tooltip',
+      icon: {handleId: 0n},
+      text: '',
+      shouldShowChip: false,
+      shouldAnimateChipIn: false,
+      shouldAnimateChipOut: false,
+      backgroundColorOverride: null,
+      identifier: {
+        nativeIdentifier: '',
+        secondaryIdentifier: '',
+      },
+      isActive: false,
+      iconAnimationToken: 0,
+    };
+  }
+
+  test(
+      'is-capsule attribute reflects when pageActionStates has more than 1 ' +
+          'item and elevated toolbar is enabled',
+      async () => {
+        loadTimeData.overrideValues({enablePageActionsElevatedToolbar: false});
+        const container = document.createElement('page-action-icons');
+        document.body.appendChild(container);
+
+        assertEquals(0, container.pageActionStates.length);
+        assertFalse(container.isCapsule);
+        assertFalse(container.hasAttribute('is-capsule'));
+
+        // Flag is disabled, so isCapsule remains false even with > 1 items.
+        container.pageActionStates = [
+          createState(PageActionId.kActionAiMode),
+          createState(PageActionId.kActionShowTranslate),
+        ];
+        await microtasksFinished();
+        assertFalse(container.isCapsule);
+        assertFalse(container.hasAttribute('is-capsule'));
+
+        // When flag is enabled, isCapsule reflects when > 1 items.
+        loadTimeData.overrideValues({enablePageActionsElevatedToolbar: true});
+        container.pageActionStates = [createState(PageActionId.kActionAiMode)];
+        await microtasksFinished();
+        assertFalse(container.isCapsule);
+        assertFalse(container.hasAttribute('is-capsule'));
+
+        container.pageActionStates = [
+          createState(PageActionId.kActionAiMode),
+          createState(PageActionId.kActionShowTranslate),
+        ];
+        await microtasksFinished();
+        assertTrue(container.isCapsule);
+        assertTrue(container.hasAttribute('is-capsule'));
+
+        container.pageActionStates = [createState(PageActionId.kActionAiMode)];
+        await microtasksFinished();
+        assertFalse(container.isCapsule);
+        assertFalse(container.hasAttribute('is-capsule'));
+
+        container.remove();
+      });
 });

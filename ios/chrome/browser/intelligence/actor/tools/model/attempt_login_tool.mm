@@ -8,10 +8,15 @@
 #import <utility>
 
 #import "base/functional/bind.h"
+#import "base/functional/callback_helpers.h"
+#import "base/memory/scoped_refptr.h"
 #import "components/actor/public/mojom/actor_types.mojom.h"
 #import "components/optimization_guide/proto/features/actions_data.pb.h"
 #import "components/password_manager/core/browser/actor_login/actor_login_quality_logger.h"
 #import "components/password_manager/core/browser/actor_login/actor_login_service.h"
+#import "components/password_manager/core/browser/password_form_cache.h"
+#import "components/password_manager/core/browser/password_form_manager.h"
+#import "components/password_manager/ios/actor_login/actor_login_tool_delegate.h"
 #import "ios/chrome/browser/intelligence/actor/tools/model/actor_task_form_filling_handler.h"
 #import "ios/chrome/browser/intelligence/actor/tools/model/tool_delegate.h"
 #import "ios/chrome/browser/intelligence/actor/tools/public/actor_tool_types.h"
@@ -20,6 +25,15 @@
 #import "ios/web/public/navigation/navigation_item.h"
 #import "ios/web/public/navigation/navigation_manager.h"
 #import "ios/web/public/web_state.h"
+
+namespace {
+
+using actor_login::LoginStatusResult;
+
+// Timeout duration to wait for web state rescan to complete and find forms.
+constexpr base::TimeDelta kRescanTimeout = base::Seconds(1);
+
+}  // namespace
 
 namespace actor {
 
@@ -37,17 +51,32 @@ AttemptLoginTool::AttemptLoginTool(base::WeakPtr<web::WebState> web_state,
     : web_state_(web_state),
       tool_delegate_(tool_delegate),
       attempt_login_tool_start_time_(base::TimeTicks::Now()),
-      quality_logger_(std::make_unique<ActorLoginQualityLogger>(
-          GetApplicationContext()->GetVariationsService())) {}
+      // Quality logs are not uploaded on iOS yet, so the logger is
+      // created without an uploader and its log is dropped.
+      quality_logger_(base::MakeRefCounted<ActorLoginQualityLogger>(
+          GetApplicationContext()->GetVariationsService(),
+          /*mqls_uploader=*/nullptr)) {}
 
 AttemptLoginTool::~AttemptLoginTool() = default;
 
 void AttemptLoginTool::Cancel() {
+  if (observing_form_cache_) {
+    if (auto* client =
+            IOSChromeActorLoginDelegateClient::FromWebState(web_state_.get())) {
+      if (password_manager::PasswordFormCache* form_cache =
+              client->GetPasswordFormCache()) {
+        form_cache->RemoveObserver(this);
+      }
+    }
+    observing_form_cache_ = false;
+  }
   tool_delegate_ = nullptr;
   web_state_observation_.Reset();
   // TODO(crbug.com/472291829): If `selected_credential_` exists, consider
   // uninterrupt from tool depending on Desktop handling.
   selected_credential_.reset();
+  rescan_timer_.Stop();
+  rescan_in_progress_ = false;
   ActorTool::Cancel();
   weak_ptr_factory_.InvalidateWeakPtrs();
 }
@@ -95,8 +124,8 @@ void AttemptLoginTool::Execute(ToolExecutionCallback callback) {
     const bool should_store_permission =
         user_selected_credential_and_permission->always_allow;
     login_service->AttemptLogin(
-        client, credential, should_store_permission,
-        quality_logger_->AsWeakPtr(), attempt_login_tool_start_time_,
+        client, credential, should_store_permission, quality_logger_,
+        attempt_login_tool_start_time_,
         /*frame_filling_started_cb=*/{},
         base::BindOnce(&AttemptLoginTool::OnAttemptLogin,
                        weak_ptr_factory_.GetWeakPtr(), credential,
@@ -107,7 +136,7 @@ void AttemptLoginTool::Execute(ToolExecutionCallback callback) {
 
   login_service->GetCredentials(
       client,
-      /*has_sign_in_with_google_button=*/false, quality_logger_->AsWeakPtr(),
+      /*has_sign_in_with_google_button=*/false, quality_logger_,
       base::BindOnce(&AttemptLoginTool::OnGetCredentials,
                      weak_ptr_factory_.GetWeakPtr()));
 }
@@ -187,7 +216,7 @@ void AttemptLoginTool::OnCredentialSelected(
       tool_delegate_->GetActorTaskFormFillingHandler()->GetActorLoginService();
   CHECK(login_service);
   login_service->AttemptLogin(
-      client, credential, selection->always_allow, quality_logger_->AsWeakPtr(),
+      client, credential, selection->always_allow, quality_logger_,
       attempt_login_tool_start_time_,
       /*frame_filling_started_cb=*/{},
       base::BindOnce(&AttemptLoginTool::OnAttemptLogin,
@@ -206,29 +235,104 @@ void AttemptLoginTool::OnAttemptLogin(
             actor_login::LoginErrorToActorResult(login_status.error())));
     return;
   }
-  if (login_status.value() ==
-      actor_login::LoginStatusResult::kErrorDeviceReauthRequired) {
-    // This only happens when the task is NOT in focus, otherwise the
-    // ActorLoginService would have handled re-auth. Wait for the task to get
-    // back into focus.
-    selected_credential_ = selected_credential;
-    should_store_permission_ = should_store_permission;
+
+  LoginStatusResult value = login_status.value();
+
+  // Handle device reauthentication. This only happens when the task is NOT in
+  // focus, otherwise the ActorLoginService would have handled re-auth. Wait for
+  // the task to get back into focus.
+  if (value == LoginStatusResult::kErrorDeviceReauthRequired) {
+    waiting_for_reauth_ = true;
+    SaveCredentialsAndPermission(selected_credential, should_store_permission);
     tool_delegate_->InterruptFromTool();
     return;
   }
+
+  // Handles cases where no sign-in form is found. This can occur if any dynamic
+  // DOM changes have not been captured, in which case rescanning the page may
+  // discover the missing form.
+  if (value == LoginStatusResult::kErrorNoSigninForm &&
+      !web_state_rescan_attempted_) {
+    IOSChromeActorLoginDelegateClient* client =
+        IOSChromeActorLoginDelegateClient::FromWebState(web_state_.get());
+    CHECK(client);
+    if (id<ActorLoginToolDelegate> delegate =
+            client->GetActorLoginToolDelegate()) {
+      SaveCredentialsAndPermission(selected_credential,
+                                   should_store_permission);
+      web_state_rescan_attempted_ = true;
+      if (password_manager::PasswordFormCache* form_cache =
+              client->GetPasswordFormCache()) {
+        form_cache->AddObserver(this);
+        observing_form_cache_ = true;
+      }
+      rescan_in_progress_ = true;
+      rescan_timer_.Start(
+          FROM_HERE, kRescanTimeout,
+          base::BindOnce(&AttemptLoginTool::OnWebStateRescanComplete,
+                         weak_ptr_factory_.GetWeakPtr(),
+                         /*forms_found=*/false));
+      auto completion_block = base::CallbackToBlock(
+          base::BindOnce(&AttemptLoginTool::OnDomRescanComplete,
+                         weak_ptr_factory_.GetWeakPtr()));
+      [delegate actorLoginToolFindsFormsInWebState:web_state_.get()
+                                 completionHandler:completion_block];
+      return;
+    }
+  }
+
+  // Handles all other cases.
   std::move(execute_callback_)
       .Run(ToolExecutionResult(
           actor_login::LoginResultToActorResult(login_status.value())));
 }
 
-void AttemptLoginTool::WasShown(web::WebState* web_state) {
-  CHECK_EQ(web_state_.get(), web_state);
+void AttemptLoginTool::OnDomRescanComplete(bool forms_found_in_dom) {
+  if (!forms_found_in_dom) {
+    OnWebStateRescanComplete(/*forms_found=*/false);
+  }
+}
 
+void AttemptLoginTool::OnWebStateRescanComplete(bool forms_found) {
+  CHECK(web_state_rescan_attempted_);
+  if (observing_form_cache_) {
+    if (auto* client =
+            IOSChromeActorLoginDelegateClient::FromWebState(web_state_.get())) {
+      if (password_manager::PasswordFormCache* form_cache =
+              client->GetPasswordFormCache()) {
+        form_cache->RemoveObserver(this);
+      }
+    }
+    observing_form_cache_ = false;
+  }
+
+  // Early return if this method has already been called once.
+  if (!rescan_in_progress_) {
+    return;
+  }
+  rescan_in_progress_ = false;
+  rescan_timer_.Stop();
+
+  if (forms_found) {
+    RetryLoginWithSavedCredentials();
+  } else {
+    std::move(execute_callback_)
+        .Run(ToolExecutionResult(actor_login::LoginResultToActorResult(
+            LoginStatusResult::kErrorNoSigninForm)));
+  }
+}
+
+void AttemptLoginTool::SaveCredentialsAndPermission(
+    actor_login::Credential selected_credential,
+    bool should_store_permission) {
+  selected_credential_ = selected_credential;
+  should_store_permission_ = should_store_permission;
+}
+
+void AttemptLoginTool::RetryLoginWithSavedCredentials() {
   if (!selected_credential_.has_value()) {
     return;
   }
-
-  tool_delegate_->UninterruptFromTool();
   const actor_login::Credential credential = selected_credential_.value();
   selected_credential_.reset();
   OnCredentialSelected(CredentialWithPermission{
@@ -237,8 +341,28 @@ void AttemptLoginTool::WasShown(web::WebState* web_state) {
   });
 }
 
+void AttemptLoginTool::OnPasswordFormParsed(
+    password_manager::PasswordFormManager* form_manager) {
+  OnWebStateRescanComplete(/*forms_found=*/true);
+}
+
+void AttemptLoginTool::WasShown(web::WebState* web_state) {
+  if (!waiting_for_reauth_) {
+    return;
+  }
+  CHECK_EQ(web_state_.get(), web_state);
+  waiting_for_reauth_ = false;
+  tool_delegate_->UninterruptFromTool();
+  RetryLoginWithSavedCredentials();
+}
+
 void AttemptLoginTool::WebStateDestroyed(web::WebState* web_state) {
   CHECK_EQ(web_state_.get(), web_state);
+  // When `web_state` is destroyed, its attached tab helpers (and thus
+  // `PasswordFormCache`) are destroyed before this observer callback.
+  // Mark that we are no longer observing so `Cancel()` does not attempt to
+  // query or touch the destroyed cache.
+  observing_form_cache_ = false;
   if (execute_callback_) {
     std::move(execute_callback_)
         .Run(ToolExecutionResult(mojom::ActionResultCode::kTabWentAway));

@@ -260,6 +260,7 @@ BrowserAccessibilityAndroid::~BrowserAccessibilityAndroid() {
   if (auto id = GetUniqueId()) {
     GetUniqueIdMap().erase(id);
   }
+  GetLeafMap().erase(this);
 }
 
 std::u16string BrowserAccessibilityAndroid::GetLocalizedString(
@@ -866,13 +867,14 @@ bool BrowserAccessibilityAndroid::ComputeIsLeaf() const {
     return false;
   }
 
-  // Button, date and time controls should not expose their children to Android
-  // accessibility APIs.
+  // Button, date, time, and slider controls should not expose their children
+  // to Android accessibility APIs.
   switch (GetRole()) {
     case ax::mojom::Role::kButton:
     case ax::mojom::Role::kDate:
     case ax::mojom::Role::kDateTime:
     case ax::mojom::Role::kInputTime:
+    case ax::mojom::Role::kSlider:
       return true;
     default:
       break;
@@ -897,10 +899,11 @@ bool BrowserAccessibilityAndroid::ComputeIsLeaf() const {
   }
 
   // Focusable nodes with name from attribute should never drop children, unless
-  // they only have static text children.
+  // they only have static text children or generic containers with text.
   if (HasState(ax::mojom::State::kFocusable) &&
       GetNameFrom() == ax::mojom::NameFrom::kAttribute) {
-    if (HasOnlyTextChildren() && !HasListMarkerChild()) {
+    if ((HasOnlyTextChildren() || HasOnlyTextAndGenericDescendants()) &&
+        !HasListMarkerChild()) {
       return true;
     }
     // We exclude options, menu items, and comboboxes to prevent double
@@ -924,6 +927,13 @@ bool BrowserAccessibilityAndroid::ComputeIsLeaf() const {
   // that list markers have a different role and should not be dropped.
   if (HasOnlyTextChildren() && !HasListMarkerChild()) {
     return true;
+  }
+
+  // Headings can drop their children if the name comes from an attribute (e.g.
+  // aria-label) in order to avoid announcing the contents twice.
+  if (GetRole() == ax::mojom::Role::kHeading &&
+      GetNameFrom() == ax::mojom::NameFrom::kAttribute) {
+    return IsLeafConsideringChildren();
   }
 
   // Headings, focusable nodes, and options/menu-items can drop their children
@@ -2010,6 +2020,8 @@ int BrowserAccessibilityAndroid::GetTextChangeFromIndex() const {
     // If the text change is due to a IME text commit.
     if (committed_text_length > 0) {
       // Cursor should move to the end of committed text.
+      // TODO(crbug.com/557456841): CHECK-exclusion: Convert to a CHECK once we
+      // are confident it won't be triggered.
       DCHECK_GE(GetSelectionStart() - committed_text_length, 0);
       // This is current_cursor_location - len(X).
       return GetSelectionStart() - committed_text_length;
@@ -2111,8 +2123,11 @@ int BrowserAccessibilityAndroid::GetSelectionStart() const {
     return ui::kAXAndroidUndefinedSelectionIndex;
   }
 
-  AXPosition position = anchor_object->CreateTextPositionAt(
+  AXPosition position = anchor_object->CreatePositionAt(
       unignored_selection.anchor_offset, unignored_selection.anchor_affinity);
+  if (position->IsTreePosition()) {
+    position = position->AsTextPosition();
+  }
   while (position->GetAnchor() && position->GetAnchor() != node()) {
     position = position->CreateParentPosition();
   }
@@ -2135,8 +2150,11 @@ int BrowserAccessibilityAndroid::GetSelectionEnd() const {
     return ui::kAXAndroidUndefinedSelectionIndex;
   }
 
-  AXPosition position = focus_object->CreateTextPositionAt(
+  AXPosition position = focus_object->CreatePositionAt(
       unignored_selection.focus_offset, unignored_selection.focus_affinity);
+  if (position->IsTreePosition()) {
+    position = position->AsTextPosition();
+  }
   while (position->GetAnchor() && position->GetAnchor() != node()) {
     position = position->CreateParentPosition();
   }
@@ -2249,7 +2267,7 @@ std::optional<int> BrowserAccessibilityAndroid::RowSpan() const {
       GetRole() == ax::mojom::Role::kListBoxOption) {
     // For <ol> and <ul> elements on Android (e.g. role kListItem), the AX
     // code will consider these 0 span, but on Android they are 1.
-    DCHECK(!ax_row_span.has_value());
+    CHECK(!ax_row_span.has_value(), base::NotFatalUntil::M159);
     ax_row_span = 1;
   }
   return ax_row_span;
@@ -2265,7 +2283,7 @@ std::optional<int> BrowserAccessibilityAndroid::ColumnSpan() const {
       GetRole() == ax::mojom::Role::kListBoxOption) {
     // For <ol> and <ul> elements on Android (e.g. role kListItem), the AX
     // code will consider these 0 span, but on Android they are 1.
-    DCHECK(!ax_col_span.has_value());
+    CHECK(!ax_col_span.has_value(), base::NotFatalUntil::M159);
     ax_col_span = 1;
   }
 
@@ -2432,8 +2450,8 @@ std::u16string BrowserAccessibilityAndroid::GetTargetUrl() const {
 void BrowserAccessibilityAndroid::GetSuggestions(
     std::vector<int>* suggestion_starts,
     std::vector<int>* suggestion_ends) const {
-  DCHECK(suggestion_starts);
-  DCHECK(suggestion_ends);
+  CHECK(suggestion_starts, base::NotFatalUntil::M159);
+  CHECK(suggestion_ends, base::NotFatalUntil::M159);
 
   if (!IsTextField()) {
     return;
@@ -2601,6 +2619,34 @@ bool BrowserAccessibilityAndroid::HasListMarkerChild() const {
     }
   }
   return false;
+}
+
+bool BrowserAccessibilityAndroid::HasOnlyTextAndGenericDescendants() const {
+  // This is called from `IsLeaf`, so don't call `PlatformChildCount` from
+  // within this!
+  for (auto it = InternalChildrenBegin(); it != InternalChildrenEnd(); ++it) {
+    BrowserAccessibility* child = it.get();
+    if (child->IsFocusable() || child->HasState(ax::mojom::State::kFocusable)) {
+      return false;
+    }
+
+    const ax::mojom::Role role = child->GetRole();
+    if (ui::IsControl(role) || ui::IsLink(role) ||
+        role == ax::mojom::Role::kHeading || role == ax::mojom::Role::kTable ||
+        ui::IsTableLike(role)) {
+      return false;
+    }
+
+    if (role == ax::mojom::Role::kGenericContainer) {
+      if (!static_cast<const BrowserAccessibilityAndroid*>(child)
+               ->HasOnlyTextAndGenericDescendants()) {
+        return false;
+      }
+    } else if (!child->IsText()) {
+      return false;
+    }
+  }
+  return true;
 }
 
 bool BrowserAccessibilityAndroid::ShouldPromoteValueToTextProperty(

@@ -58,9 +58,10 @@ class OtpFieldDetector : public AutofillManager::Observer {
   bool IsOtpFieldPresent() const;
 
   // Returns true if the `form` contains at least one focusable `ONE_TIME_CODE`
-  // field. If `kAutofillRestrictOtpToSameTldPlusOne` is enabled, also requires
-  // that all focusable `ONE_TIME_CODE` fields in the `form` are same-site with
-  // the main frame's origin.
+  // field that is not a password input. If
+  // `kAutofillRestrictOtpToSameTldPlusOne` is enabled, also requires that all
+  // focusable `ONE_TIME_CODE` fields in the `form` are same-site with the main
+  // frame's origin.
   [[nodiscard]] static bool IsOtpForm(const FormStructure& form);
 
   // AutofillManager::Observer:
@@ -98,9 +99,6 @@ class OtpFieldDetector : public AutofillManager::Observer {
       AutofillDriver::LifecycleState new_state) override;
 
  protected:
-  // Protected to ensure that only derived classes can be instantiated.
-  OtpFieldDetector();
-
   // Functions that add and remove `form_id` to/from `forms_with_otps_` and
   // notify the registered callbacks if the number of forms with OTP fields goes
   // from 0 to >1 or vice versa. `form_id` is always a form that contains at

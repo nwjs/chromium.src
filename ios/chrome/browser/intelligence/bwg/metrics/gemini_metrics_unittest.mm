@@ -39,6 +39,9 @@ const char kImageActionButtonTapped[] = "MobileGeminiImageActionButtonTapped";
 const char kInputPlateAttachmentOptionTapped[] =
     "MobileGeminiInputPlateAttachmentOptionTapped";
 const char kEntryPointAvailable[] = "MobileGeminiEntryPointAvailable";
+const char kEntryPointDisabledByQuota[] =
+    "MobileGeminiEntryPointDisabledByQuota";
+const char kQuotaReached[] = "MobileGeminiQuotaReached";
 }  // namespace
 
 class GeminiMetricsTest : public PlatformTest {
@@ -411,6 +414,21 @@ TEST_F(GeminiMetricsTest, RecordGeminiEntryPointAvailable) {
   EXPECT_EQ(1, user_action_tester_.GetActionCount(kEntryPointAvailable));
 }
 
+// Tests that the Gemini entry point disabled by quota metric is recorded
+// correctly.
+TEST_F(GeminiMetricsTest, TestRecordGeminiEntryPointDisabledByQuota) {
+  RecordGeminiEntryPointDisabledByQuota(gemini::EntryPoint::ImageContextMenu);
+  histogram_tester_.ExpectUniqueSample(kEntryPointDisabledByQuotaHistogram,
+                                       gemini::EntryPoint::ImageContextMenu, 1);
+  EXPECT_EQ(1, user_action_tester_.GetActionCount(kEntryPointDisabledByQuota));
+}
+
+// Tests that the Gemini quota reached metric is recorded correctly.
+TEST_F(GeminiMetricsTest, TestRecordGeminiQuotaReached) {
+  RecordGeminiQuotaReached();
+  EXPECT_EQ(1, user_action_tester_.GetActionCount(kQuotaReached));
+}
+
 TEST_F(GeminiMetricsTest, RecordGeminiPageAvailability) {
   RecordGeminiPageAvailability(IOSGeminiPageAvailability::kAvailable);
   histogram_tester_.ExpectUniqueSample(kGeminiPageAvailabilityHistogram,
@@ -533,4 +551,40 @@ TEST_F(GeminiMetricsTest, TestRecordGeminiLivePromptSent) {
             user_action_tester_.GetActionCount("MobileGeminiChatPromptSent"));
   EXPECT_EQ(2,
             user_action_tester_.GetActionCount("MobileGeminiLivePromptSent"));
+}
+// Tests that RecordGeminiAppSwitcherAccountStatus records to the correct
+// histogram.
+TEST_F(GeminiMetricsTest, TestRecordGeminiAppSwitcherAccountStatus) {
+  RecordGeminiAppSwitcherAccountStatus(
+      GeminiAppSwitcherAccountStatus::kMatching);
+  histogram_tester_.ExpectBucketCount(
+      "IOS.Gemini.AISummarization.AccountStatus",
+      GeminiAppSwitcherAccountStatus::kMatching, 1);
+
+  RecordGeminiAppSwitcherAccountStatus(
+      GeminiAppSwitcherAccountStatus::kMismatched);
+  histogram_tester_.ExpectBucketCount(
+      "IOS.Gemini.AISummarization.AccountStatus",
+      GeminiAppSwitcherAccountStatus::kMismatched, 1);
+
+  RecordGeminiAppSwitcherAccountStatus(
+      GeminiAppSwitcherAccountStatus::kExternalAppOnlySignedIn);
+  histogram_tester_.ExpectBucketCount(
+      "IOS.Gemini.AISummarization.AccountStatus",
+      GeminiAppSwitcherAccountStatus::kExternalAppOnlySignedIn, 1);
+
+  RecordGeminiAppSwitcherAccountStatus(
+      GeminiAppSwitcherAccountStatus::kClientAppOnlySignedIn);
+  histogram_tester_.ExpectBucketCount(
+      "IOS.Gemini.AISummarization.AccountStatus",
+      GeminiAppSwitcherAccountStatus::kClientAppOnlySignedIn, 1);
+
+  RecordGeminiAppSwitcherAccountStatus(
+      GeminiAppSwitcherAccountStatus::kBothSignedOut);
+  histogram_tester_.ExpectBucketCount(
+      "IOS.Gemini.AISummarization.AccountStatus",
+      GeminiAppSwitcherAccountStatus::kBothSignedOut, 1);
+
+  histogram_tester_.ExpectTotalCount("IOS.Gemini.AISummarization.AccountStatus",
+                                     5);
 }

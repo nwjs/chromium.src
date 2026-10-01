@@ -1094,6 +1094,8 @@ void Dispatcher::LoadExtensions(
   for (auto& param : loaded_extensions) {
     std::u16string error;
     ExtensionId id = param->id;
+    bool is_mojo_js_enabled_for_service_worker =
+        param->is_mojo_js_enabled_for_service_worker;
     std::optional<base::UnguessableToken> worker_activation_token =
         param->worker_activation_token;
     SetCurrentUserScriptAllowedState(kRendererProfileId, id,
@@ -1109,6 +1111,9 @@ void Dispatcher::LoadExtensions(
 
     RendererExtensionRegistry* extension_registry =
         RendererExtensionRegistry::Get();
+
+    extension_registry->SetMojoJsEnabledForServiceWorker(
+        id, is_mojo_js_enabled_for_service_worker);
 
     // The order of setting the token before inserting the extension is
     // intentional so that DidInitializeServiceWorkerContextOnWorkerThread()
@@ -1373,7 +1378,7 @@ void Dispatcher::WatchPages(const std::vector<std::string>& css_selectors) {
 }
 
 void Dispatcher::DispatchEvent(mojom::DispatchEventParamsPtr params,
-                               base::ListValue event_args,
+                               const scoped_refptr<const EventArgs>& event_args,
                                DispatchEventCallback callback) {
   CHECK_EQ(params->worker_thread_id, kMainThreadId);
   CHECK(params->host_id);
@@ -1406,7 +1411,8 @@ void Dispatcher::DispatchEvent(mojom::DispatchEventParamsPtr params,
         blink::mojom::UserActivationNotificationType::kExtensionEvent);
   }
 
-  DispatchEventHelper(*params->host_id, params->event_name, event_args,
+  CHECK(event_args);
+  DispatchEventHelper(*params->host_id, params->event_name, event_args->data,
                       std::move(params->filtering_info));
   std::move(callback).Run(event_has_listener_in_background_context);
 }

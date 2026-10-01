@@ -21,6 +21,7 @@
 #include "base/test/bind.h"
 #include "base/test/test_future.h"
 #include "base/test/test_timeouts.h"
+#include "base/threading/thread_restrictions.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
 #include "chrome/browser/apps/platform_apps/shortcut_manager.h"
@@ -203,15 +204,15 @@ class PasswordStoreConsumerVerifier
  public:
   void OnGetPasswordStoreResultsOrErrorFrom(
       password_manager::PasswordStoreInterface* store,
-      password_manager::LoginsResultOrError results_or_error) override {
-    if (std::holds_alternative<password_manager::PasswordStoreBackendError>(
-            results_or_error)) {
+      base::expected<std::vector<password_manager::StoredCredential>,
+                     password_manager::PasswordStoreBackendError>
+          results_or_error) override {
+    if (!results_or_error) {
       ADD_FAILURE() << "Error from password store";
       password_entries_ = std::vector<password_manager::PasswordForm>();
     } else {
-      password_entries_ = password_manager::ToPasswordForms(
-          std::get<password_manager::LoginsResult>(
-              std::move(results_or_error)));
+      password_entries_ =
+          password_manager::ToPasswordForms(std::move(*results_or_error));
     }
     run_loop_.Quit();
   }

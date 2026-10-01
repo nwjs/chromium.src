@@ -10,7 +10,6 @@
 #include "chrome/browser/component_updater/wasm_tts_engine_component_installer.h"
 #include "chrome/common/buildflags.h"
 #include "components/component_updater/component_updater_service.h"
-
 #if !BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/component_updater/soda_component_installer.h"
 #endif

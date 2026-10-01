@@ -116,6 +116,7 @@
 #include "content/browser/site_instance_impl.h"
 #include "content/browser/storage_partition_impl.h"
 #include "content/browser/url_loader_factory_params_helper.h"
+#include "content/browser/web_exposed_isolation_info.h"
 #include "content/browser/web_package/prefetched_signed_exchange_cache.h"
 #include "content/common/content_constants_internal.h"
 #include "content/common/content_navigation_policy.h"
@@ -146,6 +147,7 @@
 #include "content/public/browser/security_principal.h"
 #include "content/public/browser/site_isolation_policy.h"
 #include "content/public/browser/storage_partition.h"
+#include "content/public/browser/storage_partition_config.h"
 #include "content/public/browser/tracing_support.h"
 #include "content/public/browser/weak_document_ptr.h"
 #include "content/public/common/content_client.h"
@@ -165,6 +167,7 @@
 #include "net/base/url_util.h"
 #include "net/cookies/cookie_access_result.h"
 #include "net/cookies/cookie_setting_override.h"
+#include "net/disk_cache/buildflags.h"
 #include "net/filter/source_stream_type.h"
 #include "net/http/http_request_headers.h"
 #include "net/http/http_status_code.h"
@@ -1242,7 +1245,8 @@ std::unique_ptr<NavigationRequest> NavigationRequest::Create(
       base::TimeTicks() /* before_unload_dialog_opened */,
       base::TimeTicks() /* before_unload_dialog_closed */,
       started_with_transient_activation, started_by_ad, is_container_initiated,
-      has_rel_opener, std::nullopt /* script_tool_invocation_id */);
+      has_rel_opener, std::nullopt /* script_tool_invocation_id */,
+      /*script_injector_host=*/"");
 
   // Shift-Reload forces bypassing caches and service workers.
   if (common_params->navigation_type ==
@@ -1749,8 +1753,7 @@ NavigationRequest::NavigationRequest(
           GetPrerenderHostRegistry().GetPrerenderHostIdForNavigation(this)),
       initiator_navigation_state_(initiator_navigation_state),
       should_ignore_initiator_policies_for_inheritance_(
-          should_ignore_initiator_policies_for_inheritance),
-      initiator_state_token_to_commit_(base::UnguessableToken::Create()) {
+          should_ignore_initiator_policies_for_inheritance) {
   TRACE_EVENT("navigation", "NavigationRequest::NavigationRequest",
               perfetto::Flow::FromPointer(this),
               perfetto::protos::pbzero::ChromeTrackEvent::kNavigation, this);
@@ -1896,6 +1899,7 @@ NavigationRequest::NavigationRequest(
     origin_related_state_.emplace(OriginRelatedState{
         .item_sequence_number = frame_entry->item_sequence_number(),
         .document_sequence_number = frame_entry->document_sequence_number(),
+        .committed_origin = frame_entry->committed_origin(),
     });
   }
 
@@ -2091,10 +2095,7 @@ NavigationRequest::NavigationRequest(
     // Add reduced accept language header.
     if (auto reduce_accept_lang_utils =
             ReduceAcceptLanguageUtils::Create(browser_context);
-        reduce_accept_lang_utils && !devtools_accept_language_override_ &&
-        !ReduceAcceptLanguageUtils::CheckDisableReduceAcceptLanguageOriginTrial(
-            common_params_->url, frame_tree_node_,
-            browser_context->GetOriginTrialsControllerDelegate())) {
+        reduce_accept_lang_utils && !devtools_accept_language_override_) {
       // Add the Accept-Language header with the reduce accept language value.
       // Chromium network stack won't overwrite the value if Accept-Language
       // header was already added in the request header.
@@ -4787,10 +4788,12 @@ UrlInfo NavigationRequest::GetUrlInfo() {
   //
   // If PolicyContainer::ComputePoliciesToCommit() has run
   // `policy_container_builder_` will be valid, but even if it hasn't, we can
-  // speculatively take `commit_params_->frame_policy.sandbox_flags` if we
-  // haven't received the response yet and don't have the final
-  // `policy_container_builder_`, and if the state of the kOrigin flag changes,
-  // we'll detect the change and recompute the target SiteInstance elsewhere.
+  // speculatively take `commit_params_->frame_policy.sandbox_flags` (or
+  // `dest_site_instance_` for history navigations) if we haven't received the
+  // response yet and don't have the final `policy_container_builder_`, to
+  // reduce the chance that recomputing will be needed. If the state of the
+  // kOrigin flag changes, we'll detect the change and recompute the target
+  // SiteInstance elsewhere.
   //
   // In general, about:blank documents should stay in their initiator's process.
   // If neither the initiator or about:blank is sandboxed, or if both are, then
@@ -4820,12 +4823,15 @@ UrlInfo NavigationRequest::GetUrlInfo() {
       // Note: We'll end up here if this function is called before
       // ComputePoliciesToCommit(), such as when computing a speculative
       // RenderFrameHost's SiteInstance before receiving a response. In that
-      // event we use the sandbox flags in commit_params_ as a current "best
+      // event we use the sandbox flags in commit_params_ (or the destination
+      // SiteInstance, if this is a history navigation) as a current "best
       // estimate".
       has_origin_restricted_sandbox_flag =
-          (commit_params_->frame_policy.sandbox_flags &
-           network::mojom::WebSandboxFlags::kOrigin) ==
-          network::mojom::WebSandboxFlags::kOrigin;
+          ((commit_params_->frame_policy.sandbox_flags &
+            network::mojom::WebSandboxFlags::kOrigin) ==
+           network::mojom::WebSandboxFlags::kOrigin) ||
+          (dest_site_instance_ &&
+           dest_site_instance_->GetSiteInfo().IsSandboxed());
     }
 
     // It's possible that a sandbox attribute can disappear from a frame that
@@ -5616,6 +5622,11 @@ NavigationRequest::CreateNavigationEarlyHintsManagerParams(
   CHECK(IsInMainFrame());
   CHECK(!IsPageActivation());
 
+  // Early Hints are only valid for HTTP/HTTPS navigations.
+  if (!GetURL().SchemeIsHTTPOrHTTPS()) {
+    return std::nullopt;
+  }
+
   // Getting a RenderProcessHost from a tentative RenderFrameHost during
   // navigation is generally discouraged because it has potential performance
   // impact (the RenderProcessHost could be discarded without actually being
@@ -5911,8 +5922,7 @@ void NavigationRequest::SelectFrameHostForOnRequestFailedInternal(
   }
 }
 
-NavigationRequest::ErrorPageProcess
-NavigationRequest::ComputeErrorPageProcess() {
+ErrorPageProcess NavigationRequest::ComputeErrorPageProcess() {
   if (net_error_ == net::OK) {
     return ErrorPageProcess::kNotErrorPage;
   }
@@ -6451,7 +6461,7 @@ void NavigationRequest::OnRedirectChecksComplete(
     const network::mojom::URLResponseHead* response_head =
         commit_params_->redirect_params.back()->response_head.get();
     ParseAndPersistAcceptCHForNavigation(
-        source_origin, response_head->ssl_info, response_head->parsed_headers,
+        source_origin, response_head->parsed_headers,
         response_head->headers.get(), browser_context, client_hints_delegate,
         frame_tree_node_);
 
@@ -6477,27 +6487,67 @@ void NavigationRequest::OnRedirectChecksComplete(
   if (auto reduce_accept_lang_utils =
           ReduceAcceptLanguageUtils::Create(browser_context);
       reduce_accept_lang_utils && !devtools_accept_language_override_) {
-    if (!ReduceAcceptLanguageUtils::CheckDisableReduceAcceptLanguageOriginTrial(
-            common_params_->url, frame_tree_node_,
-            browser_context->GetOriginTrialsControllerDelegate())) {
-      net::HttpRequestHeaders accept_language_headers;
-      std::optional<std::string> reduced_accept_language =
-          reduce_accept_lang_utils.value()
-              .AddNavigationRequestAcceptLanguageHeaders(
-                  url::Origin::Create(common_params_->url), frame_tree_node_,
-                  &accept_language_headers);
-      commit_params_->reduced_accept_language =
-          reduced_accept_language.value_or("");
-      headers_update_params.modified_headers.MergeFrom(accept_language_headers);
-    } else {
-      // Remove the Accept-Language header passed from previous request, if any.
-      headers_update_params.removed_headers.push_back(
-          net::HttpRequestHeaders::kAcceptLanguage);
-      commit_params_->reduced_accept_language = "";
-    }
+    net::HttpRequestHeaders accept_language_headers;
+    std::optional<std::string> reduced_accept_language =
+        reduce_accept_lang_utils.value()
+            .AddNavigationRequestAcceptLanguageHeaders(
+                url::Origin::Create(common_params_->url), frame_tree_node_,
+                &accept_language_headers);
+    commit_params_->reduced_accept_language =
+        reduced_accept_language.value_or("");
+    headers_update_params.modified_headers.MergeFrom(accept_language_headers);
   }
 
   loader_->FollowRedirect(std::move(headers_update_params));
+}
+
+std::optional<net::NetworkIsolationKey>
+NavigationRequest::GetNetworkIsolationKeyForRendererAccessibleHttpCache() {
+#if BUILDFLAG(ENABLE_DISK_CACHE_SQL_BACKEND)
+  if (!static_cast<StoragePartitionImpl*>(
+           GetStoragePartitionWithCurrentSiteInfo())
+           ->SupportsRendererAccessibleHttpCache()) {
+    return std::nullopt;
+  }
+  if (site_info_.GetStoragePartitionConfig().in_memory()) {
+    return std::nullopt;
+  }
+  if (site_info_.IsSandboxed()) {
+    return std::nullopt;
+  }
+  if (site_info_.web_exposed_isolation_info().is_isolated()) {
+    return std::nullopt;
+  }
+  if (site_info_.IsGuest()) {
+    return std::nullopt;
+  }
+  if (site_info_.is_jit_disabled()) {
+    return std::nullopt;
+  }
+  if (site_info_.are_v8_optimizations_disabled()) {
+    return std::nullopt;
+  }
+  if (site_info_.is_pdf()) {
+    return std::nullopt;
+  }
+  if (site_info_.is_fenced()) {
+    return std::nullopt;
+  }
+  if (!site_info_.GetStoragePartitionConfig().is_default()) {
+    return std::nullopt;
+  }
+  if (site_info_.agent_cluster_key().IsOriginKeyed() ||
+      site_info_.agent_cluster_key().IsCrossOriginIsolated()) {
+    return std::nullopt;
+  }
+  auto network_isolation_key = GetIsolationInfo().network_isolation_key();
+  if (network_isolation_key.IsTransient()) {
+    return std::nullopt;
+  }
+  return network_isolation_key;
+#else   // ENABLE_DISK_CACHE_SQL_BACKEND
+  return std::nullopt;
+#endif  // ENABLE_DISK_CACHE_SQL_BACKEND
 }
 
 void NavigationRequest::OnFailureChecksComplete(
@@ -7082,9 +7132,9 @@ void NavigationRequest::CommitNavigation() {
         opt_in_hints_from_response;
     if (response()) {
       opt_in_hints_from_response = ParseAndPersistAcceptCHForNavigation(
-          url::Origin::Create(common_params_->url), response()->ssl_info,
-          response()->parsed_headers, response()->headers.get(),
-          browser_context, client_hints_delegate, frame_tree_node_);
+          url::Origin::Create(common_params_->url), response()->parsed_headers,
+          response()->headers.get(), browser_context, client_hints_delegate,
+          frame_tree_node_);
     }
     commit_params_->enabled_client_hints =
         LookupAcceptCHForCommit(origin_to_commit, client_hints_delegate,
@@ -7103,20 +7153,6 @@ void NavigationRequest::CommitNavigation() {
 
   PersistOriginTrialsFromHeaders(origin_to_commit, partition_origin, response(),
                                  browser_context, GetNextPageUkmSourceId());
-
-  // Clean the reduced accept-language to commit if the final response have a
-  // valid deprecation origin trial token.
-  if (auto reduce_accept_lang_utils =
-          ReduceAcceptLanguageUtils::Create(browser_context);
-      reduce_accept_lang_utils && !devtools_accept_language_override_ &&
-      ReduceAcceptLanguageUtils::CheckDisableReduceAcceptLanguageOriginTrial(
-          common_params_->url, frame_tree_node_,
-          browser_context->GetOriginTrialsControllerDelegate()) &&
-      !commit_params_->reduced_accept_language.empty()) {
-    reduce_accept_lang_utils.value().RemoveReducedAcceptLanguage(
-        origin_to_commit, frame_tree_node_);
-    commit_params_->reduced_accept_language = "";
-  }
 
   // Sticky user activation should only be preserved for same-site subframe
   // navigations, and same-origin top-frame navigations behind the feature flag
@@ -9739,17 +9775,18 @@ void NavigationRequest::ReadyToCommitNavigation(bool is_error) {
 
   // When a speculative RenderFrameHost reaches ReadyToCommitNavigation, the
   // browser process has asked the renderer to commit the navigation and is
-  // waiting for confirmation of the commit. Update the LifecycleStateImpl to
-  // kPendingCommit as RenderFrameHost isn't considered speculative anymore and
-  // was chosen to commit as this navigation's final RenderFrameHost.
+  // waiting for confirmation of the commit. Update the
+  // RenderFrameHostLifecycleStateImpl to kPendingCommit as RenderFrameHost
+  // isn't considered speculative anymore and was chosen to commit as this
+  // navigation's final RenderFrameHost.
   if (GetRenderFrameHost()->lifecycle_state() ==
-      RenderFrameHostImpl::LifecycleStateImpl::kSpeculative) {
+      RenderFrameHostLifecycleStateImpl::kSpeculative) {
     // Only cross-RenderFrameHost navigations create speculative
     // RenderFrameHosts whereas SameDocument, BackForwardCache and
     // PrerenderedActivation navigations don't.
     CHECK(!IsSameDocument() && !IsPageActivation());
     GetRenderFrameHost()->SetLifecycleState(
-        RenderFrameHostImpl::LifecycleStateImpl::kPendingCommit);
+        RenderFrameHostLifecycleStateImpl::kPendingCommit);
     pending_commit_metrics_.start_time = base::TimeTicks::Now();
   }
 
@@ -10781,6 +10818,11 @@ NavigationRequest::GetInitiatorFrameToken() {
   return initiator_frame_token_;
 }
 
+const std::string& NavigationRequest::GetScriptInjectorHost() const {
+  return begin_params_ ? begin_params_->script_injector_host
+                       : base::EmptyString();
+}
+
 ChildProcessId NavigationRequest::GetInitiatorProcessId() {
   return initiator_process_id_;
 }
@@ -11636,7 +11678,7 @@ void NavigationRequest::ComputePoliciesToCommitForError() {
 }
 
 void NavigationRequest::DidUpdateInitiatorStateToken(
-    const base::UnguessableToken& new_initiator_state_token) {
+    const blink::InitiatorStateToken& new_initiator_state_token) {
   initiator_state_token_to_commit_ = new_initiator_state_token;
 }
 void NavigationRequest::CheckStateTransition(NavigationState state) const {
@@ -12069,13 +12111,19 @@ void NavigationRequest::MaybeDispatchNavigateEventForCrossDocumentTraversal() {
       blink::mojom::NavigationType::HISTORY_DIFFERENT_DOCUMENT) {
     return;
   }
-  // Only fire the navigate event if the destination is same-origin. Because
-  // this check is performed at navigation start time, `destination_origin` is
+  // Only fire the navigate event if the destination is same-origin. Prefer
+  // the origin recorded when the destination entry previously committed, since
+  // the URL alone does not reflect opaque origins resulting from CSP sandbox.
+  // See also PopulateSingleNavigationApiHistoryEntryVector(). Because this
+  // check is performed at navigation start time, the URL-derived fallback is
   // based on the pre-redirect URL, which is consistent with the renderer
   // process logic for firing the navigate event for non-history navigations.
-  url::Origin destination_origin = url::Origin::Resolve(
-      common_params_->url,
-      common_params_->initiator_origin.value_or(url::Origin()));
+  url::Origin destination_origin =
+      origin_related_state_ && origin_related_state_->committed_origin
+          ? *origin_related_state_->committed_origin
+          : url::Origin::Resolve(
+                common_params_->url,
+                common_params_->initiator_origin.value_or(url::Origin()));
   if (!frame_tree_node_->current_origin().IsSameOriginWith(
           destination_origin)) {
     return;

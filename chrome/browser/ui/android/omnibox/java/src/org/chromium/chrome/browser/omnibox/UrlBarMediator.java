@@ -6,16 +6,18 @@ package org.chromium.chrome.browser.omnibox;
 
 import android.content.Context;
 import android.text.TextUtils;
-import android.view.View.OnKeyListener;
 
 import androidx.annotation.ColorInt;
 import androidx.annotation.VisibleForTesting;
 import androidx.fragment.app.Fragment;
 
+import com.google.android.material.color.MaterialColors;
+
 import org.chromium.base.Callback;
 import org.chromium.build.annotations.EnsuresNonNullIf;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.omnibox.UrlBar.ScrollType;
 import org.chromium.chrome.browser.omnibox.UrlBar.UrlBarDelegate;
 import org.chromium.chrome.browser.omnibox.UrlBar.UrlBarTextContextMenuDelegate;
@@ -42,6 +44,8 @@ import java.util.Objects;
 /** Handles collecting and pushing state information to the UrlBar model. */
 @NullMarked
 class UrlBarMediator implements UrlBarTextContextMenuDelegate {
+    private static final String TAG = "UrlBarMediator";
+
     private final Context mContext;
     private final PropertyModel mModel;
 
@@ -67,14 +71,12 @@ class UrlBarMediator implements UrlBarTextContextMenuDelegate {
      * @param model MVC property model to write changes to.
      * @param textChangeListener The listener for text changes.
      * @param richTextChangeListener The listener for rich text changes.
-     * @param keyDownListener The listener for key down events.
      */
     public UrlBarMediator(
             Context context,
             PropertyModel model,
             @Nullable Callback<String> textChangeListener,
-            @Nullable Callback<UrlBarTextChangeInfo> richTextChangeListener,
-            @Nullable OnKeyListener keyDownListener) {
+            @Nullable Callback<UrlBarTextChangeInfo> richTextChangeListener) {
         mContext = context;
         mModel = model;
         mTextChangeListener = textChangeListener;
@@ -85,7 +87,6 @@ class UrlBarMediator implements UrlBarTextContextMenuDelegate {
         mModel.set(UrlBarProperties.HAS_URL_SUGGESTIONS, false);
         mModel.set(UrlBarProperties.TEXT_CHANGE_LISTENER, this::onTextChanged);
         mModel.set(UrlBarProperties.RICH_TEXT_CHANGE_LISTENER, this::onRichTextChanged);
-        mModel.set(UrlBarProperties.KEY_DOWN_LISTENER, keyDownListener);
         mModel.set(UrlBarProperties.SHOW_HINT_TEXT, true);
         if (DeviceFormFactor.isNonMultiDisplayContextOnTablet(context)) {
             mModel.set(
@@ -102,6 +103,7 @@ class UrlBarMediator implements UrlBarTextContextMenuDelegate {
         }
         mModel.set(UrlBarProperties.TEXT_CONTEXT_MENU_DELEGATE, null);
         mModel.set(UrlBarProperties.TEXT_CHANGE_LISTENER, null);
+        mModel.set(UrlBarProperties.RICH_TEXT_CHANGE_LISTENER, null);
         mModel.set(UrlBarProperties.MANAGE_SEARCH_ENGINES_CALLBACK, null);
     }
 
@@ -506,10 +508,13 @@ class UrlBarMediator implements UrlBarTextContextMenuDelegate {
         setBrandedColorScheme(brandedColorScheme);
     }
 
-    /** Sets search box hint text color to be colorOnSurface for NTP's un-focus state. */
+    /** Sets search box hint text color for NTP's un-focus state. */
     void setUrlBarHintTextColorForNtp() {
         mIsHintTextFixedForNtp = true;
-        final @ColorInt int hintTextColor = SemanticColorUtils.getDefaultTextColor(mContext);
+        final @ColorInt int hintTextColor =
+                ChromeFeatureList.sNtpAurora.isEnabled()
+                        ? MaterialColors.getColor(mContext, R.attr.colorOutline, TAG)
+                        : SemanticColorUtils.getDefaultTextColor(mContext);
         mModel.set(UrlBarProperties.HINT_TEXT_COLOR, hintTextColor);
     }
 

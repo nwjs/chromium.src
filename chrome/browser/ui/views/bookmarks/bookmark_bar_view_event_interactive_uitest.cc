@@ -44,6 +44,7 @@
 #include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/toolbar/pinned_toolbar/pinned_toolbar_actions_model.h"
+#include "chrome/browser/ui/ui_controller_factory.h"
 #include "chrome/browser/ui/views/bookmarks/bookmark_bar_view.h"
 #include "chrome/browser/ui/views/bookmarks/bookmark_bar_view_observer.h"
 #include "chrome/browser/ui/views/bookmarks/bookmark_context_menu.h"
@@ -67,6 +68,7 @@
 #include "ui/base/metadata/metadata_header_macros.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/ozone_buildflags.h"
+#include "ui/base/page_transition_types.h"
 #include "ui/base/test/ui_controls.h"
 #include "ui/events/keycodes/keyboard_codes.h"
 #include "ui/views/background.h"
@@ -406,8 +408,10 @@ class BookmarkBarViewEventTestBase : public ViewEventTestBase {
 
  protected:
   std::unique_ptr<views::View> CreateContentsView() override {
-    auto bb_view =
-        std::make_unique<BookmarkBarView>(browser_.get(), nullptr, nullptr);
+    auto* factory = UIControllerFactory::From(browser_.get());
+    auto controller = factory->CreateBookmarkBarController();
+    auto bb_view = std::make_unique<BookmarkBarView>(
+        browser_.get(), std::move(controller), nullptr);
     // Real bookmark bars get a BookmarkBarViewBackground. Set an opaque
     // background here just to avoid triggering subpixel rendering issues.
     bb_view->SetBackground(views::CreateSolidBackground(SK_ColorWHITE));

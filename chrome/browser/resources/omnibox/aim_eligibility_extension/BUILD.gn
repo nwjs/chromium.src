@@ -2,6 +2,8 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+import(
+    "//chrome/browser/resources/omnibox/aim_eligibility_extension/unpack_component_extension.gni")
 import("//ui/webui/resources/tools/build_webui.gni")
 import("//ui/webui/resources/tools/optimize_webui.gni")
 
@@ -60,7 +62,14 @@ build_webui("build") {
 
   optimize = optimize_webui
   if (optimize) {
-    optimize_webui_host = "chrome-extension://kgjeljgkbckpoekmgjfplammhcggiiaf"
+    optimize_webui_host = "chrome-extension://kabpfonokkamggpgbldambnmkliehlbh"
     optimize_webui_in_files = [ "app.js" ]
   }
+}
+
+unpack_component_extension("unpack_extension") {
+  in_grd = "$target_gen_dir/resources.grd"
+  out_folder = "$root_out_dir/aim_eligibility_extension"
+  grd_resource_path_prefix = "aim_eligibility_extension"
+  deps = [ ":resources" ]
 }

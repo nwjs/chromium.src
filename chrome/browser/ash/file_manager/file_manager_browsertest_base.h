@@ -158,9 +158,6 @@ class FileManagerBrowserTestBase
     // Whether test should enable sharesheet.
     bool enable_sharesheet = true;
 
-    // Whether test needs the single partition format feature.
-    bool single_partition_format = false;
-
     // Whether test should enable trash.
     bool enable_trash = false;
 
@@ -179,9 +176,6 @@ class FileManagerBrowserTestBase
 
     // Whether test should enable Files policy new UX feature.
     bool enable_files_policy_new_ux = false;
-
-    // Whether test should run with the Upload Office to Cloud feature.
-    bool enable_upload_office_to_cloud = false;
 
     // Whether test should run with ARCVM enabled.
     bool enable_arc_vm = false;

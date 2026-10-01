@@ -168,8 +168,11 @@ TEST_F(SearchEngineChoiceServiceTest, PreserveImportedChoice) {
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitWithFeatures(
       /*enabled_features=*/
-      {switches::kInvalidateSearchEngineChoiceOnDeviceRestoreDetection,
-       switches::kWipeChoicePrefsOnMissingDefaultSearchEngine},
+      {
+#if !BUILDFLAG(IS_IOS)
+          switches::kInvalidateSearchEngineChoiceOnDeviceRestoreDetection,
+#endif
+          switches::kWipeChoicePrefsOnMissingDefaultSearchEngine},
       /*disabled_features=*/{});
 
   InitServiceArgs args = {
@@ -1762,6 +1765,7 @@ INSTANTIATE_TEST_SUITE_P(,
                          SearchEngineChoiceServiceWipeOnMissingDSETest,
                          ::testing::Bool());
 
+#if !BUILDFLAG(IS_IOS)
 struct DeviceRestoreTestParam {
   std::string test_suffix;
   bool restore_detected_in_current_session;
@@ -1895,9 +1899,6 @@ TEST_P(SearchEngineChoiceServiceDeviceRestoreTest, RepromptOnRestoreDetection) {
   histogram_tester_.ExpectUniqueSample(
       "RegionalCapabilities.FunnelStage.Eligibility.Profile1",
       expected_eligibility_condition, 1);
-  histogram_tester_.ExpectUniqueSample(
-      "PUMA.RegionalCapabilities.FunnelStage.Eligibility",
-      expected_eligibility_condition, 1);
   if (GetParam().restore_detected_in_current_session &&
       GetParam().is_feature_enabled) {
     histogram_tester_.ExpectUniqueSample(
@@ -1918,9 +1919,6 @@ TEST_P(SearchEngineChoiceServiceDeviceRestoreTest, RepromptOnRestoreDetection) {
   histogram_tester_.ExpectUniqueSample(
       "RegionalCapabilities.FunnelStage.Triggering.Profile1",
       expected_eligibility_condition, 1);
-  histogram_tester_.ExpectUniqueSample(
-      "PUMA.RegionalCapabilities.FunnelStage.Triggering",
-      expected_eligibility_condition, 1);
   if (GetParam().restore_detected_in_current_session &&
       GetParam().is_feature_enabled) {
     histogram_tester_.ExpectUniqueSample(
@@ -1939,6 +1937,7 @@ TEST_P(SearchEngineChoiceServiceDeviceRestoreTest, RepromptOnRestoreDetection) {
       search_engines::kSearchEngineChoiceRepromptHistogram,
       RepromptResult::kInvalidDictionary, 0);
 }
+#endif  // !BUILDFLAG(IS_IOS)
 
 struct RepromptTestParam {
   // Whether the user should be reprompted or not.
@@ -2177,9 +2176,6 @@ TEST_P(SearchEngineChoiceServiceFunnelTest, RecordsFunnelStage) {
         scoped_histogram_tester,
         "RegionalCapabilities.FunnelStage.Reported.Profile1",
         GetParam().expected_if_static);
-    CheckHistogramExpectation(scoped_histogram_tester,
-                              "PUMA.RegionalCapabilities.FunnelStage.Reported",
-                              GetParam().expected_if_static);
   }
 
   {
@@ -2193,9 +2189,6 @@ TEST_P(SearchEngineChoiceServiceFunnelTest, RecordsFunnelStage) {
         scoped_histogram_tester,
         "RegionalCapabilities.FunnelStage.Reported.Profile1",
         GetParam().expected_if_dynamic);
-    CheckHistogramExpectation(scoped_histogram_tester,
-                              "PUMA.RegionalCapabilities.FunnelStage.Reported",
-                              GetParam().expected_if_dynamic);
   }
 }
 

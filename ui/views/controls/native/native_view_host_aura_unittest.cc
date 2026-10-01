@@ -1,3 +1,8 @@
+// This test ensures that a native view can be attached to a NativeViewHost
+// even if it's currently attached to a NativeViewHost in a different
+// WindowTreeHost. It guards against crashes where WindowObservers query the
+// root window or bounds in root during reparenting transitions between
+// different root windows (e.g., https://crbug.com/1516544).
 // Copyright 2013 The Chromium Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.

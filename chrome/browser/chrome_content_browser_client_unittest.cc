@@ -61,8 +61,8 @@
 #include "components/content_settings/core/browser/cookie_settings.h"
 #include "components/content_settings/core/browser/host_content_settings_map.h"
 #include "components/content_settings/core/common/pref_names.h"
-#include "components/enterprise/net/content/enterprise_proxy_navigation_error_data.h"
 #include "components/enterprise/net/core/enterprise_proxy_error_data.h"
+#include "components/enterprise/net/core/enterprise_proxy_error_service.h"
 #include "components/enterprise/net/core/enterprise_proxy_service.h"
 #include "components/enterprise/net/core/features.h"
 #include "components/enterprise/net/core/mock_enterprise_proxy_service.h"
@@ -70,6 +70,7 @@
 #include "components/error_page/common/localized_error.h"
 #include "components/file_access/scoped_file_access.h"
 #include "components/file_access/test/mock_scoped_file_access_delegate.h"
+#include "components/grit/components_resources.h"
 #include "components/guest_view/buildflags/buildflags.h"
 #include "components/network_session_configurator/common/network_switches.h"
 #include "components/policy/core/common/policy_pref_names.h"
@@ -105,11 +106,15 @@
 #include "content/public/test/test_web_ui.h"
 #include "content/public/test/web_contents_tester.h"
 #include "crypto/crypto_buildflags.h"
-#include "device/fido/public/features.h"
 #include "extensions/buildflags/buildflags.h"
 #include "google_apis/gaia/gaia_id.h"
 #include "media/media_buildflags.h"
 #include "net/base/url_util.h"
+#include "net/log/net_log.h"
+#include "net/log/net_log_event_type.h"
+#include "net/log/net_log_source_type.h"
+#include "net/log/net_log_with_source.h"
+#include "net/log/test_net_log.h"
 #include "net/ssl/ssl_info.h"
 #include "net/test/cert_test_util.h"
 #include "net/test/test_data_directory.h"
@@ -351,12 +356,10 @@ TEST_F(ChromeContentBrowserClientTest, ShouldAssignSiteForURL) {
       GURL("https://www.google.com")));
 }
 
-// BrowserWithTestWindowTest doesn't work on Android.
-#if !BUILDFLAG(IS_ANDROID)
-
 using ChromeContentBrowserClientTestWithWebContents =
     ChromeRenderViewHostTestHarness;
 
+#if !BUILDFLAG(IS_ANDROID)
 // TODO(crbug.com/40447789): Remove the need for
 // ShouldStayInParentProcessForNTP()
 //    and associated test.
@@ -519,10 +522,12 @@ TEST_F(ChromeContentBrowserClientTest, OverrideNavigationParams_FlagDisabled) {
   EXPECT_TRUE(
       ui::PageTransitionCoreTypeIs(ui::PAGE_TRANSITION_LINK, transition));
 }
+#endif  // !BUILDFLAG(IS_ANDROID)
 
 // Test that automatic beacon credentials (automatic beacons sent with cookie
 // data) are disallowed if the 3PCs are blocked.
-TEST_F(ChromeContentBrowserClientTest, AutomaticBeaconCredentials) {
+TEST_F(ChromeContentBrowserClientTestWithWebContents,
+       AutomaticBeaconCredentials) {
   ChromeContentBrowserClient client;
 
   EXPECT_TRUE(client.AreDeprecatedAutomaticBeaconCredentialsAllowed(
@@ -599,26 +604,51 @@ TEST_F(ChromeContentBrowserClientTest,
             EnterpriseProxyServiceFactory::GetForProfile(p));
       }));
 
+  auto* error_service =
+      static_cast<enterprise_net::EnterpriseProxyErrorService*>(
+          EnterpriseProxyErrorServiceFactory::GetForProfile(profile()));
+  ASSERT_TRUE(error_service);
+
   ChromeContentBrowserClient client;
   content::MockNavigationHandle navigation_handle(
       GURL("https://target.example.com/test"), /*render_frame_host=*/nullptr);
 
-  // Without EnterpriseProxyNavigationErrorData attached, returns nullptr.
+  // Without disguised error recorded, returns nullptr.
   EXPECT_FALSE(client.GetAlternativeErrorPageOverrideInfo(
       navigation_handle, /*render_frame_host=*/nullptr, profile(),
       net::ERR_PROXY_AUTH_REQUESTED));
 
-  // Attach EnterpriseProxyNavigationErrorData.
-  enterprise_net::EnterpriseProxyErrorDataDelegate delegate(&navigation_handle);
-  delegate.AttachDisguisedErrorData(enterprise_net::EnterpriseProxyErrorData(
-      GURL("https://target.example.com/test"),
-      GURL("https://proxy.example.com:443"), 403));
+  net::RecordingNetLogObserver observer;
+  net::NetLogWithSource net_log = net::NetLogWithSource::Make(
+      net::NetLog::Get(), net::NetLogSourceType::ENTERPRISE_PROXY_SERVICE);
+
+  // Record disguised error.
+  error_service->RecordDisguisedError(
+      navigation_handle.GetNavigationId(),
+      enterprise_net::EnterpriseProxyErrorData(
+          GURL("https://target.example.com/test"),
+          GURL("https://proxy.example.com:443"), 403),
+      net_log);
+
+  auto saved_entries = observer.GetEntriesWithType(
+      net::NetLogEventType::ENTERPRISE_PROXY_DISGUISED_ERROR_SAVED);
+  ASSERT_EQ(1u, saved_entries.size());
+  EXPECT_EQ(net_log.source().id, saved_entries[0].source.id);
+  EXPECT_EQ(base::NumberToString(navigation_handle.GetNavigationId()),
+            *saved_entries[0].params.FindString("navigation_id"));
+  EXPECT_EQ("https://target.example.com/test",
+            *saved_entries[0].params.FindString("destination_url"));
+  EXPECT_EQ("https://proxy.example.com/",
+            *saved_entries[0].params.FindString("proxy_url"));
+  EXPECT_EQ(403, saved_entries[0].params.FindInt("error_code"));
 
   auto info = client.GetAlternativeErrorPageOverrideInfo(
       navigation_handle, /*render_frame_host=*/nullptr, profile(),
       net::ERR_PROXY_AUTH_REQUESTED);
 
   ASSERT_TRUE(info);
+  EXPECT_EQ(info->resource_id,
+            static_cast<uint32_t>(IDR_ENTERPRISE_PROXY_ERROR_PAGE_HTML));
   auto override_param = info->alternative_error_page_params.FindBool(
       error_page::kOverrideErrorPage);
   ASSERT_TRUE(override_param.has_value());
@@ -629,14 +659,20 @@ TEST_F(ChromeContentBrowserClientTest,
   ASSERT_TRUE(is_enterprise_error.has_value());
   EXPECT_TRUE(*is_enterprise_error);
 
-  const auto* html_content =
-      info->alternative_error_page_params.FindString("error_page_html");
-  ASSERT_TRUE(html_content);
-  EXPECT_NE(html_content->find("https://target.example.com/test"),
-            std::string::npos);
-  EXPECT_NE(html_content->find("https://proxy.example.com/"),
-            std::string::npos);
-  EXPECT_NE(html_content->find("403"), std::string::npos);
+  const auto* destination_url =
+      info->alternative_error_page_params.FindString("destination_url");
+  ASSERT_TRUE(destination_url);
+  EXPECT_EQ(*destination_url, "https://target.example.com/test");
+
+  const auto* proxy_url =
+      info->alternative_error_page_params.FindString("proxy_url");
+  ASSERT_TRUE(proxy_url);
+  EXPECT_EQ(*proxy_url, "https://proxy.example.com/");
+
+  const auto* error_code =
+      info->alternative_error_page_params.FindString("error_code");
+  ASSERT_TRUE(error_code);
+  EXPECT_EQ(*error_code, "403");
 }
 
 TEST_F(
@@ -647,19 +683,53 @@ TEST_F(
       {enterprise_net::kEnableDynamicRouteFetching},
       {enterprise_net::kEnterpriseProxyErrorHandling});
 
+  EnterpriseProxyServiceFactory::GetInstance()->SetTestingFactory(
+      profile(), base::BindRepeating([](content::BrowserContext* context)
+                                         -> std::unique_ptr<KeyedService> {
+        return std::make_unique<TestEnterpriseProxyService>();
+      }));
+  EnterpriseProxyErrorServiceFactory::GetInstance()->SetTestingFactory(
+      profile(), base::BindRepeating([](content::BrowserContext* context)
+                                         -> std::unique_ptr<KeyedService> {
+        Profile* p = Profile::FromBrowserContext(context);
+        return std::make_unique<enterprise_net::EnterpriseProxyErrorService>(
+            EnterpriseProxyServiceFactory::GetForProfile(p));
+      }));
+
+  auto* error_service =
+      static_cast<enterprise_net::EnterpriseProxyErrorService*>(
+          EnterpriseProxyErrorServiceFactory::GetForProfile(profile()));
+  ASSERT_TRUE(error_service);
+
   ChromeContentBrowserClient client;
   content::MockNavigationHandle navigation_handle(
       GURL("https://target.example.com/test"), /*render_frame_host=*/nullptr);
 
-  enterprise_net::EnterpriseProxyErrorDataDelegate delegate(&navigation_handle);
-  delegate.AttachDisguisedErrorData(enterprise_net::EnterpriseProxyErrorData(
-      GURL("https://target.example.com/test"),
-      GURL("https://proxy.example.com:443"), 403));
+  net::RecordingNetLogObserver observer;
+  net::NetLogWithSource net_log = net::NetLogWithSource::Make(
+      net::NetLog::Get(), net::NetLogSourceType::ENTERPRISE_PROXY_SERVICE);
+
+  error_service->RecordDisguisedError(
+      navigation_handle.GetNavigationId(),
+      enterprise_net::EnterpriseProxyErrorData(
+          GURL("https://target.example.com/test"),
+          GURL("https://proxy.example.com:443"), 403),
+      net_log);
+
+  auto saved_entries = observer.GetEntriesWithType(
+      net::NetLogEventType::ENTERPRISE_PROXY_DISGUISED_ERROR_SAVED);
+  ASSERT_EQ(1u, saved_entries.size());
+  EXPECT_EQ(net_log.source().id, saved_entries[0].source.id);
+  EXPECT_EQ(base::NumberToString(navigation_handle.GetNavigationId()),
+            *saved_entries[0].params.FindString("navigation_id"));
 
   EXPECT_FALSE(client.GetAlternativeErrorPageOverrideInfo(
       navigation_handle, /*render_frame_host=*/nullptr, profile(),
       net::ERR_PROXY_AUTH_REQUESTED));
 }
+
+// Desktop Auto-Pip feature only.
+#if !BUILDFLAG(IS_ANDROID)
 
 TEST_F(ChromeContentBrowserClientTestWithWebContents,
        GetAutoPipInfo_AutoPipReason) {
@@ -2082,34 +2152,10 @@ class IWAWebAuthnTest : public ChromeRenderViewHostTestHarness {
       "isolated-app://aerugqztij5biqquuk3mfwpsaibuegaqcitgfchwuosuofdjabzqaaic";
 };
 
-TEST_F(IWAWebAuthnTest, IWASupportedWithPolicyOn) {
-  // Enabling the kWebAuthnIWARemoteDesktopAllowedOriginsPolicy.
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitWithFeatures(
-      {device::kWebAuthnIWARemoteDesktopAllowedOriginsPolicy,
-       features::kIsolatedWebApps},
-      {});
-
+TEST_F(IWAWebAuthnTest, IWASupported) {
   TestChromeContentBrowserClient client;
 
-  // For IWA accepted level for webauthn calls requires
-  // device::kWebAuthnIWARemoteDesktopAllowedOriginsPolicy to be enabled.
   EXPECT_TRUE(client.IsSecurityLevelAcceptableForWebAuthn(
-      main_rfh(), url::Origin::Create(GURL(kTestIsolatedAppOrigin))));
-}
-
-TEST_F(IWAWebAuthnTest, IWANotSupportedWithoutPolicy) {
-  // Disabling the kWebAuthnIWARemoteDesktopAllowedOriginsPolicy.
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitWithFeatures(
-      {features::kIsolatedWebApps},
-      {device::kWebAuthnIWARemoteDesktopAllowedOriginsPolicy});
-
-  TestChromeContentBrowserClient client;
-
-  // For IWA accepted level for webauthn calls requires
-  // device::kWebAuthnIWARemoteDesktopAllowedOriginsPolicy to be enabled.
-  EXPECT_FALSE(client.IsSecurityLevelAcceptableForWebAuthn(
       main_rfh(), url::Origin::Create(GURL(kTestIsolatedAppOrigin))));
 }
 #endif  // BUILDFLAG(IS_CHROMEOS)

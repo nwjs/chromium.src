@@ -17,9 +17,12 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/test/gmock_callback_support.h"
+#include "base/test/scoped_feature_list.h"
 #include "base/values.h"
 #include "build/build_config.h"
 #include "chrome/browser/browser_features.h"
+#include "chrome/browser/enterprise/data_protection/data_protection_features.h"
+#include "chrome/browser/enterprise/data_protection/data_protection_page_user_data.h"
 #include "chrome/browser/extensions/extension_browsertest.h"
 #include "chrome/browser/media/webrtc/desktop_media_list.h"
 #include "chrome/browser/media/webrtc/tab_desktop_media_list_mock_observer.h"
@@ -27,6 +30,7 @@
 #include "chrome/browser/ui/apps/chrome_app_delegate.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_window/test/mock_browser_window_interface.h"
+#include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/browser/ui/tabs/tab_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/web_applications/test/isolated_web_app_test_utils.h"
@@ -36,9 +40,14 @@
 #include "chrome/common/chrome_switches.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
+#include "components/enterprise/buildflags/buildflags.h"
 #include "content/public/browser/favicon_status.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
+#include "content/public/browser/render_frame_host.h"
+#include "content/public/browser/render_process_host.h"
 #include "content/public/browser/web_contents.h"
+#include "content/public/browser/web_contents_media_capture_id.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
@@ -53,6 +62,7 @@
 #include "net/test/embedded_test_server/embedded_test_server.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "third_party/skia/include/core/SkBitmap.h"
+#include "ui/base/window_open_disposition.h"
 
 #if BUILDFLAG(IS_CHROMEOS)
 #include "chrome/browser/ash/login/users/user_manager_delegate_impl.h"
@@ -507,3 +517,139 @@ IN_PROC_BROWSER_TEST_F(TabDesktopMediaListWithIwaIncludedTest,
 
   EXPECT_EQ(initial_list_size + 1, list().GetSourceCount());
 }
+
+class TabDesktopMediaListProtectionTest
+    : public InProcessBrowserTest,
+      public testing::WithParamInterface<bool> {};
+
+INSTANTIATE_TEST_SUITE_P(All,
+                         TabDesktopMediaListProtectionTest,
+                         testing::Bool());
+
+IN_PROC_BROWSER_TEST_P(TabDesktopMediaListProtectionTest,
+                       SetsIsSharingBlockedCorrectly) {
+  const bool allow_screenshots = GetParam();
+
+  content::WebContents* contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+  ASSERT_TRUE(contents);
+
+  enterprise_data_protection::DataProtectionPageUserData::
+      UpdateDataControlsScreenshotState(contents->GetPrimaryPage(), "test_id",
+                                        allow_screenshots);
+
+  TabDesktopMediaList media_list(
+      contents, base::BindRepeating([](content::WebContents*) { return true; }),
+      /*include_chrome_app_windows=*/false);
+
+  base::RunLoop run_loop;
+  media_list.Update(run_loop.QuitClosure());
+  run_loop.Run();
+
+  ASSERT_GE(media_list.GetSourceCount(), 1);
+  const auto& source = media_list.GetSource(0);
+  EXPECT_EQ(source.is_sharing_blocked, !allow_screenshots);
+}
+
+#if BUILDFLAG(ENTERPRISE_SCREENSHOT_PROTECTION)
+namespace {
+
+// Mirrors the way TabDesktopMediaList::Refresh() derives the capture ID of a
+// tab, so that tests can assert on the identity of individual sources.
+content::WebContentsMediaCaptureId GetCaptureId(
+    content::WebContents* contents) {
+  content::RenderFrameHost* main_frame = contents->GetPrimaryMainFrame();
+  return content::WebContentsMediaCaptureId(
+      main_frame->GetProcess()->GetDeprecatedID(), main_frame->GetRoutingID());
+}
+
+}  // namespace
+
+class TabDesktopMediaListProtectionFeatureEnabledTest
+    : public InProcessBrowserTest {
+ public:
+  TabDesktopMediaListProtectionFeatureEnabledTest() {
+    feature_list_.InitAndEnableFeature(
+        enterprise_data_protection::kEnableTabSharingProtection);
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
+};
+
+IN_PROC_BROWSER_TEST_F(TabDesktopMediaListProtectionFeatureEnabledTest,
+                       SortsBlockedTabsToBottomAndSuppressesPreview) {
+  content::WebContents* tab1 =
+      browser()->tab_strip_model()->GetActiveWebContents();
+  ASSERT_TRUE(tab1);
+
+  ASSERT_TRUE(AddTabAtIndex(1, GURL("about:blank"), ui::PAGE_TRANSITION_LINK));
+  content::WebContents* tab2 =
+      browser()->tab_strip_model()->GetActiveWebContents();
+  ASSERT_TRUE(tab2);
+  ASSERT_NE(tab1, tab2);
+
+  // Tab 2 is active and thus more recent than Tab 1.
+  // Block Tab 2, and allow Tab 1.
+  enterprise_data_protection::DataProtectionPageUserData::
+      UpdateDataControlsScreenshotState(tab2->GetPrimaryPage(), "test_id",
+                                        /*allow=*/false);
+  enterprise_data_protection::DataProtectionPageUserData::
+      UpdateDataControlsScreenshotState(tab1->GetPrimaryPage(), "test_id",
+                                        /*allow=*/true);
+
+  testing::NiceMock<DesktopMediaListMockObserver> observer;
+  TabDesktopMediaList media_list(
+      tab2, base::BindRepeating([](content::WebContents*) { return true; }),
+      /*include_chrome_app_windows=*/false);
+  media_list.SetUpdatePeriod(base::Milliseconds(1));
+
+  base::RunLoop run_loop;
+  EXPECT_CALL(observer, OnSourceAdded(0));
+  EXPECT_CALL(observer, OnSourceAdded(1))
+      .WillOnce(base::test::RunClosure(run_loop.QuitClosure()));
+  media_list.StartUpdating(&observer);
+  run_loop.Run();
+
+  ASSERT_EQ(media_list.GetSourceCount(), 2);
+  // Tab 1 (allowed) must be sorted first even though Tab 2 was more recent.
+  EXPECT_FALSE(media_list.GetSource(0).is_sharing_blocked);
+  EXPECT_EQ(media_list.GetSource(0).id.web_contents_id, GetCaptureId(tab1));
+  // Tab 2 (blocked) must be sorted to the bottom.
+  EXPECT_TRUE(media_list.GetSource(1).is_sharing_blocked);
+  EXPECT_EQ(media_list.GetSource(1).id.web_contents_id, GetCaptureId(tab2));
+
+  // Setting the blocked source as previewed should not mark it as visibly
+  // captured.
+  media_list.SetPreviewedSource(media_list.GetSource(1).id);
+  EXPECT_FALSE(tab2->IsBeingVisiblyCaptured());
+
+  // Setting the allowed source as previewed should mark it as visibly captured.
+  media_list.SetPreviewedSource(media_list.GetSource(0).id);
+  EXPECT_TRUE(tab1->IsBeingVisiblyCaptured());
+
+  // If the previewed tab becomes blocked by policy during a subsequent refresh,
+  // previewed_source_ state is updated and the visible capture keepalive is
+  // reset.
+  base::RunLoop run_loop2;
+  EXPECT_CALL(observer, OnSourceMoved(1, 0));
+  EXPECT_CALL(observer, OnSourceThumbnailChanged(testing::_))
+      .WillRepeatedly(testing::Return());
+  EXPECT_CALL(observer, OnSourceThumbnailChanged(1))
+      .WillOnce(base::test::RunClosure(run_loop2.QuitClosure()))
+      .RetiresOnSaturation();
+  enterprise_data_protection::DataProtectionPageUserData::
+      UpdateDataControlsScreenshotState(tab1->GetPrimaryPage(), "test_id",
+                                        /*allow=*/false);
+  run_loop2.Run();
+
+  // Both tabs are now blocked, so recency ordering applies within the blocked
+  // partition: Tab 2 is more recent and must come first.
+  ASSERT_EQ(media_list.GetSourceCount(), 2);
+  EXPECT_TRUE(media_list.GetSource(0).is_sharing_blocked);
+  EXPECT_TRUE(media_list.GetSource(1).is_sharing_blocked);
+  EXPECT_EQ(media_list.GetSource(0).id.web_contents_id, GetCaptureId(tab2));
+  EXPECT_EQ(media_list.GetSource(1).id.web_contents_id, GetCaptureId(tab1));
+  EXPECT_FALSE(tab1->IsBeingVisiblyCaptured());
+}
+#endif  // BUILDFLAG(ENTERPRISE_SCREENSHOT_PROTECTION)

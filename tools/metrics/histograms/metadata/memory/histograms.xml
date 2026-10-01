@@ -1066,7 +1066,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Memory.Browser.MemoryFootprint.Active" units="MB"
-    expires_after="2027-01-03">
+    expires_after="2027-03-07">
   <owner>justincohen@chromium.org</owner>
   <owner>bling-fundamentals@google.com</owner>
   <summary>
@@ -1077,7 +1077,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Memory.Browser.MemoryFootprint.Active.Over200MBWatermark"
-    enum="BooleanGreaterOrEqualThan200MB" expires_after="2027-01-03">
+    enum="BooleanGreaterOrEqualThan200MB" expires_after="2027-03-07">
   <owner>justincohen@chromium.org</owner>
   <owner>bling-fundamentals@google.com</owner>
   <summary>
@@ -1093,7 +1093,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Memory.Browser.MemoryFootprint.Background" units="MB"
-    expires_after="2026-12-20">
+    expires_after="2027-02-28">
   <owner>justincohen@chromium.org</owner>
   <owner>bling-fundamentals@google.com</owner>
   <summary>
@@ -1109,7 +1109,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Memory.Browser.MemoryFootprint.Inactive" units="MB"
-    expires_after="2027-01-03">
+    expires_after="2027-03-07">
   <owner>justincohen@chromium.org</owner>
   <owner>bling-fundamentals@google.com</owner>
   <summary>
@@ -1122,7 +1122,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Memory.Browser.MemoryFootprint.NumOpenTabs" units="tabs"
-    expires_after="2027-01-03">
+    expires_after="2027-03-07">
   <owner>justincohen@chromium.org</owner>
   <owner>rkgibson@google.com</owner>
   <summary>
@@ -1149,7 +1149,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Memory.Browser.MemoryFootprint.Startup" units="MB"
-    expires_after="2027-01-03">
+    expires_after="2027-03-07">
   <owner>justincohen@chromium.org</owner>
   <owner>bling-fundamentals@google.com</owner>
   <summary>
@@ -1294,7 +1294,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Memory.CommitPercentageUsed" units="%"
-    expires_after="2027-01-03">
+    expires_after="2027-03-07">
   <owner>aattar@google.com</owner>
   <owner>catan-team@chromium.org</owner>
   <summary>
@@ -2188,7 +2188,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Memory.Gpu.SharedMemoryFootprint" units="MB"
-    expires_after="2026-12-27">
+    expires_after="2027-02-28">
   <owner>erikchen@chromium.org</owner>
   <owner>ssid@chromium.org</owner>
   <summary>
@@ -2255,7 +2255,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Memory.MemoryDumpOutcome" enum="RequestOutcome"
-    expires_after="2026-12-20">
+    expires_after="2027-02-28">
   <owner>fdoray@chromium.org</owner>
   <owner>catan-team@chromium.org</owner>
   <summary>
@@ -2928,7 +2928,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Memory.RenderProcessHost.Count2.All" units="processes"
-    expires_after="2027-01-03">
+    expires_after="2027-03-07">
   <owner>alexmos@chromium.org</owner>
   <owner>creis@chromium.org</owner>
   <owner>lukasza@chromium.org</owner>
@@ -2948,7 +2948,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Memory.RenderProcessHost.Count2.InitializedAndNotDead"
-    units="processes" expires_after="2026-12-27">
+    units="processes" expires_after="2027-02-28">
   <owner>alexmos@chromium.org</owner>
   <owner>creis@chromium.org</owner>
   <owner>lukasza@chromium.org</owner>
@@ -3392,7 +3392,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Memory.Total.SharedMemoryFootprint" units="MB"
-    expires_after="2026-12-27">
+    expires_after="2027-02-28">
   <owner>erikchen@chromium.org</owner>
   <owner>ssid@chromium.org</owner>
   <summary>
@@ -3443,7 +3443,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Memory.VMMMS.{ClientName}.DecisionLatency" units="ms"
-    expires_after="2026-09-07">
+    expires_after="2027-09-07">
   <owner>kalutes@google.com</owner>
   <owner>cwd@google.com</owner>
   <owner>cros-vm-technology@google.com</owner>
@@ -3456,7 +3456,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Memory.VMMMS.{ClientName}.DecisionTimeout"
-    enum="VmmmsRequestPriority" expires_after="2026-09-07">
+    enum="VmmmsRequestPriority" expires_after="2027-09-07">
   <owner>kalutes@google.com</owner>
   <owner>cwd@google.com</owner>
   <owner>cros-vm-technology@google.com</owner>
@@ -3469,7 +3469,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Memory.VMMMS.{ClientName}.UnnecessaryKill"
-    enum="VmmmsRequestPriority" expires_after="2026-09-07">
+    enum="VmmmsRequestPriority" expires_after="2027-09-07">
   <owner>kalutes@google.com</owner>
   <owner>cwd@google.com</owner>
   <owner>cros-vm-technology@google.com</owner>
@@ -3482,7 +3482,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Memory.VMMMS.{VmName}.Deflate" units="MiB"
-    expires_after="2026-09-07">
+    expires_after="2027-09-07">
   <owner>kalutes@google.com</owner>
   <owner>cwd@google.com</owner>
   <owner>cros-vm-technology@google.com</owner>
@@ -3493,7 +3493,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Memory.VMMMS.{VmName}.Inflate" units="MiB"
-    expires_after="2026-09-07">
+    expires_after="2027-09-07">
   <owner>kalutes@google.com</owner>
   <owner>cwd@google.com</owner>
   <owner>cros-vm-technology@google.com</owner>
@@ -3504,7 +3504,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Memory.VMMMS.{VmName}.ResizeInterval" units="ms"
-    expires_after="2026-09-07">
+    expires_after="2027-09-07">
   <owner>kalutes@google.com</owner>
   <owner>cwd@google.com</owner>
   <owner>cros-vm-technology@google.com</owner>
@@ -3515,7 +3515,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Memory.VMMMS.{VmName}.Size10Minutes" units="MiB"
-    expires_after="2026-09-07">
+    expires_after="2027-09-07">
   <owner>kalutes@google.com</owner>
   <owner>cwd@google.com</owner>
   <owner>cros-vm-technology@google.com</owner>
@@ -3526,7 +3526,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Memory.VMMMS.{VmName}.StallThroughput" units="MiB/s"
-    expires_after="2026-09-07">
+    expires_after="2027-09-07">
   <owner>kalutes@google.com</owner>
   <owner>cwd@google.com</owner>
   <owner>cros-vm-technology@google.com</owner>

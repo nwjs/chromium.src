@@ -5,7 +5,7 @@
 #include "ui/views/view_shadow.h"
 
 #include "ui/compositor/layer.h"
-#include "ui/compositor_extra/shadow.h"
+#include "ui/decoration/shadow.h"
 #include "ui/gfx/geometry/rounded_corners_f.h"
 #include "ui/views/view.h"
 #include "ui/views/view_class_properties.h"
@@ -21,7 +21,6 @@ ViewShadow::ViewShadow(View* view, int elevation)
   view_->AddLayerToRegion(shadow_->layer(), LayerRegion::kBelow);
   shadow_->SetContentBounds(view_->layer()->bounds());
   view_observation_.Observe(view_);
-  shadow_observation_.Observe(shadow_.get());
 }
 
 ViewShadow::~ViewShadow() {
@@ -31,19 +30,11 @@ ViewShadow::~ViewShadow() {
 }
 
 void ViewShadow::SetRoundedCornerRadius(int corner_radius) {
-  shadow_->SetRoundedCornerRadius(corner_radius);
+  shadow_->SetRoundedCorners(gfx::RoundedCornersF(corner_radius));
 }
 
 void ViewShadow::SetRoundedCorners(const gfx::RoundedCornersF& radii) {
   shadow_->SetRoundedCorners(radii);
-}
-
-void ViewShadow::OnLayerRecreated(ui::Layer* old_layer) {
-  if (!view_) {
-    return;
-  }
-  view_->RemoveLayerFromRegionsKeepInLayerTree(old_layer);
-  view_->AddLayerToRegion(shadow_->layer(), LayerRegion::kBelow);
 }
 
 void ViewShadow::OnViewLayerBoundsSet(View* view) {
@@ -51,7 +42,6 @@ void ViewShadow::OnViewLayerBoundsSet(View* view) {
 }
 
 void ViewShadow::OnViewIsDeleting(View* view) {
-  shadow_observation_.Reset();
   shadow_.reset();
   view_observation_.Reset();
   view_ = nullptr;

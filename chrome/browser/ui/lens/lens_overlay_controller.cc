@@ -63,7 +63,6 @@
 #include "chrome/browser/ui/lens/lens_searchbox_controller.h"
 #include "chrome/browser/ui/lens/lens_session_metrics_logger.h"
 #include "chrome/browser/ui/lens/page_content_type_conversions.h"
-#include "components/omnibox/common/omnibox_features.h"
 #include "chrome/browser/ui/search/omnibox_utils.h"
 #include "chrome/browser/ui/side_panel/side_panel_entry.h"
 #include "chrome/browser/ui/side_panel/side_panel_entry_key.h"
@@ -87,7 +86,9 @@
 #include "components/lens/lens_overlay_permission_utils.h"
 #include "components/omnibox/browser/lens_suggest_inputs_utils.h"
 #include "components/omnibox/common/logger.h"
+#include "components/omnibox/common/omnibox_features.h"
 #include "components/permissions/permission_request_manager.h"
+#include "components/sessions/core/session_id.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/tabs/public/tab_interface.h"
 #include "components/vector_icons/vector_icons.h"
@@ -102,6 +103,7 @@
 #include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/web_contents_user_data.h"
 #include "content/public/browser/web_ui.h"
+#include "mojo/public/cpp/bindings/message.h"
 #include "net/base/network_change_notifier.h"
 #include "pdf/buildflags.h"
 #include "services/metrics/public/cpp/ukm_builders.h"
@@ -114,6 +116,7 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/ui_base_features.h"
 #include "ui/base/webui/web_ui_util.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/base/window_open_disposition_utils.h"
 #include "ui/compositor/compositor.h"
 #include "ui/compositor/layer.h"
@@ -351,7 +354,6 @@ void LensOverlayController::SendRegionText(lens::mojom::TextPtr text,
   }
   page_->RegionTextReceived(std::move(text), is_injected_image);
 }
-
 
 void LensOverlayController::SendObjects(
     std::vector<lens::mojom::OverlayObjectPtr> objects) {
@@ -607,38 +609,6 @@ void LensOverlayController::SaveAsImage(
   download_manager->DownloadUrl(std::move(params));
 }
 
-void LensOverlayController::MaybeShowTranslateFeaturePromo() {
-  auto* tracker = ui::ElementTracker::GetElementTracker();
-  translate_button_shown_subscription_ =
-      tracker->AddElementShownInAnyContextCallback(
-          kLensOverlayTranslateButtonElementId,
-          base::BindRepeating(
-              &LensOverlayController::TryShowTranslateFeaturePromo,
-              weak_factory_.GetWeakPtr()));
-}
-
-void LensOverlayController::MaybeCloseTranslateFeaturePromo(
-    bool feature_engaged) {
-  if (auto* const interface =
-          BrowserUserEducationInterface::MaybeGetForWebContentsInTab(
-              tab_->GetContents())) {
-    if (!interface->IsFeaturePromoActive(
-            feature_engagement::kIPHLensOverlayTranslateButtonFeature)) {
-      // Do nothing if feature promo is not active.
-      return;
-    }
-
-    if (feature_engaged) {
-      interface->NotifyFeaturePromoFeatureUsed(
-          feature_engagement::kIPHLensOverlayTranslateButtonFeature,
-          FeaturePromoFeatureUsedAction::kClosePromoIfPresent);
-    } else {
-      interface->AbortFeaturePromo(
-          feature_engagement::kIPHLensOverlayTranslateButtonFeature);
-    }
-  }
-}
-
 void LensOverlayController::FetchSupportedLanguages(
     FetchSupportedLanguagesCallback callback) {
   CHECK(languages_controller_);
@@ -647,20 +617,6 @@ void LensOverlayController::FetchSupportedLanguages(
 
 void LensOverlayController::FinishReshowOverlay() {
   FinishReshowOverlayImpl();
-}
-
-void LensOverlayController::TryShowTranslateFeaturePromo(
-    ui::TrackedElement* element) {
-  if (!element) {
-    return;
-  }
-
-  if (auto* const interface =
-          BrowserUserEducationInterface::MaybeGetForWebContentsInTab(
-              tab_->GetContents())) {
-    interface->MaybeShowFeaturePromo(
-        feature_engagement::kIPHLensOverlayTranslateButtonFeature);
-  }
 }
 
 std::string LensOverlayController::GetInvocationSourceString() {
@@ -950,6 +906,9 @@ void LensOverlayController::OnSearchboxFocusChanged(bool focused) {
     GetLensSessionMetricsLogger()->OnSearchboxFocused();
 
     if (state() == State::kHidden) {
+      if (!lens_search_controller_->IsCurrentTabSameOrigin()) {
+        return;
+      }
       // If the live page is showing and the searchbox becomes focused, showing
       // intent to issue a new query, upload the new page content for
       // contextualization.
@@ -1179,6 +1138,11 @@ void LensOverlayController::StorePageContentAndContinueInitialization(
     std::optional<uint32_t> page_count) {
   if (page_context_start_time.has_value()) {
     lens::RecordTimeToGetPageContext(base::TimeTicks::Now() - invocation_time_);
+  }
+  if (!lens_search_controller_->IsCurrentTabSameOrigin()) {
+    page_contents.clear();
+    primary_content_type = lens::MimeType::kUnknown;
+    page_count = std::nullopt;
   }
   initialization_data->page_contents_ = page_contents;
   initialization_data->primary_content_type_ = primary_content_type;
@@ -1571,11 +1535,11 @@ LensOverlayController::GetPreselectionBubbleConfig() {
       .message_string_id = IDS_LENS_OVERLAY_INITIAL_TOAST_MESSAGE_SIMPLIFIED,
       .bubble_background_color = kColorLensOverlayToastBackground,
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
-          .icon = &vector_icons::kGoogleLensMonochromeLogoIcon
+      .icon = &vector_icons::kGoogleLensMonochromeLogoIcon
 #else
-          .icon = &(features::IsRoundedIconsEnabled()
-                        ? vector_icons::kSearchIcon
-                        : vector_icons::kSearchChromeRefreshOldIcon)
+      .icon = &(features::IsRoundedIconsEnabled()
+                    ? vector_icons::kSearchIcon
+                    : vector_icons::kSearchChromeRefreshOldIcon)
 #endif
   };
 }
@@ -1956,6 +1920,9 @@ void LensOverlayController::HandlePageContentUploadProgress(uint64_t position,
 }
 
 void LensOverlayController::ReshowOverlay() {
+  if (!lens_search_controller_->IsCurrentTabSameOrigin()) {
+    return;
+  }
   OverlayBaseController::ReshowOverlay();
   use_aim_for_visual_search_ = true;
 
@@ -2153,6 +2120,9 @@ void LensOverlayController::NotifyUserEducationAboutOverlayUsed() {
 }
 
 void LensOverlayController::NotifyPageContentUpdated() {
+  if (!lens_search_controller_->IsCurrentTabSameOrigin()) {
+    return;
+  }
   auto page_content_type = lens::StringMimeTypeToMojoPageContentType(
       tab_->GetContents()->GetContentsMimeType());
   if (page_) {
@@ -2279,6 +2249,9 @@ void LensOverlayController::OnScreenshotTaken(
 }
 
 void LensOverlayController::ReshowOverlayPart2() {
+  if (!lens_search_controller_->IsCurrentTabSameOrigin()) {
+    return;
+  }
   ReshowScreenshot(GetContextualizationController()->viewport_screenshot(),
                    base::BindOnce(&LensOverlayController::ReshowOverlayPart3,
                                   weak_factory_.GetWeakPtr()));
@@ -2340,6 +2313,28 @@ void LensOverlayController::MaybeGrantLensOverlayPermissionsForSession(
 }
 
 void LensOverlayController::AcceptPrivacyNotice() {
+  if (!lens::features::IsLensOverlayNonBlockingPrivacyNoticeEnabled()) {
+    if (mojo::IsInMessageDispatch()) {
+      receiver_.ReportBadMessage(
+          "AcceptPrivacyNotice called when non-blocking privacy notice is not "
+          "enabled.");
+    }
+    return;
+  }
+
+  views::WebView* overlay_web_view = GetOverlayWebView();
+  content::RenderFrameHost* rfh =
+      overlay_web_view && overlay_web_view->GetWebContents()
+          ? overlay_web_view->GetWebContents()->GetPrimaryMainFrame()
+          : nullptr;
+  if (!rfh || !rfh->HasTransientUserActivation()) {
+    if (mojo::IsInMessageDispatch()) {
+      receiver_.ReportBadMessage(
+          "AcceptPrivacyNotice called without user activation.");
+    }
+    return;
+  }
+
   // Permanently grant permissions, then restart the query flow and upload page
   // content for contextualization.
   Profile* profile =
@@ -2356,6 +2351,14 @@ void LensOverlayController::AcceptPrivacyNotice() {
 }
 
 void LensOverlayController::DismissPrivacyNotice() {
+  if (!lens::features::IsLensOverlayNonBlockingPrivacyNoticeEnabled()) {
+    if (mojo::IsInMessageDispatch()) {
+      receiver_.ReportBadMessage(
+          "DismissPrivacyNotice called when non-blocking privacy notice is not "
+          "enabled.");
+    }
+    return;
+  }
   lens::RecordNonBlockingPrivacyNoticeAccepted(
       lens::LensOverlayNonBlockingPrivacyNoticeUserAction::kDismissed,
       invocation_source_);

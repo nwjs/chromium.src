@@ -5,38 +5,29 @@
 #ifndef COMPONENTS_ENTERPRISE_NET_CORE_ENTERPRISE_PROXY_ERROR_SERVICE_H_
 #define COMPONENTS_ENTERPRISE_NET_CORE_ENTERPRISE_PROXY_ERROR_SERVICE_H_
 
-#include <memory>
+#include <stdint.h>
+
 #include <optional>
 
+#include "base/containers/flat_map.h"
 #include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
+#include "base/values.h"
+#include "components/enterprise/net/core/enterprise_proxy_error_data.h"
 #include "components/enterprise/net/core/enterprise_proxy_service.h"
 #include "components/keyed_service/core/keyed_service.h"
 #include "net/base/auth.h"
 #include "net/http/http_response_headers.h"
+#include "net/log/net_log_with_source.h"
 #include "url/gurl.h"
 
 namespace enterprise_net {
-
-class EnterpriseProxyErrorData;
-class EnterpriseProxyService;
 
 // KeyedService responsible for handling proxy errors and 407 Proxy
 // Authentication challenges for managed Provisioning Domain dynamic routes.
 class EnterpriseProxyErrorService : public KeyedService {
  public:
-  // Delegate interface for platform-specific error marking and display.
-  // Non-iOS platforms implement this using content::NavigationHandle, while
-  // iOS platforms can implement this using WebKit / WKWebView classes.
-  class Delegate {
-   public:
-    virtual ~Delegate() = default;
-    virtual const EnterpriseProxyErrorData* GetDisguisedErrorData() const = 0;
-    virtual void AttachDisguisedErrorData(
-        const EnterpriseProxyErrorData& error_data) = 0;
-  };
-
   explicit EnterpriseProxyErrorService(
       EnterpriseProxyService* enterprise_proxy_service);
   EnterpriseProxyErrorService(const EnterpriseProxyErrorService&) = delete;
@@ -44,9 +35,23 @@ class EnterpriseProxyErrorService : public KeyedService {
       delete;
   ~EnterpriseProxyErrorService() override;
 
-  // Generates placeholder HTML for the special error page displaying
-  // destination URL, proxy URL, and disguised error code.
-  std::string GetErrorPageHTML(Delegate* delegate) const;
+  // Records a disguised proxy error for the specified navigation ID.
+  void RecordDisguisedError(int64_t navigation_id,
+                            EnterpriseProxyErrorData error_data,
+                            const net::NetLogWithSource& net_log);
+
+  // Retrieves and removes the recorded disguised proxy error for the navigation
+  // ID.
+  std::optional<EnterpriseProxyErrorData> TakeDisguisedError(
+      int64_t navigation_id);
+
+  // Removes any recorded disguised proxy error for the navigation ID.
+  void RemoveDisguisedError(int64_t navigation_id);
+
+  // Populates template parameters for the enterprise proxy alternative error
+  // page (destination URL, proxy URL, and disguised error code).
+  base::DictValue GetErrorPageParams(
+      const EnterpriseProxyErrorData& error_data) const;
 
   // Intercepts a 407 Proxy Authentication Required challenge.
   // Returns true if this challenge is handled by EnterpriseProxyErrorService
@@ -56,25 +61,35 @@ class EnterpriseProxyErrorService : public KeyedService {
       const net::AuthChallengeInfo& auth_info,
       const GURL& destination_url,
       const scoped_refptr<net::HttpResponseHeaders>& response_headers,
-      std::unique_ptr<Delegate> delegate,
+      int64_t navigation_id,
       base::OnceCallback<void(const std::optional<net::AuthCredentials>&)>
           callback);
 
  private:
-  std::string GetErrorPageHTML(
-      const EnterpriseProxyErrorData& error_data) const;
+  void RecordErrorCodeHistogram(int error_code) const;
+
+  void MaybeRecordErrorForNavigation(
+      int64_t navigation_id,
+      const GURL& destination_url,
+      const GURL& proxy_url,
+      int error_code,
+      EnterpriseProxyErrorData::ErrorCategory category,
+      const net::NetLogWithSource& net_log);
+
   void OnProxyAuthChallengeResult(
       bool* handled_flag,
-      std::unique_ptr<Delegate> delegate,
+      int64_t navigation_id,
       const GURL& destination_url,
       const GURL& proxy_url,
       int error_code,
       base::OnceCallback<void(const std::optional<net::AuthCredentials>&)>
           coord_callback,
       EnterpriseProxyService::ProxyAuthChallengeResult result,
-      const std::optional<net::AuthCredentials>& credentials);
+      const std::optional<net::AuthCredentials>& credentials,
+      const net::NetLogWithSource& net_log);
 
   raw_ptr<EnterpriseProxyService> enterprise_proxy_service_ = nullptr;
+  base::flat_map<int64_t, EnterpriseProxyErrorData> disguised_errors_;
   base::WeakPtrFactory<EnterpriseProxyErrorService> weak_ptr_factory_{this};
 };
 

@@ -16,6 +16,7 @@
 #include "chrome/browser/glic/browser_ui/context_sharing_border_view_controller_impl.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
 #include "chrome/browser/ui/ai_overlay_dialog/ai_overlay_dialog_controller.h"
+#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/read_anything/read_anything_immersive_overlay_view.h"
 #include "chrome/browser/ui/ui_features.h"

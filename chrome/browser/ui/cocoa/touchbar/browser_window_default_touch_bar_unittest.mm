@@ -12,8 +12,8 @@
 #include "base/strings/sys_string_conversions.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/command_updater.h"
+#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/search_engines/template_url_service_factory_test_util.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_command_controller.h"
 #include "chrome/browser/ui/browser_window/public/browser_collection_observer.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
@@ -22,6 +22,7 @@
 #include "chrome/browser/ui/cocoa/test/cocoa_test_helper.h"
 #include "chrome/browser/ui/exclusive_access/exclusive_access_manager.h"
 #include "chrome/browser/ui/exclusive_access/fullscreen_controller.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/test/base/browser_with_test_window_test.h"
 #include "components/prefs/pref_service.h"
@@ -138,10 +139,8 @@ TEST_F(BrowserWindowDefaultTouchBarUnitTest, TouchBarItems) {
   };
 
   // Set to tab fullscreen.
-  FullscreenController* fullscreen_controller = browser()
-                                                    ->GetFeatures()
-                                                    .exclusive_access_manager()
-                                                    ->fullscreen_controller();
+  FullscreenController* fullscreen_controller =
+      ExclusiveAccessManager::From(browser())->fullscreen_controller();
   fullscreen_controller->set_is_tab_fullscreen_for_testing(true);
   EXPECT_TRUE(fullscreen_controller->IsTabFullscreen());
 

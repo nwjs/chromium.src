@@ -30,7 +30,6 @@
 #include "chrome/browser/ui/webui/ash/settings/pages/device/inputs_section.h"
 #include "chrome/browser/ui/webui/ash/settings/pages/printing/printing_section.h"
 #include "chrome/browser/ui/webui/ash/settings/search/search_tag_registry.h"
-#include "chrome/common/chrome_features.h"
 #include "chrome/grit/generated_resources.h"
 #include "chromeos/ash/components/demo_mode/utils/demo_session_utils.h"
 #include "chromeos/constants/chromeos_features.h"
@@ -45,6 +44,7 @@
 #include "ui/display/display_switches.h"
 #include "ui/display/manager/display_manager.h"
 #include "ui/display/manager/touch_device_manager.h"
+#include "ui/display/types/display_constants.h"
 #include "ui/events/ash/keyboard_capability.h"
 #include "ui/events/ash/keyboard_layout_util.h"
 #include "ui/events/devices/device_data_manager.h"
@@ -1659,9 +1659,6 @@ void DeviceSection::AddDeviceDisplayStrings(
 
   html_source->AddBoolean("isDisplayPerformanceSupported",
                           IsDisplayPerformanceSupported());
-
-  html_source->AddBoolean("enableDisplayBrightnessControlInSettings",
-                          features::IsBrightnessControlInSettingsEnabled());
 
   html_source->AddBoolean("opsDisplayScaleFactorEnabled",
                           IsOpsDisplayScaleFactorEnabled());

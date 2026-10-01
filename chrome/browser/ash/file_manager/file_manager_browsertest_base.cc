@@ -20,6 +20,7 @@
 #include "ash/constants/ash_features.h"
 #include "ash/constants/ash_pref_names.h"
 #include "ash/constants/ash_switches.h"
+#include "ash/constants/chrome_switches.h"
 #include "ash/public/cpp/test/shell_test_api.h"
 #include "ash/shell.h"
 #include "ash/style/dark_light_mode_controller_impl.h"
@@ -135,7 +136,6 @@
 #include "chrome/browser/sync_file_system/sync_file_system_service_factory.h"
 #include "chrome/browser/ui/ash/sharesheet/sharesheet_util.h"
 #include "chrome/browser/ui/ash/system_web_apps/system_web_app_ui_utils.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_select_file_dialog_controller.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
@@ -262,6 +262,7 @@ class GuestOsFileWatcher;
 }  // namespace guest_os
 
 #if BUILDFLAG(ENABLE_PDF)
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "pdf/pdf_features.h"
 #endif  // BUILDFLAG(ENABLE_PDF)
 
@@ -1084,7 +1085,6 @@ std::ostream& operator<<(std::ostream& out,
   PRINT_IF_NOT_DEFAULT(native_smb)
   PRINT_IF_NOT_DEFAULT(offline)
   PRINT_IF_NOT_DEFAULT(photos_documents_provider)
-  PRINT_IF_NOT_DEFAULT(single_partition_format)
   PRINT_IF_NOT_DEFAULT(tablet_mode)
   PRINT_IF_NOT_DEFAULT(enable_arc_vm)
 
@@ -2345,12 +2345,12 @@ void FileManagerBrowserTestBase::SetUpCommandLine(
     command_line->AppendSwitch(ash::switches::kGuestSession);
     command_line->AppendSwitchNative(ash::switches::kLoginUser, "$guest");
     command_line->AppendSwitchASCII(ash::switches::kLoginProfile, "user");
-    command_line->AppendSwitch(switches::kIncognito);
+    command_line->AppendSwitch(ash::chrome_switches::kIncognito);
     set_chromeos_user_ = false;
   }
 
   if (options.guest_mode == IN_INCOGNITO) {
-    command_line->AppendSwitch(switches::kIncognito);
+    command_line->AppendSwitch(ash::chrome_switches::kIncognito);
   }
 
   if (options.offline) {
@@ -2362,10 +2362,6 @@ void FileManagerBrowserTestBase::SetUpCommandLine(
 
   if (options.arc) {
     arc::SetArcAvailableCommandLineForTesting(command_line);
-  }
-
-  if (options.single_partition_format) {
-    enabled_features.push_back(ash::features::kFilesSinglePartitionFormat);
   }
 
   if (options.enable_drive_trash) {
@@ -2392,12 +2388,6 @@ void FileManagerBrowserTestBase::SetUpCommandLine(
     enabled_features.push_back(ash::features::kDriveFsMirroring);
   } else {
     disabled_features.push_back(ash::features::kDriveFsMirroring);
-  }
-
-  if (options.enable_upload_office_to_cloud) {
-    enabled_features.push_back(chromeos::features::kUploadOfficeToCloud);
-  } else {
-    disabled_features.push_back(chromeos::features::kUploadOfficeToCloud);
   }
 
   if (command_line->HasSwitch(switches::kDevtoolsCodeCoverage) &&
@@ -2478,11 +2468,11 @@ void FileManagerBrowserTestBase::SetUpCommandLine(
   }
 
   if (options.enable_skyvault) {
-    enabled_features.push_back(features::kSkyVault);
+    enabled_features.push_back(ash::features::kSkyVault);
     enabled_features.push_back(ash::features::kSkyVaultV2);
     enabled_features.push_back(ash::features::kSkyVaultV3);
   } else {
-    disabled_features.push_back(features::kSkyVault);
+    disabled_features.push_back(ash::features::kSkyVault);
     disabled_features.push_back(ash::features::kSkyVaultV2);
     disabled_features.push_back(ash::features::kSkyVaultV3);
   }

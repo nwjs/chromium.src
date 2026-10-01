@@ -7,8 +7,8 @@
 #include <string_view>
 
 #include "base/task/single_thread_task_runner.h"
+#include "third_party/blink/renderer/platform/wtf/hash_functions_memory.h"
 #include "third_party/blink/renderer/platform/wtf/std_lib_extras.h"
-#include "third_party/blink/renderer/platform/wtf/text/string_hasher.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_view.h"
 
 namespace blink {
@@ -20,8 +20,8 @@ namespace {
 // `StringHasher::DefaultConverter` and `StringView(const LChar* chars, unsigned
 // length)` work fine here.
 struct InterfaceNameHashTranslator {
-  static unsigned GetHash(std::string_view s) {
-    return StringHasher::HashMemory32(base::as_byte_span(s));
+  static uint32_t GetHash(std::string_view s) {
+    return HashMemory32(base::as_byte_span(s));
   }
 
   static bool Equal(const String& a, std::string_view b) {

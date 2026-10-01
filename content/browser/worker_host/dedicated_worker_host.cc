@@ -705,6 +705,7 @@ DedicatedWorkerHost::CreateNetworkFactoryForSubresources(
               : network::mojom::TrustTokenOperationPolicyVerdict::kForbid,
           ancestor_render_frame_host->GetCookieSettingOverrides(),
           network_restrictions_id_,
+          /*renderer_accessible_http_cache_write_enabled=*/false,
           "DedicatedWorkerHost::CreateNetworkFactoryForSubresources");
   // Worker subresources are not outermost-main-frame requests even when their
   // creator frame is outermost.
@@ -835,8 +836,8 @@ void DedicatedWorkerHost::CreateWebSocketConnector(
           ancestor_render_frame_host->GetGlobalId(), ancestor_document_,
           GetWorkerStorageKey().origin(),
           ancestor_render_frame_host->GetIsolationInfoForSubresources(),
-          worker_client_security_state_->Clone(), network_restrictions_id_,
-          GetToken().value()),
+          worker_client_security_state_->Clone(), storage_access_api_status_,
+          network_restrictions_id_, GetToken().value()),
       std::move(receiver));
 }
 
@@ -994,7 +995,6 @@ void DedicatedWorkerHost::BindSerialService(
   ancestor_render_frame_host->BindSerialService(std::move(receiver));
 }
 
-#if !BUILDFLAG(IS_ANDROID)
 void DedicatedWorkerHost::BindHidService(
     mojo::PendingReceiver<blink::mojom::HidService> receiver) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
@@ -1008,7 +1008,6 @@ void DedicatedWorkerHost::BindHidService(
 
   ancestor_render_frame_host->GetHidService(std::move(receiver));
 }
-#endif
 
 void DedicatedWorkerHost::CreateBucketManagerHost(
     mojo::PendingReceiver<blink::mojom::BucketManagerHost> receiver) {

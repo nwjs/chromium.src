@@ -97,19 +97,6 @@ class OSSettingsCrostiniTest : public OSSettingsMochaTest {
   crostini::FakeCrostiniFeatures fake_crostini_features_;
 };
 
-class OSSettingsMochaTestReducedAnimationsEnabled : public OSSettingsMochaTest {
- private:
-  base::test::ScopedFeatureList scoped_feature_list_{
-      ::features::kAccessibilityReducedAnimations};
-};
-
-class OSSettingsMochaTestMagnifierFollowsChromeVoxEnabled
-    : public OSSettingsMochaTest {
- private:
-  base::test::ScopedFeatureList scoped_feature_list_{
-      ::features::kAccessibilityMagnifierFollowsChromeVox};
-};
-
 class OSSettingsMochaTestMouseKeysEnabled : public OSSettingsMochaTest {
  private:
   base::test::ScopedFeatureList scoped_feature_list_{
@@ -121,12 +108,7 @@ class OSSettingsMochaTestGraduationEnabled : public OSSettingsMochaTest {
   base::test::ScopedFeatureList scoped_feature_list_{features::kGraduation};
 };
 
-class OSSettingsMochaTestFlashNotificationsEnabled
-    : public OSSettingsMochaTest {
- private:
-  base::test::ScopedFeatureList scoped_feature_list_{
-      ::features::kAccessibilityFlashScreenFeature};
-};
+using OSSettingsMochaTestFlashNotificationsEnabled = OSSettingsMochaTest;
 
 class OSSettingsMochaTestAppParentalControlsEnabled
     : public OSSettingsMochaTest {
@@ -876,16 +858,6 @@ IN_PROC_BROWSER_TEST_F(OSSettingsMochaTest,
 }
 
 IN_PROC_BROWSER_TEST_F(OSSettingsMochaTest,
-                       OsA11yPageDisplayAndMagnificationSubpage) {
-  RunSettingsTest("os_a11y_page/display_and_magnification_subpage_test.js");
-}
-
-IN_PROC_BROWSER_TEST_F(OSSettingsMochaTestReducedAnimationsEnabled,
-                       OsA11yPageDisplayAndMagnificationSubpage) {
-  RunSettingsTest("os_a11y_page/display_and_magnification_subpage_test.js");
-}
-
-IN_PROC_BROWSER_TEST_F(OSSettingsMochaTestMagnifierFollowsChromeVoxEnabled,
                        OsA11yPageDisplayAndMagnificationSubpage) {
   RunSettingsTest("os_a11y_page/display_and_magnification_subpage_test.js");
 }

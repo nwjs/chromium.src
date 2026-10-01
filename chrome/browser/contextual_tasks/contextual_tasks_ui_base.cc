@@ -4,14 +4,31 @@
 
 #include "chrome/browser/contextual_tasks/contextual_tasks_ui_base.h"
 
+#include "chrome/browser/autocomplete/aim_eligibility_service_factory.h"
+#include "chrome/browser/contextual_tasks/contextual_tasks_permission_controller.h"
+#include "chrome/browser/contextual_tasks/contextual_tasks_side_panel_coordinator.h"
+#include "chrome/browser/contextual_tasks/contextual_tasks_utils.h"
+#include "chrome/browser/contextual_tasks/entry_point_eligibility_manager.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/webui/webui_embedding_context.h"
 #include "chrome/common/webui_url_constants.h"
+#include "chrome/grit/branded_strings.h"
 #include "chrome/grit/contextual_tasks_resources.h"
 #include "chrome/grit/contextual_tasks_resources_map.h"
+#include "chrome/grit/generated_resources.h"
+#include "components/contextual_tasks/public/features.h"
+#include "components/omnibox/browser/aim_eligibility_service.h"
+#include "components/omnibox/common/composebox_features.h"
+#include "components/strings/grit/components_strings.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui_data_source.h"
 #include "extensions/buildflags/buildflags.h"
+#include "mojo/public/mojom/base/error.mojom.h"
 #include "services/network/public/mojom/content_security_policy.mojom.h"
+#include "ui/base/l10n/l10n_util.h"
+#include "ui/base/ui_base_features.h"
+#include "ui/base/webui/web_ui_util.h"
 #include "ui/webui/webui_util.h"
 
 #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
@@ -84,6 +101,74 @@ content::WebUIDataSource* ContextualTasksUIBase::RegisterWebUIDataSource(
 base::DictValue ContextualTasksUIBase::GetContextualTasksLoadTimeData(
     Profile* profile) {
   base::DictValue dict;
+
+  static constexpr webui::LocalizedString kLocalizedStrings[] = {
+      {"close", IDS_CLOSE},
+      {"closeTooltip", IDS_CONTEXTUAL_TASKS_SIDE_PANEL_CLOSE_TOOL_TIP},
+      {"contextTooltip", IDS_CONTEXTUAL_TASKS_SIDE_PANEL_CONTEXT_TOOL_TIP},
+      {"continueThread", IDS_CONTEXTUAL_TASKS_CONTINUE_THREAD_MESSAGE},
+      {"feedback", IDS_LENS_SEND_FEEDBACK},
+      {"help", IDS_CONTEXTUAL_TASKS_MENU_HELP},
+      {"learnMore", IDS_LEARN_MORE},
+      {"moreOptionsTooltip",
+       IDS_CONTEXTUAL_TASKS_SIDE_PANEL_MORE_OPTIONS_TOOL_TIP},
+      {"myActivity", IDS_CONTEXTUAL_TASKS_MENU_MY_ACTIVITY},
+      {"newThreadTooltip", IDS_CONTEXTUAL_TASKS_SIDE_PANEL_NEW_THREAD_TOOL_TIP},
+      {"openInNewTab", IDS_CONTEXTUAL_TASKS_MENU_OPEN_IN_NEW_TAB},
+      {"pinTooltip", IDS_SIDE_PANEL_HEADER_PIN_BUTTON_TOOLTIP},
+      {"reopenTab", IDS_CONTEXTUAL_TASKS_REOPEN_TABS_BUTTON_TEXT},
+      {"sourcesMenuTitle", IDS_CONTEXTUAL_TASKS_SOURCES_MENU_TITLE},
+      {"threadHistoryTooltip",
+       IDS_CONTEXTUAL_TASKS_SIDE_PANEL_HISTORY_TOOL_TIP},
+      {"title", IDS_CONTEXTUAL_TASKS_AI_MODE_TITLE},
+      {"unpinTooltip", IDS_SIDE_PANEL_HEADER_UNPIN_BUTTON_TOOLTIP},
+  };
+
+  for (const auto& str : kLocalizedStrings) {
+    dict.Set(str.name, l10n_util::GetStringUTF16(str.id));
+  }
+
+  dict.Set("webuiRoundedIconsAttribute",
+           features::IsWebUIRoundedIconsEnabled() ? "webui-rounded-icons" : "");
+
+  bool is_eligible =
+      contextual_tasks::EntryPointEligibilityManager::IsEligible(profile);
+  dict.Set("isCobrowseEligible", is_eligible);
+  const bool is_pinning_eligible =
+      contextual_tasks::EntryPointEligibilityManager::IsPinningEligible(
+          profile);
+  dict.Set("enablePinButton", is_pinning_eligible);
+  dict.Set(
+      "isSidePanelPinned",
+      is_pinning_eligible && contextual_tasks::GetEffectivePinState(profile));
+  dict.Set("contextualTasksSidePanelRearchitectureEnabled",
+           contextual_tasks::IsContextualTasksSidePanelRearchitectureEnabled());
+  dict.Set("hideMenuOnAiPageEnabled",
+           base::FeatureList::IsEnabled(
+               contextual_tasks::kContextualTasksHideMenuOnAiPage));
+  dict.Set(
+      "contextualTasksEnableSpatialModelToolbarLayout",
+      contextual_tasks::GetContextualTasksSpatialModelToolbarLayoutEnabled());
+  dict.Set(
+      "contextualTasksEnableSpatialModelToolbarLayoutNewThreadInOverflow",
+      contextual_tasks::
+          GetContextualTasksSpatialModelToolbarLayoutNewThreadInOverflow());
+  dict.Set(
+      "contextManagementInComposeboxEnabled",
+      base::FeatureList::IsEnabled(omnibox::kContextManagementInComposebox));
+  dict.Set("webuiRoundedIconsEnabled", features::IsWebUIRoundedIconsEnabled());
+
+  AimEligibilityService* aim_eligibility_service =
+      AimEligibilityServiceFactory::GetForProfile(profile);
+  bool is_aim_eligible =
+      aim_eligibility_service && aim_eligibility_service->IsAimEligible();
+  dict.Set("isAimEligible", is_aim_eligible);
+
+  dict.Set("darkMode", false);
+  dict.Set("isAiPage", false);
+  dict.Set("isSignedIn", false);
+  dict.Set("expandButtonEnabled", false);
+
   return dict;
 }
 
@@ -103,5 +188,93 @@ void ContextualTasksUIBase::BindInterface(
   toolbar_page_factory_receiver_.reset();
   toolbar_page_factory_receiver_.Bind(std::move(pending_receiver));
 }
+
+void ContextualTasksUIBase::BindInterface(
+    mojo::PendingReceiver<
+        contextual_tasks_toolbar::mojom::ContextualTasksToolbarUIService>
+        pending_receiver) {
+  receiver_.reset();
+  receiver_.Bind(std::move(pending_receiver));
+}
+
+ContextualTasksPermissionController*
+ContextualTasksUIBase::GetActiveController() {
+  BrowserWindowInterface* browser =
+      webui::GetBrowserWindowInterface(web_ui()->GetWebContents());
+  if (!browser) {
+    return nullptr;
+  }
+  auto* coordinator =
+      contextual_tasks::ContextualTasksSidePanelCoordinator::Get(
+          browser->GetUnownedUserDataHost());
+  if (!coordinator) {
+    return nullptr;
+  }
+  content::WebContents* main_contents = coordinator->GetActiveWebContents();
+  return main_contents ? contextual_tasks::ContextualTasksPermissionController::
+                             FromWebContents(main_contents)
+                       : nullptr;
+}
+
+// TODO(crbug.com/558849041): Observe ContextualTasksPermissionController and
+// active task changes, and dashboard push state updates via
+// toolbar_ui_observers_.Notify(
+//    &ContextualTasksToolbarUIObserver::OnPermissionDashboardStateChanged).
+void ContextualTasksUIBase::GetInitialState(GetInitialStateCallback callback) {
+  auto* controller = GetActiveController();
+  if (!controller) {
+    std::move(callback).Run(base::unexpected(mojo_base::mojom::Error::New(
+        mojo_base::mojom::Code::kFailedPrecondition,
+        "ContextualTasksToolbarUIService: no active controller")));
+    return;
+  }
+
+  auto initial_state = contextual_tasks_toolbar::mojom::InitialState::New();
+  mojo::PendingRemote<
+      contextual_tasks_toolbar::mojom::ContextualTasksToolbarUIObserver>
+      observer_remote;
+  initial_state->update_stream =
+      observer_remote.InitWithNewPipeAndPassReceiver();
+  toolbar_ui_observers_.Add(std::move(observer_remote));
+
+  initial_state->state = controller->GetState();
+
+  std::move(callback).Run(std::move(initial_state));
+}
+
+// TODO(crbug.com/558848727): Fix race condition where active task changes while
+// IPC is in flight. The WebUI should pass the target task ID (or generation
+// token), and the click should be dropped if the targeted task is no longer
+// active.
+void ContextualTasksUIBase::OnChipClicked(
+    toolbar_ui_api::mojom::LhsChipIdentifier identifier,
+    bool is_mouse_interaction) {
+  if (auto* controller = GetActiveController()) {
+    controller->OnChipClicked(identifier, is_mouse_interaction);
+  }
+}
+
+void ContextualTasksUIBase::OnChipExpandAnimationEnded(
+    toolbar_ui_api::mojom::LhsChipIdentifier identifier) {
+  if (auto* controller = GetActiveController()) {
+    controller->OnChipExpandAnimationEnded(identifier);
+  }
+}
+
+void ContextualTasksUIBase::OnChipCollapseAnimationEnded(
+    toolbar_ui_api::mojom::LhsChipIdentifier identifier) {
+  if (auto* controller = GetActiveController()) {
+    controller->OnChipCollapseAnimationEnded(identifier);
+  }
+}
+
+void ContextualTasksUIBase::OnChipMousePressed(
+    toolbar_ui_api::mojom::LhsChipIdentifier identifier) {}
+
+void ContextualTasksUIBase::OnChipPointerEntered(
+    toolbar_ui_api::mojom::LhsChipIdentifier identifier) {}
+
+void ContextualTasksUIBase::OnChipPointerExited(
+    toolbar_ui_api::mojom::LhsChipIdentifier identifier) {}
 
 }  // namespace contextual_tasks

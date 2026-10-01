@@ -70,6 +70,8 @@ chromium-metrics-reviews@google.com.
       summary="Describes the promo dialog shown to introduce the bottom bar."/>
   <variant name="IPH_AndroidTabDeclutter"
       summary="Shows how to access tabs which have been archived."/>
+  <variant name="IPH_AndroidVerticalTabsNewLabel"
+      summary="Enables the 'New' label for Android Vertical Tabs."/>
   <variant name="IPH_AndroidVerticalTabsPromo"
       summary="Vertical Tabs promo on Android horizontal tab strip."/>
   <variant name="IPH_AppRatingPrompt" summary="App Rating Prompt action"/>
@@ -86,8 +88,8 @@ chromium-metrics-reviews@google.com.
       summary="message shown along with the account name and email suggestion
                option in the Autofill dropdown"/>
   <variant name="IPH_AutofillAiOptIn"
-      summary="snooze educating users about the possibility of turning on the
-               AutofillAi feature"/>
+      summary="(obsolete) snooze educating users about the possibility of
+               turning on the AutofillAi feature"/>
   <variant name="IPH_AutofillAiValuables"
       summary="snooze educating users about the possibility of autofilling
                Google Wallet passses"/>
@@ -242,8 +244,6 @@ chromium-metrics-reviews@google.com.
   <variant name="IPH_DownloadSettings"
       summary="accessing download settings from download home"/>
   <variant name="IPH_DownloadToolbarButton" summary="download toolbar button"/>
-  <variant name="IPH_EphemeralTab"
-      summary="new label on the context menu for Ephemeral Tab"/>
   <variant name="IPH_ExplicitBrowserSigninPreferenceRemembered"
       summary="Confirmation message that the explicit browser signin
                preference was remembered"/>
@@ -375,6 +375,10 @@ chromium-metrics-reviews@google.com.
       summary="showing the fullscreen Gemini promo on iOS"/>
   <variant name="IPH_iOSGeminiImageRemix"
       summary="showing the Gemini Image Remix IPH on iOS"/>
+  <variant name="IPH_iOSGeminiLiveIPHFeature"
+      summary="showing the Gemini Live tooltip IPH on iOS"/>
+  <variant name="IPH_iOSGeminiLiveNewBadgeFeature"
+      summary="showing the Gemini Live New badge on iOS"/>
   <variant name="IPH_iOSHistoryOnOverflowMenuFeature"
       summary="history item on the overflow menu on iOS"/>
   <variant name="IPH_iOSHomepageCustomizationNewBadge"
@@ -422,6 +426,8 @@ chromium-metrics-reviews@google.com.
       summary="showing the App Store Promo on iOS"/>
   <variant name="IPH_iOSPromoBackgroundCustomization"
       summary="Background customization feature for the iOS NTP"/>
+  <variant name="IPH_iOSPromoContextualDefaultBrowserGemini"
+      summary="showing the Gemini contextual default browser promo on iOS"/>
   <variant name="IPH_iOSPromoCredentialProviderExtension"
       summary="showing the Credential Provider Extension Promo on iOS"/>
   <variant name="IPH_iOSPromoDefaultBrowser"
@@ -516,8 +522,6 @@ chromium-metrics-reviews@google.com.
   <variant name="IPH_LauncherSearchHelpUi"
       summary="show launcher search chips in the launcher"/>
   <variant name="IPH_LensOverlay" summary="Lens Overlay"/>
-  <variant name="IPH_LensOverlayTranslateButton"
-      summary="Lens Overlay translate button"/>
   <variant name="IPH_LiveCaption" summary="(obsolete) Live Caption"/>
   <variant name="IPH_LongPressToolbarTip" summary="LongPress toolbar"/>
   <variant name="IPH_MicToolbar" summary="the mic button in the toolbar"/>
@@ -633,6 +637,8 @@ chromium-metrics-reviews@google.com.
                mode"/>
   <variant name="IPH_ReadingModeKeyboardShortcut"
       summary="promotes the keyboard shortcut for reading mode"/>
+  <variant name="IPH_ReadingModeLineFocus"
+      summary="promotes the line focus feature in Reading Mode"/>
   <variant name="IPH_ReadingModePageActionLabel"
       summary="promotes the new omnibox entrypoint for reading mode"/>
   <variant name="IPH_ReadingModePresentationMode"
@@ -644,8 +650,6 @@ chromium-metrics-reviews@google.com.
       summary="read later app menu"/>
   <variant name="IPH_ReadLaterBottomSheet"
       summary="read later bottom sheet entry point"/>
-  <variant name="IPH_ReadLaterContextMenu"
-      summary="read later context menu entry point"/>
   <variant name="IPH_RecentTabs"
       summary="prompting the user that they can find their recently closed
                tabs and windows in the 'Recent tabs' surface"/>
@@ -998,7 +1002,7 @@ In the future, Desktop IPH may be completely moved to the user_education folder.
 </histogram>
 
 <histogram name="UserEducation.MessageNotShown.TimeInQueue.{IPHFeature}"
-    units="ms" expires_after="2027-01-03">
+    units="ms" expires_after="2027-03-07">
   <owner>dfried@chromium.org</owner>
   <owner>frizzle-team@google.com</owner>
   <summary>

@@ -38,6 +38,7 @@ import org.mockito.Mockito;
 import org.chromium.base.Log;
 import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.DisabledTest;
+import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.MinAndroidSdkLevel;
 import org.chromium.base.test.util.Restriction;
@@ -45,6 +46,7 @@ import org.chromium.base.test.util.UrlUtils;
 import org.chromium.content.common.ContentInternalFeatures;
 import org.chromium.content_public.browser.ContentFeatureList;
 import org.chromium.content_public.browser.test.ContentJUnit4ClassRunner;
+import org.chromium.content_public.common.ContentFeatures;
 import org.chromium.ui.accessibility.testservice.EventMatcher;
 import org.chromium.ui.accessibility.testservice.IAccessibilityTestHelperService;
 import org.chromium.ui.accessibility.testservice.NodeMatcher;
@@ -60,6 +62,7 @@ import java.util.concurrent.atomic.AtomicReference;
 /** Tests for Accessibility end-to-end. */
 @Batch(Batch.PER_CLASS)
 @RunWith(ContentJUnit4ClassRunner.class)
+@DisableFeatures(ContentFeatures.ACCESSIBILITY_REQUEST_SCOPED_CONTENT_CHANGED_EVENTS)
 public class WebContentsAccessibilityE2ETest {
     private static final String ACCESSIBILITY_TEST_SERVICE_PACKAGE =
             "org.chromium.ui.accessibility.testservice";
@@ -86,7 +89,6 @@ public class WebContentsAccessibilityE2ETest {
     // Extended selection offset types, defined in:
     // androidx.view.accessibility.AccessibilityNodeInfoCompat
     private static final int OFFSET_TYPE_TEXT = 0;
-    private static final int OFFSET_TYPE_CHILD = 1;
 
     private final AtomicReference<CompletableFuture<IAccessibilityTestHelperService>>
             mServiceFuture = new AtomicReference<>(new CompletableFuture<>());
@@ -758,7 +760,7 @@ WebView focusable focused actions:[CLEAR_FOCUS, AX_FOCUS] bundle:[chromeRole="ro
         String expectedDump =
 """
 WebView focusable actions:[FOCUS, AX_FOCUS] bundle:[chromeRole="rootWebArea"]
-  EditText text:"Line one\\nLink text node" clickable editable focusable focused multiLine textSelectionStart:9 textSelectionEnd:10 actions:[CLEAR_FOCUS, CLICK, AX_FOCUS, NEXT, PREVIOUS, COPY, PASTE, CUT, SET_SELECTION, SET_TEXT, IME_ENTER] bundle:[chromeRole="genericContainer", clickableScore="200"] isInputFocusedViaFindFocus
+  EditText text:"Line one\\nLink text node" clickable editable focusable focused multiLine textSelectionStart:9 textSelectionEnd:18 actions:[CLEAR_FOCUS, CLICK, AX_FOCUS, NEXT, PREVIOUS, COPY, PASTE, CUT, SET_SELECTION, SET_TEXT, IME_ENTER] bundle:[chromeRole="genericContainer", clickableScore="200"] isInputFocusedViaFindFocus
     TextView text:"Line one" editable actions:[AX_FOCUS, NEXT, PREVIOUS] bundle:[chromeRole="staticText", clickableScore="100"]
     View text:"\\n" editable notVisibleToUser actions:[AX_FOCUS, NEXT, PREVIOUS] bundle:[chromeRole="lineBreak", clickableScore="100"]
     View text:"null" contentDescription:"Link text" viewIdResName:"link" clickable editable actions:[CLICK, AX_FOCUS, NEXT, PREVIOUS] bundle:[chromeRole="link", clickableScore="300", roleDescription="link", targetUrl="data:text/html;utf-8,%3Chtml%3E%3Cbody%3E%3Cdiv%20contenteditable%3E%0ALine%20one%3Cbr%3E%0A%3Ca%20id%3D%27link%27%20href%3D%27%23%27%3ELink%20text%3C%2Fa%3E%20node%0A%3C%2Fdiv%3E%3C%2Fbody%3E%3C%2Fhtml%3E%0A#"] extendedSelectionEnd:{1, child}

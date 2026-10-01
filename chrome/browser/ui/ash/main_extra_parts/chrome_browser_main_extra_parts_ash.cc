@@ -37,7 +37,6 @@
 #include "chrome/browser/ash/app_restore/full_restore_service.h"
 #include "chrome/browser/ash/auth/active_session_fingerprint_client_impl.h"
 #include "chrome/browser/ash/boca/boca_app_client_impl.h"
-#include "chrome/browser/ash/browser_delegate/browser_controller.h"
 #include "chrome/browser/ash/geolocation/system_geolocation_source.h"
 #include "chrome/browser/ash/growth/campaigns_manager_client_impl.h"
 #include "chrome/browser/ash/growth/campaigns_manager_session.h"
@@ -106,6 +105,7 @@
 #include "chrome/browser/ui/views/select_file_dialog_extension/select_file_dialog_extension_factory.h"
 #include "chrome/browser/ui/webui/ash/settings/pref_names.h"
 #include "chromeos/ash/components/browser_context_helper/browser_context_helper.h"
+#include "chromeos/ash/components/browser_delegate/browser_controller.h"
 #include "chromeos/ash/components/dbus/dbus_thread_manager.h"
 #include "chromeos/ash/components/dbus/resourced/resourced_client.h"
 #include "chromeos/ash/components/dbus/session_manager/session_manager_client.h"
@@ -540,7 +540,7 @@ void ChromeBrowserMainExtraPartsAsh::PostProfileInit(Profile* profile,
       ->SetPeripheralsAppDelegate(peripherals_app_delegate_.get());
 
   // Initialize TabScrubber after the Ash Shell has been initialized.
-  ash::TabScrubber::GetInstance();
+  tab_scrubber_ = std::make_unique<ash::TabScrubber>();
 }
 
 void ChromeBrowserMainExtraPartsAsh::PostBrowserStart() {
@@ -625,6 +625,7 @@ void ChromeBrowserMainExtraPartsAsh::PostMainMessageLoopRun() {
   login_screen_client_.reset();
   management_disclosure_client_.reset();
   graduation_manager_.reset();
+  tab_scrubber_.reset();
 
   ash::privacy_hub_util::SetAppAccessNotifier(nullptr);
   app_access_notifier_.reset();

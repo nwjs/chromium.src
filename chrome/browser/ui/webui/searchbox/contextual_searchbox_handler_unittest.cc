@@ -49,9 +49,11 @@
 #include "chrome/browser/ui/tabs/alert/tab_alert_controller.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/browser/ui/tabs/tab_model.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/views/drive_picker_host/drive_picker_host_controller.h"
 #include "chrome/browser/ui/views/drive_picker_host/drive_picker_sanitizer.h"
 #include "chrome/browser/ui/webui/cr_components/composebox/composebox_handler.h"
+#include "chrome/browser/ui/webui/cr_components/searchbox/searchbox_utils.h"
 #include "chrome/browser/ui/webui/drive_picker_host/drive_picker_host_request.h"
 #include "chrome/browser/ui/webui/new_tab_page/composebox/variations/composebox_fieldtrial.h"
 #include "chrome/browser/ui/webui/searchbox/contextual_searchbox_test_utils.h"
@@ -85,8 +87,10 @@
 #include "components/omnibox/composebox/contextual_search_mojom_traits.h"
 #include "components/prefs/pref_service.h"
 #include "components/search/ntp_features.h"
+#include "components/sessions/core/session_id.h"
 #include "components/tabs/public/mock_tab_interface.h"
 #include "content/public/browser/desktop_capture.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_delegate.h"
@@ -194,6 +198,7 @@ class FakeContextualTasksUIInterface
   void OnSidePanelStateChanged() override {}
   void OnActiveTabContextStatusChanged() override {}
   void SyncAutoSuggestedTabContext() override {}
+  void ResetForNewThread(const base::Uuid& task_id, const GURL& url) override {}
   void OnLensOverlayStateChanged(
       bool is_showing,
       std::optional<lens::LensOverlayInvocationSource> invocation_source)
@@ -2455,10 +2460,11 @@ TEST_F(ContextualSearchboxHandlerTest, OpenAutocompleteMatch_ZeroSuggestClick) {
             &MockContextualSearchMetricsRecorder::RecordZeroSuggestClickBase));
 
     auto modifiers = searchbox::mojom::ActionModifiers::New();
-    handler().OpenAutocompleteMatch(0, GURL("https://www.google.com"),
-                                    /*are_matches_showing=*/true,
-                                    /*mouse_button=*/0, std::move(modifiers),
-                                    /*via_keyboard=*/false);
+    handler().OpenAutocompleteMatch(
+        handler().autocomplete_controller()->result().sequence_id(), 0,
+        GURL("https://www.google.com"), /*are_matches_showing=*/true,
+        /*mouse_button=*/0, std::move(modifiers),
+        /*via_keyboard=*/false);
 
     histogram_tester().ExpectBucketCount(
         "ContextualSearch.ZeroSuggestClickV2.IsContextual.NewTabPage", false,
@@ -2491,10 +2497,11 @@ TEST_F(ContextualSearchboxHandlerTest, OpenAutocompleteMatch_ZeroSuggestClick) {
             &MockContextualSearchMetricsRecorder::RecordZeroSuggestClickBase));
 
     auto modifiers = searchbox::mojom::ActionModifiers::New();
-    handler().OpenAutocompleteMatch(0, GURL("https://www.contextual.com"),
-                                    /*are_matches_showing=*/true,
-                                    /*mouse_button=*/0, std::move(modifiers),
-                                    /*via_keyboard=*/false);
+    handler().OpenAutocompleteMatch(
+        handler().autocomplete_controller()->result().sequence_id(), 0,
+        GURL("https://www.contextual.com"), /*are_matches_showing=*/true,
+        /*mouse_button=*/0, std::move(modifiers),
+        /*via_keyboard=*/false);
 
     histogram_tester().ExpectBucketCount(
         "ContextualSearch.ZeroSuggestClickV2.IsContextual.NewTabPage", true, 1);
@@ -2540,10 +2547,11 @@ TEST_F(ContextualSearchboxHandlerTest,
                                       RecordTypedSuggestNavigationBase));
 
     auto modifiers = searchbox::mojom::ActionModifiers::New();
-    handler().OpenAutocompleteMatch(0, GURL("https://www.google.com"),
-                                    /*are_matches_showing=*/true,
-                                    /*mouse_button=*/0, std::move(modifiers),
-                                    /*via_keyboard=*/false);
+    handler().OpenAutocompleteMatch(
+        handler().autocomplete_controller()->result().sequence_id(), 0,
+        GURL("https://www.google.com"), /*are_matches_showing=*/true,
+        /*mouse_button=*/0, std::move(modifiers),
+        /*via_keyboard=*/false);
 
     histogram_tester().ExpectBucketCount(
         "ContextualSearch.TypedSuggestNavigation.IsVerbatim.NewTabPage", true,
@@ -2581,7 +2589,8 @@ TEST_F(ContextualSearchboxHandlerTest,
 
     auto modifiers = searchbox::mojom::ActionModifiers::New();
     handler().OpenAutocompleteMatch(
-        1, GURL("https://www.google.com/search?q=suggestion"),
+        handler().autocomplete_controller()->result().sequence_id(), 1,
+        GURL("https://www.google.com/search?q=suggestion"),
         /*are_matches_showing=*/true, /*mouse_button=*/0, std::move(modifiers),
         /*via_keyboard=*/false);
 
@@ -2603,6 +2612,54 @@ TEST_F(ContextualSearchboxHandlerTest, SubmitQueryWithAdditionalParams) {
   std::string udm_param;
   EXPECT_TRUE(net::GetValueForKeyInQuery(query_url, "udm", &udm_param));
   EXPECT_EQ("50", udm_param);
+}
+
+TEST_F(ContextualSearchboxHandlerTest,
+       SubmitQuery_OmniboxPageActionInvocationSource) {
+  omnibox::ChromeAimEntryPoint captured_aim_entry_point =
+      omnibox::UNKNOWN_AIM_ENTRY_POINT;
+  std::optional<lens::LensOverlayInvocationSource> captured_invocation_source;
+
+  EXPECT_CALL(query_controller(), CreateSearchUrl)
+      .WillOnce(
+          [&](auto&& request_info, base::OnceCallback<void(GURL)> callback) {
+            captured_aim_entry_point = request_info->aim_entry_point;
+            captured_invocation_source = request_info->invocation_source;
+            std::move(callback).Run(GURL("https://www.google.com"));
+          });
+
+  contextual_session_handle_->set_invocation_source(
+      lens::LensOverlayInvocationSource::kOmniboxPageAction);
+  handler().SubmitQuery(kQueryText, 1, false, false, false, false,
+                        /*is_voice_search=*/false);
+
+  EXPECT_EQ(
+      omnibox::ChromeAimEntryPoint::DESKTOP_CHROME_COBROWSE_OMNIBOX_TAB_SEARCH,
+      captured_aim_entry_point);
+  EXPECT_EQ(lens::LensOverlayInvocationSource::kOmniboxPageAction,
+            captured_invocation_source);
+}
+
+TEST_F(ContextualSearchboxHandlerTest, GetAimEntryPoint) {
+  contextual_session_handle_->set_invocation_source(
+      lens::LensOverlayInvocationSource::kOmniboxPageAction);
+  EXPECT_EQ(
+      omnibox::ChromeAimEntryPoint::DESKTOP_CHROME_COBROWSE_OMNIBOX_TAB_SEARCH,
+      GetAimEntryPoint(metrics::OmniboxEventProto::OTHER_OMNIBOX_COMPOSEBOX,
+                       contextual_session_handle_.get()));
+
+  contextual_session_handle_->set_invocation_source(
+      lens::LensOverlayInvocationSource::kOmniboxContextualQuery);
+  EXPECT_EQ(
+      omnibox::ChromeAimEntryPoint::
+          DESKTOP_CHROME_OTHER_OMNIBOX_COMPOSEBOX_ENTRY_POINT,
+      GetAimEntryPoint(metrics::OmniboxEventProto::OTHER_OMNIBOX_COMPOSEBOX,
+                       contextual_session_handle_.get()));
+
+  EXPECT_EQ(
+      omnibox::ChromeAimEntryPoint::
+          DESKTOP_CHROME_OTHER_OMNIBOX_COMPOSEBOX_ENTRY_POINT,
+      GetAimEntryPoint(metrics::OmniboxEventProto::OTHER_OMNIBOX_COMPOSEBOX));
 }
 
 TEST_F(ContextualSearchboxHandlerTest, SubmitQuery_NoContextualTasksService) {
@@ -4249,7 +4306,7 @@ INSTANTIATE_TEST_SUITE_P(
 
 #if !BUILDFLAG(IS_ANDROID)
 class MockScreenshareDelegate
-    : public ContextualSearchboxHandler::ScreenshareDelegate {
+    : public ContextualSearchboxScreenshareController::Delegate {
  public:
   MOCK_METHOD(void,
               ShowScreenshotMenu,
@@ -4261,16 +4318,33 @@ class MockScreenshareDelegate
 TEST_F(ContextualSearchboxHandlerTest, ShowScreenshotMenu_ForwardsToDelegate) {
   MockScreenshareDelegate delegate;
   EXPECT_CALL(delegate, ShowScreenshotMenu(gfx::Rect(1, 2, 3, 4), testing::_));
-  handler().set_screenshare_delegate(&delegate);
+  handler().set_screenshare_delegate_for_testing(&delegate);
 
   handler().ShowScreenshotMenu(gfx::Rect(1, 2, 3, 4));
 }
 
 TEST_F(ContextualSearchboxHandlerTest,
        ShowScreenshotMenu_NoDelegate_NotifiesClosed) {
-  handler().set_screenshare_delegate(nullptr);
+  handler().set_screenshare_delegate_for_testing(nullptr);
   EXPECT_CALL(mock_searchbox_page_, OnScreenshotMenuClosed());
   handler().ShowScreenshotMenu(gfx::Rect(1, 2, 3, 4));
+  mock_searchbox_page_.FlushForTesting();
+}
+
+TEST_F(ContextualSearchboxHandlerTest, AddFileContextToPage_ForwardsToPage) {
+  const auto token = base::UnguessableToken::Create();
+  auto file_info = searchbox::mojom::SelectedFileInfo::New();
+  file_info->file_name = "test.png";
+  file_info->mime_type = "image/png";
+  file_info->is_deletable = true;
+
+  EXPECT_CALL(
+      mock_searchbox_page_,
+      AddFileContext(token, testing::Pointee(testing::Field(
+                                &searchbox::mojom::SelectedFileInfo::file_name,
+                                "test.png"))));
+
+  handler().AddFileContextToPage(token, std::move(file_info));
   mock_searchbox_page_.FlushForTesting();
 }
 #else

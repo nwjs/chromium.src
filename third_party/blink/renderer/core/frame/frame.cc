@@ -245,6 +245,26 @@ bool Frame::IsCrossOriginToParentOrOuterDocument() const {
   return !security_origin->CanAccess(parent_security_origin);
 }
 
+bool Frame::HasCrossOriginAncestorFrame() const {
+  DCHECK(GetSecurityContext());
+  if (IsInFencedFrameTree()) {
+    return true;
+  }
+  if (IsMainFrame()) {
+    return false;
+  }
+  const SecurityOrigin* security_origin =
+      GetSecurityContext()->GetSecurityOrigin();
+  for (const Frame* f = this; f; f = f->Tree().Parent()) {
+    const SecurityOrigin* ancestor_security_origin =
+        f->GetSecurityContext()->GetSecurityOrigin();
+    if (!security_origin->CanAccess(ancestor_security_origin)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 HTMLFrameOwnerElement* Frame::DeprecatedLocalOwner() const {
   return DynamicTo<HTMLFrameOwnerElement>(owner_.Get());
 }
@@ -384,6 +404,12 @@ void Frame::NotifyUserActivationInFrameTree(
 bool Frame::ConsumeTransientUserActivationInFrameTree() {
   bool was_active = user_activation_state_.IsActive();
   Frame& root = Tree().Top();
+
+  // To record UMA once per consumption, we arbitrarily picked the LocalFrame
+  // for root.
+  if (IsA<LocalFrame>(root)) {
+    root.user_activation_state_.RecordPreconsumptionUma();
+  }
 
   for (Frame* node = &root; node; node = node->Tree().TraverseNext())
     node->user_activation_state_.ConsumeIfActive();

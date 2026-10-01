@@ -15,7 +15,6 @@
 #include "chrome/browser/apps/app_service/app_service_proxy.h"
 #include "chrome/browser/apps/app_service/app_service_proxy_factory.h"
 #include "chrome/browser/ash/borealis/borealis_window_manager.h"
-#include "chrome/browser/ash/browser_delegate/browser_controller.h"
 #include "chrome/browser/ash/crostini/crostini_features.h"
 #include "chrome/browser/ash/crostini/crostini_force_close_watcher.h"
 #include "chrome/browser/ash/crostini/crostini_util.h"
@@ -30,6 +29,7 @@
 #include "chrome/browser/ui/ash/shelf/chrome_shelf_controller.h"
 #include "chrome/browser/ui/ash/shelf/shelf_spinner_controller.h"
 #include "chromeos/ash/components/borealis/borealis_util.h"
+#include "chromeos/ash/components/browser_delegate/browser_controller.h"
 #include "chromeos/ash/experiences/arc/arc_util.h"
 #include "components/exo/permission.h"
 #include "components/exo/shell_surface_util.h"
@@ -37,6 +37,7 @@
 #include "ui/aura/window.h"
 #include "ui/display/display.h"
 #include "ui/display/screen.h"
+#include "ui/display/types/display_constants.h"
 #include "ui/wm/core/window_util.h"
 
 namespace {

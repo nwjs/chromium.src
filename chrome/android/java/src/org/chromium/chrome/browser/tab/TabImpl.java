@@ -21,6 +21,7 @@ import android.view.View;
 import android.view.View.OnAttachStateChangeListener;
 import android.view.ViewStructure;
 import android.view.accessibility.AccessibilityEvent;
+import android.view.accessibility.AccessibilityNodeProvider;
 import android.view.autofill.AutofillManager;
 import android.view.autofill.AutofillValue;
 import android.view.inputmethod.EditorInfo;
@@ -122,11 +123,11 @@ import org.chromium.content_public.browser.WebContents;
 import org.chromium.content_public.browser.WebContentsAccessibility;
 import org.chromium.content_public.browser.back_forward_transition.AnimationStage;
 import org.chromium.content_public.browser.navigation_controller.UserAgentOverrideOption;
+import org.chromium.ui.UiUtils;
 import org.chromium.ui.base.ImmutableWeakReference;
 import org.chromium.ui.base.PageTransition;
 import org.chromium.ui.base.ViewAndroidDelegate;
 import org.chromium.ui.base.WindowAndroid;
-import org.chromium.ui.xr.scenecore.XrInteractableComponent.OnDragListener;
 import org.chromium.url.GURL;
 import org.chromium.url.Origin;
 
@@ -440,13 +441,17 @@ class TabImpl implements Tab, TabInternal {
 
                     @Override
                     public void onViewDetachedFromWindow(View view) {
-                        if (isNativePage() && assumeNonNull(getNativePage()).getView() == view) {
+                        NativePage nativePage = getNativePage();
+                        if (isNativePage()
+                                && nativePage != null
+                                && !nativePage.isFrozen()
+                                && nativePage.getView() == view) {
                             if (mNativePageSmoothTransitionDelegate != null) {
                                 mNativePageSmoothTransitionDelegate.cancel();
                                 mNativePageSmoothTransitionDelegate = null;
                             } else {
                                 // reset ntp view state.
-                                assumeNonNull(getView()).setAlpha(1f);
+                                view.setAlpha(1f);
                             }
                         }
                         mIsViewAttachedToWindow = false;
@@ -527,12 +532,32 @@ class TabImpl implements Tab, TabInternal {
             updateWindowAndroid(window);
 
             // Reload the NativePage (if any), since the old NativePage has a reference to the old
-            // activity.
+            // activity. If hidden, detach its view and freeze the native page to avoid eager
+            // instantiation of background native pages. If visible, reload it so that it binds to
+            // the new Activity and destroys the old native page to fix the Activity leak.
             if (isNativePage()) {
-                maybeShowNativePage(getUrl().getSpec(), true, PdfUtils.getPdfInfo(getNativePage()));
+                if (isHidden()) {
+                    detachAndFreezeNativePage();
+                } else {
+                    maybeShowNativePage(
+                            getUrl().getSpec(),
+                            /* forceReload= */ true,
+                            PdfUtils.getPdfInfo(getNativePage()));
+                }
             }
         } else {
             updateIsDetachedFromActivity(window);
+            if (isNativePage() && !mNativePage.isFrozen()) {
+                // Since mIsDetachedFromActivity is now true, getView() returns null while
+                // isNativePage() remains true. Update interactability first so NativePage
+                // observers (e.g. NtpFeedSurfaceLifecycleManager) can save UI state while the
+                // view hierarchy is still attached to the window, then notify observers so
+                // CompositorViewHolder detaches the NativePage view and reclaims focus via
+                // updateContentOverlayVisibility(false) before freezing and destroying the page.
+                updateInteractableState();
+                notifyContentChanged();
+                detachAndFreezeNativePage();
+            }
 
             // Clear the current tab supplier during detachment/reparenting to indicate that the
             // tab is not held by another tab model. For unclear reasons, removeTab() doesn't
@@ -582,7 +607,11 @@ class TabImpl implements Tab, TabInternal {
     public @Nullable View getView() {
         if (mCustomView != null) return mCustomView;
 
-        if (mNativePage != null && !mNativePage.isFrozen()) return mNativePage.getView();
+        if (mNativePage != null) {
+            return (mNativePage.isFrozen() || mIsDetachedFromActivity)
+                    ? null
+                    : mNativePage.getView();
+        }
 
         return mContentView;
     }
@@ -680,13 +709,31 @@ class TabImpl implements Tab, TabInternal {
 
     @Override
     public void freezeNativePage() {
-        if (mNativePage == null
-                || mNativePage.isFrozen()
-                || assumeNonNull(mNativePage.getView()).getParent() != null) {
+        if (mNativePage == null || mNativePage.isFrozen()) {
             return;
+        }
+        View view = mNativePage.getView();
+        if (view == null || view.getParent() != null) {
+            return;
+        }
+        view.removeOnAttachStateChangeListener(mAttachStateChangeListener);
+        if (mNativePageSmoothTransitionDelegate != null) {
+            mNativePageSmoothTransitionDelegate.cancel();
+            mNativePageSmoothTransitionDelegate = null;
         }
         mNativePage = FrozenNativePage.freeze(mNativePage);
         updateInteractableState();
+    }
+
+    private void detachAndFreezeNativePage() {
+        if (mNativePage == null || mNativePage.isFrozen()) {
+            return;
+        }
+        View view = mNativePage.getView();
+        if (view != null) {
+            UiUtils.removeViewFromParent(view);
+        }
+        freezeNativePage();
     }
 
     @Override
@@ -865,7 +912,8 @@ class TabImpl implements Tab, TabInternal {
         try {
             TraceEvent.begin("Tab.loadUrl");
             if (maybeHandleBeforeUnload(() -> loadUrl(params))) {
-                return new LoadUrlResult(TabLoadStatus.DEFAULT_PAGE_LOAD, null);
+                return new LoadUrlResult(
+                        TabLoadStatus.DEFAULT_PAGE_LOAD, /* navigationHandle= */ null);
             }
 
             // TODO(tedchoc): When showing the android NTP, delay the call to
@@ -1451,6 +1499,8 @@ class TabImpl implements Tab, TabInternal {
         // Update the title before destroying the tab. http://b/5783092
         updateTitle();
 
+        onAlertStateChanged(TabAlert.NONE);
+
         for (TabObserver observer : mObservers) observer.onDestroyed(this);
         boolean abortNavigationsFromTabClosures =
                 ChromeFeatureList.isEnabled(ChromeFeatureList.ABORT_NAVIGATIONS_FROM_TAB_CLOSURES);
@@ -1885,7 +1935,12 @@ class TabImpl implements Tab, TabInternal {
                     mNativePageSmoothTransitionDelegate.start(
                             () -> {
                                 if (isDestroyed()) return;
-                                assumeNonNull(getWebContents()).onContentForNavigationEntryShown();
+                                WebContents currentWebContents = getWebContents();
+                                if (currentWebContents == null
+                                        || currentWebContents.isDestroyed()) {
+                                    return;
+                                }
+                                currentWebContents.onContentForNavigationEntryShown();
                                 notifyContentChanged();
                             });
                     mNativePageSmoothTransitionDelegate = null;
@@ -1893,7 +1948,11 @@ class TabImpl implements Tab, TabInternal {
                     if (view.getAlpha() != 1f) {
                         // This means the content/ is waiting for the NTP to be fully visible.
                         view.setAlpha(1f);
-                        view.post(webContents::onContentForNavigationEntryShown);
+                        view.post(
+                                () -> {
+                                    if (isDestroyed() || webContents.isDestroyed()) return;
+                                    webContents.onContentForNavigationEntryShown();
+                                });
                     }
                 }
         }
@@ -2327,10 +2386,9 @@ class TabImpl implements Tab, TabInternal {
     }
 
     @CalledByNative
-    private ByteBuffer getWebContentsStateByteBuffer() {
-        // Return a temp byte buffer if the state is null.
+    private @Nullable ByteBuffer getWebContentsStateByteBuffer() {
         if (mWebContentsState == null) {
-            return ByteBuffer.allocateDirect(0);
+            return null;
         }
         assert mWebContentsState.buffer().isDirect();
         return mWebContentsState.buffer();
@@ -3239,20 +3297,19 @@ class TabImpl implements Tab, TabInternal {
     }
 
     @Override
+    @Deprecated
     public @MediaState int getMediaState() {
         return mMediaState;
     }
 
     @Override
+    @Deprecated
     @CalledByNative
     public void setMediaState(@MediaState int mediaState) {
         if (mMediaState == mediaState) return;
         mMediaState = mediaState;
         RecordHistogram.recordEnumeratedHistogram(
                 "Tab.Android.MediaState", mediaState, MediaState.MAX_VALUE + 1);
-        for (TabObserver observer : mObservers) {
-            observer.onMediaStateChanged(this, mediaState);
-        }
     }
 
     @Override
@@ -3420,10 +3477,32 @@ class TabImpl implements Tab, TabInternal {
         /** Suppresses generating autofill child structures on uninflated background proxy views. */
         @Override
         public void onProvideAutofillVirtualStructure(ViewStructure structure, int flags) {}
+
+        /**
+         * Suppresses initializing native WebContentsAccessibility on uninflated background proxy
+         * views during startup layout/scanning.
+         */
+        @Override
+        @SuppressWarnings("NullAway")
+        public @Nullable AccessibilityNodeProvider getAccessibilityNodeProvider() {
+            if (ChromeFeatureList.isEnabled(
+                    ChromeFeatureList.SUPPRESS_ACCESSIBILITY_ON_DEFERRED_CONTENT_VIEW)) {
+                return null;
+            }
+            return super.getAccessibilityNodeProvider();
+        }
     }
 
     boolean isArchivedForTesting() {
         return getTabModelType() == TabModelType.ARCHIVED;
+    }
+
+    boolean isContentViewDeferredForTesting() {
+        return mIsContentViewDeferred;
+    }
+
+    OnAttachStateChangeListener getAttachStateChangeListenerForTesting() {
+        return mAttachStateChangeListener;
     }
 
     @NativeMethods

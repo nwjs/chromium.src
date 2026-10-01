@@ -13,10 +13,13 @@ import static org.chromium.chrome.browser.task_manager.ui.TaskManagerProperties.
 import static org.chromium.chrome.browser.task_manager.ui.TaskManagerProperties.MEMORY_FOOTPRINT;
 import static org.chromium.chrome.browser.task_manager.ui.TaskManagerProperties.NETWORK_USAGE;
 import static org.chromium.chrome.browser.task_manager.ui.TaskManagerProperties.PROCESS_ID;
+import static org.chromium.chrome.browser.task_manager.ui.TaskManagerProperties.SEARCH_QUERY;
+import static org.chromium.chrome.browser.task_manager.ui.TaskManagerProperties.SELECTED_CATEGORY;
 import static org.chromium.chrome.browser.task_manager.ui.TaskManagerProperties.SORT_DESCRIPTOR;
 import static org.chromium.chrome.browser.task_manager.ui.TaskManagerProperties.TASK_ICON;
 import static org.chromium.chrome.browser.task_manager.ui.TaskManagerProperties.TASK_ID;
 import static org.chromium.chrome.browser.task_manager.ui.TaskManagerProperties.TASK_NAME;
+import static org.chromium.chrome.browser.task_manager.ui.TaskManagerProperties.TASK_TYPE;
 
 import androidx.annotation.Nullable;
 
@@ -24,6 +27,8 @@ import org.chromium.base.Callback;
 import org.chromium.chrome.browser.task_manager.RefreshType;
 import org.chromium.chrome.browser.task_manager.TaskManagerObserver;
 import org.chromium.chrome.browser.task_manager.TaskManagerServiceBridge;
+import org.chromium.chrome.browser.task_manager.TaskType;
+import org.chromium.chrome.browser.task_manager.ui.TaskManagerProperties.Category;
 import org.chromium.chrome.browser.task_manager.ui.TaskManagerProperties.RowType;
 import org.chromium.chrome.browser.task_manager.ui.TaskManagerProperties.SortDescriptor;
 import org.chromium.ui.modelutil.MVCListAdapter.ListItem;
@@ -35,6 +40,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * The class works as a mediator between the underlyning model (ModelList) and the task manager
@@ -46,7 +52,9 @@ class TaskManagerMediator {
     private TaskManagerServiceBridge.ObserverHandle mObserverHandle;
 
     private final PropertyModel mHeader;
-    // The list containing the properties representing tasks. Sorted by task id.
+    // The list containing the properties representing all tasks received from the bridge.
+    private final List<ListItem> mAllTasks = new ArrayList<>();
+    // The list containing the properties representing visible tasks. Sorted by task id.
     // TODO(crbug.com/380154224): Enable sorting by other attributes.
     private final ModelList mTasks;
     private boolean mHasKillableSelectedTask;
@@ -73,6 +81,8 @@ class TaskManagerMediator {
 
         mHeader.set(COLUMNS, initialColumnKeys);
         mHeader.set(SORT_DESCRIPTOR, null);
+        mHeader.set(SELECTED_CATEGORY, Category.ALL_TASKS);
+        mHeader.set(SEARCH_QUERY, "");
     }
 
     /** Start observing tasks to get the model updated. */
@@ -95,6 +105,7 @@ class TaskManagerMediator {
             mBridge.removeObserver(mObserverHandle);
             mObserverHandle = null;
 
+            mAllTasks.clear();
             mTasks.clear();
             mHasKillableSelectedTask = false;
         }
@@ -212,7 +223,9 @@ class TaskManagerMediator {
         PropertyKey[] keys =
                 PropertyModel.concatKeys(
                         ALL_COLUMN_KEYS,
-                        new PropertyKey[] {TASK_ID, IS_SELECTED, IS_KILLABLE, TASK_ICON});
+                        new PropertyKey[] {
+                            TASK_ID, IS_SELECTED, IS_KILLABLE, TASK_ICON, TASK_TYPE
+                        });
         return new ListItem(
                 RowType.TASK,
                 new PropertyModel.Builder(keys)
@@ -220,6 +233,7 @@ class TaskManagerMediator {
                         .with(IS_SELECTED, false)
                         .with(IS_KILLABLE, mBridge.isTaskKillable(taskId))
                         .with(TASK_ICON, mBridge.getIcon(taskId))
+                        .with(TASK_TYPE, mBridge.getType(taskId))
                         .build());
     }
 
@@ -227,6 +241,7 @@ class TaskManagerMediator {
     // refreshing them.
     private void updateTaskModel(ListItem task, long taskId) {
         task.model.set(TASK_ICON, mBridge.getIcon(taskId));
+        task.model.set(TASK_TYPE, mBridge.getType(taskId));
         for (PropertyKey columnKey : ALL_COLUMN_KEYS) {
             if (columnKey == TASK_NAME) {
                 task.model.set(TASK_NAME, mBridge.getTitle(taskId));
@@ -246,12 +261,89 @@ class TaskManagerMediator {
         }
     }
 
+    void setSelectedCategory(@Category int category) {
+        mHeader.set(SELECTED_CATEGORY, category);
+        updateFilteredTasks();
+    }
+
+    void setSearchQuery(String query) {
+        mHeader.set(SEARCH_QUERY, query);
+        updateFilteredTasks();
+    }
+
+    static @Category int getTaskCategory(@TaskType int taskType) {
+        switch (taskType) {
+            case TaskType.RENDERER:
+            case TaskType.EXTENSION:
+            case TaskType.GUEST:
+            case TaskType.DEDICATED_WORKER:
+            case TaskType.SHARED_WORKER:
+            case TaskType.SERVICE_WORKER:
+                return Category.TABS_AND_EXTENSIONS;
+            default:
+                return Category.BROWSER;
+        }
+    }
+
+    private String getNormalizedSearchQuery() {
+        String searchQuery = mHeader.get(SEARCH_QUERY);
+        return searchQuery != null ? searchQuery.trim().toLowerCase(Locale.getDefault()) : "";
+    }
+
+    private void updateFilteredTasks() {
+        ArrayList<ListItem> filtered = new ArrayList<>();
+        String query = getNormalizedSearchQuery();
+        for (ListItem task : mAllTasks) {
+            if (shouldKeepTask(task, query)) {
+                filtered.add(task);
+            }
+        }
+        @Nullable SortDescriptor descriptor = mHeader.get(SORT_DESCRIPTOR);
+        if (descriptor != null) {
+            Comparator<ListItem> comparator = getTaskComparator(descriptor);
+            filtered.sort(comparator);
+        }
+        mTasks.set(filtered);
+        checkAndNotifyIfHasKillableSelectedTaskChanged();
+    }
+
+    private boolean shouldKeepTask(ListItem task, String query) {
+        int selectedCategory = mHeader.get(SELECTED_CATEGORY);
+        @Category int category = getTaskCategory(task.model.get(TASK_TYPE));
+
+        if (selectedCategory != Category.ALL_TASKS && category != selectedCategory) {
+            return false;
+        }
+        return filterOnSearchQuery(task, query);
+    }
+
+    private boolean filterOnSearchQuery(ListItem task, String query) {
+        if (query == null || query.isEmpty()) {
+            return true;
+        }
+        String taskName = task.model.get(TASK_NAME);
+        String pid = String.valueOf(task.model.get(PROCESS_ID));
+        boolean nameMatches =
+                taskName != null && taskName.toLowerCase(Locale.getDefault()).contains(query);
+        boolean pidMatches = pid.contains(query);
+        if (!nameMatches && !pidMatches) {
+            return false;
+        }
+        return true;
+    }
+
     private TaskManagerObserver createTaskManagerObserver() {
         return new TaskManagerObserver() {
             @Override
             public void onTaskAdded(long taskId) {
                 ListItem task = createTaskModel(taskId);
                 updateTaskModel(task, taskId);
+                mAllTasks.add(task);
+
+                String query = getNormalizedSearchQuery();
+                if (!shouldKeepTask(task, query)) {
+                    return;
+                }
 
                 @Nullable SortDescriptor descriptor = mHeader.get(SORT_DESCRIPTOR);
                 if (descriptor == null) {
@@ -272,10 +364,18 @@ class TaskManagerMediator {
 
             @Override
             public void onTaskToBeRemoved(long taskId) {
-                Integer index = getIndexForTaskId(taskId);
-                if (index == null) return;
-                mTasks.removeAt(index);
-                checkAndNotifyIfHasKillableSelectedTaskChanged();
+                // Remove task from all tasks list
+                Integer index = getIndexForTaskId(mAllTasks, taskId);
+                if (index != null) {
+                    mAllTasks.remove((int) index);
+                }
+
+                // Remove task from visible list
+                index = getIndexForTaskId(mTasks, taskId);
+                if (index != null) {
+                    mTasks.removeAt(index);
+                    checkAndNotifyIfHasKillableSelectedTaskChanged();
+                }
             }
 
             @Override
@@ -283,14 +383,14 @@ class TaskManagerMediator {
                 // TODO(crbug.com/380165957): Asynchronously get values if performance issues are
                 // observed.
                 for (long taskId : taskIds) {
-                    Integer index = getIndexForTaskId(taskId);
+                    Integer index = getIndexForTaskId(mAllTasks, taskId);
                     if (index == null) continue;
-                    ListItem task = mTasks.get(index);
+                    ListItem task = mAllTasks.get(index);
 
                     updateTaskModel(task, taskId);
                 }
 
-                SortDescriptor descriptor = mHeader.get(TaskManagerProperties.SORT_DESCRIPTOR);
+                @Nullable SortDescriptor descriptor = mHeader.get(SORT_DESCRIPTOR);
                 if (descriptor != null) {
                     sortTasks(descriptor);
                 }
@@ -304,11 +404,13 @@ class TaskManagerMediator {
         };
     }
 
-    private @Nullable Integer getIndexForTaskId(long taskId) {
-        for (int i = 0; i < mTasks.size(); i++) {
-            if (mTasks.get(i).model.get(TASK_ID) == taskId) {
+    private static @Nullable Integer getIndexForTaskId(Iterable<ListItem> tasks, long taskId) {
+        int i = 0;
+        for (ListItem task : tasks) {
+            if (task.model.get(TASK_ID) == taskId) {
                 return i;
             }
+            i++;
         }
         return null;
     }

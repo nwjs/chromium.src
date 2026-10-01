@@ -86,10 +86,12 @@ import org.chromium.chrome.browser.offlinepages.measurements.OfflineMeasurements
 import org.chromium.chrome.browser.optimization_guide.OptimizationGuideBridge;
 import org.chromium.chrome.browser.optimization_guide.OptimizationGuideBridgeFactory;
 import org.chromium.chrome.browser.partnercustomizations.PartnerBrowserCustomizations;
+import org.chromium.chrome.browser.pdf.PdfUtils;
 import org.chromium.chrome.browser.photo_picker.DecoderService;
 import org.chromium.chrome.browser.preferences.AllPreferenceKeyRegistries;
 import org.chromium.chrome.browser.preferences.ChromePreferenceKeys;
 import org.chromium.chrome.browser.preferences.ChromeSharedPreferences;
+import org.chromium.chrome.browser.prefs.LocalStatePrefs;
 import org.chromium.chrome.browser.price_tracking.PriceTrackingFeatures;
 import org.chromium.chrome.browser.privacy.settings.PrivacyPreferencesManagerImpl;
 import org.chromium.chrome.browser.profiles.Profile;
@@ -101,12 +103,13 @@ import org.chromium.chrome.browser.quickactionsearchwidget.QuickActionSearchWidg
 import org.chromium.chrome.browser.rlz.RevenueStats;
 import org.chromium.chrome.browser.searchwidget.SearchWidgetProvider;
 import org.chromium.chrome.browser.share.send_tab_to_self.OtherDevicesShortcutControllerFactory;
-import org.chromium.chrome.browser.signin.SigninCheckerProvider;
+import org.chromium.chrome.browser.sync.SyncErrorNotifier;
 import org.chromium.chrome.browser.tab.state.PersistedTabData;
 import org.chromium.chrome.browser.tab.state.ShoppingPersistedTabData;
 import org.chromium.chrome.browser.tabmodel.TabPersistentStoreImpl;
 import org.chromium.chrome.browser.ui.cars.DrivingRestrictionsManager;
 import org.chromium.chrome.browser.ui.color.ColorProviderBridgeImpl;
+import org.chromium.chrome.browser.ui.enterprise_signals_disclaimer.EnterpriseSignalsDisclaimerAckSyncer;
 import org.chromium.chrome.browser.ui.hats.SurveyClientFactory;
 import org.chromium.chrome.browser.ui.searchactivityutils.SearchActivityPreferencesManager;
 import org.chromium.chrome.browser.usb.UsbNotificationManager;
@@ -507,7 +510,7 @@ public class ProcessInitializationHandler {
                         AsyncTask.THREAD_POOL_EXECUTOR.execute(
                                 new LogcatExtractionRunnable(minidump));
                     } else {
-                        Log.e(TAG, "Missing dump for child " + pid);
+                        Log.e(TAG, "Missing dump for child %d", pid);
                     }
                 });
 
@@ -689,13 +692,17 @@ public class ProcessInitializationHandler {
 
         tasks.add(
                 () -> {
-                    mDevToolsServer = new DevToolsServer(DEV_TOOLS_SERVER_SOCKET_PREFIX);
+                    mDevToolsServer =
+                            new DevToolsServer(
+                                    DEV_TOOLS_SERVER_SOCKET_PREFIX,
+                                    assumeNonNull(LocalStatePrefs.get()));
                     mDevToolsServer.setRemoteDebuggingEnabled(
                             true, DevToolsServer.Security.ALLOW_DEBUG_PERMISSION);
                 });
 
         tasks.add(() -> BackgroundTaskSchedulerFactory.getScheduler().doMaintenance());
 
+        tasks.add(PdfUtils::updatePdfLauncherActivityEnabled);
         tasks.add(MediaViewerUtils::updateMediaLauncherActivityEnabled);
 
         tasks.add(WebApkUninstallTracker::runDeferredTasks);
@@ -739,8 +746,9 @@ public class ProcessInitializationHandler {
         // initialization order.
         tasks.add(() -> IncognitoTabLauncher.updateComponentEnabledState(profile));
 
-        // Initialize the SigninChecker.
-        tasks.add(() -> SigninCheckerProvider.get(profile));
+        // SyncErrorNotifier must be explicitly initialized.
+        // TODO(crbug.com/40736034): Move the initializations elsewhere.
+        tasks.add(() -> SyncErrorNotifier.getForProfile(profile));
 
         // Initialize the OtherDevicesShortcutController.
         tasks.add(() -> OtherDevicesShortcutControllerFactory.getForProfile(profile));
@@ -763,6 +771,7 @@ public class ProcessInitializationHandler {
                 });
 
         tasks.add(() -> FeedbackPolicyManager.getInstance().onFinishNativeInitialization(profile));
+        tasks.add(() -> EnterpriseSignalsDisclaimerAckSyncer.initialize(profile));
     }
 
     private void initChannelsAsync() {

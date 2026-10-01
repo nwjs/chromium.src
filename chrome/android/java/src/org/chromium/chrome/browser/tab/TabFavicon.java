@@ -66,7 +66,10 @@ public class TabFavicon extends TabWebContentsUserData {
      */
     @CalledByNative
     public static @Nullable TabFavicon from(@Nullable @JniType("TabAndroid*") Tab tab) {
+        if (sInstanceForTesting != null) return sInstanceForTesting;
+
         if (!TabUtils.isValid(tab)) return null;
+        if (!(tab instanceof TabImpl)) return null;
 
         TabFavicon favicon = get(tab);
         if (favicon == null) {
@@ -100,8 +103,7 @@ public class TabFavicon extends TabWebContentsUserData {
     public static @Nullable Bitmap getBitmapWithFallback(
             @JniType("TabAndroid*") Tab tab, boolean allowFallback) {
         TabFavicon tabFavicon = get(tab);
-        if (tabFavicon == null) return null;
-        return tabFavicon.getFavicon(allowFallback);
+        return tabFavicon != null ? tabFavicon.getFavicon(allowFallback) : null;
     }
 
     private TabFavicon(Tab tab) {
@@ -110,6 +112,9 @@ public class TabFavicon extends TabWebContentsUserData {
         mIdealFaviconSize = getIdealFaviconSize();
         mNavigationTransitionsIdealFaviconSize = getNavigationTransitionsIdealFaviconSize();
         mNativeTabFavicon = TabFaviconJni.get().init(tab, mNavigationTransitionsIdealFaviconSize);
+        if (tab.getWebContents() != null) {
+            initWebContents(tab.getWebContents());
+        }
     }
 
     private int getIdealFaviconSize() {
@@ -194,7 +199,7 @@ public class TabFavicon extends TabWebContentsUserData {
     }
 
     /**
-     * Requests a favicon for the tab. This will be fulfilled immediately if the favicon is alredy
+     * Requests a favicon for the tab. This will be fulfilled immediately if the favicon is already
      * available. Otherwise falls back to fetching a favicon from the local favicon db
      */
     public Promise<Bitmap> getFaviconOrFallback() {
@@ -387,8 +392,9 @@ public class TabFavicon extends TabWebContentsUserData {
     }
 
     @CalledByNative
-    private static long getNativePtrForTab(@JniType("TabAndroid*") Tab tab) {
-        TabFavicon tabFavicon = get(tab);
+    @VisibleForTesting
+    static long getNativePtrForTab(@JniType("TabAndroid*") Tab tab) {
+        TabFavicon tabFavicon = from(tab);
         return tabFavicon != null ? tabFavicon.mNativeTabFavicon : 0;
     }
 

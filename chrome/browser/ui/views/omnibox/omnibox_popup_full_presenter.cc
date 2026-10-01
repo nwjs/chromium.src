@@ -4,13 +4,14 @@
 
 #include "chrome/browser/ui/views/omnibox/omnibox_popup_full_presenter.h"
 
+#include <algorithm>
 #include <memory>
 
 #include "base/feature_list.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/scoped_observation.h"
 #include "base/strings/strcat.h"
-#include "base/task/single_thread_task_runner.h"
+#include "base/task/sequenced_task_runner.h"
 #include "chrome/browser/ui/location_bar/location_bar.h"
 #include "chrome/browser/ui/omnibox/omnibox_controller.h"
 #include "chrome/browser/ui/omnibox/omnibox_edit_model.h"
@@ -18,7 +19,9 @@
 #include "chrome/browser/ui/omnibox/omnibox_popup_state_manager.h"
 #include "chrome/browser/ui/omnibox/omnibox_popup_view.h"
 #include "chrome/browser/ui/omnibox/omnibox_view.h"
+#include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
+#include "chrome/browser/ui/views/frame/toolbar_button_provider.h"
 #include "chrome/browser/ui/views/frame/top_container_view.h"
 #include "chrome/browser/ui/views/location_bar/location_bar_view.h"
 #include "chrome/browser/ui/views/omnibox/full_webui_omnibox_frame.h"
@@ -28,6 +31,7 @@
 #include "chrome/browser/ui/views/omnibox/omnibox_popup_webui_base_content.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_view_views.h"
 #include "chrome/browser/ui/views/omnibox/rounded_omnibox_results_frame.h"
+#include "chrome/browser/ui/views/toolbar/app_menu_control.h"
 #include "chrome/browser/ui/webui/omnibox_popup/omnibox_popup_handler.h"
 #include "chrome/browser/ui/webui/omnibox_popup/omnibox_popup_ui.h"
 #include "chrome/browser/ui/webui/searchbox/webui_omnibox_handler.h"
@@ -84,14 +88,14 @@ void OmniboxPopupFullPresenter::Show() {
     // omnibox can still be captured.
     if (GetWidget() && base::FeatureList::IsEnabled(
                            omnibox::kWebUIOmniboxFullPopupDoubleClick)) {
-      auto* results_frame =
-          views::AsViewClass<FullWebUIOmniboxFrame>(GetResultsFrame());
-      CHECK(results_frame);
-      results_frame->SetForwardMouseEvents(true);
-      forward_events_timer_.Start(
-          FROM_HERE, base::Milliseconds(500),
-          base::BindOnce(&OmniboxPopupFullPresenter::StopForwardingEvents,
-                         base::Unretained(this)));
+      if (auto* results_frame =
+              views::AsViewClass<FullWebUIOmniboxFrame>(GetResultsFrame())) {
+        results_frame->SetForwardMouseEvents(true);
+        forward_events_timer_.Start(
+            FROM_HERE, base::Milliseconds(500),
+            base::BindOnce(&OmniboxPopupFullPresenter::StopForwardingEvents,
+                           base::Unretained(this)));
+      }
     }
   }
 
@@ -113,16 +117,40 @@ void OmniboxPopupFullPresenter::Show() {
   }
 
   if (parent_widget && !event_monitor_) {
-    event_monitor_ = views::EventMonitor::CreateApplicationMonitor(
+    event_monitor_ = views::EventMonitor::CreateWindowMonitor(
         this, parent_widget->GetNativeWindow(), {ui::EventType::kMousePressed});
+  }
+
+  if (parent_widget) {
+    if (auto* browser_view = BrowserView::GetBrowserViewForNativeWindow(
+            parent_widget->GetNativeWindow())) {
+      if (browser_view->toolbar_button_provider() &&
+          browser_view->toolbar_button_provider()->GetAppMenuControl() &&
+          !app_menu_control_observation_.IsObserving()) {
+        app_menu_control_observation_.Observe(
+            browser_view->toolbar_button_provider()->GetAppMenuControl());
+      }
+    }
   }
 }
 
 void OmniboxPopupFullPresenter::Hide() {
+  pending_focus_task_.Cancel();
   parent_widget_observation_.Reset();
+  app_menu_control_observation_.Reset();
   event_monitor_.reset();
   forward_events_timer_.Stop();
+  StopForwardingEvents();
   popup_widget_observation_.Reset();
+  if (auto* widget = delegate().GetLocationBarWidget()) {
+    if (auto* focus_manager = widget->GetFocusManager()) {
+      views::View* restore_view = delegate().GetLocationBarFocusRestoreView();
+      views::View* stored_view = focus_manager->GetStoredFocusView();
+      if (stored_view == restore_view) {
+        focus_manager->SetStoredFocusView(nullptr);
+      }
+    }
+  }
   OmniboxPopupPresenterBase::Hide();
   if (ShouldApplyHeightWorkarounds()) {
     // Reset the cached height to force a layout update when the popup is
@@ -133,20 +161,55 @@ void OmniboxPopupFullPresenter::Hide() {
 }
 
 void OmniboxPopupFullPresenter::RequestFocus() {
-  if (GetWidget() && ShouldReceiveFocus()) {
-    if (!GetWidget()->IsActive()) {
-      GetWidget()->Activate();
-      if (GetUIContainer() && GetUIContainer()->GetWidget()) {
-        if (auto* focus_manager =
-                GetUIContainer()->GetWidget()->GetFocusManager()) {
-          // Set stored focus on the container widget to the WebUI content view
-          // so that activating the popup widget restores focus to it.
-          focus_manager->SetStoredFocusView(GetWebUIContent());
-        }
-      }
-    }
+  if (views::MenuController::GetActiveInstance()) {
+    return;
   }
-  OmniboxPopupPresenterBase::RequestFocus();
+  if (ShouldPreserveRequestedFocus()) {
+    focus_requested_ = true;
+  }
+
+  if (!GetWidget() || !ShouldReceiveFocus()) {
+    return;
+  }
+
+  // If the popup widget is already active, focus the WebUI content and its
+  // underlying WebContents immediately without deferral.
+  if (GetWidget()->IsActive()) {
+    FocusPopupContent();
+    return;
+  }
+
+  // Defer activation to the next event loop cycle to avoid re-entrant window
+  // activation in Aura FocusController during tab switches or startup.
+  pending_focus_task_.Reset(base::BindOnce(
+      [](base::WeakPtr<OmniboxPopupFullPresenter> presenter) {
+        // Activation is deferred asynchronously. Re-verify that the presenter,
+        // widget, and popup state remain valid, and that focus was not lost
+        // (e.g., user clicked away into the web page or opened a menu) while
+        // the task was queued.
+        if (!presenter || !presenter->GetWidget() ||
+            !presenter->ShouldReceiveFocus() || !presenter->IsShown() ||
+            !presenter->focus_requested_ ||
+            !presenter->controller()->edit_model()->has_focus() ||
+            presenter->controller()->popup_state_manager()->popup_state() !=
+                OmniboxPopupState::kFull) {
+          return;
+        }
+        if (views::MenuController::GetActiveInstance()) {
+          return;
+        }
+        if (auto* focus_manager = presenter->GetWidget()->GetFocusManager()) {
+          // Ensure activating the container restores focus to the WebUI view.
+          focus_manager->SetStoredFocusView(presenter->GetWebUIContent());
+        }
+        if (!presenter->GetWidget()->IsActive()) {
+          presenter->GetWidget()->Activate();
+        }
+        presenter->FocusPopupContent();
+      },
+      weak_factory_.GetWeakPtr()));
+  base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+      FROM_HERE, pending_focus_task_.callback());
 }
 
 std::string_view OmniboxPopupFullPresenter::GetPopupMetricPrefix() const {
@@ -204,6 +267,13 @@ bool OmniboxPopupFullPresenter::ShouldPreserveRequestedFocus() const {
 
 bool OmniboxPopupFullPresenter::IsDeactivating() const {
   return is_deactivating_;
+}
+
+bool OmniboxPopupFullPresenter::ShouldReceiveFocus() const {
+  if (views::MenuController::GetActiveInstance()) {
+    return false;
+  }
+  return OmniboxPopupPresenterBase::ShouldReceiveFocus();
 }
 
 void OmniboxPopupFullPresenter::SynchronizePopupBounds() {
@@ -271,11 +341,12 @@ void OmniboxPopupFullPresenter::OnWidgetActivationChanged(views::Widget* widget,
       // synchronously, it would immediately get overwritten and clobbered by
       // the FocusManager caching `nullptr` or the `ContentsWebView` during the
       // remainder of the deactivation cycle.
-      base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+      base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
           FROM_HERE,
           base::BindOnce(
               [](base::WeakPtr<OmniboxPopupFullPresenter> presenter) {
-                if (presenter) {
+                if (presenter && presenter->IsShown() &&
+                    presenter->controller()->edit_model()->has_focus()) {
                   if (auto* widget =
                           presenter->delegate().GetLocationBarWidget()) {
                     if (auto* focus_manager = widget->GetFocusManager()) {
@@ -302,10 +373,8 @@ void OmniboxPopupFullPresenter::OnWidgetActivationChanged(views::Widget* widget,
     const bool is_popup_open =
         controller()->popup_state_manager()->popup_state() ==
         OmniboxPopupState::kFull;
-    // If deactivation was triggered by an Escape key press while the popup is
-    // open, re-request focus asynchronously instead of closing the popup.
     if (is_esc && is_popup_open) {
-      base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+      base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
           FROM_HERE, base::BindOnce(&OmniboxPopupFullPresenter::RequestFocus,
                                     weak_factory_.GetWeakPtr()));
       return;
@@ -339,19 +408,50 @@ void OmniboxPopupFullPresenter::OnWidgetActivationChanged(views::Widget* widget,
               },
               weak_factory_.GetWeakPtr()));
     }
-#endif  // BUILDFLAG(IS_MAC)
+#else
+    // If neither the popup nor the browser window is active (e.g. clicking
+    // another browser window or application), deactivate popup and reset focus
+    // without focusing this window's WebContents.
+    views::Widget* parent_widget = delegate().GetLocationBarWidget();
+    if (parent_widget && !parent_widget->IsActive()) {
+      DeactivatePopupAndKillFocus(/*focus_web_contents=*/false);
+    }
+#endif
   }
 }
 
-void OmniboxPopupFullPresenter::DeactivatePopupAndKillFocus() {
+void OmniboxPopupFullPresenter::AppMenuClosed() {
+  if (IsShown() && controller()->popup_state_manager()->popup_state() ==
+                       OmniboxPopupState::kFull) {
+    if (auto* widget = delegate().GetLocationBarWidget()) {
+      if (auto* focus_manager = widget->GetFocusManager()) {
+        if (auto* restore_view = delegate().GetLocationBarFocusRestoreView()) {
+          focus_manager->SetFocusedView(restore_view);
+        }
+      }
+    }
+    RequestFocus();
+    if (auto* popup_view = location_bar()->GetOmniboxPopupView()) {
+      popup_view->OnFocus(/*query_zps=*/false);
+    }
+  }
+}
+
+void OmniboxPopupFullPresenter::FocusPopupContent() {
+  if (auto* content = GetWebUIContent()) {
+    content->RequestFocus();
+    if (content->GetWebContents()) {
+      content->GetWebContents()->Focus();
+    }
+  }
+}
+
+void OmniboxPopupFullPresenter::DeactivatePopupAndKillFocus(
+    bool focus_web_contents) {
+  pending_focus_task_.Cancel();
   ResetPermissionPromptShowingState();
   is_deactivating_ = true;
-  const bool user_input_in_progress =
-      controller()->edit_model()->user_input_in_progress();
-  const std::u16string& user_text = controller()->edit_model()->user_text();
-  const std::u16string permanent_text =
-      controller()->edit_model()->GetPermanentDisplayText();
-  const std::u16string full_url = controller()->client()->GetFormattedFullURL();
+  OmniboxEditModel* edit_model = controller()->edit_model();
 
   // If the view is showing text that's not user-text, revert the text to the
   // permanent display text. This usually occurs if Steady State Elisions is on
@@ -359,14 +459,13 @@ void OmniboxPopupFullPresenter::DeactivatePopupAndKillFocus() {
   // Also revert if the text has been edited but currently exactly matches
   // the permanent text. An example of this scenario is someone typing on the
   // new tab page and then deleting everything using backspace/delete.
-  const bool should_revert_non_user_text =
-      !user_input_in_progress && user_text != permanent_text;
-  const bool should_revert_matching_text =
-      user_input_in_progress &&
-      (user_text == permanent_text || user_text == full_url);
-
-  if (should_revert_non_user_text || should_revert_matching_text) {
-    controller()->edit_model()->Revert();
+  if ((!edit_model->user_input_in_progress() &&
+       edit_model->user_text() != edit_model->GetPermanentDisplayText()) ||
+      (edit_model->user_input_in_progress() &&
+       (edit_model->user_text() == edit_model->GetPermanentDisplayText() ||
+        edit_model->user_text() ==
+            controller()->client()->GetFormattedFullURL()))) {
+    edit_model->Revert();
   }
 
   if (auto* popup_view = location_bar()->GetOmniboxPopupView()) {
@@ -375,16 +474,30 @@ void OmniboxPopupFullPresenter::DeactivatePopupAndKillFocus() {
 
   views::Widget* parent_widget = delegate().GetLocationBarWidget();
   if (parent_widget && parent_widget->GetFocusManager()) {
+    views::View* restore_view = delegate().GetLocationBarFocusRestoreView();
+    views::View* stored_view =
+        parent_widget->GetFocusManager()->GetStoredFocusView();
+    if (stored_view == restore_view) {
+      parent_widget->GetFocusManager()->SetStoredFocusView(nullptr);
+    }
     parent_widget->GetFocusManager()->ClearFocus();
   }
 
-  controller()->client()->FocusWebContents();
-  controller()->edit_model()->OnKillFocus();
+  if (focus_web_contents) {
+    controller()->client()->FocusWebContents();
+  }
+  edit_model->OnKillFocus();
 
-  // If the user is currently typing do not close the popup.
-  if (!user_input_in_progress || user_text.empty()) {
-    controller()->popup_state_manager()->SetPopupState(
-        OmniboxPopupState::kNone);
+  // Close the popup unless the user has an uncommitted draft.
+  // NOTE: Query values directly from edit model, as they are not guaranteed to
+  // remain consistent after calling `Revert()` or `OnKillFocus()`.
+  if (!edit_model->user_input_in_progress() ||
+      edit_model->user_text().empty()) {
+    if (controller()->popup_state_manager()->popup_state() ==
+        OmniboxPopupState::kFull) {
+      controller()->popup_state_manager()->SetPopupState(
+          OmniboxPopupState::kNone);
+    }
   }
 
   is_deactivating_ = false;
@@ -395,9 +508,12 @@ void OmniboxPopupFullPresenter::WidgetDestroyed() {
   forward_events_timer_.Stop();
   popup_widget_observation_.Reset();
   // Update the popup state manager if widget was destroyed externally, e.g., by
-  // the OS. This ensures the popup state manager stays in sync.
-  if (controller()->popup_state_manager()->popup_state() ==
-      OmniboxPopupState::kFull) {
+  // the OS. This ensures the popup state manager stays in sync. Skip this when
+  // `Hide()` is discarding the widget on purpose, since clearing the state here
+  // would re-enter `Hide()`.
+  if (!is_destroying_widget() &&
+      controller()->popup_state_manager()->popup_state() ==
+          OmniboxPopupState::kFull) {
     controller()->popup_state_manager()->SetPopupState(
         OmniboxPopupState::kNone);
   }
@@ -405,10 +521,10 @@ void OmniboxPopupFullPresenter::WidgetDestroyed() {
 
 void OmniboxPopupFullPresenter::StopForwardingEvents() {
   if (GetWidget()) {
-    auto* results_frame =
-        views::AsViewClass<FullWebUIOmniboxFrame>(GetResultsFrame());
-    CHECK(results_frame);
-    results_frame->SetForwardMouseEvents(false);
+    if (auto* results_frame =
+            views::AsViewClass<FullWebUIOmniboxFrame>(GetResultsFrame())) {
+      results_frame->SetForwardMouseEvents(false);
+    }
   }
 }
 
@@ -429,6 +545,11 @@ void OmniboxPopupFullPresenter::OnEvent(const ui::Event& event) {
 
   views::Widget* parent_widget = delegate().GetLocationBarWidget();
   if (!parent_widget) {
+    return;
+  }
+
+  // If neither this window nor its popup is currently active, ignore the click.
+  if (!parent_widget->IsActive() && !(GetWidget() && GetWidget()->IsActive())) {
     return;
   }
 
@@ -461,22 +582,24 @@ void OmniboxPopupFullPresenter::OnEvent(const ui::Event& event) {
     return;
   }
 
-  // Clear autocomplete matches and reset activeQueryId_ on WebUI only if
-  // click is outside of the popup and the popup is shown.
-  if (IsShown() && GetWebUIContent() && GetWebUIContent()->contents_wrapper()) {
-    if (auto* webui_controller =
-            GetWebUIContent()->contents_wrapper()->GetWebUIController()) {
-      if (auto* popup_ui = static_cast<OmniboxPopupUI*>(webui_controller)) {
-        if (auto* popup_handler = popup_ui->popup_handler()) {
+  if (contains_top_container) {
+    // Clear autocomplete matches and reset `activeQueryId_` on WebUI only if
+    // click is outside of the popup and in the top container while popup is
+    // shown.
+    if (IsShown()) {
+      if (auto* content = GetWebUIContent()) {
+        if (auto* popup_handler = content->popup_handler()) {
           popup_handler->ClearAutocompleteMatches();
         }
       }
     }
-  }
-
-  if (contains_top_container) {
     return;
   }
 
-  DeactivatePopupAndKillFocus();
+  DeactivatePopupAndKillFocus(/*focus_web_contents=*/true);
+}
+
+OmniboxFullPopupWebUIContent* OmniboxPopupFullPresenter::GetWebUIContent() {
+  return static_cast<OmniboxFullPopupWebUIContent*>(
+      OmniboxPopupPresenterBase::GetWebUIContent());
 }

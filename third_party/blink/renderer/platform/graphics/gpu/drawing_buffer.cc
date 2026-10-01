@@ -148,6 +148,12 @@ class ScopedDrawBuffer {
   GLenum new_draw_buffer_;
 };
 
+bool IsBackgroundBufferDiscardEnabled() {
+  return base::FeatureList::IsEnabled(features::kWebGLDiscardBackBuffer) ||
+         base::FeatureList::IsEnabled(
+             ::features::kWebGLDeleteBuffersInBackground);
+}
+
 }  // namespace
 
 // Increase cache to avoid reallocation on fuchsia, see
@@ -177,6 +183,7 @@ scoped_refptr<DrawingBuffer> DrawingBuffer::Create(
     PreserveDrawingBuffer preserve,
     Platform::WebGLContextType webgl_version,
     PredefinedColorSpace color_space,
+    gfx::HDRMetadata hdr_metadata,
     gl::GpuPreference gpu_preference) {
   if (g_should_fail_drawing_buffer_creation_for_testing) {
     g_should_fail_drawing_buffer_creation_for_testing = false;
@@ -233,7 +240,7 @@ scoped_refptr<DrawingBuffer> DrawingBuffer::Create(
           std::move(extensions_util), client, discard_framebuffer_supported,
           texture_storage_enabled, want_alpha_channel, premultiplied_alpha,
           preserve, webgl_version, want_depth_buffer, want_stencil_buffer,
-          color_space, gpu_preference));
+          color_space, hdr_metadata, gpu_preference));
   if (!drawing_buffer->Initialize(size, multisample_supported)) {
     drawing_buffer->BeginDestruction();
     return scoped_refptr<DrawingBuffer>();
@@ -256,6 +263,7 @@ DrawingBuffer::DrawingBuffer(
     bool want_depth,
     bool want_stencil,
     PredefinedColorSpace color_space,
+    gfx::HDRMetadata hdr_metadata,
     gl::GpuPreference gpu_preference)
     : client_(client),
       preserve_drawing_buffer_(preserve),
@@ -278,6 +286,7 @@ DrawingBuffer::DrawingBuffer(
       want_depth_(want_depth),
       want_stencil_(want_stencil),
       color_space_(PredefinedColorSpaceToGfxColorSpace(color_space)),
+      hdr_metadata_(hdr_metadata),
       opengl_flip_y_extension_(
           ContextProvider()->GetCapabilities().mesa_framebuffer_flip_y),
       initial_gpu_(gpu_preference),
@@ -366,24 +375,24 @@ void DrawingBuffer::SetIsInHiddenPage(bool hidden) {
   // Make sure to interrupt pixel local storage.
   ScopedStateRestorer scoped_state_restorer(this);
 
-  const bool may_discard_back_buffer =
-      base::FeatureList::IsEnabled(blink::features::kWebGLDiscardBackBuffer);
-  if (may_discard_back_buffer) {
-    if (is_hidden_) {
-      bool nothing_to_preserve =
-          preserve_drawing_buffer_ == kDiscard && !contents_changed_;
-      if (back_color_buffer_ && nothing_to_preserve) {
-        TRACE_EVENT("gpu", "DiscardBackBuffer");
-        // Detach first, clear second.
-        gl_->BindFramebuffer(GL_FRAMEBUFFER, fbo_);
-        gl_->FramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
-                                  GL_TEXTURE_2D, 0, 0);
-        back_color_buffer_ = nullptr;
-        back_buffer_discarded_ = true;
+  if (is_hidden_) {
+    bool nothing_to_preserve =
+        preserve_drawing_buffer_ == kDiscard && !contents_changed_;
+
+    if (nothing_to_preserve) {
+      if (base::FeatureList::IsEnabled(
+              blink::features::kWebGLDiscardBackBuffer)) {
+        DiscardBackBuffer();
       }
-    } else {
-      // Page became visible again, proactively allocate the back buffer.
-      EnsureBackColorBuffer();
+      if (base::FeatureList::IsEnabled(
+              ::features::kWebGLDeleteBuffersInBackground)) {
+        CHECK(contents_change_resolved_);
+        DiscardMSAADepthStencilBuffers();
+      }
+    }
+  } else {
+    if (IsBackgroundBufferDiscardEnabled()) {
+      EnsureBuffers();
     }
   }
 
@@ -394,10 +403,6 @@ void DrawingBuffer::SetIsInHiddenPage(bool hidden) {
 
   gl_->ContextVisibilityHintCHROMIUM(is_hidden_ ? GL_FALSE : GL_TRUE);
   gl_->Flush();
-}
-
-void DrawingBuffer::SetHdrMetadata(const gfx::HDRMetadata& hdr_metadata) {
-  hdr_metadata_ = hdr_metadata;
 }
 
 bool DrawingBuffer::RequiresAlphaChannelToBePreserved() {
@@ -1140,11 +1145,6 @@ std::optional<gpu::SyncToken> DrawingBuffer::CopyToPlatformInternal(
     produce_sync_token = back_color_buffer_->EndAccess();
   }
 
-  if (!produce_sync_token.HasData()) {
-    // This should only happen if the context has been lost.
-    return std::nullopt;
-  }
-
   std::optional<gpu::SyncToken> sync_token = copy_function(
       src_color_buffer->shared_image, produce_sync_token, src_alpha_type);
 
@@ -1514,31 +1514,7 @@ bool DrawingBuffer::ReallocateDefaultFramebuffer(const gfx::Size& size,
   }
 
   if (WantDepthOrStencil() && !only_reallocate_color) {
-    state_restorer_->SetFramebufferBindingDirty();
-    state_restorer_->SetRenderbufferBindingDirty();
-    gl_->BindFramebuffer(GL_FRAMEBUFFER,
-                         multisample_fbo_ ? multisample_fbo_ : fbo_);
-    if (!depth_stencil_buffer_)
-      gl_->GenRenderbuffers(1, &depth_stencil_buffer_);
-    gl_->BindRenderbuffer(GL_RENDERBUFFER, depth_stencil_buffer_);
-    if (anti_aliasing_mode_ == kAntialiasingModeMSAAImplicitResolve) {
-      gl_->RenderbufferStorageMultisampleEXT(GL_RENDERBUFFER, sample_count_,
-                                             GL_DEPTH24_STENCIL8_OES,
-                                             size.width(), size.height());
-    } else if (anti_aliasing_mode_ == kAntialiasingModeMSAAExplicitResolve) {
-      gl_->RenderbufferStorageMultisampleCHROMIUM(
-          GL_RENDERBUFFER, sample_count_, GL_DEPTH24_STENCIL8_OES, size.width(),
-          size.height());
-    } else {
-      gl_->RenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8_OES,
-                               size.width(), size.height());
-    }
-    // For ES 2.0 contexts DEPTH_STENCIL is not available natively, so we
-    // emulate
-    // it at the command buffer level for WebGL contexts.
-    gl_->FramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT,
-                                 GL_RENDERBUFFER, depth_stencil_buffer_);
-    gl_->BindRenderbuffer(GL_RENDERBUFFER, 0);
+    ReallocateDepthStencilRenderbuffer(size);
   }
 
   if (WantExplicitResolve()) {
@@ -1561,6 +1537,7 @@ void DrawingBuffer::ClearFramebuffers(GLbitfield clear_mask) {
 void DrawingBuffer::ClearFramebuffersInternal(GLbitfield clear_mask,
                                               ClearOption clear_option) {
   DCHECK(state_restorer_);
+  EnsureBuffers();
   state_restorer_->SetFramebufferBindingDirty();
 
   GLenum prev_draw_buffer =
@@ -1729,15 +1706,26 @@ void DrawingBuffer::SetColorSpace(PredefinedColorSpace predefined_color_space) {
   color_space_ = color_space;
 
   ScopedStateRestorer scoped_state_restorer(this);
-
   recycled_software_resources_.clear();
-
   if (!ReallocateDefaultFramebuffer(size_, /*only_reallocate_color=*/true)) {
     // TODO(https://crbug.com/1208480): What is the correct behavior is we fail
     // to re-allocate the buffer.
     DLOG(ERROR) << "Failed to allocate color buffer with new color space.";
   }
+  ClearNewlyAllocatedFramebuffers(kClearAllFBOs);
+}
 
+void DrawingBuffer::SetHdrMetadata(const gfx::HDRMetadata& hdr_metadata) {
+  if (hdr_metadata_ == hdr_metadata) {
+    return;
+  }
+  hdr_metadata_ = hdr_metadata;
+
+  ScopedStateRestorer scoped_state_restorer(this);
+  recycled_software_resources_.clear();
+  if (!ReallocateDefaultFramebuffer(size_, /*only_reallocate_color=*/true)) {
+    DLOG(ERROR) << "Failed to allocate color buffer with new HDR metadata.";
+  }
   ClearNewlyAllocatedFramebuffers(kClearAllFBOs);
 }
 
@@ -1763,6 +1751,10 @@ void DrawingBuffer::ResolveMultisampleFramebufferInternal() {
   DCHECK(state_restorer_);
   state_restorer_->SetFramebufferBindingDirty();
   if (WantExplicitResolve()) {
+    // The MSAA buffer should only have been discarded if there were no
+    // unresolved draw commands, and should have been recreated if something
+    // happens that will necessitate a resolve.
+    CHECK(multisample_renderbuffer_);
     state_restorer_->SetClearStateDirty();
     gl_->BindFramebuffer(GL_READ_FRAMEBUFFER_ANGLE, multisample_fbo_);
     gl_->BindFramebuffer(GL_DRAW_FRAMEBUFFER_ANGLE, fbo_);
@@ -1851,7 +1843,11 @@ void DrawingBuffer::ResolveIfNeeded(DiscardBehavior discardBehavior) {
         client_->DrawingBufferClientForceLostContextWithAutoRecovery(
             "Losing WebGL context because multisampled renderbuffers were "
             "allocated, to work around macOS OpenGL driver bugs");
-      } else if (WantExplicitResolve()) {
+      } else if (WantExplicitResolve() && multisample_renderbuffer_) {
+        // About the `multisample_renderbuffer_` condition above: Only
+        // reallocate if the multisample renderbuffer is currently allocated.
+        // If the buffer was discarded in the background, reallocating here
+        // would attempt to operate on handle 0.
         ReallocateMultisampleRenderbuffer(size_);
 
         // This does a bit more work than desired - clearing any depth and
@@ -1903,6 +1899,32 @@ bool DrawingBuffer::ReallocateMultisampleRenderbuffer(const gfx::Size& size) {
   return true;
 }
 
+void DrawingBuffer::ReallocateDepthStencilRenderbuffer(const gfx::Size& size) {
+  if (!depth_stencil_buffer_) {
+    gl_->GenRenderbuffers(1, &depth_stencil_buffer_);
+  }
+  state_restorer_->SetFramebufferBindingDirty();
+  state_restorer_->SetRenderbufferBindingDirty();
+  gl_->BindRenderbuffer(GL_RENDERBUFFER, depth_stencil_buffer_);
+  if (anti_aliasing_mode_ == kAntialiasingModeMSAAImplicitResolve) {
+    gl_->RenderbufferStorageMultisampleEXT(GL_RENDERBUFFER, sample_count_,
+                                           GL_DEPTH24_STENCIL8_OES,
+                                           size.width(), size.height());
+  } else if (anti_aliasing_mode_ == kAntialiasingModeMSAAExplicitResolve) {
+    gl_->RenderbufferStorageMultisampleCHROMIUM(GL_RENDERBUFFER, sample_count_,
+                                                GL_DEPTH24_STENCIL8_OES,
+                                                size.width(), size.height());
+  } else {
+    gl_->RenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8_OES,
+                             size.width(), size.height());
+  }
+  gl_->BindFramebuffer(GL_FRAMEBUFFER,
+                       multisample_fbo_ ? multisample_fbo_ : fbo_);
+  gl_->FramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT,
+                               GL_RENDERBUFFER, depth_stencil_buffer_);
+  gl_->BindRenderbuffer(GL_RENDERBUFFER, 0);
+}
+
 void DrawingBuffer::RestoreFramebufferBindings() {
   // Can be called with ScopedDrawingBufferBinder on the stack after
   // context loss. Null checking client_ is insufficient.
@@ -1952,7 +1974,11 @@ bool DrawingBuffer::Multisample() const {
 }
 
 void DrawingBuffer::Bind(GLenum target) {
-  EnsureBackColorBuffer();
+  EnsureBuffers();
+  gl_->BindFramebuffer(target, WantExplicitResolve() ? multisample_fbo_ : fbo_);
+}
+
+void DrawingBuffer::RestoreDefaultFramebufferBinding(GLenum target) {
   gl_->BindFramebuffer(target, WantExplicitResolve() ? multisample_fbo_ : fbo_);
 }
 
@@ -2248,6 +2274,57 @@ void DrawingBuffer::AttachColorBufferToReadFramebuffer() {
   }
 }
 
+void DrawingBuffer::DiscardBackBuffer() {
+  DCHECK(state_restorer_);
+  if (back_color_buffer_) {
+    TRACE_EVENT("gpu", "DiscardBackBuffer");
+    state_restorer_->SetFramebufferBindingDirty();
+    // Detach first, clear second.
+    gl_->BindFramebuffer(GL_FRAMEBUFFER, fbo_);
+    gl_->FramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                              GL_TEXTURE_2D, 0, 0);
+    back_color_buffer_ = nullptr;
+    back_buffer_discarded_ = true;
+  }
+}
+
+void DrawingBuffer::DiscardMSAADepthStencilBuffers() {
+  TRACE_EVENT("gpu", __PRETTY_FUNCTION__);
+  DCHECK(state_restorer_);
+  state_restorer_->SetFramebufferBindingDirty();
+  state_restorer_->SetRenderbufferBindingDirty();
+  if (multisample_fbo_) {
+    gl_->BindFramebuffer(GL_FRAMEBUFFER, multisample_fbo_);
+    gl_->FramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                                 GL_RENDERBUFFER, 0);
+    gl_->FramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT,
+                                 GL_RENDERBUFFER, 0);
+  }
+  if (fbo_) {
+    gl_->BindFramebuffer(GL_FRAMEBUFFER, fbo_);
+    gl_->FramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT,
+                                 GL_RENDERBUFFER, 0);
+  }
+  gl_->BindRenderbuffer(GL_RENDERBUFFER, 0);
+  if (multisample_renderbuffer_) {
+    gl_->DeleteRenderbuffers(1, &multisample_renderbuffer_);
+    multisample_renderbuffer_ = 0;
+  }
+  if (depth_stencil_buffer_) {
+    gl_->DeleteRenderbuffers(1, &depth_stencil_buffer_);
+    depth_stencil_buffer_ = 0;
+  }
+  gl_->Flush();
+}
+
+void DrawingBuffer::EnsureBuffers() {
+  if (destruction_in_progress_) {
+    return;
+  }
+  EnsureBackColorBuffer();
+  EnsureMSAADepthStencilBuffers();
+}
+
 void DrawingBuffer::EnsureBackColorBuffer() {
   const bool may_discard_back_buffer =
       base::FeatureList::IsEnabled(blink::features::kWebGLDiscardBackBuffer);
@@ -2264,6 +2341,50 @@ void DrawingBuffer::EnsureBackColorBuffer() {
     AttachColorBufferToReadFramebuffer();
     back_buffer_discarded_ = false;
   }
+}
+
+void DrawingBuffer::EnsureMSAADepthStencilBuffers() {
+  if (!base::FeatureList::IsEnabled(
+          ::features::kWebGLDeleteBuffersInBackground)) {
+    return;
+  }
+  bool need_multisample = WantExplicitResolve() && !multisample_renderbuffer_;
+  bool need_depth_stencil = WantDepthOrStencil() && !depth_stencil_buffer_;
+  if (!need_multisample && !need_depth_stencil) {
+    return;
+  }
+
+  ScopedStateRestorer scoped_state_restorer(this);
+  scoped_state_restorer.SetFramebufferBindingDirty();
+  scoped_state_restorer.SetRenderbufferBindingDirty();
+  if (need_multisample) {
+    gl_->GenRenderbuffers(1, &multisample_renderbuffer_);
+    // We had a multisample renderbuffer before, we can't allocate one now.
+    // Crashing here simplifies state management elsewhere, avoiding having to
+    // handle incomplete framebuffers after foregrounding.
+    CHECK(ReallocateMultisampleRenderbuffer(size_));
+  }
+  if (need_depth_stencil) {
+    ReallocateDepthStencilRenderbuffer(size_);
+  }
+  // In ANGLE, modifying framebuffer attachments defers validation of
+  // framebuffer completeness and render target synchronization until
+  // CheckFramebufferStatus (or a draw call) is executed.
+  // Eagerly checking completeness here forces ANGLE to validate the
+  // framebuffers after reallocation. Note that `fbo_` must be checked even
+  // when WantExplicitResolve() is true, because its depth/stencil attachment
+  // state was mutated (detached) during background discard.
+  if (WantExplicitResolve()) {
+    gl_->BindFramebuffer(GL_FRAMEBUFFER, multisample_fbo_);
+    // If this CHECK() of the one below trigger in practice, consider reporting
+    // a context loss rather than crashing the page, as WebGL errors should be
+    // recoverable.
+    CHECK_EQ(gl_->CheckFramebufferStatus(GL_FRAMEBUFFER),
+             static_cast<GLenum>(GL_FRAMEBUFFER_COMPLETE));
+  }
+  gl_->BindFramebuffer(GL_FRAMEBUFFER, fbo_);
+  CHECK_EQ(gl_->CheckFramebufferStatus(GL_FRAMEBUFFER),
+           static_cast<GLenum>(GL_FRAMEBUFFER_COMPLETE));
 }
 
 bool DrawingBuffer::WantExplicitResolve() {
@@ -2304,10 +2425,12 @@ DrawingBuffer::ScopedStateRestorer::~ScopedStateRestorer() {
     client->DrawingBufferClientRestorePixelPackParameters();
   if (texture_binding_dirty_)
     client->DrawingBufferClientRestoreTexture2DBinding();
-  if (renderbuffer_binding_dirty_)
+  if (renderbuffer_binding_dirty_) {
     client->DrawingBufferClientRestoreRenderbufferBinding();
-  if (framebuffer_binding_dirty_)
+  }
+  if (framebuffer_binding_dirty_) {
     client->DrawingBufferClientRestoreFramebufferBinding();
+  }
   if (pixel_unpack_buffer_binding_dirty_)
     client->DrawingBufferClientRestorePixelUnpackBufferBinding();
   if (pixel_pack_buffer_binding_dirty_)

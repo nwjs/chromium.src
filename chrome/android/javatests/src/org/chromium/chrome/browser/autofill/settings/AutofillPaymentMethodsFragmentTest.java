@@ -49,6 +49,7 @@ import androidx.test.filters.MediumTest;
 import androidx.test.filters.SmallTest;
 
 import org.junit.After;
+import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -88,6 +89,7 @@ import org.chromium.chrome.browser.preferences.Pref;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.profiles.ProfileManager;
 import org.chromium.chrome.browser.settings.SettingsActivityInterface;
+import org.chromium.chrome.browser.settings.SettingsInTab;
 import org.chromium.chrome.browser.settings.SettingsTestRule;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.components.autofill.IbanRecordType;
@@ -103,7 +105,6 @@ import org.chromium.components.payments.PackageManagerDelegate;
 import org.chromium.components.policy.test.annotations.Policies;
 import org.chromium.components.prefs.PrefService;
 import org.chromium.components.user_prefs.UserPrefs;
-import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.test.util.DeviceRestriction;
 
 import java.util.ArrayList;
@@ -113,7 +114,6 @@ import java.util.concurrent.TimeoutException;
 
 /** Instrumentation tests for AutofillPaymentMethodsFragment. */
 @RunWith(ChromeJUnit4ClassRunner.class)
-@DisableFeatures({ChromeFeatureList.AUTOFILL_ENABLE_WALLET_BRANDING})
 @Batch(Batch.PER_CLASS)
 public class AutofillPaymentMethodsFragmentTest {
     @Rule public final AutofillTestRule mAutofillTestRule = new AutofillTestRule();
@@ -960,37 +960,6 @@ public class AutofillPaymentMethodsFragmentTest {
 
     @Test
     @MediumTest
-    @DisableFeatures({ChromeFeatureList.AUTOFILL_ENABLE_WALLET_BRANDING})
-    public void
-            testDeleteSavedCvcsButton_whenClicked_confirmationDialogIsShown_walletBrandingDisabled()
-                    throws Exception {
-        mAutofillTestHelper.addServerCreditCard(SAMPLE_CARD_WITH_CVC);
-
-        SettingsActivityInterface activity = mSettingsTestRule.startSettingsActivity();
-        Preference deleteSavedCvcsToggle =
-                getPreferenceScreen(activity)
-                        .findPreference(AutofillPaymentMethodsFragment.PREF_DELETE_SAVED_CVCS);
-        ThreadUtils.runOnUiThreadBlocking(
-                () -> {
-                    deleteSavedCvcsToggle.performClick();
-                });
-
-        onView(withText(R.string.autofill_delete_saved_cvcs_confirmation_dialog_title))
-                .inRoot(isDialog())
-                .check(matches(isDisplayed()));
-        onView(withText(R.string.autofill_delete_saved_cvcs_confirmation_dialog_message))
-                .check(matches(isDisplayed()));
-        onView(
-                        withText(
-                                R.string
-                                        .autofill_delete_saved_cvcs_confirmation_dialog_delete_button_label))
-                .check(matches(isDisplayed()));
-        onView(withText(android.R.string.cancel)).check(matches(isDisplayed()));
-    }
-
-    @Test
-    @MediumTest
-    @EnableFeatures({ChromeFeatureList.AUTOFILL_ENABLE_WALLET_BRANDING})
     public void testDeleteSavedCvcsButton_whenClicked_confirmationDialogIsShown() throws Exception {
         mAutofillTestHelper.addServerCreditCard(SAMPLE_CARD_WITH_CVC);
 
@@ -2087,9 +2056,11 @@ public class AutofillPaymentMethodsFragmentTest {
 
     @Test
     @SmallTest
-    @Restriction(DeviceFormFactor.PHONE) // Tablets and desktops don't have a help button or menu.
     public void testHelpMenuTriggersAutofillHelp() {
-        SettingsActivityInterface settingsActivity = mSettingsTestRule.startSettingsActivity();
+        // Settings in a tab doesn't have a help button or menu.
+        Assume.assumeTrue(!SettingsInTab.isEnabled());
+
+        mSettingsTestRule.startSettingsActivity();
 
         onView(withId(R.id.menu_id_targeted_help)).perform(click());
 

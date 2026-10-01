@@ -37,4 +37,17 @@ TEST(CommonTypes, AttestationResults) {
   }
 }
 
+TEST(CommonTypes, DeviceTrustErrors) {
+  EXPECT_EQ(DeviceTrustErrorToString(DeviceTrustError::kUnknown), "unknown");
+  EXPECT_EQ(DeviceTrustErrorToString(DeviceTrustError::kTimeout), "timeout");
+  EXPECT_EQ(DeviceTrustErrorToString(DeviceTrustError::kFailedToParseChallenge),
+            "failed_to_parse_challenge");
+  EXPECT_EQ(DeviceTrustErrorToString(DeviceTrustError::kFailedToCreateResponse),
+            "failed_to_create_response");
+  EXPECT_EQ(DeviceTrustErrorToString(DeviceTrustError::kTooManyRequests),
+            "too_many_requests");
+  EXPECT_EQ(DeviceTrustErrorToString(DeviceTrustError::kUrlNotAllowed),
+            "url_not_allowed");
+}
+
 }  // namespace enterprise_connectors

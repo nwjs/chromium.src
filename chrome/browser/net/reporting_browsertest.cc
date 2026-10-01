@@ -18,6 +18,8 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/navigator/browser_navigator.h"
 #include "chrome/browser/ui/navigator/browser_navigator_params.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "chrome/common/chrome_features.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/render_frame_host.h"
@@ -35,10 +37,12 @@
 #include "net/test/embedded_test_server/controllable_http_response.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
 #include "net/test/embedded_test_server/http_request.h"
+#include "partition_alloc/page_allocator.h"
 #include "services/network/public/cpp/features.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/chrome_debug_urls.h"
 #include "third_party/blink/public/common/features.h"
+#include "ui/base/page_transition_types.h"
 #include "url/gurl.h"
 
 namespace {
@@ -121,6 +125,20 @@ class BaseReportingBrowserTest : public CertVerifierBrowserTest,
 #endif
   }
 
+  void ExecuteInfiniteLoopScriptAsync(content::RenderFrameHost* frame) {
+    content::ExecuteScriptAsync(frame, R"(
+    function infiniteLoop() {
+      let cnt = 0;
+      while (true) {
+        if (cnt++ == 0) {
+          console.log('infiniteLoop');
+        }
+      }
+    }
+    infiniteLoop();
+  )");
+  }
+
  private:
   base::test::ScopedFeatureList scoped_feature_list_;
   net::EmbeddedTestServer https_server_;
@@ -165,6 +183,30 @@ class ReportingBrowserTest : public BaseReportingBrowserTest {
   ReportingBrowserTest& operator=(const ReportingBrowserTest&) = delete;
 
   ~ReportingBrowserTest() override = default;
+
+ private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+};
+
+class CrashReportingBrowserTest : public ReportingBrowserTest {
+ public:
+  CrashReportingBrowserTest() {
+    // Disable WebUI toolbar features to avoid intermittent timeouts in
+    // InProcessBrowserTest::PreRunTestOnMainThread() when waiting for the
+    // initial WebUI toolbar paint callback.
+    // TODO(http://crbug.com/556719977): Fix WebUI toolbar flakiness.
+    scoped_feature_list_.InitWithFeatures(
+        /*enabled_features=*/{},
+        /*disabled_features=*/{
+            features::kInitialWebUI, features::kWebUIToolbar,
+            features::kWebUIToolbarProcessOverheadExperiment});
+  }
+
+  CrashReportingBrowserTest(const CrashReportingBrowserTest&) = delete;
+  CrashReportingBrowserTest& operator=(const CrashReportingBrowserTest&) =
+      delete;
+
+  ~CrashReportingBrowserTest() override = default;
 
  private:
   base::test::ScopedFeatureList scoped_feature_list_;
@@ -293,20 +335,6 @@ class JSCallStackReportingBrowserTest : public BaseReportingBrowserTest {
     return "Document-Policy: include-js-call-stacks-in-crash-reports";
   }
 
-  void ExecuteInfiniteLoopScriptAsync(content::RenderFrameHost* frame) {
-    content::ExecuteScriptAsync(frame, R"(
-    function infiniteLoop() {
-      let cnt = 0;
-      while (true) {
-        if (cnt++ == 0) {
-          console.log('infiniteLoop');
-        }
-      }
-    }
-    infiniteLoop();
-  )");
-  }
-
  private:
   base::test::ScopedFeatureList scoped_feature_list_;
 };
@@ -418,6 +446,7 @@ IN_PROC_BROWSER_TEST_P(ReportingBrowserTest, TestReportingHeadersProcessed) {
         [ {
            "body": {
               "blockedURL": "inline",
+              "columnNumber": 11,
               "disposition": "enforce",
               "documentURL": "%s",
               "effectiveDirective": "script-src-elem",
@@ -470,6 +499,7 @@ IN_PROC_BROWSER_TEST_P(NonIsolatedReportingBrowserTest,
         [ {
            "body": {
               "blockedURL": "inline",
+              "columnNumber": 11,
               "disposition": "enforce",
               "documentURL": "%s",
               "effectiveDirective": "script-src-elem",
@@ -552,32 +582,12 @@ IN_PROC_BROWSER_TEST_P(ReportingBrowserTest,
 
 // These tests intentionally crash a render process, and so fail ASan tests.
 #if defined(ADDRESS_SANITIZER)
-#define MAYBE_CrashReport DISABLED_CrashReport
-#define MAYBE_CrashReportUnresponsive DISABLED_CrashReportUnresponsive
-#define MAYBE_CrashReportUnresponsiveCrossOriginIframe \
-  DISABLED_CrashReportUnresponsiveCrossOriginIframe
-#define MAYBE_MainPageOptedIn DISABLED_MainPageOptedIn
-#define MAYBE_MainPageNotOptedIn DISABLED_MainPageNotOptedIn
-#define MAYBE_IframeUnresponsiveWithJSCallStackOptedIn \
-  DISABLED_IframeUnresponsiveWithJSCallStackOptedIn
-#define MAYBE_IframeUnresponsiveWithJSCallStackNotOptedIn \
-  DISABLED_IframeUnresponsiveWithJSCallStackNotOptedIn
-#define MAYBE_SpecifyCrashEndpoint DISABLED_SpecifyCrashEndpoint
+#define DISABLED_ON_ASAN(x) DISABLED_##x
 #else
-#define MAYBE_CrashReport CrashReport
-#define MAYBE_CrashReportUnresponsive CrashReportUnresponsive
-#define MAYBE_CrashReportUnresponsiveCrossOriginIframe \
-  CrashReportUnresponsiveCrossOriginIframe
-#define MAYBE_MainPageOptedIn MainPageOptedIn
-#define MAYBE_MainPageNotOptedIn MainPageNotOptedIn
-#define MAYBE_IframeUnresponsiveWithJSCallStackOptedIn \
-  IframeUnresponsiveWithJSCallStackOptedIn
-#define MAYBE_IframeUnresponsiveWithJSCallStackNotOptedIn \
-  IframeUnresponsiveWithJSCallStackNotOptedIn
-#define MAYBE_SpecifyCrashEndpoint SpecifyCrashEndpoint
+#define DISABLED_ON_ASAN(x) x
 #endif  // defined(ADDRESS_SANITIZER)
 
-IN_PROC_BROWSER_TEST_P(ReportingBrowserTest, MAYBE_CrashReport) {
+IN_PROC_BROWSER_TEST_P(ReportingBrowserTest, DISABLED_ON_ASAN(CrashReport)) {
   content::WebContents* contents =
       browser()->tab_strip_model()->GetActiveWebContents();
 
@@ -609,7 +619,8 @@ IN_PROC_BROWSER_TEST_P(ReportingBrowserTest, MAYBE_CrashReport) {
   EXPECT_EQ(*url, main_url.spec());
 }
 
-IN_PROC_BROWSER_TEST_P(ReportingBrowserTest, MAYBE_CrashReportUnresponsive) {
+IN_PROC_BROWSER_TEST_P(ReportingBrowserTest,
+                       DISABLED_ON_ASAN(CrashReportUnresponsive)) {
   content::WebContents* contents =
       browser()->tab_strip_model()->GetActiveWebContents();
 
@@ -639,6 +650,207 @@ IN_PROC_BROWSER_TEST_P(ReportingBrowserTest, MAYBE_CrashReportUnresponsive) {
   EXPECT_EQ("crash", *type);
   EXPECT_EQ(*url, main_url.spec());
   EXPECT_EQ("unresponsive", *reason);
+}
+
+IN_PROC_BROWSER_TEST_P(
+    CrashReportingBrowserTest,
+    DISABLED_ON_ASAN(CrashReportUnresponsiveWithoutHungExitCode)) {
+  content::WebContents* contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+
+  GURL main_url = server()->GetURL(
+      kReportingHost, "/set-header?" + GetAppropriateReportingHeader());
+  EXPECT_TRUE(NavigateToURL(contents, main_url));
+
+  content::RenderFrameHost* frame = contents->GetPrimaryMainFrame();
+  ASSERT_TRUE(frame);
+
+  content::WebContentsConsoleObserver console_observer(contents);
+  console_observer.SetPattern("infiniteLoop");
+  ExecuteInfiniteLoopScriptAsync(frame);
+  ASSERT_TRUE(console_observer.Wait());
+
+  content::RenderProcessHost* rph = frame->GetProcess();
+  content::RenderProcessHostWatcher watcher(
+      rph, content::RenderProcessHostWatcher::WATCH_FOR_PROCESS_EXIT);
+
+  // Mark the widget as unresponsive.
+  content::SimulateUnresponsiveRenderer(contents, frame->GetRenderWidgetHost());
+
+  // Simulate process kill with a generic exit code (e.g. RESULT_CODE_KILLED),
+  // not RESULT_CODE_HUNG.
+  content::ScopedAllowRendererCrashes allow_renderer_crashes(contents);
+  rph->Shutdown(content::RESULT_CODE_KILLED);
+  watcher.Wait();
+
+  upload_response()->WaitForRequest();
+  base::ListValue response =
+      ParseReportUpload(upload_response()->http_request()->content);
+  ASSERT_FALSE(response.empty());
+  upload_response()->Send("HTTP/1.1 200 OK\r\n");
+  upload_response()->Send("\r\n");
+  upload_response()->Done();
+
+  // Verify that the crash report was still generated with reason:
+  // "unresponsive" because the browser detected that the renderer was
+  // unresponsive.
+  const base::DictValue& report = response.begin()->GetDict();
+  const std::string* type = report.FindString("type");
+  const std::string* url = report.FindString("url");
+  const base::DictValue* body = report.FindDict("body");
+  ASSERT_NE(body, nullptr);
+  const std::string* reason = body->FindString("reason");
+
+  ASSERT_NE(type, nullptr);
+  EXPECT_EQ("crash", *type);
+
+  ASSERT_NE(url, nullptr);
+  EXPECT_EQ(*url, main_url.spec());
+
+  ASSERT_NE(reason, nullptr);
+  EXPECT_EQ("unresponsive", *reason);
+}
+
+IN_PROC_BROWSER_TEST_P(CrashReportingBrowserTest,
+                       DISABLED_ON_ASAN(CrashReportOOM)) {
+  content::WebContents* contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+
+  GURL main_url = server()->GetURL(
+      kReportingHost, "/set-header?" + GetAppropriateReportingHeader());
+  EXPECT_TRUE(NavigateToURL(contents, main_url));
+
+  content::RenderFrameHost* frame = contents->GetPrimaryMainFrame();
+  ASSERT_TRUE(frame);
+
+  content::SimulateOOMPrimaryMainFrameAndWaitForExit(contents);
+
+  upload_response()->WaitForRequest();
+  base::ListValue response =
+      ParseReportUpload(upload_response()->http_request()->content);
+  ASSERT_FALSE(response.empty());
+  upload_response()->Send("HTTP/1.1 200 OK\r\n");
+  upload_response()->Send("\r\n");
+  upload_response()->Done();
+
+  // Verify that the crash report was generated with reason: "oom".
+  const base::DictValue& report = response.begin()->GetDict();
+  const std::string* type = report.FindString("type");
+  const std::string* url = report.FindString("url");
+  const base::DictValue* body = report.FindDict("body");
+  ASSERT_NE(body, nullptr);
+  const std::string* reason = body->FindString("reason");
+
+  ASSERT_NE(type, nullptr);
+  EXPECT_EQ("crash", *type);
+
+  ASSERT_NE(url, nullptr);
+  EXPECT_EQ(*url, main_url.spec());
+
+  ASSERT_NE(reason, nullptr);
+  EXPECT_EQ("oom", *reason);
+}
+
+IN_PROC_BROWSER_TEST_P(
+    CrashReportingBrowserTest,
+    DISABLED_ON_ASAN(CrashReportOOMTakesPriorityOverUnresponsive)) {
+  content::WebContents* contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+
+  GURL main_url = server()->GetURL(
+      kReportingHost, "/set-header?" + GetAppropriateReportingHeader());
+  EXPECT_TRUE(NavigateToURL(contents, main_url));
+
+  content::RenderFrameHost* frame = contents->GetPrimaryMainFrame();
+  ASSERT_TRUE(frame);
+
+  // Mark the renderer as unresponsive.
+  content::SimulateUnresponsiveRenderer(contents, frame->GetRenderWidgetHost());
+
+  // Simulate OOM shutdown while unresponsive.
+  content::SimulateOOMPrimaryMainFrameAndWaitForExit(contents);
+
+  upload_response()->WaitForRequest();
+  base::ListValue response =
+      ParseReportUpload(upload_response()->http_request()->content);
+  ASSERT_FALSE(response.empty());
+  upload_response()->Send("HTTP/1.1 200 OK\r\n");
+  upload_response()->Send("\r\n");
+  upload_response()->Done();
+
+  // Verify that the crash report was generated with reason: "oom" rather than
+  // "unresponsive".
+  const base::DictValue& report = response.begin()->GetDict();
+  const std::string* type = report.FindString("type");
+  const std::string* url = report.FindString("url");
+  const base::DictValue* body = report.FindDict("body");
+  ASSERT_NE(body, nullptr);
+  const std::string* reason = body->FindString("reason");
+
+  ASSERT_NE(type, nullptr);
+  EXPECT_EQ("crash", *type);
+
+  ASSERT_NE(url, nullptr);
+  EXPECT_EQ(*url, main_url.spec());
+
+  ASSERT_NE(reason, nullptr);
+  EXPECT_EQ("oom", *reason);
+}
+
+// This test deliberately exhausts memory, which is too slow/flaky under MSan
+// and on debug ChromeOS builds.
+// TODO(crbug.com/402535088): Re-enable on these configurations.
+#if defined(ADDRESS_SANITIZER) || defined(MEMORY_SANITIZER) || \
+    (BUILDFLAG(IS_CHROMEOS) && !defined(NDEBUG))
+#define MAYBE_CrashReportMemoryExhaust DISABLED_CrashReportMemoryExhaust
+#else
+#define MAYBE_CrashReportMemoryExhaust CrashReportMemoryExhaust
+#endif
+IN_PROC_BROWSER_TEST_P(CrashReportingBrowserTest,
+                       MAYBE_CrashReportMemoryExhaust) {
+  content::WebContents* contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+
+  GURL main_url = server()->GetURL(
+      kReportingHost, "/set-header?" + GetAppropriateReportingHeader());
+  EXPECT_TRUE(NavigateToURL(contents, main_url));
+
+  content::RenderFrameHost* frame = contents->GetPrimaryMainFrame();
+  ASSERT_TRUE(frame);
+
+  content::ScopedAllowRendererCrashes allow_renderer_crashes(contents);
+  content::RenderProcessHostWatcher crash_observer(
+      contents, content::RenderProcessHostWatcher::WATCH_FOR_PROCESS_EXIT);
+  contents->GetController().LoadURL(GURL(blink::kChromeUIMemoryExhaustURL),
+                                    content::Referrer(),
+                                    ui::PAGE_TRANSITION_TYPED, std::string());
+  crash_observer.Wait();
+
+  upload_response()->WaitForRequest();
+  base::ListValue response =
+      ParseReportUpload(upload_response()->http_request()->content);
+  ASSERT_FALSE(response.empty());
+  upload_response()->Send("HTTP/1.1 200 OK\r\n");
+  upload_response()->Send("\r\n");
+  upload_response()->Done();
+
+  // Verify that the crash report was generated with reason: "oom" from Blink's
+  // OOM callback.
+  const base::DictValue& report = response.begin()->GetDict();
+  const std::string* type = report.FindString("type");
+  const std::string* url = report.FindString("url");
+  const base::DictValue* body = report.FindDict("body");
+  ASSERT_NE(body, nullptr);
+  const std::string* reason = body->FindString("reason");
+
+  ASSERT_NE(type, nullptr);
+  EXPECT_EQ("crash", *type);
+
+  ASSERT_NE(url, nullptr);
+  EXPECT_EQ(*url, main_url.spec());
+
+  ASSERT_NE(reason, nullptr);
+  EXPECT_EQ("oom", *reason);
 }
 
 IN_PROC_BROWSER_TEST_P(ReportingBrowserTestCrashReportingStorage,
@@ -897,8 +1109,9 @@ IN_PROC_BROWSER_TEST_P(ReportingBrowserTestMoreContextData,
   }
 }
 
-IN_PROC_BROWSER_TEST_P(ReportingBrowserTestMoreContextData,
-                       MAYBE_CrashReportUnresponsiveCrossOriginIframe) {
+IN_PROC_BROWSER_TEST_P(
+    ReportingBrowserTestMoreContextData,
+    DISABLED_ON_ASAN(CrashReportUnresponsiveCrossOriginIframe)) {
   content::WebContents* contents =
       browser()->tab_strip_model()->GetActiveWebContents();
 
@@ -945,7 +1158,7 @@ IN_PROC_BROWSER_TEST_P(ReportingBrowserTestMoreContextData,
 }
 
 IN_PROC_BROWSER_TEST_P(ReportingBrowserTestSpecifyCrashEndpoint,
-                       MAYBE_SpecifyCrashEndpoint) {
+                       DISABLED_ON_ASAN(SpecifyCrashEndpoint)) {
   content::WebContents* contents =
       browser()->tab_strip_model()->GetActiveWebContents();
 
@@ -977,7 +1190,8 @@ IN_PROC_BROWSER_TEST_P(ReportingBrowserTestSpecifyCrashEndpoint,
   EXPECT_EQ(*url, main_url.spec());
 }
 
-IN_PROC_BROWSER_TEST_P(JSCallStackReportingBrowserTest, MAYBE_MainPageOptedIn) {
+IN_PROC_BROWSER_TEST_P(JSCallStackReportingBrowserTest,
+                       DISABLED_ON_ASAN(MainPageOptedIn)) {
   content::WebContents* contents =
       browser()->tab_strip_model()->GetActiveWebContents();
 
@@ -1024,7 +1238,7 @@ IN_PROC_BROWSER_TEST_P(JSCallStackReportingBrowserTest, MAYBE_MainPageOptedIn) {
 }
 
 IN_PROC_BROWSER_TEST_P(JSCallStackReportingBrowserTest,
-                       MAYBE_MainPageNotOptedIn) {
+                       DISABLED_ON_ASAN(MainPageNotOptedIn)) {
   content::WebContents* contents =
       browser()->tab_strip_model()->GetActiveWebContents();
 
@@ -1071,8 +1285,9 @@ IN_PROC_BROWSER_TEST_P(JSCallStackReportingBrowserTest,
   }
 }
 
-IN_PROC_BROWSER_TEST_P(JSCallStackReportingBrowserTest,
-                       MAYBE_IframeUnresponsiveWithJSCallStackOptedIn) {
+IN_PROC_BROWSER_TEST_P(
+    JSCallStackReportingBrowserTest,
+    DISABLED_ON_ASAN(IframeUnresponsiveWithJSCallStackOptedIn)) {
   content::WebContents* contents =
       browser()->tab_strip_model()->GetActiveWebContents();
 
@@ -1124,8 +1339,9 @@ IN_PROC_BROWSER_TEST_P(JSCallStackReportingBrowserTest,
   }
 }
 
-IN_PROC_BROWSER_TEST_P(JSCallStackReportingBrowserTest,
-                       MAYBE_IframeUnresponsiveWithJSCallStackNotOptedIn) {
+IN_PROC_BROWSER_TEST_P(
+    JSCallStackReportingBrowserTest,
+    DISABLED_ON_ASAN(IframeUnresponsiveWithJSCallStackNotOptedIn)) {
   content::WebContents* contents =
       browser()->tab_strip_model()->GetActiveWebContents();
 
@@ -1203,6 +1419,7 @@ IN_PROC_BROWSER_TEST_P(HistogramReportingBrowserTest,
 }
 
 INSTANTIATE_TEST_SUITE_P(All, ReportingBrowserTest, ::testing::Bool());
+INSTANTIATE_TEST_SUITE_P(All, CrashReportingBrowserTest, ::testing::Bool());
 INSTANTIATE_TEST_SUITE_P(All,
                          NonIsolatedReportingBrowserTest,
                          ::testing::Bool());

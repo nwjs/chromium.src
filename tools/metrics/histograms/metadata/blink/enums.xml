@@ -4258,9 +4258,9 @@ Called by update_use_counter_feature_enum.py.-->
   <int value="3743" label="ReadableStreamWithByteSource"/>
   <int value="3744" label="ReadableStreamBYOBReader"/>
   <int value="3745" label="EmbedElementWithoutTypeSrcChanged_Deleted"/>
-  <int value="3746" label="SamePartyCookieAttribute"/>
-  <int value="3747" label="SamePartyCookieExclusionOverruledSameSite"/>
-  <int value="3748" label="SamePartyCookieInclusionOverruledSameSite"/>
+  <int value="3746" label="OBSOLETE_SamePartyCookieAttribute"/>
+  <int value="3747" label="OBSOLETE_SamePartyCookieExclusionOverruledSameSite"/>
+  <int value="3748" label="OBSOLETE_SamePartyCookieInclusionOverruledSameSite"/>
   <int value="3749" label="EmbedElementWithoutTypeSrcChanged"/>
   <int value="3750" label="PaymentHandlerStandardizedPaymentMethodIdentifier"/>
   <int value="3751" label="WebCodecsAudioEncoder"/>
@@ -5647,7 +5647,7 @@ Called by update_use_counter_feature_enum.py.-->
   <int value="5003" label="ZstdContentEncodingForSubFrameNavigation"/>
   <int value="5004" label="ZstdContentEncodingForSubresource"/>
   <int value="5005" label="OBSOLETE_EventTimingOrphanPointerupWithClick"/>
-  <int value="5006" label="DisableReduceAcceptLanguage"/>
+  <int value="5006" label="OBSOLETE_DisableReduceAcceptLanguage"/>
   <int value="5007"
       label="SharedStorageAPI_CreateWorklet_CrossOriginScriptDefaultDataOrigin"/>
   <int value="5008" label="DeprecatedAIModel"/>
@@ -6464,8 +6464,8 @@ Called by update_use_counter_feature_enum.py.-->
   <int value="5741" label="V8Element_ContainerTiming_AttributeSetter"/>
   <int value="5742" label="V8Element_ContainerTimingIgnore_AttributeGetter"/>
   <int value="5743" label="V8Element_ContainerTimingIgnore_AttributeSetter"/>
-  <int value="5744" label="ContainerTimingObserverRegistered"/>
-  <int value="5745" label="ContainerTimingObserverReportedEntries"/>
+  <int value="5744" label="ContainerTimingExplicitlyRequested"/>
+  <int value="5745" label="ContainerTimingObserved"/>
   <int value="5746" label="CookieStoreMaxAge"/>
   <int value="5747" label="SVGFEBlendElement"/>
   <int value="5748" label="SVGFEColorMatrixElement"/>
@@ -6734,6 +6734,28 @@ Called by update_use_counter_feature_enum.py.-->
       label="ConnectionAllowlistEmbeddedEnforcementAllowedByDeliveredAllowlist"/>
   <int value="5997" label="ConnectionAllowlistEmbeddedEnforcementBlocked"/>
   <int value="5998" label="WebTransportDatagramDuplexStreamCreateWritable"/>
+  <int value="5999" label="V8RTCPeerConnection_Onaddstream_AttributeGetter"/>
+  <int value="6000" label="V8RTCPeerConnection_Onaddstream_AttributeSetter"/>
+  <int value="6001" label="V8RTCPeerConnection_Onremovestream_AttributeGetter"/>
+  <int value="6002" label="V8RTCPeerConnection_Onremovestream_AttributeSetter"/>
+  <int value="6003" label="SingleAxisScrollerPropagateSnapAxis"/>
+  <int value="6004" label="HTMLMenuElement"/>
+  <int value="6005" label="HTMLMenuBarElement"/>
+  <int value="6006" label="HTMLMenuItemElement"/>
+  <int value="6007" label="HTMLMenuListElement"/>
+  <int value="6008" label="HTMLMenuItemInMenu"/>
+  <int value="6009" label="SoftNavigationEntryEmitted"/>
+  <int value="6010" label="SoftNavigationExplicitlyRequested"/>
+  <int value="6011" label="SoftNavigationObserved"/>
+  <int value="6012" label="InteractionContentfulPaintEntryEmitted"/>
+  <int value="6013" label="InteractionContentfulPaintExplicitlyRequested"/>
+  <int value="6014" label="InteractionContentfulPaintObserved"/>
+  <int value="6015" label="VideoAdDetected"/>
+  <int value="6016" label="ElementTimingEntryEmitted"/>
+  <int value="6017" label="ContainerTimingEntryEmitted"/>
+  <int value="6018" label="BeforeUnloadShowedDialog"/>
+  <int value="6019" label="BeforeUnloadDialogBlockedUnload"/>
+  <int value="6022" label="AttributionReportingWindowOpen"/>
 </enum>
 
 <!-- LINT.ThenChange(//third_party/blink/public/mojom/use_counter/metrics/web_feature.mojom:WebFeature) -->
@@ -7352,6 +7374,7 @@ Called by update_permissions_policy_enum.py.-->
   <int value="55" label="ConfigBlockedByConnectionAllowlist"/>
   <int value="56" label="AccountsBlockedByConnectionAllowlist"/>
   <int value="57" label="IdTokenBlockedByConnectionAllowlist"/>
+  <int value="58" label="PopupBlockedByConnectionAllowlist"/>
 </enum>
 
 <!-- LINT.ThenChange(//content/browser/webid/metrics.h:RequestIdTokenStatus) -->
@@ -7516,12 +7539,12 @@ Called by update_permissions_policy_enum.py.-->
 <!-- LINT.ThenChange(//content/browser/webid/metrics.h:VerifyingDialogResult) -->
 
 <enum name="FencedFrameCreationOutcome">
-  <int value="0" label="Success (default mode)"/>
+  <int value="0" label="(Obsolete) Success (default mode)"/>
   <int value="1" label="Success (opaque ads mode)"/>
   <int value="2" label="Required sandbox flags not set"/>
-  <int value="3" label="Mode incompatible with parent's mode"/>
+  <int value="3" label="(Obsolete) Mode incompatible with parent's mode"/>
   <int value="4" label="Load in an insecure context"/>
-  <int value="5" label="URL is incompatible with mode=default"/>
+  <int value="5" label="(Obsolete) URL is incompatible with mode=default"/>
   <int value="6" label="URL is incompatible with mode=opaque ads"/>
   <int value="7"
       label="Supports-Loading-Mode response header 'fenced-frame' not
@@ -9229,6 +9252,12 @@ Called by update_use_counter_feature_enum.py.-->
   <int value="448" label="DRAFT_Haptics"/>
   <int value="449" label="LargestContentfulPaint"/>
   <int value="450" label="EventTiming"/>
+  <int value="451" label="SoftNavigations"/>
+  <int value="452" label="InteractionContentfulPaint"/>
+  <int value="453" label="ElementTiming"/>
+  <int value="454" label="ContainerTiming"/>
+  <int value="455"
+      label="SameSiteCookieInclusionChangedByCrossSiteRedirectNoInitiator"/>
 </enum>
 
 <!-- LINT.ThenChange(//third_party/blink/public/mojom/use_counter/metrics/webdx_feature.mojom:WebDXFeature) -->

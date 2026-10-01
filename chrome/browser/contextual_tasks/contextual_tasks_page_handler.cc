@@ -36,6 +36,8 @@
 #include "chrome/browser/ui/navigator/browser_navigator.h"
 #include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/browser/ui/side_panel/side_panel_ui.h"
+#include "ui/base/page_transition_types.h"
+#include "ui/base/window_open_disposition.h"
 #if !BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/ui/actions/chrome_action_id.h"
 #include "chrome/browser/ui/browser_window.h"
@@ -467,10 +469,14 @@ void ContextualTasksPageHandler::OpenOverflowMenuHelpUi() {
       WindowOpenDisposition::NEW_FOREGROUND_TAB, browser);
 }
 
-void ContextualTasksPageHandler::OpenUrl(const GURL& url,
-                                         WindowOpenDisposition disposition) {
-  OpenUrlWithDisposition(web_ui_controller_->GetProfile(), url, disposition,
-                         web_ui_controller_->GetBrowser());
+void ContextualTasksPageHandler::OpenAskGHelpUi() {
+  BrowserWindowInterface* browser = web_ui_controller_->GetBrowser();
+  if (!browser) {
+    return;
+  }
+  OpenUrlWithDisposition(web_ui_controller_->GetProfile(),
+                         GURL(contextual_tasks::GetContextualTasksTabHelpUrl()),
+                         WindowOpenDisposition::NEW_FOREGROUND_TAB, browser);
 }
 
 void ContextualTasksPageHandler::MoveTaskUiToNewTab() {

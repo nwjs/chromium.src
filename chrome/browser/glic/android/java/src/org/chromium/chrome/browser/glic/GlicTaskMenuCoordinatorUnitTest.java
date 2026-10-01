@@ -13,6 +13,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
 import android.content.Context;
+import android.content.res.Resources;
 import android.view.ContextThemeWrapper;
 import android.view.View;
 
@@ -30,6 +31,7 @@ import org.chromium.chrome.browser.actor.ActorTask;
 import org.chromium.chrome.browser.actor.ActorTaskState;
 import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
+import org.chromium.components.browser_ui.widget.BrowserUiListMenuUtils;
 import org.chromium.ui.listmenu.ListMenuItemProperties;
 import org.chromium.ui.modelutil.MVCListAdapter.ListItem;
 import org.chromium.ui.modelutil.MVCListAdapter.ModelList;
@@ -82,6 +84,13 @@ public class GlicTaskMenuCoordinatorUnitTest {
         ListItem item1 = modelList.get(0);
         assertEquals("Task One", item1.model.get(ListMenuItemProperties.TITLE));
         assertNull(item1.model.get(ListMenuItemProperties.SUBTITLE));
+        assertEquals(0, item1.model.get(ListMenuItemProperties.VERTICAL_PADDING));
+        assertEquals(
+                BrowserUiListMenuUtils.getDefaultTextAppearanceStyle(),
+                item1.model.get(ListMenuItemProperties.TEXT_APPEARANCE_ID));
+        assertEquals(
+                Resources.ID_NULL,
+                item1.model.get(ListMenuItemProperties.SUBTITLE_TEXT_APPEARANCE_ID));
 
         ListItem item2 = modelList.get(1);
         assertEquals("Task Two", item2.model.get(ListMenuItemProperties.TITLE));
@@ -117,6 +126,18 @@ public class GlicTaskMenuCoordinatorUnitTest {
         assertEquals(
                 R.drawable.glic_menu_end_icon_standard,
                 item1.model.get(ListMenuItemProperties.END_ICON_ID));
+        int expectedTabStripVerticalPadding =
+                mContext.getResources()
+                        .getDimensionPixelSize(R.dimen.glic_task_menu_item_vertical_padding);
+        assertEquals(
+                expectedTabStripVerticalPadding,
+                item1.model.get(ListMenuItemProperties.VERTICAL_PADDING));
+        assertEquals(
+                R.style.TextAppearance_TextLarge,
+                item1.model.get(ListMenuItemProperties.TEXT_APPEARANCE_ID));
+        assertEquals(
+                R.style.TextAppearance_TextMedium,
+                item1.model.get(ListMenuItemProperties.SUBTITLE_TEXT_APPEARANCE_ID));
 
         ListItem item2 = modelList.get(1);
         assertEquals("Task Two", item2.model.get(ListMenuItemProperties.TITLE));
@@ -245,5 +266,39 @@ public class GlicTaskMenuCoordinatorUnitTest {
                 .onClick(
                         /* preventClose= */ false,
                         GlicKeyedService.GlicInvocationSource.TOOLBAR_BUTTON);
+    }
+
+    @Test
+    public void testBuildModelListFromRowData_ClickCallsBridge() {
+        GlicSplitButtonDelegateBridge bridge = mock(GlicSplitButtonDelegateBridge.class);
+        GlicTaskMenuCoordinator coordinator =
+                new GlicTaskMenuCoordinator(
+                        mContext,
+                        () -> mTabModelSelector,
+                        mToggleGlicCallback,
+                        bridge,
+                        GlicKeyedService.GlicInvocationSource.TOP_CHROME_BUTTON,
+                        GlicTaskMenuCoordinator.ButtonSource.TAB_STRIP);
+
+        ActorTaskRowData row =
+                new ActorTaskRowData(
+                        /* taskId= */ 42,
+                        "Task",
+                        "Subtitle",
+                        /* isEnabled= */ true,
+                        /* needsReview= */ false,
+                        /* tabId= */ 123);
+
+        ModelList modelList = coordinator.buildModelListFromRowData(Collections.singletonList(row));
+        ListItem item = modelList.get(0);
+
+        View.OnClickListener clickListener = item.model.get(ListMenuItemProperties.CLICK_LISTENER);
+        clickListener.onClick(null);
+
+        verify(mToggleGlicCallback)
+                .onClick(
+                        /* preventClose= */ true,
+                        GlicKeyedService.GlicInvocationSource.TOP_CHROME_BUTTON);
+        verify(bridge).onTaskRowClicked(42);
     }
 }

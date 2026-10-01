@@ -29,6 +29,7 @@
 #include "base/test/run_until.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/test_future.h"
+#include "base/threading/thread_restrictions.h"
 #include "base/version_info/version_info.h"
 #include "build/branding_buildflags.h"
 #include "build/build_config.h"
@@ -41,6 +42,7 @@
 #include "chrome/browser/extensions/extension_browsertest.h"
 #include "chrome/browser/extensions/launch_util.h"
 #include "chrome/browser/first_run/first_run.h"
+#include "chrome/browser/infobars/infobar_features.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
 #include "chrome/browser/prefs/session_startup_pref.h"
 #include "chrome/browser/profiles/keep_alive/profile_keep_alive_types.h"
@@ -77,6 +79,7 @@
 #include "chrome/browser/ui/startup/startup_browser_creator_impl.h"
 #include "chrome/browser/ui/startup/startup_types.h"
 #include "chrome/browser/ui/startup/web_app_startup_utils.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/toasts/toast_controller.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/web_applications/test/web_app_browsertest_util.h"
@@ -110,6 +113,7 @@
 #include "components/signin/public/base/signin_switches.h"
 #include "components/webapps/browser/install_result_code.h"
 #include "components/webapps/browser/installable/installable_metrics.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/test/browser_test.h"
@@ -124,6 +128,7 @@
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/abseil-cpp/absl/strings/ascii.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/views/controls/webview/webview.h"
 #include "url/gurl.h"
 
@@ -660,15 +665,13 @@ IN_PROC_BROWSER_TEST_F(StartupBrowserCreatorTest, ShowNonMilestoneUpdateToast) {
   BrowserWindowInterface* new_browser = OpenNewBrowser(
       browser()->GetProfile(), chrome_version_string_for_testing);
   ASSERT_TRUE(new_browser);
-  ASSERT_TRUE(
-      new_browser->GetFeatures().toast_controller()->GetToastViewForTesting());
+  ASSERT_TRUE(ToastController::From(new_browser)->GetToastViewForTesting());
 
   // Open another new browser and verify the toast is not shown.
   BrowserWindowInterface* new_browser2 = OpenNewBrowser(
       browser()->GetProfile(), chrome_version_string_for_testing);
   ASSERT_TRUE(new_browser2);
-  ASSERT_FALSE(
-      new_browser2->GetFeatures().toast_controller()->GetToastViewForTesting());
+  ASSERT_FALSE(ToastController::From(new_browser2)->GetToastViewForTesting());
 }
 
 IN_PROC_BROWSER_TEST_F(StartupBrowserCreatorTest,
@@ -3618,10 +3621,22 @@ class StartupBrowserCreatorInfobarsTest
     : public InProcessBrowserTest,
       public ::testing::WithParamInterface<
           std::tuple<StartupBrowserCreatorFlagTypeValue,
-                     CommandLineFlagSecurityWarningsPolicy>> {
+                     CommandLineFlagSecurityWarningsPolicy,
+                     bool>> {
  public:
   StartupBrowserCreatorInfobarsTest()
-      : flag_type_(std::get<0>(GetParam())), policy_(std::get<1>(GetParam())) {}
+      : flag_type_(std::get<0>(GetParam())),
+        policy_(std::get<1>(GetParam())),
+        use_migration_(std::get<2>(GetParam())) {
+    if (use_migration_) {
+      feature_list_.InitAndEnableFeatureWithParameters(
+          infobars::kCentralizedInfoBarFramework,
+          {{"MigratedBadFlags", "true"}});
+    } else {
+      feature_list_.InitAndDisableFeature(
+          infobars::kCentralizedInfoBarFramework);
+    }
+  }
 
  protected:
   std::pair<BrowserWindowInterface*, infobars::ContentInfoBarManager*>
@@ -3657,8 +3672,10 @@ class StartupBrowserCreatorInfobarsTest
 
   const StartupBrowserCreatorFlagTypeValue flag_type_;
   const CommandLineFlagSecurityWarningsPolicy policy_;
+  const bool use_migration_;
 
  private:
+  base::test::ScopedFeatureList feature_list_;
   void SetUpInProcessBrowserTestFixture() override {
     policy_provider_.SetDefaultReturns(
         /*is_initialization_complete_return=*/true,
@@ -3787,7 +3804,8 @@ INSTANTIATE_TEST_SUITE_P(
                 infobars::InfoBarDelegate::BAD_FLAGS_INFOBAR_DELEGATE}),
         ::testing::Values(CommandLineFlagSecurityWarningsPolicy::kNoPolicy,
                           CommandLineFlagSecurityWarningsPolicy::kEnabled,
-                          CommandLineFlagSecurityWarningsPolicy::kDisabled)),
+                          CommandLineFlagSecurityWarningsPolicy::kDisabled),
+        ::testing::Bool()),
     [](const testing::TestParamInfo<
         StartupBrowserCreatorInfobarsTest::ParamType>& info) {
       std::string policyState;
@@ -3803,7 +3821,11 @@ INSTANTIATE_TEST_SUITE_P(
           break;
       }
 
-      std::string name = std::get<0>(info.param).flag + " " + policyState;
+      std::string migrationState =
+          std::get<2>(info.param) ? "migrated" : "legacy";
+
+      std::string name = std::get<0>(info.param).flag + "_" + policyState +
+                         "_" + migrationState;
       std::replace_if(
           name.begin(), name.end(),
           [](unsigned char c) { return !absl::ascii_isalnum(c); }, '_');
@@ -3908,9 +3930,23 @@ INSTANTIATE_TEST_SUITE_P(
 #if !BUILDFLAG(IS_CHROMEOS)
 
 // Verifies that infobars are not displayed in Kiosk mode.
-class StartupBrowserCreatorInfobarsKioskTest : public InProcessBrowserTest {
+class StartupBrowserCreatorInfobarsKioskTest
+    : public InProcessBrowserTest,
+      public ::testing::WithParamInterface<bool> {
  public:
-  StartupBrowserCreatorInfobarsKioskTest() = default;
+  StartupBrowserCreatorInfobarsKioskTest() {
+    if (GetParam()) {
+      feature_list_.InitAndEnableFeatureWithParameters(
+          infobars::kCentralizedInfoBarFramework,
+          {{"MigratedBadFlags", "true"}});
+    } else {
+      feature_list_.InitAndDisableFeature(
+          infobars::kCentralizedInfoBarFramework);
+    }
+  }
+
+ private:
+  base::test::ScopedFeatureList feature_list_;
 
  protected:
   infobars::ContentInfoBarManager*
@@ -3945,7 +3981,7 @@ class StartupBrowserCreatorInfobarsKioskTest : public InProcessBrowserTest {
 };
 
 // Verify that the Automation Enabled infobar is still shown in Kiosk mode.
-IN_PROC_BROWSER_TEST_F(StartupBrowserCreatorInfobarsKioskTest,
+IN_PROC_BROWSER_TEST_P(StartupBrowserCreatorInfobarsKioskTest,
                        CheckInfobarForEnableAutomation) {
   // CommandLine::ForCurrentProcess is used to determine whether automation is
   // enabled instead of the command-line passed to StartupBrowserCreator. In
@@ -3966,7 +4002,7 @@ IN_PROC_BROWSER_TEST_F(StartupBrowserCreatorInfobarsKioskTest,
 }
 
 // Verify that the Bad Flags infobar is not shown in kiosk mode.
-IN_PROC_BROWSER_TEST_F(StartupBrowserCreatorInfobarsKioskTest,
+IN_PROC_BROWSER_TEST_P(StartupBrowserCreatorInfobarsKioskTest,
                        CheckInfobarForBadFlag) {
   // BadFlagsPrompt::ShowBadFlagsPrompt uses CommandLine::ForCurrentProcess
   // instead of the command-line passed to StartupBrowserCreator. In browser
@@ -3985,6 +4021,10 @@ IN_PROC_BROWSER_TEST_F(StartupBrowserCreatorInfobarsKioskTest,
   EXPECT_FALSE(HasInfoBar(
       infobar_manager, infobars::InfoBarDelegate::BAD_FLAGS_INFOBAR_DELEGATE));
 }
+
+INSTANTIATE_TEST_SUITE_P(All,
+                         StartupBrowserCreatorInfobarsKioskTest,
+                         ::testing::Bool());
 
 // Checks the correct behavior of the profile picker on startup.
 class StartupBrowserCreatorPickerTestBase : public InProcessBrowserTest {

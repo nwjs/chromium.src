@@ -40,7 +40,10 @@
 #include "chrome/browser/ui/views/profiles/profile_picker_test_base.h"
 #include "chrome/browser/ui/views/profiles/profile_picker_view_test_utils.h"
 #include "chrome/browser/ui/views/profiles/profiles_pixel_test_utils.h"
+#include "chrome/browser/ui/web_applications/test/web_app_browsertest_util.h"
 #include "chrome/browser/ui/webui/signin/signin_utils.h"
+#include "chrome/browser/web_applications/test/os_integration_test_override_impl.h"
+#include "chrome/browser/web_applications/test/web_app_install_test_utils.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
@@ -48,6 +51,7 @@
 #include "components/policy/core/common/features.h"
 #include "components/signin/public/base/signin_switches.h"
 #include "components/signin/public/identity_manager/identity_test_utils.h"
+#include "components/webapps/common/web_app_id.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/content_features.h"
 #include "content/public/test/browser_test.h"
@@ -160,22 +164,17 @@ class DeviceSignalsDisclaimerModalPixelTest
         views::test::AnyWidgetTestPasskey{},
         "SigninViewControllerDelegateViews");
 
-    browser()
-        ->GetFeatures()
-        .signin_view_controller()
-        ->ShowModalManagedUserNoticeDialog(
-            signin::EnterpriseProfileCreationDialogParams::
-                CreateForDeviceSignalsDisclaimer(
-                    account_info,
-                    signin::DeviceSignalsDisclaimerCallback(base::DoNothing()),
-                    /*is_modal_dialog=*/true));
+    SigninViewController::From(browser())->ShowModalManagedUserNoticeDialog(
+        signin::EnterpriseProfileCreationDialogParams::
+            CreateForDeviceSignalsDisclaimer(
+                account_info,
+                signin::DeviceSignalsDisclaimerCallback(base::DoNothing()),
+                /*is_modal_dialog=*/true));
 
     widget_waiter.WaitIfNeededAndGet();
 
     content::WebContents* web_contents =
-        browser()
-            ->GetFeatures()
-            .signin_view_controller()
+        SigninViewController::From(browser())
             ->GetModalDialogWebContentsForTesting();
     WaitForWebContentsLoaded(web_contents);
   }
@@ -345,8 +344,7 @@ class DeviceSignalsDisclaimerInteractiveTest : public SigninBrowserTestBase {
  protected:
   content::WebContents* GetModalDialogWebContents(
       BrowserWindowInterface* browser) {
-    return browser->GetFeatures()
-        .signin_view_controller()
+    return SigninViewController::From(browser)
         ->GetModalDialogWebContentsForTesting();
   }
 
@@ -361,14 +359,11 @@ IN_PROC_BROWSER_TEST_F(DeviceSignalsDisclaimerInteractiveTest, ClickProceed) {
   base::test::TestFuture<signin::DeviceSignalsDisclaimerResult> result_future;
   views::NamedWidgetShownWaiter widget_waiter(
       views::test::AnyWidgetTestPasskey{}, "SigninViewControllerDelegateViews");
-  browser()
-      ->GetFeatures()
-      .signin_view_controller()
-      ->ShowModalManagedUserNoticeDialog(
-          signin::EnterpriseProfileCreationDialogParams::
-              CreateForDeviceSignalsDisclaimer(account_info,
-                                               result_future.GetCallback(),
-                                               /*is_modal_dialog=*/true));
+  SigninViewController::From(browser())->ShowModalManagedUserNoticeDialog(
+      signin::EnterpriseProfileCreationDialogParams::
+          CreateForDeviceSignalsDisclaimer(account_info,
+                                           result_future.GetCallback(),
+                                           /*is_modal_dialog=*/true));
 
   std::ignore = widget_waiter.WaitIfNeededAndGet();
   content::WebContents* dialog_contents = GetModalDialogWebContents(browser());
@@ -388,14 +383,11 @@ IN_PROC_BROWSER_TEST_F(DeviceSignalsDisclaimerInteractiveTest, ClickCancel) {
   base::test::TestFuture<signin::DeviceSignalsDisclaimerResult> result_future;
   views::NamedWidgetShownWaiter widget_waiter(
       views::test::AnyWidgetTestPasskey{}, "SigninViewControllerDelegateViews");
-  browser()
-      ->GetFeatures()
-      .signin_view_controller()
-      ->ShowModalManagedUserNoticeDialog(
-          signin::EnterpriseProfileCreationDialogParams::
-              CreateForDeviceSignalsDisclaimer(account_info,
-                                               result_future.GetCallback(),
-                                               /*is_modal_dialog=*/true));
+  SigninViewController::From(browser())->ShowModalManagedUserNoticeDialog(
+      signin::EnterpriseProfileCreationDialogParams::
+          CreateForDeviceSignalsDisclaimer(account_info,
+                                           result_future.GetCallback(),
+                                           /*is_modal_dialog=*/true));
 
   std::ignore = widget_waiter.WaitIfNeededAndGet();
   content::WebContents* dialog_contents = GetModalDialogWebContents(browser());
@@ -415,14 +407,11 @@ IN_PROC_BROWSER_TEST_F(DeviceSignalsDisclaimerInteractiveTest, CloseBrowser) {
   base::test::TestFuture<signin::DeviceSignalsDisclaimerResult> result_future;
   views::NamedWidgetShownWaiter widget_waiter(
       views::test::AnyWidgetTestPasskey{}, "SigninViewControllerDelegateViews");
-  browser()
-      ->GetFeatures()
-      .signin_view_controller()
-      ->ShowModalManagedUserNoticeDialog(
-          signin::EnterpriseProfileCreationDialogParams::
-              CreateForDeviceSignalsDisclaimer(account_info,
-                                               result_future.GetCallback(),
-                                               /*is_modal_dialog=*/true));
+  SigninViewController::From(browser())->ShowModalManagedUserNoticeDialog(
+      signin::EnterpriseProfileCreationDialogParams::
+          CreateForDeviceSignalsDisclaimer(account_info,
+                                           result_future.GetCallback(),
+                                           /*is_modal_dialog=*/true));
 
   std::ignore = widget_waiter.WaitIfNeededAndGet();
 
@@ -481,7 +470,7 @@ class DeviceSignalsDisclaimerStartupInteractiveTest
   }
 
   bool ShowsModalDialog(BrowserWindowInterface* browser) {
-    return browser->GetFeatures().signin_view_controller()->ShowsModalDialog();
+    return SigninViewController::From(browser)->ShowsModalDialog();
   }
 
   void WaitForModalDialog(BrowserWindowInterface* browser) {
@@ -563,10 +552,7 @@ IN_PROC_BROWSER_TEST_F(DeviceSignalsDisclaimerStartupInteractiveTest,
   // dialog). This should close the existing disclaimer dialog.
   views::NamedWidgetShownWaiter error_dialog_waiter(
       views::test::AnyWidgetTestPasskey{}, "SigninViewControllerDelegateViews");
-  browser()
-      ->GetFeatures()
-      .signin_view_controller()
-      ->ShowModalSigninErrorDialog();
+  SigninViewController::From(browser())->ShowModalSigninErrorDialog();
   error_dialog_waiter.WaitIfNeededAndGet();
 
   EXPECT_TRUE(ShowsModalDialog(browser()));
@@ -578,7 +564,7 @@ IN_PROC_BROWSER_TEST_F(DeviceSignalsDisclaimerStartupInteractiveTest,
       views::test::AnyWidgetTestPasskey{}, "SigninViewControllerDelegateViews");
 
   // Now handle and close the new dialog.
-  browser()->GetFeatures().signin_view_controller()->CloseModalSignin();
+  SigninViewController::From(browser())->CloseModalSignin();
   EXPECT_FALSE(ShowsModalDialog(browser()));
 
   // Simulate Browser Activated event when the user clicks/focuses the browser.
@@ -785,6 +771,44 @@ IN_PROC_BROWSER_TEST_F(DeviceSignalsDisclaimerStartupInteractiveTest,
   EXPECT_EQ(browser_collection->GetSize(), 2u);
   histogram_tester_.ExpectBucketCount(
       kEnterpriseSignalsDisclaimerModalLearnMoreClicked, true, 2);
+}
+
+class DeviceSignalsDisclaimerStartupPwaInteractiveTest
+    : public DeviceSignalsDisclaimerStartupInteractiveTest {
+ private:
+  web_app::OsIntegrationTestOverrideBlockingRegistration faked_os_integration_;
+};
+
+IN_PROC_BROWSER_TEST_F(DeviceSignalsDisclaimerStartupPwaInteractiveTest,
+                       PwaApp_NotBlocked) {
+  const GURL app_url("https://app.example.com/");
+  webapps::AppId app_id = web_app::test::InstallDummyWebApp(
+      browser()->GetProfile(), "Test PWA", app_url);
+
+  BrowserWindowInterface* app_browser =
+      web_app::LaunchWebAppBrowserAndWait(browser()->GetProfile(), app_id);
+  ASSERT_TRUE(app_browser);
+  EXPECT_EQ(app_browser->GetType(), BrowserWindowInterface::TYPE_APP);
+
+  // Activating the PWA app should not show the modal dialog on it.
+  SimulateBrowserFocus(app_browser);
+  EXPECT_FALSE(ShowsModalDialog(app_browser));
+  histogram_tester_.ExpectBucketCount(kEnterpriseSignalsDisclaimerModalShown,
+                                      true, 0);
+
+  // Activating the regular browser window should show the modal dialog.
+  SimulateBrowserFocus(browser());
+  views::Widget* widget = widget_waiter_->WaitIfNeededAndGet();
+  ASSERT_TRUE(widget);
+  EXPECT_TRUE(ShowsModalDialog(browser()));
+  EXPECT_FALSE(ShowsModalDialog(app_browser));
+  histogram_tester_.ExpectBucketCount(kEnterpriseSignalsDisclaimerModalShown,
+                                      true, 1);
+
+  // Focusing back to the PWA app should still not show the modal dialog on it.
+  SimulateBrowserFocus(app_browser);
+  EXPECT_FALSE(ShowsModalDialog(app_browser));
+  EXPECT_TRUE(ShowsModalDialog(browser()));
 }
 
 // Profile picker tests are located in

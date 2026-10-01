@@ -36,12 +36,10 @@ import java.time.Duration;
 
 /** Unit tests for {@link ModalDialogView}. */
 @RunWith(BaseRobolectricTestRunner.class)
-@Config(manifest = Config.NONE)
 @EnableFeatures(ModalDialogFeatureList.MODAL_DIALOG_LAYOUT_WITH_SYSTEM_INSETS)
 public class ModalDialogViewUnitTest {
     private static final int MIN_DIALOG_WIDTH = 280;
     private static final int MIN_DIALOG_HEIGHT = 500;
-    private static final int MAX_DIALOG_WIDTH_TABLET = 560;
     private static final int MAX_DIALOG_WIDTH_LFF = 480;
     private static final float MAX_DIALOG_WIDTH_PERCENT_PHONE = 0.65f;
 
@@ -94,38 +92,6 @@ public class ModalDialogViewUnitTest {
         assertEquals("Height is incorrect.", MIN_DIALOG_HEIGHT, mDialogView.getMeasuredHeight());
     }
 
-    /**
-     * Tests that dialog uses a max width of 600dp even if it does not draw into regions beyond
-     * margins with the specified width (tablet-only).
-     */
-    @Test
-    @Config(qualifiers = "sw600dp")
-    public void measure_SmallDimensions_GreaterThanMaxWidth_Tablet() {
-        // Set window size.
-        var windowWidth = 800;
-        var windowHeight = 800;
-        mDisplayMetrics.widthPixels = windowWidth;
-        mDisplayMetrics.heightPixels = windowHeight;
-
-        // Create model with margins set.
-        createModel(
-                mModelBuilder
-                        .with(ModalDialogProperties.HORIZONTAL_MARGIN, 10)
-                        .with(ModalDialogProperties.VERTICAL_MARGIN, 40),
-                MAX_DIALOG_WIDTH_TABLET + 100,
-                MIN_DIALOG_HEIGHT);
-
-        // Measure view.
-        var widthMeasureSpec =
-                MeasureSpec.makeMeasureSpec(MAX_DIALOG_WIDTH_TABLET + 100, MeasureSpec.AT_MOST);
-        var heightMeasureSpec = MeasureSpec.makeMeasureSpec(MIN_DIALOG_HEIGHT, MeasureSpec.AT_MOST);
-        mDialogView.measure(widthMeasureSpec, heightMeasureSpec);
-
-        assertEquals(
-                "Width is incorrect.", MAX_DIALOG_WIDTH_TABLET, mDialogView.getMeasuredWidth());
-        assertEquals("Height is incorrect.", MIN_DIALOG_HEIGHT, mDialogView.getMeasuredHeight());
-    }
-
     /** Tests that dialog uses a max width of (65% * window width) in landscape on phones. */
     @Test
     @Config(qualifiers = "sw320dp-land")
@@ -149,68 +115,6 @@ public class ModalDialogViewUnitTest {
 
         assertEquals("Width is incorrect.", maxDialogWidthPhone, mDialogView.getMeasuredWidth());
         assertEquals("Height is incorrect.", MIN_DIALOG_HEIGHT, mDialogView.getMeasuredHeight());
-    }
-
-    /** Tests that dialog uses a min width of 280dp on tablets. */
-    @Test
-    @Config(qualifiers = "sw600dp")
-    public void measure_SmallDimensions_LessThanMinWidth() {
-        // Set window size.
-        var windowWidth = 800;
-        var windowHeight = 800;
-        mDisplayMetrics.widthPixels = windowWidth;
-        mDisplayMetrics.heightPixels = windowHeight;
-
-        // Create model with margins set.
-        createModel(
-                mModelBuilder
-                        .with(ModalDialogProperties.HORIZONTAL_MARGIN, 10)
-                        .with(ModalDialogProperties.VERTICAL_MARGIN, 40),
-                MIN_DIALOG_WIDTH - 10,
-                MIN_DIALOG_HEIGHT);
-
-        // Measure view.
-        var widthMeasureSpec = MeasureSpec.makeMeasureSpec(MIN_DIALOG_WIDTH, MeasureSpec.AT_MOST);
-        var heightMeasureSpec = MeasureSpec.makeMeasureSpec(MIN_DIALOG_HEIGHT, MeasureSpec.AT_MOST);
-        mDialogView.measure(widthMeasureSpec, heightMeasureSpec);
-
-        assertEquals("Width is incorrect.", MIN_DIALOG_WIDTH, mDialogView.getMeasuredWidth());
-        assertEquals("Height is incorrect.", MIN_DIALOG_HEIGHT, mDialogView.getMeasuredHeight());
-    }
-
-    /**
-     * Tests that dialog uses max size permitted for it to not draw into regions beyond margins on
-     * tablets.
-     */
-    @Test
-    @Config(qualifiers = "sw600dp")
-    public void measure_LargeDimensions_MarginsSet_Tablet() {
-        // Set window size.
-        var windowWidth = 600;
-        var windowHeight = 600;
-        mDisplayMetrics.widthPixels = windowWidth;
-        mDisplayMetrics.heightPixels = windowHeight;
-
-        // Create model with margins set.
-        createModel(
-                mModelBuilder
-                        .with(ModalDialogProperties.HORIZONTAL_MARGIN, 16)
-                        .with(ModalDialogProperties.VERTICAL_MARGIN, 40),
-                windowWidth,
-                windowHeight);
-
-        // Measure view.
-        var widthMeasureSpec = MeasureSpec.makeMeasureSpec(windowWidth, MeasureSpec.AT_MOST);
-        var heightMeasureSpec = MeasureSpec.makeMeasureSpec(windowHeight, MeasureSpec.AT_MOST);
-        mDialogView.measure(widthMeasureSpec, heightMeasureSpec);
-
-        // windowWidth - 2 * horizontalMargin = 600 - 2 * 16 = 568. Capped at max tablet width
-        // (560).
-        int expectedWidth = MAX_DIALOG_WIDTH_TABLET;
-        // windowHeight - 2 * verticalMargin = 600 - 2 * 40.
-        int expectedHeight = 520;
-        assertEquals("Width is incorrect.", expectedWidth, mDialogView.getMeasuredWidth());
-        assertEquals("Height is incorrect.", expectedHeight, mDialogView.getMeasuredHeight());
     }
 
     /** Tests that dialog maintains horizontal margin from the edges on phones. */
@@ -264,27 +168,29 @@ public class ModalDialogViewUnitTest {
         assertEquals("Height is incorrect.", 500, mDialogView.getMeasuredHeight());
     }
 
-    /** Tests that dialog uses specified size if margins are not set on tablets. */
+    /**
+     * Tests that a vertical margin alone does not constrain the width. Bounding the height must not
+     * turn the width spec into EXACTLY, or the dialog fills the window instead of wrapping.
+     */
     @Test
-    @Config(qualifiers = "sw600dp")
-    public void measure_MarginsNotSet_Tablet() {
-        // Set window size.
+    @Config(qualifiers = "sw320dp")
+    public void measure_VerticalMarginOnly_Phone_DoesNotForceWidth() {
         var windowWidth = 800;
         var windowHeight = 800;
         mDisplayMetrics.widthPixels = windowWidth;
         mDisplayMetrics.heightPixels = windowHeight;
 
-        // Create model without margins set.
-        createModel(mModelBuilder, MIN_DIALOG_WIDTH, MIN_DIALOG_HEIGHT);
+        createModel(mModelBuilder.with(ModalDialogProperties.VERTICAL_MARGIN, 24), 500, 500);
 
-        // Measure view.
-        var widthMeasureSpec =
-                MeasureSpec.makeMeasureSpec(MIN_DIALOG_WIDTH + 200, MeasureSpec.AT_MOST);
-        var heightMeasureSpec = MeasureSpec.makeMeasureSpec(MIN_DIALOG_HEIGHT, MeasureSpec.AT_MOST);
+        var widthMeasureSpec = MeasureSpec.makeMeasureSpec(windowWidth, MeasureSpec.AT_MOST);
+        var heightMeasureSpec = MeasureSpec.makeMeasureSpec(windowHeight, MeasureSpec.AT_MOST);
         mDialogView.measure(widthMeasureSpec, heightMeasureSpec);
 
-        assertEquals("Width is incorrect.", MIN_DIALOG_WIDTH + 200, mDialogView.getMeasuredWidth());
-        assertEquals("Height is incorrect.", MIN_DIALOG_HEIGHT, mDialogView.getMeasuredHeight());
+        assertEquals(
+                "Dialog should wrap its content, not fill the window.",
+                500,
+                mDialogView.getMeasuredWidth());
+        assertEquals("Height is incorrect.", 500, mDialogView.getMeasuredHeight());
     }
 
     private void createModel(
@@ -438,7 +344,6 @@ public class ModalDialogViewUnitTest {
 
     @Test
     @Config(qualifiers = "sw600dp")
-    @EnableFeatures(ModalDialogFeatureList.DIALOGS_ON_LARGE_FORM_FACTORS)
     public void measure_LargeFormFactorUi_Tablet_WidthCappedAt480dp() {
         // Wide tablet window (800x800).
         mDisplayMetrics.widthPixels = 800;
@@ -458,19 +363,23 @@ public class ModalDialogViewUnitTest {
 
     @Test
     @Config(qualifiers = "sw600dp")
-    @EnableFeatures(ModalDialogFeatureList.DIALOGS_ON_LARGE_FORM_FACTORS)
-    public void measure_LargeFormFactorUi_NarrowWindow_Maintains16dpHorizontalMargin() {
-        // Narrow container (400dp wide < 480dp).
-        var containerWidth = 400;
+    public void measure_LargeFormFactorUi_WindowOwningDialog_NarrowWindow_KeepsHorizontalMargin() {
+        // Narrow app window (400dp < 480dp), with the margin its presenter supplies.
+        var windowWidth = 400;
+        mDisplayMetrics.widthPixels = windowWidth;
+        mDisplayMetrics.heightPixels = 800;
 
-        createModel(mModelBuilder, 600, MIN_DIALOG_HEIGHT);
+        createModel(
+                mModelBuilder.with(ModalDialogProperties.HORIZONTAL_MARGIN, 16),
+                600,
+                MIN_DIALOG_HEIGHT);
 
-        var widthMeasureSpec = MeasureSpec.makeMeasureSpec(containerWidth, MeasureSpec.AT_MOST);
+        var widthMeasureSpec = MeasureSpec.makeMeasureSpec(windowWidth, MeasureSpec.AT_MOST);
         var heightMeasureSpec = MeasureSpec.makeMeasureSpec(MIN_DIALOG_HEIGHT, MeasureSpec.AT_MOST);
         mDialogView.measure(widthMeasureSpec, heightMeasureSpec);
 
-        // Expected width = containerWidth - 2 * 16dp = 400 - 32 = 368dp.
-        int expectedWidth = containerWidth - 2 * 16;
+        // Expected width = windowWidth - 2 * 16dp = 400 - 32 = 368dp.
+        int expectedWidth = windowWidth - 2 * 16;
         assertEquals(
                 "Width should maintain at least 16dp horizontal margin.",
                 expectedWidth,
@@ -479,40 +388,38 @@ public class ModalDialogViewUnitTest {
 
     @Test
     @Config(qualifiers = "sw600dp")
-    @EnableFeatures(ModalDialogFeatureList.DIALOGS_ON_LARGE_FORM_FACTORS)
-    public void
-            measure_LargeFormFactorUi_SideUiConstrainedContainer_Maintains16dpHorizontalMargin() {
-        // Wide window (1000dp), but side UI insets constrain the container to 360dp.
+    public void measure_LargeFormFactorUi_ContainerHostedDialog_FillsOfferedWidth() {
+        // Side UI constrains the container to 360dp. Its presenter gives the dialog real layout
+        // margins, so the 360dp is already 2 * 16dp short by the time it is offered here.
         mDisplayMetrics.widthPixels = 1000;
         mDisplayMetrics.heightPixels = 800;
 
-        int constrainedContainerWidth = 360;
+        int offeredWidth = 360 - 2 * 16;
         createModel(mModelBuilder, 600, MIN_DIALOG_HEIGHT);
 
-        var widthMeasureSpec =
-                MeasureSpec.makeMeasureSpec(constrainedContainerWidth, MeasureSpec.AT_MOST);
+        var widthMeasureSpec = MeasureSpec.makeMeasureSpec(offeredWidth, MeasureSpec.AT_MOST);
         var heightMeasureSpec = MeasureSpec.makeMeasureSpec(MIN_DIALOG_HEIGHT, MeasureSpec.AT_MOST);
         mDialogView.measure(widthMeasureSpec, heightMeasureSpec);
 
-        // Expected width = constrainedContainerWidth - 2 * 16dp = 360 - 32 = 328dp.
-        int expectedWidth = constrainedContainerWidth - 2 * 16;
         assertEquals(
-                "Width should maintain 16dp horizontal margin when container is constrained by side"
-                        + " UI.",
-                expectedWidth,
+                "Width should fill the space the container offers, which already excludes the"
+                        + " dialog's margins.",
+                offeredWidth,
                 mDialogView.getMeasuredWidth());
     }
 
     @Test
     @Config(qualifiers = "sw600dp")
-    @EnableFeatures(ModalDialogFeatureList.DIALOGS_ON_LARGE_FORM_FACTORS)
-    public void measure_LargeFormFactorUi_ShortWindow_Maintains24dpVerticalMargin() {
-        // Short container (500dp tall).
+    public void measure_LargeFormFactorUi_WindowOwningDialog_ShortWindow_KeepsVerticalMargin() {
+        // Short window (500dp tall).
         var containerHeight = 500;
         mDisplayMetrics.heightPixels = containerHeight;
 
         // Content requests 600dp height.
-        createModel(mModelBuilder, MAX_DIALOG_WIDTH_LFF, 600);
+        createModel(
+                mModelBuilder.with(ModalDialogProperties.VERTICAL_MARGIN, 24),
+                MAX_DIALOG_WIDTH_LFF,
+                600);
 
         var widthMeasureSpec =
                 MeasureSpec.makeMeasureSpec(MAX_DIALOG_WIDTH_LFF, MeasureSpec.AT_MOST);
@@ -529,7 +436,6 @@ public class ModalDialogViewUnitTest {
 
     @Test
     @Config(qualifiers = "sw600dp")
-    @EnableFeatures(ModalDialogFeatureList.DIALOGS_ON_LARGE_FORM_FACTORS)
     public void measure_LargeFormFactorUi_Desktop_WidthCappedAt480dp() {
         DeviceInfo.setIsDesktopForTesting(true);
 
@@ -546,5 +452,77 @@ public class ModalDialogViewUnitTest {
                 "Width should be capped at 480dp on desktop.",
                 MAX_DIALOG_WIDTH_LFF,
                 mDialogView.getMeasuredWidth());
+    }
+
+    /**
+     * ViewRootImpl re-measures a window-owning dialog against the frame the previous pass produced,
+     * so measurement has to reach a fixed point. See crbug.com/557352977.
+     */
+    @Test
+    @Config(qualifiers = "sw600dp")
+    public void measure_LargeFormFactorUi_WindowOwningDialog_ReachesFixedPoint() {
+        mDisplayMetrics.widthPixels = 1600;
+        mDisplayMetrics.heightPixels = 1200;
+
+        createModel(
+                mModelBuilder
+                        .with(ModalDialogProperties.HORIZONTAL_MARGIN, 16)
+                        .with(ModalDialogProperties.VERTICAL_MARGIN, 24),
+                600,
+                MIN_DIALOG_HEIGHT);
+
+        // Later passes feed back the size this view reported.
+        int width = 1160;
+        int height = 1000;
+        for (int pass = 0; pass < 4; pass++) {
+            mDialogView.measure(
+                    MeasureSpec.makeMeasureSpec(width, MeasureSpec.AT_MOST),
+                    MeasureSpec.makeMeasureSpec(height, MeasureSpec.AT_MOST));
+            int measuredWidth = mDialogView.getMeasuredWidth();
+            int measuredHeight = mDialogView.getMeasuredHeight();
+            if (pass > 0) {
+                assertEquals(
+                        "Width must not change when re-measured against its own previous size.",
+                        width,
+                        measuredWidth);
+                assertEquals(
+                        "Height must not change when re-measured against its own previous size.",
+                        height,
+                        measuredHeight);
+            }
+            width = measuredWidth;
+            height = measuredHeight;
+        }
+    }
+
+    /** A container-hosted dialog is measured against stable container bounds every pass. */
+    @Test
+    @Config(qualifiers = "sw600dp")
+    public void measure_LargeFormFactorUi_ContainerHostedDialog_ReachesFixedPoint() {
+        mDisplayMetrics.widthPixels = 1600;
+        mDisplayMetrics.heightPixels = 1200;
+
+        createModel(mModelBuilder, 600, MIN_DIALOG_HEIGHT);
+
+        int containerWidth = 800;
+        int containerHeight = 700;
+        var widthMeasureSpec = MeasureSpec.makeMeasureSpec(containerWidth, MeasureSpec.AT_MOST);
+        var heightMeasureSpec = MeasureSpec.makeMeasureSpec(containerHeight, MeasureSpec.AT_MOST);
+
+        mDialogView.measure(widthMeasureSpec, heightMeasureSpec);
+        int firstWidth = mDialogView.getMeasuredWidth();
+        int firstHeight = mDialogView.getMeasuredHeight();
+
+        for (int pass = 0; pass < 3; pass++) {
+            mDialogView.measure(widthMeasureSpec, heightMeasureSpec);
+            assertEquals(
+                    "Width must be stable across repeated measures.",
+                    firstWidth,
+                    mDialogView.getMeasuredWidth());
+            assertEquals(
+                    "Height must be stable across repeated measures.",
+                    firstHeight,
+                    mDialogView.getMeasuredHeight());
+        }
     }
 }

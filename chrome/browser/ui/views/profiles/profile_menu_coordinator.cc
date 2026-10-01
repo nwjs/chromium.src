@@ -18,6 +18,7 @@
 #include "chrome/browser/ui/views/frame/toolbar_button_provider.h"
 #include "chrome/browser/ui/views/profiles/avatar_toolbar_button.h"
 #include "chrome/browser/ui/views/profiles/incognito_menu_view.h"
+#include "chrome/browser/ui/views/profiles/isolated_mode_menu_view.h"
 #include "chrome/browser/ui/views/profiles/profile_menu_view_base.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
 #include "components/feature_engagement/public/feature_constants.h"
@@ -50,11 +51,18 @@ void ProfileMenuCoordinator::Show(bool is_source_accelerator,
   }
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
+  // Batch upload promos in the profile menu identity header are only shown
+  // if the user opened the menu via the avatar promo pill. Outside of pill
+  // expansions, batch upload promos are suppressed so they don't overshadow
+  // other promos (such as History Sync), while still fetching local data count
+  // to show the batch upload row item in the menu.
+  const bool allow_batch_upload_promos = from_avatar_promo;
   signin::ComputeProfileMenuAvatarButtonPromoInfo(
       *GetProfile(),
       base::BindOnce(&ProfileMenuCoordinator::ShowWithPromoResults,
                      weak_pointer_factory_.GetWeakPtr(), is_source_accelerator,
-                     from_avatar_promo));
+                     from_avatar_promo),
+      allow_batch_upload_promos);
 #else
   ShowWithPromoResults(is_source_accelerator, from_avatar_promo);
 #endif
@@ -94,6 +102,9 @@ void ProfileMenuCoordinator::ShowWithPromoResults(
   if (is_incognito) {
     bubble = std::make_unique<IncognitoMenuView>(avatar_toolbar_button,
                                                  &browser_.get());
+  } else if (GetProfile()->IsEnterpriseIsolatedModeProfile()) {
+    bubble = std::make_unique<IsolatedModeMenuView>(avatar_toolbar_button,
+                                                    &browser_.get());
   } else {
 #if BUILDFLAG(IS_CHROMEOS)
     // Note: on Ash, only incognito windows have a profile menu.

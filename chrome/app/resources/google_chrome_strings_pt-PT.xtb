@@ -36,7 +36,6 @@
 <translation id="1333654552732143316">Iniciar o Chrome</translation>
 <translation id="1341711321000856656">Pode mudar para ver as palavras-passe de outro perfil do Chrome</translation>
 <translation id="1343830902827845050">Inicie sessão no Chrome</translation>
-<translation id="1356661055722410047">Novo! Pode traduzir texto e imagens no ecrã</translation>
 <translation id="1361351916482714918">Explore melhor com o Google Lens</translation>
 <translation id="1363996462118479832">O ChromeOS não conseguiu sincronizar os dados devido a um erro no início de sessão.</translation>
 <translation id="137466361146087520">Google Chrome Beta</translation>
@@ -74,7 +73,6 @@
 <translation id="1640672724030957280">A transferir...</translation>
 <translation id="1651617469580841801">Quando usa o Google Lens, o título, o URL e o conteúdo da página, incluindo PDFs, são enviados para a Google. <ph name="LEARN_MORE" /></translation>
 <translation id="1662146548738125461">Acerca do ChromeOS Flex</translation>
-<translation id="1664094661346151467">Pesquisar e fazer perguntas em qualquer lugar, mesmo que o Chrome esteja minimizado</translation>
 <translation id="1674870198290878346">Abrir link numa janela de nave&amp;gação anónima do Chrome</translation>
 <translation id="1682634494516646069">O Google Chrome não consegue ler e escrever no respetivo diretório de dados: <ph name="USER_DATA_DIRECTORY" /></translation>
 <translation id="1688214853608504530">Quando escreve na barra de endereço ou na caixa de pesquisa, o Chrome envia o que escreve para as ferramentas de pesquisa, IA e agente da sua organização de forma a receber sugestões.</translation>
@@ -96,6 +94,7 @@
 <translation id="1873233029667955273">O Google Chrome não é o seu navegador predefinido.</translation>
 <translation id="1874309113135274312">Google Chrome Beta (mDNS-In)</translation>
 <translation id="1877026089748256423">O Chrome está desatualizado</translation>
+<translation id="1877067026701708502"><ph name="EXISTING_USER" /> já tem sessão iniciada. Para manter a sua navegação separada, inicie sessão no Chrome no seu perfil como <ph name="USER_EMAIL_ADDRESS" />. Também tem acesso às suas extensões e muito mais em todos os seus dispositivos.</translation>
 <translation id="1880677175115548835">Selecionar texto</translation>
 <translation id="1896602904211344018">Obtenha a app Chrome</translation>
 <translation id="1919130412786645364">Permitir o início de sessão no Chrome</translation>
@@ -228,6 +227,7 @@ Se esta página não estiver a funcionar conforme esperado, experimente permitir
 <translation id="3112458742631356345">O Chrome bloqueou esta transferência porque o ficheiro não é habitualmente transferido e pode ser perigoso</translation>
 <translation id="3119573284443908657">O Chrome bloqueou esta transferência porque o ficheiro de arquivo inclui outros ficheiros que podem ocultar software malicioso</translation>
 <translation id="3124332159330678621">Personalize o Chrome para dar um novo aspeto ao seu navegador</translation>
+<translation id="3125851611828811913">Pesquisar e fazer perguntas em qualquer lugar, mesmo que o Chrome esteja minimizado. Permite que o Chrome seja executado em segundo plano.</translation>
 <translation id="3130333203120345554">Nova pesquisa</translation>
 <translation id="3135560418014806498">Adicionar perfil do Chrome</translation>
 <translation id="3137969841538672700">Arraste para pesquisar</translation>
@@ -385,6 +385,7 @@ Se esta página não estiver a funcionar conforme esperado, experimente permitir
 <translation id="4793679854893018356">Saiba como o Chrome mantém a sua segurança</translation>
 <translation id="4799870290441980300">Ativa funcionalidades adicionais para oferecer as proteções mais avançadas do Chrome</translation>
 <translation id="4828579605166583682">O Google Chrome está a tentar substituir as palavras-passe existentes. Escreva a sua palavra-passe do Windows para permitir esta ação.</translation>
+<translation id="4836321460899997044">Perfil do Chrome</translation>
 <translation id="4842397268809523050">O ChromeOS Flex não conseguiu sincronizar os dados porque a sincronização não está disponível para o seu domínio.</translation>
 <translation id="4851866215237571846"><ph name="EXISTING_USER" /> já tem sessão iniciada.  Para manter a sua navegação separada, inicie sessão no Chrome no seu perfil como <ph name="USER_EMAIL_ADDRESS" />.</translation>
 <translation id="4855026984605187434">Para partilhar o ecrã, permita a gravação de ecrã para o Chrome nas Definições do sistema</translation>
@@ -498,6 +499,7 @@ Se esta página não estiver a funcionar conforme esperado, experimente permitir
 <translation id="6014316319780893079">Com as <ph name="BEGIN_LINK" />ferramentas do Chrome<ph name="END_LINK" />, pode navegar em segurança e manter o controlo</translation>
 <translation id="6018578474045062808">Experimente o Google Lens com o Chrome no telemóvel</translation>
 <translation id="6022659036123304283">Personalize o Google Chrome</translation>
+<translation id="6024930613143833266">Pesquise com o Chrome em qualquer lugar</translation>
 <translation id="6025087594896450715">O Google Chrome vai ser reiniciado dentro de <ph name="REMAINING_TIME" /></translation>
 <translation id="6040143037577758943">Fechar</translation>
 <translation id="604424701295382420">Fixado! Pode aceder novamente ao Google Lens através do novo botão na barra de ferramentas</translation>
@@ -542,6 +544,7 @@ Se esta página não estiver a funcionar conforme esperado, experimente permitir
 <translation id="6334815226785304306">Defina o Google Chrome como o navegador predefinido e afixe-o à barra de tarefas</translation>
 <translation id="63540178978900677">O Chrome já não é o seu navegador predefinido. Tornar o Chrome no navegador predefinido?</translation>
 <translation id="6360449101159168105">Enquanto este separador estava inativo, foi libertada memória para manter o Chrome rápido. Pode optar por evitar sempre que este site fique inativo.</translation>
+<translation id="6362984640667950211"><ph name="EXISTING_USER" /> já tem sessão iniciada. Para manter a sua navegação separada, inicie sessão no Chrome no seu perfil como <ph name="USER_EMAIL_ADDRESS" />. Também tem acesso à sua Lista de leitura e muito mais em todos os seus dispositivos.</translation>
 <translation id="6388799252195623474">ajuda-me com isto</translation>
 <translation id="6412673304250309937">Verifica os URLs com listas de sites inseguros armazenados no Chrome. Se um site tentar roubar a sua palavra-passe, ou quando transferir um ficheiro prejudicial, o Chrome também pode enviar URLs, incluindo bits de conteúdo das páginas, para a Navegação segura.</translation>
 <translation id="6417690341895039567">{COUNT,plural, =1{A sua organização fecha automaticamente o Chrome quando não é usado durante 1 minuto. Os dados de navegação são eliminados. Estas informações podem incluir o histórico, o preenchimento automático e as transferências.}other{A sua organização fecha automaticamente o Chrome quando não é usado durante # minutos. Os dados de navegação são eliminados. Estas informações podem incluir o histórico, o preenchimento automático e as transferências.}}</translation>
@@ -550,6 +553,7 @@ Se esta página não estiver a funcionar conforme esperado, experimente permitir
 <translation id="6434035853014503219">Obrigado por escolher o Chrome como o navegador predefinido!</translation>
 <translation id="6438015621983209660">Expanda a Navegação segura melhorada com o Chrome no seu telemóvel</translation>
 <translation id="6442774133615368941">Compre, traduza e identifique o que vê com a câmara na app Chrome para iOS</translation>
+<translation id="6446105560007692480">para pesquisar com o Chrome ou personalizar nas <ph name="BEGIN_LINK" />Definições<ph name="END_LINK" /></translation>
 <translation id="6448835208126432197">Para selecionar parte do ecrã no Gemini no Chrome, use o atalho de teclado.</translation>
 <translation id="6473905796280459355">Aceder à página Acerca do Chrome</translation>
 <translation id="6481963882741794338">Associe o Chrome e outros serviços Google para personalização e outras finalidades</translation>
@@ -571,6 +575,7 @@ Se esta página não estiver a funcionar conforme esperado, experimente permitir
 <translation id="6612152958212564387">Não está a enviar estatísticas de utilização e relatórios de falhas para a Google. <ph name="BEGIN_LINK" />Faça a gestão<ph name="END_LINK" /></translation>
 <translation id="6613949864921837107">Mantenha as suas palavras-passe, marcadores e histórico perfeitamente sincronizados entre dispositivos definindo o Chrome como o navegador predefinido.</translation>
 <translation id="6631524303639368205">Continue a partir de onde ficou: o Chrome restaurou os separadores da sua última sessão. Pode desativar esta opção nas</translation>
+<translation id="6632012506031284914">para pesquisar com o Chrome.</translation>
 <translation id="6632473616050862500">A criação do ChromeOS Flex foi possível devido a <ph name="BEGIN_LINK_CROS_OSS" />software de código aberto<ph name="END_LINK_CROS_OSS" /> adicional.</translation>
 <translation id="6634299872736643004">As alterações a esta definição vão ser aplicadas assim que o Chrome for reiniciado.</translation>
 <translation id="6660596345553328257">Iniciar sessão no Chrome?</translation>
@@ -587,6 +592,7 @@ Se esta página não estiver a funcionar conforme esperado, experimente permitir
 <translation id="6750954913813541382">Para corrigir erros ortográficos, o Chrome envia o texto que escrever no navegador para a Google.</translation>
 <translation id="6760235774835597023">Acelera os sites com o motor V8 do Chrome, mas torna o Chrome ligeiramente menos resistente a ataques. Esta definição está ativada.</translation>
 <translation id="677276454032249905">Quer sair do Chrome mesmo assim?</translation>
+<translation id="6777654166489463890">Faça perguntas sobre conteúdo fora do Chrome, como outra app ou ficheiro que tenha aberto</translation>
 <translation id="6794858689789885890">Eliminar sempre os dados de sites do seu dispositivo ao fechar o Chrome</translation>
 <translation id="6800285125190089494">Inicie sessão mais rapidamente em sites com as palavras-passe guardadas para o Chrome no iOS</translation>
 <translation id="6831043979455480757">Traduzir</translation>
@@ -639,6 +645,7 @@ Se esta página não estiver a funcionar conforme esperado, experimente permitir
 <translation id="7285990705317078173">Transfira o Chrome para o seu telemóvel para acompanhar os preços e receber alertas quando o preço descer em qualquer site</translation>
 <translation id="7288567540154601580">Separadores e extensões</translation>
 <translation id="7296210096911315575">Informações de utilização e segurança importantes</translation>
+<translation id="7299899569525778554">Pesquisa a partir do computador</translation>
 <translation id="7302361266603927550">Alguns dos seus dados do Chrome ainda não foram guardados na sua Conta Google. Experimente aguardar alguns minutos antes de terminar sessão. Se terminar sessão agora, estes dados vão ser eliminados.</translation>
 <translation id="7306401458628386911">Comece a navegar instantaneamente: agora pode iniciar o Chrome quando o Windows arranca.</translation>
 <translation id="7308322188646931570">O Chrome necessita de acesso ao armazenamento para transferir ficheiros.</translation>
@@ -702,6 +709,7 @@ Se esta página não estiver a funcionar conforme esperado, experimente permitir
 <translation id="7845233973568007926">Agradecemos a instalação. Tem de reiniciar o computador antes de usar o <ph name="BUNDLE_NAME" />.</translation>
 <translation id="7847170235260850604">Iniciar o Chrome quando o Windows arrancar</translation>
 <translation id="7849037457735762883">Continue a partir de onde ficou: o Chrome pode restaurar os seus separadores sempre que reiniciar. Para ativar esta opção, aceda às</translation>
+<translation id="7868731902994556427"><ph name="EXISTING_USER" /> já tem sessão iniciada. Para manter a sua navegação separada, inicie sessão no Chrome no seu perfil como <ph name="USER_EMAIL_ADDRESS" />. Também tem acesso às suas extensões e muito mais do <ph name="DEVICE" />.</translation>
 <translation id="7869620795354551924">Para usar as palavras-passe guardadas, siga o código QR, transfira o Chrome para iOS e inicie sessão na sua Conta Google</translation>
 <translation id="7872446069773932638">A transferir… Falta(m) <ph name="SECONDS" /> segundo(s)</translation>
 <translation id="7886087451482920026">Selecione texto com o Google Lens</translation>
@@ -788,7 +796,6 @@ Não é possível guardar novos marcadores na sua conta até eliminar alguns. Se
 <translation id="8575047640889685742">Use a sua <ph name="BEGIN_LINK" />própria frase de acesso<ph name="END_LINK" /> para encriptar todos os dados do Chrome na sua Conta Google. Os métodos de pagamento e as moradas do Google Pay não são encriptados. O histórico de navegação do Chrome não é sincronizado.</translation>
 <translation id="8590782867495422699">Reabrir Modo IA da Pesquisa Google</translation>
 <translation id="8598779894319572882">A partir do botão "Modo IA da Pesquisa Google" na barra de ferramentas, pode reabrir o Modo IA da Pesquisa Google para fazer perguntas enquanto navega</translation>
-<translation id="8601359445272098721">Novo! Pode traduzir texto e imagens no ecrã selecionando o botão "Traduzir ecrã"</translation>
 <translation id="8614913330719544658">O Google Chrome não responde. Reiniciar agora?</translation>
 <translation id="8623450603356630491">Inicie sessão no Chrome no telemóvel</translation>
 <translation id="8624541899164515475">Definições, abre num novo separador.</translation>
@@ -800,6 +807,7 @@ Não é possível guardar novos marcadores na sua conta até eliminar alguns. Se
 <translation id="8679801911857917785">Também controla a página apresentada quando inicia o Chrome.</translation>
 <translation id="8712637175834984815">OK</translation>
 <translation id="8712767363896337380">Quase atualizado! Reinicie o Chrome para concluir a atualização.</translation>
+<translation id="8717554232729236539"><ph name="EXISTING_USER" /> já tem sessão iniciada. Para manter a sua navegação separada, inicie sessão no Chrome no seu perfil como <ph name="USER_EMAIL_ADDRESS" />. Também tem acesso à sua Lista de leitura e muito mais do <ph name="DEVICE" />.</translation>
 <translation id="8718062187489036808">Terminar sessão no Chrome</translation>
 <translation id="873133009373065397">O Google Chrome não consegue determinar ou definir o navegador predefinido</translation>
 <translation id="8747073452963259673">canto inferior esquerdo da área de pesquisa: esquerda <ph name="LEFT" />%, parte inferior <ph name="BOTTOM" />%</translation>

@@ -29,10 +29,10 @@
 #include "chrome/browser/glic/host/context/glic_active_instance_sharing_manager.h"
 #include "chrome/browser/glic/host/context/glic_sharing_utils.h"
 #include "chrome/browser/glic/host/glic.mojom.h"
+#include "chrome/browser/glic/host/glic_web_contents_manager.h"
 #include "chrome/browser/glic/host/glic_web_contents_warming_pool.h"
 #include "chrome/browser/glic/host/guest_util.h"
 #include "chrome/browser/glic/host/host.h"
-#include "chrome/browser/glic/host/webui_contents_container.h"
 #include "chrome/browser/glic/public/features.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
 #include "chrome/browser/glic/public/glic_keyed_service.h"
@@ -51,6 +51,7 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "chrome/common/chrome_features.h"
 #include "components/prefs/pref_service.h"
+#include "components/tab_groups/tab_group_id.h"
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/web_contents.h"
@@ -394,10 +395,6 @@ GlicInstance* GlicInstanceCoordinatorImpl::ShowInstanceForTabGroup(
   GlicInstanceImpl* existing_instance = GetInstanceImplForTabGroup(group_id);
 
   if (existing_instance) {
-    if (tabs::TabInterface* glic_tab = existing_instance->GetGlicTab()) {
-      existing_instance->Show(ShowOptions::ForTab(*glic_tab));
-      return existing_instance;
-    }
     existing_instance->ShowForTabGroup(group_id, /*options=*/std::nullopt);
     return existing_instance;
   }
@@ -1111,6 +1108,38 @@ void GlicInstanceCoordinatorImpl::InvokeAndLogToggle(
     Target::Surface surface,
     const EmbedderKey& key,
     std::unique_ptr<GlicWindowInvocationTracker> invocation_tracker) {
+  if (!GlicEnabling::IsEnabledForProfile(profile_)) {
+    // TODO(b/520041903): Remove this temporary workaround and route through
+    // `InvokeInternal` once the `ClientLoadState` signal lands.
+    // When the entrypoint is anchored for an onboarded user
+    // (`ShouldShowGlicButton` is true while `IsEnabledForProfile` is false),
+    // show the panel directly so the WebUI can render the `ProfileReadyState`
+    // error screen (e.g. `kLocationMismatch` / `kIneligibleAccount`) without
+    // starting a client invocation.
+    if (!GlicEnabling::ShouldShowGlicButton(profile_)) {
+      return;
+    }
+    GlicInstanceImpl* instance = nullptr;
+    if (std::holds_alternative<Floating>(surface)) {
+      instance = GetOrCreateInstanceImplForFloaty();
+      ShowOptions show_options =
+          ShowOptions::ForFloating(/*source_tab=*/tabs::TabHandle::Null());
+      show_options.invocation_source = source;
+      instance->Show(std::move(show_options));
+    } else if (auto* tab_handle = std::get_if<tabs::TabHandle>(&surface)) {
+      if (tabs::TabInterface* tab = tab_handle->Get()) {
+        instance = GetOrCreateGlicInstanceImplForTab(tab);
+        instance->Show(ShowOptions::ForSidePanel(
+            *tab, GlicPinTrigger::kInstanceCreation, source));
+      }
+    }
+    if (instance) {
+      instance->instance_metrics().OnToggle(source, key, /*is_showing=*/false,
+                                            std::move(invocation_tracker));
+    }
+    return;
+  }
+
   GlicInvokeOptions invoke_options(source);
   invoke_options.target.surface = std::move(surface);
   invoke_options.fre_completion_wait_mode = FreCompletionWaitMode::kNever;
@@ -1212,7 +1241,6 @@ void GlicInstanceCoordinatorImpl::TransferTabGroupBinding(
   std::optional<tab_groups::TabGroupId> group_id =
       source_instance.GetTabGroup();
   if (group_id.has_value() && &target_instance != &source_instance) {
-    source_instance.SwapGlicTabToPlaceholder();
     target_instance.BindTabGroup(*group_id);
   }
 }
@@ -1320,8 +1348,8 @@ void GlicInstanceCoordinatorImpl::ContextAccessIndicatorChanged(
   ComputeContentAccessIndicator();
 }
 
-std::unique_ptr<WebUIContentsContainer>
-GlicInstanceCoordinatorImpl::CreateWebUIContentsContainer() {
+std::unique_ptr<GlicWebContentsManager>
+GlicInstanceCoordinatorImpl::CreateWebContentsManager() {
   metrics_.RecordCountAwakeOnContentsCreated();
   return web_contents_warming_pool_->TakeContainer();
 }

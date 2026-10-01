@@ -78,7 +78,6 @@ class ClientBounceDetectionState {
 
 // Either the URL navigated away from (starting a new chain), or the client-side
 // redirect connecting the navigation to the currently-committed chain.
-// TODO: crbug.com/324573484 - rename to remove association with DIPS.
 using BtmNavigationStart =
     std::variant<std::pair<GURL, ukm::SourceId>, BtmRedirectPtr>;
 
@@ -94,8 +93,6 @@ inline constexpr int kAllSitesFollowingFirstPartyLookbackLength = 10;
 // A redirect-chain-in-progress. It grows by calls to Append() and restarts by
 // calls to EndChain(). Runs a `BtmRedirectChainHandler` when the chain is
 // complete.
-//
-// TODO: crbug.com/324573484 - rename to remove association with BTM.
 class CONTENT_EXPORT BtmRedirectContext {
  public:
   BtmRedirectContext(BtmRedirectChainHandler handler,
@@ -205,8 +202,6 @@ class CONTENT_EXPORT BtmRedirectContext {
 
 // A simplified interface to WebContents and BtmServiceImpl that can be faked
 // in tests. Needed to allow unit testing BtmBounceDetector.
-//
-// TODO: crbug.com/324573484 - rename to remove association with BTM.
 class CONTENT_EXPORT BtmBounceDetectorDelegate {
  public:
   virtual ~BtmBounceDetectorDelegate();
@@ -252,7 +247,6 @@ class CONTENT_EXPORT ServerBounceDetectionState
 
 // A simplified interface to `NavigationHandle` that can be faked in tests.
 //
-// TODO: crbug.com/324573484 - Rename to remove association with BTM.
 // TODO: crbug.com/381687258 - Remove in favor of using `NavigationSimulator` in
 // tests.
 class CONTENT_EXPORT BtmNavigationHandle {
@@ -299,9 +293,6 @@ class CONTENT_EXPORT BtmNavigationHandle {
 // then uses the `BtmBounceDetectorDelegate` interface, which
 // `RedirectChainDetector` implements, to communicate back to the owning
 // `RedirectChainDetector` instance.
-//
-// TODO: crbug.com/324573484 - rename this to avoid confusion with
-// `RedirectChainDetector` and remove its association with BTM.
 class CONTENT_EXPORT BtmBounceDetector {
  public:
   explicit BtmBounceDetector(BtmBounceDetectorDelegate* delegate,
@@ -362,7 +353,7 @@ class CONTENT_EXPORT BtmBounceDetector {
  private:
   // Whether or not the `last_time` timestamp should be updated yet. This is
   // used to enforce throttling of timestamp updates, reducing the number of
-  // writes to the DIPS db.
+  // writes to the BTM db.
   bool ShouldUpdateTimestamp(base::optional_ref<const base::Time> last_time,
                              base::Time now);
 
@@ -519,7 +510,7 @@ class CONTENT_EXPORT BtmWebContentsObserver
 
  private:
   BtmWebContentsObserver(WebContents* web_contents,
-                         BtmServiceImpl* dips_service);
+                         BtmServiceImpl* btm_service);
   // So WebContentsUserData::CreateForWebContents() can call the constructor.
   friend class WebContentsUserData<BtmWebContentsObserver>;
 

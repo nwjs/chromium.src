@@ -16,50 +16,24 @@ export function getHtml(this: IwaDevUpdateOptionsDialogElement) {
     <span>${this.app.name} • Update Options</span>
   </div>
   <div slot="body">
-    <div class="dropdown-container">
-      <label for="channelInput">Update Channel</label>
-      <input id="channelInput"
-          list="channelList"
-          class="dropdown-select"
-          .value="${this.selectedChannel_}"
-          @input="${this.onChannelInput_}"
-          placeholder="Select or enter channel">
-      <datalist id="channelList">
-        ${this.channels_.map(item => html`
-          <option value="${item.channel}">
-            ${item.displayName || item.channel}
-          </option>
-        `)}
-      </datalist>
-    </div>
-    <div class="dropdown-container">
-      <label for="pinnedVersionInput">
-        Pinned Version
-      </label>
-      <div class="input-container">
-        <input id="pinnedVersionInput"
-            list="pinnedVersionList"
-            class="dropdown-select"
-            .value="${this.selectedPinnedVersion_}"
-            @input="${this.onPinnedVersionInput_}"
-            placeholder="Select or enter version">
-        ${this.selectedPinnedVersion_ ? html`
-          <cr-icon-button id="clearPinnedVersionButton"
-              iron-icon="cr:close"
-              title="Clear pinned version"
-              aria-label="Clear pinned version"
-                  @click="${this.onClearPinnedVersionClick_}">
-          </cr-icon-button>
-        ` : ''}
-      </div>
-      <datalist id="pinnedVersionList">
-        ${this.versions_.map(v => html`
-          <option value="${v.version}">
-            ${v.version}
-          </option>
-        `)}
-      </datalist>
-    </div>
+    <iwa-dev-combobox id="channelCombobox"
+        label="Update Channel"
+        placeholder="Select or enter channel"
+        match-strategy="contains"
+        .value="${this.selectedChannel_}"
+        .options="${this.channelOptions_}"
+        .errorMessage="${this.channelError_}"
+        @value-changed="${this.onChannelValueChanged_}">
+    </iwa-dev-combobox>
+    <iwa-dev-combobox id="pinnedVersionCombobox"
+        label="Pinned Version"
+        placeholder="Select or enter version"
+        clearable
+        .value="${this.selectedPinnedVersion_}"
+        .options="${this.versionOptions_}"
+        .errorMessage="${this.pinnedVersionError_}"
+        @value-changed="${this.onPinnedVersionValueChanged_}">
+    </iwa-dev-combobox>
     <div class="toggle-container">
       <span id="allowDowngradesLabel">Allow Downgrades</span>
       <cr-toggle id="allowDowngradesToggle"

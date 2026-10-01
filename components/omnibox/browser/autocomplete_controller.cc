@@ -601,6 +601,9 @@ AutocompleteController::AutocompleteController(
 }
 
 AutocompleteController::~AutocompleteController() {
+  for (Observer& obs : observers_) {
+    obs.OnControllerDestroying(this);
+  }
   base::trace_event::MemoryDumpManager::GetInstance()->UnregisterDumpProvider(
       this);
   // Must stop providers because they may have unowned tasks that continue to
@@ -690,6 +693,7 @@ void AutocompleteController::Start(const AutocompleteInput& input) {
     // Starter Pack engines in keyword mode only run a subset of the providers,
     // so call `ShouldRunProvider()` to determine which ones should run.
     if (!ShouldRunProvider(provider.get())) {
+      provider->Stop(AutocompleteStopReason::kClobbered);
       continue;
     }
 
@@ -796,9 +800,6 @@ void AutocompleteController::Stop(AutocompleteStopReason stop_reason) {
   metrics_.OnStop();
 
   for (const auto& provider : providers_) {
-    if (!ShouldRunProvider(provider.get())) {
-      continue;
-    }
     provider->Stop(stop_reason);
   }
 
@@ -808,7 +809,7 @@ void AutocompleteController::Stop(AutocompleteStopReason stop_reason) {
   CancelNotifyChangedRequest();
 
   const bool non_empty_result =
-      !internal_result_.empty() || internal_result_.has_contextual_chips();
+      !published_result_.empty() || published_result_.has_contextual_chips();
   if (stop_reason == AutocompleteStopReason::kClobbered) {
     internal_result_.Reset();
     if (non_empty_result) {
@@ -817,6 +818,12 @@ void AutocompleteController::Stop(AutocompleteStopReason stop_reason) {
       // when closing the omnibox.
       RequestNotifyChanged(/*notify_default_match=*/false, /*delayed=*/false);
     }
+  } else if (stop_reason == AutocompleteStopReason::kInactivity &&
+             omnibox::IsComposebox(input_.current_page_classification()) &&
+             internal_result_.empty()) {
+    // If Composebox suppressed the initial empty synchronous notification and
+    // timed out without receiving any async results, notify observers now.
+    RequestNotifyChanged(/*notify_default_match=*/false, /*delayed=*/false);
   }
 }
 
@@ -866,6 +873,13 @@ void AutocompleteController::OnProviderUpdate(
   // the provider took.
   if (provider) {
     metrics_.OnProviderUpdate(*provider);
+  }
+
+  // Ignore updates from providers that shouldn't run for the current input.
+  // This can happen if a provider was started for a previous input and an async
+  // update arrived after a new input began (e.g. entering keyword mode).
+  if (provider && !ShouldRunProvider(provider)) {
+    return;
   }
 
   // Providers should only call this method during the asynchronous pass.
@@ -1093,8 +1107,7 @@ std::u16string AutocompleteController::GetSuggestionGroupHeaderText(
         contextual_search_provider()->HasToolbeltLensAction();
     const auto* client = autocomplete_provider_client();
     bool has_contextual_chip =
-        (client->IsOmniboxNextLensSearchChipEnabled() ||
-         client->IsAskGShowChipEnabled()) &&
+        client->IsAskGShowChipEnabled() &&
         ContextualSearchProvider::LensEntrypointEligible(input_, client);
 
     if (suggestion_group_id.value() == omnibox::GROUP_CONTEXTUAL_SEARCH &&
@@ -1114,7 +1127,7 @@ std::u16string AutocompleteController::GetSuggestionGroupHeaderText(
 }
 
 bool AutocompleteController::ShouldRunProvider(
-    AutocompleteProvider* provider) const {
+    const AutocompleteProvider* provider) const {
   if (!provider) {
     return false;
   }
@@ -1621,6 +1634,14 @@ void AutocompleteController::UpdateResult(UpdateType update_type,
                    update_type == UpdateType::kLastAsyncPass ||
                    update_type == UpdateType::kMatchDeletion ||
                    update_type == UpdateType::kLastAsyncPassExceptDoc;
+
+  // For composebox, do not notify observers of empty results while asynchronous
+  // providers are still running, to avoid sending an empty synchronous pass
+  // before asynchronous zero-suggest or search results arrive.
+  if (omnibox::IsComposebox(input_.current_page_classification()) &&
+      internal_result_.empty() && !done()) {
+    return;
+  }
 
   RequestNotifyChanged(default_match_changed, !immediate);
 }

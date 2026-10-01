@@ -120,7 +120,7 @@ uint32_t MediaPermissionDispatcher::RegisterCallback(
   DCHECK(task_runner_->RunsTasksInCurrentSequence());
 
   uint32_t request_id = next_request_id_++;
-  DCHECK(!requests_.count(request_id));
+  DCHECK(!requests_.contains(request_id));
   requests_[request_id] = std::move(permission_status_cb);
 
   return request_id;
@@ -186,8 +186,9 @@ void MediaPermissionDispatcher::OnPermissionServiceConnectionError() {
   // Fire all pending callbacks with |false|.
   RequestMap requests;
   requests.swap(requests_);
-  for (auto& request : requests)
-    std::move(request.second).Run(false);
+  for (auto& [_, callback] : requests) {
+    std::move(callback).Run(false);
+  }
 }
 
 }  // namespace content

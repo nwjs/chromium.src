@@ -6,6 +6,7 @@ package org.chromium.base;
 
 import android.app.ActivityManager.AppTask;
 import android.app.ActivityOptions;
+import android.content.ClipDescription;
 import android.content.Context;
 import android.content.Context.BindServiceFlags;
 import android.content.ServiceConnection;
@@ -192,20 +193,6 @@ public interface AconfigFlaggedApiDelegate {
 
     default int getTextCursorBlinkInterval(ViewConfiguration viewConfiguration) {
         return getTextCursorBlinkInterval();
-    }
-
-    /**
-     * Checks if the Selection Action Menu Client is available, based on the API level and Aconfig
-     * flags. If the client is available, this method returns it wrapped in a {@code
-     * SelectionActionMenuClientWrapper}. This does not check if the client has been overridden and
-     * calling this method may return the default client. If the client is unavailable, this method
-     * returns null.
-     *
-     * @param delegate the WebViewDelegate used to get the client object.
-     */
-    default @Nullable SelectionActionMenuClientWrapper getSelectionActionMenuClient(
-            WebViewDelegate delegate) {
-        return null;
     }
 
     /**
@@ -538,6 +525,15 @@ public interface AconfigFlaggedApiDelegate {
 
     /** Returns whether the new strict occlusion API is available. */
     default boolean isStrictOcclusionAvailable() {
+        return false;
+    }
+
+    /**
+     * Returns whether the ClipDescription has a content-URI.
+     *
+     * @param clipDescription ClipDescription.
+     */
+    default boolean hasContentUri(ClipDescription clipDescription) {
         return false;
     }
 }

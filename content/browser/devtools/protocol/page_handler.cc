@@ -19,6 +19,7 @@
 #include "base/memory/ref_counted_memory.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/process/process_handle.h"
+#include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/strings/to_string.h"
@@ -523,7 +524,7 @@ PageHandler::PageHandler(
   video_consumer_ = std::make_unique<DevToolsVideoConsumer>(base::BindRepeating(
       &PageHandler::OnFrameFromVideoConsumer, weak_factory_.GetWeakPtr()));
   video_consumer_->SetFormat(kScreencastPixelFormat);
-  DCHECK(emulation_handler_);
+  CHECK(emulation_handler_, base::NotFatalUntil::M159);
 }
 
 PageHandler::~PageHandler() = default;
@@ -591,7 +592,7 @@ void PageHandler::RenderWidgetHostVisibilityChanged(
 }
 
 void PageHandler::RenderWidgetHostDestroyed(RenderWidgetHost* widget_host) {
-  DCHECK(observation_.IsObservingSource(widget_host));
+  CHECK(observation_.IsObservingSource(widget_host), base::NotFatalUntil::M159);
   observation_.Reset();
 }
 
@@ -619,7 +620,7 @@ void PageHandler::DidRunJavaScriptDialog(const GURL& url,
   if (!enabled_) {
     return;
   }
-  DCHECK(pending_dialog_.is_null());
+  CHECK(pending_dialog_.is_null(), base::NotFatalUntil::M159);
   pending_dialog_ = std::move(callback);
   std::string type = Page::DialogTypeEnum::Alert;
   if (dialog_type == JAVASCRIPT_DIALOG_TYPE_CONFIRM) {
@@ -641,7 +642,7 @@ void PageHandler::DidRunBeforeUnloadConfirm(
   if (!enabled_) {
     return;
   }
-  DCHECK(pending_dialog_.is_null());
+  CHECK(pending_dialog_.is_null(), base::NotFatalUntil::M159);
   pending_dialog_ = std::move(callback);
   frontend_->JavascriptDialogOpening(url.spec(), frame_id.ToString(),
                                      std::string(),
@@ -694,6 +695,8 @@ Response PageHandler::Disable() {
   if (!pending_dialog_.is_null()) {
     ResponseOrWebContents result = GetWebContentsForTopLevelActiveFrame();
     // Only a top level frame can have a dialog.
+    // TODO(crbug.com/558971359): CHECK-exclusion: Convert to a CHECK once we
+    // are confident it won't be triggered.
     DCHECK(std::holds_alternative<WebContentsImpl*>(result));
     WebContentsImpl* web_contents = std::get<WebContentsImpl*>(result);
     // Leave dialog hanging if there is a manager that can take care of it,
@@ -1106,13 +1109,13 @@ void PageHandler::GetAnnotatedPageContent(
         web_contents, include_actionable_information.value_or(true),
         base::BindOnce(
             [](std::unique_ptr<GetAnnotatedPageContentCallback> callback,
-               const std::string& serialized_proto) {
-              if (!serialized_proto.empty()) {
-                callback->sendSuccess(
-                    protocol::Binary::fromString(serialized_proto));
+               base::expected<std::string, std::string> result) {
+              if (result.has_value()) {
+                callback->sendSuccess(protocol::Binary::fromString(*result));
               } else {
                 callback->sendFailure(Response::ServerError(
-                    "Failed to get annotated page content"));
+                    base::StrCat({"Failed to get annotated page content: ",
+                                  result.error()})));
               }
             },
             std::move(callback)));
@@ -1326,7 +1329,7 @@ void PageHandler::CaptureSnapshot(
     return;
   }
 
-  DCHECK(host_);
+  CHECK(host_, base::NotFatalUntil::M159);
   DevToolsMHTMLHelper::Capture(
       base::BindRepeating(&WebContents::FromFrameTreeNodeId,
                           host_->frame_tree_node()->frame_tree_node_id()),
@@ -2178,7 +2181,9 @@ Page::BackForwardCacheNotRestoredReason NotRestoredReasonToProtocol(
     case Reason::kRfhEnforceInsecureNavigationsSet:
     case Reason::kRfhEnforceInsecureRequestPolicy:
     case Reason::kRfhHadStickyUserActivationBeforeNavigationChanged:
-    case Reason::kRfhUpdateIsAdFrame:
+    case Reason::kRfhUpdateAdFrameStatus:
+    case Reason::kRfhDidChangeName:
+    case Reason::kRfhDidChangeOpener:
       return Page::BackForwardCacheNotRestoredReasonEnum::Unknown;
     case Reason::kCacheControlNoStoreDeviceBoundSessionTerminated:
       return Page::BackForwardCacheNotRestoredReasonEnum::
@@ -2508,7 +2513,9 @@ Page::BackForwardCacheNotRestoredReasonType MapNotRestoredReasonToType(
     case Reason::kRfhEnforceInsecureNavigationsSet:
     case Reason::kRfhEnforceInsecureRequestPolicy:
     case Reason::kRfhHadStickyUserActivationBeforeNavigationChanged:
-    case Reason::kRfhUpdateIsAdFrame:
+    case Reason::kRfhUpdateAdFrameStatus:
+    case Reason::kRfhDidChangeName:
+    case Reason::kRfhDidChangeOpener:
     case Reason::kUnknown:
       return Page::BackForwardCacheNotRestoredReasonTypeEnum::SupportPending;
     case Reason::kBlocklistedFeatures:
@@ -2602,7 +2609,7 @@ CreateNotRestoredExplanation(
        not_restored_reasons) {
     if (not_restored_reason ==
         BackForwardCacheMetrics::NotRestoredReason::kBlocklistedFeatures) {
-      DCHECK(!blocklisted_features.empty());
+      CHECK(!blocklisted_features.empty(), base::NotFatalUntil::M159);
       for (blink::scheduler::WebSchedulerTrackedFeature feature :
            blocklisted_features) {
         // Details are not always present for blocklisted features, because the

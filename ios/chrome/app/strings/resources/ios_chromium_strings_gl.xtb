@@ -8,12 +8,10 @@
 <translation id="1091252999271033193">En consecuencia, Chromium sempre solicitará abrir o sitio para móbiles.</translation>
 <translation id="1115463765356382667">Completa as accións suxeridas máis abaixo para sacarlle o máximo partido a Chromium.</translation>
 <translation id="1185134272377778587">Acerca de Chromium</translation>
-<translation id="119044033865561140">Abre Chromium ao instante cando esteas no iPad</translation>
 <translation id="1229234641991056119">Utiliza os contrasinais, o historial, os marcadores e as tarxetas de crédito de Safari en Chromium</translation>
 <translation id="1257458525759135959">Se queres gardar imaxes, para que Chromium poida engadir as túas fotos, toca Configuración</translation>
 <translation id="1260702988262336471">Abre o menú de Chromium</translation>
 <translation id="12739128458173458">Para enviar esta pestana a outro dispositivo, inicia sesión en Chromium nos dous dispositivos.</translation>
-<translation id="1279797561821266129">Accede a Chromium máis rápido desde a barra de aplicacións</translation>
 <translation id="1361748954329991663">Chromium está desactualizado. Se non hai dispoñible ningunha actualización na <ph name="BEGIN_LINK" />tenda de aplicacións<ph name="END_LINK" />, é posible que o teu dispositivo xa non sexa compatible coas novas versións de Chromium.</translation>
 <translation id="1383876407941801731">Buscar</translation>
 <translation id="1423007117030725713">Inicia unha busca nunha nova pestana de Chromium.</translation>
@@ -32,7 +30,6 @@
 <translation id="1553657876656159572">Un feed personalizado creado para ti. Incluirá noticias, deportes e o tempo.</translation>
 <translation id="1561849081734670621">Para desactivar o modo de bloqueo en Chromium, desactívao no teu iPhone.</translation>
 <translation id="1569258826720962327">Utiliza accións de Chromium en iOS</translation>
-<translation id="1573441572176948907">Move Chromium á barra de aplicacións</translation>
 <translation id="159029779861043703">Chromium protexe os teus datos confidenciais con Face ID.</translation>
 <translation id="1591119736686995611">Abre a grade de pestanas de Chromium.</translation>
 <translation id="16001233025397167">Comprobación de seguranza protéxete contra as violacións da seguranza dos datos, os sitios web que non sexan seguros e moito máis. Recibe alertas sobre calquera problema de privacidade ou seguranza que detecte Chromium.</translation>
@@ -145,6 +142,7 @@ Espera uns minutiños antes de cambiar de conta. Se a cambias agora, eliminarans
 <translation id="3855938650519180865">Novidades de Chromium</translation>
 <translation id="3886689467633467988">Inicia sesión neste sitio e en Chromium para acceder aos teus marcadores e a máis contido en todos os teus dispositivos.</translation>
 <translation id="3949514465204582407">Consello de Chromium: usa en calquera aplicación os contrasinais</translation>
+<translation id="3983298990898629929">Define Chromium como o navegador predeterminado para abrir as ligazóns cun só toque</translation>
 <translation id="4005283307739974863">Abre e executa Comprobación de seguranza en Chromium.</translation>
 <translation id="4043291146360695975">Os contrasinais gárdanse no xestor de contrasinais só neste dispositivo.</translation>
 <translation id="4046625794029820944">Deixa de copiar URL. Define Chromium como navegador predeterminado para cargar as páxinas directamente.</translation>
@@ -182,7 +180,6 @@ Para cambiar esta opción de configuración, <ph name="BEGIN_LINK" />elimina os 
 <translation id="4790638144988730920">Sigue usando os datos de Chromium na túa Conta de Google.</translation>
 <translation id="4828317641996116749">Chromium non puido comprobar todos os contrasinais. Téntao de novo máis tarde.</translation>
 <translation id="4856138222358683580">Accións de Chromium</translation>
-<translation id="4869706986935301458">Abre Chromium ao instante cando esteas no iPhone</translation>
 <translation id="4904452304169763785">Recibe alertas sobre calquera problema de privacidade ou seguranza que detecte Chromium.</translation>
 <translation id="4962295957157529683">Acaba o que estabas facendo na outra ventá de Chromium que tiñas aberta.</translation>
 <translation id="4985291216379576555">Non tes conexión. Chromium non puido buscar actualizacións</translation>
@@ -277,6 +274,7 @@ Cuestións que debes ter en conta:
 <translation id="6680609900732453726">Mantén a túa navegación privada coa autenticación do dispositivo cando peches Chromium</translation>
 <translation id="6696512128741076907">Define Chromium como predeterminado para abrir ligazóns ao instante desde outras aplicacións.</translation>
 <translation id="6752854822223394465">A túa organización está configuranndo Chromium…</translation>
+<translation id="6777348401413221846">Vídeo en pantalla completa sobre o modo de definir Chromium como navegador predeterminado: Abre a configuración de Chromium en iOS, toca Default Browser App (Aplicación de navegador predeterminada) e selecciona Chromium.</translation>
 <translation id="6794054469102824109">Abre o xogo do dinosauro de Chromium.</translation>
 <translation id="6820823224820483452">Chromium non puido comprobar todos os contrasinais. Téntao de novo mañá.</translation>
 <translation id="6830782797004194206">Inicia sesión máis rápido coa función de autocompletar de Chromium</translation>
@@ -306,8 +304,8 @@ Só poderán ler os teus datos encriptados as persoas que coñezan a túa frase 
 <translation id="7337881442233988129">Chromium</translation>
 <translation id="7395825497086981028">O teu contrasinal gardarase no xestor de contrasinais para <ph name="EMAIL" />.</translation>
 <translation id="7434848749522628428">Esta clave de acceso gardarase no xestor de contrasinais para a conta <ph name="USER_EMAIL" /></translation>
+<translation id="7453822113116681031">Define Chromium como o navegador predeterminado para abrir as ligazóns cun só toque</translation>
 <translation id="7504829997542308412">Abre Chromium</translation>
-<translation id="7507535968973352823">Coloca Chromium na parte inferior para acceder a el en calquera momento</translation>
 <translation id="7531461704633548377">De Chromium</translation>
 <translation id="7554983317097061001">Consello de Chromium: Move Chromium á barra de aplicacións</translation>
 <translation id="7576863740961052505">Xestiona a configuración de Chromium</translation>
@@ -357,7 +355,6 @@ Só poderán ler os teus datos encriptados as persoas que coñezan a túa frase 
 <translation id="8730503818204408000">Abre a configuración de Chromium para definir este navegador como predeterminado.</translation>
 <translation id="8754966941001340678">Chromium recomenda protección mellorada</translation>
 <translation id="8759037115129007407">O membro da túa familia non pode recibir contrasinais agora mesmo. Pídelle que actualice Chromium e sincronice os seus contrasinais. <ph name="BEGIN_LINK" />Máis información<ph name="END_LINK" /></translation>
-<translation id="8769418653786388149">Leva Chromium contigo</translation>
 <translation id="8776843108004031667">Esta conta e os datos que estean sen gardar quitaranse de Chromium.</translation>
 <translation id="8793333988063379360">Podes atopar a configuración de Chromium e moito máis aquí</translation>
 <translation id="8805148242934787134">Definir Chromium como navegador predeterminado</translation>

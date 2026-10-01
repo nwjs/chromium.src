@@ -6,6 +6,8 @@ import 'chrome://resources/cr_elements/cr_icon/cr_icon.js';
 import 'chrome://resources/cr_elements/icons.html.js';
 
 import {I18nMixinLit} from '//resources/cr_elements/i18n_mixin_lit.js';
+import {loadTimeData} from '//resources/js/load_time_data.js';
+import {isMac} from '//resources/js/platform.js';
 import {CrLitElement} from 'chrome://resources/lit/v3_0/lit.rollup.js';
 
 import {getCss} from './fre_modal.css.js';
@@ -27,19 +29,33 @@ export class OmniboxEverywhereFreModalElement extends
     return getHtml.bind(this)();
   }
 
+  static override get properties() {
+    return {
+      smallLoomnibox: {
+        type: Boolean,
+        reflect: true,
+        attribute: 'small-loomnibox',
+      },
+    };
+  }
+
+  accessor smallLoomnibox: boolean = false;
+
+  protected isMac_(): boolean {
+    return isMac;
+  }
+
+  protected isFuseboxEligible_(): boolean {
+    return loadTimeData.getBoolean('isFuseboxEligible');
+  }
+
+  protected getMacMenubarImgSrc_(): string {
+    return this.smallLoomnibox ? 'images/mac_menu_bar_small.png' :
+                                 'images/mac_menu_bar.png';
+  }
+
   protected onCloseClick_() {
     this.fire('close');
-  }
-
-  protected onAcceptHotkeyClick_() {
-    this.fire('accept-hotkey');
-  }
-
-  protected onSettingsClick_(e?: Event) {
-    if (e) {
-      e.preventDefault();
-    }
-    this.fire('open-settings');
   }
 }
 

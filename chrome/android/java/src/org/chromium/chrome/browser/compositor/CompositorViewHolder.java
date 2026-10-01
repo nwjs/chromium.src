@@ -190,7 +190,7 @@ public class CompositorViewHolder extends FrameLayout
     private CompositorView mCompositorView;
 
     private boolean mContentOverlayVisiblity = true;
-    private boolean mCanBeFocusable;
+    private boolean mCanBeFocusable = true;
 
     /** A task to be performed after a resize event. */
     private @Nullable Runnable mPostHideKeyboardTask;
@@ -1159,7 +1159,7 @@ public class CompositorViewHolder extends FrameLayout
         if ((AndroidSidePanelEnabledFn.isEnabled()
                         || VerticalTabUtils.isVerticalTabsEligible(mActivity))
                 && mSideUiStateProvider != null) {
-            SideUiSpecs sideUiSpecs = mSideUiStateProvider.getCurrentSideUiSpecs();
+            SideUiSpecs sideUiSpecs = mSideUiStateProvider.getExpectedSideUiSpecsForTab(tab);
             sideUiLeftMargin = sideUiSpecs.getWidth(AnchorSide.LEFT);
             horizontalViewportInsets = sideUiLeftMargin + sideUiSpecs.getWidth(AnchorSide.RIGHT);
         }
@@ -1592,9 +1592,10 @@ public class CompositorViewHolder extends FrameLayout
     ///////////////////////////////////////////////////////////////////////////////////////////////
 
     private void repositionTabViewForSideUi() {
-        if (mSideUiStateProvider != null) {
-            repositionTabViewForSideUi(mSideUiStateProvider.getCurrentSideUiSpecs());
-        }
+        Tab currentTab = getCurrentTab();
+        if (mSideUiStateProvider == null || currentTab == null) return;
+
+        repositionTabViewForSideUi(mSideUiStateProvider.getExpectedSideUiSpecsForTab(currentTab));
     }
 
     private void repositionTabViewForSideUi(SideUiSpecs sideUiSpecs) {
@@ -2018,13 +2019,16 @@ public class CompositorViewHolder extends FrameLayout
             // TODO(crbug.com/40770763): Look into enforcing the z-order of the views.
             addView(mView, 1);
             repositionTabViewForSideUi();
-            updateFocusability(false, /* blockDescendants= */ false);
-
             // Claim focus for the new view unless the user is currently using the URL bar.
             if (mUrlBar == null || !mUrlBar.hasFocus()) mView.requestFocus();
+            updateFocusability(/* focusable= */ false, /* blockDescendants= */ false);
         } else {
             if (mView.getParent() == this) {
                 updateFocusability(mCanBeFocusable, /* blockDescendants= */ false);
+                // Reclaim focus from the outgoing overlay view before removing it from the
+                // hierarchy. Otherwise, detaching a focused child view triggers ViewRootImpl
+                // to search from the root DecorView and focus the UrlBar (see clearChildFocus).
+                if (mView.hasFocus()) requestFocus();
 
                 if (webContents != null && !webContents.isDestroyed()) {
                     assumeNonNull(getContentView()).setVisibility(View.INVISIBLE);
@@ -2075,12 +2079,12 @@ public class CompositorViewHolder extends FrameLayout
     }
 
     private void setTab(@Nullable Tab tab) {
-        if (tab != null) {
+        if (tab != null && !tab.isDetachedFromActivity()) {
             tab.loadIfNeeded(/* forceBackingSize= */ false);
         }
 
         View newView = tab != null ? tab.getView() : null;
-        if (mView == newView) return;
+        if (mView == newView && mTabVisible == tab) return;
 
         // TODO(dtrainor): Look into changing this only if the views differ, but still parse the
         // WebContents list even if they're the same.
@@ -2220,7 +2224,7 @@ public class CompositorViewHolder extends FrameLayout
                                 mVirtualViews.clear();
                                 mLayoutManager.getVirtualViews(mVirtualViews);
                                 int importantForAccessibility =
-                                        mVirtualViews.size() == 0
+                                        mVirtualViews.isEmpty()
                                                 ? View.IMPORTANT_FOR_ACCESSIBILITY_NO
                                                 : View.IMPORTANT_FOR_ACCESSIBILITY_AUTO;
                                 if (getImportantForAccessibility() != importantForAccessibility) {

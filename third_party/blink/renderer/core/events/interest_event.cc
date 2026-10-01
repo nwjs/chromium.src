@@ -36,24 +36,7 @@ InterestEvent::InterestEvent(const AtomicString& type,
       related_target_(source) {}
 
 Element* InterestEvent::source() const {
-  if (!source_) {
-    CHECK(!related_target_);
-    return nullptr;
-  }
-
-  if (RuntimeEnabledFeatures::ShadowRootReferenceTargetEnabled(
-          source_->GetExecutionContext())) {
-    EventTarget* related_target = related_target_.Get();
-    return related_target ? DynamicTo<Element>(related_target->ToNode())
-                          : nullptr;
-  }
-
-  if (auto* current = currentTarget()) {
-    CHECK(current->ToNode());
-    return &current->ToNode()->GetTreeScope().Retarget(*source_);
-  }
-  DCHECK_EQ(eventPhase(), Event::PhaseType::kNone);
-  return source_;
+  return DynamicTo<Element>(Retarget(source_));
 }
 
 DispatchEventResult InterestEvent::DispatchEvent(EventDispatcher& dispatcher) {

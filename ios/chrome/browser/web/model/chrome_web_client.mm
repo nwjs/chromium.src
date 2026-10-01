@@ -9,6 +9,7 @@
 #import <string_view>
 
 #import "base/apple/bundle_locations.h"
+#import "base/check.h"
 #import "base/command_line.h"
 #import "base/feature_list.h"
 #import "base/ios/ios_util.h"
@@ -38,6 +39,8 @@
 #import "components/strings/grit/components_strings.h"
 #import "components/supervised_user/core/browser/supervised_user_interstitial.h"
 #import "components/translate/ios/browser/translate_java_script_feature.h"
+#import "components/universal_optout/features.h"
+#import "components/universal_optout/prefs.h"
 #import "components/version_info/version_info.h"
 #import "components/webauthn/ios/features.h"
 #import "components/webauthn/ios/passkey_java_script_feature.h"
@@ -46,6 +49,8 @@
 #import "ios/chrome/browser/cobrowse/model/aim_cobrowse_java_script_feature.h"
 #import "ios/chrome/browser/cobrowse/model/cobrowse_util.h"
 #import "ios/chrome/browser/content_settings/model/host_content_settings_map_factory.h"
+#import "ios/chrome/browser/enterprise/connectors/device_trust/features.h"
+#import "ios/chrome/browser/enterprise/connectors/device_trust/model/device_trust_java_script_feature.h"
 #import "ios/chrome/browser/enterprise/connectors/ios_enterprise_interstitial.h"
 #import "ios/chrome/browser/enterprise/connectors/reporting/ios_reporting_event_router_factory.h"
 #import "ios/chrome/browser/flags/chrome_switches.h"
@@ -53,11 +58,13 @@
 #import "ios/chrome/browser/intelligence/actor/tools/model/action_target_java_script_feature.h"
 #import "ios/chrome/browser/intelligence/actor/tools/model/attempt_form_filling_tool_java_script_feature.h"
 #import "ios/chrome/browser/intelligence/actor/tools/model/click_tool_java_script_feature.h"
+#import "ios/chrome/browser/intelligence/actor/tools/model/drag_and_release_tool_java_script_feature.h"
 #import "ios/chrome/browser/intelligence/actor/tools/model/page_stability_java_script_feature.h"
 #import "ios/chrome/browser/intelligence/actor/tools/model/scroll_tool_java_script_feature.h"
 #import "ios/chrome/browser/intelligence/actor/tools/model/select_tool_java_script_feature.h"
 #import "ios/chrome/browser/intelligence/actor/tools/model/type_tool_java_script_feature.h"
 #import "ios/chrome/browser/intelligence/features/features.h"
+#import "ios/chrome/browser/intelligence/page_classification/education_java_script_feature.h"
 #import "ios/chrome/browser/intelligence/proto_wrappers/page_context_extractor_java_script_feature.h"
 #import "ios/chrome/browser/link_to_text/model/link_to_text_java_script_feature.h"
 #import "ios/chrome/browser/ntp/model/browser_policy_new_tab_page_rewriter.h"
@@ -444,6 +451,7 @@ std::vector<web::JavaScriptFeature*> ChromeWebClient::GetJavaScriptFeatures(
   features.push_back(translate::TranslateJavaScriptFeature::GetInstance());
   features.push_back(WebPerformanceMetricsJavaScriptFeature::GetInstance());
   features.push_back(ChooseFileJavaScriptFeature::GetInstance());
+  features.push_back(EducationJavaScriptFeature::GetInstance());
   features.push_back(PageContextExtractorJavaScriptFeature::GetInstance());
   if (IsIOSDarkModeDetectionEnabled()) {
     features.push_back(DarkModeDetectionJavaScriptFeature::GetInstance());
@@ -454,6 +462,8 @@ std::vector<web::JavaScriptFeature*> ChromeWebClient::GetJavaScriptFeatures(
     features.push_back(
         actor::AttemptFormFillingToolJavaScriptFeature::GetInstance());
     features.push_back(actor::ClickToolJavaScriptFeature::GetInstance());
+    features.push_back(
+        actor::DragAndReleaseToolJavaScriptFeature::GetInstance());
     features.push_back(actor::ScrollToolJavaScriptFeature::GetInstance());
     features.push_back(actor::SelectToolJavaScriptFeature::GetInstance());
     features.push_back(actor::TypeToolJavaScriptFeature::GetInstance());
@@ -487,6 +497,14 @@ std::vector<web::JavaScriptFeature*> ChromeWebClient::GetJavaScriptFeatures(
 
   if (IsAimCobrowseEligible(profile)) {
     features.push_back(AimCobrowseJavaScriptFeature::GetInstance());
+  }
+
+  // TODO(crbug.com/517112324): Avoid registering this JavaScriptFeature if the
+  // user is not an enterprise user with a configured Device Trust policy
+  // allowlist.
+  if (base::FeatureList::IsEnabled(
+          enterprise_connectors::features::kEnableIOSDeviceTrustConnector)) {
+    features.push_back(DeviceTrustJavaScriptFeature::GetInstance());
   }
 
   return features;
@@ -686,4 +704,21 @@ bool ChromeWebClient::IsSmoothScrollingSupported() const {
   // considered the same as FullscreenSmoothScrolling.
   return IsFullscreenRefactoringEnabled() ||
          ios::provider::IsFullscreenSmoothScrollingSupported();
+}
+
+bool ChromeWebClient::IsUniversalOptOutEnabled(
+    web::BrowserState* browser_state) const {
+  if (!base::FeatureList::IsEnabled(
+          universal_optout::features::kUniversalOptOut) ||
+      !base::FeatureList::IsEnabled(
+          universal_optout::features::kUniversalOptOutSettings)) {
+    return false;
+  }
+
+  ProfileIOS* profile = ProfileIOS::FromBrowserState(browser_state);
+  CHECK(profile);
+  PrefService* prefs = profile->GetPrefs();
+  CHECK(prefs);
+
+  return prefs->GetBoolean(universal_optout::prefs::kUniversalOptOutEnabled);
 }

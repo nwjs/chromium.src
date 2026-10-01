@@ -442,6 +442,11 @@ bool ContextualSearchSessionHandle::DeleteFile(
   return success;
 }
 
+bool ContextualSearchSessionHandle::RemoveUploadedContextToken(
+    const base::UnguessableToken& file_token) {
+  return std::erase(uploaded_context_tokens_, file_token) > 0;
+}
+
 void ContextualSearchSessionHandle::ClearFiles(bool query_submitted) {
   if (query_submitted) {
     // When submitting query, always track tab tokens in `persisted_tabs_`
@@ -986,6 +991,14 @@ bool ContextualSearchSessionHandle::AreUrlsEquivalent(
 void ContextualSearchSessionHandle::RemoveDeselectedTab(
     SessionID tab_session_id) {
   deselected_tabs_urls_.erase(tab_session_id);
+}
+
+void ContextualSearchSessionHandle::set_auth_user_index(
+    size_t auth_user_index) {
+  auth_user_index_ = auth_user_index;
+  if (auto* controller = GetController()) {
+    controller->SetAuthUserIndex(auth_user_index);
+  }
 }
 
 }  // namespace contextual_search

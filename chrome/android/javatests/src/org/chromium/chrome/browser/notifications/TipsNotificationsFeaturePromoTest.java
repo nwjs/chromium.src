@@ -73,10 +73,14 @@ import java.util.List;
     ChromeFeatureList.ANDROID_TIPS_NOTIFICATIONS,
     SigninFeatures.ENABLE_SEAMLESS_SIGNIN,
 })
-@DisableFeatures(ChromeFeatureList.SETTINGS_IN_TAB) // crbug.com/521895796
+@DisableFeatures({
+    ChromeFeatureList.BOTTOM_SHEET_ON_DESKTOP_WINDOWING, // crbug.com/561423545
+    ChromeFeatureList.SETTINGS_IN_TAB, // crbug.com/521895796
+    ChromeFeatureList.SETTINGS_IN_TAB_DESKTOP // crbug.com/556881398
+})
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_STARTUP_PROMOS})
 @Batch(Batch.PER_CLASS)
-@Restriction(DeviceRestriction.RESTRICTION_TYPE_NON_AUTO)
+@Restriction({DeviceRestriction.RESTRICTION_TYPE_NON_AUTO, DeviceFormFactor.PHONE_OR_TABLET})
 public class TipsNotificationsFeaturePromoTest {
     @Rule
     public FreshCtaTransitTestRule mCtaTestRule =

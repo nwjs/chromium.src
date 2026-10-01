@@ -46,14 +46,14 @@ using ::testing::ElementsAre;
 using ::testing::Eq;
 using ::testing::Field;
 using ::testing::InSequence;
+using ::testing::IsEmpty;
 using ::testing::Matcher;
 using ::testing::Mock;
 using ::testing::MockFunction;
 using ::testing::Ne;
 using ::testing::NiceMock;
+using ::testing::Not;
 using ::testing::Return;
-
-using SingleEntryRemovalMethod = AutofillMetrics::SingleEntryRemovalMethod;
 
 Matcher<const AutofillSuggestionDelegate::SuggestionMetadata&>
 EqualsSuggestionMetadata(
@@ -82,25 +82,24 @@ class AutofillPopupControllerImplTest
     // 1. Set the trigger source inside the delegate.
     manager().external_delegate().OnQuery(
         FormData(), FormFieldData(), gfx::Rect(),
-        AutofillSuggestionTriggerSource::kAtMemoryTriggerString);
+        AutofillSuggestionTriggerSource::kAtMemoryDoubleCtrl);
 
     // 2. Setup the bridge so the mock delegate executes real initialization
     // logic.
     EXPECT_CALL(manager().external_delegate(), OnSuggestionsShown)
         .WillOnce([&](base::span<const Suggestion> suggestions,
-                      base::optional_ref<
-                          const AutofillSuggestionDelegate::SuggestionMetadata>
-                          parent_suggestion_metadata) {
+                      const AutofillSuggestionDelegate::SuggestionUiMetadata&
+                          metadata) {
           manager()
               .external_delegate()
-              .AutofillExternalDelegate::OnSuggestionsShown(
-                  suggestions, parent_suggestion_metadata);
+              .AutofillExternalDelegate::OnSuggestionsShown(suggestions,
+                                                            metadata);
         });
 
     // 3. Actually show the suggestions, which triggers the search session
     // initialization in AtMemoryController.
     ShowSuggestions(manager(), {SuggestionType::kAtMemorySearchResult},
-                    AutofillSuggestionTriggerSource::kAtMemoryTriggerString);
+                    AutofillSuggestionTriggerSource::kAtMemoryDoubleCtrl);
   }
 
   // Simulates a user typing a query into the AtMemory search bar and explicitly
@@ -405,9 +404,13 @@ TEST_F(AutofillPopupControllerImplTest,
 TEST_F(AutofillPopupControllerImplTest,
        OnSuggestionsHiddenIsCalledOnlyByRootPopup) {
   // `OnSuggestionsShown` is also called by sub-popups, but they pass non-empty
-  // metadata.
-  EXPECT_CALL(manager().external_delegate(),
-              OnSuggestionsShown(_, Ne(std::nullopt)));
+  // multi_index.
+  EXPECT_CALL(
+      manager().external_delegate(),
+      OnSuggestionsShown(
+          _,
+          Field(&AutofillSuggestionDelegate::SuggestionUiMetadata::multi_index,
+                Not(IsEmpty()))));
   ON_CALL(*client().sub_popup_view(), Show).WillByDefault(Return(true));
   base::WeakPtr<AutofillSuggestionController> sub_controller =
       client().suggestion_controller(manager()).OpenSubPopup(
@@ -432,7 +435,7 @@ TEST_F(AutofillPopupControllerImplTest,
 
   EXPECT_CALL(
       manager().external_delegate(),
-      OnSuggestionsShown(_, Eq(AutofillSuggestionDelegate::SuggestionMetadata(
+      OnSuggestionsShown(_, Eq(AutofillSuggestionDelegate::SuggestionUiMetadata(
                                 {.multi_index = {2}}))));
 
   ON_CALL(*client().sub_popup_view(), Show).WillByDefault(Return(true));
@@ -462,14 +465,14 @@ TEST_F(AutofillPopupControllerImplTest,
 
   {
     InSequence s;
-    EXPECT_CALL(
-        manager().external_delegate(),
-        OnSuggestionsShown(_, Eq(AutofillSuggestionDelegate::SuggestionMetadata(
-                                  {.multi_index = {2}}))));
-    EXPECT_CALL(
-        manager().external_delegate(),
-        OnSuggestionsShown(_, Eq(AutofillSuggestionDelegate::SuggestionMetadata(
-                                  {.multi_index = {2, 1}}))));
+    EXPECT_CALL(manager().external_delegate(),
+                OnSuggestionsShown(
+                    _, Eq(AutofillSuggestionDelegate::SuggestionUiMetadata(
+                           {.multi_index = {2}}))));
+    EXPECT_CALL(manager().external_delegate(),
+                OnSuggestionsShown(
+                    _, Eq(AutofillSuggestionDelegate::SuggestionUiMetadata(
+                           {.multi_index = {2, 1}}))));
   }
 
   ON_CALL(*client().sub_popup_view(), Show).WillByDefault(Return(true));
@@ -611,7 +614,7 @@ INSTANTIATE_TEST_SUITE_P(
     All,
     AutofillPopupControllerImplTestWithTriggerSource,
     ::testing::Values(
-        AutofillSuggestionTriggerSource::kAtMemoryTriggerString,
+        AutofillSuggestionTriggerSource::kAtMemoryDoubleCtrl,
         AutofillSuggestionTriggerSource::kAtMemoryKeyboardShortcut,
         AutofillSuggestionTriggerSource::kAtMemoryContextMenu,
         AutofillSuggestionTriggerSource::kAtMemoryInactivityNudge));
@@ -767,9 +770,7 @@ TEST_F(AutofillPopupControllerImplTest,
   // changed.
   EXPECT_CALL(*client().popup_view(),
               OnSuggestionsChanged(/*prefer_prev_arrow_side=*/false));
-  EXPECT_TRUE(client().suggestion_controller(manager()).RemoveSuggestion(
-      0,
-      AutofillMetrics::SingleEntryRemovalMethod::kKeyboardShiftDeletePressed));
+  EXPECT_TRUE(client().suggestion_controller(manager()).RemoveSuggestion(0));
   Mock::VerifyAndClearExpectations(client().popup_view());
 
   EXPECT_TRUE(client()
@@ -937,8 +938,7 @@ TEST_F(AutofillPopupControllerImplTest,
 
   EXPECT_CALL(manager().external_delegate(), RemoveSuggestion)
       .WillOnce(Return(true));
-  controller.RemoveSuggestion(
-      0, AutofillMetrics::SingleEntryRemovalMethod::kDeleteButtonClicked);
+  controller.RemoveSuggestion(0);
   EXPECT_EQ(controller.GetSuggestions().size(), 1u);
   EXPECT_EQ(controller.GetSuggestionFilterMatches().size(), 1u);
 
@@ -1093,7 +1093,7 @@ TEST_F(AutofillPopupControllerImplTest,
 TEST_F(AutofillPopupControllerImplTest,
        AtMemory_NoFilter_NoSuggestionsMessageNotShown) {
   ShowSuggestions(manager(), {SuggestionType::kAtMemorySearchResult},
-                  AutofillSuggestionTriggerSource::kAtMemoryTriggerString);
+                  AutofillSuggestionTriggerSource::kAtMemoryDoubleCtrl);
   EXPECT_FALSE(
       client().suggestion_controller(manager()).ShouldShowNoSuggestionsMessage(
           AutofillPopupView::SearchBarConfig{
@@ -1206,16 +1206,14 @@ TEST_F(AutofillPopupControllerImplTest, RemoveSuggestion) {
   // changed.
   EXPECT_CALL(*client().popup_view(),
               OnSuggestionsChanged(/*prefer_prev_arrow_side=*/false));
-  EXPECT_TRUE(client().suggestion_controller(manager()).RemoveSuggestion(
-      0, SingleEntryRemovalMethod::kKeyboardShiftDeletePressed));
+  EXPECT_TRUE(client().suggestion_controller(manager()).RemoveSuggestion(0));
   Mock::VerifyAndClearExpectations(client().popup_view());
 
   // Remove the next entry. The popup should then be hidden since there are
   // no Autofill entries left.
   EXPECT_CALL(client().suggestion_controller(manager()),
               Hide(SuggestionHidingReason::kNoSuggestions));
-  EXPECT_TRUE(client().suggestion_controller(manager()).RemoveSuggestion(
-      0, SingleEntryRemovalMethod::kKeyboardShiftDeletePressed));
+  EXPECT_TRUE(client().suggestion_controller(manager()).RemoveSuggestion(0));
 }
 
 // Tests that removing the last manual/actionable Autocomplete suggestion will
@@ -1237,14 +1235,13 @@ TEST_F(AutofillPopupControllerImplTest,
 
   EXPECT_CALL(client().suggestion_controller(manager()),
               Hide(SuggestionHidingReason::kNoSuggestions));
-  EXPECT_TRUE(client().suggestion_controller(manager()).RemoveSuggestion(
-      0, SingleEntryRemovalMethod::kKeyboardShiftDeletePressed));
+  EXPECT_TRUE(client().suggestion_controller(manager()).RemoveSuggestion(0));
 }
 
 TEST_F(AutofillPopupControllerImplTest,
        RemoveLastSuggestion_DoesNotHidePopupForAtMemory) {
   ShowSuggestions(manager(), {SuggestionType::kAtMemorySearchResult},
-                  AutofillSuggestionTriggerSource::kAtMemoryTriggerString);
+                  AutofillSuggestionTriggerSource::kAtMemoryDoubleCtrl);
 
   test::GenerateTestAutofillPopup(&manager().external_delegate());
   EXPECT_CALL(manager().external_delegate(),
@@ -1259,8 +1256,7 @@ TEST_F(AutofillPopupControllerImplTest,
       .Times(0);
   EXPECT_CALL(*client().popup_view(),
               OnSuggestionsChanged(/*prefer_prev_arrow_side=*/false));
-  EXPECT_TRUE(client().suggestion_controller(manager()).RemoveSuggestion(
-      0, SingleEntryRemovalMethod::kKeyboardShiftDeletePressed));
+  EXPECT_TRUE(client().suggestion_controller(manager()).RemoveSuggestion(0));
 }
 
 TEST_F(AutofillPopupControllerImplTest,
@@ -1275,8 +1271,7 @@ TEST_F(AutofillPopupControllerImplTest,
       .WillOnce(Return(true));
   EXPECT_CALL(*client().popup_view(),
               AxAnnounce(Eq(u"Entry main text has been deleted")));
-  EXPECT_TRUE(client().suggestion_controller(manager()).RemoveSuggestion(
-      0, SingleEntryRemovalMethod::kKeyboardShiftDeletePressed));
+  EXPECT_TRUE(client().suggestion_controller(manager()).RemoveSuggestion(0));
 }
 
 TEST_F(AutofillPopupControllerImplTest,
@@ -1289,11 +1284,7 @@ TEST_F(AutofillPopupControllerImplTest,
                   Field(&Suggestion::type, SuggestionType::kAutocompleteEntry)))
       .WillOnce(Return(false));
 
-  EXPECT_FALSE(client().suggestion_controller(manager()).RemoveSuggestion(
-      0, SingleEntryRemovalMethod::kKeyboardShiftDeletePressed));
-  histogram_tester.ExpectUniqueSample(
-      "Autofill.Autocomplete.SingleEntryRemovalMethod",
-      SingleEntryRemovalMethod::kKeyboardShiftDeletePressed, 0);
+  EXPECT_FALSE(client().suggestion_controller(manager()).RemoveSuggestion(0));
   histogram_tester.ExpectUniqueSample(
       "Autocomplete.Events3",
       AutofillMetrics::AutocompleteEvent::AUTOCOMPLETE_SUGGESTION_DELETED, 0);
@@ -1309,11 +1300,7 @@ TEST_F(AutofillPopupControllerImplTest,
                   Field(&Suggestion::type, SuggestionType::kAutocompleteEntry)))
       .WillOnce(Return(true));
 
-  EXPECT_TRUE(client().suggestion_controller(manager()).RemoveSuggestion(
-      0, SingleEntryRemovalMethod::kKeyboardShiftDeletePressed));
-  histogram_tester.ExpectUniqueSample(
-      "Autofill.Autocomplete.SingleEntryRemovalMethod",
-      SingleEntryRemovalMethod::kKeyboardShiftDeletePressed, 1);
+  EXPECT_TRUE(client().suggestion_controller(manager()).RemoveSuggestion(0));
   histogram_tester.ExpectUniqueSample(
       "Autocomplete.Events3",
       AutofillMetrics::AutocompleteEvent::AUTOCOMPLETE_SUGGESTION_DELETED, 1);
@@ -1336,8 +1323,7 @@ TEST_F(AutofillPopupControllerImplTest,
       RemoveSuggestion(Field(&Suggestion::type, SuggestionType::kAddressEntry)))
       .WillOnce(Return(false));
 
-  EXPECT_FALSE(client().suggestion_controller(manager()).RemoveSuggestion(
-      0, SingleEntryRemovalMethod::kKeyboardShiftDeletePressed));
+  EXPECT_FALSE(client().suggestion_controller(manager()).RemoveSuggestion(0));
   histogram_tester.ExpectUniqueSample("Autofill.ProfileDeleted.Popup.Total", 1,
                                       0);
   histogram_tester.ExpectUniqueSample(
@@ -1363,8 +1349,7 @@ TEST_F(AutofillPopupControllerImplTest,
       RemoveSuggestion(Field(&Suggestion::type, SuggestionType::kAddressEntry)))
       .WillOnce(Return(true));
 
-  EXPECT_TRUE(client().suggestion_controller(manager()).RemoveSuggestion(
-      0, SingleEntryRemovalMethod::kKeyboardShiftDeletePressed));
+  EXPECT_TRUE(client().suggestion_controller(manager()).RemoveSuggestion(0));
   histogram_tester.ExpectUniqueSample("Autofill.ProfileDeleted.Any.Total", 1,
                                       1);
   histogram_tester.ExpectUniqueSample(
@@ -1392,9 +1377,6 @@ TEST_F(AutofillPopupControllerImplTest,
   }
   // No autocomplete deletion metrics are emitted.
   histogram_tester.ExpectUniqueSample(
-      "Autofill.Autocomplete.SingleEntryRemovalMethod",
-      SingleEntryRemovalMethod::kKeyboardShiftDeletePressed, 0);
-  histogram_tester.ExpectUniqueSample(
       "Autocomplete.Events3",
       AutofillMetrics::AutocompleteEvent::AUTOCOMPLETE_SUGGESTION_DELETED, 0);
 }
@@ -1409,11 +1391,7 @@ TEST_F(AutofillPopupControllerImplTest,
                   Field(&Suggestion::type, SuggestionType::kCreditCardEntry)))
       .WillOnce(Return(true));
 
-  EXPECT_TRUE(client().suggestion_controller(manager()).RemoveSuggestion(
-      0, SingleEntryRemovalMethod::kKeyboardShiftDeletePressed));
-  histogram_tester.ExpectUniqueSample(
-      "Autofill.Autocomplete.SingleEntryRemovalMethod",
-      SingleEntryRemovalMethod::kKeyboardShiftDeletePressed, 0);
+  EXPECT_TRUE(client().suggestion_controller(manager()).RemoveSuggestion(0));
   histogram_tester.ExpectUniqueSample(
       "Autocomplete.Events3",
       AutofillMetrics::AutocompleteEvent::AUTOCOMPLETE_SUGGESTION_DELETED, 0);

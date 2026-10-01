@@ -280,7 +280,7 @@ class MockAutofillClient : public TestAutofillClient {
               (const override));
   MOCK_METHOD(void,
               UpdateAutofillDataListValues,
-              (base::span<const SelectOption> options),
+              (const LocalFrameToken&, base::span<const SelectOption> options),
               (override));
   MOCK_METHOD(void,
               HideSuggestions,
@@ -567,7 +567,7 @@ class AutofillExternalDelegateTest : public testing::Test,
 
   void StartAtMemorySession(
       AutofillSuggestionTriggerSource trigger_source =
-          AutofillSuggestionTriggerSource::kAtMemoryTriggerString) {
+          AutofillSuggestionTriggerSource::kAtMemoryDoubleCtrl) {
     // Initialize the delegate's query form and field state.
     IssueOnQuery(trigger_source);
     // Assign a valid session ID to enable suggestion update callbacks.
@@ -575,7 +575,7 @@ class AutofillExternalDelegateTest : public testing::Test,
         AutofillClient::SuggestionUiSessionId(1));
     // Simulate that the popup is displayed to set up the session and its
     // callbacks.
-    external_delegate().OnSuggestionsShown({}, std::nullopt);
+    external_delegate().OnSuggestionsShown({}, /*metadata=*/{});
   }
 
   Matcher<const FormGlobalId&> HasQueriedFormId() {
@@ -756,14 +756,14 @@ TEST_F(AutofillExternalDelegateTest, SelectAutocompleteAtMemoryButton) {
   EXPECT_CALL(autofill_driver(),
               RendererShouldTriggerSuggestions(
                   queried_field().global_id(),
-                  AutofillSuggestionTriggerSource::kAtMemoryTriggerString));
+                  AutofillSuggestionTriggerSource::kAtMemoryContextMenu));
   external_delegate().DidAcceptSuggestion(
       Suggestion(SuggestionType::kAutocompleteAtMemoryButton),
       SuggestionPosition{.multi_index = {0}});
 }
 
 TEST_F(AutofillExternalDelegateTest, AtMemoryDoesNotHideOnEmptySuggestions) {
-  IssueOnQuery(AutofillSuggestionTriggerSource::kAtMemoryTriggerString);
+  IssueOnQuery(AutofillSuggestionTriggerSource::kAtMemoryDoubleCtrl);
 
   EXPECT_CALL(autofill_client(), HideSuggestions).Times(0);
 
@@ -775,7 +775,7 @@ TEST_F(AutofillExternalDelegateTest, AtMemoryDoesNotHideOnEmptySuggestions) {
 // hide the popup.
 TEST_F(AutofillExternalDelegateTest,
        AtMemorySearchAffordanceAcceptanceDoesNotHidePopup) {
-  IssueOnQuery(AutofillSuggestionTriggerSource::kAtMemoryTriggerString);
+  IssueOnQuery(AutofillSuggestionTriggerSource::kAtMemoryDoubleCtrl);
 
   EXPECT_CALL(autofill_client(), HideSuggestions).Times(0);
 
@@ -792,7 +792,7 @@ TEST_F(AutofillExternalDelegateTest, AtMemoryUsesCaretAnchorWithValidCaret) {
   FormData form = CreateTestFormWithBounds(field_bounds);
 
   IssueOnQuery(form, caret_bounds,
-               AutofillSuggestionTriggerSource::kAtMemoryTriggerString);
+               AutofillSuggestionTriggerSource::kAtMemoryDoubleCtrl);
 
   const PopupAnchorType expected_anchor_type =
 #if BUILDFLAG(IS_ANDROID)
@@ -821,7 +821,7 @@ TEST_F(AutofillExternalDelegateTest, AtMemoryUsesBottomSheetAnchor) {
   FormData form = CreateTestFormWithBounds(field_bounds);
 
   IssueOnQuery(form, empty_caret_bounds,
-               AutofillSuggestionTriggerSource::kAtMemoryTriggerString);
+               AutofillSuggestionTriggerSource::kAtMemoryDoubleCtrl);
 
   const PopupAnchorType expected_anchor_type =
 #if BUILDFLAG(IS_ANDROID)
@@ -873,12 +873,12 @@ TEST_F(AutofillExternalDelegateTest, AtMemoryContextMenuUsesCaretAnchor) {
       {CreateAutofillSuggestion(SuggestionType::kAddressEntry, u"suggestion")});
 }
 
-TEST_F(AutofillExternalDelegateTest, AtMemoryPopupDisplayed_TypedTrigger) {
+TEST_F(AutofillExternalDelegateTest, AtMemoryPopupDisplayed_DoubleCtrl) {
   base::HistogramTester histogram_tester;
-  StartAtMemorySession(AutofillSuggestionTriggerSource::kAtMemoryTriggerString);
+  StartAtMemorySession(AutofillSuggestionTriggerSource::kAtMemoryDoubleCtrl);
   histogram_tester.ExpectUniqueSample(
       "Autofill.AtMemory.SearchBarDisplayed",
-      AutofillMetrics::AtMemoryTriggerSource::kTypedTrigger, 1);
+      AutofillMetrics::AtMemoryTriggerSource::kDoubleCtrl, 1);
 }
 
 TEST_F(AutofillExternalDelegateTest, AtMemoryPopupDisplayed_ContextMenu) {
@@ -1355,7 +1355,7 @@ TEST_P(AutofillExternalDelegateAutoSuggestInactivityTest,
   EXPECT_CALL(autofill_driver(),
               RendererShouldTriggerSuggestions(
                   queried_field().global_id(),
-                  AutofillSuggestionTriggerSource::kAtMemoryTriggerString));
+                  AutofillSuggestionTriggerSource::kAtMemoryContextMenu));
   external_delegate().DidAcceptSuggestion(
       Suggestion(SuggestionType::kAtMemoryInactivityNudge),
       SuggestionPosition{.multi_index = {0}});
@@ -1580,7 +1580,7 @@ TEST_F(AutofillExternalDelegateTest, ExternalDelegateDataList) {
   std::vector<SelectOption> data_list_items;
   data_list_items.emplace_back();
 
-  EXPECT_CALL(autofill_client(), UpdateAutofillDataListValues(SizeIs(1)));
+  EXPECT_CALL(autofill_client(), UpdateAutofillDataListValues(_, SizeIs(1)));
   IssueOnQuery(data_list_items);
 
   // This should call ShowAutofillSuggestions.
@@ -1616,7 +1616,7 @@ TEST_F(AutofillExternalDelegateTest, UpdateDataListWhileShowingPopup) {
   std::vector<SelectOption> data_list_items;
   data_list_items.emplace_back();
 
-  EXPECT_CALL(autofill_client(), UpdateAutofillDataListValues(SizeIs(1)));
+  EXPECT_CALL(autofill_client(), UpdateAutofillDataListValues(_, SizeIs(1)));
   IssueOnQuery(data_list_items);
 
   // Ensure the popup is displayed.
@@ -1635,12 +1635,12 @@ TEST_F(AutofillExternalDelegateTest, UpdateDataListWhileShowingPopup) {
 
   // This would normally get called from ShowAutofillSuggestions, but it is
   // mocked so we need to call OnSuggestionsShown ourselves.
-  external_delegate().OnSuggestionsShown(autofill_item, std::nullopt);
+  external_delegate().OnSuggestionsShown(autofill_item, /*metadata=*/{});
 
   // Update the current data list and ensure the popup is updated.
   data_list_items.emplace_back();
 
-  EXPECT_CALL(autofill_client(), UpdateAutofillDataListValues(SizeIs(2)));
+  EXPECT_CALL(autofill_client(), UpdateAutofillDataListValues(_, SizeIs(2)));
   IssueOnQuery(data_list_items);
 }
 
@@ -1649,12 +1649,13 @@ TEST_F(AutofillExternalDelegateTest, UpdateDataListWhileShowingPopup) {
 TEST_F(AutofillExternalDelegateTest, DuplicateAutofillDatalistValues) {
   std::vector<SelectOption> datalist{{.value = u"Rick", .text = u"Deckard"},
                                      {.value = u"Beyonce", .text = u"Knowles"}};
-  EXPECT_CALL(autofill_client(),
-              UpdateAutofillDataListValues(
-                  ElementsAre(AllOf(Field(&SelectOption::value, u"Rick"),
-                                    Field(&SelectOption::text, u"Deckard")),
-                              AllOf(Field(&SelectOption::value, u"Beyonce"),
-                                    Field(&SelectOption::text, u"Knowles")))));
+  EXPECT_CALL(
+      autofill_client(),
+      UpdateAutofillDataListValues(
+          _, ElementsAre(AllOf(Field(&SelectOption::value, u"Rick"),
+                               Field(&SelectOption::text, u"Deckard")),
+                         AllOf(Field(&SelectOption::value, u"Beyonce"),
+                               Field(&SelectOption::text, u"Knowles")))));
   IssueOnQuery(datalist);
 
   const auto kExpectedSuggestions = SuggestionVectorIdsAre(
@@ -1681,12 +1682,13 @@ TEST_F(AutofillExternalDelegateTest, DuplicateAutofillDatalistValues) {
 TEST_F(AutofillExternalDelegateTest, DuplicateAutocompleteDatalistValues) {
   std::vector<SelectOption> datalist{{.value = u"Rick", .text = u"Deckard"},
                                      {.value = u"Beyonce", .text = u"Knowles"}};
-  EXPECT_CALL(autofill_client(),
-              UpdateAutofillDataListValues(
-                  ElementsAre(AllOf(Field(&SelectOption::value, u"Rick"),
-                                    Field(&SelectOption::text, u"Deckard")),
-                              AllOf(Field(&SelectOption::value, u"Beyonce"),
-                                    Field(&SelectOption::text, u"Knowles")))));
+  EXPECT_CALL(
+      autofill_client(),
+      UpdateAutofillDataListValues(
+          _, ElementsAre(AllOf(Field(&SelectOption::value, u"Rick"),
+                               Field(&SelectOption::text, u"Deckard")),
+                         AllOf(Field(&SelectOption::value, u"Beyonce"),
+                               Field(&SelectOption::text, u"Knowles")))));
   IssueOnQuery(datalist);
 
   const auto kExpectedSuggestions = SuggestionVectorIdsAre(
@@ -1727,7 +1729,7 @@ TEST_F(AutofillExternalDelegateTest,
       CreateAutofillSuggestion(SuggestionType::kSeparator),
       CreateAutofillSuggestion(SuggestionType::kManageCreditCard)};
 
-  external_delegate().OnSuggestionsShown(suggestions, std::nullopt);
+  external_delegate().OnSuggestionsShown(suggestions, /*metadata=*/{});
 }
 
 // Test that `BnplManager::OnCreditCardSuggestionsShown` will be called if the
@@ -1741,7 +1743,7 @@ TEST_F(AutofillExternalDelegateTest, BnplSuggestionsShownWithCreditCardEntry) {
       CreateAutofillSuggestion(SuggestionType::kSeparator),
       CreateAutofillSuggestion(SuggestionType::kManageCreditCard)};
 
-  external_delegate().OnSuggestionsShown(suggestions, std::nullopt);
+  external_delegate().OnSuggestionsShown(suggestions, /*metadata=*/{});
 }
 
 // Tests that when suggestions are hidden, the reason is correctly forwarded to
@@ -2199,7 +2201,7 @@ TEST_F(AutofillExternalDelegateTest, ExternalDelegateInvalidUniqueId) {
 // open if triggered from AtMemory.
 TEST_F(AutofillExternalDelegateTest,
        ManageSuggestion_AtMemory_KeepsBottomSheetOpenOnAndroid) {
-  IssueOnQuery(AutofillSuggestionTriggerSource::kAtMemoryTriggerString);
+  IssueOnQuery(AutofillSuggestionTriggerSource::kAtMemoryDoubleCtrl);
   const Suggestion suggestion{SuggestionType::kManageAddress};
 
   if constexpr (BUILDFLAG(IS_ANDROID)) {
@@ -2261,7 +2263,6 @@ TEST_F(AutofillExternalDelegateTest, ExternalDelegateFillsIbanEntry) {
       .WillByDefault([iban](const Suggestion::Payload& payload,
                             IbanAccessManager::OnIbanFetchedCallback callback) {
         std::move(callback).Run(iban.value());
-        return IsAsync(false);
       });
 
   external_delegate().DidAcceptSuggestion(
@@ -2493,7 +2494,7 @@ TEST_F(AutofillExternalDelegateTest, AutofillSuggestionAvailability_Autofill) {
                   queried_field().global_id(),
                   mojom::AutofillSuggestionAvailability::kAutofillAvailable));
 
-  external_delegate().OnSuggestionsShown(suggestions, std::nullopt);
+  external_delegate().OnSuggestionsShown(suggestions, /*metadata=*/{});
 }
 
 // Test that a11y autofill availability is set to `kAutofillAvailable` when
@@ -2511,7 +2512,7 @@ TEST_F(AutofillExternalDelegateTest,
                   queried_field().global_id(),
                   mojom::AutofillSuggestionAvailability::kAutofillAvailable));
 
-  external_delegate().OnSuggestionsShown(suggestions, std::nullopt);
+  external_delegate().OnSuggestionsShown(suggestions, /*metadata=*/{});
 }
 
 // Test that a11y autofill availability is set to `kAutocompleteAvailable` when
@@ -2530,7 +2531,7 @@ TEST_F(AutofillExternalDelegateTest,
           queried_field().global_id(),
           mojom::AutofillSuggestionAvailability::kAutocompleteAvailable));
 
-  external_delegate().OnSuggestionsShown(suggestions, std::nullopt);
+  external_delegate().OnSuggestionsShown(suggestions, /*metadata=*/{});
 }
 
 // Test that an accepted autofill suggestion will fill the form.
@@ -2562,7 +2563,7 @@ TEST_F(AutofillExternalDelegateTest,
   std::vector<Suggestion> suggestions = {CreateAutofillSuggestion(
       SuggestionType::kDevtoolsTestAddresses, u"Devtools")};
   OnSuggestionsReturned(queried_field(), suggestions);
-  external_delegate().OnSuggestionsShown(suggestions, std::nullopt);
+  external_delegate().OnSuggestionsShown(suggestions, /*metadata=*/{});
   histogram_tester.ExpectUniqueSample(
       "Autofill.TestAddressesEvent",
       autofill_metrics::AutofillInDevtoolsTestAddressesEvents::
@@ -4190,7 +4191,7 @@ TEST_F(AutofillExternalDelegateTest, ScanCreditCardMetrics_SuggestionShown) {
   std::vector<Suggestion> suggestions = {
       Suggestion(SuggestionType::kScanCreditCard)};
   OnSuggestionsReturned(queried_field(), suggestions);
-  external_delegate().OnSuggestionsShown(suggestions, std::nullopt);
+  external_delegate().OnSuggestionsShown(suggestions, /*metadata=*/{});
 
   histogram.ExpectUniqueSample("Autofill.ScanCreditCardPrompt",
                                AutofillMetrics::SCAN_CARD_ITEM_SHOWN, 1);
@@ -4202,7 +4203,7 @@ TEST_F(AutofillExternalDelegateTest, ScanCreditCardMetrics_SuggestionAccepted) {
   std::vector<Suggestion> suggestions = {
       Suggestion(SuggestionType::kScanCreditCard)};
   OnSuggestionsReturned(queried_field(), suggestions);
-  external_delegate().OnSuggestionsShown(suggestions, std::nullopt);
+  external_delegate().OnSuggestionsShown(suggestions, /*metadata=*/{});
 
   external_delegate().DidAcceptSuggestion(
       Suggestion(SuggestionType::kScanCreditCard),
@@ -4224,7 +4225,7 @@ TEST_F(AutofillExternalDelegateTest,
   std::vector<Suggestion> suggestions = {
       Suggestion(SuggestionType::kScanCreditCard)};
   OnSuggestionsReturned(queried_field(), suggestions);
-  external_delegate().OnSuggestionsShown(suggestions, std::nullopt);
+  external_delegate().OnSuggestionsShown(suggestions, /*metadata=*/{});
 
   external_delegate().DidAcceptSuggestion(
       Suggestion(SuggestionType::kCreditCardEntry),
@@ -4243,7 +4244,7 @@ TEST_F(AutofillExternalDelegateTest, ScanCreditCardMetrics_SuggestionNotShown) {
   base::HistogramTester histogram;
   IssueOnQuery();
   OnSuggestionsReturned(queried_field(), {});
-  external_delegate().OnSuggestionsShown({}, std::nullopt);
+  external_delegate().OnSuggestionsShown({}, /*metadata=*/{});
   histogram.ExpectTotalCount("Autofill.ScanCreditCardPrompt", 0);
 }
 
@@ -4253,7 +4254,7 @@ TEST_F(AutofillExternalDelegateTest, AutocompleteShown_MetricsEmitted) {
   std::vector<Suggestion> suggestions = {CreateAutofillSuggestion(
       SuggestionType::kAutocompleteEntry, u"autocomplete")};
   OnSuggestionsReturned(queried_field(), suggestions);
-  external_delegate().OnSuggestionsShown(suggestions, std::nullopt);
+  external_delegate().OnSuggestionsShown(suggestions, /*metadata=*/{});
   histogram.ExpectBucketCount("Autocomplete.Events3",
                               AutofillMetrics::AUTOCOMPLETE_SUGGESTIONS_SHOWN,
                               1);
@@ -4427,7 +4428,6 @@ TEST_F(AutofillExternalDelegateTest, ExternalDelegateFillFieldWithValue_Iban) {
       .WillByDefault([iban](const Suggestion::Payload& payload,
                             IbanAccessManager::OnIbanFetchedCallback callback) {
         std::move(callback).Run(iban.value());
-        return IsAsync(false);
       });
   external_delegate().DidAcceptSuggestion(
       CreateAutofillSuggestion(SuggestionType::kIbanEntry,
@@ -4576,7 +4576,7 @@ TEST_F(AutofillExternalDelegateTest,
   external_delegate().OnSuggestionsShown(
       std::vector<Suggestion>{
           Suggestion(SuggestionType::kPersonalContextNotice)},
-      /*parent_suggestion_metadata=*/std::nullopt);
+      /*metadata=*/{});
 
   EXPECT_EQ(autofill_client()
                 .GetPersonalContextFirstRunService()
@@ -4587,7 +4587,7 @@ TEST_F(AutofillExternalDelegateTest,
   external_delegate().OnSuggestionsShown(
       std::vector<Suggestion>{
           Suggestion(SuggestionType::kPersonalContextNotice)},
-      /*parent_suggestion_metadata=*/std::nullopt);
+      /*metadata=*/{});
 
   EXPECT_EQ(autofill_client()
                 .GetPersonalContextFirstRunService()
@@ -4601,7 +4601,7 @@ TEST_F(AutofillExternalDelegateTest,
   external_delegate().OnSuggestionsShown(
       std::vector<Suggestion>{
           Suggestion(SuggestionType::kPersonalContextNotice)},
-      /*parent_suggestion_metadata=*/std::nullopt);
+      /*metadata=*/{});
 
   EXPECT_EQ(autofill_client()
                 .GetPersonalContextFirstRunService()
@@ -4613,7 +4613,7 @@ TEST_F(AutofillExternalDelegateTest,
 // AtMemory.
 TEST_F(AutofillExternalDelegateTest,
        OnSuggestionsShown_PersonalContextNotice_AtMemory) {
-  IssueOnQuery(AutofillSuggestionTriggerSource::kAtMemoryTriggerString);
+  IssueOnQuery(AutofillSuggestionTriggerSource::kAtMemoryDoubleCtrl);
   autofill_client().set_suggestion_ui_session_id(
       AutofillClient::SuggestionUiSessionId(1));
   EXPECT_EQ(autofill_client()
@@ -4624,7 +4624,7 @@ TEST_F(AutofillExternalDelegateTest,
   external_delegate().OnSuggestionsShown(
       std::vector<Suggestion>{
           Suggestion(SuggestionType::kPersonalContextNotice)},
-      /*parent_suggestion_metadata=*/std::nullopt);
+      /*metadata=*/{});
 
   EXPECT_EQ(autofill_client()
                 .GetPersonalContextFirstRunService()
@@ -4635,7 +4635,7 @@ TEST_F(AutofillExternalDelegateTest,
   external_delegate().OnSuggestionsShown(
       std::vector<Suggestion>{
           Suggestion(SuggestionType::kPersonalContextNotice)},
-      /*parent_suggestion_metadata=*/std::nullopt);
+      /*metadata=*/{});
 
   EXPECT_EQ(autofill_client()
                 .GetPersonalContextFirstRunService()
@@ -4649,7 +4649,7 @@ TEST_F(AutofillExternalDelegateTest,
   external_delegate().OnSuggestionsShown(
       std::vector<Suggestion>{
           Suggestion(SuggestionType::kPersonalContextNotice)},
-      /*parent_suggestion_metadata=*/std::nullopt);
+      /*metadata=*/{});
 
   EXPECT_EQ(autofill_client()
                 .GetPersonalContextFirstRunService()
@@ -4678,7 +4678,7 @@ TEST_F(AutofillExternalDelegateTest,
 // AtMemory.
 TEST_F(AutofillExternalDelegateTest,
        RemoveSuggestion_PersonalContextNotice_AtMemory) {
-  IssueOnQuery(AutofillSuggestionTriggerSource::kAtMemoryTriggerString);
+  IssueOnQuery(AutofillSuggestionTriggerSource::kAtMemoryDoubleCtrl);
   EXPECT_FALSE(autofill_client()
                    .GetPersonalContextFirstRunService()
                    ->is_at_memory_notice_acknowledged());
@@ -4847,7 +4847,7 @@ TEST_F(AutofillExternalDelegateTest,
                   ElementsAre(Field(&Suggestion::is_loading,
                                     Suggestion::IsLoading(true))),
                   FillingProduct::kAtMemory,
-                  AutofillSuggestionTriggerSource::kAtMemoryTriggerString,
+                  AutofillSuggestionTriggerSource::kAtMemoryDoubleCtrl,
                   AutofillSuggestionsIgnoreFocusLoss(true)));
 
   external_delegate().DidAcceptSuggestion(
@@ -4857,7 +4857,7 @@ TEST_F(AutofillExternalDelegateTest,
 // Tests that accepting an AtMemory suggestion for an IBAN attempts to fetch the
 // value from the IbanAccessManager.
 TEST_F(AutofillExternalDelegateTest, AtMemorySearchResult_RevealsIban) {
-  IssueOnQuery(AutofillSuggestionTriggerSource::kAtMemoryTriggerString);
+  IssueOnQuery(AutofillSuggestionTriggerSource::kAtMemoryDoubleCtrl);
 
   Iban iban = test::GetLocalIban();
   Suggestion suggestion(u"some result", SuggestionType::kAtMemorySearchResult);
@@ -4872,7 +4872,6 @@ TEST_F(AutofillExternalDelegateTest, AtMemorySearchResult_RevealsIban) {
       .WillOnce([iban](const Suggestion::Payload& payload,
                        IbanAccessManager::OnIbanFetchedCallback callback) {
         std::move(callback).Run(iban.value());
-        return IsAsync(false);
       });
 
   EXPECT_CALL(
@@ -4888,7 +4887,7 @@ TEST_F(AutofillExternalDelegateTest, AtMemorySearchResult_RevealsIban) {
 // Tests that accepting an AtMemory suggestion for a Credit Card attempts to
 // fetch the value from the CreditCardAccessManager.
 TEST_F(AutofillExternalDelegateTest, AtMemorySearchResult_RevealsCreditCard) {
-  IssueOnQuery(AutofillSuggestionTriggerSource::kAtMemoryTriggerString);
+  IssueOnQuery(AutofillSuggestionTriggerSource::kAtMemoryDoubleCtrl);
 
   CreditCard card = test::GetCreditCard();
   pdm().payments_data_manager().AddCreditCard(card);
@@ -4932,7 +4931,7 @@ TEST_F(AutofillExternalDelegateTest, AtMemorySearchResult_RevealsAutofillAi) {
   EntityInstance passport = GetPassportEntityInstance();
   AddOrUpdateEntityInstance(passport);
 
-  IssueOnQuery(AutofillSuggestionTriggerSource::kAtMemoryTriggerString,
+  IssueOnQuery(AutofillSuggestionTriggerSource::kAtMemoryDoubleCtrl,
                PASSPORT_NUMBER, "passport");
 
   Suggestion suggestion(u"some result", SuggestionType::kAtMemorySearchResult);
@@ -4974,7 +4973,7 @@ TEST_F(AutofillExternalDelegateWithWalletPrivatePassesTest,
       masked_passport.attribute(kPassportNumberType)->GetCompleteRawInfo());
   AddOrUpdateEntityInstance(masked_passport);
 
-  IssueOnQuery(AutofillSuggestionTriggerSource::kAtMemoryTriggerString,
+  IssueOnQuery(AutofillSuggestionTriggerSource::kAtMemoryDoubleCtrl,
                PASSPORT_NUMBER, "passport");
 
   Suggestion suggestion(u"some result", SuggestionType::kAtMemorySearchResult);

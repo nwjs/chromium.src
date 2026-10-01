@@ -635,7 +635,7 @@ void LocalFrameClientImpl::BeginNavigation(
     base::TimeTicks actual_navigation_start,
     const String& href_translate,
     const LocalFrameToken* initiator_frame_token,
-    const base::UnguessableToken& initiator_state_token,
+    const InitiatorStateToken& initiator_state_token,
     const DocumentToken& initiator_document_token,
     SourceLocation* source_location,
     mojo::PendingRemote<mojom::blink::NavigationStateKeepAliveHandle>
@@ -644,7 +644,8 @@ void LocalFrameClientImpl::BeginNavigation(
     bool has_rel_opener,
     mojo::PendingReceiver<mojom::blink::NavigationResumeDeferredCommitListener>
         resume_defer_commit_listener,
-    std::optional<base::UnguessableToken> script_tool_invocation_id) {
+    std::optional<base::UnguessableToken> script_tool_invocation_id,
+    const String& script_injector_host) {
   if (!web_frame_->Client()) {
     return;
   }
@@ -665,6 +666,7 @@ void LocalFrameClientImpl::BeginNavigation(
   navigation_info->is_unfenced_top_navigation = is_unfenced_top_navigation;
   navigation_info->frame_load_type = frame_load_type;
   navigation_info->is_client_redirect = is_client_redirect;
+  navigation_info->script_injector_host = script_injector_host;
 
   if (script_tool_invocation_id.has_value()) {
     navigation_info->script_tool_invocation_id =
@@ -678,7 +680,6 @@ void LocalFrameClientImpl::BeginNavigation(
   navigation_info->input_start = input_start_time;
   navigation_info->actual_navigation_start = actual_navigation_start;
   navigation_info->initiator_state_token = initiator_state_token;
-  CHECK(!navigation_info->initiator_state_token.is_empty());
   navigation_info->initiator_document_token = initiator_document_token;
   navigation_info->initiator_frame_token =
       base::OptionalFromPtr(initiator_frame_token);
@@ -1295,6 +1296,10 @@ void LocalFrameClientImpl::BindDevToolsAgent(
 
 bool LocalFrameClientImpl::IsDomStorageDisabled() const {
   return web_frame_->Client()->IsDomStorageDisabled();
+}
+
+bool LocalFrameClientImpl::AreDedicatedWorkersDisabled() const {
+  return web_frame_->Client()->AreDedicatedWorkersDisabled();
 }
 
 bool LocalFrameClientImpl::IsForInitialWebUI() const {

@@ -31,6 +31,11 @@ import static org.chromium.chrome.browser.autofill.AutofillTestHelper.createCred
 import static org.chromium.chrome.browser.autofill.AutofillTestHelper.createCreditCardSuggestion;
 import static org.chromium.chrome.browser.autofill.AutofillTestHelper.createLocalCreditCard;
 import static org.chromium.chrome.browser.autofill.AutofillTestHelper.createVirtualCreditCard;
+import static org.chromium.chrome.browser.touch_to_fill.common.TouchToFillCommonProperties.ButtonProperties.ON_CLICK_ACTION;
+import static org.chromium.chrome.browser.touch_to_fill.common.TouchToFillCommonProperties.ButtonProperties.TEXT_ID;
+import static org.chromium.chrome.browser.touch_to_fill.common.TouchToFillCommonProperties.HeaderProperties.IMAGE_DRAWABLE_ID;
+import static org.chromium.chrome.browser.touch_to_fill.common.TouchToFillCommonProperties.HeaderProperties.TITLE_ID;
+import static org.chromium.chrome.browser.touch_to_fill.common.TouchToFillCommonProperties.HeaderProperties.TITLE_STRING;
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.BACK_PRESS_HANDLER;
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.BnplIssuerContextProperties.APPLY_ISSUER_DEACTIVATED_STYLE;
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.BnplIssuerContextProperties.ISSUER_ICON_ID;
@@ -52,8 +57,6 @@ import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaym
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.BnplSuggestionProperties.SECONDARY_TEXT;
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.BnplTosHeaderProperties.ISSUER_IMAGE_DRAWABLE_ID;
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.BnplTosHeaderProperties.ISSUER_TITLE_STRING;
-import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.ButtonProperties.ON_CLICK_ACTION;
-import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.ButtonProperties.TEXT_ID;
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.CURRENT_SCREEN;
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.CreditCardSuggestionProperties.APPLY_DEACTIVATED_STYLE;
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.CreditCardSuggestionProperties.FIRST_LINE_LABEL;
@@ -66,9 +69,6 @@ import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaym
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.CreditCardSuggestionProperties.SECOND_LINE_LABEL;
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.DISMISS_HANDLER;
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.ErrorDescriptionProperties.ERROR_DESCRIPTION_STRING;
-import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.HeaderProperties.IMAGE_DRAWABLE_ID;
-import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.HeaderProperties.TITLE_ID;
-import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.HeaderProperties.TITLE_STRING;
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.IbanProperties.IBAN_NICKNAME;
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.IbanProperties.IBAN_VALUE;
 import static org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.IbanProperties.NON_TRANSFORMING_IBAN_KEYS;
@@ -154,14 +154,15 @@ import org.chromium.chrome.browser.autofill.PersonalDataManager.CreditCard;
 import org.chromium.chrome.browser.autofill.PersonalDataManager.Iban;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
+import org.chromium.chrome.browser.touch_to_fill.R;
 import org.chromium.chrome.browser.touch_to_fill.common.FillableItemCollectionInfo;
+import org.chromium.chrome.browser.touch_to_fill.common.TouchToFillCommonProperties.ButtonProperties;
+import org.chromium.chrome.browser.touch_to_fill.common.TouchToFillCommonProperties.HeaderProperties;
 import org.chromium.chrome.browser.touch_to_fill.common.TouchToFillResourceProvider;
 import org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.AllLoyaltyCardsItemProperties;
 import org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.BnplSelectionProgressHeaderProperties;
 import org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.BnplTosHeaderProperties;
-import org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.ButtonProperties;
 import org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.ErrorDescriptionProperties;
-import org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.HeaderProperties;
 import org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.LoyaltyCardProperties;
 import org.chromium.chrome.browser.touch_to_fill.payments.TouchToFillPaymentMethodProperties.TosFooterProperties;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
@@ -193,6 +194,7 @@ import java.util.function.Consumer;
 /** Tests for {@link TouchToFillPaymentMethodView} */
 @RunWith(ChromeJUnit4ClassRunner.class)
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
+@DisableFeatures(ChromeFeatureList.BOTTOM_SHEET_ON_DESKTOP_WINDOWING)
 public class TouchToFillPaymentMethodViewTest {
     /** An observer used to record events that occur with respect to the bottom sheet. */
     private static class TestSheetObserver implements BottomSheetObserver {
@@ -534,7 +536,7 @@ public class TouchToFillPaymentMethodViewTest {
         TextView title =
                 mTouchToFillPaymentMethodView
                         .getContentView()
-                        .findViewById(R.id.touch_to_fill_sheet_title);
+                        .findViewById(R.id.touch_to_fill_sheet_header_title);
         assertThat(
                 title.getText().toString(),
                 is(getString(R.string.autofill_loyalty_card_bottom_sheet_title)));
@@ -558,7 +560,7 @@ public class TouchToFillPaymentMethodViewTest {
         TextView title =
                 mTouchToFillPaymentMethodView
                         .getContentView()
-                        .findViewById(R.id.touch_to_fill_sheet_title);
+                        .findViewById(R.id.touch_to_fill_sheet_header_title);
         assertThat(title.getText().toString(), is(TITLE_TEXT));
     }
 
@@ -1521,7 +1523,6 @@ public class TouchToFillPaymentMethodViewTest {
 
     @Test
     @MediumTest
-    @EnableFeatures({ChromeFeatureList.AUTOFILL_ENABLE_WALLET_BRANDING})
     public void testBnplIssuerTosHeader() {
         runOnUiThreadBlocking(
                 () -> {
@@ -1540,33 +1541,6 @@ public class TouchToFillPaymentMethodViewTest {
 
         int expectedHeight =
                 getDimensionPixelSize(R.dimen.bnpl_tos_header_item_icon_wallet_branding_height);
-        assertThat(bnplTosBrandingIcon.getLayoutParams().height, is(expectedHeight));
-
-        TextView bnplTosTitle =
-                mTouchToFillPaymentMethodView.getContentView().findViewById(R.id.bnpl_tos_title);
-        assertThat(bnplTosTitle.getText().toString(), is(ISSUER_TITLE_TEXT));
-    }
-
-    @Test
-    @MediumTest
-    @DisableFeatures({ChromeFeatureList.AUTOFILL_ENABLE_WALLET_BRANDING})
-    public void testBnplIssuerTosHeader_walletBrandingDisabled() {
-        runOnUiThreadBlocking(
-                () -> {
-                    mTouchToFillPaymentMethodModel
-                            .get(SHEET_ITEMS)
-                            .add(new ListItem(TOS_HEADER, createTosHeaderModel()));
-                    mTouchToFillPaymentMethodModel.set(VISIBLE, true);
-                });
-        BottomSheetTestSupport.waitForOpen(mBottomSheetController);
-
-        ImageView bnplTosBrandingIcon =
-                mTouchToFillPaymentMethodView
-                        .getContentView()
-                        .findViewById(R.id.bnpl_tos_branding_icon);
-        assertThat(bnplTosBrandingIcon.isShown(), is(true));
-
-        int expectedHeight = getDimensionPixelSize(R.dimen.bnpl_tos_header_item_icon_height);
         assertThat(bnplTosBrandingIcon.getLayoutParams().height, is(expectedHeight));
 
         TextView bnplTosTitle =

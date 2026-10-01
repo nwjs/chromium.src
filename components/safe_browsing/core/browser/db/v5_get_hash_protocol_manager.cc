@@ -10,8 +10,8 @@
 #include "base/containers/flat_set.h"
 #include "base/functional/bind.h"
 #include "base/metrics/histogram_functions.h"
-#include "base/strings/strcat.h"
 #include "build/build_config.h"
+#include "components/safe_browsing/core/browser/db/sb_protocol_manager_util.h"
 #include "components/safe_browsing/core/browser/db/v5_search_hashes_cache.h"
 #include "components/safe_browsing/core/browser/db/v5_search_hashes_util.h"
 #include "components/safe_browsing/core/common/utils.h"
@@ -104,6 +104,9 @@ bool IsHashDetailRelevantForLocalChecks(
       return true;
 
     case V5::ThreatType::MALWARE:
+    // POTENTIALLY_HARMFUL_APPLICATION is used for mobile/iOS malware
+    // ("pha-4b").
+    case V5::ThreatType::POTENTIALLY_HARMFUL_APPLICATION:
     case V5::ThreatType::MALICIOUS_BINARY:
     case V5::ThreatType::UNWANTED_SOFTWARE:
     case V5::ThreatType::TRICK_TO_BILL:
@@ -112,7 +115,6 @@ bool IsHashDetailRelevantForLocalChecks(
       return !has_canary;
 
     case V5::ThreatType::THREAT_TYPE_UNSPECIFIED:
-    case V5::ThreatType::POTENTIALLY_HARMFUL_APPLICATION:
     case V5::ThreatType::SUBRESOURCE_FILTER:
       // These types are not supported/relevant for V5 local DB queries.
       return false;
@@ -128,7 +130,7 @@ bool IsHashDetailRelevantForLocalChecks(
 
 V5GetHashProtocolManager::V5GetHashProtocolManager(
     scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
-    const V4ProtocolConfig& config,
+    const SBProtocolConfig& config,
     V5SearchHashesCache* cache)
     : url_loader_factory_(url_loader_factory),
       config_(config),
@@ -284,10 +286,8 @@ void V5GetHashProtocolManager::GetFullHashes(
   resource_request->method = "GET";
   resource_request->load_flags = net::LOAD_DISABLE_CACHE;
   resource_request->credentials_mode = network::mojom::CredentialsMode::kOmit;
-  // TODO(crbug.com/362791941): share with v5_update_protocol_manager
-  resource_request->headers.SetHeader(
-      net::HttpRequestHeaders::kUserAgent,
-      base::StrCat({config_.client_name, " ", config_.version}));
+  SBProtocolManagerUtil::SetV5UserAgentHeader(&resource_request->headers,
+                                              config_);
 
   std::unique_ptr<network::SimpleURLLoader> owned_loader =
       network::SimpleURLLoader::Create(std::move(resource_request),

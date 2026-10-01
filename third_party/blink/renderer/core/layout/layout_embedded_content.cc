@@ -61,8 +61,6 @@ void LayoutEmbeddedContent::WillBeDestroyed(const ComputedStyle* style) {
     frame_owner->SetEmbeddedContentView(nullptr);
 
   LayoutReplaced::WillBeDestroyed(style);
-
-  ClearNode();
 }
 
 FrameView* LayoutEmbeddedContent::ChildFrameView() const {
@@ -262,9 +260,23 @@ bool LayoutEmbeddedContent::NodeAtPoint(
 
     if (VisibleToHitTestRequest(result.GetHitTestRequest()) &&
         child_layout_view) {
-      const PhysicalOffset content_offset = PhysicalContentBoxRect().offset;
-      HitTestLocation new_hit_test_location(
-          hit_test_location, -accumulated_offset - content_offset);
+      PhysicalOffset offset = accumulated_offset + ReplacedContentRect().offset;
+      if (RuntimeEnabledFeatures::UsePaintGeometryForIntersectionEnabled() &&
+          result.GetHitTestRequest().IsHitTestVisualOverflow()) {
+        // To hit test where we paint, adjust the offset by the paint offset
+        // subpixels to be consistent with PrePaint and Paint when we round
+        // paint offset when crossing frame boundaries.
+        PhysicalOffset frame_paint_offset =
+            FirstFragment().PaintOffset() + ReplacedContentRect().offset;
+        // LINT.IfChange(FramePixelSnapping)
+        PhysicalOffset subpixel_adjustment =
+            frame_paint_offset -
+            PhysicalOffset(ToRoundedPoint(frame_paint_offset));
+        // LINT.ThenChange(../paint/pre_paint_tree_walk.cc:FramePixelSnapping)
+        offset -= subpixel_adjustment;
+      }
+
+      HitTestLocation new_hit_test_location(hit_test_location, -offset);
       HitTestRequest new_hit_test_request(
           result.GetHitTestRequest().GetType() |
               HitTestRequest::kChildFrameHitTest,
@@ -482,7 +494,8 @@ void LayoutEmbeddedContent::UpdateGeometry(
     // which is a float-type but frame_rect in a content view is an gfx::Rect.
     // We may want to reevaluate the use of pixel snapping that since scroll
     // offsets/layout can be fractional.
-    frame_rect.Offset(layout_view->PixelSnappedScrolledContentOffset());
+    frame_rect.Offset(
+        layout_view->GetScrollableArea()->PixelSnappedScrollOffset());
   }
 
   embedded_content_view.SetFrameRect(frame_rect);

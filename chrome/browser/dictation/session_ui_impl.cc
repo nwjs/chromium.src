@@ -125,8 +125,7 @@ SessionUiImpl::~SessionUiImpl() = default;
 void SessionUiImpl::OnError(StreamType stream_type, StreamErrorReason reason) {
   BrowserWindowInterface* const window = tab_->GetBrowserWindowInterface();
   if (window) {
-    ToastController* const toast_controller =
-        window->GetFeatures().toast_controller();
+    ToastController* const toast_controller = ToastController::From(window);
     if (toast_controller) {
       toast_controller->MaybeShowToast(ToastParams(GetToastId(reason)));
     }
@@ -142,8 +141,7 @@ void SessionUiImpl::OnError(StreamType stream_type, StreamErrorReason reason) {
 void SessionUiImpl::OnStopped() {
   BrowserWindowInterface* const window = tab_->GetBrowserWindowInterface();
   if (window) {
-    ToastController* const toast_controller =
-        window->GetFeatures().toast_controller();
+    ToastController* const toast_controller = ToastController::From(window);
     if (toast_controller) {
       toast_controller->MaybeShowToast(ToastParams(ToastId::kDictationStopped));
     }
@@ -256,7 +254,7 @@ void SessionUiImpl::OnTabWillDeactivate(tabs::TabInterface* tab) {
                     tab_weak->GetBrowserWindowInterface();
                 CHECK(window);
                 ToastController* const toast_controller =
-                    window->GetFeatures().toast_controller();
+                    ToastController::From(window);
                 CHECK(toast_controller);
                 toast_controller->MaybeShowToast(
                     ToastParams(ToastId::kDictationStopped));

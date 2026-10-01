@@ -683,9 +683,7 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
 
   html_source->AddString(
       "settingsRefresh2026",
-      base::FeatureList::IsEnabled(features::kSettingsRefresh2026)
-          ? "settings-refresh-2026"
-          : "");
+      features::IsSettingsRefresh2026Enabled() ? "settings-refresh-2026" : "");
 
 #if 0 //nwjs
   personal_context::PersonalContextEligibilityService* eligibility_service =
@@ -715,6 +713,10 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
           autofill::AtMemoryAction::kAllowCustomizeAtMemoryShortcut,
           autofill_client));
 #endif //nwjs
+
+  html_source->AddBoolean("isAtMemoryDoubleCtrlEnabled",
+                          base::FeatureList::IsEnabled(
+                              autofill::features::kAutofillAtMemoryDoubleCtrl));
 
   html_source->AddString(
       "webuiRefresh2026",

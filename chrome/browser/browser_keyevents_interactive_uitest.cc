@@ -14,13 +14,13 @@
 #include "base/test/run_until.h"
 #include "base/values.h"
 #include "build/build_config.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/interactive_test_utils.h"
 #include "chrome/test/base/ui_test_utils.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/visibility.h"
 #include "content/public/browser/web_contents.h"
@@ -30,6 +30,7 @@
 #include "net/test/embedded_test_server/embedded_test_server.h"
 #include "third_party/blink/public/common/switches.h"
 #include "ui/base/ime/text_input_type.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/events/keycodes/keyboard_codes.h"
 
 using content::NavigationController;
@@ -634,16 +635,15 @@ IN_PROC_BROWSER_TEST_F(BrowserKeyEventsTest, MAYBE_AccessKeys) {
   // Alt+D should move the focus to the location entry.
   EXPECT_NO_FATAL_FAILURE(TestKeyEvent(tab_index, kTestAccessD));
 
-  // TODO(isherman): This is an experimental change to help diagnose
-  // http://crbug.com/41219367
-  content::RunAllPendingInMessageLoop();
-  EXPECT_TRUE(IsViewFocused(VIEW_ID_OMNIBOX));
+  EXPECT_TRUE(
+      base::test::RunUntil([&]() { return IsViewFocused(VIEW_ID_OMNIBOX); }));
   // No element should be focused, as Alt+D was handled by the browser.
   EXPECT_NO_FATAL_FAILURE(CheckFocusedElement(tab_index, ""));
 
   // Move the focus back to the web page.
   ASSERT_NO_FATAL_FAILURE(ClickOnView(VIEW_ID_TAB_CONTAINER));
-  ASSERT_TRUE(IsViewFocused(VIEW_ID_TAB_CONTAINER));
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return IsViewFocused(VIEW_ID_TAB_CONTAINER); }));
 
   // Make sure no element is focused.
   EXPECT_NO_FATAL_FAILURE(CheckFocusedElement(tab_index, ""));

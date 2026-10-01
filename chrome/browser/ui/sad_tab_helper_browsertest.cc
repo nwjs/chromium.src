@@ -8,7 +8,6 @@
 #include "base/test/run_until.h"
 #include "base/test/scoped_feature_list.h"
 #include "build/build_config.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/sad_tab.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/test/base/in_process_browser_test.h"
@@ -21,6 +20,7 @@
 #include "content/public/test/no_renderer_crashes_assertion.h"
 #include "content/public/test/test_utils.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
+#include "ui/base/window_open_disposition.h"
 
 #if BUILDFLAG(IS_WIN)
 #include "base/process/process.h"
@@ -104,9 +104,8 @@ IN_PROC_BROWSER_TEST_F(
 // in SadTabHelper::PrimaryMainFrameRenderProcessGone assumed that
 // TabLifecycleUnitExternal::FromWebContents always returned non-null, but
 // no-state prefetch WebContents are never added to a TabStripModel.
-// TODO(crbug.com/541361270): Re-enable this test
 IN_PROC_BROWSER_TEST_F(SadTabHelperBrowserTest,
-                       DISABLED_NoStatePrefetchEvictedForMemory_DoesNotCrash) {
+                       NoStatePrefetchEvictedForMemory_DoesNotCrash) {
   content::ScopedAllowRendererCrashes scoped_allow_renderer_crashes;
 
   // Navigate the main tab to a real page so we have an active browser context.
@@ -158,7 +157,12 @@ IN_PROC_BROWSER_TEST_F(SadTabHelperBrowserTest,
   test_no_state_prefetch->WaitForStart();
   content::RenderProcessHost* render_process_host =
       prefetch_web_contents->GetPrimaryMainFrame()->GetProcess();
-  ASSERT_TRUE(render_process_host->IsReady());
+  content::RenderProcessHostWatcher ready_observer(
+      render_process_host,
+      content::RenderProcessHostWatcher::WATCH_FOR_PROCESS_READY);
+  if (!render_process_host->IsReady()) {
+    ASSERT_TRUE(ready_observer.Wait());
+  }
 
   // Terminate the prefetch renderer with the exit code that maps to
   // TERMINATION_STATUS_EVICTED_FOR_MEMORY.

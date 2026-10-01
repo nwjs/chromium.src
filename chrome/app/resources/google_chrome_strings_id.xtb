@@ -36,7 +36,6 @@
 <translation id="1333654552732143316">Jalankan Chrome</translation>
 <translation id="1341711321000856656">Anda dapat beralih untuk melihat sandi dari profil Chrome lainnya</translation>
 <translation id="1343830902827845050">Login ke Chrome</translation>
-<translation id="1356661055722410047">Baru! Anda dapat menerjemahkan teks dan gambar di layar</translation>
 <translation id="1361351916482714918">Menjelajah lebih cerdas dengan Google Lens</translation>
 <translation id="1363996462118479832">ChromeOS tidak dapat menyinkronkan data Anda karena terjadi error saat login.</translation>
 <translation id="137466361146087520">Google Chrome Beta</translation>
@@ -74,7 +73,6 @@
 <translation id="1640672724030957280">Mengunduh...</translation>
 <translation id="1651617469580841801">Saat Anda menggunakan Google Lens, judul halaman, URL, dan konten halaman, termasuk PDF, akan dikirim ke Google. <ph name="LEARN_MORE" /></translation>
 <translation id="1662146548738125461">Tentang ChromeOS Flex</translation>
-<translation id="1664094661346151467">Telusuri dan ajukan pertanyaan dari mana saja, termasuk saat Chrome sedang diminimalkan</translation>
 <translation id="1674870198290878346">Buka Link di Jendela Sa&amp;maran Chrome</translation>
 <translation id="1682634494516646069">Google Chrome tidak dapat membaca dan menulis ke direktori datanya: <ph name="USER_DATA_DIRECTORY" /></translation>
 <translation id="1688214853608504530">Saat Anda mengetik di kolom URL atau kotak penelusuran, Chrome akan mengirimkan hal yang Anda ketik ke alat penelusuran, AI, dan agen milik organisasi Anda untuk mendapatkan saran.</translation>
@@ -96,6 +94,7 @@
 <translation id="1873233029667955273">Google Chrome bukan browser default</translation>
 <translation id="1874309113135274312">Google Chrome Beta (mDNS-In)</translation>
 <translation id="1877026089748256423">Chrome terlalu lawas</translation>
+<translation id="1877067026701708502"><ph name="EXISTING_USER" /> sudah login. Agar penjelajahan Anda tetap terpisah, login ke Chrome di profil Anda sendiri sebagai <ph name="USER_EMAIL_ADDRESS" />. Anda juga akan mendapatkan ekstensi dan data lainnya di semua perangkat Anda.</translation>
 <translation id="1880677175115548835">Pilih teks</translation>
 <translation id="1896602904211344018">Dapatkan aplikasi Chrome</translation>
 <translation id="1919130412786645364">Izinkan login Chrome</translation>
@@ -228,6 +227,7 @@ Jika halaman ini tidak berfungsi sebagaimana mestinya, coba izinkan pengoptimala
 <translation id="3112458742631356345">Chrome memblokir download ini karena file tersebut tidak biasa didownload dan mungkin berbahaya</translation>
 <translation id="3119573284443908657">Chrome memblokir download ini karena file arsip menyertakan file lain yang mungkin menyembunyikan malware</translation>
 <translation id="3124332159330678621">Sesuaikan Chrome untuk memberikan tampilan baru ke browser Anda</translation>
+<translation id="3125851611828811913">Telusuri dan ajukan pertanyaan dari mana saja, termasuk saat Chrome sedang diminimalkan. Mengizinkan Chrome berjalan di latar belakang.</translation>
 <translation id="3130333203120345554">Penelusuran baru</translation>
 <translation id="3135560418014806498">Tambahkan Profil Chrome</translation>
 <translation id="3137969841538672700">Tarik untuk menelusuri</translation>
@@ -385,6 +385,7 @@ Jika halaman ini tidak berfungsi sebagaimana mestinya, coba izinkan pengoptimala
 <translation id="4793679854893018356">Pelajari cara Chrome menjaga keamanan Anda</translation>
 <translation id="4799870290441980300">Mengaktifkan fitur tambahan untuk memberikan perlindungan terkuat Chrome</translation>
 <translation id="4828579605166583682">Google Chrome mencoba mengganti sandi yang ada. Ketik sandi Windows Anda untuk mengizinkannya.</translation>
+<translation id="4836321460899997044">Profil Chrome</translation>
 <translation id="4842397268809523050">ChromeOS Flex tidak dapat menyinkronkan data Anda karena Sinkronisasi tidak tersedia untuk domain Anda.</translation>
 <translation id="4851866215237571846"><ph name="EXISTING_USER" /> sudah login.  Agar penjelajahan Anda tetap terpisah, login ke Chrome di profil Anda sendiri sebagai <ph name="USER_EMAIL_ADDRESS" />.</translation>
 <translation id="4855026984605187434">Untuk membagikan layar Anda, izinkan perekaman layar untuk Chrome di Setelan Sistem</translation>
@@ -498,6 +499,7 @@ Jika halaman ini tidak berfungsi sebagaimana mestinya, coba izinkan pengoptimala
 <translation id="6014316319780893079">Dengan <ph name="BEGIN_LINK" />alat dari Chrome<ph name="END_LINK" />, Anda dapat menjelajah dengan aman dan tetap memegang kendali</translation>
 <translation id="6018578474045062808">Coba Google Lens dengan Chrome di ponsel</translation>
 <translation id="6022659036123304283">Sesuaikan Chrome dengan selera Anda</translation>
+<translation id="6024930613143833266">Melakukan penelusuran dengan Chrome dari mana saja</translation>
 <translation id="6025087594896450715">Google Chrome akan dimulai ulang dalam <ph name="REMAINING_TIME" /></translation>
 <translation id="6040143037577758943">Tutup</translation>
 <translation id="604424701295382420">Disematkan. Anda dapat mengakses Google Lens lagi dari tombol baru di toolbar</translation>
@@ -542,6 +544,7 @@ Jika halaman ini tidak berfungsi sebagaimana mestinya, coba izinkan pengoptimala
 <translation id="6334815226785304306">Jadikan Google Chrome sebagai browser default dan sematkan ke taskbar</translation>
 <translation id="63540178978900677">Chrome bukan lagi browser default Anda. Jadikan Chrome browser default?</translation>
 <translation id="6360449101159168105">Saat tab ini tidak aktif, memori akan dikosongkan agar Chrome tetap cepat. Anda dapat memilih untuk selalu mengecualikan situs ini agar tetap aktif.</translation>
+<translation id="6362984640667950211"><ph name="EXISTING_USER" /> sudah login. Agar penjelajahan Anda tetap terpisah, login ke Chrome di profil Anda sendiri sebagai <ph name="USER_EMAIL_ADDRESS" />. Anda juga akan mendapatkan daftar bacaan dan data lainnya di semua perangkat Anda.</translation>
 <translation id="6388799252195623474">bantu saya dengan hal ini</translation>
 <translation id="6412673304250309937">Memeriksa kesesuaian URL dengan daftar situs tidak aman yang disimpan di Chrome. Jika situs berusaha mencuri sandi Anda, atau jika Anda mendownload file berbahaya, Chrome mungkin juga mengirim URL, termasuk bit konten halaman, ke Safe Browsing.</translation>
 <translation id="6417690341895039567">{COUNT,plural, =1{Organisasi akan otomatis menutup Chrome jika tidak digunakan selama 1 menit. Data penjelajahan akan dihapus. Data ini dapat mencakup histori, isi otomatis, dan download.}other{Organisasi akan otomatis menutup Chrome jika tidak digunakan selama # menit. Data penjelajahan akan dihapus. Data ini dapat mencakup histori, isi otomatis, dan download.}}</translation>
@@ -550,6 +553,7 @@ Jika halaman ini tidak berfungsi sebagaimana mestinya, coba izinkan pengoptimala
 <translation id="6434035853014503219">Terima kasih telah memilih Chrome sebagai browser default Anda.</translation>
 <translation id="6438015621983209660">Manfaatkan Safe Browsing yang Disempurnakan dengan Chrome di ponsel</translation>
 <translation id="6442774133615368941">Gunakan kamera di aplikasi Chrome versi iOS untuk berbelanja, menerjemahkan teks, dan mengidentifikasi objek yang Anda lihat</translation>
+<translation id="6446105560007692480">untuk menelusuri dengan Chrome atau menyesuaikan di <ph name="BEGIN_LINK" />Setelan<ph name="END_LINK" /></translation>
 <translation id="6448835208126432197">Gunakan pintasan keyboard untuk memilih bagian tertentu dari layar di Gemini di Chrome.</translation>
 <translation id="6473905796280459355">Buka halaman Tentang Chrome</translation>
 <translation id="6481963882741794338">Tautkan Chrome dan layanan Google lainnya untuk personalisasi dan tujuan lainnya</translation>
@@ -571,6 +575,7 @@ Jika halaman ini tidak berfungsi sebagaimana mestinya, coba izinkan pengoptimala
 <translation id="6612152958212564387">Anda tidak mengirimkan statistik penggunaan dan laporan error ke Google. <ph name="BEGIN_LINK" />Kelola<ph name="END_LINK" /></translation>
 <translation id="6613949864921837107">Selalu sinkronkan sandi, bookmark, dan histori lintas perangkat dengan menyetel Chrome sebagai browser default Anda.</translation>
 <translation id="6631524303639368205">Lanjutkan dari halaman terakhir yang dibuka: Chrome memulihkan tab Anda dari sesi terakhir. Anda dapat menonaktifkannya di</translation>
+<translation id="6632012506031284914">untuk menelusuri dengan Chrome.</translation>
 <translation id="6632473616050862500">ChromeOS Flex terwujud karena adanya <ph name="BEGIN_LINK_CROS_OSS" />software open source<ph name="END_LINK_CROS_OSS" /> tambahan.</translation>
 <translation id="6634299872736643004">Perubahan pada setelan ini akan diterapkan setelah Chrome dimulai ulang.</translation>
 <translation id="6660596345553328257">Login ke Chrome?</translation>
@@ -587,6 +592,7 @@ Jika halaman ini tidak berfungsi sebagaimana mestinya, coba izinkan pengoptimala
 <translation id="6750954913813541382">Untuk memperbaiki kesalahan ejaan, Chrome mengirim teks yang Anda ketikkan di browser ke Google</translation>
 <translation id="6760235774835597023">Mempercepat situs dengan mesin V8 Chrome, tetapi membuat Chrome sedikit lebih rentan terhadap serangan. Setelan ini aktif.</translation>
 <translation id="677276454032249905">Tetap tutup Chrome?</translation>
+<translation id="6777654166489463890">Tanyakan tentang konten di luar Chrome, seperti aplikasi atau file lain yang Anda buka</translation>
 <translation id="6794858689789885890">Selalu menghapus data situs dari perangkat saat Anda menutup Chrome</translation>
 <translation id="6800285125190089494">Login lebih cepat ke situs menggunakan sandi tersimpan untuk Chrome di iOS</translation>
 <translation id="6831043979455480757">Terjemahkan</translation>
@@ -639,6 +645,7 @@ Jika halaman ini tidak berfungsi sebagaimana mestinya, coba izinkan pengoptimala
 <translation id="7285990705317078173">Download Chrome di ponsel untuk memantau harga dan menerima notifikasi saat harga turun di situs mana pun</translation>
 <translation id="7288567540154601580">Tab &amp; ekstensi</translation>
 <translation id="7296210096911315575">Penggunaan penting dan informasi keamanan</translation>
+<translation id="7299899569525778554">Melakukan penelusuran dari desktop</translation>
 <translation id="7302361266603927550">Beberapa data Chrome Anda belum disimpan di Akun Google Anda. Coba tunggu beberapa menit sebelum logout. Jika Anda logout sekarang, data ini akan dihapus.</translation>
 <translation id="7306401458628386911">Langsung menjelajahi internet: Chrome kini dapat diluncurkan saat Windows dimulai.</translation>
 <translation id="7308322188646931570">Chrome memerlukan akses penyimpanan untuk mendownload file</translation>
@@ -702,6 +709,7 @@ Jika halaman ini tidak berfungsi sebagaimana mestinya, coba izinkan pengoptimala
 <translation id="7845233973568007926">Terima kasih telah menginstal. Anda harus memulai ulang komputer sebelum menggunakan <ph name="BUNDLE_NAME" />.</translation>
 <translation id="7847170235260850604">Luncurkan Chrome saat Windows dimulai</translation>
 <translation id="7849037457735762883">Lanjutkan dari halaman terakhir yang dibuka: Chrome dapat memulihkan tab Anda setiap kali Anda memulai ulang. Untuk mengaktifkannya, buka</translation>
+<translation id="7868731902994556427"><ph name="EXISTING_USER" /> sudah login. Agar penjelajahan Anda tetap terpisah, login ke Chrome di profil Anda sendiri sebagai <ph name="USER_EMAIL_ADDRESS" />. Anda juga akan mendapatkan ekstensi dan data lainnya dari <ph name="DEVICE" />.</translation>
 <translation id="7869620795354551924">Untuk menggunakan sandi yang telah disimpan, ikuti kode QR, download Chrome untuk iOS, dan login ke Akun Google Anda</translation>
 <translation id="7872446069773932638">Mendownload ... <ph name="SECONDS" /> detik lagi</translation>
 <translation id="7886087451482920026">Pilih teks dengan Google Lens</translation>
@@ -786,7 +794,6 @@ Bookmark baru tidak dapat disimpan di akun hingga Anda menghapus beberapa bookma
 <translation id="8575047640889685742">Gunakan <ph name="BEGIN_LINK" />frasa sandi Anda sendiri<ph name="END_LINK" /> untuk mengenkripsi semua data Chrome di Akun Google Anda. Metode pembayaran dan alamat dari Google Pay tidak akan dienkripsi. Histori penjelajahan dari Chrome tidak akan disinkronkan.</translation>
 <translation id="8590782867495422699">Buka kembali Mode AI Google Penelusuran</translation>
 <translation id="8598779894319572882">Dari tombol "Mode AI Google Penelusuran" di toolbar, Anda dapat membuka kembali Mode AI Google Penelusuran untuk mengajukan pertanyaan saat menjelajah</translation>
-<translation id="8601359445272098721">Baru! Anda dapat menerjemahkan teks dan gambar di layar dengan memilih tombol "terjemahkan layar"</translation>
 <translation id="8614913330719544658">Google Chrome tidak merespons. Luncurkan ulang sekarang?</translation>
 <translation id="8623450603356630491">Login ke Chrome di ponsel Anda</translation>
 <translation id="8624541899164515475">Setelan, terbuka di tab baru.</translation>
@@ -798,6 +805,7 @@ Bookmark baru tidak dapat disimpan di akun hingga Anda menghapus beberapa bookma
 <translation id="8679801911857917785">Juga mengontrol halaman apa yang ditampilkan saat Anda memulai Chrome.</translation>
 <translation id="8712637175834984815">Mengerti</translation>
 <translation id="8712767363896337380">Update hampir selesai. Luncurkan kembali Chrome untuk menyelesaikan update.</translation>
+<translation id="8717554232729236539"><ph name="EXISTING_USER" /> sudah login. Agar penjelajahan Anda tetap terpisah, login ke Chrome di profil Anda sendiri sebagai <ph name="USER_EMAIL_ADDRESS" />. Anda juga akan mendapatkan daftar bacaan dan data lainnya dari <ph name="DEVICE" />.</translation>
 <translation id="8718062187489036808">Logout dari Chrome</translation>
 <translation id="873133009373065397">Google Chrome tidak dapat menentukan atau menyetel browser default</translation>
 <translation id="8747073452963259673">pojok kiri bawah area penelusuran: kiri <ph name="LEFT" />%, bawah <ph name="BOTTOM" />%</translation>

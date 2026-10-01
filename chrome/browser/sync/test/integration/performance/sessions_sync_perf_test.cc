@@ -13,6 +13,8 @@
 #include "chrome/common/webui_url_constants.h"
 #include "content/public/test/browser_test.h"
 #include "testing/perf/perf_result_reporter.h"
+#include "ui/base/page_transition_types.h"
+#include "ui/base/window_open_disposition.h"
 
 using content::OpenURLParams;
 using sessions_helper::GetLocalSession;
@@ -92,12 +94,10 @@ void SessionsSyncPerfTest::UpdateTabs(int profile) {
     chrome::SelectNumberedTab(browser, i);
     url = NextURL();
     browser->OpenURL(
-        OpenURLParams(
-            url,
+        OpenURLParams::CreateBrowserInitiated(
+            url, WindowOpenDisposition::CURRENT_TAB, ui::PAGE_TRANSITION_LINK,
             content::Referrer(GURL("http://localhost"),
-                              network::mojom::ReferrerPolicy::kDefault),
-            WindowOpenDisposition::CURRENT_TAB, ui::PAGE_TRANSITION_LINK,
-            false),
+                              network::mojom::ReferrerPolicy::kDefault)),
         /*navigation_handle_callback=*/{});
     urls.push_back(url);
   }

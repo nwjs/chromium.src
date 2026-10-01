@@ -8,6 +8,7 @@
 #include "ash/constants/ash_features.h"
 #include "ash/constants/ash_pref_names.h"
 #include "ash/constants/ash_switches.h"
+#include "ash/constants/chrome_switches.h"
 #include "ash/public/cpp/capture_mode/capture_mode_test_api.h"
 #include "ash/session/session_controller_impl.h"
 #include "ash/shell.h"
@@ -36,7 +37,7 @@
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
 #include "chrome/browser/media/webrtc/webrtc_browsertest_base.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/common/chrome_switches.h"
@@ -49,6 +50,7 @@
 #include "components/prefs/pref_service.h"
 #include "components/user_manager/user_names.h"
 #include "components/variations/pref_names.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/visibility.h"
 #include "content/public/browser/web_contents.h"
@@ -58,6 +60,7 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/base/base_window.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/events/base_event_utils.h"
 #include "ui/gfx/codec/jpeg_codec.h"
 #include "ui/views/test/button_test_api.h"
@@ -288,7 +291,7 @@ class VideoConferenceIntegrationTest
                                       user_manager::kGuestUserName);
       command_line->AppendSwitchASCII(ash::switches::kLoginProfile,
                                       TestingProfile::kTestUserProfileDir);
-      command_line->AppendSwitch(::switches::kIncognito);
+      command_line->AppendSwitch(ash::chrome_switches::kIncognito);
     }
   }
 

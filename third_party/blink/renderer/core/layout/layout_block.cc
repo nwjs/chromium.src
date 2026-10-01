@@ -282,7 +282,7 @@ void LayoutBlock::ImageChanged(WrappedImagePtr image,
     return;
   if (auto* first_line_container = NearestInnerBlockWithFirstLine()) {
     for (const auto* layer = &first_line_style->BackgroundLayers(); layer;
-         layer = layer->Next()) {
+         layer = layer->NextForUsedValue()) {
       if (layer->GetImage() && image == layer->GetImage()->Data()) {
         first_line_container->SetShouldDoFullPaintInvalidationForFirstLine();
         break;
@@ -524,8 +524,7 @@ const LayoutBlock* LayoutBlock::FirstLineStyleParentBlock() const {
   // ::first-line style from our ancestors.
   const LayoutObject* first_child = parent_layout_block->FirstChild();
   while (first_child->IsFloatingOrOutOfFlowPositioned() ||
-         (RuntimeEnabledFeatures::FirstLineOnListItemEnabled() &&
-          first_child->IsListMarker())) {
+         first_child->IsListMarker()) {
     first_child = first_child->NextSibling();
   }
   if (first_child != first_line_block)
@@ -651,7 +650,7 @@ LayoutBlock* LayoutBlock::CreateAnonymousWithParentAndDisplay(
                                                   new_display);
 
   parent->UpdateAnonymousChildStyle(nullptr, new_style_builder);
-  const ComputedStyle* new_style = new_style_builder.TakeStyle();
+  const ComputedStyle& new_style = *new_style_builder.TakeStyle();
 
   LayoutBlock* layout_block;
   if (new_display == EDisplay::kFlex) {

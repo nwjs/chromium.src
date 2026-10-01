@@ -63,7 +63,6 @@ import org.chromium.ui.util.ColorUtils;
 
 /** Unit tests for {@link BottomSheet}. */
 @RunWith(BaseRobolectricTestRunner.class)
-@Config(manifest = Config.NONE)
 public class BottomSheetUnitTest {
     private static final int APP_HEADER_HEIGHT = 42;
     private static final int SHEET_CONTAINER_HEIGHT = 200;
@@ -1747,5 +1746,155 @@ public class BottomSheetUnitTest {
         sheet.setSheetState(SheetState.FULL, false);
         assertEquals(
                 ViewGroup.LayoutParams.MATCH_PARENT, contentContainer.getLayoutParams().height);
+    }
+
+    @Test
+    public void testToolbarHolderTopMarginWithHandlebar() {
+        BottomSheet sheet =
+                (BottomSheet) LayoutInflater.from(mActivity).inflate(R.layout.bottom_sheet, null);
+        mSheetContainer.removeAllViews();
+        mSheetContainer.addView(sheet);
+        sheet.setSheetContainerForTesting(mSheetContainer);
+        sheet.setShadowLayerForTesting(mShadowLayerView);
+        sheet.setSheetBackgroundForTesting(mSheetBackground);
+        sheet.setBottomSheetContentContainerForTesting(
+                sheet.findViewById(R.id.bottom_sheet_content));
+
+        TouchRestrictingFrameLayout toolbarHolder =
+                sheet.findViewById(R.id.bottom_sheet_toolbar_container);
+        sheet.setToolbarHolderForTesting(toolbarHolder);
+
+        sheet.init(
+                mActivity.getWindow(),
+                /* keyboardDelegate= */ mKeyboardDelegate,
+                /* alwaysFullWidth= */ false,
+                /* edgeToEdgeBottomInsetSupplier= */ () -> 0,
+                /* appHeaderHeight= */ 0,
+                /* bottomMargin= */ 0,
+                mInsetObserver,
+                /* isLargeFormFactor= */ false);
+
+        View toolbarView = new View(mActivity);
+        BottomSheetContent contentWithToolbarAndHandlebar = mock(BottomSheetContent.class);
+        doReturn(true).when(contentWithToolbarAndHandlebar).showHandlebar();
+        doReturn(toolbarView).when(contentWithToolbarAndHandlebar).getToolbarView();
+        doReturn(new View(mActivity)).when(contentWithToolbarAndHandlebar).getContentView();
+
+        sheet.showContent(contentWithToolbarAndHandlebar);
+
+        ImageView handlebar = sheet.getHandlebarForTesting();
+        assertEquals(View.VISIBLE, handlebar.getVisibility());
+        int handlebarHeight = handlebar.getMeasuredHeight();
+        assertTrue("Handlebar height should be greater than 0", handlebarHeight > 0);
+
+        MarginLayoutParams toolbarParams = (MarginLayoutParams) toolbarHolder.getLayoutParams();
+        assertEquals(
+                "Toolbar holder top margin should match handlebar height",
+                handlebarHeight,
+                toolbarParams.topMargin);
+
+        TouchRestrictingFrameLayout contentContainer =
+                sheet.findViewById(R.id.bottom_sheet_content);
+        MarginLayoutParams contentParams = (MarginLayoutParams) contentContainer.getLayoutParams();
+        assertEquals(
+                "Content container top margin should match handlebar height",
+                handlebarHeight,
+                contentParams.topMargin);
+
+        // Switch to sheet content without handlebar.
+        BottomSheetContent contentWithoutHandlebar = mock(BottomSheetContent.class);
+        doReturn(false).when(contentWithoutHandlebar).showHandlebar();
+        doReturn(toolbarView).when(contentWithoutHandlebar).getToolbarView();
+        doReturn(new View(mActivity)).when(contentWithoutHandlebar).getContentView();
+
+        sheet.showContent(contentWithoutHandlebar);
+
+        assertEquals(View.GONE, handlebar.getVisibility());
+        toolbarParams = (MarginLayoutParams) toolbarHolder.getLayoutParams();
+        assertEquals(
+                "Toolbar holder top margin should reset to 0 when handlebar is hidden",
+                0,
+                toolbarParams.topMargin);
+        contentParams = (MarginLayoutParams) contentContainer.getLayoutParams();
+        assertEquals(
+                "Content container top margin should reset to 0 when handlebar is hidden",
+                0,
+                contentParams.topMargin);
+    }
+
+    @Test
+    public void testIsSmallScreen_NullContent() {
+        int containerHeight = 800;
+        mSheetContainer.layout(0, 0, SHEET_CONTAINER_WIDTH, containerHeight);
+        mBottomSheet.setSheetContainerForTesting(mSheetContainer);
+        mBottomSheet.showContent(null);
+
+        // When content is null, defaults to halfRatio=0.75.
+        // Delta = (1 - 0.75) * 800 = 200 > 140.
+        assertFalse(
+                "isSmallScreen should return false for standard container when content is null.",
+                mBottomSheet.isSmallScreen());
+    }
+
+    @Test
+    public void testIsSmallScreen_CustomHalfRatio_ExpandsClearanceOnIntermediateScreen() {
+        // Container height 512 simulates standard phone with bottom controls (e.g. 568 - 56 = 512).
+        // Default ratios give (1.0 - 0.75) * 512 = 128 < 140 (would be small screen).
+        // Custom half ratio 0.70 (TabBottomSheet) gives (1.0 - 0.70) * 512 = 153.6 > 140.
+        int containerHeight = 512;
+        mSheetContainer.layout(0, 0, SHEET_CONTAINER_WIDTH, containerHeight);
+        mBottomSheet.setSheetContainerForTesting(mSheetContainer);
+
+        when(mSheetContent.getHalfHeightRatio()).thenReturn(0.70f);
+        when(mSheetContent.getFullHeightRatio()).thenReturn(1.0f);
+        when(mSheetContent.getContentView()).thenReturn(new View(mActivity));
+        setupBottomSheetStrings(android.R.string.ok, android.R.string.ok);
+        mBottomSheet.showContent(mSheetContent);
+
+        assertFalse(
+                "Custom half ratio of 0.70f should provide sufficient clearance on 512dp"
+                    + " container.",
+                mBottomSheet.isSmallScreen());
+    }
+
+    @Test
+    public void testIsSmallScreen_LargeCustomHalfRatio_DoesNotRegress() {
+        // Simulates Privacy Guide with half ratio 0.90f on standard 800dp screen.
+        // Even though (1.0 - 0.90) * 800 = 80 < 140, isSmallScreen should NOT treat this as a
+        // small screen because the screen itself is large (baseline (1.0 - 0.75) * 800 = 200 >=
+        // 140).
+        int containerHeight = 800;
+        mSheetContainer.layout(0, 0, SHEET_CONTAINER_WIDTH, containerHeight);
+        mBottomSheet.setSheetContainerForTesting(mSheetContainer);
+
+        when(mSheetContent.getHalfHeightRatio()).thenReturn(0.90f);
+        when(mSheetContent.getFullHeightRatio()).thenReturn(1.0f);
+        when(mSheetContent.getContentView()).thenReturn(new View(mActivity));
+        setupBottomSheetStrings(android.R.string.ok, android.R.string.ok);
+        mBottomSheet.showContent(mSheetContent);
+
+        assertFalse(
+                "Large custom half ratio (0.90f) must not trigger isSmallScreen on standard"
+                    + " display.",
+                mBottomSheet.isSmallScreen());
+    }
+
+    @Test
+    public void testIsSmallScreen_GenuinelyTinyScreen_InsufficientClearance() {
+        // On a genuinely small screen (300dp), even with 0.70 half ratio:
+        // (1.0 - 0.70) * 300 = 90 < 140.
+        int containerHeight = 300;
+        mSheetContainer.layout(0, 0, SHEET_CONTAINER_WIDTH, containerHeight);
+        mBottomSheet.setSheetContainerForTesting(mSheetContainer);
+
+        when(mSheetContent.getHalfHeightRatio()).thenReturn(0.70f);
+        when(mSheetContent.getFullHeightRatio()).thenReturn(1.0f);
+        when(mSheetContent.getContentView()).thenReturn(new View(mActivity));
+        setupBottomSheetStrings(android.R.string.ok, android.R.string.ok);
+        mBottomSheet.showContent(mSheetContent);
+
+        assertTrue(
+                "Genuinely tiny screen (300dp) must trigger isSmallScreen.",
+                mBottomSheet.isSmallScreen());
     }
 }

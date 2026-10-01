@@ -21,7 +21,6 @@
 #include "components/prefs/scoped_user_pref_update.h"
 #include "components/prefs/testing_pref_service.h"
 #include "components/signin/public/base/signin_switches.h"
-#include "components/signin/public/identity_manager/account_capabilities.h"
 #include "components/signin/public/identity_manager/account_capabilities_test_mutator.h"
 #include "components/signin/public/identity_manager/account_info.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
@@ -65,22 +64,13 @@ class UniversalOptOutServiceTest : public ::testing::Test {
     pref_service_.SetBoolean(prefs::kUniversalOptOutEnabled, false);
   }
 
-  void TearDown() override {
-    AccountCapabilities::ResetSupportedAccountCapabilityNamesForTesting();
-  }
-
   void EnableFeatureWithTargetLocations(const std::string& target_locations) {
     scoped_feature_list_.Reset();
     scoped_feature_list_.InitWithFeaturesAndParameters(
         /*enabled_features=*/{base::test::FeatureRefAndParams(
-                                  features::kUniversalOptOut,
-                                  {{"target_locations", target_locations}}),
-                              base::test::FeatureRefAndParams(
-                                  switches::
-                                      kReadIsSubjectToUniversalOptOutCapability,
-                                  {})},
+            features::kUniversalOptOut,
+            {{"target_locations", target_locations}})},
         /*disabled_features=*/{});
-    AccountCapabilities::ResetSupportedAccountCapabilityNamesForTesting();
   }
 
   void SetGeoLevel1(const std::string& geo_level1) {
@@ -559,6 +549,31 @@ TEST_F(UniversalOptOutServiceTest,
   histogram_tester.ExpectUniqueSample(
       kEligibilityChangedHistogram,
       EligibilityTransition::kEligibleToIneligible, 1);
+}
+
+TEST_F(UniversalOptOutServiceTest, OptOutChangedCallback) {
+  std::vector<bool> observed_values;
+  pref_service_.SetBoolean(prefs::kUniversalOptOutEnabled, false);
+
+  auto service = std::make_unique<UniversalOptOutService>(
+      pref_service_, *variations_service_,
+      *identity_test_env_.identity_manager(), test_clock_,
+      base::BindRepeating([](std::vector<bool>* out,
+                             bool enabled) { out->push_back(enabled); },
+                          &observed_values));
+
+  // Initial state should be reported upon construction.
+  ASSERT_EQ(observed_values.size(), 1u);
+  EXPECT_FALSE(observed_values.back());
+
+  // Toggling the pref should invoke the callback.
+  pref_service_.SetBoolean(prefs::kUniversalOptOutEnabled, true);
+  ASSERT_EQ(observed_values.size(), 2u);
+  EXPECT_TRUE(observed_values.back());
+
+  pref_service_.SetBoolean(prefs::kUniversalOptOutEnabled, false);
+  ASSERT_EQ(observed_values.size(), 3u);
+  EXPECT_FALSE(observed_values.back());
 }
 
 }  // namespace universal_optout

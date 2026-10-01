@@ -10,6 +10,7 @@ android_library("java") {
     "java/src/org/chromium/chrome/browser/readaloud/BoyerMoore.java",
     "java/src/org/chromium/chrome/browser/readaloud/NativeMetadata.java",
     "java/src/org/chromium/chrome/browser/readaloud/NativePlayback.java",
+    "java/src/org/chromium/chrome/browser/readaloud/NativeVoicePreviewPlayback.java",
     "java/src/org/chromium/chrome/browser/readaloud/ReadAloudController.java",
     "java/src/org/chromium/chrome/browser/readaloud/ReadAloudControllerSupplier.java",
     "java/src/org/chromium/chrome/browser/readaloud/ReadAloudIphController.java",
@@ -107,6 +108,7 @@ static_library("features") {
     "//chrome/browser:browser_process",
     "//chrome/browser/flags:flags_android",
     "//components/metrics",
+    "//ui/accessibility:ax_base",
   ]
 }
 
@@ -230,6 +232,7 @@ robolectric_library("junit") {
   sources = [
     "java/src/org/chromium/chrome/browser/readaloud/NativeMetadataUnitTest.java",
     "java/src/org/chromium/chrome/browser/readaloud/NativePlaybackUnitTest.java",
+    "java/src/org/chromium/chrome/browser/readaloud/NativeVoicePreviewPlaybackUnitTest.java",
     "java/src/org/chromium/chrome/browser/readaloud/ReadAloudControllerUnitTest.java",
     "java/src/org/chromium/chrome/browser/readaloud/ReadAloudIphControllerUnitTest.java",
     "java/src/org/chromium/chrome/browser/readaloud/ReadAloudMiniPlayerSceneLayerUnitTest.java",
@@ -414,6 +417,7 @@ robolectric_library("player_junit_java") {
     "//third_party/androidx:androidx_test_core_java",
     "//third_party/androidx:androidx_test_espresso_espresso_core_java",
     "//third_party/androidx:androidx_test_ext_junit_java",
+    "//third_party/androidx:androidx_test_monitor_java",
     "//third_party/hamcrest:hamcrest_core_java",
     "//third_party/hamcrest:hamcrest_library_java",
     "//third_party/jni_zero:jni_zero_java",

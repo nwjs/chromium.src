@@ -103,7 +103,11 @@ export class TopToolbarElement extends TopToolbarElementBase {
       contextualTasksEnableSpatialModelToolbarLayoutNewThreadInOverflow_:
           {type: Boolean},
       overflowMenuOpen_: {type: Boolean},
-      isSidePanelRearchitectureEnabled_: {type: Boolean},
+      isSidePanelRearchitectureEnabled_: {
+        type: Boolean,
+        reflect: true,
+        attribute: 'is-side-panel-rearchitecture-enabled',
+      },
       webuiRoundedIconsEnabled_: {type: Boolean},
       permissionDashboardState: {type: Object},
     };
@@ -146,6 +150,7 @@ export class TopToolbarElement extends TopToolbarElementBase {
   protected accessor overflowMenuOpen_: boolean = false;
   protected accessor webuiRoundedIconsEnabled_: boolean =
       loadTimeData.getBoolean('webuiRoundedIconsEnabled');
+  private boundOnWindowBlur_: () => void = this.onWindowBlur_.bind(this);
 
   override connectedCallback() {
     super.connectedCallback();
@@ -168,6 +173,7 @@ export class TopToolbarElement extends TopToolbarElementBase {
         this.isHandshakeComplete = true;
       }),
     ];
+    window.addEventListener('blur', this.boundOnWindowBlur_);
   }
 
   override disconnectedCallback() {
@@ -175,6 +181,16 @@ export class TopToolbarElement extends TopToolbarElementBase {
     this.listenerIds_.forEach(
         id => this.browserProxy_.callbackRouter.removeListener(id));
     this.listenerIds_ = [];
+    window.removeEventListener('blur', this.boundOnWindowBlur_);
+  }
+
+  // Dismisses any open menu when the side panel loses focus. Clicks outside of
+  // the side panel (e.g. on the page contents, the Lens crop frame, or a search
+  // result in the sandboxed results frame) never reach this document, so
+  // `cr-action-menu`'s own light dismiss does not run. See crbug.com/543760434.
+  private onWindowBlur_() {
+    this.$.overflowMenu.getIfExists()?.close();
+    this.$.sourcesMenu.getIfExists()?.close();
   }
 
   // <if expr="not is_android">

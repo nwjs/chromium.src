@@ -550,6 +550,16 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
 
     // If set to true, enable system default show and hide animations.
     bool animation_enabled = false;
+
+    // If set to true, window opacity will be set to 0.0 when shown after being
+    // hidden until a fresh compositor frame arrives, preventing stale content
+    // from displaying. Enabling eliminates stale frames when showing after a
+    // hide at the cost of waiting for the next frame to be produced before
+    // showing. This may make sense for ephemeral UI that is normally displayed
+    // with new state (ex. Omnibox) but be less advantageous in scenarios where
+    // showing stale content faster will seem more responsive (eg. browser
+    // window).
+    bool prevent_stale_content_after_hide = false;
 #endif
 
     // Initial native widget background color, if supported.
@@ -1373,6 +1383,13 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
   // Prevents the widget from being rendered as inactive during the lifetime of
   // the returned lock. Multiple locks can exist with disjoint lifetimes. The
   // returned lock can safely outlive the associated widget.
+  //
+  // IMPORTANT SAFETY NOTE: When the paint-as-active state of a window changes,
+  // callbacks are called. Destroying a widget synchronously in response to it
+  // gaining or losing paint-on-active status will cause a crash, but it is
+  // possible for a callback from an ancestor widget to indirectly delete the
+  // widget. Do not assume that a widget is still valid after adding or removing
+  // a paint-as-active lock.
   std::unique_ptr<PaintAsActiveLock> LockPaintAsActive();
 
   // Undoes LockPaintAsActive(). This should never be called outside of
@@ -1389,9 +1406,15 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
   // the ShouldPaintAsActive() state.
   void NotifyPaintAsActiveChanged();
 
-  // Enables input protection. Installs standard policies (occlusion, window
+  // Enables input activation protection. Installs standard policies (window
   // activation, click-spam) if `custom_protector` is nullptr. Otherwise, the
   // caller must configure the provided protector with the desired policies.
+  //
+  // Enabling this also activates occlusion protection for non-located events
+  // (e.g. keyboard action keys like Space or Return) in
+  // `OccludedWidgetInputProtector` (whereas unprotected widgets only check
+  // located pointer events).
+  //
   // See ui/views/input_protection/README.md for details on how this works.
   void EnableInputEventActivationProtection(
       std::unique_ptr<InputEventActivationProtector> custom_protector =

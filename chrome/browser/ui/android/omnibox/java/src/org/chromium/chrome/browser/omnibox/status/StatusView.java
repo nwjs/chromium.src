@@ -24,6 +24,7 @@ import android.widget.TextView;
 import androidx.annotation.ColorInt;
 import androidx.annotation.DimenRes;
 import androidx.annotation.IntDef;
+import androidx.annotation.Px;
 import androidx.annotation.StringRes;
 import androidx.appcompat.widget.TooltipCompat;
 
@@ -36,11 +37,11 @@ import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.browser_controls.BrowserStateBrowserControlsVisibilityDelegate;
 import org.chromium.chrome.browser.omnibox.R;
+import org.chromium.chrome.browser.omnibox.styles.OmniboxResourceProvider;
 import org.chromium.components.browser_ui.widget.ChromeTransitionDrawable;
 import org.chromium.components.browser_ui.widget.CompositeTouchDelegate;
 import org.chromium.components.browser_ui.widget.RoundedCornerOutlineProvider;
 import org.chromium.ui.base.DeviceFormFactor;
-import org.chromium.ui.base.ViewUtils;
 import org.chromium.ui.interpolators.Interpolators;
 import org.chromium.ui.util.TokenHolder;
 import org.chromium.ui.widget.Toast;
@@ -312,7 +313,7 @@ public class StatusView extends LinearLayout {
                     // Finish any running animations in the existing drawable because we're going to
                     // reuse it. Concurrent animations could clobber each other's changes and cause
                     // inconsistent states.
-                    transitionDrawable.finishTransition(true);
+                    transitionDrawable.finishTransition(/* resolveToFinalDrawable= */ true);
                     existingDrawable = transitionDrawable.getFinalDrawable();
                 }
 
@@ -322,8 +323,10 @@ public class StatusView extends LinearLayout {
                                 transitionType == IconTransitionType.ROTATE
                                         ? getRotatedIcon(targetIcon)
                                         : targetIcon);
-                newImage.setLayerSize(0, mStatusIconSize, mStatusIconSize);
-                newImage.setLayerSize(1, mStatusIconSize, mStatusIconSize);
+                newImage.setLayerSize(
+                        /* index= */ 0, /* w= */ mStatusIconSize, /* h= */ mStatusIconSize);
+                newImage.setLayerSize(
+                        /* index= */ 1, /* w= */ mStatusIconSize, /* h= */ mStatusIconSize);
 
                 mIconView.setImageDrawable(newImage);
 
@@ -442,6 +445,23 @@ public class StatusView extends LinearLayout {
                 });
     }
 
+    /**
+     * Sets the resource provider. This is primarily called during binding which occurs on the UI
+     * thread post inflation.
+     *
+     * @param resourceProvider Provider for omnibox resources.
+     */
+    void setResourceProvider(OmniboxResourceProvider resourceProvider) {
+        setStatusIconSize(resourceProvider.getStatusIconSize());
+        setCornerRadiusRes(resourceProvider.getStatusIconCornerRadiusRes(/* focused= */ false));
+    }
+
+    /** Specify the layout size of the status icon. */
+    void setStatusIconSize(@Px int size) {
+        mStatusIconSize = size;
+        mStatusIconView.setIconSize(mStatusIconSize);
+    }
+
     /** Specify the corner radius of the icon outline provider. */
     void setCornerRadiusRes(@DimenRes int radiusRes) {
         mIconCornerRadiusProvider.setRadius(getResources().getDimensionPixelSize(radiusRes));
@@ -471,34 +491,6 @@ public class StatusView extends LinearLayout {
             @Nullable Runnable animationFinishedCallback) {
         mStatusIconDrawable = statusIconDrawable;
         animateStatusIcon(transitionType, animationFinishedCallback);
-    }
-
-    /** Specify the status icon visibility. */
-    public void setStatusIconShown(boolean showIcon) {
-        if (mStatusIconView == null) return;
-        // Check if layout was requested before changing our child view.
-        boolean wasLayoutPreviouslyRequested = isLayoutRequested();
-
-        // Set StatusIcon visibility and check whether we should set hover action on StatusView.
-        setStatusIconVisibility(showIcon ? VISIBLE : GONE);
-
-        updateTouchDelegate();
-        if (mIsAnimatingStatusIconChange && !showIcon) {
-            // If the icon view is hidden before it gets a chance to draw, our animation status will
-            // become stale. Reset it.
-            resetAnimationStatus();
-        }
-
-        // If the icon's visibility changes while layout is pending, we can end up in a bad state
-        // due to a stale measurement cache. Post a task to request layout to force this visibility
-        // change (crbug.com/40853631).
-        if (wasLayoutPreviouslyRequested && getHandler() != null) {
-            getHandler()
-                    .post(
-                            () ->
-                                    ViewUtils.requestLayout(
-                                            this, "StatusView.setStatusIconShown Runnable"));
-        }
     }
 
     /** Specify accessibility string presented to user upon long click. */
@@ -716,5 +708,9 @@ public class StatusView extends LinearLayout {
 
     void setIconAnimationDurationForTesting(int duration) {
         mIconAnimationDurationForTests = duration;
+    }
+
+    int getStatusIconSizeForTesting() {
+        return mStatusIconSize;
     }
 }

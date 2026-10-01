@@ -50,6 +50,53 @@ TEST(ShouldShowAnimatedIdentityOnOpeningWindow, ReturnsFalseForNewWindow) {
   EXPECT_FALSE(ShouldShowAnimatedIdentityOnOpeningWindow(*profile));
 }
 
+TEST(ShouldShowAnimatedIdentityOnOpeningWindow,
+     ReturnsTrueWithInfiniteOverride) {
+  content::BrowserTaskEnvironment task_environment(
+      base::test::TaskEnvironment::TimeSource::MOCK_TIME);
+  TestingProfileManager profile_manager(TestingBrowserProcess::GetGlobal());
+  ASSERT_TRUE(profile_manager.SetUp());
+  std::string name("testing_profile");
+  TestingProfile* profile = profile_manager.CreateTestingProfile(
+      name, std::unique_ptr<sync_preferences::PrefServiceSyncable>(),
+      base::UTF8ToUTF16(name), 0,
+      IdentityTestEnvironmentProfileAdaptor::
+          GetIdentityTestEnvironmentFactories());
+
+  EXPECT_TRUE(ShouldShowAnimatedIdentityOnOpeningWindow(*profile));
+
+  // Animation is shown once.
+  RecordAnimatedIdentityTriggered(profile);
+
+  {
+    // Set infinite override delay for cross window replay.
+    base::AutoReset<std::optional<base::TimeDelta>> delay_override =
+        CreateInfiniteOverrideDelayForCrossWindowAnimationReplayForTesting();
+
+    // Wait well past the default 5 seconds.
+    task_environment.FastForwardBy(base::Seconds(60));
+
+    // Animation is still shown again in a new window due to the infinite
+    // override.
+    EXPECT_TRUE(ShouldShowAnimatedIdentityOnOpeningWindow(*profile));
+
+    // Overriding the value a second time (e.g. with zero) prevents the value
+    // from remaining true.
+    {
+      base::AutoReset<std::optional<base::TimeDelta>> zero_override =
+          CreateZeroOverrideDelayForCrossWindowAnimationReplayForTesting();
+      EXPECT_FALSE(ShouldShowAnimatedIdentityOnOpeningWindow(*profile));
+    }
+
+    // Restored back to infinite override.
+    EXPECT_TRUE(ShouldShowAnimatedIdentityOnOpeningWindow(*profile));
+  }
+
+  // Once the infinite override scope ends, the default delay is restored and
+  // has already elapsed, preventing the value from remaining true.
+  EXPECT_FALSE(ShouldShowAnimatedIdentityOnOpeningWindow(*profile));
+}
+
 std::unique_ptr<KeyedService> BuildTestAccountPreviewDataService(
     content::BrowserContext* context) {
   return std::make_unique<signin::TestAccountPreviewDataService>();
@@ -195,6 +242,41 @@ TEST_F(SigninUiUtilTest,
   EXPECT_EQ(ordered[0].GetGaiaId(), account3.GetGaiaId());
   EXPECT_EQ(ordered[1].GetGaiaId(), account1.GetGaiaId());
   EXPECT_EQ(ordered[2].GetGaiaId(), account2.GetGaiaId());
+}
+
+TEST_F(
+    SigninUiUtilTest,
+    GetOrderedAccountsForDisplayKeepsPrimaryAccountFirstWithPreferredAccount) {
+  AccountInfo account1 =
+      identity_test_env()->MakeAccountAvailable("acc1@gmail.com");
+  AccountInfo account2 =
+      identity_test_env()->MakeAccountAvailable("acc2@gmail.com");
+  AccountInfo account3 =
+      identity_test_env()->MakeAccountAvailable("acc3@gmail.com");
+  signin::SetCookieAccounts(
+      identity_manager(), &test_url_loader_factory_,
+      {{std::string(account1.GetEmail()), account1.GetGaiaId()},
+       {std::string(account2.GetEmail()), account2.GetGaiaId()},
+       {std::string(account3.GetEmail()), account3.GetGaiaId()}});
+
+  // Set account1 as the primary account.
+  identity_test_env()->SetPrimaryAccount(std::string(account1.GetEmail()),
+                                         signin::ConsentLevel::kSignin);
+
+  // Set preferred promo account to account3.
+  signin::AccountPreviewDataService::AccountPreviewPreference pref;
+  pref.gaia_id = account3.GetGaiaId();
+  account_preview_data_service()->SetPreferredAccountForPromo(pref);
+
+  std::vector<AccountInfo> ordered = GetOrderedAccountsForDisplay(
+      identity_manager(), account_preview_data_service(),
+      /*restrict_to_accounts_eligible_for_signin=*/true);
+  ASSERT_EQ(ordered.size(), 3u);
+  // The primary account must remain first, ignoring the promo preferred
+  // account.
+  EXPECT_EQ(ordered[0].GetGaiaId(), account1.GetGaiaId());
+  EXPECT_EQ(ordered[1].GetGaiaId(), account2.GetGaiaId());
+  EXPECT_EQ(ordered[2].GetGaiaId(), account3.GetGaiaId());
 }
 
 }  // namespace

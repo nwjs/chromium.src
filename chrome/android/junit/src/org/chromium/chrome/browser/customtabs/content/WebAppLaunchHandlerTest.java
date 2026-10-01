@@ -26,6 +26,7 @@ import android.app.Activity;
 import android.app.ComponentCaller;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ProviderInfo;
@@ -79,7 +80,6 @@ import java.util.Objects;
 
 /** Tests for {@link WebAppLaunchHandler}. */
 @RunWith(BaseRobolectricTestRunner.class)
-@Config(manifest = Config.NONE)
 public class WebAppLaunchHandlerTest {
     static final int WRONG_CLIENT_MODE = 65;
 
@@ -126,6 +126,7 @@ public class WebAppLaunchHandlerTest {
 
         PackageInfo packageInfo = new PackageInfo();
         packageInfo.packageName = packageName;
+        packageInfo.applicationInfo = new ApplicationInfo(context.getApplicationInfo());
 
         ProviderInfo fileProvider = new ProviderInfo();
         fileProvider.packageName = packageName;

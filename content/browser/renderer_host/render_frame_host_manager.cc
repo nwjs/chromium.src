@@ -104,7 +104,6 @@
 
 namespace content {
 
-using LifecycleStateImpl = RenderFrameHostImpl::LifecycleStateImpl;
 using perfetto::protos::pbzero::ChromeTrackEvent;
 
 namespace {
@@ -246,9 +245,8 @@ bool DoesNavigationChangeStoragePartition(SiteInstanceImpl* current_instance,
 bool IsSiteInstanceCompatibleWithErrorIsolation(
     SiteInstanceImpl* site_instance,
     const FrameTreeNode& frame_tree_node,
-    NavigationRequest::ErrorPageProcess error_page_process) {
-  if (error_page_process ==
-      NavigationRequest::ErrorPageProcess::kCurrentProcess) {
+    ErrorPageProcess error_page_process) {
+  if (error_page_process == ErrorPageProcess::kCurrentProcess) {
     // If an error page must commit in the current process, the current
     // SiteInstance must be reused.
     return site_instance ==
@@ -258,10 +256,8 @@ bool IsSiteInstanceCompatibleWithErrorIsolation(
   if (!frame_tree_node.IsErrorPageIsolationEnabled()) {
     // With no error isolation or current process requirement, all SiteInstances
     // are compatible with any |error_page_process|.
-    CHECK(error_page_process ==
-              NavigationRequest::ErrorPageProcess::kNotErrorPage ||
-          error_page_process ==
-              NavigationRequest::ErrorPageProcess::kDestinationProcess);
+    CHECK(error_page_process == ErrorPageProcess::kNotErrorPage ||
+          error_page_process == ErrorPageProcess::kDestinationProcess);
     return true;
   }
 
@@ -273,10 +269,8 @@ bool IsSiteInstanceCompatibleWithErrorIsolation(
   bool is_site_instance_for_error_page =
       site_instance->GetSiteInfo().is_error_page();
   bool should_be_error_page_isolated =
-      (error_page_process !=
-           NavigationRequest::ErrorPageProcess::kNotErrorPage &&
-       error_page_process !=
-           NavigationRequest::ErrorPageProcess::kPostCommitErrorPage);
+      (error_page_process != ErrorPageProcess::kNotErrorPage &&
+       error_page_process != ErrorPageProcess::kPostCommitErrorPage);
   return is_site_instance_for_error_page == should_be_error_page_isolated;
 }
 
@@ -826,7 +820,7 @@ void RenderFrameHostManager::InitRoot(
               false /* is_secure_context_root */,
               false /* has_active_user_gesture */,
               false /* has_received_user_gesture_before_nav */,
-              false /* is_ad_frame */),
+              blink::mojom::FrameAdStatus::kNotAd),
           frame_tree_node_->parent(),
           is_legacy_browsing_context_state_mode
               ? static_cast<std::optional<BrowsingInstanceId>>(std::nullopt)
@@ -846,7 +840,7 @@ void RenderFrameHostManager::InitRoot(
       /*frame_routing_id=*/IPC::mojom::kRoutingIdNone,
       mojo::PendingAssociatedRemote<mojom::Frame>(), blink::LocalFrameToken(),
       blink::DocumentToken(), devtools_frame_token,
-      /*initiator_state_token=*/base::UnguessableToken::Create(),
+      /*initiator_state_token=*/blink::InitiatorStateToken(),
       renderer_initiated_creation, browsing_context_state,
       ProcessAllocationContext{ProcessAllocationSource::kRFHInitRoot}));
 
@@ -861,8 +855,8 @@ void RenderFrameHostManager::InitChild(
     mojo::PendingAssociatedRemote<mojom::Frame> frame_remote,
     const blink::LocalFrameToken& frame_token,
     const blink::DocumentToken& document_token,
-    const base::UnguessableToken& initiator_state_token,
     const base::UnguessableToken& devtools_frame_token,
+    const blink::InitiatorStateToken& initiator_state_token,
     blink::FramePolicy frame_policy,
     std::string frame_name,
     std::string frame_unique_name) {
@@ -884,7 +878,7 @@ void RenderFrameHostManager::InitChild(
               false /* is_secure_context_root */,
               false /* has_active_user_gesture */,
               false /* has_received_user_gesture_before_nav */,
-              false /* is_ad_frame */),
+              blink::mojom::FrameAdStatus::kNotAd),
           frame_tree_node_->parent(),
           is_legacy_browsing_context_state_mode
               ? static_cast<std::optional<BrowsingInstanceId>>(std::nullopt)
@@ -1109,7 +1103,7 @@ void RenderFrameHostManager::CommitPendingIfNecessary(
 
   if (render_frame_host_->is_local_root() && render_frame_host_->GetView()) {
     bool is_prerendering = render_frame_host_->lifecycle_state() ==
-                           LifecycleStateImpl::kPrerendering;
+                           RenderFrameHostLifecycleStateImpl::kPrerendering;
     auto* rwhi = static_cast<RenderWidgetHostImpl*>(
         render_frame_host_->GetView()->GetRenderWidgetHost());
 
@@ -1245,6 +1239,12 @@ std::unique_ptr<StoredPage> RenderFrameHostManager::TakePrerenderedPage() {
   CHECK(frame_tree_node_->IsMainFrame());
   auto main_render_frame_host = SetRenderFrameHost(nullptr);
   return CollectPage(std::move(main_render_frame_host), FrameTreeNodeId());
+}
+
+const blink::mojom::FrameReplicationState&
+RenderFrameHostManager::current_replication_state() const {
+  return render_frame_host_->browsing_context_state()
+      ->current_replication_state();
 }
 
 void RenderFrameHostManager::PrepareForCollectingPage(
@@ -1932,7 +1932,7 @@ RenderFrameHostManager::GetFrameHostForNavigation(
   // 2) Subframes in BFCached pages that have not (or will never) sent network
   // requests. Find more details in https://crbug.com/1511153.
   if (current_frame_host()->lifecycle_state() ==
-      LifecycleStateImpl::kInBackForwardCache) {
+      RenderFrameHostLifecycleStateImpl::kInBackForwardCache) {
     CHECK(request->GetParentFrameOrOuterDocument());
     CHECK(!request->NeedsUrlLoader() ||
           (!request->HasLoader() &&
@@ -1940,9 +1940,9 @@ RenderFrameHostManager::GetFrameHostForNavigation(
                NavigationRequest::NavigationState::WILL_START_REQUEST));
   }
   if (!(current_frame_host()->lifecycle_state() ==
-            LifecycleStateImpl::kPrerendering ||
+            RenderFrameHostLifecycleStateImpl::kPrerendering ||
         (current_frame_host()->lifecycle_state() ==
-         LifecycleStateImpl::kInBackForwardCache))) {
+         RenderFrameHostLifecycleStateImpl::kInBackForwardCache))) {
     // Inactive frames should never be navigated. If this happens, log a
     // DumpWithoutCrashing to understand the root cause. See
     // https://crbug.com/926820 and https://crbug.com/927705.
@@ -2239,7 +2239,7 @@ RenderFrameHostManager::GetFrameHostForNavigation(
     SCOPED_CRASH_KEY_BOOL("Bug1404162", "without_early_commit",
                           recovering_without_early_commit);
     SCOPED_CRASH_KEY_STRING64("Bug1404162", "nav_rfh_lifecycle",
-                              RenderFrameHostImpl::LifecycleStateImplToString(
+                              RenderFrameHostLifecycleStateImplToString(
                                   navigation_rfh->lifecycle_state()));
 
     if (!ReinitializeMainRenderFrame(navigation_rfh,
@@ -2328,8 +2328,7 @@ RenderFrameHostManager::GetFrameHostForNavigation(
   if (!process_lock.is_error_page() &&
       request->common_params().url.IsStandard() &&
       !request->IsForMhtmlSubframe() &&
-      request->ComputeErrorPageProcess() !=
-          NavigationRequest::ErrorPageProcess::kCurrentProcess) {
+      request->ComputeErrorPageProcess() != ErrorPageProcess::kCurrentProcess) {
     // Note that GetOriginToCommit() could return nullopt if the response is
     // received but does not need to be rendered, for example for a download.
     // However, that case should never need to pick a RenderFrameHost via
@@ -2475,7 +2474,7 @@ void RenderFrameHostManager::DiscardSpeculativeRFH(
             speculative_render_frame_host_->GetSiteInstance()->GetId()));
     SCOPED_CRASH_KEY_STRING64(
         "Bug1450023", "spec_rfh_lifecycle",
-        RenderFrameHostImpl::LifecycleStateImplToString(
+        RenderFrameHostLifecycleStateImplToString(
             speculative_render_frame_host_->lifecycle_state()));
 
     if (NavigationRequest* navigation_request =
@@ -2516,7 +2515,7 @@ RenderFrameHostManager::UnsetSpeculativeRenderFrameHost(
 
   speculative_render_frame_host_->GetProcess()->RemovePendingView();
   if (speculative_render_frame_host_->lifecycle_state() ==
-      LifecycleStateImpl::kSpeculative) {
+      RenderFrameHostLifecycleStateImpl::kSpeculative) {
     speculative_render_frame_host_->DeleteRenderFrame(
         frame_tree_node_->parent()
             ? mojom::FrameDeleteIntention::kNotMainFrame
@@ -2527,7 +2526,7 @@ RenderFrameHostManager::UnsetSpeculativeRenderFrameHost(
     // TODO(https://crbug.com/526543099): CHECK-exclusion: Convert to CHECK once
     // we are sure this isn't hit.
     DCHECK_EQ(speculative_render_frame_host_->lifecycle_state(),
-              LifecycleStateImpl::kPendingCommit);
+              RenderFrameHostLifecycleStateImpl::kPendingCommit);
 
     // A reasonable person might wonder: shouldn't a RenderFrameHostImpl in
     // kPendingCommit always have a... pending commit?
@@ -2585,7 +2584,7 @@ RenderFrameHostManager::UnsetSpeculativeRenderFrameHost(
       // The main RenderFrame will be implicitly torn down later when the
       // corresponding RenderViewHost/WebView are torn down.
       speculative_render_frame_host_->SetLifecycleState(
-          LifecycleStateImpl::kReadyToBeDeleted);
+          RenderFrameHostLifecycleStateImpl::kReadyToBeDeleted);
     }
   }
 
@@ -2606,13 +2605,14 @@ void RenderFrameHostManager::DiscardSpeculativeRenderFrameHostForShutdown() {
   // provisional RenderFrame, whether this due to a child frame being removed
   // from the frame tree or the entire `blink::WebView` being torn down.
   //
-  // When the LifecycleStateImpl is kSpeculative, there is no need to transition
-  // to kReadyToBeDeleted as speculative RenderFrameHosts don't run any unload
-  // handlers but gets deleted by reset directly in kSpeculative state.
+  // When the RenderFrameHostLifecycleStateImpl is kSpeculative, there is no
+  // need to transition to kReadyToBeDeleted as speculative RenderFrameHosts
+  // don't run any unload handlers but gets deleted by reset directly in
+  // kSpeculative state.
   if (speculative_render_frame_host_->lifecycle_state() ==
-      LifecycleStateImpl::kPendingCommit) {
+      RenderFrameHostLifecycleStateImpl::kPendingCommit) {
     speculative_render_frame_host_->SetLifecycleState(
-        LifecycleStateImpl::kReadyToBeDeleted);
+        RenderFrameHostLifecycleStateImpl::kReadyToBeDeleted);
   }
   // TODO(dcheng): Figure out why `RenderFrameDeleted()` doesn't seem to be
   // called on child `RenderFrameHost`s at shutdown. This is currently limited
@@ -2777,7 +2777,7 @@ RenderFrameHostManager::ShouldSwapBrowsingInstancesForNavigation(
     const UrlInfo& destination_url_info,
     bool destination_is_view_source_mode,
     ui::PageTransition transition,
-    NavigationRequest::ErrorPageProcess error_page_process,
+    ErrorPageProcess error_page_process,
     bool is_reload,
     bool is_same_document,
     IsSameSiteGetter& is_same_site,
@@ -2976,8 +2976,7 @@ RenderFrameHostManager::ShouldSwapBrowsingInstancesForNavigation(
   // a speculative BrowsingInstance swap. It is not required for security and
   // needs to be treated after the history navigation block
   bool is_for_isolated_error_page =
-      (error_page_process ==
-       NavigationRequest::ErrorPageProcess::kIsolatedProcess);
+      (error_page_process == ErrorPageProcess::kIsolatedProcess);
   if (current_instance->HasSite() &&
       !is_same_site.Get(*render_frame_host_, destination_url_info) &&
       !CanUseSourceSiteInstance(destination_url_info, source_instance,
@@ -3149,7 +3148,7 @@ RenderFrameHostManager::GetSiteInstanceForNavigation(
     SiteInstanceImpl* dest_instance,
     SiteInstanceImpl* candidate_instance,
     ui::PageTransition transition,
-    NavigationRequest::ErrorPageProcess error_page_process,
+    ErrorPageProcess error_page_process,
     bool is_reload,
     bool is_same_document,
     IsSameSiteGetter& is_same_site,
@@ -3240,7 +3239,7 @@ RenderFrameHostManager::GetSiteInstanceForNavigation(
       new_instance.get(), dest_url_info.web_exposed_isolation_info));
   // TODO(crbug.com/395036622): Always apply this check once error pages in COI
   // subframes are committed in the isolated error process.
-  if (error_page_process != NavigationRequest::kCurrentProcess) {
+  if (error_page_process != ErrorPageProcess::kCurrentProcess) {
     CHECK(new_instance->GetSiteInfo()
               .agent_cluster_key()
               .GetCrossOriginIsolationKey() ==
@@ -3547,7 +3546,7 @@ RenderFrameHostManager::DetermineSiteInstanceForURL(
     SiteInstanceImpl* current_instance,
     SiteInstanceImpl* dest_instance,
     ui::PageTransition transition,
-    NavigationRequest::ErrorPageProcess error_page_process,
+    ErrorPageProcess error_page_process,
     IsSameSiteGetter& is_same_site,
     BrowsingContextGroupSwap browsing_context_group_swap,
     bool was_server_redirect,
@@ -3565,15 +3564,13 @@ RenderFrameHostManager::DetermineSiteInstanceForURL(
   // === Error page handling ===
   // Note that these must be the first checks to avoid picking the destination
   // instance or other instances.
-  if (error_page_process ==
-      NavigationRequest::ErrorPageProcess::kCurrentProcess) {
+  if (error_page_process == ErrorPageProcess::kCurrentProcess) {
     // If this is an error page that must reuse the current process, ensure that
     // `current_instance` is used.
     AppendReason(reason,
                  "DetermineSiteInstanceForURL => error-current-instance");
     return SiteInstanceDescriptor(current_instance);
-  } else if (error_page_process ==
-             NavigationRequest::ErrorPageProcess::kIsolatedProcess) {
+  } else if (error_page_process == ErrorPageProcess::kIsolatedProcess) {
     // If error page navigations should be isolated, ensure a dedicated
     // SiteInstance is used for them.
     CHECK(frame_tree_node_->IsErrorPageIsolationEnabled());
@@ -3884,7 +3881,7 @@ bool RenderFrameHostManager::CanUseDestinationInstance(
     const UrlInfo& dest_url_info,
     SiteInstanceImpl* current_instance,
     SiteInstanceImpl* dest_instance,
-    NavigationRequest::ErrorPageProcess error_page_process,
+    ErrorPageProcess error_page_process,
     const BrowsingContextGroupSwap& browsing_context_group_swap,
     bool was_server_redirect) {
   // Start by verifying that the dest_instance is compatible with the browsing
@@ -4096,7 +4093,7 @@ bool RenderFrameHostManager::CanUseSourceSiteInstance(
     const UrlInfo& dest_url_info,
     SiteInstanceImpl* source_instance,
     bool was_server_redirect,
-    NavigationRequest::ErrorPageProcess error_page_process,
+    ErrorPageProcess error_page_process,
     std::string* reason) {
   if (!source_instance) {
     AppendReason(reason,
@@ -4345,7 +4342,7 @@ RenderFrameHostManager::CreateRenderFrameHost(
     const blink::LocalFrameToken& frame_token,
     const blink::DocumentToken& document_token,
     base::UnguessableToken devtools_frame_token,
-    const base::UnguessableToken& initiator_state_token,
+    const blink::InitiatorStateToken& initiator_state_token,
     bool renderer_initiated_creation,
     scoped_refptr<BrowsingContextState> browsing_context_state,
     const ProcessAllocationContext& process_allocation_context) {
@@ -4427,19 +4424,19 @@ RenderFrameHostManager::CreateRenderFrameHost(
   }
   CHECK(render_view_host);
 
-  // LifecycleStateImpl of newly created RenderFrameHost.
-  LifecycleStateImpl lifecycle_state;
+  // RenderFrameHostLifecycleStateImpl of newly created RenderFrameHost.
+  RenderFrameHostLifecycleStateImpl lifecycle_state;
 
   if (create_frame_case == CreateFrameCase::kCreateSpeculative) {
-    lifecycle_state = LifecycleStateImpl::kSpeculative;
+    lifecycle_state = RenderFrameHostLifecycleStateImpl::kSpeculative;
   } else {
     // For the creation of initial documents:
     // - We create RenderFrameHost in kPrerendering state in case of
     // prerendering frame tree.
     // - We create RenderFrameHost in kActive state in all other cases.
     lifecycle_state = frame_tree.is_prerendering()
-                          ? LifecycleStateImpl::kPrerendering
-                          : LifecycleStateImpl::kActive;
+                          ? RenderFrameHostLifecycleStateImpl::kPrerendering
+                          : RenderFrameHostLifecycleStateImpl::kActive;
   }
 
   return RenderFrameHostFactory::Create(
@@ -4620,7 +4617,7 @@ RenderFrameHostManager::CreateSpeculativeRenderFrame(
           mojo::PendingAssociatedRemote<mojom::Frame>(),
           blink::LocalFrameToken(), blink::DocumentToken(),
           render_frame_host_->devtools_frame_token(),
-          /*initiator_state_token=*/base::UnguessableToken::Create(),
+          /*initiator_state_token=*/blink::InitiatorStateToken(),
           /*renderer_initiated_creation=*/false, browsing_context_state,
           ProcessAllocationContext{
               ProcessAllocationSource::kNoProcessCreationExpected});
@@ -4739,7 +4736,7 @@ void RenderFrameHostManager::CreateRenderFrameProxy(
           "Bug1400009", "current_rfh_si",
           (int)render_frame_host_->GetSiteInstance()->GetId());
       SCOPED_CRASH_KEY_STRING64("Bug1400009", "current_lifecycle",
-                                RenderFrameHostImpl::LifecycleStateImplToString(
+                                RenderFrameHostLifecycleStateImplToString(
                                     render_frame_host_->lifecycle_state()));
       RenderFrameHostImpl* parent_rfh = render_frame_host_->GetParent();
       SCOPED_CRASH_KEY_NUMBER("Bug1400009", "parent_si",
@@ -4748,7 +4745,7 @@ void RenderFrameHostManager::CreateRenderFrameProxy(
                             !!frame_tree_node_->frame_tree().GetRenderViewHost(
                                 parent_rfh->GetSiteInstance()->group()));
       SCOPED_CRASH_KEY_STRING64("Bug1400009", "parent_lifecycle",
-                                RenderFrameHostImpl::LifecycleStateImplToString(
+                                RenderFrameHostLifecycleStateImplToString(
                                     parent_rfh->lifecycle_state()));
       CHECK(render_view_host);
     }
@@ -5262,9 +5259,10 @@ void RenderFrameHostManager::CommitPending(
   CHECK(pending_rfh->IsRenderFrameLive());
   if (RenderWidgetHostImpl* rwh = pending_rfh->GetLocalRenderWidgetHost()) {
     if (rwh->compositor_metric_recorder()) {
-      if (pending_rfh->lifecycle_state() == LifecycleStateImpl::kSpeculative ||
+      if (pending_rfh->lifecycle_state() ==
+              RenderFrameHostLifecycleStateImpl::kSpeculative ||
           pending_rfh->lifecycle_state() ==
-              LifecycleStateImpl::kPendingCommit) {
+              RenderFrameHostLifecycleStateImpl::kPendingCommit) {
         // The navigation swaps in a new RenderFrameHost with a new
         // RenderWidgetHost. Log the time when the RFH swap happens to record
         // compositor-related metrics.
@@ -5276,7 +5274,7 @@ void RenderFrameHostManager::CommitPending(
         // be a prerendered RFH because we don't create recorders for
         // prerendered pages.
         CHECK_EQ(pending_rfh->lifecycle_state(),
-                 LifecycleStateImpl::kInBackForwardCache);
+                 RenderFrameHostLifecycleStateImpl::kInBackForwardCache);
         rwh->DisableCompositorMetricRecording();
       }
     }
@@ -5340,14 +5338,12 @@ void RenderFrameHostManager::CommitPending(
 
   // If we navigate to an existing page (i.e. |pending_stored_page| is not
   // null), check that |pending_rfh|'s old lifecycle state supports that.
-  RenderFrameHostImpl::LifecycleStateImpl prev_state =
-      pending_rfh->lifecycle_state();
+  RenderFrameHostLifecycleStateImpl prev_state = pending_rfh->lifecycle_state();
   // TODO(522901110): CHECK-exclusion: Convert to a CHECK once we are confident
   // it won't be triggered.
   DCHECK(!pending_stored_page ||
-         prev_state == RenderFrameHostImpl::LifecycleStateImpl::kPrerendering ||
-         prev_state ==
-             RenderFrameHostImpl::LifecycleStateImpl::kInBackForwardCache);
+         prev_state == RenderFrameHostLifecycleStateImpl::kPrerendering ||
+         prev_state == RenderFrameHostLifecycleStateImpl::kInBackForwardCache);
 
   // Now close any modal dialogs that would prevent us from unloading the old
   // frame. This must be done separately from RenderFrameHost::Unload(), so that
@@ -5423,8 +5419,7 @@ void RenderFrameHostManager::CommitPending(
 
     StoredPage::RenderViewHostImplSafeRefSet render_view_hosts_to_restore =
         pending_stored_page->TakeRenderViewHosts();
-    if (prev_state ==
-        RenderFrameHostImpl::LifecycleStateImpl::kInBackForwardCache) {
+    if (prev_state == RenderFrameHostLifecycleStateImpl::kInBackForwardCache) {
       for (const auto& rvh : render_view_hosts_to_restore) {
         CHECK_NE(&*rvh, old_render_frame_host->GetRenderViewHost());
         blink::mojom::PageRestoreParamsPtr page_restore_params =
@@ -5440,8 +5435,7 @@ void RenderFrameHostManager::CommitPending(
         rvh->LeaveBackForwardCache(std::move(page_restore_params));
       }
     } else {
-      CHECK_EQ(prev_state,
-               RenderFrameHostImpl::LifecycleStateImpl::kPrerendering);
+      CHECK_EQ(prev_state, RenderFrameHostLifecycleStateImpl::kPrerendering);
       current_frame_host()->GetPage().Activate(
           render_view_hosts_to_restore,
           pending_stored_page->TakeViewTransitionState(), base::DoNothing());
@@ -5607,8 +5601,7 @@ void RenderFrameHostManager::CommitPending(
     auto* render_widget_host_view_base =
         static_cast<RenderWidgetHostViewBase*>(render_frame_host_->GetView());
     should_take_fallback_content =
-        prev_state !=
-            RenderFrameHostImpl::LifecycleStateImpl::kInBackForwardCache ||
+        prev_state != RenderFrameHostLifecycleStateImpl::kInBackForwardCache ||
         !render_widget_host_view_base->GetLocalSurfaceId().is_valid() ||
         render_widget_host_view_base->is_evicted();
   }
@@ -5857,15 +5850,18 @@ std::unique_ptr<RenderFrameHostImpl> RenderFrameHostManager::SetRenderFrameHost(
       // speculative RFHs for prerendering pages will always go through
       // kPendingCommit first.
       CHECK_NE(render_frame_host_->lifecycle_state(),
-               LifecycleStateImpl::kSpeculative);
+               RenderFrameHostLifecycleStateImpl::kSpeculative);
       if (render_frame_host_->lifecycle_state() ==
-          LifecycleStateImpl::kPendingCommit) {
+          RenderFrameHostLifecycleStateImpl::kPendingCommit) {
         render_frame_host_->SetLifecycleState(
-            LifecycleStateImpl::kPrerendering);
+            RenderFrameHostLifecycleStateImpl::kPrerendering);
       }
     } else {
-      if (render_frame_host_->lifecycle_state() != LifecycleStateImpl::kActive)
-        render_frame_host_->SetLifecycleState(LifecycleStateImpl::kActive);
+      if (render_frame_host_->lifecycle_state() !=
+          RenderFrameHostLifecycleStateImpl::kActive) {
+        render_frame_host_->SetLifecycleState(
+            RenderFrameHostLifecycleStateImpl::kActive);
+      }
     }
   }
 
@@ -6079,6 +6075,11 @@ void RenderFrameHostManager::ExecuteRemoteFramesBroadcastMethod(
   render_frame_host_->browsing_context_state()
       ->ExecuteRemoteFramesBroadcastMethod(callback, group_to_skip,
                                            outer_delegate_proxy);
+}
+
+const BrowsingContextState::RenderFrameProxyHostMap&
+RenderFrameHostManager::GetAllProxyHostsForTesting() const {
+  return render_frame_host_->browsing_context_state()->proxy_hosts();
 }
 
 void RenderFrameHostManager::EnsureRenderFrameHostVisibilityConsistent() {

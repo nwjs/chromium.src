@@ -6,17 +6,27 @@ import '//resources/cr_elements/cr_icon_button/cr_icon_button.js';
 import '/strings.m.js';
 import './icons.js';
 
+import type {CrIconButtonElement} from '//resources/cr_elements/cr_icon_button/cr_icon_button.js';
 import {loadTimeData} from '//resources/js/load_time_data.js';
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
+import type {BatterySaverControlState} from '/shared/toolbar_ui_api_data_model.mojom-webui.js';
 
 import {getHtml} from './battery_saver_button.html.js';
 import {BrowserProxyImpl, ContextMenuType} from './browser_proxy.js';
 import type {BrowserProxy} from './browser_proxy.js';
+import {OverflowableButtonMixin} from './overflowable_button.js';
 import {getCss} from './toolbar_button.css.js';
 import {getContextMenuPosition, getContextMenuSourceType} from './toolbar_button.js';
 
+export interface BatterySaverButtonElement {
+  $: {
+    button: CrIconButtonElement,
+  };
+}
 
-export class BatterySaverButtonElement extends CrLitElement {
+const BatterySaverButtonElementBase = OverflowableButtonMixin(CrLitElement);
+
+export class BatterySaverButtonElement extends BatterySaverButtonElementBase {
   static get is() {
     return 'battery-saver-button';
   }
@@ -28,6 +38,17 @@ export class BatterySaverButtonElement extends CrLitElement {
   override render() {
     return getHtml.bind(this)();
   }
+
+  static override get properties() {
+    return {
+      ...super.properties,
+      state: {type: Object},
+    };
+  }
+
+  override accessor state: BatterySaverControlState = {
+    shouldBeShown: false,
+  };
 
   protected getLabel_(): string {
     return loadTimeData.getString('batterySaverButtonAccName');
@@ -42,7 +63,7 @@ export class BatterySaverButtonElement extends CrLitElement {
   protected onClick_(e: MouseEvent) {
     this.browserProxy_.toolbarUIHandler.showContextMenu(
         ContextMenuType.kBatterySaver, getContextMenuPosition(this),
-        getContextMenuSourceType(e));
+        getContextMenuSourceType(e), /*showMenuToken=*/ null);
   }
 }
 

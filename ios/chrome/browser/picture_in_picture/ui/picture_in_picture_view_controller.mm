@@ -13,6 +13,7 @@
 #import "base/strings/strcat.h"
 #import "base/task/sequenced_task_runner.h"
 #import "base/time/time.h"
+#import "ios/chrome/browser/default_browser/model/features.h"
 #import "ios/chrome/browser/default_browser/model/utils.h"
 #import "ios/chrome/browser/picture_in_picture/public/picture_in_picture_configuration.h"
 #import "ios/chrome/browser/picture_in_picture/ui/picture_in_picture_mutator.h"
@@ -32,7 +33,7 @@ NSString* const kKeyPathTimeControlStatus = @"timeControlStatus";
 NSString* const kKeyPathVideoRect = @"videoRect";
 // Delay to wait before checking if the app was restored from picture in
 // picture or manually (App switcher, App icon...).
-constexpr base::TimeDelta kAppRestoreDelay = base::Milliseconds(50);
+constexpr base::TimeDelta kAppRestoreDelay = base::Milliseconds(100);
 // Delay to wait before auto-hiding controls.
 constexpr base::TimeDelta kControlsHideDelay = base::Seconds(3);
 // Duration for controls fade animation.
@@ -43,6 +44,10 @@ constexpr CGFloat kPlayPauseButtonPointSize = 25.0;
 NSString* accessibilityLabel(PictureInPictureFeature feature) {
   switch (feature) {
     case PictureInPictureFeature::kDefaultBrowser:
+      if (IsDefaultBrowserPipTextVideoEnabled()) {
+        return l10n_util::GetNSString(
+            IDS_IOS_DEFAULT_BROWSER_PIP_TEXT_VIDEO_ACCESSIBILITY_DESCRIPTION);
+      }
       return l10n_util::GetNSString(
           IDS_IOS_DEFAULT_BROWSER_PIP_ACCESSIBILITY_ANNOUNCEMENT);
   }
@@ -86,6 +91,8 @@ NSString* accessibilityLabel(PictureInPictureFeature feature) {
   UIButton* _playPauseButton;
   // The closure to hide controls after a delay.
   base::CancelableOnceClosure _hideControlsClosure;
+  // The closure to handle manual app restore after a delay.
+  base::CancelableOnceClosure _appRestoreClosure;
 }
 
 - (instancetype)initWithTitle:(NSString*)title
@@ -126,17 +133,23 @@ NSString* accessibilityLabel(PictureInPictureFeature feature) {
 #pragma mark - Public
 
 - (void)dismissIfNotPipRestore {
+  // If the view was already restored from the PiP fullscreen button, keep the
+  // UI alive and skip scheduling manual dismissal.
+  if (_restoredFromPictureInPicture) {
+    return;
+  }
   __weak __typeof(self) weakSelf = self;
   _appWasRestored = YES;
   // Delay execution by `kAppRestoreDelay` to allow
   // `restoreUserInterfaceForPictureInPictureStopWithCompletionHandler` to fire
   // first. This lets us distinguish a manual launch (which dismisses
-  // everything) from a PiP restore (which preserves the UI).
+  // everything) from a PiP restore (which cancels this closure and preserves
+  // the UI).
+  _appRestoreClosure.Reset(base::BindOnce(^{
+    [weakSelf handleAppRestore];
+  }));
   base::SequencedTaskRunner::GetCurrentDefault()->PostDelayedTask(
-      FROM_HERE, base::BindOnce(^{
-        [weakSelf handleAppRestore];
-      }),
-      kAppRestoreDelay);
+      FROM_HERE, _appRestoreClosure.callback(), kAppRestoreDelay);
 }
 
 #pragma mark - Private
@@ -324,8 +337,6 @@ NSString* accessibilityLabel(PictureInPictureFeature feature) {
 - (void)handleAppRestore {
   if (_restoredFromPictureInPicture) {
     [self showControls];
-    [self recordAppRestoration:PictureInPictureAppRestoration::
-                                   kPictureInPictureFullscreenButton];
     return;
   }
 
@@ -513,6 +524,11 @@ NSString* accessibilityLabel(PictureInPictureFeature feature) {
     restoreUserInterfaceForPictureInPictureStopWithCompletionHandler:
         (void (^)(BOOL restored))completionHandler {
   _restoredFromPictureInPicture = YES;
+  // Cancel the pending manual restore closure to prevent tearing down the UI.
+  _appRestoreClosure.Cancel();
+  [self showControls];
+  [self recordAppRestoration:PictureInPictureAppRestoration::
+                                 kPictureInPictureFullscreenButton];
   completionHandler(YES);
 }
 

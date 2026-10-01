@@ -55,6 +55,7 @@ class TabStyleViewDelegate {
   virtual std::optional<tab_groups::TabGroupId> GetGroup() const = 0;
   virtual std::optional<SkColor> GetGroupColor() const = 0;
   virtual bool IsInFocusedGroup() const = 0;
+  virtual bool IsGroupCollapsed() const = 0;
   virtual bool IsSplit() const = 0;
   virtual std::optional<split_tabs::SplitTabId> GetSplit() const = 0;
 
@@ -111,6 +112,11 @@ class TabStyleViews {
                          float scale,
                          const TabPathFlags& flags) const = 0;
 
+  // Gets the path that children should be clipped to. Returns `nullopt` if
+  // children shouldn't be clipped.
+  virtual std::optional<SkPath> GetChildClipPath(
+      float paint_recording_scale) const = 0;
+
   // Paints the tab.
   virtual void PaintTab(gfx::Canvas* canvas) const = 0;
 
@@ -138,6 +144,9 @@ class TabStyleViews {
   virtual double GetHoverAnimationValue() const = 0;
 
   virtual GlowHoverController* GetHoverControllerForTesting() = 0;
+
+  virtual TabStyle::SeparatorOpacities GetSeparatorOpacitiesForTesting()
+      const = 0;
 
   const TabStyle* tab_style() const { return tab_style_; }
 

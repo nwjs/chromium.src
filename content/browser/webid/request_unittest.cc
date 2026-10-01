@@ -2138,6 +2138,26 @@ TEST_F(RequestTest, NotifiesFederatedEmbedderLoginRequest) {
   RunTest(kDefaultRequestParameters, kExpectationSuccess, kConfigurationValid);
 }
 
+// Test that the FederatedEmbedderLoginRequest is not notified when the FedCM
+// flow completes successfully for a different IdP.
+TEST_F(RequestTest,
+       DoesNotNotifyFederatedEmbedderLoginRequestWithMismatchedIdp) {
+  url::Origin idp_origin =
+      url::Origin::Create(GURL("https://other-idp.example"));
+  std::string account_id = "account_id123";
+
+  base::MockCallback<base::OnceCallback<void(FederatedLoginResult)>>
+      result_callback;
+  // Since the result from the mismatched IdP is ignored, the embedder request
+  // only finishes when it times out during WaitForCurrentRequest().
+  EXPECT_CALL(result_callback, Run(FederatedLoginResult::kTimeout)).Times(1);
+
+  FederatedEmbedderLoginRequest::Set(web_contents(), idp_origin, account_id,
+                                     result_callback.Get());
+
+  RunTest(kDefaultRequestParameters, kExpectationSuccess, kConfigurationValid);
+}
+
 // Test successful well-known fetching.
 TEST_F(RequestTest, WellKnownSuccess) {
   // Use IdpNetworkRequestManagerParamChecker to validate passed-in parameters
@@ -9140,7 +9160,7 @@ TEST_F(RequestTest, NonceAbsenceNoRecord) {
 TEST_F(RequestTest, NonPrimaryPageMetrics) {
   static_cast<RenderFrameHostImpl*>(web_contents()->GetPrimaryMainFrame())
       ->SetLifecycleState(
-          RenderFrameHostImpl::LifecycleStateImpl::kInBackForwardCache);
+          RenderFrameHostLifecycleStateImpl::kInBackForwardCache);
   RequestExpectations expectations = {
       RequestTokenStatus::kError,
       // When the RenderFrameHost changes on navigation, no console message is
@@ -9631,7 +9651,7 @@ TEST_F(RequestTest, DisconnectFromNonPrimaryPage) {
 
   static_cast<RenderFrameHostImpl*>(main_test_rfh())
       ->SetLifecycleState(
-          RenderFrameHostImpl::LifecycleStateImpl::kInBackForwardCache);
+          RenderFrameHostLifecycleStateImpl::kInBackForwardCache);
 
   auto options = blink::mojom::IdentityCredentialDisconnectOptions::New();
   options->config = blink::mojom::IdentityProviderConfig::New();

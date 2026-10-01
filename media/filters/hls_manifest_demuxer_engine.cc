@@ -124,32 +124,54 @@ HlsDemuxerStatus::Or<RelaxedParserSupportedType> CheckMP4Bytes(
 }
 
 HlsDemuxerStatus::Or<RelaxedParserSupportedType>
-CheckBitstreamForContainerMagic(base::span<const uint8_t> data) {
-  CHECK(!data.empty());
+CheckBitstreamForContainerMagic(base::span<const uint8_t> data,
+                                std::string_view path) {
+  if (!data.empty()) {
+    constexpr uint8_t kMP4FirstByte = 0x66;
+    constexpr uint8_t kMPEGTSFirstByte = 0x47;
+    constexpr uint8_t kFMP4FirstByte = 0x00;
+    constexpr uint8_t kAACFirstByte = 0xFF;
+    constexpr uint8_t kID3FirstByte = 0x49;
 
-  constexpr uint8_t kMP4FirstByte = 0x66;
-  constexpr uint8_t kMPEGTSFirstByte = 0x47;
-  constexpr uint8_t kFMP4FirstByte = 0x00;
-  constexpr uint8_t kAACFirstByte = 0xFF;
-  constexpr uint8_t kID3FirstByte = 0x49;
-
-  switch (data[0]) {
-    case kMP4FirstByte:
-    case kFMP4FirstByte: {
-      return CheckMP4Bytes(data);
-    }
-    case kID3FirstByte:
-    case kAACFirstByte: {
-      // TODO(crbug.com/40253609): Check further bytes in the header.
-      return RelaxedParserSupportedType::kAAC;
-    }
-    case kMPEGTSFirstByte: {
-      return RelaxedParserSupportedType::kMP2T;
-    }
-    default: {
-      return HlsDemuxerStatus::Codes::kUnsupportedContainer;
+    switch (data[0]) {
+      case kMP4FirstByte:
+      case kFMP4FirstByte: {
+        return CheckMP4Bytes(data);
+      }
+      case kID3FirstByte:
+      case kAACFirstByte: {
+        // TODO(crbug.com/40253609): Check further bytes in the header.
+        return RelaxedParserSupportedType::kAAC;
+      }
+      case kMPEGTSFirstByte: {
+        return RelaxedParserSupportedType::kMP2T;
+      }
+      default: {
+        // Fallback to file extension.
+        break;
+      }
     }
   }
+
+  // As a fallback, we can try to guess based on the file extension. There's
+  // a good possibility that we're missing other magic bytes, or multi-byte
+  // headers. We can always try to demux it and parse the data, and fail
+  // if that doesn't work.
+  if (path.ends_with(".ts")) {
+    return RelaxedParserSupportedType::kMP2T;
+  } else if (path.ends_with(".mp4")) {
+    return RelaxedParserSupportedType::kMP4;
+  } else if (path.ends_with(".m4v")) {
+    return RelaxedParserSupportedType::kMP4;
+  } else if (path.ends_with(".m4s")) {
+    return RelaxedParserSupportedType::kMP4;
+  } else if (path.ends_with(".m4a")) {
+    return RelaxedParserSupportedType::kMP4;
+  } else if (path.ends_with(".aac")) {
+    return RelaxedParserSupportedType::kAAC;
+  }
+
+  return HlsDemuxerStatus::Codes::kUnsupportedContainer;
 }
 
 PipelineStatus ConvertToPiplineStatus(HlsDemuxerStatus&& status) {
@@ -404,17 +426,17 @@ void HlsManifestDemuxerEngine::ContinueSeekInternal(
 }
 
 void HlsManifestDemuxerEngine::Initialize(ManifestDemuxerEngineHost* host,
-                                          PipelineStatusCallback status_cb) {
+                                          HlsDemuxerStatusCallback status_cb) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(media_sequence_checker_);
 
   host_ = host;
-  ProcessAsyncAction<PipelineStatus>(
+  ProcessAsyncAction<HlsDemuxerStatus>(
       std::move(status_cb),
       base::BindOnce(&HlsManifestDemuxerEngine::InitAction,
                      weak_factory_.GetWeakPtr()));
 }
 
-void HlsManifestDemuxerEngine::InitAction(PipelineStatusCallback status_cb) {
+void HlsManifestDemuxerEngine::InitAction(HlsDemuxerStatusCallback status_cb) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(media_sequence_checker_);
   PlaylistParseInfo parse_info(root_playlist_uri_, {}, kPrimary,
                                /*allow_multivariant_playlist=*/true);
@@ -424,14 +446,14 @@ void HlsManifestDemuxerEngine::InitAction(PipelineStatusCallback status_cb) {
                      weak_factory_.GetWeakPtr(), std::move(status_cb)));
 }
 
-void HlsManifestDemuxerEngine::FinishInitialization(PipelineStatusCallback cb,
+void HlsManifestDemuxerEngine::FinishInitialization(HlsDemuxerStatusCallback cb,
                                                     HlsDemuxerStatus status) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(media_sequence_checker_);
   if (!status.is_ok()) {
     base::UmaHistogramEnumeration("Media.HLS.InitializationError",
                                   status.code());
   }
-  std::move(cb).Run(ConvertToPiplineStatus(std::move(status)));
+  std::move(cb).Run(std::move(status));
 }
 
 void HlsManifestDemuxerEngine::RecordMidStreamError(HlsDemuxerStatus::Codes c) {
@@ -560,8 +582,7 @@ void HlsManifestDemuxerEngine::UpdateMediaPlaylistForRole(
     HlsDataSourceProvider::ReadResult maybe_stream) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(media_sequence_checker_);
   if (!maybe_stream.has_value()) {
-    std::move(cb).Run(HlsDemuxerStatusTraits::FromReadStatus(
-        std::move(maybe_stream).error()));
+    std::move(cb).Run(std::move(maybe_stream).error());
     return;
   }
   auto stream = std::move(maybe_stream).value();
@@ -697,9 +718,7 @@ void HlsManifestDemuxerEngine::ParsePlaylist(
     HlsDataSourceProvider::ReadResult m_stream) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(media_sequence_checker_);
   if (!m_stream.has_value()) {
-    std::move(parse_complete_cb)
-        .Run(HlsDemuxerStatusTraits::FromReadStatus(
-            std::move(m_stream).error().AddHere()));
+    std::move(parse_complete_cb).Run(std::move(m_stream).error().AddHere());
     return;
   }
   auto stream = std::move(m_stream).value();
@@ -1025,47 +1044,24 @@ void HlsManifestDemuxerEngine::DetermineStreamContainer(
     return;
   }
 
-  // In the best case, we can just assert the mime type based on extension,
-  // but if it's unrecognized, we have to fetch and parse it.
-  const auto first_segment_path = segments[0]->GetUri().path();
-
-  std::optional<RelaxedParserSupportedType> mime = std::nullopt;
-  if (first_segment_path.ends_with(".ts")) {
-    mime = RelaxedParserSupportedType::kMP2T;
-  } else if (first_segment_path.ends_with(".mp4")) {
-    mime = RelaxedParserSupportedType::kMP4;
-  } else if (first_segment_path.ends_with(".m4v")) {
-    mime = RelaxedParserSupportedType::kMP4;
-  } else if (first_segment_path.ends_with(".m4s")) {
-    mime = RelaxedParserSupportedType::kMP4;
-  } else if (first_segment_path.ends_with(".m4a")) {
-    mime = RelaxedParserSupportedType::kMP4;
-  } else if (first_segment_path.ends_with(".aac")) {
-    mime = RelaxedParserSupportedType::kAAC;
-  }
-
-  if (mime.has_value()) {
-    std::move(container_cb).Run(mime.value());
-  } else {
-    bool read_chunked = true;
-    if (auto enc_data = segments[0]->GetEncryptionData()) {
-      switch (enc_data->GetMethod()) {
-        case hls::XKeyTagMethod::kAES128:
-        case hls::XKeyTagMethod::kAES256: {
-          read_chunked = false;
-          break;
-        }
-        default:
-          break;
+  bool read_chunked = true;
+  if (auto enc_data = segments[0]->GetEncryptionData()) {
+    switch (enc_data->GetMethod()) {
+      case hls::XKeyTagMethod::kAES128:
+      case hls::XKeyTagMethod::kAES256: {
+        read_chunked = false;
+        break;
       }
+      default:
+        break;
     }
-
-    ReadMediaSegment(
-        *segments[0], read_chunked, /*include_init=*/true,
-        base::BindOnce(&HlsManifestDemuxerEngine::DetermineBitstreamContainer,
-                       weak_factory_.GetWeakPtr(), segments[0],
-                       std::move(container_cb)));
   }
+
+  ReadMediaSegment(
+      *segments[0], read_chunked, /*include_init=*/true,
+      base::BindOnce(&HlsManifestDemuxerEngine::DetermineBitstreamContainer,
+                     weak_factory_.GetWeakPtr(), segments[0],
+                     std::move(container_cb)));
 }
 
 void HlsManifestDemuxerEngine::DetermineBitstreamContainer(
@@ -1075,8 +1071,7 @@ void HlsManifestDemuxerEngine::DetermineBitstreamContainer(
   DCHECK_CALLED_ON_VALID_SEQUENCE(media_sequence_checker_);
 
   if (!maybe_stream.has_value()) {
-    std::move(cb).Run(HlsDemuxerStatusTraits::FromReadStatus(
-        std::move(maybe_stream).error()));
+    std::move(cb).Run(std::move(maybe_stream).error());
     return;
   }
 
@@ -1092,7 +1087,9 @@ void HlsManifestDemuxerEngine::DetermineBitstreamContainer(
     std::move(cb).Run(HlsDemuxerStatus::Codes::kUnsupportedCryptoMethod);
     return;
   }
-  std::move(cb).Run(CheckBitstreamForContainerMagic(plaintext));
+
+  const auto& path = segment->GetUri().path();
+  std::move(cb).Run(CheckBitstreamForContainerMagic(plaintext, path));
 }
 
 void HlsManifestDemuxerEngine::OnChunkDemuxerParseWarning(

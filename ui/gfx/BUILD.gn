@@ -374,6 +374,8 @@ component("gfx") {
       "harfbuzz_font_skia.h",
       "image/canvas_image_source.cc",
       "image/canvas_image_source.h",
+      "image/icon_standardizer.cc",
+      "image/icon_standardizer.h",
       "image/image_generic.cc",
       "image/image_skia_operations.cc",
       "image/image_skia_operations.h",
@@ -389,8 +391,6 @@ component("gfx") {
       "render_text_harfbuzz.h",
       "scoped_canvas.cc",
       "scoped_canvas.h",
-      "shadow_util.cc",
-      "shadow_util.h",
       "skia_paint_util.cc",
       "skia_paint_util.h",
       "text_utils_skia.cc",
@@ -863,6 +863,7 @@ test("gfx_unittests") {
       "geometry/vector2d_unittest.cc",
       "geometry/vector3d_f_unittest.cc",
       "icc_profile_unittest.cc",
+      "image/icon_standardizer_unittest.cc",
       "image/image_skia_operations_unittest.cc",
       "image/image_util_unittest.cc",
       "mojom/mojom_traits_unittest.cc",
@@ -874,7 +875,6 @@ test("gfx_unittests") {
       "selection_bound_unittest.cc",
       "selection_model_unittest.cc",
       "sequential_id_generator_unittest.cc",
-      "shadow_util_unittest.cc",
       "shadow_value_unittest.cc",
       "skbitmap_operations_unittest.cc",
       "skia_util_unittest.cc",
@@ -894,6 +894,7 @@ test("gfx_unittests") {
     ":gfx",
     ":test_support",
     "//base",
+    "//base/i18n:test_support",
     "//base/test:test_support",
     "//skia",
     "//skia:skcms",
@@ -1045,6 +1046,7 @@ if (is_ios) {
     testonly = true
     filelist_name = "test/data/codec/unit_tests_bundle_data.filelist"
   }
+
   bundle_data_from_filelist("compositor_tests_bundle_data") {
     testonly = true
     filelist_name = "test/data/compositor/unit_tests_bundle_data.filelist"

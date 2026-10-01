@@ -5,6 +5,7 @@
 import 'chrome://iwa-dev/update_options_dialog.js';
 
 import type {ChannelMetadata, IwaDevModeAppInfo, UpdateManifest, VersionEntry} from 'chrome://iwa-dev/iwa_dev.mojom-webui.js';
+import {isValidIwaVersion, isValidUpdateChannel} from 'chrome://iwa-dev/update_options_dialog.js';
 import type {IwaDevUpdateOptionsDialogElement} from 'chrome://iwa-dev/update_options_dialog.js';
 import type {CrToggleElement} from 'chrome://resources/cr_elements/cr_toggle/cr_toggle.js';
 import {assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
@@ -53,11 +54,9 @@ suite('<iwa-dev-update-options-dialog>', () => {
     cancelButton =
         dialog.shadowRoot.querySelector<HTMLButtonElement>('.cancel-button')!;
     assertTrue(!!cancelButton);
-    channelInput =
-        dialog.shadowRoot.querySelector<HTMLInputElement>('#channelInput')!;
+    channelInput = dialog.$.channelCombobox.inputElement;
     assertTrue(!!channelInput);
-    pinnedVersionInput = dialog.shadowRoot.querySelector<HTMLInputElement>(
-        '#pinnedVersionInput')!;
+    pinnedVersionInput = dialog.$.pinnedVersionCombobox.inputElement;
     assertTrue(!!pinnedVersionInput);
     allowDowngradesToggle = dialog.shadowRoot.querySelector<CrToggleElement>(
         '#allowDowngradesToggle')!;
@@ -73,14 +72,14 @@ suite('<iwa-dev-update-options-dialog>', () => {
     return event.detail.callback;
   }
 
-  function getChannelOptions(): NodeListOf<HTMLOptionElement> {
-    return dialog.shadowRoot.querySelectorAll<HTMLOptionElement>(
-        '#channelList option');
+  function getChannelOptions(): NodeListOf<HTMLButtonElement> {
+    return dialog.$.channelCombobox.shadowRoot
+        .querySelectorAll<HTMLButtonElement>('#suggestions .suggestion-item');
   }
 
-  function getPinnedVersionOptions(): NodeListOf<HTMLOptionElement> {
-    return dialog.shadowRoot.querySelectorAll<HTMLOptionElement>(
-        '#pinnedVersionList option');
+  function getPinnedVersionOptions(): NodeListOf<HTMLButtonElement> {
+    return dialog.$.pinnedVersionCombobox.shadowRoot
+        .querySelectorAll<HTMLButtonElement>('#suggestions .suggestion-item');
   }
 
   interface OpenDialogOptions {
@@ -128,7 +127,7 @@ suite('<iwa-dev-update-options-dialog>', () => {
 
   test(
       'fetches manifest on open, pre-fills current channel, and populates ' +
-          'datalists with all options',
+          'comboboxes with all options',
       async () => {
         await openDialog({
           currentChannel: 'default',
@@ -162,9 +161,9 @@ suite('<iwa-dev-update-options-dialog>', () => {
 
         const versionOptions = getPinnedVersionOptions();
         assertEquals(3, versionOptions.length);
-        assertEquals('1.0.0', versionOptions[0]!.value);
+        assertEquals('3.0.0', versionOptions[0]!.value);
         assertEquals('2.0.0', versionOptions[1]!.value);
-        assertEquals('3.0.0', versionOptions[2]!.value);
+        assertEquals('1.0.0', versionOptions[2]!.value);
 
         assertTrue(saveButton.hasAttribute('disabled'));
       });
@@ -207,25 +206,12 @@ suite('<iwa-dev-update-options-dialog>', () => {
       });
 
   test(
-      'disables save button until a different valid channel is entered',
-      async () => {
+      'disables save button until a different channel is entered', async () => {
         await openDialog({
           currentChannel: 'default',
           channels: [{channel: 'beta', displayName: 'Beta'}],
         });
         assertEquals('default', channelInput.value);
-        assertTrue(saveButton.hasAttribute('disabled'));
-
-        // Clearing input keeps save disabled
-        channelInput.value = '';
-        channelInput.dispatchEvent(new Event('input'));
-        await microtasksFinished();
-        assertTrue(saveButton.hasAttribute('disabled'));
-
-        // Entering whitespace keeps save disabled
-        channelInput.value = '   ';
-        channelInput.dispatchEvent(new Event('input'));
-        await microtasksFinished();
         assertTrue(saveButton.hasAttribute('disabled'));
 
         // Entering a new channel enables save
@@ -360,18 +346,22 @@ suite('<iwa-dev-update-options-dialog>', () => {
     });
     assertEquals('1.0.0', pinnedVersionInput.value);
 
-    const clearButton = dialog.shadowRoot.querySelector<HTMLElement>(
-        '#clearPinnedVersionButton');
+    const clearButton =
+        dialog.$.pinnedVersionCombobox.shadowRoot.querySelector<HTMLElement>(
+            '#clearButton');
     assertTrue(!!clearButton);
-    assertEquals('Clear pinned version', clearButton.title);
+    assertEquals('Clear', clearButton.title);
 
     clearButton.click();
     await microtasksFinished();
 
     assertEquals('', pinnedVersionInput.value);
-    assertEquals(pinnedVersionInput, dialog.shadowRoot.activeElement);
+    assertEquals(
+        pinnedVersionInput,
+        dialog.$.pinnedVersionCombobox.shadowRoot.activeElement);
     assertFalse(saveButton.hasAttribute('disabled'));
-    assertFalse(!!dialog.shadowRoot.querySelector('#clearPinnedVersionButton'));
+    assertFalse(!!dialog.$.pinnedVersionCombobox.shadowRoot.querySelector(
+        '#clearButton'));
 
     const savePromise = eventToPromise('update-options-saved', dialog);
     saveButton.click();
@@ -387,7 +377,8 @@ suite('<iwa-dev-update-options-dialog>', () => {
       currentPinnedVersion: null,
     });
     assertEquals('', pinnedVersionInput.value);
-    assertFalse(!!dialog.shadowRoot.querySelector('#clearPinnedVersionButton'));
+    assertFalse(!!dialog.$.pinnedVersionCombobox.shadowRoot.querySelector(
+        '#clearButton'));
   });
 
   test('closes dialog on cancel click', async () => {
@@ -506,5 +497,370 @@ suite('<iwa-dev-update-options-dialog>', () => {
     const versionOptions = getPinnedVersionOptions();
     assertEquals(1, versionOptions.length);
     assertEquals('2.0.0', versionOptions[0]!.value);
+  });
+
+  test(
+      'displays error and prevents saving when version validation fails',
+      async () => {
+        await openDialog({currentPinnedVersion: '1.0.0'});
+        pinnedVersionInput.value = 'invalid-version';
+        pinnedVersionInput.dispatchEvent(new Event('input'));
+        await microtasksFinished();
+
+        assertFalse(saveButton.hasAttribute('disabled'));
+
+        let eventFired = false;
+        dialog.addEventListener('update-options-saved', () => {
+          eventFired = true;
+        });
+
+        saveButton.click();
+        await microtasksFinished();
+
+        assertFalse(eventFired);
+        assertTrue(dialog.$.dialog.open);
+
+        const errorDiv = dialog.$.pinnedVersionCombobox.shadowRoot
+                             .querySelector<HTMLElement>('#error');
+        assertTrue(!!errorDiv);
+        assertEquals('Invalid version format.', errorDiv.textContent?.trim());
+        assertEquals('true', pinnedVersionInput.getAttribute('aria-invalid'));
+        assertEquals(
+            pinnedVersionInput,
+            dialog.$.pinnedVersionCombobox.shadowRoot.activeElement);
+        assertEquals(
+            dialog.$.pinnedVersionCombobox, dialog.shadowRoot.activeElement);
+        assertTrue(saveButton.hasAttribute('disabled'));
+
+        const suggestionsDiv = dialog.$.pinnedVersionCombobox.shadowRoot
+                                   .querySelector<HTMLElement>('#suggestions');
+        if (suggestionsDiv) {
+          assertFalse(suggestionsDiv.matches(':popover-open'));
+        }
+
+        // Modifying input clears the error
+        pinnedVersionInput.value = '2.0.0';
+        pinnedVersionInput.dispatchEvent(new Event('input'));
+        await microtasksFinished();
+
+        assertFalse(!!dialog.$.pinnedVersionCombobox.shadowRoot.querySelector(
+            '#error'));
+        assertEquals(null, pinnedVersionInput.getAttribute('aria-invalid'));
+        assertFalse(saveButton.hasAttribute('disabled'));
+
+        const savedPromise = eventToPromise('update-options-saved', dialog);
+        saveButton.click();
+        const savedEvent = await savedPromise as CustomEvent<{
+                             pinnedVersion?: string | null,
+                           }>;
+        assertEquals('2.0.0', savedEvent.detail.pinnedVersion);
+        assertFalse(dialog.$.dialog.open);
+      });
+
+  test('displays error and prevents saving when channel is empty', async () => {
+    await openDialog({currentChannel: 'default'});
+    channelInput.value = '   ';
+    channelInput.dispatchEvent(new Event('input'));
+    await microtasksFinished();
+
+    assertFalse(saveButton.hasAttribute('disabled'));
+
+    let eventFired = false;
+    dialog.addEventListener('update-options-saved', () => {
+      eventFired = true;
+    });
+
+    saveButton.click();
+    await microtasksFinished();
+
+    assertFalse(eventFired);
+    assertTrue(dialog.$.dialog.open);
+
+    const errorDiv =
+        dialog.$.channelCombobox.shadowRoot.querySelector<HTMLElement>(
+            '#error');
+    assertTrue(!!errorDiv);
+    assertEquals('Channel cannot be empty.', errorDiv.textContent?.trim());
+    assertEquals('true', channelInput.getAttribute('aria-invalid'));
+    assertEquals(
+        channelInput, dialog.$.channelCombobox.shadowRoot.activeElement);
+    assertEquals(dialog.$.channelCombobox, dialog.shadowRoot.activeElement);
+    assertTrue(saveButton.hasAttribute('disabled'));
+
+    const suggestionsDiv =
+        dialog.$.channelCombobox.shadowRoot.querySelector<HTMLElement>(
+            '#suggestions');
+    if (suggestionsDiv) {
+      assertFalse(suggestionsDiv.matches(':popover-open'));
+    }
+
+    // Modifying input clears the error
+    channelInput.value = 'beta';
+    channelInput.dispatchEvent(new Event('input'));
+    await microtasksFinished();
+
+    assertFalse(!!dialog.$.channelCombobox.shadowRoot.querySelector('#error'));
+    assertEquals(null, channelInput.getAttribute('aria-invalid'));
+    assertFalse(saveButton.hasAttribute('disabled'));
+
+    const savedPromise = eventToPromise('update-options-saved', dialog);
+    saveButton.click();
+    const savedEvent = await savedPromise as CustomEvent<{
+                         selectedChannel?: string,
+                       }>;
+    assertEquals('beta', savedEvent.detail.selectedChannel);
+    assertFalse(dialog.$.dialog.open);
+  });
+
+  test(
+      'displays error and prevents saving when channel is not valid UTF-8',
+      async () => {
+        await openDialog({currentChannel: 'default'});
+        channelInput.value = '\uD800';
+        channelInput.dispatchEvent(new Event('input'));
+        await microtasksFinished();
+
+        assertFalse(saveButton.hasAttribute('disabled'));
+
+        let eventFired = false;
+        dialog.addEventListener('update-options-saved', () => {
+          eventFired = true;
+        });
+
+        saveButton.click();
+        await microtasksFinished();
+
+        assertFalse(eventFired);
+        assertTrue(dialog.$.dialog.open);
+
+        const errorDiv =
+            dialog.$.channelCombobox.shadowRoot.querySelector<HTMLElement>(
+                '#error');
+        assertTrue(!!errorDiv);
+        assertEquals('Invalid channel format.', errorDiv.textContent?.trim());
+        assertEquals('true', channelInput.getAttribute('aria-invalid'));
+        assertEquals(
+            channelInput, dialog.$.channelCombobox.shadowRoot.activeElement);
+        assertEquals(dialog.$.channelCombobox, dialog.shadowRoot.activeElement);
+        assertTrue(saveButton.hasAttribute('disabled'));
+
+        // Modifying input clears the error
+        channelInput.value = 'beta';
+        channelInput.dispatchEvent(new Event('input'));
+        await microtasksFinished();
+
+        assertFalse(
+            !!dialog.$.channelCombobox.shadowRoot.querySelector('#error'));
+        assertEquals(null, channelInput.getAttribute('aria-invalid'));
+        assertFalse(saveButton.hasAttribute('disabled'));
+
+        const savedPromise = eventToPromise('update-options-saved', dialog);
+        saveButton.click();
+        const savedEvent = await savedPromise as CustomEvent<{
+                             selectedChannel?: string,
+                           }>;
+        assertEquals('beta', savedEvent.detail.selectedChannel);
+        assertFalse(dialog.$.dialog.open);
+      });
+
+  test(
+      'displays errors and highlights both fields when both are invalid',
+      async () => {
+        await openDialog({
+          currentChannel: 'default',
+          currentPinnedVersion: '1.0.0',
+        });
+        channelInput.value = '   ';
+        channelInput.dispatchEvent(new Event('input'));
+        pinnedVersionInput.value = 'invalid-version';
+        pinnedVersionInput.dispatchEvent(new Event('input'));
+        await microtasksFinished();
+
+        assertFalse(saveButton.hasAttribute('disabled'));
+
+        let eventFired = false;
+        dialog.addEventListener('update-options-saved', () => {
+          eventFired = true;
+        });
+
+        saveButton.click();
+        await microtasksFinished();
+
+        assertFalse(eventFired);
+        assertTrue(dialog.$.dialog.open);
+
+        const channelErrorDiv =
+            dialog.$.channelCombobox.shadowRoot.querySelector<HTMLElement>(
+                '#error');
+        assertTrue(!!channelErrorDiv);
+        assertEquals(
+            'Channel cannot be empty.', channelErrorDiv.textContent?.trim());
+        assertEquals('true', channelInput.getAttribute('aria-invalid'));
+
+        const versionErrorDiv = dialog.$.pinnedVersionCombobox.shadowRoot
+                                    .querySelector<HTMLElement>('#error');
+        assertTrue(!!versionErrorDiv);
+        assertEquals(
+            'Invalid version format.', versionErrorDiv.textContent?.trim());
+        assertEquals('true', pinnedVersionInput.getAttribute('aria-invalid'));
+
+        // First invalid input in DOM order (channelInput) is focused.
+        assertEquals(
+            channelInput, dialog.$.channelCombobox.shadowRoot.activeElement);
+        assertEquals(dialog.$.channelCombobox, dialog.shadowRoot.activeElement);
+        assertTrue(saveButton.hasAttribute('disabled'));
+      });
+
+  test('opens pinned version suggestions and selects a version', async () => {
+    await openDialog({
+      versions: [
+        {version: '1.0.0', src: '', channels: ['default']},
+        {version: '2.0.0', src: '', channels: ['default']},
+      ],
+    });
+
+    const suggestionsDiv =
+        dialog.$.pinnedVersionCombobox.shadowRoot.querySelector<HTMLElement>(
+            '#suggestions')!;
+    assertTrue(!!suggestionsDiv);
+    assertFalse(suggestionsDiv.matches(':popover-open'));
+
+    const dropdownButton =
+        dialog.$.pinnedVersionCombobox.shadowRoot.querySelector<HTMLElement>(
+            '#dropdownButton')!;
+    assertTrue(!!dropdownButton);
+
+    dropdownButton.dispatchEvent(
+        new PointerEvent('pointerdown', {bubbles: true}));
+    await microtasksFinished();
+
+    assertTrue(suggestionsDiv.matches(':popover-open'));
+
+    const versionItems = getPinnedVersionOptions();
+    assertEquals(2, versionItems.length);
+
+    versionItems[0]!.dispatchEvent(
+        new PointerEvent('pointerdown', {bubbles: true}));
+    await microtasksFinished();
+
+    assertFalse(suggestionsDiv.matches(':popover-open'));
+    assertEquals('2.0.0', pinnedVersionInput.value);
+  });
+
+  test('filters pinned version suggestions when typing', async () => {
+    await openDialog({
+      versions: [
+        {version: '1.0.0', src: '', channels: ['default']},
+        {version: '1.2.0', src: '', channels: ['default']},
+        {version: '2.0.0', src: '', channels: ['default']},
+        {version: '2.1.0', src: '', channels: ['default']},
+      ],
+    });
+
+    pinnedVersionInput.value = '2.';
+    pinnedVersionInput.dispatchEvent(new Event('input'));
+    await microtasksFinished();
+
+    const suggestionsDiv =
+        dialog.$.pinnedVersionCombobox.shadowRoot.querySelector<HTMLElement>(
+            '#suggestions')!;
+    assertTrue(suggestionsDiv.matches(':popover-open'));
+
+    const versionItems = getPinnedVersionOptions();
+    assertEquals(2, versionItems.length);
+    assertEquals('2.1.0', versionItems[0]!.value);
+    assertEquals('2.0.0', versionItems[1]!.value);
+  });
+
+  test('opens channel suggestions and selects a channel', async () => {
+    await openDialog({
+      channels: [
+        {channel: 'default', displayName: 'Default'},
+        {channel: 'beta', displayName: 'Beta Channel'},
+      ],
+    });
+
+    const suggestionsDiv =
+        dialog.$.channelCombobox.shadowRoot.querySelector<HTMLElement>(
+            '#suggestions')!;
+    assertTrue(!!suggestionsDiv);
+    assertFalse(suggestionsDiv.matches(':popover-open'));
+
+    const dropdownButton =
+        dialog.$.channelCombobox.shadowRoot.querySelector<HTMLElement>(
+            '#dropdownButton')!;
+    assertTrue(!!dropdownButton);
+
+    dropdownButton.dispatchEvent(
+        new PointerEvent('pointerdown', {bubbles: true}));
+    await microtasksFinished();
+
+    assertTrue(suggestionsDiv.matches(':popover-open'));
+
+    const channelItems = getChannelOptions();
+    assertEquals(2, channelItems.length);
+
+    channelItems[1]!.dispatchEvent(
+        new PointerEvent('pointerdown', {bubbles: true}));
+    await microtasksFinished();
+
+    assertFalse(suggestionsDiv.matches(':popover-open'));
+    assertEquals('beta', channelInput.value);
+  });
+});
+
+suite('isValidIwaVersion', () => {
+  test('valid versions', () => {
+    assertTrue(isValidIwaVersion('1'));
+    assertTrue(isValidIwaVersion('0'));
+    assertTrue(isValidIwaVersion('1.2'));
+    assertTrue(isValidIwaVersion('1.2.3'));
+    assertTrue(isValidIwaVersion('1.2.3.4'));
+    assertTrue(isValidIwaVersion('0.0.0'));
+    assertTrue(isValidIwaVersion('10.20.30'));
+    assertTrue(isValidIwaVersion('4294967295'));
+    assertTrue(isValidIwaVersion('4294967295.4294967294.4294967293'));
+    assertTrue(isValidIwaVersion('1.2.0.3'));
+  });
+
+  test('invalid versions', () => {
+    assertFalse(isValidIwaVersion(''));
+    assertFalse(isValidIwaVersion('  '));
+    assertFalse(isValidIwaVersion('1.2.3.4.5'));
+    assertFalse(isValidIwaVersion('4294967296'));
+    assertFalse(isValidIwaVersion('999994294967295.2.3'));
+    assertFalse(isValidIwaVersion('1.-2.3'));
+    assertFalse(isValidIwaVersion('1..2.3'));
+    assertFalse(isValidIwaVersion('.1'));
+    assertFalse(isValidIwaVersion('1.'));
+    assertFalse(isValidIwaVersion('1.--2.3'));
+    assertFalse(isValidIwaVersion('1.+2.3'));
+    assertFalse(isValidIwaVersion('a.2.3'));
+    assertFalse(isValidIwaVersion('1.a.3'));
+    assertFalse(isValidIwaVersion('1.2.a'));
+    assertFalse(isValidIwaVersion('1.2.3-a'));
+    assertFalse(isValidIwaVersion('1.2.3+a'));
+    assertFalse(isValidIwaVersion('1.2.3-a+a'));
+    assertFalse(isValidIwaVersion('01.2.3'));
+    assertFalse(isValidIwaVersion('1.02.3'));
+    assertFalse(isValidIwaVersion('1.2.03'));
+  });
+});
+
+suite('isValidUpdateChannel', () => {
+  test('valid channels', () => {
+    assertTrue(isValidUpdateChannel('default'));
+    assertTrue(isValidUpdateChannel('beta'));
+    assertTrue(isValidUpdateChannel('stable'));
+    assertTrue(isValidUpdateChannel('canary-123'));
+    assertTrue(isValidUpdateChannel('channel_🚀'));
+  });
+
+  test('invalid channels', () => {
+    assertFalse(isValidUpdateChannel(''));
+    assertFalse(isValidUpdateChannel('\uD800'));
+    assertFalse(isValidUpdateChannel('\uDFFF'));
+    assertFalse(isValidUpdateChannel('channel\uD800'));
+    assertFalse(isValidUpdateChannel('\uDC00\uD800'));
   });
 });

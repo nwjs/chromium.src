@@ -743,11 +743,6 @@ public class LocationBarCoordinator
     }
 
     @Override
-    public void requestUrlBarAccessibilityFocus() {
-        mUrlCoordinator.requestAccessibilityFocus();
-    }
-
-    @Override
     public void showUrlBarCursorWithoutFocusAnimations() {
         mLocationBarMediator.showUrlBarCursorWithoutFocusAnimations();
     }
@@ -764,18 +759,6 @@ public class LocationBarCoordinator
         }
 
         return mLocationBarLayout;
-    }
-
-    @Override
-    public View getSecurityIconView() {
-        return mLocationBarLayout.getSecurityIconView();
-    }
-
-    @Override
-    public @Nullable View getOptionalButtonViewForTesting() {
-        return mOptionalButtonCoordinator != null
-                ? mOptionalButtonCoordinator.getButtonView()
-                : null;
     }
 
     /** Returns the {@link VoiceRecognitionHandler} associated with this LocationBar. */
@@ -1086,7 +1069,7 @@ public class LocationBarCoordinator
         // If the refactored animations are enabled, the ChangeBounds transition will instead be
         // kicked off with the other transitions in ToolbarPhone.
         if (ChromeFeatureList.sToolbarPhoneAnimationRefactor.isEnabled()) {
-            changeBounds.setResizeClip(/* resizeClip= */ true);
+            changeBounds.setResizeClip(true);
             mLocationBarEmbedder.beginEmbeddedDelayedTransition(mLocationBarLayout, transition);
         } else {
             TransitionManager.beginDelayedTransition(mLocationBarLayout, transition);
@@ -1144,15 +1127,6 @@ public class LocationBarCoordinator
     public void setShouldShowMicButtonWhenUnfocused(boolean shouldShowMicButtonWhenUnfocused) {
         mLocationBarMediator.setShouldShowMicButtonWhenUnfocusedForPhone(
                 shouldShowMicButtonWhenUnfocused);
-    }
-
-    /**
-     * Toggles the lens button being shown when the location bar is not focused. By default the lens
-     * button is not shown.
-     */
-    public void setShouldShowLensButtonWhenUnfocused(boolean shouldShowLensButtonWhenUnfocused) {
-        mLocationBarMediator.setShouldShowLensButtonWhenUnfocusedForPhone(
-                shouldShowLensButtonWhenUnfocused);
     }
 
     /** Updates the visibility of the buttons inside the location bar. */
@@ -1231,19 +1205,6 @@ public class LocationBarCoordinator
 
     // End tablet-specific methods.
 
-    public void setVoiceRecognitionHandlerForTesting(
-            VoiceRecognitionHandler voiceRecognitionHandler) {
-        mLocationBarMediator.setVoiceRecognitionHandlerForTesting(voiceRecognitionHandler);
-    }
-
-    public void onUrlChangedForTesting() {
-        mLocationBarMediator.onUrlChanged(false);
-    }
-
-    public void setLensControllerForTesting(LensController lensController) {
-        mLocationBarMediator.setLensControllerForTesting(lensController);
-    }
-
     private boolean isPhoneLayout() {
         return mLocationBarLayout instanceof LocationBarPhone;
     }
@@ -1254,10 +1215,6 @@ public class LocationBarCoordinator
 
     private boolean isTabletWindow() {
         return DeviceFormFactor.isWindowOnTablet(mWindowAndroid);
-    }
-
-    /* package */ LocationBarMediator getMediatorForTesting() {
-        return mLocationBarMediator;
     }
 
     /**
@@ -1273,10 +1230,6 @@ public class LocationBarCoordinator
     public void updateUrlActionContainerEndMargin(boolean useDefaultUrlActionContainerEndMargin) {
         mLocationBarMediator.updateUrlActionContainerEndMargin(
                 useDefaultUrlActionContainerEndMargin);
-    }
-
-    public int getUrlActionContainerEndMarginForTesting() {
-        return mLocationBarLayout.getUrlActionContainerEndMarginForTesting(); // IN-TEST
     }
 
     /**
@@ -1306,8 +1259,8 @@ public class LocationBarCoordinator
         return mFuseboxCoordinator.getFuseboxStateSupplier();
     }
 
-    @Override
-    public void onZoomLevelChanged(double zoomLevel) {
+    /** Callback invoked by PageZoomIndicatorCoordinator when the zoom level changes. */
+    private void onZoomLevelChanged(double zoomLevel) {
         long readableZoomLevel = PageZoomUtils.getReadableZoomLevel(zoomLevel);
         Context context = mLocationBarLayout.getContext();
         String zoomString =
@@ -1416,52 +1369,6 @@ public class LocationBarCoordinator
         }
     }
 
-    /** Set an instance of UrlBarCoordinator for testing. */
-    void setUrlCoordinatorForTesting(UrlBarCoordinator urlCoordinator) {
-        mUrlCoordinator = urlCoordinator;
-    }
-
-    void setFuseboxCoordinatorForTesting(FuseboxCoordinator fuseboxCoordinator) {
-        mFuseboxCoordinator = fuseboxCoordinator;
-    }
-
-    /** Set an instance of UrlBar for testing. */
-    void setUrlBarForTesting(View urlBar) {
-        mUrlBar = urlBar;
-    }
-
-    /** Set an instance of LocationBarLayout for testing. */
-    void setLocationBarLayoutForTesting(LocationBarLayout locationBarLayout) {
-        mLocationBarLayout = locationBarLayout;
-    }
-
-    /** Set an instance of LocationBarEmbedder for testing. */
-    void setLocationBarEmbedderForTesting(LocationBarEmbedder locationBarEmbedder) {
-        mLocationBarEmbedder = locationBarEmbedder;
-    }
-
-    /** Set an instance of OptionalButtonCoordinator for testing. */
-    void setOptionalButtonCoordinatorForTesting(
-            OptionalButtonCoordinator optionalButtonCoordinator) {
-        mOptionalButtonCoordinator = optionalButtonCoordinator;
-    }
-
-    /** Set an instance of LocationBarMediator for testing. */
-    void setLocationBarMediatorForTesting(LocationBarMediator mediator) {
-        mLocationBarMediator = mediator;
-    }
-
-    /** Set the value of mCurrentFuseboxState for testing. */
-    void setCurrentFuseboxStateForTesting(@FuseboxState int state) {
-        mCurrentFuseboxState = state;
-    }
-
-    /** Returns the value of mCurrentFuseboxState for testing. */
-    @FuseboxState
-    int getCurrentFuseboxStateForTesting() {
-        return mCurrentFuseboxState;
-    }
-
     /**
      * Updates the optional button with the given {@link ButtonData}.
      *
@@ -1476,13 +1383,13 @@ public class LocationBarCoordinator
             return;
         }
 
-        assert mUserEducationHelper != null;
         mOptionalButtonData = buttonData;
 
         View optionalButtonView = mLocationBarLayout.findViewById(R.id.optional_button);
         if (optionalButtonView == null) return;
 
         if (mOptionalButtonCoordinator == null) {
+            assert mUserEducationHelper != null;
             mOptionalButtonCoordinator =
                     new OptionalButtonCoordinator(
                             optionalButtonView,
@@ -1596,5 +1503,79 @@ public class LocationBarCoordinator
             // behavior.
             mUrlBar.setNextFocusForwardId(View.NO_ID);
         }
+    }
+
+    @Override
+    public @Nullable View getOptionalButtonViewForTesting() {
+        return mOptionalButtonCoordinator != null
+                ? mOptionalButtonCoordinator.getButtonView()
+                : null;
+    }
+
+    public void setVoiceRecognitionHandlerForTesting(
+            VoiceRecognitionHandler voiceRecognitionHandler) {
+        mLocationBarMediator.setVoiceRecognitionHandlerForTesting(voiceRecognitionHandler);
+    }
+
+    public void onUrlChangedForTesting() {
+        mLocationBarMediator.onUrlChanged(false);
+    }
+
+    public void setLensControllerForTesting(LensController lensController) {
+        mLocationBarMediator.setLensControllerForTesting(lensController);
+    }
+
+    /* package */ LocationBarMediator getMediatorForTesting() {
+        return mLocationBarMediator;
+    }
+
+    public int getUrlActionContainerEndMarginForTesting() {
+        return mLocationBarLayout.getUrlActionContainerEndMarginForTesting(); // IN-TEST
+    }
+
+    /** Set an instance of UrlBarCoordinator for testing. */
+    void setUrlCoordinatorForTesting(UrlBarCoordinator urlCoordinator) {
+        mUrlCoordinator = urlCoordinator;
+    }
+
+    void setFuseboxCoordinatorForTesting(FuseboxCoordinator fuseboxCoordinator) {
+        mFuseboxCoordinator = fuseboxCoordinator;
+    }
+
+    /** Set an instance of UrlBar for testing. */
+    void setUrlBarForTesting(View urlBar) {
+        mUrlBar = urlBar;
+    }
+
+    /** Set an instance of LocationBarLayout for testing. */
+    void setLocationBarLayoutForTesting(LocationBarLayout locationBarLayout) {
+        mLocationBarLayout = locationBarLayout;
+    }
+
+    /** Set an instance of LocationBarEmbedder for testing. */
+    void setLocationBarEmbedderForTesting(LocationBarEmbedder locationBarEmbedder) {
+        mLocationBarEmbedder = locationBarEmbedder;
+    }
+
+    /** Set an instance of OptionalButtonCoordinator for testing. */
+    void setOptionalButtonCoordinatorForTesting(
+            OptionalButtonCoordinator optionalButtonCoordinator) {
+        mOptionalButtonCoordinator = optionalButtonCoordinator;
+    }
+
+    /** Set an instance of LocationBarMediator for testing. */
+    void setLocationBarMediatorForTesting(LocationBarMediator mediator) {
+        mLocationBarMediator = mediator;
+    }
+
+    /** Set the value of mCurrentFuseboxState for testing. */
+    void setCurrentFuseboxStateForTesting(@FuseboxState int state) {
+        mCurrentFuseboxState = state;
+    }
+
+    /** Returns the value of mCurrentFuseboxState for testing. */
+    @FuseboxState
+    int getCurrentFuseboxStateForTesting() {
+        return mCurrentFuseboxState;
     }
 }

@@ -12,12 +12,15 @@
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_commands.h"
+#include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/interaction/browser_elements.h"
 #include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/omnibox/omnibox_controller.h"
 #include "chrome/browser/ui/omnibox/omnibox_edit_model.h"
 #include "chrome/browser/ui/omnibox/omnibox_view.h"
+#include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/test/test_browser_dialog.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
@@ -26,6 +29,7 @@
 #include "chrome/browser/ui/views/permissions/chip/permission_chip_view.h"
 #include "chrome/browser/ui/views/permissions/chip/permission_dashboard_interface.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
+#include "chrome/common/chrome_features.h"
 #include "chrome/grit/generated_resources.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "chrome/test/permissions/permission_request_manager_test_api.h"
@@ -77,19 +81,7 @@ IN_PROC_BROWSER_TEST_F(PermissionRequestChipGestureSensitiveBrowserTest,
                        ChipFinalizedWhenInteractingWithOmnibox) {
   RequestPermission(browser());
   LocationBar* lb = GetLocationBar(browser());
-  auto* animation =
-      views::AsViewClass<PermissionChipView>(
-          views::ElementTrackerViews::GetInstance()->GetFirstMatchingView(
-              PermissionChipView::kPermissionRequestChipElementId,
-              views::ElementTrackerViews::GetContextForView(
-                  BrowserView::GetBrowserViewForBrowser(browser()))))
-          ->animation_for_testing();
-
-  // Animate the chip expand.
-  gfx::AnimationTestApi animation_api(animation);
-  base::TimeTicks now = base::TimeTicks::Now();
-  animation_api.SetStartTime(now);
-  animation_api.Step(now + animation->GetSlideDuration());
+  lb->GetChipController()->chip()->EndAnimationForTesting();
 
   // After animation ended, the chip is expanded and the bubble is shown because
   // the gesture sensitive request feature is enabled.
@@ -315,19 +307,7 @@ IN_PROC_BROWSER_TEST_F(PermissionRequestChipGestureInsensitiveBrowserTest,
                        CallbacksResetWhenInteractingWithOmnibox) {
   RequestPermission(browser());
   LocationBar* lb = GetLocationBar(browser());
-  auto* animation =
-      views::AsViewClass<PermissionChipView>(
-          views::ElementTrackerViews::GetInstance()->GetFirstMatchingView(
-              PermissionChipView::kPermissionRequestChipElementId,
-              views::ElementTrackerViews::GetContextForView(
-                  BrowserView::GetBrowserViewForBrowser(browser()))))
-          ->animation_for_testing();
-
-  // Animate the chip expand.
-  gfx::AnimationTestApi animation_api(animation);
-  base::TimeTicks now = base::TimeTicks::Now();
-  animation_api.SetStartTime(now);
-  animation_api.Step(now + animation->GetSlideDuration());
+  lb->GetChipController()->chip()->EndAnimationForTesting();
 
   // After animation ended, the chip is expanded and a bubble is shown.
   EXPECT_TRUE(lb->GetChipController()->IsPermissionPromptChipVisible());
@@ -355,23 +335,32 @@ IN_PROC_BROWSER_TEST_F(PermissionRequestChipGestureInsensitiveBrowserTest,
 
 class PermissionRequestChipBrowserUiTest : public UiBrowserTest {
  public:
+  PermissionRequestChipBrowserUiTest() = default;
+
   // UiBrowserTest:
   void ShowUi(const std::string& name) override {
     RequestPermission(browser());
   }
 
   bool VerifyUi() override {
-    LocationBarView* const location_bar =
-        BrowserView::GetBrowserViewForBrowser(browser())->GetLocationBarView();
+    LocationBar* const location_bar =
+        BrowserView::GetBrowserViewForBrowser(browser())->GetLocationBar();
     PermissionChipInterface* const chip =
         location_bar->GetChipController()->chip();
     if (!chip->GetVisible() || chip->IsFullyCollapsed()) {
       return false;
     }
 
+    auto* const element =
+        BrowserElements::From(browser())->GetElement(kLocationBarElementId);
+    EXPECT_NE(element, nullptr);
+    if (!element) {
+      return false;
+    }
+
     const auto* const test_info =
         testing::UnitTest::GetInstance()->current_test_info();
-    return VerifyPixelUi(location_bar, test_info->test_suite_name(),
+    return VerifyPixelUi(element, test_info->test_suite_name(),
                          test_info->name()) != ui::test::ActionResult::kFailed;
   }
 

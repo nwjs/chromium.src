@@ -16,7 +16,6 @@
 #include "base/notimplemented.h"
 #include "base/numerics/checked_math.h"
 #include "build/build_config.h"
-#include "components/viz/common/gpu/vulkan_context_provider.h"
 #include "components/viz/common/resources/shared_image_format_utils.h"
 #include "gpu/command_buffer/common/mailbox.h"
 #include "gpu/command_buffer/common/shared_image_info.h"
@@ -31,6 +30,7 @@
 #include "gpu/command_buffer/service/shared_image/skia_gl_image_representation.h"
 #include "gpu/command_buffer/service/shared_memory_region_wrapper.h"
 #include "gpu/command_buffer/service/skia_utils.h"
+#include "gpu/command_buffer/service/vulkan_context_provider.h"
 #include "gpu/config/gpu_finch_features.h"
 #include "third_party/skia/include/core/SkColorSpace.h"
 #include "third_party/skia/include/gpu/ganesh/GrBackendSemaphore.h"
@@ -116,9 +116,9 @@ SharedImageBackingType OzoneImageBacking::GetType() const {
   return SharedImageBackingType::kOzone;
 }
 
-void OzoneImageBacking::Update(std::unique_ptr<gfx::GpuFence> in_fence) {
-  if (in_fence) {
-    external_write_fence_ = in_fence->GetGpuFenceHandle().Clone();
+void OzoneImageBacking::Update(gfx::GpuFenceHandle in_fence) {
+  if (!in_fence.is_null()) {
+    external_write_fence_ = std::move(in_fence);
   }
 }
 

@@ -51,7 +51,6 @@
 #include "cc/base/devtools_instrumentation.h"
 #include "cc/base/features.h"
 #include "cc/base/histograms.h"
-#include "cc/base/math_util.h"
 #include "cc/base/switches.h"
 #include "cc/benchmarks/benchmark_instrumentation.h"
 #include "cc/debug/rendering_stats_instrumentation.h"
@@ -96,6 +95,7 @@
 #include "cc/trees/damage_tracker.h"
 #include "cc/trees/debug_rect_history.h"
 #include "cc/trees/effect_node.h"
+#include "cc/trees/hit_test_data_builder.h"
 #include "cc/trees/image_animation_controller.h"
 #include "cc/trees/latency_info_swap_promise_monitor.h"
 #include "cc/trees/layer_context.h"
@@ -161,13 +161,6 @@
 
 namespace cc {
 namespace {
-
-// In BuildHitTestData we iterate all layers to find all layers that overlap
-// OOPIFs, but when the number of layers is greater than
-// |kAssumeOverlapThreshold|, it can be inefficient to accumulate layer bounds
-// for overlap checking. As a result, we are conservative and make OOPIFs
-// kHitTestAsk after the threshold is reached.
-const size_t kAssumeOverlapThreshold = 100;
 
 constexpr auto kHasInputResetDelay = base::Milliseconds(250);
 
@@ -967,6 +960,7 @@ void LayerTreeHostImpl::NotifyInputEvent(bool is_fling) {
   has_input_for_frame_interval_ = true;
   has_input_resetter_.Schedule();
   has_non_fling_input_since_last_frame_ |= (!is_fling);
+  delegate_->NotifyInputEvent();
 }
 
 void LayerTreeHostImpl::QueueSwapPromiseForMainThreadScrollUpdate(
@@ -2680,19 +2674,9 @@ RenderFrameMetadata LayerTreeHostImpl::MakeRenderFrameMetadata(
   metadata.external_page_scale_factor =
       active_tree_->external_page_scale_factor();
 
-  metadata.top_controls_height =
-      browser_controls_offset_manager_->TopControlsHeight();
-  metadata.top_controls_shown_ratio =
-      browser_controls_offset_manager_->TopControlsShownRatio();
+  metadata.browser_controls_metadata =
+      browser_controls_offset_manager_->GetMetadata();
 #if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_IOS)
-  metadata.bottom_controls_height =
-      browser_controls_offset_manager_->BottomControlsHeight();
-  metadata.bottom_controls_shown_ratio =
-      browser_controls_offset_manager_->BottomControlsShownRatio();
-  metadata.top_controls_min_height_offset =
-      browser_controls_offset_manager_->TopControlsMinHeightOffset();
-  metadata.bottom_controls_min_height_offset =
-      browser_controls_offset_manager_->BottomControlsMinHeightOffset();
   metadata.scrollable_viewport_size = active_tree_->ScrollableViewportSize();
   metadata.min_page_scale_factor = active_tree_->min_page_scale_factor();
   metadata.max_page_scale_factor = active_tree_->max_page_scale_factor();
@@ -2705,7 +2689,6 @@ RenderFrameMetadata LayerTreeHostImpl::MakeRenderFrameMetadata(
   }
   metadata.has_transparent_background =
       frame.render_passes.back()->has_transparent_background;
-  metadata.has_offset_tag = browser_controls_offset_manager_->HasOffsetTag();
 #endif
 
   bool allocate_new_local_surface_id = false;
@@ -2745,53 +2728,12 @@ RenderFrameMetadata LayerTreeHostImpl::MakeRenderFrameMetadata(
     }
 
     allocate_new_local_surface_id =
+        metadata.browser_controls_metadata.RequiresNewLocalSurfaceId(
+            last_draw_render_frame_metadata_->browser_controls_metadata) ||
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
-        last_draw_render_frame_metadata_->top_controls_height !=
-            metadata.top_controls_height ||
-        last_draw_render_frame_metadata_->top_controls_shown_ratio !=
-            metadata.top_controls_shown_ratio ||
         last_draw_render_frame_metadata_->tracked_element_rects !=
             metadata.tracked_element_rects;
-#elif BUILDFLAG(IS_ANDROID)
-        last_draw_render_frame_metadata_->top_controls_height !=
-            metadata.top_controls_height ||
-        last_draw_render_frame_metadata_->bottom_controls_height !=
-            metadata.bottom_controls_height ||
-        last_draw_render_frame_metadata_->selection != metadata.selection ||
-        last_draw_render_frame_metadata_->has_transparent_background !=
-            metadata.has_transparent_background;
-
-    // When the browser controls become locked, the browser will update the
-    // offset tags, and also update the controls' offsets if they don't match
-    // the current renderer scroll position. These updates result in a new
-    // renderer frame, but sometimes it gets drawn before the browser frame
-    // with the updated offsets arrives, which causes the controls to jump, so
-    // we need a new surface id here to sync the updates.
-    allocate_new_local_surface_id |=
-        (last_draw_render_frame_metadata_->has_offset_tag &&
-         !metadata.has_offset_tag);
-
-    // If BCIV is enabled but there's no offset tags, it means the controls
-    // aren't scrollable, and any movement of the controls is the result of
-    // the browser updating their offsets and submitting a new browser frame.
-    // We need a new surface id in this case, as this is identical to the
-    // situation without BCIV.
-    if (!browser_controls_offset_manager_->HasOffsetTag()) {
-      allocate_new_local_surface_id |=
-          last_draw_render_frame_metadata_->top_controls_shown_ratio !=
-              metadata.top_controls_shown_ratio ||
-          last_draw_render_frame_metadata_->bottom_controls_shown_ratio !=
-              metadata.bottom_controls_shown_ratio;
-    }
 #else
-        last_draw_render_frame_metadata_->top_controls_height !=
-            metadata.top_controls_height ||
-        last_draw_render_frame_metadata_->top_controls_shown_ratio !=
-            metadata.top_controls_shown_ratio ||
-        last_draw_render_frame_metadata_->bottom_controls_height !=
-            metadata.bottom_controls_height ||
-        last_draw_render_frame_metadata_->bottom_controls_shown_ratio !=
-            metadata.bottom_controls_shown_ratio ||
         last_draw_render_frame_metadata_->selection != metadata.selection ||
         last_draw_render_frame_metadata_->has_transparent_background !=
             metadata.has_transparent_background;
@@ -2895,10 +2837,17 @@ std::optional<SubmitInfo> LayerTreeHostImpl::DrawLayers(FrameData* frame) {
 
     const gfx::Rect& output_rect =
         active_tree()->RootRenderSurface()->content_rect();
-    normalized_invalidated_area =
-        static_cast<float>(
-            total_invalidated_area_.value().ValueOrDefault(UINT_MAX)) /
-        output_rect.size().GetArea();
+    // Avoid gfx::Size::GetArea(), which CHECK-fails on overflow: the output
+    // rect is not bounded by the display, since a form control popup is
+    // sized from its anchor's CSS zoom.
+    const int64_t output_area =
+        static_cast<int64_t>(output_rect.width()) * output_rect.height();
+    if (output_area > 0) {
+      normalized_invalidated_area =
+          static_cast<float>(
+              total_invalidated_area_.value().ValueOrDefault(UINT_MAX)) /
+          static_cast<float>(output_area);
+    }
 
     total_invalidated_area_ = 0;
   }
@@ -3250,16 +3199,6 @@ viz::CompositorFrame LayerTreeHostImpl::GenerateCompositorFrame(
         {viz::ContentFrameIntervalType::kCompositorScroll, base::TimeDelta(),
          1u});
     frame->damage_reasons.Remove(DamageReason::kCompositorScroll);
-  }
-
-  if (!frame->video_layer_preferred_intervals.empty() &&
-      frame->damage_reasons.Has(DamageReason::kVideoLayer)) {
-    for (auto& [video_interval, count] :
-         frame->video_layer_preferred_intervals) {
-      metadata.frame_interval_inputs.content_interval_info.push_back(
-          {viz::ContentFrameIntervalType::kVideo, video_interval, count - 1u});
-    }
-    frame->damage_reasons.Remove(DamageReason::kVideoLayer);
   }
 
   if (frame->damage_reasons.Has(DamageReason::kAnimatedImage)) {
@@ -3784,156 +3723,9 @@ void LayerTreeHostImpl::SynchronouslyInitializeAllTiles() {
   single_thread_synchronous_task_graph_runner_->RunUntilIdle();
 }
 
-static uint32_t GetFlagsForSurfaceLayer(const SurfaceLayerImpl* layer) {
-  uint32_t flags = viz::HitTestRegionFlags::kHitTestMouse |
-                   viz::HitTestRegionFlags::kHitTestTouch;
-  if (layer->range().IsValid()) {
-    flags |= viz::HitTestRegionFlags::kHitTestChildSurface;
-  } else {
-    flags |= viz::HitTestRegionFlags::kHitTestMine;
-  }
-  return flags;
-}
-
-static void PopulateHitTestRegion(viz::HitTestRegion* hit_test_region,
-                                  const LayerImpl* layer,
-                                  uint32_t flags,
-                                  uint32_t async_hit_test_reasons,
-                                  const gfx::RRectF& rect,
-                                  const viz::SurfaceId& surface_id,
-                                  float device_scale_factor) {
-  hit_test_region->frame_sink_id = surface_id.frame_sink_id();
-  hit_test_region->flags = flags;
-  hit_test_region->async_hit_test_reasons = async_hit_test_reasons;
-  DCHECK_EQ(!!async_hit_test_reasons,
-            !!(flags & viz::HitTestRegionFlags::kHitTestAsk));
-
-  hit_test_region->rect = rect;
-  // The transform of hit test region maps a point from parent hit test region
-  // to the local space. This is the inverse of screen space transform. Because
-  // hit test query wants the point in target to be in Pixel space, we
-  // counterscale the transform here. Note that the rect is scaled by dsf, so
-  // the point and the rect are still in the same space.
-  gfx::Transform surface_to_root_transform = layer->ScreenSpaceTransform();
-  surface_to_root_transform.Scale(SK_Scalar1 / device_scale_factor,
-                                  SK_Scalar1 / device_scale_factor);
-  surface_to_root_transform.Flatten();
-  // TODO(sunxd): Avoid losing precision by not using inverse if possible.
-  // Note: |transform| is set to the identity if |surface_to_root_transform| is
-  // not invertible, which is what we want.
-  hit_test_region->transform = surface_to_root_transform.InverseOrIdentity();
-}
-
 std::optional<viz::HitTestRegionList> LayerTreeHostImpl::BuildHitTestData() {
   TRACE_EVENT0("cc", "LayerTreeHostImpl::BuildHitTestData");
-
-  std::optional<viz::HitTestRegionList> hit_test_region_list(std::in_place);
-  hit_test_region_list->flags = viz::HitTestRegionFlags::kHitTestMine |
-                                viz::HitTestRegionFlags::kHitTestMouse |
-                                viz::HitTestRegionFlags::kHitTestTouch;
-  hit_test_region_list->bounds = active_tree_->GetDeviceViewport();
-  hit_test_region_list->transform = DrawTransform();
-
-  float device_scale_factor = active_tree()->device_scale_factor();
-
-  Region overlapping_region;
-  size_t num_iterated_layers = 0;
-  // If the layer tree contains more than 100 layers, we stop accumulating
-  // layers in |overlapping_region| to save compositor frame submitting time, as
-  // a result we do async hit test on any surface layers that
-  bool assume_overlap = false;
-  for (const auto* layer : base::Reversed(*active_tree())) {
-    if (layer->is_surface_layer()) {
-      const auto* surface_layer = static_cast<const SurfaceLayerImpl*>(layer);
-      // We should not skip a non-hit-testable surface layer if
-      // - it has pointer-events: none because viz hit test needs to know the
-      //   information to ensure all descendant OOPIFs to ignore hit tests; or
-      // - it draws content to track overlaps.
-      if (!layer->HitTestable() && !layer->draws_content() &&
-          !surface_layer->has_pointer_events_none()) {
-        continue;
-      }
-      // If a surface layer is created not by child frame compositor or the
-      // frame owner has pointer-events: none property, the surface layer
-      // becomes not hit testable. We should not generate data for it.
-      if (!surface_layer->surface_hit_testable() ||
-          !surface_layer->range().IsValid()) {
-        // We collect any overlapped regions that does not have pointer-events:
-        // none.
-        if (!surface_layer->has_pointer_events_none() && !assume_overlap) {
-          overlapping_region.Union(MathUtil::MapEnclosingClippedRect(
-              layer->ScreenSpaceTransform(),
-              gfx::Rect(surface_layer->bounds())));
-        }
-        continue;
-      }
-
-      // Using the enclosing rect to ensure antialised boundary pixels cause
-      // pointer input to be routed to this layer.
-      gfx::Rect content_rect(gfx::ScaleToEnclosingRect(
-          gfx::Rect(surface_layer->bounds()), device_scale_factor));
-
-      gfx::Rect layer_screen_space_rect = MathUtil::MapEnclosingClippedRect(
-          surface_layer->ScreenSpaceTransform(),
-          gfx::Rect(surface_layer->bounds()));
-      auto flag = GetFlagsForSurfaceLayer(surface_layer);
-      uint32_t async_hit_test_reasons =
-          viz::AsyncHitTestReasons::kNotAsyncHitTest;
-      if (surface_layer->has_pointer_events_none()) {
-        flag |= viz::HitTestRegionFlags::kHitTestIgnore;
-      }
-      if (assume_overlap ||
-          overlapping_region.Intersects(layer_screen_space_rect)) {
-        flag |= viz::HitTestRegionFlags::kHitTestAsk;
-        async_hit_test_reasons |= viz::AsyncHitTestReasons::kOverlappedRegion;
-      }
-      bool layer_hit_test_region_is_masked =
-          active_tree()
-              ->property_trees()
-              ->effect_tree()
-              .HitTestMayBeAffectedByMask(surface_layer->effect_tree_index());
-      if (surface_layer->is_clipped() || layer_hit_test_region_is_masked) {
-        bool layer_hit_test_region_is_rectangle =
-            !layer_hit_test_region_is_masked &&
-            surface_layer->ScreenSpaceTransform().Preserves2dAxisAlignment() &&
-            active_tree()
-                ->property_trees()
-                ->effect_tree()
-                .ClippedHitTestRegionIsRectangle(
-                    surface_layer->effect_tree_index());
-        content_rect =
-            gfx::ScaleToEnclosingRect(surface_layer->visible_layer_rect(),
-                                      device_scale_factor, device_scale_factor);
-        if (!layer_hit_test_region_is_rectangle) {
-          flag |= viz::HitTestRegionFlags::kHitTestAsk;
-          async_hit_test_reasons |= viz::AsyncHitTestReasons::kIrregularClip;
-        }
-      }
-      const auto& surface_id = surface_layer->range().end();
-      hit_test_region_list->regions.emplace_back();
-      PopulateHitTestRegion(&hit_test_region_list->regions.back(), layer, flag,
-                            async_hit_test_reasons, gfx::RRectF(content_rect),
-                            surface_id, device_scale_factor);
-      continue;
-    }
-
-    if (!layer->HitTestable()) {
-      continue;
-    }
-
-    // TODO(sunxd): Submit all overlapping layer bounds as hit test regions.
-    // Also investigate if we can use visible layer rect as overlapping regions.
-    num_iterated_layers++;
-    if (num_iterated_layers > kAssumeOverlapThreshold) {
-      assume_overlap = true;
-    }
-    if (!assume_overlap) {
-      overlapping_region.Union(MathUtil::MapEnclosingClippedRect(
-          layer->ScreenSpaceTransform(), gfx::Rect(layer->bounds())));
-    }
-  }
-
-  return hit_test_region_list;
+  return HitTestDataBuilder(*active_tree_).Build();
 }
 
 void LayerTreeHostImpl::DidLoseLayerTreeFrameSink() {

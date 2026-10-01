@@ -28,7 +28,6 @@
 #include "chrome/browser/ash/policy/skyvault/test/skyvault_test_utils.h"
 #include "chrome/browser/download/download_dir_util.h"
 #include "chrome/browser/policy/profile_policy_connector.h"
-#include "chrome/common/chrome_features.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/testing_profile.h"
 #include "chromeos/ash/components/browser_context_helper/annotated_account_id.h"
@@ -45,6 +44,7 @@
 #include "storage/browser/file_system/external_mount_points.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "ui/message_center/message_center.h"
 
 namespace policy::local_user_files {
 
@@ -72,9 +72,10 @@ class LocalFilesMigrationManagerTest : public testing::Test {
     testing::Test::SetUp();
     scoped_feature_list_.InitWithFeatures(
         /*enabled_features=*/
-        {features::kSkyVault, ash::features::kSkyVaultV2,
+        {ash::features::kSkyVault, ash::features::kSkyVaultV2,
          ash::features::kSkyVaultV3},
         /*disabled_features=*/{});
+    message_center::MessageCenter::Initialize();
 
     scoped_profile_ = std::make_unique<TestingProfile>();
     profile_ = scoped_profile_.get();
@@ -158,6 +159,7 @@ class LocalFilesMigrationManagerTest : public testing::Test {
     profile_ = nullptr;
     scoped_user_manager_.reset();
     scoped_profile_.reset();
+    message_center::MessageCenter::Shutdown();
     testing::Test::TearDown();
   }
 

@@ -6,7 +6,7 @@
       {
         "args": [
           "-v",
-          "--browser=android-trichrome-chrome-google-64-32-bundle",
+          "--browser=android-chrome-bundle",
           "--upload-results",
           "--test-shard-map-filename=android-brya-kano-i5-8gb-perf_map.json",
           "--ignore-benchmark-exit-code",
@@ -20,9 +20,9 @@
           ],
           "script": "//tools/perf/process_perf_results.py"
         },
-        "module_name": "//chrome/test:performance_test_suite_android_trichrome_chrome_google_64_32_bundle",
+        "module_name": "//chrome/test:performance_test_suite_android_chrome_google_bundle",
         "module_scheme": "flat",
-        "name": "performance_test_suite_android_trichrome_chrome_google_64_32_bundle",
+        "name": "performance_test_suite_android_chrome_google_bundle",
         "resultdb": {
           "enable": true
         },
@@ -43,7 +43,7 @@
           "service_account": "chromeos-tester@chops-service-accounts.iam.gserviceaccount.com",
           "shards": 8
         },
-        "test": "performance_test_suite_android_trichrome_chrome_google_64_32_bundle",
+        "test": "performance_test_suite_android_chrome_google_bundle",
         "trigger_script": {
           "args": [
             "--multiple-dimension-script-verbose",
@@ -121,7 +121,7 @@
       {
         "args": [
           "-v",
-          "--browser=android-trichrome-chrome-google-64-32-bundle",
+          "--browser=android-chrome-bundle",
           "--upload-results",
           "--test-shard-map-filename=android-corsola-steelix-8gb-perf_map.json",
           "--ignore-benchmark-exit-code",
@@ -135,9 +135,9 @@
           ],
           "script": "//tools/perf/process_perf_results.py"
         },
-        "module_name": "//chrome/test:performance_test_suite_android_trichrome_chrome_google_64_32_bundle",
+        "module_name": "//chrome/test:performance_test_suite_android_chrome_google_bundle",
         "module_scheme": "flat",
-        "name": "performance_test_suite_android_trichrome_chrome_google_64_32_bundle",
+        "name": "performance_test_suite_android_chrome_google_bundle",
         "resultdb": {
           "enable": true
         },
@@ -158,7 +158,7 @@
           "service_account": "chromeos-tester@chops-service-accounts.iam.gserviceaccount.com",
           "shards": 7
         },
-        "test": "performance_test_suite_android_trichrome_chrome_google_64_32_bundle",
+        "test": "performance_test_suite_android_chrome_google_bundle",
         "trigger_script": {
           "args": [
             "--multiple-dimension-script-verbose",
@@ -172,12 +172,16 @@
   },
   "android-desktop-arm-builder-perf": {
     "additional_compile_targets": [
-      "trichrome_google_64_32_minimal_apks"
+      "trichrome_google_64_32_minimal_apks",
+      "system_webview_apk",
+      "system_webview_google_apk"
     ]
   },
   "android-desktop-x64-builder-perf": {
     "additional_compile_targets": [
-      "trichrome_google_64_minimal_apks"
+      "trichrome_google_64_minimal_apks",
+      "system_webview_apk",
+      "system_webview_google_apk"
     ]
   },
   "android-go-processor-perf": {},
@@ -186,7 +190,7 @@
       {
         "args": [
           "-v",
-          "--browser=android-trichrome-chrome-google-bundle",
+          "--browser=android-chrome-bundle",
           "--upload-results",
           "--test-shard-map-filename=android-go-wembley-perf_map.json",
           "--ignore-benchmark-exit-code"
@@ -197,9 +201,9 @@
           ],
           "script": "//tools/perf/process_perf_results.py"
         },
-        "module_name": "//chrome/test:performance_test_suite_android_trichrome_chrome_google_bundle",
+        "module_name": "//chrome/test:performance_test_suite_android_chrome_google_bundle",
         "module_scheme": "flat",
-        "name": "performance_test_suite_android_trichrome_chrome_google_bundle",
+        "name": "performance_test_suite_android_chrome_google_bundle",
         "resultdb": {
           "enable": true
         },
@@ -217,7 +221,7 @@
           "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com",
           "shards": 5
         },
-        "test": "performance_test_suite_android_trichrome_chrome_google_bundle",
+        "test": "performance_test_suite_android_chrome_google_bundle",
         "trigger_script": {
           "args": [
             "--multiple-dimension-script-verbose",
@@ -282,7 +286,7 @@
       {
         "args": [
           "-v",
-          "--browser=android-trichrome-chrome-google-64-32-bundle",
+          "--browser=android-chrome-bundle",
           "--upload-results",
           "--test-shard-map-filename=android-nissa-uldren-8gb-perf_map.json",
           "--ignore-benchmark-exit-code",
@@ -296,9 +300,9 @@
           ],
           "script": "//tools/perf/process_perf_results.py"
         },
-        "module_name": "//chrome/test:performance_test_suite_android_trichrome_chrome_google_64_32_bundle",
+        "module_name": "//chrome/test:performance_test_suite_android_chrome_google_bundle",
         "module_scheme": "flat",
-        "name": "performance_test_suite_android_trichrome_chrome_google_64_32_bundle",
+        "name": "performance_test_suite_android_chrome_google_bundle",
         "resultdb": {
           "enable": true
         },
@@ -319,7 +323,7 @@
           "service_account": "chromeos-tester@chops-service-accounts.iam.gserviceaccount.com",
           "shards": 7
         },
-        "test": "performance_test_suite_android_trichrome_chrome_google_64_32_bundle",
+        "test": "performance_test_suite_android_chrome_google_bundle",
         "trigger_script": {
           "args": [
             "--multiple-dimension-script-verbose",
@@ -336,7 +340,7 @@
       {
         "args": [
           "-v",
-          "--browser=android-trichrome-chrome-google-64-32-bundle",
+          "--browser=android-chrome-bundle",
           "--upload-results",
           "--test-shard-map-filename=android-pixel-fold-perf_map.json",
           "--ignore-benchmark-exit-code"
@@ -347,9 +351,9 @@
           ],
           "script": "//tools/perf/process_perf_results.py"
         },
-        "module_name": "//chrome/test:performance_test_suite_android_trichrome_chrome_google_64_32_bundle",
+        "module_name": "//chrome/test:performance_test_suite_android_chrome_google_bundle",
         "module_scheme": "flat",
-        "name": "performance_test_suite_android_trichrome_chrome_google_64_32_bundle",
+        "name": "performance_test_suite_android_chrome_google_bundle",
         "resultdb": {
           "enable": true
         },
@@ -367,7 +371,7 @@
           "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com",
           "shards": 8
         },
-        "test": "performance_test_suite_android_trichrome_chrome_google_64_32_bundle",
+        "test": "performance_test_suite_android_chrome_google_bundle",
         "trigger_script": {
           "args": [
             "--multiple-dimension-script-verbose",
@@ -384,7 +388,7 @@
       {
         "args": [
           "-v",
-          "--browser=android-trichrome-chrome-google-64-32-bundle",
+          "--browser=android-chrome-bundle",
           "--upload-results",
           "--test-shard-map-filename=android-pixel-tangor-perf_map.json",
           "--ignore-benchmark-exit-code"
@@ -395,9 +399,9 @@
           ],
           "script": "//tools/perf/process_perf_results.py"
         },
-        "module_name": "//chrome/test:performance_test_suite_android_trichrome_chrome_google_64_32_bundle",
+        "module_name": "//chrome/test:performance_test_suite_android_chrome_google_bundle",
         "module_scheme": "flat",
-        "name": "performance_test_suite_android_trichrome_chrome_google_64_32_bundle",
+        "name": "performance_test_suite_android_chrome_google_bundle",
         "resultdb": {
           "enable": true
         },
@@ -415,7 +419,7 @@
           "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com",
           "shards": 8
         },
-        "test": "performance_test_suite_android_trichrome_chrome_google_64_32_bundle",
+        "test": "performance_test_suite_android_chrome_google_bundle",
         "trigger_script": {
           "args": [
             "--multiple-dimension-script-verbose",
@@ -432,7 +436,7 @@
       {
         "args": [
           "-v",
-          "--browser=android-trichrome-chrome-google-64-32-bundle",
+          "--browser=android-chrome-bundle",
           "--upload-results",
           "--test-shard-map-filename=android-pixel10-perf_map.json",
           "--ignore-benchmark-exit-code"
@@ -443,9 +447,9 @@
           ],
           "script": "//tools/perf/process_perf_results.py"
         },
-        "module_name": "//chrome/test:performance_test_suite_android_trichrome_chrome_google_64_32_bundle",
+        "module_name": "//chrome/test:performance_test_suite_android_chrome_google_bundle",
         "module_scheme": "flat",
-        "name": "performance_test_suite_android_trichrome_chrome_google_64_32_bundle",
+        "name": "performance_test_suite_android_chrome_google_bundle",
         "resultdb": {
           "enable": true
         },
@@ -464,7 +468,7 @@
           "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com",
           "shards": 25
         },
-        "test": "performance_test_suite_android_trichrome_chrome_google_64_32_bundle",
+        "test": "performance_test_suite_android_chrome_google_bundle",
         "trigger_script": {
           "args": [
             "--multiple-dimension-script-verbose",
@@ -628,7 +632,7 @@
       {
         "args": [
           "-v",
-          "--browser=android-trichrome-chrome-google-64-32-bundle",
+          "--browser=android-chrome-bundle",
           "--upload-results",
           "--test-shard-map-filename=android-pixel4-perf_map.json",
           "--ignore-benchmark-exit-code"
@@ -639,9 +643,9 @@
           ],
           "script": "//tools/perf/process_perf_results.py"
         },
-        "module_name": "//chrome/test:performance_test_suite_android_trichrome_chrome_google_64_32_bundle",
+        "module_name": "//chrome/test:performance_test_suite_android_chrome_google_bundle",
         "module_scheme": "flat",
-        "name": "performance_test_suite_android_trichrome_chrome_google_64_32_bundle",
+        "name": "performance_test_suite_android_chrome_google_bundle",
         "resultdb": {
           "enable": true
         },
@@ -660,7 +664,7 @@
           "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com",
           "shards": 38
         },
-        "test": "performance_test_suite_android_trichrome_chrome_google_64_32_bundle",
+        "test": "performance_test_suite_android_chrome_google_bundle",
         "trigger_script": {
           "args": [
             "--multiple-dimension-script-verbose",
@@ -677,7 +681,7 @@
       {
         "args": [
           "-v",
-          "--browser=android-trichrome-chrome-google-64-32-bundle",
+          "--browser=android-chrome-bundle",
           "--upload-results",
           "--test-shard-map-filename=android-pixel4-perf-pgo_map.json",
           "--ignore-benchmark-exit-code"
@@ -685,9 +689,9 @@
         "merge": {
           "script": "//tools/perf/process_perf_results.py"
         },
-        "module_name": "//chrome/test:performance_test_suite_android_trichrome_chrome_google_64_32_bundle",
+        "module_name": "//chrome/test:performance_test_suite_android_chrome_google_bundle",
         "module_scheme": "flat",
-        "name": "performance_test_suite_android_trichrome_chrome_google_64_32_bundle",
+        "name": "performance_test_suite_android_chrome_google_bundle",
         "resultdb": {
           "enable": true
         },
@@ -706,7 +710,7 @@
           "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com",
           "shards": 28
         },
-        "test": "performance_test_suite_android_trichrome_chrome_google_64_32_bundle",
+        "test": "performance_test_suite_android_chrome_google_bundle",
         "trigger_script": {
           "args": [
             "--multiple-dimension-script-verbose",
@@ -821,7 +825,7 @@
       {
         "args": [
           "-v",
-          "--browser=android-trichrome-chrome-google-64-32-bundle",
+          "--browser=android-chrome-bundle",
           "--upload-results",
           "--test-shard-map-filename=android-pixel6-perf-pgo_map.json",
           "--benchmark-max-runs=3"
@@ -832,9 +836,9 @@
           ],
           "script": "//tools/perf/process_perf_results.py"
         },
-        "module_name": "//chrome/test:performance_test_suite_android_trichrome_chrome_google_64_32_bundle",
+        "module_name": "//chrome/test:performance_test_suite_android_chrome_google_bundle",
         "module_scheme": "flat",
-        "name": "performance_test_suite_android_trichrome_chrome_google_64_32_bundle",
+        "name": "performance_test_suite_android_chrome_google_bundle",
         "resultdb": {
           "enable": true
         },
@@ -853,7 +857,7 @@
           "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com",
           "shards": 8
         },
-        "test": "performance_test_suite_android_trichrome_chrome_google_64_32_bundle",
+        "test": "performance_test_suite_android_chrome_google_bundle",
         "trigger_script": {
           "args": [
             "--multiple-dimension-script-verbose",
@@ -870,7 +874,7 @@
       {
         "args": [
           "-v",
-          "--browser=android-trichrome-chrome-google-64-32-bundle",
+          "--browser=android-chrome-bundle",
           "--upload-results",
           "--test-shard-map-filename=android-pixel6-pro-perf-pgo_map.json",
           "--ignore-benchmark-exit-code"
@@ -878,9 +882,9 @@
         "merge": {
           "script": "//tools/perf/process_perf_results.py"
         },
-        "module_name": "//chrome/test:performance_test_suite_android_trichrome_chrome_google_64_32_bundle",
+        "module_name": "//chrome/test:performance_test_suite_android_chrome_google_bundle",
         "module_scheme": "flat",
-        "name": "performance_test_suite_android_trichrome_chrome_google_64_32_bundle",
+        "name": "performance_test_suite_android_chrome_google_bundle",
         "resultdb": {
           "enable": true
         },
@@ -899,7 +903,7 @@
           "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com",
           "shards": 16
         },
-        "test": "performance_test_suite_android_trichrome_chrome_google_64_32_bundle",
+        "test": "performance_test_suite_android_chrome_google_bundle",
         "trigger_script": {
           "args": [
             "--multiple-dimension-script-verbose",
@@ -916,7 +920,7 @@
       {
         "args": [
           "-v",
-          "--browser=android-trichrome-chrome-google-64-32-bundle",
+          "--browser=android-chrome-bundle",
           "--upload-results",
           "--test-shard-map-filename=android-pixel9-perf_map.json",
           "--ignore-benchmark-exit-code"
@@ -927,9 +931,9 @@
           ],
           "script": "//tools/perf/process_perf_results.py"
         },
-        "module_name": "//chrome/test:performance_test_suite_android_trichrome_chrome_google_64_32_bundle",
+        "module_name": "//chrome/test:performance_test_suite_android_chrome_google_bundle",
         "module_scheme": "flat",
-        "name": "performance_test_suite_android_trichrome_chrome_google_64_32_bundle",
+        "name": "performance_test_suite_android_chrome_google_bundle",
         "resultdb": {
           "enable": true
         },
@@ -948,7 +952,7 @@
           "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com",
           "shards": 4
         },
-        "test": "performance_test_suite_android_trichrome_chrome_google_64_32_bundle",
+        "test": "performance_test_suite_android_chrome_google_bundle",
         "trigger_script": {
           "args": [
             "--multiple-dimension-script-verbose",
@@ -965,7 +969,7 @@
       {
         "args": [
           "-v",
-          "--browser=android-trichrome-chrome-google-64-32-bundle",
+          "--browser=android-chrome-bundle",
           "--upload-results",
           "--test-shard-map-filename=android-pixel9-pro-perf_map.json",
           "--ignore-benchmark-exit-code"
@@ -976,9 +980,9 @@
           ],
           "script": "//tools/perf/process_perf_results.py"
         },
-        "module_name": "//chrome/test:performance_test_suite_android_trichrome_chrome_google_64_32_bundle",
+        "module_name": "//chrome/test:performance_test_suite_android_chrome_google_bundle",
         "module_scheme": "flat",
-        "name": "performance_test_suite_android_trichrome_chrome_google_64_32_bundle",
+        "name": "performance_test_suite_android_chrome_google_bundle",
         "resultdb": {
           "enable": true
         },
@@ -997,7 +1001,7 @@
           "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com",
           "shards": 4
         },
-        "test": "performance_test_suite_android_trichrome_chrome_google_64_32_bundle",
+        "test": "performance_test_suite_android_chrome_google_bundle",
         "trigger_script": {
           "args": [
             "--multiple-dimension-script-verbose",
@@ -1014,7 +1018,7 @@
       {
         "args": [
           "-v",
-          "--browser=android-trichrome-chrome-google-64-32-bundle",
+          "--browser=android-chrome-bundle",
           "--upload-results",
           "--test-shard-map-filename=android-pixel9-pro-xl-perf_map.json",
           "--ignore-benchmark-exit-code"
@@ -1025,9 +1029,9 @@
           ],
           "script": "//tools/perf/process_perf_results.py"
         },
-        "module_name": "//chrome/test:performance_test_suite_android_trichrome_chrome_google_64_32_bundle",
+        "module_name": "//chrome/test:performance_test_suite_android_chrome_google_bundle",
         "module_scheme": "flat",
-        "name": "performance_test_suite_android_trichrome_chrome_google_64_32_bundle",
+        "name": "performance_test_suite_android_chrome_google_bundle",
         "resultdb": {
           "enable": true
         },
@@ -1046,7 +1050,7 @@
           "service_account": "chrome-tester@chops-service-accounts.iam.gserviceaccount.com",
           "shards": 4
         },
-        "test": "performance_test_suite_android_trichrome_chrome_google_64_32_bundle",
+        "test": "performance_test_suite_android_chrome_google_bundle",
         "trigger_script": {
           "args": [
             "--multiple-dimension-script-verbose",
@@ -1149,7 +1153,7 @@
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimensions": {
-            "cpu": "arm64",
+            "cpu": "x86-64",
             "os": "Ubuntu-22.04",
             "pool": "chrome.tests"
           },
@@ -1274,6 +1278,7 @@
         "swarming": {
           "can_use_on_swarming_builders": true,
           "dimensions": {
+            "cpu": "arm64",
             "os": "Ubuntu-24.04.4",
             "pool": "chrome.tests.perf"
           },

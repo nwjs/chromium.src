@@ -160,6 +160,10 @@ export class AppElement extends AppElementBase implements SpeechListener,
       SelectionController.getInstance();
   private lineFocusController_: LineFocusController =
       LineFocusController.getInstance();
+  // Animation frame handle for scheduling text block extraction after DOM
+  // layout. Tracked so rapid consecutive calls to updateContent can cancel
+  // pending frames to avoid desynchronizing text node mapping with the AXTree.
+  private renderedTextBlocksAnimationFrameHandle_: number|null = null;
   protected accessor settingsPrefs_: SettingsPrefs = DEFAULT_SETTINGS;
 
   protected accessor isSpeechActive_: boolean = false;
@@ -179,9 +183,6 @@ export class AppElement extends AppElementBase implements SpeechListener,
     this.nodeStore_.clear();
     ColorChangeUpdater.forDocument().start();
     this.contentState_ = this.contentController_.getState();
-    if (this.contentBrowserProxy_.isReadabilityEnabled()) {
-      this.contentController_.configureTrustedTypes();
-    }
     this.isReadAnythingImprovedUiEnabled_ =
         this.visualBrowserProxy_.isReadAnythingImprovedUiEnabled();
   }
@@ -303,6 +304,7 @@ export class AppElement extends AppElementBase implements SpeechListener,
     // it is called in tests, and the speech extension timeout can cause
     // flakiness.
     this.voiceLanguageController_.stopWaitingForSpeechExtension();
+    this.cancelRenderedTextBlocksAnimationFrame_();
   }
 
   override updated(changedProperties: PropertyValues<this>) {
@@ -365,6 +367,7 @@ export class AppElement extends AppElementBase implements SpeechListener,
   }
 
   showLoading() {
+    this.cancelRenderedTextBlocksAnimationFrame_();
     this.contentController_.setState(ContentType.LOADING);
     this.speechController_.resetForNewContent();
   }
@@ -386,7 +389,9 @@ export class AppElement extends AppElementBase implements SpeechListener,
     // Wait for the next animation frame to ensure the DOM is visible and then
     // send rendered text blocks to the controller so that it can map the
     // rendered text to the AXTree.
-    requestAnimationFrame(() => {
+    this.cancelRenderedTextBlocksAnimationFrame_();
+    this.renderedTextBlocksAnimationFrameHandle_ = requestAnimationFrame(() => {
+      this.renderedTextBlocksAnimationFrameHandle_ = null;
       this.onRenderedTextBlocksAvailable_();
     });
 
@@ -409,6 +414,10 @@ export class AppElement extends AppElementBase implements SpeechListener,
   }
 
   protected onLinksToggle_() {
+    this.settingsPrefs_ = {
+      ...this.settingsPrefs_,
+      linksEnabled: this.visualBrowserProxy_.isLinksEnabled(),
+    };
     this.updateLinks_();
   }
 
@@ -417,6 +426,10 @@ export class AppElement extends AppElementBase implements SpeechListener,
   }
 
   protected onImagesToggle_() {
+    this.settingsPrefs_ = {
+      ...this.settingsPrefs_,
+      imagesEnabled: this.visualBrowserProxy_.isImagesEnabled(),
+    };
     this.updateImages_();
   }
 
@@ -433,6 +446,13 @@ export class AppElement extends AppElementBase implements SpeechListener,
     this.contentController_.onRenderedTextMappingReady();
     this.selectionController_.updateSelection(
         this.getSelection(), this.$.container);
+  }
+
+  private cancelRenderedTextBlocksAnimationFrame_() {
+    if (this.renderedTextBlocksAnimationFrameHandle_ !== null) {
+      cancelAnimationFrame(this.renderedTextBlocksAnimationFrameHandle_);
+      this.renderedTextBlocksAnimationFrameHandle_ = null;
+    }
   }
 
   private onRenderedTextBlocksAvailable_() {
@@ -652,6 +672,12 @@ export class AppElement extends AppElementBase implements SpeechListener,
     this.voiceLanguageController_.onLanguageToggle(event.detail.language);
   }
 
+  protected onVoiceLanguageSelected_(event: CustomEvent<{language: string}>) {
+    event.preventDefault();
+    event.stopPropagation();
+    this.voiceLanguageController_.onLanguageSelected(event.detail.language);
+  }
+
   protected onReadabilityAnchorsReady_() {
     if (this.contentBrowserProxy_.isReadabilityEnabled()) {
       this.contentController_.updateAnchorsForReadability(this.shadowRoot);
@@ -659,6 +685,12 @@ export class AppElement extends AppElementBase implements SpeechListener,
   }
 
   protected onSpeechRateChange_() {
+    // TODO(crbug.com/564638585): Replace manual settingsPrefs_ updates for each
+    // onChange_ method with automated updates.
+    this.settingsPrefs_ = {
+      ...this.settingsPrefs_,
+      speechRate: this.audioBrowserProxy_.getSpeechRate(),
+    };
     this.speechController_.onSpeechSettingsChange();
   }
 
@@ -733,6 +765,10 @@ export class AppElement extends AppElementBase implements SpeechListener,
   }
 
   protected onHighlightChange_(event: CustomEvent<{data: number}>) {
+    this.settingsPrefs_ = {
+      ...this.settingsPrefs_,
+      highlightGranularity: event.detail.data,
+    };
     this.speechController_.onHighlightGranularityChange(event.detail.data);
     // Apply highlighting changes to the DOM.
     this.styleUpdater_.setHighlight();

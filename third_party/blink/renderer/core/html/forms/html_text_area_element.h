@@ -81,7 +81,10 @@ class CORE_EXPORT HTMLTextAreaElement final : public TextControlElement {
 
   String DefaultToolTip() const override;
 
-  void SetFocused(bool is_focused, mojom::blink::FocusType) override;
+  using TextControlElement::SetFocused;
+  void SetFocused(bool is_focused,
+                  mojom::blink::FocusType,
+                  BlurEventBehavior) override;
 
   // Returns a list of with information (such as typeface and glyphs) for the
   // text inside.
@@ -98,6 +101,7 @@ class CORE_EXPORT HTMLTextAreaElement final : public TextControlElement {
   void DidAddUserAgentShadowRoot(ShadowRoot&) override;
 
   void HandleBeforeTextInsertedEvent(BeforeTextInsertedEvent*);
+  String FilterBeforeTextInserted(const String& text) override;
   static String SanitizeUserInputValue(const String&, unsigned max_length);
   void UpdateValue();
   void SetNonDirtyValue(const String&, TextControlSetValueSelection);

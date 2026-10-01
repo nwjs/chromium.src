@@ -20,7 +20,7 @@ FlexGapAccumulator::FlexGapAccumulator(
     bool is_column,
     LayoutUnit border_scrollbar_padding_block_start,
     LayoutUnit border_scrollbar_padding_inline_start,
-    std::optional<GapGeometry::FlexGapPlacementReversal> placement_reversal)
+    std::optional<GapGeometry::PlacementReversal> placement_reversal)
     : gap_between_items_(gap_between_items),
       effective_gap_between_lines_(effective_gap_between_lines),
       is_column_(is_column),
@@ -47,7 +47,7 @@ FlexGapAccumulator::FlexGapAccumulator(
   // accumulator is constructed. Record the reversal so paint can assign gap
   // decoration values in placement order.
   if (placement_reversal) {
-    gap_geometry_->SetFlexGapPlacementReversal(*placement_reversal);
+    gap_geometry_->SetGapPlacementReversal(*placement_reversal);
   }
 }
 
@@ -223,9 +223,9 @@ void FlexGapAccumulator::BuildGapsForCurrentItem(
       is_last_line, single_line, main_intersection_offset, line_cross_start);
   // Store this `CrossGap`'s index in the full gap-decoration value list.
   const GridTrackSizingDirection cross_direction =
-      is_column_ ? kForRows : kForColumns;
+      OppositeDirection(gap_geometry_->GetMainDirection());
   if (in_fragmentation &&
-      gap_geometry_->HasNonIdentityDecorationOrder(cross_direction)) {
+      gap_geometry_->NeedsDecorationValueAssignmentMapping(cross_direction)) {
     RecordFragmentedFlexCrossGapDecorationIndex(flex_lines, global_line_index,
                                                 item_index_in_line);
   }
@@ -261,18 +261,19 @@ void FlexGapAccumulator::RecordFragmentedFlexCrossGapDecorationIndex(
       fragmented_flex_line_gap_ranges_[global_line_index];
   const GapGeometry::GapIndexRange last_line_range =
       fragmented_flex_line_gap_ranges_.back();
-  const wtf_size_t total_gap_count =
+  const wtf_size_t gap_slot_count =
       last_line_range.start + last_line_range.count;
 
   // Convert the line-local gap index to its index in the full flexbox.
-  const wtf_size_t stitched_geometric_index =
+  const wtf_size_t stitched_gap_index =
       line_range.start + item_index_in_line - 1;
 
   // Find which gap-decoration value belongs to this gap.
-  const wtf_size_t decoration_index = gap_geometry_->DecorationIndexForCrossGap(
-      stitched_geometric_index, line_range, total_gap_count);
-  gap_geometry_->AddFragmentedFlexCrossGapDecorationIndex(decoration_index,
-                                                          total_gap_count);
+  const wtf_size_t decoration_value_index =
+      gap_geometry_->DecorationValueIndexForCrossGap(
+          stitched_gap_index, line_range, gap_slot_count);
+  gap_geometry_->AddFragmentedFlexCrossGapDecorationIndex(
+      decoration_value_index, gap_slot_count);
 }
 
 void FlexGapAccumulator::PopulateMainGapForFirstItem(LayoutUnit cross_end) {

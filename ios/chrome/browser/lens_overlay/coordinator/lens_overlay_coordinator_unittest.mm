@@ -49,7 +49,6 @@
 #import "ios/chrome/browser/shared/ui/util/util_swift.h"
 #import "ios/chrome/browser/signin/model/authentication_service.h"
 #import "ios/chrome/browser/signin/model/authentication_service_factory.h"
-#import "ios/chrome/browser/signin/model/fake_authentication_service_delegate.h"
 #import "ios/chrome/browser/signin/model/fake_system_identity.h"
 #import "ios/chrome/browser/signin/model/fake_system_identity_manager.h"
 #import "ios/chrome/browser/snapshots/model/fake_snapshot_generator_delegate.h"
@@ -114,8 +113,7 @@ class LensOverlayCoordinatorTest : public PlatformTest {
     TestProfileIOS::Builder builder;
     builder.AddTestingFactory(
         AuthenticationServiceFactory::GetInstance(),
-        AuthenticationServiceFactory::GetFactoryWithDelegateForTesting(
-            std::make_unique<FakeAuthenticationServiceDelegate>()));
+        AuthenticationServiceFactory::GetDefaultFactory());
     builder.AddTestingFactory(SyncServiceFactory::GetInstance(),
                               base::BindRepeating(&CreateTestSyncService));
     profile_ = profile_manager_.AddProfileWithBuilder(std::move(builder));
@@ -706,6 +704,47 @@ TEST_F(LensOverlayCoordinatorTest, CameraSearchUserActionRecorded) {
   [lens_overlay_handler
       destroyLensUI:NO
              reason:lens::LensOverlayDismissalSource::kOverlayCloseButton];
+}
+
+// Test that stopping the coordinator and destroying the Browser while an
+// animated exit is in progress does not access `self.browser` after stop.
+TEST_F(LensOverlayCoordinatorTest, StopDuringAnimatedExit) {
+  [coordinator_ start];
+
+  id<LensOverlayCommands> lens_overlay_handler =
+      HandlerForProtocol(dispatcher_, LensOverlayCommands);
+
+  __block BOOL presentation_success = NO;
+  [lens_overlay_handler createAndShowLensUI:NO
+                                 entrypoint:LensOverlayEntrypoint::kLocationBar
+                                 completion:^(BOOL success) {
+                                   presentation_success = success;
+                                   run_loop_.Quit();
+                                 }];
+  run_loop_.Run();
+  ASSERT_TRUE(presentation_success);
+
+  __weak UIViewController* weak_container_vc = nil;
+  @autoreleasepool {
+    weak_container_vc = coordinator_.viewController;
+    ASSERT_TRUE(weak_container_vc);
+
+    // Start an animated exit, then immediately stop the coordinator and shut
+    // down the scene (destroying the Browser) before the animation completes.
+    [lens_overlay_handler
+        destroyLensUI:YES
+               reason:lens::LensOverlayDismissalSource::kOverlayCloseButton];
+    [coordinator_ stop];
+    tab_helper_ = nullptr;
+    [scene_state_ shutdown];
+  }
+
+  // Wait for the container view controller and any pending UIKit exit
+  // animation blocks to be cleaned up.
+  EXPECT_TRUE(WaitUntilConditionOrTimeout(kWaitForUIElementTimeout, ^bool {
+    return weak_container_vc == nil;
+  }));
+  EXPECT_FALSE([coordinator_ isUICreated]);
 }
 
 }  // namespace

@@ -36,7 +36,6 @@ import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.util.TokenHolder;
 
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.PriorityQueue;
@@ -250,10 +249,7 @@ class BottomSheetControllerImpl implements ManagedBottomSheetController {
                 isLargeFormFactor());
 
         // Initialize the queue with a comparator that checks content priority.
-        mContentQueue =
-                new PriorityQueue<>(
-                        INITIAL_QUEUE_CAPACITY,
-                        Comparator.comparingInt(BottomSheetContent::getPriority));
+        mContentQueue = new PriorityQueue<>(INITIAL_QUEUE_CAPACITY, this::comparePrecedence);
 
         PropertyModel scrimProperties = createScrimParams();
 
@@ -274,10 +270,7 @@ class BottomSheetControllerImpl implements ManagedBottomSheetController {
                         ScrimManager scrimManager = mScrimManagerSupplier.get();
                         assumeNonNull(scrimManager);
                         adjustBottomSheetZAxis(mScrimVisible);
-                        if (mBottomSheet.getCurrentSheetContent() != null
-                                && mBottomSheet
-                                        .getCurrentSheetContent()
-                                        .hasCustomScrimLifecycle()) {
+                        if (!shouldShowScrim(mBottomSheet.getCurrentSheetContent())) {
                             updateBackPressStateChangedSupplier();
                             return;
                         }
@@ -323,7 +316,7 @@ class BottomSheetControllerImpl implements ManagedBottomSheetController {
                             BottomSheetContent nextContent = mContentQueue.peek();
                             if (content != null
                                     && nextContent != null
-                                    && nextContent.getPriority() < content.getPriority()) {
+                                    && canIncomingSupersede(content, nextContent)) {
                                 mContentQueue.add(content);
                                 mBottomSheet.setSheetState(SheetState.HIDDEN, true);
                             }
@@ -600,7 +593,6 @@ class BottomSheetControllerImpl implements ManagedBottomSheetController {
         boolean shouldSwapContent =
                 mBottomSheet.getCurrentSheetContent() != null
                         && canBottomSheetSwitchContent(content);
-        boolean isCobrowse = content.getPriority() == BottomSheetContent.ContentPriority.COBROWSE;
 
         // Always add the content to the queue, it will be handled after the sheet closes if
         // necessary. If already hidden, |showNextContent| will handle the request.
@@ -615,7 +607,7 @@ class BottomSheetControllerImpl implements ManagedBottomSheetController {
             // back to the queue). There should never be 2 bottomSheets with coBrowse as
             // TabBottomSheetManager ensures that we always close the previous coBrowse
             // bottomSheet before ever showing a new one.
-            if (!isCobrowse) {
+            if (!shouldBlockRequeueOnSwap(content)) {
                 // Prevent sheets that are already animating to a HIDDEN state from being captured
                 // and resurrected.
                 if (!mBottomSheet.isHiding()) {
@@ -719,6 +711,7 @@ class BottomSheetControllerImpl implements ManagedBottomSheetController {
 
         if (assumeNonNull(mContentQueue).isEmpty()) {
             mBottomSheet.showContent(null);
+            adjustBottomSheetZAxis(mScrimVisible);
             return;
         }
 
@@ -739,6 +732,7 @@ class BottomSheetControllerImpl implements ManagedBottomSheetController {
         if (nextContent != null) {
             recordBottomSheetShownMetric();
         }
+        adjustBottomSheetZAxis(mScrimVisible);
         mBottomSheet.setSheetState(mBottomSheet.getOpeningState(), animate);
     }
 
@@ -825,9 +819,12 @@ class BottomSheetControllerImpl implements ManagedBottomSheetController {
         if (mBottomSheet == null) return;
         assumeNonNull(mBottomSheetContainer);
         BottomSheetContent content = mBottomSheet.getCurrentSheetContent();
+        // Apply coverage on presentation without waiting for `isSheetOpen()`. When opening from
+        // closed, `isSheetOpen()` is false during measurement and animation; covering immediately
+        // prevents layout jumps on open. Dismissal clears `content`, restoring margins.
         boolean shouldCover =
-                (scrimVisible || (content != null && content.coversBottomControls()))
-                        && mBottomSheet.isSheetOpen();
+                (scrimVisible && mBottomSheet.isSheetOpen())
+                        || (content != null && content.coversBottomControls());
         if (shouldCover) {
             // Scrimmed bottom sheet or sheet requesting to cover bottom controls. Draw the bottom
             // sheet container on top of all sibling views, originating from the bottom of the
@@ -867,20 +864,23 @@ class BottomSheetControllerImpl implements ManagedBottomSheetController {
      */
     private boolean canBottomSheetSwitchContent(BottomSheetContent nextContent) {
         BottomSheetContent currentContent = assumeNonNull(mBottomSheet).getCurrentSheetContent();
-        // TODO(crbug.com/505050661): Remove COBROWSE condition once modes is implemented.
+        if (BottomSheetFeatureMap.sBottomSheetTypes.isEnabled()) {
+            BottomSheetType currentType = assumeNonNull(currentContent).getSheetType();
+            BottomSheetType nextType = nextContent.getSheetType();
+            return nextType.canSupersede(currentType);
+        }
+
+        // Legacy fallback:
         if (nextContent.getPriority() == BottomSheetContent.ContentPriority.COBROWSE) {
             return true;
         }
-
         if (assumeNonNull(currentContent).canBeSuppressed(nextContent)) {
             return true;
         }
-
         if (nextContent.getPriority() < currentContent.getPriority()
                 && !mBottomSheet.isSheetOpen()) {
             return true;
         }
-
         return false;
     }
 
@@ -921,5 +921,37 @@ class BottomSheetControllerImpl implements ManagedBottomSheetController {
 
     void runSheetInitializerForTesting() {
         assumeNonNull(mSheetInitializer).run();
+    }
+
+    private int comparePrecedence(BottomSheetContent a, BottomSheetContent b) {
+        if (BottomSheetFeatureMap.sBottomSheetTypes.isEnabled()) {
+            BottomSheetType typeA = a.getSheetType();
+            BottomSheetType typeB = b.getSheetType();
+            return BottomSheetType.compare(typeA, typeB);
+        }
+        return Integer.compare(a.getPriority(), b.getPriority());
+    }
+
+    private boolean canIncomingSupersede(
+            @Nullable BottomSheetContent current, BottomSheetContent incoming) {
+        if (current == null) return true;
+        if (BottomSheetFeatureMap.sBottomSheetTypes.isEnabled()) {
+            BottomSheetType currentType = current.getSheetType();
+            BottomSheetType incomingType = incoming.getSheetType();
+            return incomingType.canSupersede(currentType);
+        }
+        return incoming.getPriority() < current.getPriority();
+    }
+
+    private boolean shouldBlockRequeueOnSwap(BottomSheetContent nextContent) {
+        if (BottomSheetFeatureMap.sBottomSheetTypes.isEnabled()) {
+            BottomSheetType type = nextContent.getSheetType();
+            return type.isPersistent();
+        }
+        return nextContent.getPriority() == BottomSheetContent.ContentPriority.COBROWSE;
+    }
+
+    private boolean shouldShowScrim(@Nullable BottomSheetContent content) {
+        return !BottomSheetUtils.isSheetNonModal(content);
     }
 }

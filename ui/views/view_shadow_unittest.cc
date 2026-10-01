@@ -5,9 +5,8 @@
 #include "ui/views/view_shadow.h"
 
 #include "ui/compositor/layer.h"
-#include "ui/compositor_extra/shadow.h"
+#include "ui/decoration/shadow.h"
 #include "ui/gfx/geometry/rounded_corners_f.h"
-#include "ui/gfx/shadow_util.h"
 #include "ui/views/test/views_test_base.h"
 #include "ui/views/view.h"
 
@@ -121,7 +120,7 @@ TEST_F(ViewShadowTest, SetRoundedCorners) {
 
   const gfx::RoundedCornersF radii(10, 20, 30, 40);
   shadow.SetRoundedCorners(radii);
-  EXPECT_EQ(radii, shadow.shadow()->rounded_corners_for_testing());
+  EXPECT_EQ(radii, shadow.shadow()->rounded_corners());
 }
 
 }  // namespace views

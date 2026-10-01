@@ -91,6 +91,35 @@ TEST_F(InputStateModelTest, DoesNotRemoveDriveInputWhenSignedInAndFlagEnabled) {
                   omnibox::INPUT_TYPE_BROWSER_TAB, omnibox::INPUT_TYPE_DRIVE));
 }
 
+// Tests that Drive input is not added when not configured by the server in
+// SearchboxConfig, even if signed in and flag is enabled.
+TEST_F(InputStateModelTest,
+       DoesNotAddDriveInputWhenNotConfiguredByServerAndSignedInAndFlagEnabled) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitWithFeatures(
+      {omnibox::kComposeboxDriveContextMenuOption}, {});
+
+  // Server config containing Lens and Browser Tab, but intentionally omitting
+  // INPUT_TYPE_DRIVE (e.g. for enterprise or restricted accounts).
+  omnibox::SearchboxConfig config;
+  config.add_input_type_configs()->set_input_type(
+      omnibox::InputType::INPUT_TYPE_LENS_IMAGE);
+  config.add_input_type_configs()->set_input_type(
+      omnibox::InputType::INPUT_TYPE_LENS_FILE);
+
+  input_state_model_ = std::make_unique<InputStateModel>(
+      session_handle_, config, active_url_, /*is_off_the_record=*/false,
+      /*is_signed_in=*/true,
+      /*browser_identity_matches_aim_identity=*/true);
+  input_state_model_->SetPrefService(&pref_service_);
+  const auto& state = input_state_model_->get_state_for_testing();
+
+  EXPECT_THAT(state.allowed_input_types,
+              testing::UnorderedElementsAre(omnibox::INPUT_TYPE_LENS_IMAGE,
+                                            omnibox::INPUT_TYPE_LENS_FILE,
+                                            omnibox::INPUT_TYPE_BROWSER_TAB));
+}
+
 TEST_F(InputStateModelTest, RemovesDriveInputWhenFlagDisabled) {
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitWithFeatures(
@@ -1635,8 +1664,31 @@ TEST_F(InputStateModelTest, CopyConstructorCopiesAllRelevantFields) {
               testing::Contains(omnibox::InputType::INPUT_TYPE_LENS_IMAGE));
 }
 
+TEST_F(InputStateModelTest, IsConfigPopulated) {
+  EXPECT_FALSE(InputStateModel::IsConfigPopulated(nullptr));
+
+  omnibox::SearchboxConfig empty_config;
+  EXPECT_FALSE(InputStateModel::IsConfigPopulated(&empty_config));
+
+  omnibox::SearchboxConfig config_with_rules;
+  config_with_rules.mutable_rule_set();
+  EXPECT_TRUE(InputStateModel::IsConfigPopulated(&config_with_rules));
+
+  omnibox::SearchboxConfig config_with_tools;
+  config_with_tools.add_tool_configs();
+  EXPECT_TRUE(InputStateModel::IsConfigPopulated(&config_with_tools));
+
+  omnibox::SearchboxConfig config_with_models;
+  config_with_models.add_model_configs();
+  EXPECT_TRUE(InputStateModel::IsConfigPopulated(&config_with_models));
+
+  omnibox::SearchboxConfig config_with_input_types;
+  config_with_input_types.add_input_type_configs();
+  EXPECT_TRUE(InputStateModel::IsConfigPopulated(&config_with_input_types));
+}
+
 TEST_F(InputStateModelTest, HasValidConfig) {
-  // Empty config has no rule_set -> has_valid_config() should be false.
+  // Empty config -> has_valid_config() should be false.
   omnibox::SearchboxConfig empty_config;
   auto model_without_config = std::make_unique<InputStateModel>(
       session_handle_, empty_config, active_url_, /*is_off_the_record=*/false,
@@ -1659,6 +1711,183 @@ TEST_F(InputStateModelTest, HasValidConfig) {
 
   InputStateModel copied_valid(*model_with_config, session_handle_);
   EXPECT_TRUE(copied_valid.has_valid_config());
+}
+
+TEST_F(InputStateModelTest, UpdateConfig) {
+  omnibox::SearchboxConfig empty_config;
+  auto model = std::make_unique<InputStateModel>(
+      session_handle_, empty_config, active_url_, /*is_off_the_record=*/false,
+      /*is_signed_in=*/false,
+      /*browser_identity_matches_aim_identity=*/false);
+  EXPECT_FALSE(model->has_valid_config());
+  EXPECT_TRUE(model->GetInputState().allowed_models.empty());
+
+  int notify_count = 0;
+  base::CallbackListSubscription subscription =
+      model->subscribe(base::BindRepeating(
+          [](int* count, const InputState&) { (*count)++; }, &notify_count));
+
+  // Updating with another empty config should return false and not notify.
+  EXPECT_FALSE(model->UpdateConfig(empty_config));
+  EXPECT_EQ(0, notify_count);
+  EXPECT_FALSE(model->has_valid_config());
+
+  // Updating with a populated config should populate models and notify.
+  omnibox::SearchboxConfig populated_config;
+  populated_config.mutable_rule_set();
+  auto* model_config = populated_config.add_model_configs();
+  model_config->set_model(omnibox::ModelMode::MODEL_MODE_GEMINI_REGULAR);
+  auto* tool_config = populated_config.add_tool_configs();
+  tool_config->set_tool(omnibox::ToolMode::TOOL_MODE_CANVAS);
+
+  EXPECT_TRUE(model->UpdateConfig(populated_config));
+  EXPECT_EQ(1, notify_count);
+  EXPECT_TRUE(model->has_valid_config());
+  EXPECT_THAT(
+      model->GetInputState().allowed_models,
+      testing::ElementsAre(omnibox::ModelMode::MODEL_MODE_GEMINI_REGULAR));
+  EXPECT_THAT(model->GetInputState().allowed_tools,
+              testing::ElementsAre(omnibox::ToolMode::TOOL_MODE_CANVAS));
+
+  // Updating with an identical config should be a no-op and not notify again.
+  EXPECT_FALSE(model->UpdateConfig(populated_config));
+  EXPECT_EQ(1, notify_count);
+
+  // Updating with a modified config should succeed and notify again.
+  auto* model_config_2 = populated_config.add_model_configs();
+  model_config_2->set_model(omnibox::ModelMode::MODEL_MODE_GEMINI_PRO);
+
+  EXPECT_TRUE(model->UpdateConfig(populated_config));
+  EXPECT_EQ(2, notify_count);
+  EXPECT_THAT(
+      model->GetInputState().allowed_models,
+      testing::ElementsAre(omnibox::ModelMode::MODEL_MODE_GEMINI_REGULAR,
+                           omnibox::ModelMode::MODEL_MODE_GEMINI_PRO));
+}
+
+TEST_F(InputStateModelTest, SetLensCrop_AddsCropAndNotifies) {
+  int notify_count = 0;
+  auto subscription = input_state_model_->subscribe(base::BindRepeating(
+      [](int* count, const omnibox::InputState&) { (*count)++; },
+      &notify_count));
+
+  input_state_model_->SetLensCrop("crop_1", "data:image/png;base64,abc");
+  EXPECT_EQ(1, notify_count);
+  EXPECT_EQ("data:image/png;base64,abc",
+            input_state_model_->GetLensCrop("crop_1"));
+  EXPECT_EQ(std::nullopt, input_state_model_->GetLensCrop("nonexistent"));
+  ASSERT_TRUE(input_state_model_->lens_crop().has_value());
+  EXPECT_EQ("crop_1", input_state_model_->lens_crop()->data_id);
+  EXPECT_EQ("data:image/png;base64,abc",
+            input_state_model_->lens_crop()->data_uri);
+}
+
+TEST_F(InputStateModelTest, SetLensCrop_ReplaceSemantics) {
+  int notify_count = 0;
+  auto subscription = input_state_model_->subscribe(base::BindRepeating(
+      [](int* count, const omnibox::InputState&) { (*count)++; },
+      &notify_count));
+
+  input_state_model_->SetLensCrop("crop_1", "data:image/png;base64,first");
+  EXPECT_EQ(1, notify_count);
+  EXPECT_EQ("data:image/png;base64,first",
+            input_state_model_->GetLensCrop("crop_1"));
+
+  // Setting a second crop replaces the first (decision 5: only ever one region
+  // crop).
+  input_state_model_->SetLensCrop("crop_2", "data:image/png;base64,second");
+  EXPECT_EQ(2, notify_count);
+  EXPECT_EQ(std::nullopt, input_state_model_->GetLensCrop("crop_1"));
+  EXPECT_EQ("data:image/png;base64,second",
+            input_state_model_->GetLensCrop("crop_2"));
+  ASSERT_TRUE(input_state_model_->lens_crop().has_value());
+  EXPECT_EQ("crop_2", input_state_model_->lens_crop()->data_id);
+  EXPECT_EQ("data:image/png;base64,second",
+            input_state_model_->lens_crop()->data_uri);
+}
+
+TEST_F(InputStateModelTest, RemoveLensCrop_RemovesAndNotifies) {
+  input_state_model_->SetLensCrop("crop_1", "data:image/png;base64,abc");
+  EXPECT_TRUE(input_state_model_->GetLensCrop("crop_1").has_value());
+
+  int notify_count = 0;
+  auto subscription = input_state_model_->subscribe(base::BindRepeating(
+      [](int* count, const omnibox::InputState&) { (*count)++; },
+      &notify_count));
+
+  input_state_model_->RemoveLensCrop("crop_1");
+  EXPECT_EQ(1, notify_count);
+  EXPECT_EQ(std::nullopt, input_state_model_->GetLensCrop("crop_1"));
+  EXPECT_FALSE(input_state_model_->lens_crop().has_value());
+
+  // Removing non-existent does not notify.
+  input_state_model_->RemoveLensCrop("nonexistent");
+  EXPECT_EQ(1, notify_count);
+}
+
+TEST_F(InputStateModelTest, ClearLensCrops_ClearsAndNotifies) {
+  input_state_model_->SetLensCrop("crop_1", "data:image/png;base64,abc");
+
+  int notify_count = 0;
+  auto subscription = input_state_model_->subscribe(base::BindRepeating(
+      [](int* count, const omnibox::InputState&) { (*count)++; },
+      &notify_count));
+
+  input_state_model_->ClearLensCrop();
+  EXPECT_EQ(1, notify_count);
+  EXPECT_FALSE(input_state_model_->lens_crop().has_value());
+
+  // Clearing when empty does not notify.
+  input_state_model_->ClearLensCrop();
+  EXPECT_EQ(1, notify_count);
+}
+
+TEST_F(InputStateModelTest, CopyConstructorPreservesLensCrops) {
+  input_state_model_->SetLensCrop("crop_1", "data:image/png;base64,preserved");
+
+  MockContextualSearchSessionHandle new_session_handle;
+  auto new_controller =
+      std::make_unique<MockContextualSearchContextController>();
+  ON_CALL(new_session_handle, GetController())
+      .WillByDefault(testing::Return(new_controller.get()));
+  ON_CALL(*new_controller, GetFileInfoList())
+      .WillByDefault(testing::Return(empty_file_info_list_));
+
+  InputStateModel copy(*input_state_model_, new_session_handle);
+  EXPECT_EQ("data:image/png;base64,preserved", copy.GetLensCrop("crop_1"));
+  ASSERT_TRUE(copy.lens_crop().has_value());
+  EXPECT_EQ("crop_1", copy.lens_crop()->data_id);
+  EXPECT_EQ("data:image/png;base64,preserved", copy.lens_crop()->data_uri);
+}
+
+TEST_F(InputStateModelTest, SetIdentityStateUpdatesAllowedInputTypes) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeatures({omnibox::kComposeboxDriveContextMenuOption},
+                                {});
+
+  omnibox::SearchboxConfig config;
+  config.add_input_type_configs()->set_input_type(
+      omnibox::InputType::INPUT_TYPE_DRIVE);
+
+  auto model = std::make_unique<InputStateModel>(
+      session_handle_, config, GURL("https://www.google.com"),
+      /*is_off_the_record=*/false, /*is_signed_in=*/false,
+      /*browser_identity_matches_aim_identity=*/false);
+
+  EXPECT_THAT(
+      model->GetInputState().allowed_input_types,
+      testing::Not(testing::Contains(omnibox::InputType::INPUT_TYPE_DRIVE)));
+
+  model->SetIdentityState(/*is_signed_in=*/true,
+                          /*browser_identity_matches_aim_identity=*/true);
+  EXPECT_THAT(model->GetInputState().allowed_input_types,
+              testing::Contains(omnibox::InputType::INPUT_TYPE_DRIVE));
+
+  model->SetIdentityState(/*is_signed_in=*/false,
+                          /*browser_identity_matches_aim_identity=*/false);
+  EXPECT_THAT(
+      model->GetInputState().allowed_input_types,
+      testing::Not(testing::Contains(omnibox::InputType::INPUT_TYPE_DRIVE)));
 }
 
 }  // namespace contextual_search

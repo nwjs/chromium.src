@@ -185,10 +185,6 @@ std::optional<ActionType> ActionTypeForStringName(std::string action) {
     return overflow_menu::ActionType::ReaderMode;
   } else if (action == "AskBWG") {
     return overflow_menu::ActionType::AskBWG;
-  } else if (action == "HideToolbars") {
-    return overflow_menu::ActionType::HideToolbars;
-  } else if (action == "ShareThisPage") {
-    return overflow_menu::ActionType::ShareThisPage;
   } else if (action == "Identity") {
     return overflow_menu::ActionType::Identity;
   } else if (action == "CustomizeHomePage") {
@@ -244,14 +240,6 @@ std::string StringNameForActionType(ActionType action) {
       return "ReaderMode";
     case overflow_menu::ActionType::AskBWG:
       return "AskBWG";
-    case overflow_menu::ActionType::HideToolbars:
-      return "HideToolbars";
-    case overflow_menu::ActionType::TabGroupDeprecated:
-      NOTREACHED();
-    case overflow_menu::ActionType::ShareThisPage:
-      return "ShareThisPage";
-    case overflow_menu::ActionType::SigninDeprecated:
-      NOTREACHED();
     case overflow_menu::ActionType::Identity:
       return "Identity";
     case overflow_menu::ActionType::CustomizeHomePage:

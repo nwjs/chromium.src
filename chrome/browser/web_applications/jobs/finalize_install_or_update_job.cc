@@ -237,8 +237,6 @@ void ApplyUserDisplayModeSyncMitigations(const FinalizeJobOptions& options,
     return;
   }
 
-  sync_pb::WebAppSpecifics sync_proto = web_app.sync_proto();
-
   switch (web_app.sync_proto().user_display_mode_cros()) {
     case sync_pb::WebAppSpecifics_UserDisplayMode_BROWSER:
       // Pre-M122 CrOS devices use the user_display_mode_default sync field
@@ -352,7 +350,6 @@ void FinalizeInstallOrUpdateJob::Start(InstallFinalizedCallback callback) {
       !web_app_info_.scope_extensions.empty() &&
       !web_app_info_.validated_scope_extensions.has_value();
   bool needs_migration_validation =
-      base::FeatureList::IsEnabled(blink::features::kWebAppMigrationApi) &&
       !web_app_info_.migration_sources.empty();
 
   if (options_.skip_origin_association_validation ||
@@ -739,10 +736,8 @@ void FinalizeInstallOrUpdateJob::AdjustAppStateBeforeCommit(
   // changed. If we already have a app installed that wants to be a migration
   // target for the newly installed app, this makes sure that this is reflected
   // correctly.
-  if (base::FeatureList::IsEnabled(blink::features::kWebAppMigrationApi)) {
-    provider.scheduler().ScheduleResolveWebAppPendingMigrationInfo(
-        base::DoNothing());
-  }
+  provider.scheduler().ScheduleResolveWebAppPendingMigrationInfo(
+      base::DoNothing());
 }
 
 void FinalizeInstallOrUpdateJob::OnDatabaseCommitCompleted(

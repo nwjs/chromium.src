@@ -67,8 +67,10 @@ constexpr char kShapeDetectionSandbox[] = "shape_detection";
 // #if is redundant, however, we cannot include "media/gpu/buildflags.h" on all
 // platforms, only one those that need to evaluate the use..., hence this
 // pattern, here and elsewhere. This problem is specific to this file.
-#if BUILDFLAG(USE_LINUX_VIDEO_ACCELERATION)
+#if BUILDFLAG(ENABLE_OOP_VIDEO_DECODER)
 constexpr char kHardwareVideoDecodingSandbox[] = "hardware_video_decoding";
+#endif
+#if BUILDFLAG(USE_LINUX_VIDEO_ACCELERATION)
 constexpr char kHardwareVideoEncodingSandbox[] = "hardware_video_encoding";
 #endif
 #endif
@@ -141,8 +143,10 @@ void SetCommandLineFlagsForSandboxType(base::CommandLine* command_line,
 #endif  // BUILDFLAG(IS_WIN)
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
     case Sandbox::kShapeDetection:
-#if BUILDFLAG(USE_LINUX_VIDEO_ACCELERATION)
+#if BUILDFLAG(ENABLE_OOP_VIDEO_DECODER)
     case Sandbox::kHardwareVideoDecoding:
+#endif
+#if BUILDFLAG(USE_LINUX_VIDEO_ACCELERATION)
     case Sandbox::kHardwareVideoEncoding:
 #endif
 #endif
@@ -291,10 +295,10 @@ std::string StringFromUtilitySandboxType(Sandbox sandbox_type) {
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
     case Sandbox::kShapeDetection:
       return kShapeDetectionSandbox;
-#if BUILDFLAG(ALLOW_OOP_VIDEO_DECODER)
+#if BUILDFLAG(ENABLE_OOP_VIDEO_DECODER)
     case Sandbox::kHardwareVideoDecoding:
       return kHardwareVideoDecodingSandbox;
-#endif  // BUILDFLAG(ALLOW_OOP_VIDEO_DECODER)
+#endif  // BUILDFLAG(ENABLE_OOP_VIDEO_DECODER)
 #if BUILDFLAG(USE_LINUX_VIDEO_ACCELERATION)
     case Sandbox::kHardwareVideoEncoding:
       return kHardwareVideoEncodingSandbox;
@@ -412,10 +416,12 @@ sandbox::mojom::Sandbox UtilitySandboxTypeFromString(
   if (sandbox_string == kShapeDetectionSandbox) {
     return Sandbox::kShapeDetection;
   }
-#if BUILDFLAG(USE_LINUX_VIDEO_ACCELERATION)
+#if BUILDFLAG(ENABLE_OOP_VIDEO_DECODER)
   if (sandbox_string == kHardwareVideoDecodingSandbox) {
     return Sandbox::kHardwareVideoDecoding;
   }
+#endif
+#if BUILDFLAG(USE_LINUX_VIDEO_ACCELERATION)
   if (sandbox_string == kHardwareVideoEncodingSandbox) {
     return Sandbox::kHardwareVideoEncoding;
   }

@@ -26,6 +26,8 @@
 #include "content/public/common/url_constants.h"
 #include "content/public/common/url_utils.h"
 #include "ui/base/base_window.h"
+#include "ui/base/page_transition_types.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/gfx/geometry/rect.h"
 
 namespace {
@@ -238,8 +240,7 @@ protocol::Response TargetHandler::CreateTarget(
     } else if (*window_state == protocol::Target::WindowStateEnum::Maximized) {
       params.browser->GetWindow()->Maximize();
     } else if (*window_state == protocol::Target::WindowStateEnum::Fullscreen) {
-      params.browser->GetFeatures()
-          .exclusive_access_manager()
+      ExclusiveAccessManager::From(params.browser)
           ->fullscreen_controller()
           ->ToggleBrowserFullscreenMode(/*user_initiated=*/false);
     } else {

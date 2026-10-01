@@ -41,6 +41,7 @@
 #include "chrome/browser/actor/tools/select_tool_request.h"
 #include "chrome/browser/actor/tools/tab_management_tool_request.h"
 #include "chrome/browser/actor/tools/tool_request.h"
+#include "chrome/browser/actor/tools/translate_page_tool_request.h"
 #include "chrome/browser/actor/tools/type_tool_request.h"
 #include "chrome/browser/actor/tools/wait_tool_request.h"
 #include "chrome/browser/actor/tools/window_management_tool_request.h"
@@ -63,6 +64,7 @@
 #include "components/optimization_guide/proto/features/common_quality_data.pb.h"
 #include "components/origin_gating/core/actor_container_config.h"
 #include "components/password_manager/core/browser/features/password_features.h"
+#include "components/sessions/core/session_id.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/content_features.h"
@@ -110,6 +112,7 @@ using apc::ScriptToolAction;
 using apc::ScrollAction;
 using apc::ScrollToAction;
 using apc::SelectAction;
+using apc::TranslatePageAction;
 using apc::TypeAction;
 using apc::WaitAction;
 using ::optimization_guide::DocumentIdentifierUserData;
@@ -737,6 +740,17 @@ std::unique_ptr<ToolRequest> CreateMediaControlRequest(
   return std::make_unique<MediaControlToolRequest>(tab_handle, media_control);
 }
 
+std::unique_ptr<ToolRequest> CreateTranslatePageRequest(
+    const TranslatePageAction& action) {
+  const tabs::TabHandle tab_handle = GetTabHandle(action);
+  if (tab_handle == TabHandle::Null()) {
+    return nullptr;
+  }
+
+  return std::make_unique<TranslatePageToolRequest>(
+      tab_handle, action.has_target_language() ? action.target_language() : "");
+}
+
 class ActorJournalFetchPageProgressListener
     : public page_content_annotations::FetchPageProgressListener {
  public:
@@ -871,6 +885,11 @@ CreateToolRequest(const optimization_guide::proto::Action& action) {
     case optimization_guide::proto::Action::kMediaControl: {
       const MediaControlAction& media_control_action = action.media_control();
       return CreateMediaControlRequest(media_control_action);
+    }
+    case optimization_guide::proto::Action::kTranslatePage: {
+      const TranslatePageAction& translate_page_action =
+          action.translate_page();
+      return CreateTranslatePageRequest(translate_page_action);
     }
 #if !BUILDFLAG(SKIP_ANDROID_UNMIGRATED_ACTOR_FILES)
     case optimization_guide::proto::Action::kCreateWindow: {

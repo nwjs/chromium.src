@@ -61,7 +61,7 @@ suite('TopToolbarTest', () => {
       assertHTMLElement(lightLogo);
       assertEquals(
           lightLogo.src,
-          'chrome://resources/cr_components/searchbox/icons/chrome_product.svg');
+          'chrome://resources/cr_components/searchbox/icons/chrome_product_cr23.svg');
       const darkLogo = topToolbar.shadowRoot.querySelector<HTMLImageElement>(
           '.chrome-logo-dark');
       assertHTMLElement(darkLogo);
@@ -899,6 +899,27 @@ suite('TopToolbarTest', () => {
     assertFalse(overflowMenuButton.classList.contains('active'));
     assertTrue(hideUnboundedCalled);
     assertFalse(dialogEl.hasAttribute('unbounded'));
+  });
+
+  test('closes overflow menu when the side panel loses focus', async () => {
+    document.body.innerHTML = window.trustedTypes!.emptyHTML;
+    topToolbar = document.createElement('top-toolbar');
+    document.body.appendChild(topToolbar);
+    await microtasksFinished();
+
+    const overflowMenuButton =
+        topToolbar.shadowRoot.querySelector<HTMLElement>('#overflowMenuButton');
+    assertTrue(!!overflowMenuButton);
+
+    overflowMenuButton.click();
+    await microtasksFinished();
+    assertTrue(topToolbar.$.overflowMenu.get().$.menu.open);
+
+    // Clicking outside of the side panel (e.g. on the page contents, the Lens
+    // crop frame, or a search result) blurs the side panel's window.
+    window.dispatchEvent(new Event('blur'));
+    await microtasksFinished();
+    assertFalse(topToolbar.$.overflowMenu.get().$.menu.open);
   });
 
   // <if expr="not is_android">

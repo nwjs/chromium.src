@@ -55,7 +55,6 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/content_client.h"
 #include "content/public/common/content_switches.h"
-#include "crypto/secure_hash.h"
 #include "mojo/public/cpp/bindings/callback_helpers.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "net/base/filename_util.h"
@@ -108,7 +107,7 @@ constexpr char kThirdPartyIframesNotAllowedToShowFilePicker[] =
     "Third party iframes are not allowed to show a file picker.";
 
 #if BUILDFLAG(IS_POSIX) && !BUILDFLAG(IS_ANDROID)
-bool CreateAndTruncateLocalFile(const base::FilePath& path) {
+base::File::Error CreateAndTruncateLocalFile(const base::FilePath& path) {
   base::ScopedBlockingCall scoped_blocking_call(FROM_HERE,
                                                 base::BlockingType::MAY_BLOCK);
   // Let the process umask determine permissions for new files. Do not follow a
@@ -117,18 +116,23 @@ bool CreateAndTruncateLocalFile(const base::FilePath& path) {
       open(path.value().c_str(),
            O_CREAT | O_WRONLY | O_NONBLOCK | O_CLOEXEC | O_NOFOLLOW, 0666)));
   if (!descriptor.is_valid()) {
-    return false;
+    return base::File::GetLastFileError();
   }
   // ftruncate() behavior for non-regular files is platform-dependent, so
   // explicitly reject them before truncating through the descriptor.
   struct stat file_info;
-  if (HANDLE_EINTR(fstat(descriptor.get(), &file_info)) != 0 ||
-      !S_ISREG(file_info.st_mode)) {
-    return false;
+  if (HANDLE_EINTR(fstat(descriptor.get(), &file_info)) != 0) {
+    return base::File::GetLastFileError();
+  }
+  if (!S_ISREG(file_info.st_mode)) {
+    return base::File::FILE_ERROR_NOT_A_FILE;
   }
 
   base::File file(std::move(descriptor));
-  return file.SetLength(0);
+  if (!file.SetLength(0)) {
+    return base::File::GetLastFileError();
+  }
+  return base::File::FILE_OK;
 }
 #endif
 
@@ -219,7 +223,7 @@ void ShowFilePickerOnUIThread(
     GlobalRenderFrameHostId frame_id,
     const FileSystemChooser::Options& options,
     FileSystemChooser::ResultCallback callback) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M159);
   RenderFrameHost* rfh = RenderFrameHost::FromID(frame_id);
   WebContents* web_contents = WebContents::FromRenderFrameHost(rfh);
   RenderFrameHost* outermost_rfh = rfh ? rfh->GetOutermostMainFrame() : nullptr;
@@ -234,7 +238,7 @@ void ShowFilePickerOnUIThread(
     return;
   }
 
-  DCHECK(outermost_rfh->IsInPrimaryMainFrame());
+  CHECK(outermost_rfh->IsInPrimaryMainFrame(), base::NotFatalUntil::M159);
 
   if (!GetContentClient()->browser()->IsFileSystemAccessApiFilePickerAllowed(
           content::WebContents::FromRenderFrameHost(rfh))) {
@@ -365,35 +369,33 @@ void ShowFilePickerOnUIThread(
 // with the result of this operation.
 void DidCreateFileToTruncate(
     storage::FileSystemURL url,
-    base::OnceCallback<void(bool)> callback,
+    base::OnceCallback<void(base::File::Error)> callback,
     scoped_refptr<base::SequencedTaskRunner> reply_runner,
     storage::FileSystemOperationRunner* operation_runner,
     base::File::Error result) {
   if (result != base::File::FILE_OK) {
     // Failed to create the file, don't even try to truncate it.
     reply_runner->PostTask(FROM_HERE,
-                           base::BindOnce(std::move(callback), false));
+                           base::BindOnce(std::move(callback), result));
     return;
   }
   operation_runner->Truncate(
       url, /*length=*/0,
       base::BindOnce(
-          [](base::OnceCallback<void(bool)> callback,
+          [](base::OnceCallback<void(base::File::Error)> callback,
              scoped_refptr<base::SequencedTaskRunner> reply_runner,
              base::File::Error result) {
-            reply_runner->PostTask(
-                FROM_HERE, base::BindOnce(std::move(callback),
-                                          result == base::File::FILE_OK));
+            reply_runner->PostTask(FROM_HERE,
+                                   base::BindOnce(std::move(callback), result));
           },
           std::move(callback), std::move(reply_runner)));
 }
 
 // Creates and truncates the file at `url`. Calls `callback` on `reply_runner`
-// with true if this succeeded, or false if either creation or truncation
-// failed.
+// with the error from either operation, or FILE_OK on success.
 void CreateAndTruncateFile(
     storage::FileSystemURL url,
-    base::OnceCallback<void(bool)> callback,
+    base::OnceCallback<void(base::File::Error)> callback,
     scoped_refptr<base::SequencedTaskRunner> reply_runner,
     storage::FileSystemOperationRunner* operation_runner) {
   // Binding operation_runner as a raw pointer is safe, since the callback is
@@ -456,7 +458,8 @@ void HandleTransferTokenAsDefaultDirectory(
     return;
   }
 
-  DCHECK(token_url_type == storage::kFileSystemTypeLocal);
+  CHECK(token_url_type == storage::kFileSystemTypeLocal,
+        base::NotFatalUntil::M159);
   info.path = token->type() == HandleType::kFile ? token->url().path().DirName()
                                                  : token->url().path();
 }
@@ -535,8 +538,8 @@ FileSystemAccessManagerImpl::SharedHandleState::SharedHandleState(
     scoped_refptr<FileSystemAccessPermissionGrant> read_grant,
     scoped_refptr<FileSystemAccessPermissionGrant> write_grant)
     : read_grant(std::move(read_grant)), write_grant(std::move(write_grant)) {
-  DCHECK(this->read_grant);
-  DCHECK(this->write_grant);
+  CHECK(this->read_grant, base::NotFatalUntil::M159);
+  CHECK(this->write_grant, base::NotFatalUntil::M159);
 }
 
 FileSystemAccessManagerImpl::SharedHandleState::SharedHandleState(
@@ -555,9 +558,9 @@ FileSystemAccessManagerImpl::FileSystemAccessManagerImpl(
           base::MakeRefCounted<FileSystemAccessLockManager>(PassKey())),
       watcher_manager_(this, PassKey()),
       off_the_record_(off_the_record) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
-  DCHECK(context_);
-  DCHECK(blob_context_);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M159);
+  CHECK(context_, base::NotFatalUntil::M159);
+  CHECK(blob_context_, base::NotFatalUntil::M159);
 }
 
 FileSystemAccessManagerImpl::~FileSystemAccessManagerImpl() {
@@ -780,6 +783,15 @@ void FileSystemAccessManagerImpl::ResolveDefaultDirectory(
     ChooseEntriesCallback callback,
     FileSystemAccessTransferTokenImpl* resolved_directory_token) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+
+  if (resolved_directory_token &&
+      resolved_directory_token->origin() != context.storage_key.origin()) {
+    std::move(callback).Run(
+        file_system_access_error::FromStatus(
+            FileSystemAccessStatus::kInvalidArgument),
+        std::vector<blink::mojom::FileSystemAccessEntryPtr>());
+    return;
+  }
 
   PathInfo path_info;
   if (resolved_directory_token) {
@@ -1030,8 +1042,9 @@ void FileSystemAccessManagerImpl::ResolveDataTransferTokenWithFileType(
   }
 
   // Drag-and-dropped files cannot be from a sandboxed file system.
-  DCHECK(url.type() == storage::FileSystemType::kFileSystemTypeLocal ||
-         url.type() == storage::FileSystemType::kFileSystemTypeExternal);
+  CHECK(url.type() == storage::FileSystemType::kFileSystemTypeLocal ||
+            url.type() == storage::FileSystemType::kFileSystemTypeExternal,
+        base::NotFatalUntil::M159);
   // TODO(crbug.com/40061211): Add a prompt specific to D&D. For now, run
   // the same security checks and show the same prompt for D&D as for the file
   // picker.
@@ -1166,7 +1179,7 @@ std::string SerializeURLImpl(const storage::FileSystemURL& url,
   if (url.type() == storage::kFileSystemTypeLocal ||
       url.mount_type() == storage::kFileSystemTypeExternal) {
     // Files from non-sandboxed file systems should not include bucket info.
-    DCHECK(!url.bucket().has_value());
+    CHECK(!url.bucket().has_value(), base::NotFatalUntil::M159);
 
     // A url can have mount_type = external and type = native local at the same
     // time. In that case we want to still treat it as an external path.
@@ -1190,7 +1203,7 @@ std::string SerializeURLImpl(const storage::FileSystemURL& url,
     if (root_permission_path != url_path) {
       bool relative_path_result =
           root_permission_path.AppendRelativePath(url_path, &relative_path);
-      DCHECK(relative_path_result);
+      CHECK(relative_path_result, base::NotFatalUntil::M159);
     }
 
     file_data->set_relative_path(SerializePath(relative_path));
@@ -1199,7 +1212,7 @@ std::string SerializeURLImpl(const storage::FileSystemURL& url,
     base::FilePath virtual_path = url.virtual_path();
     data.mutable_sandboxed()->set_virtual_path(SerializePath(virtual_path));
     // Files in the sandboxed file system must include bucket info.
-    DCHECK(url.bucket().has_value());
+    CHECK(url.bucket().has_value(), base::NotFatalUntil::M159);
     if (!url.bucket()->is_default) {
       data.mutable_sandboxed()->set_bucket_id(url.bucket()->id.value());
     }
@@ -1209,7 +1222,7 @@ std::string SerializeURLImpl(const storage::FileSystemURL& url,
 
   std::string value;
   bool success = data.SerializeToString(&value);
-  DCHECK(success);
+  CHECK(success, base::NotFatalUntil::M159);
   return value;
 }
 
@@ -1270,7 +1283,7 @@ void FileSystemAccessManagerImpl::DeserializeHandle(
     const std::vector<uint8_t>& bits,
     mojo::PendingReceiver<blink::mojom::FileSystemAccessTransferToken> token) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  DCHECK(!bits.empty());
+  CHECK(!bits.empty(), base::NotFatalUntil::M159);
 
   FileSystemAccessHandleData data;
   if (!data.ParseFromString(base::as_string_view(bits))) {
@@ -1413,7 +1426,7 @@ FileSystemAccessManagerImpl::CreateFileHandle(
     const std::string& display_name,
     const SharedHandleState& handle_state) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  DCHECK(url.is_valid());
+  CHECK(url.is_valid(), base::NotFatalUntil::M159);
 
   mojo::PendingRemote<blink::mojom::FileSystemAccessFileHandle> result;
   file_receivers_.Add(
@@ -1429,7 +1442,7 @@ FileSystemAccessManagerImpl::CreateDirectoryHandle(
     const storage::FileSystemURL& url,
     const SharedHandleState& handle_state) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  DCHECK(url.is_valid());
+  CHECK(url.is_valid(), base::NotFatalUntil::M159);
 
   mojo::PendingRemote<blink::mojom::FileSystemAccessDirectoryHandle> result;
   directory_receivers_.Add(
@@ -1906,7 +1919,7 @@ void FileSystemAccessManagerImpl::OnCheckPathsAgainstEnterprisePolicy(
   }
 
   if (options.type() == ui::SelectFileDialog::SELECT_FOLDER) {
-    DCHECK_EQ(entries.size(), 1u);
+    CHECK_EQ(entries.size(), 1u, base::NotFatalUntil::M159);
     SharedHandleState shared_handle_state =
         GetSharedHandleStateForNonSandboxedPath(
             entries.front(), binding_context.storage_key,
@@ -1930,7 +1943,7 @@ void FileSystemAccessManagerImpl::OnCheckPathsAgainstEnterprisePolicy(
   }
 
   if (options.type() == ui::SelectFileDialog::SELECT_SAVEAS_FILE) {
-    DCHECK_EQ(entries.size(), 1u);
+    CHECK_EQ(entries.size(), 1u, base::NotFatalUntil::M159);
     // Create file if it doesn't yet exist, and truncate file if it does
     // exist.
     auto fs_url = CreateFileSystemURLFromPath(entries.front());
@@ -1970,18 +1983,12 @@ void FileSystemAccessManagerImpl::DidCreateAndTruncateSaveFile(
     const PathInfo& entry,
     const storage::FileSystemURL& url,
     ChooseEntriesCallback callback,
-    bool success) {
+    base::File::Error result) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   std::vector<blink::mojom::FileSystemAccessEntryPtr> result_entries;
-  if (!success) {
-    // TODO(crbug.com/40717501): Failure to create or truncate the file
-    // should probably not just result in a generic error, but instead inform
-    // the user of the problem?
-    std::move(callback).Run(
-        file_system_access_error::FromStatus(
-            blink::mojom::FileSystemAccessStatus::kOperationFailed,
-            "Failed to create or truncate file"),
-        std::move(result_entries));
+  if (result != base::File::FILE_OK) {
+    std::move(callback).Run(file_system_access_error::FromFileError(result),
+                            std::move(result_entries));
     return;
   }
 
@@ -2055,13 +2062,13 @@ void FileSystemAccessManagerImpl::RemoveFileWriter(
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
   size_t count_removed = writer_receivers_.erase(writer);
-  DCHECK_EQ(1u, count_removed);
+  CHECK_EQ(1u, count_removed, base::NotFatalUntil::M159);
 }
 
 void FileSystemAccessManagerImpl::RemoveAccessHandleHost(
     FileSystemAccessAccessHandleHostImpl* access_handle_host) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  DCHECK(access_handle_host);
+  CHECK(access_handle_host, base::NotFatalUntil::M159);
 
   // Capacity allocations only exist in non-incognito mode.
   if (context()->is_incognito()) {
@@ -2080,7 +2087,7 @@ void FileSystemAccessManagerImpl::RemoveToken(
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
   size_t count_removed = transfer_tokens_.erase(token);
-  DCHECK_EQ(1u, count_removed);
+  CHECK_EQ(1u, count_removed, base::NotFatalUntil::M159);
 }
 
 void FileSystemAccessManagerImpl::RemoveDataTransferToken(
@@ -2088,7 +2095,7 @@ void FileSystemAccessManagerImpl::RemoveDataTransferToken(
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
   size_t count_removed = data_transfer_tokens_.erase(token);
-  DCHECK_EQ(1u, count_removed);
+  CHECK_EQ(1u, count_removed, base::NotFatalUntil::M159);
 }
 
 void FileSystemAccessManagerImpl::DoResolveTransferToken(
@@ -2232,7 +2239,7 @@ void FileSystemAccessManagerImpl::CleanupAccessHandleCapacityAllocation(
     int64_t allocated_file_size,
     base::OnceClosure callback) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  DCHECK_GE(allocated_file_size, 0);
+  CHECK_GE(allocated_file_size, 0, base::NotFatalUntil::M159);
 
   DoFileSystemOperation(
       FROM_HERE, &storage::FileSystemOperationRunner::GetMetadata,
@@ -2255,12 +2262,12 @@ void FileSystemAccessManagerImpl::CleanupAccessHandleCapacityAllocationImpl(
   if (result != base::File::FILE_OK) {
     return;
   }
-  DCHECK_GE(file_info.size, 0);
+  CHECK_GE(file_info.size, 0, base::NotFatalUntil::M159);
   // if the QuotaManagerProxy is gone, no changes are possible.
   if (!context_->quota_manager_proxy()) {
     return;
   }
-  DCHECK_GE(allocated_file_size, 0);
+  CHECK_GE(allocated_file_size, 0, base::NotFatalUntil::M159);
 
   int64_t overallocation = allocated_file_size - file_info.size;
   DCHECK_GE(overallocation, 0)
@@ -2279,7 +2286,7 @@ void FileSystemAccessManagerImpl::CleanupAccessHandleCapacityAllocationImpl(
 void FileSystemAccessManagerImpl::DidCleanupAccessHandleCapacityAllocation(
     FileSystemAccessAccessHandleHostImpl* access_handle_host) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  DCHECK(access_handle_host);
+  CHECK(access_handle_host, base::NotFatalUntil::M159);
 
   // We cannot destroy `access_handle_host` by erasing it from the
   // `access_handle_host_receivers_` set.
@@ -2299,7 +2306,7 @@ void FileSystemAccessManagerImpl::DidCleanupAccessHandleCapacityAllocation(
   access_handle_host_receivers_.erase(iter);
 
   size_t count_removed = initial_size - access_handle_host_receivers_.size();
-  DCHECK_EQ(1u, count_removed);
+  CHECK_EQ(1u, count_removed, base::NotFatalUntil::M159);
 }
 
 void FileSystemAccessManagerImpl::ResolveTransferToken(

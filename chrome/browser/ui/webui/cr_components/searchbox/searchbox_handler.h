@@ -16,7 +16,6 @@
 #include "base/time/time.h"
 #include "base/values.h"
 #include "build/build_config.h"
-#include "chrome/browser/ui/omnibox/omnibox_next_features.h"
 #include "chrome/browser/ui/views/permissions/permission_prompt_observer.h"
 #include "components/contextual_search/contextual_search_types.h"
 #include "components/contextual_search/pref_names.h"
@@ -27,6 +26,7 @@
 #include "components/omnibox/browser/searchbox_utils.h"
 #include "components/omnibox/common/input_state.h"
 #include "components/prefs/pref_change_registrar.h"
+#include "components/search_engines/template_url_service_observer.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "mojo/public/cpp/bindings/remote.h"
@@ -41,6 +41,7 @@ class OmniboxController;
 class OmniboxClient;
 class Profile;
 class OmniboxEditModel;
+class TemplateURLService;
 
 namespace content {
 class WebContents;
@@ -65,8 +66,25 @@ class Size;
 
 class SearchboxHandler : public searchbox::mojom::PageHandler,
                          public AutocompleteController::Observer,
-                         public PermissionPromptObserver::Observer {
+                         public PermissionPromptObserver::Observer,
+                         public TemplateURLServiceObserver {
  public:
+  // LINT.IfChange(OmniboxWebUIMatchActivationStatus)
+  enum class MatchActivationStatus {
+    kLiveResultMatch = 0,
+    kSnapshotMatch = 1,
+    kSnapshotNotFoundOrEvicted = 2,
+    kUrlMismatch = 3,
+    kIndexOutOfBounds = 4,
+    kMaxValue = kIndexOutOfBounds,
+  };
+  // LINT.ThenChange(//tools/metrics/histograms/metadata/omnibox/enums.xml:OmniboxWebUIMatchActivationStatus)
+
+  static constexpr char kMatchActivationStatusHistogram[] =
+      "Omnibox.WebUI.MatchActivationStatus";
+  static constexpr char kSnapshotMatchSequenceDistanceHistogram[] =
+      "Omnibox.WebUI.SnapshotMatchSequenceDistance";
+
   class Delegate {
    public:
     virtual void OnEmbeddedPermissionDialogChanged(
@@ -99,23 +117,32 @@ class SearchboxHandler : public searchbox::mojom::PageHandler,
       const gfx::VectorIcon& icon) const;
 
   // Adds file context to the searchbox from the browser.
-  void AddFileContextFromBrowser(
+  virtual void AddFileContextFromBrowser(
       base::UnguessableToken token,
       searchbox::mojom::SelectedFileInfoPtr file_info);
 
   // Notifies the WebUI that the contextual input status has changed.
-  void OnContextualInputStatusChanged(
+  virtual void OnContextualInputStatusChanged(
       base::UnguessableToken token,
       contextual_search::ContextUploadStatus status,
       std::optional<contextual_search::ContextUploadErrorType> error_type);
 
+  void set_disconnect_handler(base::OnceClosure callback) {
+    page_handler_.set_disconnect_handler(std::move(callback));
+  }
+
   // AutocompleteController::Observer:
   void OnResultChanged(AutocompleteController* controller,
                        bool default_match_changed) override;
+  void OnControllerDestroying(AutocompleteController* controller) override;
 
   // PermissionPromptObserver::Observer:
   void OnPermissionPromptChanged(bool is_showing,
                                  const gfx::Size& prompt_size) override;
+
+  // TemplateURLServiceObserver:
+  void OnTemplateURLServiceChanged() override;
+  void OnTemplateURLServiceShuttingDown() override;
 
   // searchbox::mojom::PageHandler:
   void OnFocusChanged(bool focused) override;
@@ -129,7 +156,8 @@ class SearchboxHandler : public searchbox::mojom::PageHandler,
                          const std::string& keyword,
                          searchbox::mojom::InputMethod input_method) override;
   void StopAutocomplete(bool clear_result) override;
-  void OpenAutocompleteMatch(uint8_t line,
+  void OpenAutocompleteMatch(uint32_t result_sequence_id,
+                             uint8_t line,
                              const GURL& url,
                              bool are_matches_showing,
                              uint8_t mouse_button,
@@ -211,8 +239,11 @@ class SearchboxHandler : public searchbox::mojom::PageHandler,
   void GetSmartTabSharingActive(
       GetSmartTabSharingActiveCallback callback) override;
 #endif
-  void DismissFre() override {}
+  void DismissFre(searchbox::mojom::FreStage stage) override {}
+  void ShowHotkeyDropdown(const gfx::Rect& anchor_bounds,
+                          ShowHotkeyDropdownCallback callback) override;
   void OpenHotkeySettings() override {}
+  void OnEscapePressed() override {}
   void set_delegate(Delegate* delegate) { omnibox_delegate_ = delegate; }
 
  protected:
@@ -233,13 +264,25 @@ class SearchboxHandler : public searchbox::mojom::PageHandler,
   OmniboxEditModel* edit_model() const;
   searchbox::mojom::Page* page() { return page_.get(); }
 
+  const AutocompleteMatch* GetMatchWithUrl(uint32_t result_sequence_id,
+                                           size_t index,
+                                           const GURL& url) const;
   const AutocompleteMatch* GetMatchWithUrl(size_t index, const GURL& url) const;
+
+  const AutocompleteInput* GetInput(uint32_t result_sequence_id) const;
+  const searchbox::AutocompleteSnapshot* GetSnapshot(
+      uint32_t result_sequence_id) const;
+
+  MatchActivationStatus GetMatchActivationStatus(uint32_t result_sequence_id,
+                                                 size_t line,
+                                                 const GURL& url) const;
 
   virtual omnibox::InputState GetInputState() const;
   virtual std::string GetPreviousQuery();
 
   void SetAutocompleteControllerForTesting(
       std::unique_ptr<AutocompleteController> controller);
+  void SendAvailableKeywordModels();
 
   raw_ptr<Profile> profile_;
   raw_ptr<content::WebContents> web_contents_;
@@ -261,18 +304,31 @@ class SearchboxHandler : public searchbox::mojom::PageHandler,
   base::ScopedObservation<AutocompleteController,
                           AutocompleteController::Observer>
       autocomplete_controller_observation_{this};
+  base::ScopedObservation<TemplateURLService, TemplateURLServiceObserver>
+      template_url_service_observation_{this};
 
   mojo::Receiver<searchbox::mojom::PageHandler> page_handler_;
   mojo::Remote<searchbox::mojom::Page> page_;
   PrefChangeRegistrar pref_change_registrar_;
+
+  // Stores snapshots of autocomplete results sent to the WebUI keyed by
+  // sequence ID.
+  // Bounded to minimize memory usage while allowing out-of-sync match
+  // activation requests from the WebUI to resolve deterministically during
+  // in-flight races.
+  base::flat_map<uint32_t, searchbox::AutocompleteSnapshot>
+      autocomplete_result_snapshots_;
+
   base::WeakPtrFactory<SearchboxHandler> weak_ptr_factory_{this};
 
+  TemplateURLService* GetTemplateURLService() const;
   void OnKeywordSpaceTriggeringPrefChanged();
 
   void OpenMatch(OmniboxPopupSelection selection,
                  AutocompleteMatch match,
                  WindowOpenDisposition disposition,
-                 base::TimeTicks match_selection_timestamp);
+                 base::TimeTicks match_selection_timestamp,
+                 const searchbox::AutocompleteSnapshot* snapshot = nullptr);
 
   void OnDefaultSearchExtensionDialogDone(
       OmniboxPopupSelection selection,

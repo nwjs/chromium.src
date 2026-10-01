@@ -11,13 +11,17 @@ import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.res.ColorStateList;
 import android.graphics.Outline;
+import android.graphics.Rect;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.text.TextUtils;
 import android.util.AttributeSet;
+import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.accessibility.AccessibilityEvent;
+import android.view.accessibility.AccessibilityNodeInfo;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -38,6 +42,7 @@ import org.chromium.components.browser_ui.widget.RoundedCornerOutlineProvider;
 import org.chromium.components.browser_ui.widget.gesture.SwipeGestureListener;
 import org.chromium.components.browser_ui.widget.gesture.SwipeGestureListener.SwipeHandler;
 import org.chromium.components.browser_ui.widget.text.TextViewWithCompoundDrawables;
+import org.chromium.ui.accessibility.KeyboardFocusUtil;
 import org.chromium.ui.base.UiAndroidFeatureList;
 import org.chromium.ui.base.ViewUtils;
 import org.chromium.ui.listmenu.BasicListMenu;
@@ -95,7 +100,8 @@ public class MessageBannerView extends RelativeLayout {
         mSecondaryButton = findViewById(R.id.message_secondary_button);
         mCloseButton = findViewById(R.id.message_close_button);
         mDivider = findViewById(R.id.message_divider);
-        mSecondaryButton.setOnClickListener(
+        setProtectedOnClickListener(
+                mSecondaryButton,
                 (View v) -> {
                     handleSecondaryButtonClick();
                 });
@@ -225,8 +231,13 @@ public class MessageBannerView extends RelativeLayout {
         mPrimaryButton.setVisibility(showButton ? VISIBLE : GONE);
     }
 
-    void setPrimaryButtonClickListener(OnClickListener listener) {
-        mPrimaryButton.setOnClickListener(
+    void setPrimaryButtonClickListener(@Nullable OnClickListener listener) {
+        if (listener == null) {
+            setProtectedOnClickListener(mPrimaryButton, null);
+            return;
+        }
+        setProtectedOnClickListener(
+                mPrimaryButton,
                 (view) -> {
                     // Ignore click events if a progress bar is showing.
                     if (mPrimaryWidgetAppearance == PrimaryWidgetAppearance.BUTTON_IF_TEXT_IS_SET
@@ -240,8 +251,8 @@ public class MessageBannerView extends RelativeLayout {
         mEnableCloseButton = enable;
     }
 
-    void setCloseButtonClickListener(OnClickListener listener) {
-        mCloseButton.setOnClickListener(listener);
+    void setCloseButtonClickListener(@Nullable OnClickListener listener) {
+        setProtectedOnClickListener(mCloseButton, listener);
     }
 
     void setSecondaryIcon(Drawable icon) {
@@ -486,9 +497,52 @@ public class MessageBannerView extends RelativeLayout {
         return super.onGenericMotionEvent(event);
     }
 
+    @Override
+    public boolean requestFocus(int direction, @Nullable Rect previouslyFocusedRect) {
+        if (focusButton(mPrimaryButton)) return true;
+        if (focusButton(mSecondaryButton)) return true;
+        if (focusButton(mCloseButton)) return true;
+        return super.requestFocus(direction, previouslyFocusedRect);
+    }
+
+    @Override
+    public boolean dispatchKeyEvent(KeyEvent event) {
+        // Consume events within the protection period, but do not block system keys (e.g. back,
+        // volume, power).
+        if (isWithinTapProtectionPeriod() && !event.isSystem()) {
+            return true;
+        }
+        return super.dispatchKeyEvent(event);
+    }
+
+    private void setProtectedOnClickListener(View view, @Nullable OnClickListener listener) {
+        if (listener == null) {
+            view.setOnClickListener(null);
+            return;
+        }
+        view.setOnClickListener(
+                (v) -> {
+                    if (isWithinTapProtectionPeriod()) return;
+                    listener.onClick(v);
+                });
+    }
+
     private boolean isWithinTapProtectionPeriod() {
         return mIsWithinTapProtectionPeriodSupplier != null
                 && Boolean.TRUE.equals(mIsWithinTapProtectionPeriodSupplier.get());
+    }
+
+    @SuppressLint("AccessibilityFocus")
+    private static boolean focusButton(@Nullable View button) {
+        if (button != null && button.getVisibility() == VISIBLE) {
+            if (KeyboardFocusUtil.setFocus(button)) {
+                button.performAccessibilityAction(
+                        AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS, null);
+                button.sendAccessibilityEvent(AccessibilityEvent.TYPE_VIEW_ACCESSIBILITY_FOCUSED);
+                return true;
+            }
+        }
+        return false;
     }
 
     private static class MessageSwipeGestureListener extends SwipeGestureListener {

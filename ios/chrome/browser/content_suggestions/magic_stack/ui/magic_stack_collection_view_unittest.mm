@@ -4,9 +4,8 @@
 
 #import "ios/chrome/browser/content_suggestions/magic_stack/ui/magic_stack_collection_view.h"
 
-#import "base/test/scoped_feature_list.h"
-#import "components/segmentation_platform/public/features.h"
 #import "components/sync_preferences/testing_pref_service_syncable.h"
+#import "ios/chrome/browser/content_suggestions/magic_stack/public/magic_stack_utils.h"
 #import "ios/chrome/browser/content_suggestions/magic_stack/ui/magic_stack_collection_view_audience.h"
 #import "ios/chrome/browser/content_suggestions/magic_stack/ui/magic_stack_module_container_delegate.h"
 #import "ios/chrome/browser/content_suggestions/price_tracking_promo/ui/price_tracking_promo_config.h"
@@ -24,8 +23,7 @@
 
 @interface MagicStackCollectionViewController (Testing)
 
-- (CGFloat)getNextPageOffsetForOffset:(CGFloat)offset
-                             velocity:(CGFloat)velocity;
+- (void)logNavigationToPage:(NSUInteger)page;
 
 @end
 
@@ -41,7 +39,8 @@ class MagicStackCollectionViewControllerTest : public PlatformTest {
     _window = [[UIWindow alloc]
         initWithWindowScene:chrome_test_util::GetAnyWindowScene()];
     UIView.animationsEnabled = NO;
-    view_controller_ = [[MagicStackCollectionViewController alloc] init];
+    view_controller_ = [[MagicStackCollectionViewController alloc]
+        initWithLayoutType:MagicStackLayoutType::kClassic];
     audience_ = OCMStrictProtocolMock(
         @protocol(MagicStackCollectionViewControllerAudience));
     view_controller_.audience = audience_;
@@ -56,7 +55,6 @@ class MagicStackCollectionViewControllerTest : public PlatformTest {
 
  protected:
   web::WebTaskEnvironment task_environment_;
-  base::test::ScopedFeatureList scoped_feature_list_;
   sync_preferences::TestingPrefServiceSyncable pref_service_;
   UIWindow* _window;
   UIView* _superview;
@@ -69,10 +67,6 @@ class MagicStackCollectionViewControllerTest : public PlatformTest {
 // Tests that bringing an ephemeral card into view triggers the expected
 // audience signal.
 TEST_F(MagicStackCollectionViewControllerTest, TestEphemeralCardAudienceCall) {
-  scoped_feature_list_.InitWithFeatures(
-      {segmentation_platform::features::
-           kSegmentationPlatformEphemeralCardRanker},
-      {});
   OCMExpect([audience_ logTopModuleImpressionForType:
                            ContentSuggestionsModuleType::kPriceTrackingPromo]);
   OCMExpect([audience_ logEphemeralCardVisibility:ContentSuggestionsModuleType::
@@ -84,7 +78,7 @@ TEST_F(MagicStackCollectionViewControllerTest, TestEphemeralCardAudienceCall) {
   EXPECT_OCMOCK_VERIFY((id)audience_);
 
   // Test that the audience call is not triggered more than once
-  [view_controller_ getNextPageOffsetForOffset:0 velocity:0];
+  [view_controller_ logNavigationToPage:0];
   EXPECT_OCMOCK_VERIFY((id)audience_);
 }
 
@@ -92,10 +86,6 @@ TEST_F(MagicStackCollectionViewControllerTest, TestEphemeralCardAudienceCall) {
 // the expected audience signal.
 TEST_F(MagicStackCollectionViewControllerTest,
        TestSwipeToEphemeralCardAudienceCall) {
-  scoped_feature_list_.InitWithFeatures(
-      {segmentation_platform::features::
-           kSegmentationPlatformEphemeralCardRanker},
-      {});
   OCMExpect([audience_
       logTopModuleImpressionForType:ContentSuggestionsModuleType::kShortcuts]);
   // Test that populating the Magic Stack does not trigger audience call since
@@ -108,6 +98,38 @@ TEST_F(MagicStackCollectionViewControllerTest,
   OCMExpect([audience_ logEphemeralCardVisibility:ContentSuggestionsModuleType::
                                                       kPriceTrackingPromo]);
   // Test that scrolling to card triggers audience signal.
-  [view_controller_ getNextPageOffsetForOffset:400 velocity:.1f];
+  [view_controller_ logNavigationToPage:1];
   EXPECT_OCMOCK_VERIFY((id)audience_);
+}
+
+// Tests that MagicStackTargetPage computes the correct page with clamping and
+// velocity thresholds.
+TEST_F(MagicStackCollectionViewControllerTest, TestTargetPageCalculation) {
+  const CGFloat kPageWidth = 300.0;
+  const NSUInteger kTotalPages = 3;
+
+  // Zero pages.
+  EXPECT_EQ(0u, MagicStackTargetPage(0, 0, kPageWidth, 0));
+
+  // Single page.
+  EXPECT_EQ(0u, MagicStackTargetPage(0, 0, kPageWidth, 1));
+  EXPECT_EQ(0u, MagicStackTargetPage(500, 1.0, kPageWidth, 1));
+
+  // Stationary near page 0.
+  EXPECT_EQ(0u, MagicStackTargetPage(100, 0, kPageWidth, kTotalPages));
+  // Stationary near page 1 (150 is halfway, 151 rounds to page 1).
+  EXPECT_EQ(1u, MagicStackTargetPage(160, 0, kPageWidth, kTotalPages));
+
+  // Positive flick from page 0 moves to page 1 even with small offset.
+  EXPECT_EQ(1u, MagicStackTargetPage(50, 0.5, kPageWidth, kTotalPages));
+
+  // Negative flick from page 1 moves back to page 0.
+  EXPECT_EQ(0u, MagicStackTargetPage(250, -0.5, kPageWidth, kTotalPages));
+
+  // Clamping at boundary: flicking beyond last page stays on last page (page
+  // 2).
+  EXPECT_EQ(2u, MagicStackTargetPage(600, 1.0, kPageWidth, kTotalPages));
+
+  // Clamping at start: negative flick at page 0 stays on page 0.
+  EXPECT_EQ(0u, MagicStackTargetPage(-50, -1.0, kPageWidth, kTotalPages));
 }

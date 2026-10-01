@@ -21,6 +21,7 @@
 #include "chrome/browser/ui/side_panel/side_panel_entry.h"
 #include "chrome/browser/ui/side_panel/side_panel_entry_key.h"
 #include "chrome/browser/ui/side_panel/side_panel_ui.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/toolbar/toolbar_action_view_model.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/test/base/ui_test_utils.h"
@@ -566,7 +567,7 @@ IN_PROC_BROWSER_TEST_F(DevToolsExtensionsProtocolTest,
   EXPECT_FALSE(trigger_result->FindDict("error"));
   EXPECT_TRUE(result_catcher.GetNextResult()) << result_catcher.message();
 
-  SidePanelUI* side_panel_ui = browser()->GetFeatures().side_panel_ui();
+  SidePanelUI* side_panel_ui = SidePanelUI::From(browser());
   ASSERT_TRUE(side_panel_ui);
   EXPECT_TRUE(side_panel_ui->IsSidePanelEntryShowing(
       SidePanelEntry::Key(SidePanelEntry::Id::kExtension, extension->id())));

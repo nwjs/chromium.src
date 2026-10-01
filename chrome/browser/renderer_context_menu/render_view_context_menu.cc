@@ -229,6 +229,7 @@
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/child_process_security_policy.h"
 #include "content/public/browser/download_manager.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_details.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/picture_in_picture_window_controller.h"
@@ -278,8 +279,10 @@
 #include "ui/base/mojom/menu_source_type.mojom.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/base/ui_base_features.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/base/window_open_disposition_utils.h"
 #include "ui/color/color_provider.h"
+#include "ui/display/types/display_constants.h"
 #include "ui/gfx/favicon_size.h"
 #include "ui/gfx/geometry/point.h"
 #include "ui/gfx/geometry/point_conversions.h"
@@ -310,13 +313,13 @@
 #if BUILDFLAG(ENABLE_EXTENSIONS)
 #include "chrome/browser/extensions/context_menu_helpers.h"
 #include "chrome/browser/extensions/devtools_util.h"
-#include "chrome/browser/extensions/extension_service.h"
 #include "chrome/common/extensions/api/url_handlers/url_handlers_parser.h"
-#include "extensions/browser/extension_host.h"
+#include "extensions/browser/extension_registrar.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/extension_system.h"
 #include "extensions/browser/guest_view/mime_handler_view/mime_handler_view_guest.h"
 #include "extensions/browser/guest_view/web_view/web_view_guest.h"
+#include "extensions/browser/process_manager.h"
 #include "extensions/browser/view_type_utils.h"
 #include "extensions/common/extension.h"
 #endif
@@ -344,7 +347,6 @@
 #if BUILDFLAG(ENABLE_LENS_DESKTOP_GOOGLE_BRANDED_FEATURES)
 #include "chrome/browser/lens/region_search/lens_region_search_controller.h"
 #include "chrome/grit/theme_resources.h"
-#include "ui/base/resource/resource_bundle.h"
 #endif
 
 #if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(GOOGLE_CHROME_BRANDING)
@@ -365,6 +367,7 @@
 #include "chrome/browser/chromeos/policy/dlp/dlp_rules_manager_factory.h"
 #include "chrome/browser/renderer_context_menu/read_write_card_observer.h"
 #include "chrome/browser/ui/ash/system_web_apps/system_web_app_ui_utils.h"
+#include "chrome/browser/ui/chromeos/locked_state/locked_state_controller.h"
 #include "chrome/browser/ui/settings_window_manager_chromeos.h"
 #include "chrome/browser/ui/webui/ash/system_web_dialog/system_web_dialog_delegate.h"
 #include "chromeos/ash/components/system_web_apps/system_web_app_type.h"
@@ -853,7 +856,9 @@ void OnBrowserCreated(const GURL& link_url,
   // header is a privacy risk.
   nav_params.referrer = content::Referrer();
   nav_params.window_action = NavigateParams::WindowAction::kShowWindow;
-  Navigate(&nav_params);
+  if (auto navigation_handle = Navigate(&nav_params)) {
+    AttachContextMenuOpenLinkNavigationHandleUserData(*navigation_handle);
+  }
 }
 
 bool DoesFormControlTypeSupportEmoji(
@@ -1801,9 +1806,8 @@ bool RenderViewContextMenu::IsHTML5Fullscreen() const {
     return false;
   }
 
-  FullscreenController* controller = browser->GetFeatures()
-                                         .exclusive_access_manager()
-                                         ->fullscreen_controller();
+  FullscreenController* controller =
+      ExclusiveAccessManager::From(browser)->fullscreen_controller();
   return controller->IsTabFullscreen();
 }
 
@@ -1815,9 +1819,8 @@ bool RenderViewContextMenu::IsPressAndHoldEscRequiredToExitFullscreen() const {
     return false;
   }
 
-  KeyboardLockController* controller = browser->GetFeatures()
-                                           .exclusive_access_manager()
-                                           ->keyboard_lock_controller();
+  KeyboardLockController* controller =
+      ExclusiveAccessManager::From(browser)->keyboard_lock_controller();
   return controller->RequiresPressAndHoldEscToExit();
 }
 
@@ -3369,25 +3372,33 @@ bool RenderViewContextMenu::IsCommandIdEnabled(int id) const {
   // NOTE: If new commands are being added, please disable them by default and
   // notify the ChromeOS team by filing a bug under this component --
   // b/?q=componentid:1389107.
-  bool should_disable_command_for_locked_fullscreen_or_on_task = false;
   BrowserWindowInterface* const browser_window = GetBrowser();
-  if (browser_window &&
-      platform_util::IsBrowserLockedFullscreen(browser_window)) {
-    should_disable_command_for_locked_fullscreen_or_on_task = true;
-  }
-  if (browser_window && ash::boca::OnTaskLockedController::From(browser_window)
-                            ->is_locked_for_on_task()) {
-    bool is_page_nav_command =
-        (id == IDC_BACK) || (id == IDC_FORWARD) || (id == IDC_RELOAD);
-    bool is_allowed_content_context_command =
-        (id == IDC_CONTENT_CONTEXT_COPYIMAGE) ||
-        (id == IDC_CONTENT_CONTEXT_COPYIMAGELOCATION);
-    should_disable_command_for_locked_fullscreen_or_on_task =
-        !is_page_nav_command && !is_allowed_content_context_command &&
-        !ContextMenuMatcher::IsExtensionsCustomCommandId(id);
-  }
-  if (should_disable_command_for_locked_fullscreen_or_on_task) {
-    return false;
+  if (features::IsUseUnifiedLockedStateControllerEnabled()) {
+    if (browser_window && !chromeos::LockedStateController::From(browser_window)
+                               ->IsCommandIdEnabled(id)) {
+      return false;
+    }
+  } else {
+    bool should_disable_command_for_locked_fullscreen_or_on_task = false;
+    if (browser_window &&
+        platform_util::IsBrowserLockedFullscreen(browser_window)) {
+      should_disable_command_for_locked_fullscreen_or_on_task = true;
+    }
+    if (browser_window &&
+        ash::boca::OnTaskLockedController::From(browser_window)
+            ->is_locked_for_on_task()) {
+      bool is_page_nav_command =
+          (id == IDC_BACK) || (id == IDC_FORWARD) || (id == IDC_RELOAD);
+      bool is_allowed_content_context_command =
+          (id == IDC_CONTENT_CONTEXT_COPYIMAGE) ||
+          (id == IDC_CONTENT_CONTEXT_COPYIMAGELOCATION);
+      should_disable_command_for_locked_fullscreen_or_on_task =
+          !is_page_nav_command && !is_allowed_content_context_command &&
+          !ContextMenuMatcher::IsExtensionsCustomCommandId(id);
+    }
+    if (should_disable_command_for_locked_fullscreen_or_on_task) {
+      return false;
+    }
   }
 #endif
 
@@ -3772,10 +3783,12 @@ void RenderViewContextMenu::OpenURLWithExtraHeaders(
     WindowOpenDisposition disposition,
     ui::PageTransition transition,
     const std::string& extra_headers,
-    bool started_from_context_menu) {
+    bool started_from_context_menu,
+    base::OnceCallback<void(content::NavigationHandle&)>
+        navigation_handle_callback) {
   RenderViewContextMenuBase::OpenURLWithExtraHeaders(
       url, referring_url, initiator, disposition, transition, extra_headers,
-      started_from_context_menu);
+      started_from_context_menu, std::move(navigation_handle_callback));
 }
 
 void RenderViewContextMenu::ExecuteCommand(int id, int event_flags) {
@@ -3826,10 +3839,13 @@ void RenderViewContextMenu::ExecuteCommand(int id, int event_flags) {
           /*extra_headers=*/std::string(), /*started_from_context_menu=*/true);
 
       if (browser) {
-        browser->OpenURL(params, /*navigation_handle_callback=*/{});
+        browser->OpenURL(
+            params,
+            base::BindOnce(&AttachContextMenuOpenLinkNavigationHandleUserData));
       } else {
-        source_web_contents_->OpenURL(params,
-                                      /*navigation_handle_callback=*/{});
+        source_web_contents_->OpenURL(
+            params,
+            base::BindOnce(&AttachContextMenuOpenLinkNavigationHandleUserData));
       }
       break;
     }
@@ -3840,7 +3856,8 @@ void RenderViewContextMenu::ExecuteCommand(int id, int event_flags) {
           params_.link_url, params_.frame_url, params_.frame_origin,
           WindowOpenDisposition::NEW_WINDOW, ui::PAGE_TRANSITION_LINK,
           /*extra_headers=*/std::string(),
-          /*started_from_context_menu=*/true);
+          /*started_from_context_menu=*/true,
+          base::BindOnce(&AttachContextMenuOpenLinkNavigationHandleUserData));
       break;
 
     case IDC_CONTENT_CONTEXT_OPENLINK_ISOLATED:
@@ -3853,7 +3870,8 @@ void RenderViewContextMenu::ExecuteCommand(int id, int event_flags) {
           params_.link_url, params_.frame_url, params_.frame_origin,
           WindowOpenDisposition::OFF_THE_RECORD, ui::PAGE_TRANSITION_LINK,
           /*extra_headers=*/std::string(),
-          /*started_from_context_menu=*/true);
+          /*started_from_context_menu=*/true,
+          base::BindOnce(&AttachContextMenuOpenLinkNavigationHandleUserData));
       break;
 
     case IDC_CONTENT_CONTEXT_OPENLINKBOOKMARKAPP:
@@ -3994,10 +4012,11 @@ void RenderViewContextMenu::ExecuteCommand(int id, int event_flags) {
       break;
 
     case IDC_CONTENT_CONTEXT_OPEN_ORIGINAL_IMAGE_NEW_TAB:
-      OpenURLWithExtraHeaders(params_.src_url, params_.frame_url,
-                              params_.frame_origin,
-                              WindowOpenDisposition::NEW_BACKGROUND_TAB,
-                              ui::PAGE_TRANSITION_LINK, std::string(), false);
+      OpenURLWithExtraHeaders(
+          params_.src_url, params_.frame_url, params_.frame_origin,
+          WindowOpenDisposition::NEW_BACKGROUND_TAB, ui::PAGE_TRANSITION_LINK,
+          /*extra_headers=*/std::string(), /*started_from_context_menu=*/false,
+          /*navigation_handle_callback=*/{});
       break;
 
     case IDC_CONTENT_CONTEXT_LOAD_IMAGE:
@@ -4289,9 +4308,17 @@ void RenderViewContextMenu::ExecuteCommand(int id, int event_flags) {
 #endif  // BUILDFLAG(ENABLE_COMPOSE)
 
     default:
+      if (ExecPlatformCommand(id, event_flags)) {
+        break;
+      }
       DUMP_WILL_BE_NOTREACHED() << "Unhandled id: " << id;
       break;
   }
+}
+
+bool RenderViewContextMenu::ExecPlatformCommand(int command_id,
+                                                int event_flags) {
+  return false;
 }
 
 void RenderViewContextMenu::AddSpellCheckServiceItem(bool is_checked) {
@@ -4764,8 +4791,10 @@ void RenderViewContextMenu::AppendSendTabToSelfItem(bool add_separator) {
   }
 
   const bool should_offer_submenu =
-      base::FeatureList::IsEnabled(
-          send_tab_to_self::kSendTabToSelfEnhancedDesktopUI) &&
+      (base::FeatureList::IsEnabled(
+           send_tab_to_self::kSendTabToSelfEnhancedDesktopUI) ||
+       base::FeatureList::IsEnabled(
+           send_tab_to_self::kSendTabToSelfEnhancedDesktopUIv2)) &&
       (*display_reason ==
        send_tab_to_self::EntryPointDisplayReason::kOfferFeature);
 
@@ -4789,7 +4818,7 @@ void RenderViewContextMenu::AppendSendTabToSelfItem(bool add_separator) {
 #if BUILDFLAG(IS_MAC)
     if (features::IsMenuSimplificationEnabled()) {
       menu_model_.AddSubMenuWithStringIdAndIcon(
-          IDC_SEND_TAB_TO_SELF, IDS_MENU_SEND_TAB_TO_SELF,
+          IDC_SEND_TAB_TO_SELF, IDS_CONTEXT_MENU_SEND_TAB_TO_SELF,
           send_tab_to_self_submenu_.get(),
           ui::ImageModel::FromVectorIcon(features::IsRoundedIconsEnabled()
                                              ? kDevicesIcon
@@ -4797,12 +4826,12 @@ void RenderViewContextMenu::AppendSendTabToSelfItem(bool add_separator) {
     } else {
       menu_model_.AddSubMenu(
           IDC_SEND_TAB_TO_SELF,
-          l10n_util::GetStringUTF16(IDS_MENU_SEND_TAB_TO_SELF),
+          l10n_util::GetStringUTF16(IDS_CONTEXT_MENU_SEND_TAB_TO_SELF),
           send_tab_to_self_submenu_.get());
     }
 #else
     menu_model_.AddSubMenuWithStringIdAndIcon(
-        IDC_SEND_TAB_TO_SELF, IDS_MENU_SEND_TAB_TO_SELF,
+        IDC_SEND_TAB_TO_SELF, IDS_CONTEXT_MENU_SEND_TAB_TO_SELF,
         send_tab_to_self_submenu_.get(),
         ui::ImageModel::FromVectorIcon(features::IsRoundedIconsEnabled()
                                            ? kDevicesIcon
@@ -4827,18 +4856,19 @@ void RenderViewContextMenu::AppendSendTabToSelfItem(bool add_separator) {
   if (features::IsMenuSimplificationEnabled()) {
     menu_model_.AddItemWithIcon(
         IDC_SEND_TAB_TO_SELF,
-        l10n_util::GetStringUTF16(IDS_MENU_SEND_TAB_TO_SELF),
+        l10n_util::GetStringUTF16(IDS_CONTEXT_MENU_SEND_TAB_TO_SELF),
         ui::ImageModel::FromVectorIcon(features::IsRoundedIconsEnabled()
                                            ? kDevicesIcon
                                            : kDevicesOldIcon));
   } else {
-    menu_model_.AddItem(IDC_SEND_TAB_TO_SELF,
-                        l10n_util::GetStringUTF16(IDS_MENU_SEND_TAB_TO_SELF));
+    menu_model_.AddItem(
+        IDC_SEND_TAB_TO_SELF,
+        l10n_util::GetStringUTF16(IDS_CONTEXT_MENU_SEND_TAB_TO_SELF));
   }
 #else
   menu_model_.AddItemWithIcon(
       IDC_SEND_TAB_TO_SELF,
-      l10n_util::GetStringUTF16(IDS_MENU_SEND_TAB_TO_SELF),
+      l10n_util::GetStringUTF16(IDS_CONTEXT_MENU_SEND_TAB_TO_SELF),
       ui::ImageModel::FromVectorIcon(
           features::IsRoundedIconsEnabled() ? kDevicesIcon : kDevicesOldIcon));
 #endif
@@ -5163,9 +5193,11 @@ void RenderViewContextMenu::ExecSaveAs() {
 #endif  // BUILDFLAG(ENABLE_PDF)
 
   if (!target_frame_host) {
-    target_frame_host = is_plugin
-                            ? source_web_contents_->GetOuterWebContentsFrame()
-                            : frame_host;
+    target_frame_host =
+        is_plugin && extensions::MimeHandlerViewGuest::FromRenderFrameHost(
+                         frame_host)
+            ? source_web_contents_->GetOuterWebContentsFrame()
+            : frame_host;
     if (!target_frame_host) {
       return;
     }
@@ -5851,7 +5883,7 @@ ToastController* RenderViewContextMenu::GetToastController() const {
   }
 #endif
 
-  return browser ? browser->GetFeatures().toast_controller() : nullptr;
+  return browser ? ToastController::From(browser) : nullptr;
 }
 
 bool RenderViewContextMenu::CanTranslate(bool menu_logging) {
@@ -5932,7 +5964,11 @@ void RenderViewContextMenu::OpenLinkInSplitView(
         params.started_from_context_menu = true;
         params.transition_type = ui::PAGE_TRANSITION_LINK;
         params.referrer = CreateReferrer(params_.link_url, params_);
-        tab->GetContents()->GetController().LoadURLWithParams(params);
+        auto navigation_handle =
+            tab->GetContents()->GetController().LoadURLWithParams(params);
+        if (navigation_handle) {
+          AttachContextMenuOpenLinkNavigationHandleUserData(*navigation_handle);
+        }
         break;
       }
     }
@@ -5943,7 +5979,8 @@ void RenderViewContextMenu::OpenLinkInSplitView(
         WindowOpenDisposition::NEW_BACKGROUND_TAB, ui::PAGE_TRANSITION_LINK,
         /*extra_headers=*/std::string(), /*started_from_context_menu=*/true);
     const WebContents* new_web_contents = source_web_contents_->OpenURL(
-        params, /*navigation_handle_callback=*/{});
+        params,
+        base::BindOnce(&AttachContextMenuOpenLinkNavigationHandleUserData));
     if (!new_web_contents) {
       return;
     }

@@ -11,7 +11,7 @@
 #include "components/unexportable_keys/mojom/unexportable_key_service.mojom.h"
 #include "components/unexportable_keys/service_error.h"
 #include "components/unexportable_keys/unexportable_key_id.h"
-#include "crypto/signature_verifier.h"
+#include "crypto/sign.h"
 #include "crypto/unexportable_key.h"
 #include "mojo/public/cpp/bindings/enum_traits.h"
 #include "mojo/public/cpp/bindings/struct_traits.h"
@@ -19,11 +19,11 @@
 namespace mojo {
 template <>
 struct EnumTraits<unexportable_keys::mojom::SignatureAlgorithm,
-                  crypto::SignatureVerifier::SignatureAlgorithm> {
+                  crypto::sign::SignatureKind> {
   static unexportable_keys::mojom::SignatureAlgorithm ToMojom(
-      crypto::SignatureVerifier::SignatureAlgorithm algo);
+      crypto::sign::SignatureKind algo);
 
-  static crypto::SignatureVerifier::SignatureAlgorithm FromMojom(
+  static crypto::sign::SignatureKind FromMojom(
       unexportable_keys::mojom::SignatureAlgorithm mojo_algo);
 };
 
@@ -100,6 +100,11 @@ struct StructTraits<unexportable_keys::mojom::AttestationStatementDataView,
   static const std::vector<uint8_t>& signature(
       const crypto::AttestationStatement& input) {
     return input.signature;
+  }
+
+  static const std::vector<uint8_t>& subject_key(
+      const crypto::AttestationStatement& input) {
+    return input.subject_key;
   }
 
   static bool Read(unexportable_keys::mojom::AttestationStatementDataView data,

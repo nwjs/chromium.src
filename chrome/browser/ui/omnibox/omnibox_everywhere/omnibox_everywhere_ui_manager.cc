@@ -7,11 +7,14 @@
 #include <algorithm>
 #include <utility>
 
+#include "base/auto_reset.h"
 #include "base/feature_list.h"
+#include "base/functional/callback_helpers.h"
 #include "base/memory/ptr_util.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
+#include "chrome/browser/autocomplete/aim_eligibility_service_factory.h"
 #include "chrome/browser/autocomplete/autocomplete_classifier_factory.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/file_select_helper.h"
@@ -39,6 +42,7 @@
 #include "components/keep_alive_registry/keep_alive_types.h"
 #include "components/keep_alive_registry/scoped_keep_alive.h"
 #include "components/ntp_tiles/pref_names.h"
+#include "components/omnibox/browser/aim_eligibility_service.h"
 #include "components/omnibox/browser/autocomplete_classifier.h"
 #include "components/omnibox/browser/autocomplete_match.h"
 #include "components/omnibox/browser/omnibox_pref_names.h"
@@ -47,14 +51,16 @@
 #include "components/search_engines/ai_mode_button_service.h"
 #include "components/search_engines/search_engines_switches.h"
 #include "content/public/browser/file_select_listener.h"
-#include "content/public/browser/render_widget_host.h"
 #include "content/public/browser/render_widget_host_view.h"
+#include "content/public/browser/web_contents.h"
 #include "extensions/buildflags/buildflags.h"
 #include "third_party/blink/public/common/context_menu_data/edit_flags.h"
 #include "third_party/metrics_proto/omnibox_event.pb.h"
 #include "third_party/skia/include/core/SkRect.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/models/dialog_model.h"
+#include "ui/base/page_transition_types.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/color/color_provider_key.h"
 #include "ui/display/display.h"
 #include "ui/display/screen.h"
@@ -73,6 +79,7 @@
 #include "ui/views/view_class_properties.h"
 #include "ui/views/view_utils.h"
 #include "ui/views/widget/widget.h"
+#include "ui/views/window/dialog_client_view.h"
 #include "ui/views/window/dialog_delegate.h"
 
 #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
@@ -93,7 +100,13 @@
 #endif
 
 #if BUILDFLAG(IS_WIN)
+#include "base/task/thread_pool.h"
 #include "chrome/browser/ui/omnibox/omnibox_everywhere/omnibox_everywhere_shortcut_win.h"
+#include "ui/base/win/shell.h"
+#endif
+
+#if BUILDFLAG(IS_MAC)
+#include "chrome/browser/ui/omnibox/omnibox_everywhere/mac_window_util.h"
 #endif
 
 namespace omnibox_everywhere {
@@ -102,6 +115,16 @@ DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(OmniboxEverywhereUIManager,
                                       kOmniboxEverywhereElementId);
 
 namespace {
+
+bool IsFuseboxEligible(Profile* profile) {
+  if (!profile) {
+    return false;
+  }
+  auto* aim_eligibility_service =
+      AimEligibilityServiceFactory::GetForProfile(profile);
+  return aim_eligibility_service &&
+         aim_eligibility_service->IsFuseboxEligible();
+}
 
 class OmniboxEverywhereFileSelectListener : public content::FileSelectListener {
  public:
@@ -180,7 +203,14 @@ OmniboxEverywhereUIManager::OmniboxEverywhereUIManager(
     ContentsWrapperFactory contents_wrapper_factory)
     : contents_wrapper_factory_(std::move(contents_wrapper_factory)),
       unhandled_keyboard_event_handler_(
-          std::make_unique<views::UnhandledKeyboardEventHandler>()) {
+          std::make_unique<views::UnhandledKeyboardEventHandler>())
+#if BUILDFLAG(IS_WIN)
+      ,
+      shortcut_helper_(base::ThreadPool::CreateCOMSTATaskRunner(
+          {base::MayBlock(), base::TaskPriority::USER_VISIBLE,
+           base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN}))
+#endif
+{
 #if defined(USE_AURA)
   event_handler_ = std::make_unique<OmniboxEverywhereEventHandlerAura>(*this);
 #endif
@@ -190,11 +220,6 @@ OmniboxEverywhereUIManager::OmniboxEverywhereUIManager(
         prefs::kOmniboxEverywhereEphemeralModel,
         base::BindRepeating(
             &OmniboxEverywhereUIManager::OnEphemeralModelPrefChanged,
-            base::Unretained(this)));
-    local_state_pref_change_registrar_.Add(
-        prefs::kOmniboxEverywhereShowShortcuts,
-        base::BindRepeating(
-            &OmniboxEverywhereUIManager::OnMostVisitedPrefChanged,
             base::Unretained(this)));
   }
 }
@@ -221,6 +246,32 @@ bool OmniboxEverywhereUIManager::IsPointInDraggableRegion(
          draggable_region_->contains(point.x(), point.y());
 }
 
+#if BUILDFLAG(IS_WIN)
+void OmniboxEverywhereUIManager::CreateStartMenuShortcut(
+    base::OnceCallback<void(bool)> callback) {
+  shortcut_helper_
+      .AsyncCall(&OmniboxEverywhereShortcutHelperWin::CreateStartMenuShortcut)
+      .Then(std::move(callback));
+}
+
+void OmniboxEverywhereUIManager::DisableTaskbarPinning() {
+  taskbar_pinning_disabled_ = true;
+}
+
+void OmniboxEverywhereUIManager::OnStartMenuShortcutChecked(
+    bool shortcut_exists) {
+  // TODO(crbug.com/562064992): The widget that triggered the check keeps its
+  // AUMID, so it stays pinnable; only later widgets are covered.
+  if (!shortcut_exists) {
+    DisableTaskbarPinning();
+    // Reset so that transient failures can be retried on the next widget.
+    start_menu_shortcut_requested_ = false;
+  } else {
+    taskbar_pinning_disabled_ = false;
+  }
+}
+#endif  // BUILDFLAG(IS_WIN)
+
 content::WebContents* OmniboxEverywhereUIManager::web_contents() const {
   return contents_wrapper_ ? contents_wrapper_->web_contents() : nullptr;
 }
@@ -228,6 +279,7 @@ content::WebContents* OmniboxEverywhereUIManager::web_contents() const {
 void OmniboxEverywhereUIManager::ShowForProfile(Profile* profile,
                                                 gfx::NativeWindow context) {
   deactivation_task_.Cancel();
+  hotkey_dropdown_deactivation_task_.Cancel();
   last_shown_time_ = base::TimeTicks::Now();
   if (widget_ && profile_ == profile) {
     ActivateAndFocus();
@@ -246,6 +298,11 @@ void OmniboxEverywhereUIManager::ShowForProfile(Profile* profile,
     profile_pref_change_registrar_.Reset();
     if (profile && profile->GetPrefs()) {
       profile_pref_change_registrar_.Init(profile->GetPrefs());
+      profile_pref_change_registrar_.Add(
+          prefs::kOmniboxEverywhereShowShortcuts,
+          base::BindRepeating(
+              &OmniboxEverywhereUIManager::OnMostVisitedPrefChanged,
+              base::Unretained(this)));
       profile_pref_change_registrar_.Add(
           ntp_prefs::kNtpCustomLinksVisible,
           base::BindRepeating(
@@ -293,11 +350,18 @@ void OmniboxEverywhereUIManager::ShowForProfile(Profile* profile,
 
   if (web_contents()) {
     if (auto* rwhv = web_contents()->GetRenderWidgetHostView()) {
-      constexpr gfx::Size kAutoResizeMinSize(kPopupFixedWidth, 50);
-      constexpr gfx::Size kAutoResizeMaxSize(kPopupFixedWidth, 800);
+      const gfx::Size kAutoResizeMinSize(GetPopupFixedWidth(), 50);
+      const gfx::Size kAutoResizeMaxSize(GetPopupFixedWidth(), 800);
       rwhv->EnableAutoResize(kAutoResizeMinSize, kAutoResizeMaxSize);
     }
   }
+}
+
+// static
+int OmniboxEverywhereUIManager::GetPopupFixedWidth() {
+  return omnibox::kOmniboxEverywhereSmallLoomniboxParam.Get()
+             ? kPopupSmallFixedWidth
+             : kPopupFixedWidth;
 }
 
 gfx::Rect OmniboxEverywhereUIManager::CalculateWidgetBounds(int height) {
@@ -305,7 +369,7 @@ gfx::Rect OmniboxEverywhereUIManager::CalculateWidgetBounds(int height) {
       display::Screen::Get()->GetDisplayNearestPoint(
           display::Screen::Get()->GetCursorScreenPoint());
   gfx::Rect work_area = target_display.work_area();
-  int width = std::min(kPopupFixedWidth, work_area.width());
+  int width = std::min(GetPopupFixedWidth(), work_area.width());
   int clamped_height = std::min(height, work_area.height());
   int x = work_area.x() + (work_area.width() - width) / 2;
   int y = work_area.y() + (work_area.height() - clamped_height) / 2;
@@ -435,7 +499,11 @@ void OmniboxEverywhereUIManager::CreateAndInitWidget(
     params.context = context;
   }
 
-  params.bounds = CalculateWidgetBounds(kDefaultRestingHeight);
+  const bool is_fre_intro_modal =
+      base::FeatureList::IsEnabled(omnibox::kOmniboxEverywhereFre) &&
+      prefs::GetCurrentFreStage(profile_) == prefs::FreStage::kIntroModal;
+  params.bounds = CalculateWidgetBounds(
+      is_fre_intro_modal ? kFreModalRestingHeight : kDefaultRestingHeight);
 
   auto web_view = std::make_unique<views::WebView>(profile_);
   web_view->SetProperty(views::kElementIdentifierKey,
@@ -448,13 +516,30 @@ void OmniboxEverywhereUIManager::CreateAndInitWidget(
   widget_delegate_->SetContentsView(std::move(web_view));
 
   widget_->Init(std::move(params));
+
+  if (!is_ephemeral) {
+    // Views unconditionally strips WS_MINIMIZEBOX during Init() for frameless
+    // widgets (remove_standard_frame), ignoring CanMinimize(). Setting the
+    // constraint now that the Widget exists re-applies it via
+    // SizeConstraintsChanged(), so the shell offers taskbar minimization.
+    CHECK(!widget_delegate_->CanMinimize());
+    widget_delegate_->SetCanMinimize(true);
+  }
 #if BUILDFLAG(IS_MAC)
   widget_->SetActivationIndependence(is_ephemeral);
-  widget_->SetVisibleOnAllWorkspaces(true);
   widget_->SetCanAppearInExistingFullscreenSpaces(true);
 #endif
 #if BUILDFLAG(IS_WIN)
-  SetWindowProperties(views::HWNDForWidget(widget_.get()), is_ephemeral);
+  const HWND hwnd = views::HWNDForWidget(widget_.get());
+  SetWindowProperties(hwnd, is_ephemeral,
+                      /*allow_pinning=*/!taskbar_pinning_disabled_);
+  // Ephemeral widgets are never pinnable, so they do not need the Start Menu
+  // shortcut that the Shell requires for pinning.
+  if (!is_ephemeral && !std::exchange(start_menu_shortcut_requested_, true)) {
+    CreateStartMenuShortcut(
+        base::BindOnce(&OmniboxEverywhereUIManager::OnStartMenuShortcutChecked,
+                       weak_factory_.GetWeakPtr()));
+  }
 #endif  // BUILDFLAG(IS_WIN)
   widget_->MakeCloseSynchronous(base::BindOnce(
       &OmniboxEverywhereUIManager::OnWidgetClosed, base::Unretained(this)));
@@ -471,6 +556,7 @@ void OmniboxEverywhereUIManager::CreateAndInitWidget(
                                              wm::ANIMATE_NONE);
   widget_->GetNativeView()->AddPreTargetHandler(event_handler_.get());
 #endif
+  UpdateModalInteractionState();
 }
 
 void OmniboxEverywhereUIManager::ActivateAndFocus() {
@@ -483,7 +569,15 @@ void OmniboxEverywhereUIManager::ActivateAndFocus() {
   }
 
   is_demoted_ = false;
+  if (widget_->IsMinimized()) {
+    widget_->Restore();
+  }
+#if BUILDFLAG(IS_MAC)
+  widget_->SetCanAppearInExistingFullscreenSpaces(true);
+  widget_->MoveToActiveFullscreenSpace();
+#endif
   widget_->Show();
+  capture_release_timer_.Stop();
   widget_->Activate();
 
   if (widget_->GetContentsView()) {
@@ -493,19 +587,14 @@ void OmniboxEverywhereUIManager::ActivateAndFocus() {
     web_contents()->Focus();
   }
 
-  if (profile_) {
-    if (auto* service =
-            OmniboxEverywhereServiceFactory::GetForProfile(profile_)) {
-      service->MaybeShowLensPromo();
-    }
-  }
+  MaybeShowLensPromo();
 }
 
 void OmniboxEverywhereUIManager::OnEphemeralModelPrefChanged() {
   if (!widget_) {
     return;
   }
-  bool was_visible = IsVisible();
+  bool was_visible = IsVisible() || widget_->IsMinimized();
   Profile* profile = profile_;
   CleanUpWidget();
   if (was_visible) {
@@ -515,7 +604,9 @@ void OmniboxEverywhereUIManager::OnEphemeralModelPrefChanged() {
 }
 
 void OmniboxEverywhereUIManager::OnMostVisitedPrefChanged() {
-  if (!widget_ || IsVisible()) {
+  // Don't tear down the widget if it is visible on screen or minimized on the
+  // taskbar.
+  if (!widget_ || IsVisible() || widget_->IsMinimized()) {
     return;
   }
   // Clean up the widget when the pref changes so there is not flicker when the
@@ -523,30 +614,50 @@ void OmniboxEverywhereUIManager::OnMostVisitedPrefChanged() {
   CleanUpWidget();
 }
 
-void OmniboxEverywhereUIManager::RecordFreImpression() {
+// TODO(crbug.com/558851707): Move impression recording to the FRE WebUI
+// component lifecycle (e.g. on render/mount) so that impressions are recorded
+// based on true visual visibility and both ephemeral and persistent window
+// models are handled consistently.
+void OmniboxEverywhereUIManager::MaybeRecordFreImpression() {
   if (!profile_ || !profile_->GetPrefs() ||
       !base::FeatureList::IsEnabled(omnibox::kOmniboxEverywhereFre)) {
     return;
   }
 
-  PrefService* prefs = profile_->GetPrefs();
-  if (prefs->GetBoolean(omnibox_everywhere::prefs::kFreDismissed)) {
+  PrefService* local_state =
+      g_browser_process ? g_browser_process->local_state() : nullptr;
+  omnibox_everywhere::prefs::IncrementFreImpression(profile_, local_state);
+}
+
+void OmniboxEverywhereUIManager::MaybeShowLensPromo() {
+  if (!profile_) {
     return;
   }
+  if (auto* service =
+          OmniboxEverywhereServiceFactory::GetForProfile(profile_)) {
+    service->MaybeShowLensPromo();
+  }
+}
 
-  int impressions =
-      prefs->GetInteger(omnibox_everywhere::prefs::kFreImpressionCount) + 1;
-  prefs->SetInteger(omnibox_everywhere::prefs::kFreImpressionCount,
-                    impressions);
-  if (impressions >= omnibox_everywhere::prefs::kMaxFreImpressions) {
-    prefs->SetBoolean(omnibox_everywhere::prefs::kFreDismissed, true);
+void OmniboxEverywhereUIManager::EndLensPromo() {
+  if (!profile_) {
+    return;
+  }
+  if (auto* service =
+          OmniboxEverywhereServiceFactory::GetForProfile(profile_)) {
+    service->EndLensPromo();
   }
 }
 
 void OmniboxEverywhereUIManager::Close() {
-  RecordFreImpression();
+  if (is_closing_) {
+    return;
+  }
+  base::AutoReset<bool> closing_reset(&is_closing_, true);
+  MaybeRecordFreImpression();
   last_shown_time_.reset();
   deactivation_task_.Cancel();
+  hotkey_dropdown_deactivation_task_.Cancel();
   if (widget_) {
     if (HasOpenModalDialog()) {
       CleanUpWidget();
@@ -556,23 +667,41 @@ void OmniboxEverywhereUIManager::Close() {
       context_menu_runner_->Cancel();
       is_context_menu_open_ = false;
     }
+#if BUILDFLAG(IS_MAC)
+    // On macOS, reset auxiliary collection behaviors before hiding so the
+    // Window Server stops associating Chrome with the current Space. This
+    // ensures smooth Space transitions when activating browser windows.
+    if (widget_->GetNativeWindow()) {
+      omnibox_everywhere::DisassociatePopupOnMac(widget_->GetNativeWindow());
+    }
+#endif
+    if (widget_->IsVisible() && web_contents()) {
+      // Temporarily keep the WebContents painting (`kHiddenButPainting`) across
+      // `widget_->Hide()` so Blink finishes collapsing the dropdown and
+      // running AutoResize offscreen before entering `kHidden`.
+      if (capture_release_timer_.IsRunning()) {
+        capture_release_timer_.Reset();
+      } else {
+        capture_release_timer_.Start(
+            FROM_HERE, kPostHideCaptureDuration,
+            base::DoNothingWithBoundArgs(web_contents()->IncrementCapturerCount(
+                gfx::Size(), /*stay_hidden=*/true, /*stay_awake=*/false,
+                /*is_activity=*/false)));
+      }
+    }
     widget_->Hide();
   }
   ReleaseKeepAlives();
 }
 
 void OmniboxEverywhereUIManager::Demote() {
-  last_shown_time_.reset();
-  deactivation_task_.Cancel();
+  CancelTransientUiState();
   if (!widget_ || !widget_->IsVisible() || is_demoted_ ||
       HasOpenModalDialog()) {
     return;
   }
-  if (is_context_menu_open_ && context_menu_runner_) {
-    context_menu_runner_->Cancel();
-    is_context_menu_open_ = false;
-  }
   is_demoted_ = true;
+  EndLensPromo();
   widget_->SetZOrderLevel(ui::ZOrderLevel::kNormal);
   // Deactivate only if the widget is currently active to avoid deactivating
   // other windows in the application.
@@ -584,19 +713,39 @@ void OmniboxEverywhereUIManager::Demote() {
 #if BUILDFLAG(IS_WIN)
   HWND hwnd = views::HWNDForWidget(widget_.get());
   if (hwnd) {
-    ::SetWindowPos(hwnd, HWND_BOTTOM, 0, 0, 0, 0,
-                   SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+    ::SetWindowPos(
+        hwnd, HWND_BOTTOM, 0, 0, 0, 0,
+        SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOOWNERZORDER);
   }
 #endif
 }
 
+#if BUILDFLAG(IS_WIN)
+// The delegate reports `CanMinimize() == false`, but that only gates the
+// `WS_MINIMIZEBOX` caption button and the `SC_MINIMIZE` system menu item, not
+// `HWNDMessageHandler::Minimize()`.
+void OmniboxEverywhereUIManager::Minimize() {
+  if (!widget_ || !widget_->IsVisible() || widget_->IsMinimized()) {
+    return;
+  }
+  CancelTransientUiState();
+  if (!std::exchange(is_demoted_, true)) {
+    EndLensPromo();
+  }
+  widget_->Minimize();
+}
+#endif  // BUILDFLAG(IS_WIN)
+
 void OmniboxEverywhereUIManager::CleanUpWidget() {
+  capture_release_timer_.Stop();
   deactivation_task_.Cancel();
+  hotkey_dropdown_deactivation_task_.Cancel();
   if (disclosure_dialog_widget_) {
     base::SingleThreadTaskRunner::GetCurrentDefault()->DeleteSoon(
         FROM_HERE, std::move(disclosure_dialog_widget_));
   }
   is_screenshare_disclosure_open_ = false;
+  scoped_ignore_input_events_.reset();
   if (widget_) {
     widget_observation_.Reset();
 #if defined(USE_AURA)
@@ -633,6 +782,7 @@ void OmniboxEverywhereUIManager::CleanUpWidget() {
   last_context_menu_params_ = content::ContextMenuParams();
   is_file_chooser_open_ = false;
   is_drive_picker_open_ = false;
+  is_hotkey_dropdown_open_ = false;
   is_context_menu_open_ = false;
   is_demoted_ = false;
   is_screenshare_picker_open_ = false;
@@ -647,8 +797,19 @@ void OmniboxEverywhereUIManager::CleanUpWidget() {
   ReleaseKeepAlives();
 }
 
+void OmniboxEverywhereUIManager::CancelTransientUiState() {
+  last_shown_time_.reset();
+  deactivation_task_.Cancel();
+  hotkey_dropdown_deactivation_task_.Cancel();
+  if (is_context_menu_open_ && context_menu_runner_) {
+    context_menu_runner_->Cancel();
+    is_context_menu_open_ = false;
+  }
+}
+
 void OmniboxEverywhereUIManager::Shutdown() {
   deactivation_task_.Cancel();
+  hotkey_dropdown_deactivation_task_.Cancel();
   last_shown_time_.reset();
   permission_prompt_observation_.Reset();
   browser_collection_observation_.Reset();
@@ -658,29 +819,71 @@ void OmniboxEverywhereUIManager::Shutdown() {
 }
 
 bool OmniboxEverywhereUIManager::IsVisible() const {
-  return widget_ && widget_->IsVisible();
+  return widget_ && widget_->IsVisible() && !widget_->IsMinimized();
 }
 
 bool OmniboxEverywhereUIManager::IsActive() const {
-  return widget_ && widget_->IsActive() && !is_demoted_;
+  return widget_ && widget_->IsActive() && !widget_->IsMinimized() &&
+         !is_demoted_;
 }
 
 bool OmniboxEverywhereUIManager::HasOpenModalDialog() const {
   return is_file_chooser_open_ || is_drive_picker_open_ ||
          is_screenshare_picker_open_ || is_screenshare_disclosure_open_ ||
-         is_permission_prompt_open_ || region_select_overlay_ != nullptr;
+         is_permission_prompt_open_ || region_select_overlay_ != nullptr ||
+         is_hotkey_dropdown_open_;
+}
+
+bool OmniboxEverywhereUIManager::IsScreenshareCaptureInProgress() const {
+  return is_screenshare_picker_open_ || region_select_overlay_ != nullptr;
 }
 
 void OmniboxEverywhereUIManager::OnWidgetActivationChanged(
     views::Widget* widget,
     bool active) {
   if (active) {
-    is_demoted_ = false;
+    deactivation_task_.Cancel();
+    hotkey_dropdown_deactivation_task_.Cancel();
+    const bool was_demoted = std::exchange(is_demoted_, false);
+    if (!HasOpenModalDialog() && !is_context_menu_open_ && web_contents()) {
+      web_contents()->Focus();
+    }
+    if (was_demoted) {
+      MaybeShowLensPromo();
+    }
     return;
   }
-  if (!active && !HasOpenModalDialog() && !is_context_menu_open_ &&
-      prefs::IsEphemeralModelEnabled()) {
+  if (!HasOpenModalDialog() && !is_context_menu_open_) {
     HandleWidgetDeactivated();
+  }
+}
+
+void OmniboxEverywhereUIManager::OnWidgetVisibilityOnScreenChanged(
+    views::Widget* widget,
+    bool visible) {
+  if (!visible && !HasOpenModalDialog() && !is_context_menu_open_ &&
+      prefs::IsEphemeralModelEnabled()) {
+    Close();
+  }
+}
+
+void OmniboxEverywhereUIManager::OnWidgetShowStateChanged(
+    views::Widget* widget) {
+  if (is_closing_ || !widget_ || widget != widget_.get()) {
+    return;
+  }
+  if (!widget_->IsMinimized()) {
+    if (std::exchange(is_demoted_, false)) {
+      MaybeShowLensPromo();
+    }
+    return;
+  }
+  CancelTransientUiState();
+  if (!std::exchange(is_demoted_, true)) {
+    EndLensPromo();
+  }
+  if (prefs::IsEphemeralModelEnabled() && !HasOpenModalDialog()) {
+    Close();
   }
 }
 
@@ -694,14 +897,15 @@ void OmniboxEverywhereUIManager::OnContextMenuClosed() {
     base::SingleThreadTaskRunner::GetCurrentDefault()->DeleteSoon(
         FROM_HERE, std::move(context_menu_model_));
   }
-  if (widget_ && !widget_->IsActive() && !HasOpenModalDialog() &&
-      prefs::IsEphemeralModelEnabled()) {
+  if (widget_ && !widget_->IsActive() && !HasOpenModalDialog()) {
     HandleWidgetDeactivated();
   }
 }
 
 void OmniboxEverywhereUIManager::HandleWidgetDeactivated() {
-  if (!widget_ || !widget_->IsVisible() || !prefs::IsEphemeralModelEnabled()) {
+  // A minimized widget is deactivated but must stay alive to be restorable.
+  if (is_closing_ || !widget_ || !widget_->IsVisible() || is_demoted_ ||
+      widget_->IsMinimized()) {
     return;
   }
   if (last_shown_time_.has_value() &&
@@ -713,7 +917,7 @@ void OmniboxEverywhereUIManager::HandleWidgetDeactivated() {
         FROM_HERE, deactivation_task_.callback());
     return;
   }
-  deactivation_task_.Reset(base::BindOnce(&OmniboxEverywhereUIManager::Close,
+  deactivation_task_.Reset(base::BindOnce(&OmniboxEverywhereUIManager::CloseUI,
                                           weak_factory_.GetWeakPtr()));
   base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
       FROM_HERE, deactivation_task_.callback());
@@ -740,6 +944,19 @@ void OmniboxEverywhereUIManager::OnWidgetUserDragEnded(views::Widget* widget) {
     pending_auto_resize_size_.reset();
     ResizeDueToAutoResize(web_contents(), size);
   }
+  display::Screen* screen = display::Screen::Get();
+  if (widget && screen) {
+    gfx::Rect bounds = widget->GetWindowBoundsInScreen();
+    display::Display display =
+        screen->GetDisplayNearestPoint(bounds.CenterPoint());
+    gfx::Rect work_area = display.work_area();
+    if (!work_area.IsEmpty()) {
+      bounds.AdjustToFit(work_area);
+      if (bounds != widget->GetWindowBoundsInScreen()) {
+        widget->SetBounds(bounds);
+      }
+    }
+  }
 }
 
 void OmniboxEverywhereUIManager::CloseUI() {
@@ -765,7 +982,7 @@ void OmniboxEverywhereUIManager::ResizeDueToAutoResize(
     return;
   }
   constexpr int kAutoResizeMinHeight = 56;
-  gfx::Size target_size(kPopupFixedWidth,
+  gfx::Size target_size(GetPopupFixedWidth(),
                         std::max(new_size.height(), kAutoResizeMinHeight));
   if (widget_->GetSize() != target_size) {
     widget_->SetSize(target_size);
@@ -784,26 +1001,55 @@ void OmniboxEverywhereUIManager::OnPermissionPromptChanged(
     bool is_showing,
     const gfx::Size& prompt_size) {
   is_permission_prompt_open_ = is_showing;
+  UpdateModalInteractionState();
 }
 
 void OmniboxEverywhereUIManager::OnFileChooserOpened() {
   is_file_chooser_open_ = true;
+  UpdateModalInteractionState();
 }
 
 void OmniboxEverywhereUIManager::OnFileChooserClosed() {
   is_file_chooser_open_ = false;
+  UpdateModalInteractionState();
 }
 
 void OmniboxEverywhereUIManager::OnDrivePickerOpened() {
   is_drive_picker_open_ = true;
+  UpdateModalInteractionState();
 }
 
 void OmniboxEverywhereUIManager::OnDrivePickerClosed() {
   is_drive_picker_open_ = false;
+  UpdateModalInteractionState();
+}
+
+void OmniboxEverywhereUIManager::OnHotkeyDropdownOpened() {
+  hotkey_dropdown_deactivation_task_.Cancel();
+  is_hotkey_dropdown_open_ = true;
+}
+
+void OmniboxEverywhereUIManager::OnHotkeyDropdownClosed() {
+  is_hotkey_dropdown_open_ = false;
+  // Delay check by a tick to allow native window activation to settle if widget
+  // was reactivated.
+  hotkey_dropdown_deactivation_task_.Reset(base::BindOnce(
+      &OmniboxEverywhereUIManager::CheckDeactivationAfterHotkeyDropdownClosed,
+      weak_factory_.GetWeakPtr()));
+  base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+      FROM_HERE, hotkey_dropdown_deactivation_task_.callback());
+}
+
+void OmniboxEverywhereUIManager::CheckDeactivationAfterHotkeyDropdownClosed() {
+  if (widget_ && !widget_->IsActive() && !HasOpenModalDialog() &&
+      !is_context_menu_open_ && prefs::IsEphemeralModelEnabled()) {
+    HandleWidgetDeactivated();
+  }
 }
 
 void OmniboxEverywhereUIManager::OnScreensharePickerOpened() {
   is_screenshare_picker_open_ = true;
+  UpdateModalInteractionState();
   if (widget_) {
     widget_->Hide();
   }
@@ -811,9 +1057,53 @@ void OmniboxEverywhereUIManager::OnScreensharePickerOpened() {
 
 void OmniboxEverywhereUIManager::OnScreensharePickerClosed() {
   is_screenshare_picker_open_ = false;
-  if (widget_) {
+  UpdateModalInteractionState();
+  if (widget_ && !suppress_restore_on_screenshare_picker_closed_) {
     ActivateAndFocus();
   }
+}
+
+bool OmniboxEverywhereUIManager::CancelChromeDefaultPicker(
+    Profile* target_profile) {
+  // Never cancel during region selection overlay: it already owns the screen
+  // with fullscreen overlays across all displays, so it cannot be occluded by
+  // another window, and invocations should continue to be ignored.
+  if (region_select_overlay_) {
+    return false;
+  }
+
+  // If the invocation was targeted for a different profile, suppress
+  // restoring and focusing the current profile's widget when the picker closes
+  // to prevent visual flicker before the new profile is shown.
+  std::optional<base::AutoReset<bool>> suppress_restore;
+  if (target_profile && target_profile != profile_) {
+    suppress_restore.emplace(&suppress_restore_on_screenshare_picker_closed_,
+                             true);
+  }
+
+  auto* web_contents = this->web_contents();
+  auto* webui = web_contents ? web_contents->GetWebUI() : nullptr;
+  auto* ui = (webui && webui->GetController())
+                 ? webui->GetController()->GetAs<OmniboxEverywhereUI>()
+                 : nullptr;
+
+  if (ui && ui->CancelChromeDefaultPicker()) {
+    if (is_screenshare_picker_open_) {
+      OnScreensharePickerClosed();
+    } else if (widget_ && !widget_->IsVisible() &&
+               !suppress_restore_on_screenshare_picker_closed_) {
+      ActivateAndFocus();
+    }
+    return true;
+  }
+
+  // Fallback for test harnesses (e.g. TestWebUIContentsWrapper) where WebUI is
+  // mocked and OnScreensharePickerOpened() was called directly.
+  if (is_screenshare_picker_open_) {
+    OnScreensharePickerClosed();
+    return true;
+  }
+  return false;
 }
 
 void OmniboxEverywhereUIManager::ShowScreenshotDisclosureDialog(
@@ -835,6 +1125,7 @@ void OmniboxEverywhereUIManager::ShowScreenshotDisclosureDialog(
   }
 
   is_screenshare_disclosure_open_ = true;
+  UpdateModalInteractionState();
 
   auto dialog_model =
       ui::DialogModel::Builder()
@@ -844,20 +1135,21 @@ void OmniboxEverywhereUIManager::ShowScreenshotDisclosureDialog(
           .AddParagraph(ui::DialogModelLabel(l10n_util::GetStringUTF16(
               IDS_OMNIBOX_EVERYWHERE_SCREENSHOT_DISCLOSURE_BODY)))
           .AddOkButton(
-              std::move(on_accepted),
+              base::DoNothing(),
               ui::DialogModel::Button::Params()
+                  .SetId(views::DialogClientView::kOkButtonElementId)
                   .SetLabel(l10n_util::GetStringUTF16(IDS_APP_CONTINUE))
                   .SetStyle(ui::ButtonStyle::kProminent))
-          .AddCancelButton(base::DoNothing())
+          .AddCancelButton(base::DoNothing(),
+                           ui::DialogModel::Button::Params().SetId(
+                               views::DialogClientView::kCancelButtonElementId))
           .Build();
 
-  auto bubble = views::BubbleDialogModelHost::CreateModal(
-      std::move(dialog_model), ui::mojom::ModalType::kWindow);
+  auto bubble = std::make_unique<views::BubbleDialogModelHost>(
+      std::move(dialog_model), widget_->GetContentsView(),
+      views::BubbleBorder::FLOAT);
   bubble->set_fixed_width(600);
-  bubble->set_margins(gfx::Insets::VH(16, 20));
   bubble->set_corner_radius(16);
-  bubble->SetAnchorView(widget_->GetContentsView());
-  bubble->SetArrow(views::BubbleBorder::FLOAT);
   bubble->SetOwnershipOfNewWidget(
       views::Widget::InitParams::CLIENT_OWNS_WIDGET);
 
@@ -868,18 +1160,51 @@ void OmniboxEverywhereUIManager::ShowScreenshotDisclosureDialog(
   disclosure_dialog_widget_->SetZOrderLevel(widget_->GetZOrderLevel());
   disclosure_dialog_widget_->MakeCloseSynchronous(
       base::BindOnce(&OmniboxEverywhereUIManager::OnScreenshotDisclosureClosed,
-                     weak_factory_.GetWeakPtr(), std::move(on_cancelled)));
+                     weak_factory_.GetWeakPtr(), std::move(on_accepted),
+                     std::move(on_cancelled)));
   disclosure_dialog_widget_->Show();
 }
 
 void OmniboxEverywhereUIManager::OnScreenshotDisclosureClosed(
+    base::OnceClosure on_accepted,
     base::OnceClosure on_cancelled,
     views::Widget::ClosedReason reason) {
+  deactivation_task_.Cancel();
+  hotkey_dropdown_deactivation_task_.Cancel();
+  if (disclosure_dialog_widget_) {
+    disclosure_dialog_widget_->Hide();
+  }
   base::SingleThreadTaskRunner::GetCurrentDefault()->DeleteSoon(
       FROM_HERE, std::move(disclosure_dialog_widget_));
   is_screenshare_disclosure_open_ = false;
+  UpdateModalInteractionState();
 
-  if (reason != views::Widget::ClosedReason::kAcceptButtonClicked) {
+  if (reason == views::Widget::ClosedReason::kAcceptButtonClicked) {
+    if (on_accepted) {
+      // Defer dispatching on_accepted to ensure the disclosure dialog window
+      // is completely closed and removed from display before any screenshot
+      // capture begins. Keep `is_screenshare_disclosure_open_` true until
+      // `on_accepted` runs to prevent ephemeral deactivation while the dialog
+      // hides and before the screenshare picker opens.
+      base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+          FROM_HERE, base::BindOnce(
+                         [](base::WeakPtr<OmniboxEverywhereUIManager> self,
+                            base::OnceClosure on_accepted) {
+                           if (!self) {
+                             return;
+                           }
+                           self->is_screenshare_disclosure_open_ = false;
+                           if (!self->widget_) {
+                             return;
+                           }
+                           std::move(on_accepted).Run();
+                         },
+                         weak_factory_.GetWeakPtr(), std::move(on_accepted)));
+    } else {
+      is_screenshare_disclosure_open_ = false;
+    }
+  } else {
+    is_screenshare_disclosure_open_ = false;
     if (on_cancelled) {
       std::move(on_cancelled).Run();
     }
@@ -905,6 +1230,7 @@ void OmniboxEverywhereUIManager::ShowRegionSelectOverlay(
       base::BindOnce(&OmniboxEverywhereUIManager::OnRegionSelectOverlayClosed,
                      weak_factory_.GetWeakPtr(), std::move(callback)),
       context);
+  UpdateModalInteractionState();
 }
 
 void OmniboxEverywhereUIManager::OnRegionSelectOverlayClosed(
@@ -914,7 +1240,19 @@ void OmniboxEverywhereUIManager::OnRegionSelectOverlayClosed(
     base::SingleThreadTaskRunner::GetCurrentDefault()->DeleteSoon(
         FROM_HERE, std::move(region_select_overlay_));
   }
+  UpdateModalInteractionState();
   std::move(callback).Run(result_bitmap);
+}
+
+void OmniboxEverywhereUIManager::UpdateModalInteractionState() {
+  if (HasOpenModalDialog()) {
+    if (!scoped_ignore_input_events_ && web_contents()) {
+      scoped_ignore_input_events_ =
+          web_contents()->IgnoreInputEvents(std::nullopt);
+    }
+  } else {
+    scoped_ignore_input_events_.reset();
+  }
 }
 
 void OmniboxEverywhereUIManager::OnBrowserActivated(
@@ -949,7 +1287,8 @@ content::WebContents* OmniboxEverywhereUIManager::OpenURLFromTab(
         navigation_handle_callback) {
   auto* service = OmniboxEverywhereServiceFactory::GetForProfile(profile_);
   if (service) {
-    service->OpenUrl(params.url, params.disposition, params.transition);
+    service->OpenUrl(params.url, params.disposition, params.transition,
+                     std::move(navigation_handle_callback));
   }
   return nullptr;
 }
@@ -1012,6 +1351,10 @@ bool OmniboxEverywhereUIManager::HandleContextMenu(
   } else {
     BuildBackgroundContextMenu(params);
   }
+
+#if BUILDFLAG(IS_WIN)
+  AppendWindowControlsContextMenu();
+#endif  // BUILDFLAG(IS_WIN)
 
   if (context_menu_model_->GetItemCount() == 0) {
     return true;
@@ -1088,7 +1431,7 @@ void OmniboxEverywhereUIManager::AppendSettingsContextMenu() {
           ? IDS_MANAGE_SEARCH_ENGINES_AND_SHORTCUTS
           : IDS_MANAGE_SEARCH_ENGINES_AND_SITE_SEARCH);
 
-  if (omnibox::ShouldShowAimContextMenuOption(profile_)) {
+  if (IsFuseboxEligible(profile_)) {
     if (auto* service = AiModeButtonServiceFactory::GetForProfile(profile_)) {
       if (const AiModeButtonUiConfig* config = service->GetCurrentConfig()) {
         context_menu_model_->AddCheckItem(kAlwaysShowAiMode,
@@ -1110,6 +1453,21 @@ void OmniboxEverywhereUIManager::AppendSettingsContextMenu() {
       kSettings, IDS_OMNIBOX_EVERYWHERE_STATUS_ICON_MENU_SETTINGS);
 }
 
+#if BUILDFLAG(IS_WIN)
+// Window controls only apply to persistent mode. An ephemeral widget has no
+// taskbar entry to minimize to and is already dismissed on deactivation.
+void OmniboxEverywhereUIManager::AppendWindowControlsContextMenu() {
+  if (prefs::IsEphemeralModelEnabled()) {
+    return;
+  }
+  context_menu_model_->AddSeparator(ui::NORMAL_SEPARATOR);
+  context_menu_model_->AddItemWithStringId(
+      kMinimize, IDS_OMNIBOX_EVERYWHERE_CONTEXT_MENU_MINIMIZE);
+  context_menu_model_->AddItemWithStringId(
+      kClose, IDS_OMNIBOX_EVERYWHERE_CONTEXT_MENU_CLOSE);
+}
+#endif  // BUILDFLAG(IS_WIN)
+
 // Forwards unhandled keyboard events from the renderer process (such as
 // keyboard shortcuts) to the Views FocusManager so that accelerators and focus
 // traversal work as expected.
@@ -1127,6 +1485,22 @@ bool OmniboxEverywhereUIManager::HandleKeyboardEvent(
 // to the WebContents and its focused frame input handler.
 void OmniboxEverywhereUIManager::ExecuteCommand(int command_id,
                                                 int event_flags) {
+#if BUILDFLAG(IS_WIN)
+  // Window controls act on the widget, not the page. Safe to run synchronously:
+  // `MenuRunnerImpl` clears `running_` before dispatching, so the re-entrant
+  // `Cancel()` in `Close()` is a no-op.
+  switch (command_id) {
+    case kMinimize:
+      Minimize();
+      return;
+    case kClose:
+      Close();
+      return;
+    default:
+      break;
+  }
+#endif  // BUILDFLAG(IS_WIN)
+
   if (!web_contents()) {
     return;
   }
@@ -1202,11 +1576,11 @@ void OmniboxEverywhereUIManager::ExecuteCommand(int command_id,
       break;
     }
     case kShowShortcuts:
-      if (g_browser_process && g_browser_process->local_state()) {
-        PrefService* local_state = g_browser_process->local_state();
+      if (profile_ && profile_->GetPrefs()) {
+        PrefService* prefs = profile_->GetPrefs();
         const bool is_currently_visible =
-            prefs::IsOmniboxEverywhereShortcutsVisible(profile_, local_state);
-        local_state->SetInteger(
+            prefs::IsOmniboxEverywhereShortcutsVisible(profile_);
+        prefs->SetInteger(
             prefs::kOmniboxEverywhereShowShortcuts,
             static_cast<int>(is_currently_visible
                                  ? prefs::ShowShortcutsPrefValue::kDisabled
@@ -1247,6 +1621,11 @@ void OmniboxEverywhereUIManager::ExecuteCommand(int command_id,
 // requires a valid Profile with an active OmniboxEverywhereService. Cut / Copy
 // check for selected text in addition to Blink edit flags.
 bool OmniboxEverywhereUIManager::IsCommandIdEnabled(int command_id) const {
+#if BUILDFLAG(IS_WIN)
+  if (command_id == kMinimize || command_id == kClose) {
+    return widget_ != nullptr;
+  }
+#endif  // BUILDFLAG(IS_WIN)
   if (!web_contents()) {
     return false;
   }
@@ -1280,7 +1659,7 @@ bool OmniboxEverywhereUIManager::IsCommandIdEnabled(int command_id) const {
       return profile_ && (OmniboxEverywhereServiceFactory::GetForProfile(
                               profile_) != nullptr);
     case kAlwaysShowAiMode:
-      return true;
+      return IsFuseboxEligible(profile_);
     case kShowShortcuts:
       return prefs::AreShortcutsAvailableForProfile(profile_);
     case kCustomizeKeyboardShortcut:
@@ -1301,10 +1680,7 @@ bool OmniboxEverywhereUIManager::IsCommandIdChecked(int command_id) const {
     return true;
   }
   if (command_id == kShowShortcuts) {
-    return g_browser_process && g_browser_process->local_state()
-               ? prefs::IsOmniboxEverywhereShortcutsVisible(
-                     profile_, g_browser_process->local_state())
-               : true;
+    return prefs::IsOmniboxEverywhereShortcutsVisible(profile_);
   }
   return false;
 }
@@ -1333,9 +1709,12 @@ OmniboxEverywhereUIManager::CreateContentsWrapper(Profile* profile) {
   if (contents_wrapper_factory_) {
     return contents_wrapper_factory_.Run(profile);
   }
+  // Do not close UI immediately on Escape in PreHandleKeyboardEvent so that the
+  // WebUI searchbox and composebox can staged-unwind (clear input or context)
+  // before dismissing the popup.
   return std::make_unique<WebUIContentsWrapperT<OmniboxEverywhereUI>>(
       GURL(chrome::kChromeUIOmniboxEverywhereURL), profile,
-      IDS_TASK_MANAGER_OMNIBOX, /*esc_closes_ui=*/true,
+      IDS_TASK_MANAGER_OMNIBOX, /*esc_closes_ui=*/false,
       /*supports_draggable_regions=*/true);
 }
 

@@ -15,6 +15,7 @@
 #include "base/unguessable_token.h"
 #include "content/browser/devtools/protocol/fetch.h"
 #include "content/browser/devtools/protocol/network.h"
+#include "content/common/content_export.h"
 #include "content/public/browser/global_request_id.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
@@ -43,7 +44,7 @@ class InterceptionJob;
 class StoragePartition;
 struct CreateLoaderParameters;
 
-struct InterceptedRequestInfo {
+struct CONTENT_EXPORT InterceptedRequestInfo {
   InterceptedRequestInfo();
   ~InterceptedRequestInfo();
 
@@ -61,7 +62,7 @@ struct InterceptedRequestInfo {
   std::optional<protocol::String> redirected_request_id;
 };
 
-class DevToolsURLLoaderInterceptor {
+class CONTENT_EXPORT DevToolsURLLoaderInterceptor {
  public:
   using RequestInterceptedCallback =
       base::RepeatingCallback<void(std::unique_ptr<InterceptedRequestInfo>)>;
@@ -74,7 +75,7 @@ class DevToolsURLLoaderInterceptor {
                               mojo::ScopedDataPipeConsumerHandle,
                               const std::string& mime_type)>;
 
-  struct AuthChallengeResponse {
+  struct CONTENT_EXPORT AuthChallengeResponse {
     enum ResponseType {
       kDefault,
       kCancelAuth,
@@ -92,7 +93,7 @@ class DevToolsURLLoaderInterceptor {
     const net::AuthCredentials credentials;
   };
 
-  struct Modifications {
+  struct CONTENT_EXPORT Modifications {
     using HeadersVector = std::vector<std::pair<std::string, std::string>>;
 
     Modifications();
@@ -144,7 +145,7 @@ class DevToolsURLLoaderInterceptor {
     kMaxValue = kResponse,
   };
 
-  struct Pattern {
+  struct CONTENT_EXPORT Pattern {
    public:
     ~Pattern();
     Pattern(const Pattern& other);
@@ -176,12 +177,19 @@ class DevToolsURLLoaderInterceptor {
     const RequestInterceptedCallback callback;
   };
 
+  // Called with (use_fallback, credentials). If `use_fallback` is true,
+  // DevTools declines to handle the challenge and the network stack should
+  // proceed with default auth handling. If false, `credentials` contains
+  // supplied credentials or std::nullopt if authentication was canceled.
   using HandleAuthRequestCallback =
       base::OnceCallback<void(bool use_fallback,
                               const std::optional<net::AuthCredentials>&)>;
   using CheckCookieAccessCallback =
       base::RepeatingCallback<bool(const net::CanonicalCookie&)>;
-  // Can only be called on the IO thread.
+  // Routes an authentication challenge to the innermost interceptor with auth
+  // handling enabled for the matching request. Falls back to default handling
+  // if no interceptors handle auth or no matching job exists.
+  // Can only be called on the UI thread.
   static void HandleAuthRequest(GlobalRequestID req_id,
                                 const net::AuthChallengeInfo& auth_info,
                                 HandleAuthRequestCallback callback);
@@ -250,33 +258,42 @@ class DevToolsURLLoaderInterceptor {
     return nullptr;
   }
 
-  InterceptionJob* FindJobByRequestId(int32_t request_id) {
-    auto it = network_request_id_to_interception_id_.find(request_id);
-    if (it == network_request_id_to_interception_id_.end()) {
-      return nullptr;
-    }
-
-    auto job_it = jobs_.find(it->second);
-    CHECK(job_it != jobs_.end());
-    return job_it->second;
+  // Looks up an active InterceptionJob by its originating process and network
+  // request ID. Used for duplicate collision checks and NetworkService header
+  // client callbacks where only request_id is known.
+  InterceptionJob* FindJobByGlobalId(const GlobalRequestID& global_req_id) {
+    auto it = jobs_by_global_req_id_.find(global_req_id);
+    return it == jobs_by_global_req_id_.end() ? nullptr : it->second;
   }
 
-  void RemoveJob(int32_t request_id, const std::string& id) {
-    network_request_id_to_interception_id_.erase(request_id);
+  void RemoveJob(const GlobalRequestID& global_req_id, const std::string& id) {
+    jobs_by_global_req_id_.erase(global_req_id);
     jobs_.erase(id);
   }
-  void AddJob(int32_t request_id, const std::string& id, InterceptionJob* job) {
+  void AddJob(const GlobalRequestID& global_req_id,
+              const std::string& id,
+              InterceptionJob* job) {
     jobs_.emplace(id, job);
-    network_request_id_to_interception_id_.emplace(request_id, id);
+    jobs_by_global_req_id_.emplace(global_req_id, job);
   }
+
+  // Registers/unregisters an InterceptionJob with the process-global in-flight
+  // job stack map used for routing network-originating auth challenges.
+  static void RegisterJob(InterceptionJob* job);
+  static void UnregisterJob(InterceptionJob* job);
 
   const RequestInterceptedCallback request_intercepted_callback_;
   const CheckCookieAccessCallback cookie_access_callback_;
 
   std::vector<Pattern> patterns_;
   bool handle_auth_ = false;
+  // Maps DevTools protocol interception IDs to active jobs.
   std::map<std::string, raw_ptr<InterceptionJob, CtnExperimental>> jobs_;
-  std::map<int32_t, std::string> network_request_id_to_interception_id_;
+  // Maps originating (process_id, request_id) to active jobs for collision
+  // checks and routing network service callbacks where only request_id is
+  // known.
+  std::map<GlobalRequestID, raw_ptr<InterceptionJob, CtnExperimental>>
+      jobs_by_global_req_id_;
 
   base::WeakPtrFactory<DevToolsURLLoaderInterceptor> weak_factory_;
 };

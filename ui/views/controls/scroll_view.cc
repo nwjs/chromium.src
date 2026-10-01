@@ -308,7 +308,11 @@ ScrollView::ScrollView(ScrollWithLayers scroll_with_layers)
           PlatformStyle::CreateScrollBar(ScrollBar::Orientation::kHorizontal))),
       vert_sb_(AddChildView(
           PlatformStyle::CreateScrollBar(ScrollBar::Orientation::kVertical))),
-      corner_view_(std::make_unique<ScrollCornerView>()),
+      corner_view_(AddChildView(std::make_unique<ScrollCornerView>())),
+      more_content_left_(AddChildView(std::make_unique<Separator>())),
+      more_content_top_(AddChildView(std::make_unique<Separator>())),
+      more_content_right_(AddChildView(std::make_unique<Separator>())),
+      more_content_bottom_(AddChildView(std::make_unique<Separator>())),
       scroll_with_layers_enabled_(scroll_with_layers ==
                                   ScrollWithLayers::kEnabled) {
   SetNotifyEnterExitOnChild(true);
@@ -570,21 +574,27 @@ View* ScrollView::SetCustomOverflowIndicator(OverflowIndicatorAlignment side,
   }
 
   View* indicator_ptr = indicator.get();
+  indicator->SetVisible(false);
+
   switch (side) {
     case OverflowIndicatorAlignment::kLeft:
-      more_content_left_ = std::move(indicator);
+      RemoveChildViewT(more_content_left_.ExtractAsDangling());
+      more_content_left_ = AddChildView(std::move(indicator));
       more_content_left_thickness_ = thickness;
       break;
     case OverflowIndicatorAlignment::kTop:
-      more_content_top_ = std::move(indicator);
+      RemoveChildViewT(more_content_top_.ExtractAsDangling());
+      more_content_top_ = AddChildView(std::move(indicator));
       more_content_top_thickness_ = thickness;
       break;
     case OverflowIndicatorAlignment::kRight:
-      more_content_right_ = std::move(indicator);
+      RemoveChildViewT(more_content_right_.ExtractAsDangling());
+      more_content_right_ = AddChildView(std::move(indicator));
       more_content_right_thickness_ = thickness;
       break;
     case OverflowIndicatorAlignment::kBottom:
-      more_content_bottom_ = std::move(indicator);
+      RemoveChildViewT(more_content_bottom_.ExtractAsDangling());
+      more_content_bottom_ = AddChildView(std::move(indicator));
       more_content_bottom_thickness_ = thickness;
       break;
     default:
@@ -701,11 +711,17 @@ void ScrollView::ClipHeightTo(int min_height, int max_height) {
 }
 
 int ScrollView::GetScrollBarLayoutWidth() const {
-  return vert_sb_->OverlapsContent() ? 0 : vert_sb_->GetThickness();
+  return (vertical_scroll_bar_mode_ != ScrollBarMode::kEnabled ||
+          vert_sb_->OverlapsContent())
+             ? 0
+             : vert_sb_->GetThickness();
 }
 
 int ScrollView::GetScrollBarLayoutHeight() const {
-  return horiz_sb_->OverlapsContent() ? 0 : horiz_sb_->GetThickness();
+  return (horizontal_scroll_bar_mode_ != ScrollBarMode::kEnabled ||
+          horiz_sb_->OverlapsContent())
+             ? 0
+             : horiz_sb_->GetThickness();
 }
 
 ScrollBar* ScrollView::SetHorizontalScrollBar(
@@ -1324,20 +1340,11 @@ void ScrollView::ComputeScrollBarsVisibility(const gfx::Size& vp_size,
   }
 }
 
-// Make sure that a single scrollbar is created and visible as needed
 void ScrollView::SetControlVisibility(View* control, bool should_show) {
   if (!control) {
     return;
   }
-  if (should_show) {
-    if (!control->GetVisible()) {
-      AddChildViewRaw(control);
-      control->SetVisible(true);
-    }
-  } else {
-    RemoveChildView(control);
-    control->SetVisible(false);
-  }
+  control->SetVisible(should_show);
 }
 
 void ScrollView::UpdateScrollBarPositions() {
@@ -1428,21 +1435,19 @@ void ScrollView::EnableViewportLayer() {
 
 ScrollView::ScopedScrollSynchronizer::ScopedScrollSynchronizer(
     base::PassKey<ScrollView>,
-    ScrollView& scroll_view)
-    : scroll_view_(&scroll_view) {
-  scroll_view.AddObserver(this);
+    ScrollView& scroll_view) {
+  scroll_view_observation_.Observe(&scroll_view);
 }
 
 ScrollView::ScopedScrollSynchronizer::~ScopedScrollSynchronizer() {
-  if (scroll_view_) {
-    scroll_view_->OnScopedScrollSynchronizerDestroyed();
-    scroll_view_->RemoveObserver(this);
+  if (ScrollView* scroll_view = scroll_view_observation_.GetSource()) {
+    scroll_view->OnScopedScrollSynchronizerDestroyed();
   }
 }
 
 void ScrollView::ScopedScrollSynchronizer::OnViewIsDeleting(
     View* observed_view) {
-  scroll_view_ = nullptr;
+  scroll_view_observation_.Reset();
 }
 
 std::unique_ptr<ScrollView::ScopedScrollSynchronizer>

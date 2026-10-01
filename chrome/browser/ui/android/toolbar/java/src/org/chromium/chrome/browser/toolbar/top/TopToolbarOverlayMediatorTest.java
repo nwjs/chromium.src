@@ -228,6 +228,8 @@ public class TopToolbarOverlayMediatorTest {
     }
 
     @Test
+    // TODO(https://crbug.com/556322774): when cleaning up APB, keep the bug fix to pass this test.
+    @EnableFeatures(ChromeFeatureList.ANDROID_ANIMATED_PROGRESS_BAR_IN_BROWSER)
     public void testProgressUpdate_phone_fromTabObserver() {
         // TODO(crbug.com/525121986): Failing on Desktop Android.
         assumeFalse(BuildConfig.IS_DESKTOP_ANDROID);
@@ -272,6 +274,8 @@ public class TopToolbarOverlayMediatorTest {
     }
 
     @Test
+    // TODO(https://crbug.com/556322774): when cleaning up APB, keep the bug fix to pass this test.
+    @EnableFeatures(ChromeFeatureList.ANDROID_ANIMATED_PROGRESS_BAR_IN_BROWSER)
     public void testProgressUpdate_tablet_fromProgressBar() {
         // TODO(crbug.com/525121986): Failing on Desktop Android.
         assumeFalse(BuildConfig.IS_DESKTOP_ANDROID);
@@ -374,6 +378,7 @@ public class TopToolbarOverlayMediatorTest {
     @Test
     @EnableFeatures(ChromeFeatureList.BROWSER_CONTROLS_HIDING_TOKEN)
     public void testUpdateVisibility_hasHidingTokens() {
+        when(mTab.isTrustedWebActivity()).thenReturn(true);
         assertTrue("View should be visible.", mModel.get(TopToolbarOverlayProperties.VISIBLE));
 
         when(mBrowserControlsVisibilityManager.hasHidingTokens()).thenReturn(true);
@@ -390,6 +395,22 @@ public class TopToolbarOverlayMediatorTest {
 
         assertTrue(
                 "View should be restored when hiding tokens are released.",
+                mModel.get(TopToolbarOverlayProperties.VISIBLE));
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.BROWSER_CONTROLS_HIDING_TOKEN)
+    public void testUpdateVisibility_hasHidingTokens_notTwa() {
+        when(mTab.isTrustedWebActivity()).thenReturn(false);
+        assertTrue("View should be visible.", mModel.get(TopToolbarOverlayProperties.VISIBLE));
+
+        when(mBrowserControlsVisibilityManager.hasHidingTokens()).thenReturn(true);
+        mBrowserControlsObserverCaptor
+                .getValue()
+                .onAndroidControlsVisibilityChanged(View.INVISIBLE);
+
+        assertTrue(
+                "View should remain visible when not a TWA.",
                 mModel.get(TopToolbarOverlayProperties.VISIBLE));
     }
 

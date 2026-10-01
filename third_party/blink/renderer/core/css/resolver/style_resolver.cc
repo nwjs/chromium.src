@@ -1311,7 +1311,7 @@ void StyleResolver::MatchAllRules(StyleResolverState& state,
   }
 }
 
-const ComputedStyle* StyleResolver::StyleForViewport() {
+const ComputedStyle& StyleResolver::StyleForViewport() {
   ComputedStyleBuilder builder = InitialStyleBuilderForElement();
 
   builder.SetZIndex(0);
@@ -1327,7 +1327,7 @@ const ComputedStyle* StyleResolver::StyleForViewport() {
 
   GetDocument().GetStyleEngine().ApplyVisionDeficiencyStyle(builder);
 
-  return builder.TakeStyle();
+  return *builder.TakeStyle();
 }
 
 static StyleBaseData* GetBaseData(const StyleResolverState& state) {
@@ -1876,6 +1876,8 @@ void StyleResolver::ApplyBaseStyleNoCache(
       match_result.HasNonUniversalHighlightPseudoStyles());
   builder.SetHasNonUaHighlightPseudoStyles(
       match_result.HasNonUaHighlightPseudoStyles());
+  builder.SetHasCustomHighlightUniversalSelector(
+      match_result.HasCustomHighlightUniversalSelector());
   builder.SetHighlightsDependOnSizeContainerQueries(
       match_result.HighlightsDependOnSizeContainerQueries());
 
@@ -2185,7 +2187,7 @@ const ComputedStyle* StyleResolver::StyleForPage(uint32_t page_index,
   // The page context inherits from the root element.
   Element* root_element = GetDocument().documentElement();
   if (!root_element) {
-    return InitialStyleForElement();
+    return &InitialStyleForElement();
   }
   DCHECK(!GetDocument().NeedsLayoutTreeUpdateForNode(*root_element));
   const ComputedStyle* parent_style =
@@ -2193,12 +2195,12 @@ const ComputedStyle* StyleResolver::StyleForPage(uint32_t page_index,
   if (!parent_style) {
     // The root is display:none. One page box will still be created, but no
     // properties should apply.
-    return InitialStyleForElement();
+    return &InitialStyleForElement();
   }
   StyleResolverState state(GetDocument(), *root_element,
                            nullptr /* StyleRecalcContext */,
                            StyleRequest(parent_style));
-  state.CreateNewStyle(*InitialStyleForElement(), *parent_style);
+  state.CreateNewStyle(InitialStyleForElement(), *parent_style);
 
   auto& builder = state.StyleBuilder();
   // Page boxes are blocks.
@@ -2309,7 +2311,7 @@ void StyleResolver::StyleForPageMargins(const ComputedStyle& page_style,
     StyleResolverState margin_state(GetDocument(), *root_element,
                                     /*StyleRecalcContext=*/nullptr,
                                     StyleRequest(&page_style));
-    margin_state.CreateNewStyle(*InitialStyleForElement(), page_style);
+    margin_state.CreateNewStyle(InitialStyleForElement(), page_style);
     margin_state.StyleBuilder().SetDisplay(EDisplay::kBlock);
     margin_state.StyleBuilder().SetIsPageMarginBox(true);
 
@@ -2421,8 +2423,8 @@ ComputedStyleBuilder StyleResolver::InitialStyleBuilderForElement() const {
   return builder;
 }
 
-const ComputedStyle* StyleResolver::InitialStyleForElement() const {
-  return InitialStyleBuilderForElement().TakeStyle();
+const ComputedStyle& StyleResolver::InitialStyleForElement() const {
+  return *InitialStyleBuilderForElement().TakeStyle();
 }
 
 const ComputedStyle* StyleResolver::StyleForText(Text* text_node) {
@@ -3293,7 +3295,7 @@ Font* StyleResolver::ComputeFont(Element& element,
   GetDocument().GetStyleEngine().UpdateViewportSize();
   state.CreateNewClonedStyle(style);
   if (const ComputedStyle* parent_style = element.GetComputedStyle()) {
-    state.SetParentStyle(parent_style);
+    state.SetParentStyle(*parent_style);
   }
 
   for (const CSSProperty* property : properties) {
@@ -3699,7 +3701,7 @@ void StyleResolver::PropagateStyleToViewport() {
   }
   if (changed || update_scrollbar_style) {
     GetDocument().GetLayoutView()->SetStyle(
-        new_viewport_style_builder.TakeStyle());
+        *new_viewport_style_builder.TakeStyle());
   }
 }
 #undef PROPAGATE_VALUE

@@ -6,10 +6,14 @@ package org.chromium.chrome.browser.ui.signin.signin_promo;
 
 import static androidx.test.espresso.Espresso.onView;
 import static androidx.test.espresso.action.ViewActions.click;
+import static androidx.test.espresso.assertion.ViewAssertions.matches;
 import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
+import static androidx.test.espresso.matcher.ViewMatchers.isEnabled;
+import static androidx.test.espresso.matcher.ViewMatchers.withEffectiveVisibility;
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
 import static androidx.test.espresso.matcher.ViewMatchers.withText;
 
+import static org.hamcrest.CoreMatchers.allOf;
 import static org.hamcrest.CoreMatchers.not;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -34,6 +38,7 @@ import android.widget.LinearLayout;
 import androidx.annotation.IdRes;
 import androidx.annotation.LayoutRes;
 import androidx.test.espresso.assertion.ViewAssertions;
+import androidx.test.espresso.matcher.ViewMatchers.Visibility;
 import androidx.test.filters.MediumTest;
 
 import org.junit.After;
@@ -57,7 +62,6 @@ import org.chromium.base.test.params.ParameterProvider;
 import org.chromium.base.test.params.ParameterSet;
 import org.chromium.base.test.params.ParameterizedRunner;
 import org.chromium.base.test.util.CriteriaHelper;
-import org.chromium.base.test.util.DisableIf;
 import org.chromium.base.test.util.DoNotBatch;
 import org.chromium.base.test.util.Feature;
 import org.chromium.base.test.util.Features.DisableFeatures;
@@ -79,6 +83,7 @@ import org.chromium.chrome.browser.ui.signin.BottomSheetSigninAndHistorySyncCoor
 import org.chromium.chrome.browser.ui.signin.PersonalizedSigninPromoView;
 import org.chromium.chrome.browser.ui.signin.R;
 import org.chromium.chrome.browser.ui.signin.SigninAndHistorySyncActivityLauncher;
+import org.chromium.chrome.browser.ui.signin.SigninAndHistorySyncCoordinator;
 import org.chromium.chrome.browser.ui.signin.account_picker.AccountPickerBottomSheetStrings;
 import org.chromium.chrome.browser.ui.signin.history_sync.HistorySyncConfig;
 import org.chromium.chrome.test.ChromeJUnit4RunnerDelegate;
@@ -96,7 +101,6 @@ import org.chromium.components.sync.UserSelectableType;
 import org.chromium.components.sync.protocol.SyncEnums;
 import org.chromium.content_public.browser.test.NativeLibraryTestUtils;
 import org.chromium.ui.base.ActivityResultTracker;
-import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.modaldialog.ModalDialogManager;
 import org.chromium.ui.test.util.BlankUiTestActivity;
@@ -265,7 +269,6 @@ public class SigninPromoCoordinatorTest {
     @EnableFeatures({"EnableSeamlessSignin" + ":seamless-signin-promo-type/compact"})
     // TODO(crbug.com/468024353): Add coverage for two_buttons promo.
     @ParameterAnnotations.UseMethodParameter(AccessPointParams.class)
-    @DisableIf.Device(DeviceFormFactor.DESKTOP_FREEFORM) // crbug.com/511288686
     public void testPrimaryButtonClick_compactPromo(@SigninAccessPoint int accessPoint) {
         testPrimaryButtonClick(accessPoint, R.id.signin_promo_primary_button);
     }
@@ -275,7 +278,6 @@ public class SigninPromoCoordinatorTest {
     // TODO(crbug.com/448227402): Remove this test once Seamless Sign-in is launched.
     @DisableFeatures(SigninFeatures.ENABLE_SEAMLESS_SIGNIN)
     @ParameterAnnotations.UseMethodParameter(AccessPointParams.class)
-    @DisableIf.Device(DeviceFormFactor.DESKTOP_FREEFORM) // crbug.com/511288686
     public void testPrimaryButtonClick_seamlessSigninDisabled(@SigninAccessPoint int accessPoint) {
         testPrimaryButtonClick(accessPoint, R.id.sync_promo_signin_button);
     }
@@ -394,10 +396,112 @@ public class SigninPromoCoordinatorTest {
 
     @Test
     @MediumTest
+    @EnableFeatures({
+        "EnableSeamlessSignin"
+                + ":seamless-signin-promo-type/compact"
+                + "/seamless-signin-string-type/continueButton"
+    })
+    @ParameterAnnotations.UseMethodParameter(AccessPointParams.class)
+    public void testLoadingStateIsShownDuringSignIn_compactPromo(
+            @SigninAccessPoint int accessPoint) {
+        testLoadingStateIsShownDuringSignIn(accessPoint, R.id.account_picker_selected_account);
+    }
+
+    @Test
+    @MediumTest
+    @EnableFeatures({
+        "EnableSeamlessSignin"
+                + ":seamless-signin-promo-type/twoButtons"
+                + "/seamless-signin-string-type/continueButton"
+    })
+    @ParameterAnnotations.UseMethodParameter(AccessPointParams.class)
+    public void testLoadingStateIsShownDuringSignIn_twoButtonsPromo(
+            @SigninAccessPoint int accessPoint) {
+        testLoadingStateIsShownDuringSignIn(accessPoint, R.id.signin_promo_secondary_button);
+    }
+
+    private void testLoadingStateIsShownDuringSignIn(
+            @SigninAccessPoint int accessPoint, @IdRes int secondaryCtaId) {
+        if (accessPoint == SigninAccessPoint.HISTORY_PAGE) {
+            // Promo is only shown for signed-in users on the history page and does not support
+            // seamless sign-in.
+            return;
+        }
+
+        mSigninTestRule.addAccount(TestAccounts.ACCOUNT1);
+        setUpSignInPromo(accessPoint);
+        ViewUtils.waitForVisibleView(withId(R.id.signin_promo_primary_button));
+
+        String expectedPrimaryButtonText =
+                mActivityTestRule
+                        .getActivity()
+                        .getString(
+                                R.string.sync_promo_continue_as,
+                                TestAccounts.ACCOUNT1.getGivenName());
+
+        // Before click: primary button and secondary CTA are enabled.
+        onView(withId(R.id.signin_promo_primary_button))
+                .check(matches(allOf(isEnabled(), withText(expectedPrimaryButtonText))));
+        onView(withId(secondaryCtaId)).check(matches(allOf(isDisplayed(), isEnabled())));
+        if (mDelegate.canBeDismissedPermanently()) {
+            onView(withId(R.id.signin_promo_dismiss_button))
+                    .check(matches(allOf(isDisplayed(), isEnabled())));
+        } else {
+            onView(withId(R.id.signin_promo_dismiss_button))
+                    .check(
+                            matches(
+                                    allOf(
+                                            not(isEnabled()),
+                                            withEffectiveVisibility(Visibility.INVISIBLE))));
+        }
+
+        onView(withId(R.id.signin_promo_primary_button)).perform(click());
+
+        // Verify that sign-in flow started.
+        verify(mCoordinator).startSigninFlow(any());
+
+        // 1. Primary button text changes to "Signing in...".
+        onView(withId(R.id.signin_promo_primary_button))
+                .check(matches(withText(R.string.signin_account_picker_bottom_sheet_signin_title)));
+
+        // 2. Primary CTA, secondary CTA, and dismiss button are disabled.
+        onView(withId(R.id.signin_promo_primary_button)).check(matches(not(isEnabled())));
+        onView(withId(secondaryCtaId)).check(matches(not(isEnabled())));
+        // 3. Dismiss button is hidden and disabled during loading state.
+        onView(withId(R.id.signin_promo_dismiss_button))
+                .check(
+                        matches(
+                                allOf(
+                                        not(isEnabled()),
+                                        withEffectiveVisibility(Visibility.INVISIBLE))));
+
+        // 4. Once the background sign-in flow is aborted, the loading state is cleared.
+        ThreadUtils.runOnUiThreadBlocking(
+                () ->
+                        mPromoCoordinator.onFlowComplete(
+                                SigninAndHistorySyncCoordinator.Result.aborted()));
+
+        onView(withId(R.id.signin_promo_primary_button))
+                .check(matches(allOf(isEnabled(), withText(expectedPrimaryButtonText))));
+        onView(withId(secondaryCtaId)).check(matches(allOf(isDisplayed(), isEnabled())));
+        if (mDelegate.canBeDismissedPermanently()) {
+            onView(withId(R.id.signin_promo_dismiss_button))
+                    .check(matches(allOf(isDisplayed(), isEnabled())));
+        } else {
+            onView(withId(R.id.signin_promo_dismiss_button))
+                    .check(
+                            matches(
+                                    allOf(
+                                            not(isEnabled()),
+                                            withEffectiveVisibility(Visibility.INVISIBLE))));
+        }
+    }
+
+    @Test
+    @MediumTest
     @EnableFeatures({"EnableSeamlessSignin" + ":seamless-signin-promo-type/compact"})
     // TODO(crbug.com/468024353): Add coverage for two_buttons promo.
     @ParameterAnnotations.UseMethodParameter(AccessPointParams.class)
-    @DisableIf.Device(DeviceFormFactor.DESKTOP_FREEFORM) // crbug.com/511288686
     public void testSigninBottomSheetStrings_compactPromo(@SigninAccessPoint int accessPoint) {
         testSigninBottomSheetStrings(accessPoint, R.id.signin_promo_primary_button);
     }
@@ -407,7 +511,6 @@ public class SigninPromoCoordinatorTest {
     // TODO(crbug.com/448227402): Remove this test once Seamless Sign-in is launched.
     @DisableFeatures(SigninFeatures.ENABLE_SEAMLESS_SIGNIN)
     @ParameterAnnotations.UseMethodParameter(AccessPointParams.class)
-    @DisableIf.Device(DeviceFormFactor.DESKTOP_FREEFORM) // crbug.com/511288686
     public void testSigninBottomSheetStrings_seamlessSigninDisabled(
             @SigninAccessPoint int accessPoint) {
         testSigninBottomSheetStrings(accessPoint, R.id.sync_promo_signin_button);
@@ -516,9 +619,57 @@ public class SigninPromoCoordinatorTest {
 
     @Test
     @MediumTest
+    @EnableFeatures({
+        "EnableSeamlessSignin"
+                + ":seamless-signin-promo-type/compact"
+                + "/seamless-signin-string-type/continueButton"
+    })
+    public void testLoadingStateNotShownForBookmarksSettingsPromo_compactPromo() {
+        testLoadingStateNotShownForBookmarksSettingsPromo();
+    }
+
+    @Test
+    @MediumTest
+    @EnableFeatures({
+        "EnableSeamlessSignin"
+                + ":seamless-signin-promo-type/twoButtons"
+                + "/seamless-signin-string-type/continueButton"
+    })
+    public void testLoadingStateNotShownForBookmarksSettingsPromo_twoButtonsPromo() {
+        testLoadingStateNotShownForBookmarksSettingsPromo();
+    }
+
+    private void testLoadingStateNotShownForBookmarksSettingsPromo() {
+        initNativeIfNeeded();
+        mSigninTestRule.addAccountThenSignin(TestAccounts.ACCOUNT1);
+        disableBookmarksAndReadingListDataTypes();
+        setUpSignInPromo(SigninAccessPoint.BOOKMARK_MANAGER);
+        ViewUtils.waitForVisibleView(withText(R.string.sync_promo_title_bookmarks));
+        ViewUtils.waitForVisibleView(withId(R.id.signin_promo_primary_button));
+
+        // Before click: primary button and dismiss button are enabled.
+        onView(withId(R.id.signin_promo_primary_button))
+                .check(matches(allOf(isEnabled(), withText(R.string.open_settings_button))));
+        onView(withId(R.id.signin_promo_dismiss_button))
+                .check(matches(allOf(isDisplayed(), isEnabled())));
+
+        onView(withId(R.id.signin_promo_primary_button)).perform(click());
+
+        // Verify that sign-in flow is not started.
+        verify(mCoordinator, never()).startSigninFlow(any());
+
+        // Verify primary button text remains "Open settings" and promo buttons remain enabled.
+        onView(withId(R.id.signin_promo_primary_button))
+                .check(matches(allOf(isEnabled(), withText(R.string.open_settings_button))));
+        onView(withId(R.id.signin_promo_dismiss_button))
+                .check(matches(allOf(isDisplayed(), isEnabled())));
+        verify(mOnOpenSettings).run();
+    }
+
+    @Test
+    @MediumTest
     @EnableFeatures({"EnableSeamlessSignin" + ":seamless-signin-promo-type/twoButtons"})
     @ParameterAnnotations.UseMethodParameter(AccessPointParams.class)
-    @DisableIf.Device(DeviceFormFactor.DESKTOP_FREEFORM) // crbug.com/511288686
     public void testSecondaryButtonClick_twoButtonsPromo(@SigninAccessPoint int accessPoint) {
         if (accessPoint == SigninAccessPoint.HISTORY_PAGE) {
             // The history page promo is hidden for non-signed in accounts.

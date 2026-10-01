@@ -9,6 +9,7 @@
 #include "base/check.h"
 #include "base/feature_list.h"
 #include "base/notreached.h"
+#include "base/types/expected.h"
 #include "base/values.h"
 #include "chrome/browser/devtools/features.h"
 #include "chrome/browser/policy/developer_tools_policy_checker.h"
@@ -21,6 +22,7 @@
 #include "content/public/browser/devtools_agent_host.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/web_contents.h"
+#include "extensions/buildflags/buildflags.h"
 #include "url/gurl.h"
 #include "url/url_constants.h"
 
@@ -33,11 +35,13 @@
 #endif
 
 #if !BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_url_info.h"
 #include "chrome/browser/web_applications/web_app.h"
 #include "chrome/browser/web_applications/web_app_provider.h"
 #include "chrome/browser/web_applications/web_app_registrar.h"
 #include "chrome/browser/web_applications/web_app_tab_helper.h"
 #include "chrome/browser/web_applications/web_app_utils.h"
+#include "components/webapps/isolated_web_apps/scheme.h"
 #endif
 
 #if BUILDFLAG(IS_CHROMEOS)
@@ -92,6 +96,22 @@ bool IsInspectionAllowed(Profile* profile,
     if (!IsInspectionAllowed(profile, target_url)) {
       return false;
     }
+
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+    // Enforce extension policy at the target level before falling back to the
+    // parent WebContents.
+    if (target_url.SchemeIs(extensions::kExtensionScheme)) {
+      if (auto* registry = extensions::ExtensionRegistry::Get(profile)) {
+        if (const extensions::Extension* extension =
+                registry->GetInstalledExtension(
+                    std::string(target_url.host()))) {
+          if (!IsInspectionAllowed(profile, extension)) {
+            return false;
+          }
+        }
+      }
+    }
+#endif
 
     if (content::WebContents* web_contents = agent_host->GetWebContents()) {
       return IsInspectionAllowed(profile, web_contents);
@@ -311,6 +331,24 @@ bool IsInspectionAllowed(Profile* profile, const GURL& url) {
                 std::string(url.host()),
                 extensions::ExtensionRegistry::EVERYTHING)) {
       return IsInspectionAllowed(profile, extension);
+    }
+  }
+#endif
+
+#if !BUILDFLAG(IS_ANDROID)
+  if (url.SchemeIs(webapps::kIsolatedAppScheme) &&
+      web_app::AreWebAppsEnabled(profile)) {
+    base::expected<web_app::IsolatedWebAppUrlInfo, std::string> url_info =
+        web_app::IsolatedWebAppUrlInfo::Create(url);
+    if (url_info.has_value()) {
+      if (auto* web_app_provider =
+              web_app::WebAppProvider::GetForWebApps(profile)) {
+        if (const web_app::WebApp* web_app =
+                web_app_provider->registrar_unsafe().GetAppById(
+                    url_info->app_id())) {
+          return IsInspectionAllowed(profile, web_app);
+        }
+      }
     }
   }
 #endif

@@ -30,6 +30,7 @@
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/profiles/profile_picker.h"
 #include "chrome/browser/ui/profiles/profile_ui_test_utils.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/webui/signin/login_ui_service.h"
 #include "chrome/browser/ui/webui/signin/login_ui_service_factory.h"
 #include "chrome/browser/ui/webui/signin/login_ui_test_utils.h"
@@ -76,6 +77,7 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/base/page_transition_types.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/gfx/scoped_animation_duration_scale_mode.h"
 #include "ui/views/controls/webview/webview.h"
 #include "url/gurl.h"
@@ -605,9 +607,10 @@ IN_PROC_BROWSER_TEST_P(LiveSignInGaiaIntegrationTest,
   ASSERT_TRUE(dice_tab_helper->IsSyncSigninInProgress());
 
   // Use the same tab for a web sign-in.
-  content::OpenURLParams params(
-      GaiaUrls::GetInstance()->add_account_url(), content::Referrer(),
-      WindowOpenDisposition::CURRENT_TAB, ui::PAGE_TRANSITION_TYPED, false);
+  content::OpenURLParams params =
+      content::OpenURLParams::CreateBrowserInitiated(
+          GaiaUrls::GetInstance()->add_account_url(),
+          WindowOpenDisposition::CURRENT_TAB, ui::PAGE_TRANSITION_TYPED);
   content::WebContents* contents =
       signin_tab->OpenURL(params, /*navigation_handle_callback=*/{});
   ASSERT_EQ(current_tab_count, browser()->GetTabStripModel()->count());

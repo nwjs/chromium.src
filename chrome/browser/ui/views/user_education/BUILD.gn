@@ -20,6 +20,7 @@ source_set("user_education") {
     "impl/browser_feature_promo_preconditions.h",
     "impl/browser_user_education_context.h",
     "impl/browser_user_education_interface_impl.h",
+    "impl/non_browser_feature_promo_controller.h",
     "ios_promo_bubble_view.h",
   ]
 
@@ -71,6 +72,7 @@ source_set("impl") {
     "impl/browser_feature_promo_preconditions.cc",
     "impl/browser_user_education_context.cc",
     "impl/browser_user_education_interface_impl.cc",
+    "impl/non_browser_feature_promo_controller.cc",
     "ios_promo_bubble_view.cc",
   ]
 
@@ -116,10 +118,13 @@ source_set("impl") {
     "//chrome/browser/ui/views:bubble_anchor_util_views",
     "//chrome/browser/ui/views:layout_provider",
     "//chrome/browser/ui/views/accessibility",
+    "//chrome/browser/ui/views/autofill:at_memory_promo_bubble_view",
     "//chrome/browser/ui/views/autofill/popup",
+    "//chrome/browser/ui/views/autofill/popup:popup_view_views",
     "//chrome/browser/ui/views/bookmarks",
     "//chrome/browser/ui/views/contextual_tasks",
     "//chrome/browser/ui/views/frame:contents_web_view",
+    "//chrome/browser/ui/views/frame:custom_corners_background",
     "//chrome/browser/ui/views/frame:toolbar_button_provider",
     "//chrome/browser/ui/views/global_media_controls",
     "//chrome/browser/ui/views/page_action",
@@ -130,6 +135,7 @@ source_set("impl") {
     "//chrome/browser/ui/views/tabs/tab",
     "//chrome/browser/ui/views/toolbar",
     "//chrome/browser/ui/views/translate",
+    "//chrome/browser/ui/views/web_apps:web_app_install_dialog_delegate",
     "//chrome/browser/ui/webui:webui_util",
     "//chrome/browser/ui/webui/customize_buttons",
     "//chrome/browser/ui/webui/history",

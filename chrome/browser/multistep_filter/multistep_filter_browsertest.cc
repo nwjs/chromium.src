@@ -30,6 +30,7 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/page_action/action_ids.h"
 #include "chrome/browser/ui/page_action/page_action_controller.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/toasts/api/toast_id.h"
 #include "chrome/browser/ui/toasts/toast_controller.h"
 #include "chrome/browser/ui/toasts/toast_view.h"
@@ -408,8 +409,7 @@ IN_PROC_BROWSER_TEST_F(MultistepFilterBrowserTest,
   ASSERT_TRUE(ui_controller);
   EXPECT_FALSE(test_api(*ui_controller).suggestion_state().has_value());
 
-  ToastController* toast_controller =
-      browser()->GetFeatures().toast_controller();
+  ToastController* toast_controller = ToastController::From(browser());
   EXPECT_FALSE(toast_controller->IsShowingToast());
 }
 #endif

@@ -41,7 +41,7 @@
 #include "chrome/browser/ui/views/autofill/popup/popup_view_utils.h"
 #include "chrome/browser/ui/views/autofill/popup/popup_view_views_test_api.h"
 #include "chrome/browser/ui/views/autofill/popup/popup_warning_view.h"
-#include "chrome/test/base/chrome_test_utils.h"
+#include "chrome/test/base/testing_browser_process_death_test_mixin.h"
 #include "chrome/test/base/testing_profile.h"
 #include "chrome/test/views/chrome_views_test_base.h"
 #include "components/autofill/core/browser/filling/filling_product.h"
@@ -232,7 +232,7 @@ class PopupViewViewsTest : public ChromeViewsTestBase {
     ON_CALL(autofill_popup_controller_, GetMainFillingProduct)
         .WillByDefault([&controller = autofill_popup_controller_]() {
           if (controller.GetAutofillSuggestionTriggerSource() ==
-              AutofillSuggestionTriggerSource::kAtMemoryTriggerString) {
+              AutofillSuggestionTriggerSource::kAtMemoryDoubleCtrl) {
             return FillingProduct::kAtMemory;
           }
           return controller.GetLineCount() > 0
@@ -1659,9 +1659,7 @@ TEST_F(PopupViewViewsTest, RemoveLine) {
     EXPECT_CALL(controller(), RemoveSuggestion).Times(0);
     EXPECT_CALL(check, Call("2: verify no RemoveSuggestion calls"));
 
-    EXPECT_CALL(controller(),
-                RemoveSuggestion(1, AutofillMetrics::SingleEntryRemovalMethod::
-                                        kKeyboardShiftDeletePressed));
+    EXPECT_CALL(controller(), RemoveSuggestion(1));
   }
 
   // If no cell is selected, pressing delete has no effect.
@@ -1690,10 +1688,7 @@ TEST_F(PopupViewViewsTest, RemoveAutofillInvokesController) {
                          PopupCellSelectionSource::kNonUserInput);
 
   // No metrics are recorded if the entry is not an Autocomplete entry.
-  EXPECT_CALL(controller(),
-              RemoveSuggestion(1, AutofillMetrics::SingleEntryRemovalMethod::
-                                      kKeyboardShiftDeletePressed))
-      .WillOnce(Return(true));
+  EXPECT_CALL(controller(), RemoveSuggestion(1)).WillOnce(Return(true));
   SimulateKeyPress(ui::VKEY_DELETE, /*shift_modifier_pressed=*/true);
 }
 
@@ -3448,6 +3443,53 @@ TEST_F(PopupViewViewsTest, OnSuggestionsChanged_A11yAnnouncesLoadingState) {
   static_cast<AutofillPopupView&>(view()).OnSuggestionsChanged(false);
 }
 
+// Tests that showing the popup triggers an announcement when
+// `a11y_announcement` is set.
+TEST_F(PopupViewViewsTest, Show_A11yAnnouncesWhenSet) {
+  Suggestion suggestion(u"Title", SuggestionType::kAddressEntry);
+  suggestion.a11y_announcement = u"announcement text";
+  controller().set_suggestions({std::move(suggestion)});
+  CreateView();
+  base::MockCallback<base::RepeatingCallback<void(const std::u16string&, bool)>>
+      announcement;
+  test_api(view()).SetA11yAnnouncer(announcement.Get());
+
+  EXPECT_CALL(announcement, Run(Eq(u"announcement text"), true));
+  ShowView(&view(), widget());
+}
+
+// Tests that updating suggestions triggers an announcement when
+// `a11y_announcement` is set.
+TEST_F(PopupViewViewsTest, OnSuggestionsChanged_A11yAnnouncesWhenSet) {
+  controller().set_suggestions({SuggestionType::kAddressEntry});
+  CreateAndShowView();
+  base::MockCallback<base::RepeatingCallback<void(const std::u16string&, bool)>>
+      announcement;
+  test_api(view()).SetA11yAnnouncer(announcement.Get());
+
+  EXPECT_CALL(announcement, Run(Eq(u"announcement text"), true));
+
+  Suggestion suggestion(u"Title", SuggestionType::kAddressEntry);
+  suggestion.a11y_announcement = u"announcement text";
+  controller().set_suggestions({std::move(suggestion)});
+  static_cast<AutofillPopupView&>(view()).OnSuggestionsChanged(false);
+}
+
+// Tests that updating suggestions does not trigger an announcement when
+// `a11y_announcement` is not set.
+TEST_F(PopupViewViewsTest, OnSuggestionsChanged_A11yDoesNotAnnounceWhenUnset) {
+  controller().set_suggestions({SuggestionType::kAddressEntry});
+  CreateAndShowView();
+  base::MockCallback<base::RepeatingCallback<void(const std::u16string&, bool)>>
+      announcement;
+  test_api(view()).SetA11yAnnouncer(announcement.Get());
+
+  EXPECT_CALL(announcement, Run).Times(0);
+
+  controller().set_suggestions({SuggestionType::kAddressEntry});
+  static_cast<AutofillPopupView&>(view()).OnSuggestionsChanged(false);
+}
+
 // TODO(crbug.com/477689220): Remove fixture when cleaning up feature flag and
 // use `PopupViewViewsTest` instead.
 class PopupViewViewsPayNowPayLaterTabsTest : public PopupViewViewsTest {
@@ -3499,7 +3541,7 @@ TEST_F(PopupViewViewsPayNowPayLaterTabsTest,
 TEST_F(PopupViewViewsTest, SearchBar_RemainVisibleEvenWithNoSuggestions) {
   ON_CALL(controller(), GetAutofillSuggestionTriggerSource)
       .WillByDefault(
-          Return(AutofillSuggestionTriggerSource::kAtMemoryTriggerString));
+          Return(AutofillSuggestionTriggerSource::kAtMemoryDoubleCtrl));
   CreateAndShowView(
       /*ids=*/{}, CreateParamsForTestWidget(),
       AutofillPopupView::SearchBarConfig{.placeholder = u"Recall from memory",
@@ -3521,7 +3563,7 @@ TEST_F(PopupViewViewsTest, SearchBar_RemainVisibleEvenWithNoSuggestions) {
 TEST_F(PopupViewViewsTest, AtMemory_KeyboardNavigation) {
   ON_CALL(controller(), GetAutofillSuggestionTriggerSource)
       .WillByDefault(
-          Return(AutofillSuggestionTriggerSource::kAtMemoryTriggerString));
+          Return(AutofillSuggestionTriggerSource::kAtMemoryDoubleCtrl));
   input::NativeWebKeyboardEvent event(
       blink::WebKeyboardEvent::Type::kRawKeyDown,
       blink::WebInputEvent::kNoModifiers, ui::EventTimeForNow());
@@ -3578,7 +3620,7 @@ TEST_F(PopupViewViewsTest, AtMemory_KeyboardNavigation) {
 TEST_F(PopupViewViewsTest, AtMemory_KeyboardArrowsNavigationBetweenPopups) {
   ON_CALL(controller(), GetAutofillSuggestionTriggerSource)
       .WillByDefault(
-          Return(AutofillSuggestionTriggerSource::kAtMemoryTriggerString));
+          Return(AutofillSuggestionTriggerSource::kAtMemoryDoubleCtrl));
 
   controller().set_suggestions({
       CreateSuggestionWithChildren(

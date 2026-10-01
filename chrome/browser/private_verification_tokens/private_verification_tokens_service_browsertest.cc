@@ -24,8 +24,9 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/test/base/chrome_test_utils.h"
 #include "chrome/test/base/platform_browser_test.h"
-#include "components/private_verification_tokens/common/athm_test_issuer.h"
+#include "components/private_verification_tokens/common/athm_ffi/athm_ffi.h"
 #include "components/private_verification_tokens/common/private_verification_tokens_issuer_config.h"
+#include "components/private_verification_tokens/common/private_verification_tokens_test_util.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
 #include "net/base/features.h"
@@ -36,10 +37,13 @@
 #include "net/test/embedded_test_server/http_response.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/crubit/support/rs_std/slice_ref.h"
 #include "url/gurl.h"
 #include "url/origin.h"
 
 namespace {
+
+using ::private_verification_tokens::test::CreateTestIssuer;
 
 class PrivateVerificationTokensServiceBrowserTest : public PlatformBrowserTest {
  public:
@@ -174,7 +178,10 @@ class PrivateVerificationTokensEndToEndBrowserTest
           base::Base64Decode(token_it->second);
       if (decoded.has_value()) {
         redemption_count_++;
-        last_recovered_metadata_ = test_issuer_->VerifyWithCheck(*decoded);
+        auto metadata = test_issuer_->verify_wire_token(
+            rs_std::SliceRef<const uint8_t>(*decoded));
+        last_recovered_metadata_ =
+            metadata.has_value() ? std::make_optional(*metadata) : std::nullopt;
       }
     }
 
@@ -200,12 +207,14 @@ class PrivateVerificationTokensEndToEndBrowserTest
       if (accept_it != request.headers.end()) {
         last_issuance_request_accept_ = accept_it->second;
       }
-      std::optional<std::string> batch_response =
-          test_issuer_->BatchIssue(request.content, /*hidden_metadata=*/0);
+      auto batch_response = test_issuer_->issue_batch_from_bytes(
+          rs_std::SliceRef<const uint8_t>(base::as_byte_span(request.content)),
+          /*hidden_metadata=*/0);
       auto response = std::make_unique<net::test_server::BasicHttpResponse>();
       response->set_code(net::HTTP_OK);
       if (batch_response.has_value()) {
-        response->set_content(*batch_response);
+        response->set_content(
+            std::string(batch_response->begin(), batch_response->end()));
       }
       response->set_content_type("application/private-token-response");
       return response;
@@ -247,10 +256,8 @@ class PrivateVerificationTokensEndToEndBrowserTest
   std::optional<uint8_t> last_recovered_metadata_;
   std::optional<std::string> last_issuance_request_content_type_;
   std::optional<std::string> last_issuance_request_accept_;
-  std::optional<private_verification_tokens::AthmTestIssuer> test_issuer_ =
-      private_verification_tokens::AthmTestIssuer::Create(
-          /*num_buckets=*/2,
-          base::as_byte_span(std::string_view("test-deployment")));
+  std::optional<private_verification_tokens::PrivacyPassAthmIssuer>
+      test_issuer_ = CreateTestIssuer(/*num_buckets=*/2, "test-deployment");
 
  private:
   base::test::ScopedFeatureList scoped_feature_list_;
@@ -274,9 +281,9 @@ IN_PROC_BROWSER_TEST_F(PrivateVerificationTokensEndToEndBrowserTest,
   const url::Origin redeemer_origin = url::Origin::Create(redemption_url);
 
   const std::string encoded_public_key =
-      base::Base64Encode(test_issuer_->public_key());
+      base::Base64Encode(test_issuer_->public_key_bytes());
   const std::string encoded_public_key_proof =
-      base::Base64Encode(test_issuer_->public_key_proof());
+      base::Base64Encode(test_issuer_->public_key_proof_bytes());
   const std::string json_str = base::StringPrintf(
       R"({
     "issuers": [
@@ -375,9 +382,9 @@ IN_PROC_BROWSER_TEST_F(PrivateVerificationTokensEndToEndBrowserTest,
   const url::Origin redeemer_origin = url::Origin::Create(redirect_url);
 
   const std::string encoded_public_key =
-      base::Base64Encode(test_issuer_->public_key());
+      base::Base64Encode(test_issuer_->public_key_bytes());
   const std::string encoded_public_key_proof =
-      base::Base64Encode(test_issuer_->public_key_proof());
+      base::Base64Encode(test_issuer_->public_key_proof_bytes());
   const std::string json_str = base::StringPrintf(
       R"({
     "issuers": [
@@ -456,20 +463,31 @@ IN_PROC_BROWSER_TEST_F(PrivateVerificationTokensEndToEndBrowserTest,
   service->GetTokenIssuers(issuers_after_future.GetCallback());
   EXPECT_THAT(issuers_after_future.Take(), testing::ElementsAre(issuer_origin));
 
-  // 3. Navigate to a direct URL on redeemer.a.test to consume the remaining
-  // token.
+  // 3. Navigate to a direct URL on redeemer.a.test. Since the issuer was
+  // already processed in this incognito session, redemption is denied by the
+  // limit.
   const GURL direct_redeem_url =
       https_server().GetURL("redeemer.a.test", "/direct-redeem");
   ASSERT_TRUE(
       content::NavigateToURL(incognito_web_contents.get(), direct_redeem_url));
 
-  EXPECT_EQ(redemption_count_, 2);
+  // The redemption_count_ should remain 1.
+  EXPECT_EQ(redemption_count_, 1);
 
-  // Now all tokens have been spent.
+  // The token remains in the store.
   base::test::TestFuture<std::vector<url::Origin>> issuers_final_future;
   service->GetTokenIssuers(issuers_final_future.GetCallback());
-  EXPECT_TRUE(issuers_final_future.Take().empty());
-  EXPECT_FALSE(service->GetTokenForRedemption(redeemer_origin).has_value());
+  EXPECT_THAT(issuers_final_future.Take(), testing::ElementsAre(issuer_origin));
+
+  // Directly attempting to fetch the token strictly for this incognito session
+  // returns nullopt due to the limit...
+  EXPECT_FALSE(
+      service->GetTokenForRedemption(redeemer_origin, incognito_profile)
+          .has_value());
+
+  // ...but the token fundamentally still exists in the database and is
+  // available when queried globally (e.g. for a non-incognito profile context).
+  EXPECT_TRUE(service->GetTokenForRedemption(redeemer_origin).has_value());
 }
 
 }  // namespace

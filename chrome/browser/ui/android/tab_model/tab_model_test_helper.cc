@@ -31,6 +31,8 @@
 #include "chrome/browser/ui/android/tab_model/tab_model_jni_bridge.h"
 #include "chrome/browser/ui/android/tab_model/tab_model_list.h"
 #include "chrome/browser/ui/android/tab_model/tab_model_observer.h"
+#include "components/sessions/core/session_id.h"
+#include "components/tab_groups/tab_group_id.h"
 #include "content/public/browser/visibility.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/browser_test_utils.h"
@@ -258,6 +260,11 @@ bool TestTabModel::ContainsTabGroup(tab_groups::TabGroupId group_id) {
 }
 
 std::vector<tab_groups::TabGroupId> TestTabModel::ListTabGroups() {
+  NOTIMPLEMENTED();
+  return {};
+}
+
+std::set<split_tabs::SplitTabId> TestTabModel::ListSplits() {
   NOTIMPLEMENTED();
   return {};
 }
@@ -691,6 +698,11 @@ std::optional<split_tabs::SplitTabId> OwningTestTabModel::CreateSplit(
 }
 
 std::vector<tab_groups::TabGroupId> OwningTestTabModel::ListTabGroups() {
+  NOTIMPLEMENTED();
+  return {};
+}
+
+std::set<split_tabs::SplitTabId> OwningTestTabModel::ListSplits() {
   NOTIMPLEMENTED();
   return {};
 }

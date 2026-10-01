@@ -65,7 +65,7 @@
 #include "content/browser/browser_url_handler_impl.h"
 #include "content/browser/devtools/devtools_instrumentation.h"
 #include "content/browser/dom_storage/dom_storage_context_wrapper.h"
-#include "content/browser/dom_storage/session_storage_namespace_impl.h"
+#include "content/browser/dom_storage/session_storage_namespace_handle_impl.h"
 #include "content/browser/embedder_isolation_info.h"
 #include "content/browser/preloading/prerender/prerender_host.h"
 #include "content/browser/process_lock.h"
@@ -3042,8 +3042,8 @@ void NavigationControllerImpl::CopyStateFrom(NavigationController* temp,
   InsertEntriesFrom(source, source->GetEntryCount());
 
   for (auto& it : source->session_storage_namespace_map_) {
-    SessionStorageNamespaceImpl* source_namespace =
-        static_cast<SessionStorageNamespaceImpl*>(it.second.get());
+    SessionStorageNamespaceHandleImpl* source_namespace =
+        static_cast<SessionStorageNamespaceHandleImpl*>(it.second.get());
     session_storage_namespace_map_[it.first] = source_namespace->Clone();
   }
 
@@ -3495,7 +3495,7 @@ void NavigationControllerImpl::NavigateFromFrameProxy(
 
 void NavigationControllerImpl::SetSessionStorageNamespace(
     const StoragePartitionConfig& partition_config,
-    SessionStorageNamespace* session_storage_namespace) {
+    SessionStorageNamespaceHandle* session_storage_namespace) {
   if (!session_storage_namespace) {
     return;
   }
@@ -3505,11 +3505,12 @@ void NavigationControllerImpl::SetSessionStorageNamespace(
   // so die hard on an error.
   bool successful_insert =
       session_storage_namespace_map_
-          .insert(std::make_pair(partition_config,
-                                 static_cast<SessionStorageNamespaceImpl*>(
-                                     session_storage_namespace)))
+          .insert(std::make_pair(
+              partition_config, static_cast<SessionStorageNamespaceHandleImpl*>(
+                                    session_storage_namespace)))
           .second;
-  CHECK(successful_insert) << "Cannot replace existing SessionStorageNamespace";
+  CHECK(successful_insert)
+      << "Cannot replace existing SessionStorageNamespaceHandle";
 }
 
 bool NavigationControllerImpl::IsUnmodifiedBlankTab() {
@@ -3517,27 +3518,28 @@ bool NavigationControllerImpl::IsUnmodifiedBlankTab() {
          !frame_tree_->has_accessed_initial_main_document();
 }
 
-SessionStorageNamespace* NavigationControllerImpl::GetSessionStorageNamespace(
+SessionStorageNamespaceHandle*
+NavigationControllerImpl::GetSessionStorageNamespace(
     const StoragePartitionConfig& partition_config) {
   StoragePartition* partition =
       browser_context_->GetStoragePartition(partition_config);
   DOMStorageContextWrapper* context_wrapper =
       static_cast<DOMStorageContextWrapper*>(partition->GetDOMStorageContext());
 
-  SessionStorageNamespaceMap::const_iterator it =
+  SessionStorageNamespaceHandleMap::const_iterator it =
       session_storage_namespace_map_.find(partition_config);
   if (it != session_storage_namespace_map_.end()) {
     // Ensure that this namespace actually belongs to this partition.
-    DCHECK(static_cast<SessionStorageNamespaceImpl*>(it->second.get())
+    DCHECK(static_cast<SessionStorageNamespaceHandleImpl*>(it->second.get())
                ->IsFromContext(context_wrapper));
 
     return it->second.get();
   }
 
   // Create one if no one has accessed session storage for this partition yet.
-  scoped_refptr<SessionStorageNamespaceImpl> session_storage_namespace =
-      SessionStorageNamespaceImpl::Create(context_wrapper);
-  SessionStorageNamespaceImpl* session_storage_namespace_ptr =
+  scoped_refptr<SessionStorageNamespaceHandleImpl> session_storage_namespace =
+      SessionStorageNamespaceHandleImpl::Create(context_wrapper);
+  SessionStorageNamespaceHandleImpl* session_storage_namespace_ptr =
       session_storage_namespace.get();
   session_storage_namespace_map_[partition_config] =
       std::move(session_storage_namespace);
@@ -3545,13 +3547,13 @@ SessionStorageNamespace* NavigationControllerImpl::GetSessionStorageNamespace(
   return session_storage_namespace_ptr;
 }
 
-SessionStorageNamespace*
+SessionStorageNamespaceHandle*
 NavigationControllerImpl::GetDefaultSessionStorageNamespace() {
   return GetSessionStorageNamespace(
       StoragePartitionConfig::CreateDefault(GetBrowserContext()));
 }
 
-const SessionStorageNamespaceMap&
+const SessionStorageNamespaceHandleMap&
 NavigationControllerImpl::GetSessionStorageNamespaceMap() {
   return session_storage_namespace_map_;
 }
@@ -3746,7 +3748,7 @@ NavigationControllerImpl::NavigateToExistingPendingEntry(
     initiator_frame_token = initiator_rfh->GetFrameToken();
     initiator_process_id = initiator_rfh->GetProcess()->GetID();
     initiator_navigation_state =
-        initiator_rfh->CreateInitiatorStateFromCurrentFrame();
+        initiator_rfh->GetCurrentInitiatorNavigationState();
     DCHECK(initiator_frame_token);
   }
 
@@ -4082,7 +4084,7 @@ NavigationControllerImpl::DetermineActionForHistoryNavigation(
   // Only active and prerendered documents are allowed to navigate in their
   // frame.
   if (render_frame_host->lifecycle_state() !=
-      RenderFrameHostImpl::LifecycleStateImpl::kPrerendering) {
+      RenderFrameHostLifecycleStateImpl::kPrerendering) {
     // - If the document is in pending deletion, the browser already committed
     // to destroying this RenderFrameHost. See https://crbug.com/930278.
     // - If the document is in back-forward cache, it's not allowed to navigate

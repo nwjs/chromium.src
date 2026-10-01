@@ -24,6 +24,7 @@
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
 #import "ios/chrome/browser/shared/model/browser/test/test_browser.h"
 #import "ios/chrome/browser/shared/model/profile/test/test_profile_ios.h"
+#import "ios/chrome/browser/shared/model/profile/test/test_profile_manager_ios.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
 #import "ios/chrome/browser/shared/public/commands/browser_coordinator_commands.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
@@ -31,7 +32,6 @@
 #import "ios/chrome/browser/shared/public/snackbar/snackbar_message.h"
 #import "ios/chrome/browser/signin/model/authentication_service.h"
 #import "ios/chrome/browser/signin/model/authentication_service_factory.h"
-#import "ios/chrome/browser/signin/model/fake_authentication_service_delegate.h"
 #import "ios/chrome/browser/signin/model/fake_system_identity.h"
 #import "ios/chrome/browser/signin/model/fake_system_identity_manager.h"
 #import "ios/chrome/browser/sync/model/send_tab_to_self_sync_service_factory.h"
@@ -66,8 +66,7 @@ class SendTabToSelfCoordinatorTest : public PlatformTest {
     TestProfileIOS::Builder test_profile_builder;
     test_profile_builder.AddTestingFactory(
         AuthenticationServiceFactory::GetInstance(),
-        AuthenticationServiceFactory::GetFactoryWithDelegateForTesting(
-            std::make_unique<FakeAuthenticationServiceDelegate>()));
+        AuthenticationServiceFactory::GetDefaultFactory());
     test_profile_builder.AddTestingFactory(
         SyncServiceFactory::GetInstance(),
         base::BindRepeating(&CreateTestSyncService));
@@ -79,8 +78,9 @@ class SendTabToSelfCoordinatorTest : public PlatformTest {
                   send_tab_to_self::StubSendTabToSelfSyncService>();
             }));
 
-    profile_ = std::move(test_profile_builder).Build();
-    browser_ = std::make_unique<TestBrowser>(profile_.get());
+    profile_ =
+        profile_manager_.AddProfileWithBuilder(std::move(test_profile_builder));
+    browser_ = std::make_unique<TestBrowser>(profile_);
     SendTabToSelfBrowserAgent::CreateForBrowser(browser_.get());
     view_controller_ = [[UIViewController alloc] init];
 
@@ -103,7 +103,7 @@ class SendTabToSelfCoordinatorTest : public PlatformTest {
 
     // Set up a fake web state with a committed URL and title.
     auto fake_web_state = std::make_unique<web::FakeWebState>();
-    fake_web_state->SetBrowserState(profile_.get());
+    fake_web_state->SetBrowserState(profile_);
     fake_web_state->SetCurrentURL(GURL(kTestURL));
 
     std::unique_ptr<web::NavigationItem> item = web::NavigationItem::Create();
@@ -119,7 +119,7 @@ class SendTabToSelfCoordinatorTest : public PlatformTest {
         WebStateList::InsertionParams::AtIndex(0).Activate());
 
     model_ = static_cast<send_tab_to_self::FakeSendTabToSelfModel*>(
-        SendTabToSelfSyncServiceFactory::GetForProfile(profile_.get())
+        SendTabToSelfSyncServiceFactory::GetForProfile(profile_)
             ->GetSendTabToSelfModel());
   }
 
@@ -127,6 +127,15 @@ class SendTabToSelfCoordinatorTest : public PlatformTest {
     if (coordinator_ && !coordinator_.stopped) {
       [coordinator_ stop];
     }
+    coordinator_ = nil;
+    mock_delegate_ = nil;
+    mock_snackbar_handler_ = nil;
+    mock_browser_coordinator_commands_ = nil;
+    view_controller_ = nil;
+    navigation_items_.clear();
+    browser_.reset();
+    model_ = nullptr;
+    profile_ = nullptr;
     PlatformTest::TearDown();
   }
 
@@ -137,7 +146,7 @@ class SendTabToSelfCoordinatorTest : public PlatformTest {
             GetApplicationContext()->GetSystemIdentityManager());
     system_identity_manager->AddIdentity(fake_identity);
     AuthenticationService* auth_service =
-        AuthenticationServiceFactory::GetForProfile(profile_.get());
+        AuthenticationServiceFactory::GetForProfile(profile_);
     auth_service->SignIn(fake_identity,
                          signin_metrics::AccessPoint::kStartPage);
   }
@@ -171,15 +180,16 @@ class SendTabToSelfCoordinatorTest : public PlatformTest {
   base::test::ScopedFeatureList feature_list_;
   web::WebTaskEnvironment task_environment_;
   IOSChromeScopedTestingLocalState scoped_testing_local_state_;
-  std::unique_ptr<TestProfileIOS> profile_;
+  TestProfileManagerIOS profile_manager_;
+  raw_ptr<TestProfileIOS> profile_ = nullptr;
   std::unique_ptr<TestBrowser> browser_;
-  UIViewController* view_controller_;
-  id mock_delegate_;
-  id mock_snackbar_handler_;
-  id mock_browser_coordinator_commands_;
+  UIViewController* view_controller_ = nil;
+  id mock_delegate_ = nil;
+  id mock_snackbar_handler_ = nil;
+  id mock_browser_coordinator_commands_ = nil;
   std::vector<std::unique_ptr<web::NavigationItem>> navigation_items_;
-  raw_ptr<send_tab_to_self::FakeSendTabToSelfModel> model_;
-  SendTabToSelfCoordinator* coordinator_;
+  raw_ptr<send_tab_to_self::FakeSendTabToSelfModel> model_ = nullptr;
+  SendTabToSelfCoordinator* coordinator_ = nil;
 };
 
 // Tests that initializing the coordinator in direct-send mode and calling start

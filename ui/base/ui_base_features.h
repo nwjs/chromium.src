@@ -139,7 +139,6 @@ BASE_DECLARE_FEATURE(kNotificationsIgnoreRequireInteraction);
 COMPONENT_EXPORT(UI_BASE_FEATURES)
 bool IsNotificationsIgnoreRequireInteractionEnabled();
 
-COMPONENT_EXPORT(UI_BASE_FEATURES) bool AreF11AndF12ShortcutsEnabled();
 #endif  // BUILDFLAG(IS_CHROMEOS)
 
 #if BUILDFLAG(IS_OZONE)
@@ -343,6 +342,10 @@ BASE_DECLARE_FEATURE(kWebUIRoundedIcons);
 // Updates the default dark neutrals for the theme palette.
 COMPONENT_EXPORT(UI_BASE_FEATURES)
 BASE_DECLARE_FEATURE(kChromeDarkNeutrals26);
+
+// Updates dark mode sys surface tokens.
+COMPONENT_EXPORT(UI_BASE_FEATURES)
+BASE_DECLARE_FEATURE(kDarkModeSurfaceTokens);
 
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
 // When enabled, reads the system accent color from the xdg-desktop-portal (the

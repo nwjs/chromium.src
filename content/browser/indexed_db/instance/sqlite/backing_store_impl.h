@@ -50,9 +50,10 @@ class CONTENT_EXPORT BackingStoreImpl : public BackingStore {
   ~BackingStoreImpl() override;
 
   // Sums the sizes of all files in `directory` that appear to be SQLite
-  // databases and optionally pass through `filter`. Note that free pages in the
-  // database do count towards this size, unlike the more real-time estimate
-  // provided by `DatabaseConnection::GetSize()`.
+  // databases and pass through `filter`. Legacy blob files associated with
+  // these DBs will also be counted. Note that free pages in the database do
+  // count towards this size, unlike the more real-time estimate provided by
+  // `DatabaseConnection::GetSize()`.
   static uint64_t SumSizesOfDatabaseFiles(
       const base::FilePath& directory,
       base::FunctionRef<bool(const base::FilePath&)> filter =
@@ -67,7 +68,13 @@ class CONTENT_EXPORT BackingStoreImpl : public BackingStore {
   // No PartitionedLockManager-level locks are taken on either backing store,
   // and it's up to the caller to ensure there will be no other simultaneous
   // operations.
-  Status MigrateFrom(BackingStore& source);
+  //
+  // If there are any pre-existing SQLite databases in `directory_`, this will
+  // attempt to delete them, and refuse to proceed unless that succeeds.
+  //
+  // `verify` hard-CHECKs that migration succeeded, or at least that it looks
+  // successful. This does extra work; use with caution.
+  Status MigrateFrom(BackingStore& source, bool verify = false);
 
   // BackingStore:
   bool CanOpportunisticallyClose() const override;

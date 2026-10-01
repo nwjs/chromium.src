@@ -7,6 +7,7 @@ package org.chromium.chrome.browser.customtabs;
 import static org.chromium.build.NullUtil.assumeNonNull;
 import static org.chromium.components.content_settings.PrefNames.COOKIE_CONTROLS_MODE;
 
+import android.app.Activity;
 import android.app.PendingIntent;
 import android.content.ComponentCallbacks2;
 import android.content.Context;
@@ -41,6 +42,7 @@ import org.jni_zero.NativeMethods;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import org.chromium.base.ApplicationStatus;
 import org.chromium.base.Callback;
 import org.chromium.base.CommandLine;
 import org.chromium.base.ContextUtils;
@@ -1153,7 +1155,7 @@ public class CustomTabsConnection {
         // Conditions:
         // - There is a valid redirect endpoint.
         // - The URL's origin is first party with respect to the app.
-        Uri redirectEndpoint = intent.getParcelableExtra(REDIRECT_ENDPOINT_KEY);
+        Uri redirectEndpoint = IntentUtils.safeGetParcelableExtra(intent, REDIRECT_ENDPOINT_KEY);
         if (redirectEndpoint == null || !isValid(redirectEndpoint)) return;
 
         Origin origin = Origin.create(url);
@@ -1181,7 +1183,9 @@ public class CustomTabsConnection {
         // Success is already reported per URL, report any failures here.
         if ((status != ParallelRequestStatus.SUCCESS)) {
             reportParallelRequestStatus(
-                    session, status, intent.getParcelableExtra(PARALLEL_REQUEST_URL_KEY));
+                    session,
+                    status,
+                    IntentUtils.safeGetParcelableExtra(intent, PARALLEL_REQUEST_URL_KEY));
         }
 
         return status;
@@ -1249,7 +1253,7 @@ public class CustomTabsConnection {
         }
 
         String referrerString = referrer.toString();
-        Uri uri = intent.getParcelableExtra(PARALLEL_REQUEST_URL_KEY);
+        Uri uri = IntentUtils.safeGetParcelableExtra(intent, PARALLEL_REQUEST_URL_KEY);
         if (uri != null) {
             return doParallelResourceRequest(session, uri, referrerString, packageName, policy);
         }
@@ -1268,7 +1272,7 @@ public class CustomTabsConnection {
 
     private @ParallelRequestStatus int doParallelResourceRequest(
             SessionHolder<?> session, Uri url, String referrer, String packageName, int policy) {
-        if (url.toString().equals("") || !isValid(url)) {
+        if (url.toString().isEmpty() || !isValid(url)) {
             return ParallelRequestStatus.FAILURE_INVALID_URL;
         }
         String urlString = url.toString();
@@ -1308,7 +1312,7 @@ public class CustomTabsConnection {
         }
 
         List<Uri> resourceList = intent.getParcelableArrayListExtra(RESOURCE_PREFETCH_URL_LIST_KEY);
-        Uri referrer = intent.getParcelableExtra(PARALLEL_REQUEST_REFERRER_KEY);
+        Uri referrer = IntentUtils.safeGetParcelableExtra(intent, PARALLEL_REQUEST_REFERRER_KEY);
         int policy =
                 intent.getIntExtra(PARALLEL_REQUEST_REFERRER_POLICY_KEY, ReferrerPolicy.DEFAULT);
 
@@ -1405,11 +1409,9 @@ public class CustomTabsConnection {
         return mClientManager.getClientPidForSession(session);
     }
 
-    /**
-     * Extracts the target network from the intent if the caller has the required permissions.
-     * Package-private to be used by {@link CustomTabIntentDataProvider}.
-     */
-    @Nullable Network extractTargetNetwork(Intent intent, @Nullable SessionHolder<?> session) {
+    /** Extracts the target network from the intent if the caller has the required permissions. */
+    public @Nullable Network extractTargetNetwork(
+            Intent intent, @Nullable SessionHolder<?> session) {
         Network network =
                 IntentUtils.safeGetParcelableExtra(intent, CustomTabsIntent.EXTRA_NETWORK);
         if (network == null) return null;
@@ -1992,7 +1994,23 @@ public class CustomTabsConnection {
     void cleanUpSession(final CustomTabsSessionToken session) {
         PostTask.runOrPostTask(
                 TaskTraits.UI_DEFAULT,
-                () -> mClientManager.cleanupSession(new SessionHolder<>(session)));
+                () -> {
+                    SessionHolder<?> holder = new SessionHolder<>(session);
+                    closeCustomTabsForDeadClient(holder);
+                    mClientManager.cleanupSession(holder);
+                });
+    }
+
+    /** UI thread. Finishes network-bound Custom Tabs launched with {@code session}. */
+    private void closeCustomTabsForDeadClient(SessionHolder<?> session) {
+        for (Activity activity : ApplicationStatus.getRunningActivities()) {
+            if (!(activity instanceof BaseCustomTabActivity cct)) continue;
+            BrowserServicesIntentDataProvider provider = cct.getIntentDataProvider();
+            if (provider == null || !provider.hasTargetNetwork()) continue;
+            if (!session.equals(provider.getSession())) continue;
+            if (cct.isFinishing()) continue;
+            cct.finishAndRemoveTask();
+        }
     }
 
     /**

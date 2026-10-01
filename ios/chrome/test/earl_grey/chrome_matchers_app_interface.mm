@@ -26,7 +26,6 @@
 #import "ios/chrome/browser/omnibox/public/omnibox_constants.h"
 #import "ios/chrome/browser/omnibox/public/omnibox_popup_accessibility_identifier_constants.h"
 #import "ios/chrome/browser/omnibox/public/omnibox_ui_features.h"
-#import "ios/chrome/browser/omnibox/ui/keyboard_assist/omnibox_assistive_keyboard_views_utils.h"
 #import "ios/chrome/browser/omnibox/ui/omnibox_text_field_ios.h"
 #import "ios/chrome/browser/omnibox/ui/omnibox_text_view_ios.h"
 #import "ios/chrome/browser/popup_menu/public/popup_menu_constants.h"
@@ -753,11 +752,9 @@ UIWindow* WindowWithAccessibilityIdentifier(NSString* accessibility_id) {
 }
 
 + (id<GREYMatcher>)tabShareButton {
-  NSString* shareID = IsChromeNextIaEnabled()
-                          ? kToolbarShareButtonIdentifier
-                          : kLegacyToolbarShareButtonIdentifier;
   return grey_allOf(
-      grey_anyOf(grey_accessibilityID(shareID),
+      grey_anyOf(grey_accessibilityID(kLegacyToolbarShareButtonIdentifier),
+                 grey_accessibilityID(kToolbarShareButtonIdentifier),
                  grey_accessibilityID(kOmniboxShareButtonIdentifier), nil),
       grey_sufficientlyVisible(), nil);
 }
@@ -1188,10 +1185,6 @@ UIWindow* WindowWithAccessibilityIdentifier(NSString* accessibility_id) {
 + (id<GREYMatcher>)voiceSearchButton {
   return grey_allOf(grey_accessibilityID(kSettingsVoiceSearchCellId),
                     grey_accessibilityTrait(UIAccessibilityTraitButton), nil);
-}
-
-+ (id<GREYMatcher>)voiceSearchInputAccessoryButton {
-  return grey_accessibilityID(kVoiceSearchInputAccessoryViewID);
 }
 
 + (id<GREYMatcher>)settingsCollectionView {

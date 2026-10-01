@@ -371,7 +371,7 @@ struct SameSizeAsDocumentLoader
   std::optional<blink::mojom::FetchCacheMode> force_fetch_cache_mode;
   FramePolicy frame_policy;
   std::optional<uint64_t> visited_link_salt;
-  const base::UnguessableToken initiator_state_token;
+  const InitiatorStateToken initiator_state_token;
   Member<LocalFrame> frame;
   Member<HistoryItem> history_item;
   Member<DocumentParser> parser;
@@ -779,7 +779,7 @@ DocumentLoader::CreateWebNavigationParamsToCloneDocument() {
   params->service_worker_network_provider =
       std::move(service_worker_network_provider_);
   params->devtools_navigation_token = devtools_navigation_token_;
-  params->initiator_state_token = initiator_state_token_;
+  params->initiator_state_token = frame_->DomWindow()->GetInitiatorStateToken();
   params->base_auction_nonce = base_auction_nonce_;
   params->is_user_activated = had_sticky_activation_;
   params->had_transient_user_activation =
@@ -2955,8 +2955,6 @@ void DocumentLoader::InitializeWindow(Document* owner_document) {
   base::UmaHistogramBoolean("API.StorageAccess.DocumentInheritedStorageAccess",
                             inherited_has_storage_access);
 
-  // Every window should have a valid `initiator_state_token`.
-  CHECK(!initiator_state_token_.is_empty());
   frame_->DomWindow()->SetInitiatorStateToken(initiator_state_token_);
 
   frame_->DomWindow()->SetPolicyContainer(std::move(policy_container_));
@@ -2995,12 +2993,21 @@ void DocumentLoader::InitializeWindow(Document* owner_document) {
   OriginTrialContext::AddTokensFromHeader(
       frame_->DomWindow(), response_.HttpHeaderField(http_names::kOriginTrial));
 
-  if (auto* parent = frame_->Tree().Parent()) {
-    const SecurityContext* parent_context = parent->GetSecurityContext();
+  Frame* parent_or_opener = frame_->Tree().Parent();
+  // Only the initial empty document inherits insecure request state from an
+  // opener. Later navigations must use the new document's own policy.
+  if (!parent_or_opener && commit_reason_ == CommitReason::kInitialization) {
+    parent_or_opener = frame_->Opener();
+  }
+  if (parent_or_opener) {
+    const SecurityContext* parent_or_opener_context =
+        parent_or_opener->GetSecurityContext();
     security_context.SetInsecureRequestPolicy(
-        parent_context->GetInsecureRequestPolicy());
-    for (auto to_upgrade : parent_context->InsecureNavigationsToUpgrade())
+        parent_or_opener_context->GetInsecureRequestPolicy());
+    for (auto to_upgrade :
+         parent_or_opener_context->InsecureNavigationsToUpgrade()) {
       security_context.AddInsecureNavigationUpgrade(to_upgrade);
+    }
   }
 
   String referrer_policy_header =
@@ -4056,7 +4063,14 @@ ContentSecurityPolicy* DocumentLoader::CreateCSP() {
     Vector<network::mojom::blink::ContentSecurityPolicyPtr>
         parsed_embedder_policies = ParseContentSecurityPolicies(
             header.header_value, header.type, header.source, Url());
-    initiator_state_token_ = base::UnguessableToken::Create();
+    // TODO(crbug.com/510258191): Consider setting the InitiatorStateToken on
+    // the window at this point, instead on relying on the fact that this
+    // function is called from InitializeWindow which will set the
+    // InitiatorStateToken on the window after calling this function. Also
+    // consider refactoring the function so that we do not call
+    // PolicyContainer::AddContentSecurityPolicies if the policies passed by the
+    // browser process have not been modified.
+    initiator_state_token_ = InitiatorStateToken();
     policy_container_->AddContentSecurityPolicies(
         mojo::Clone(parsed_embedder_policies), initiator_state_token_);
     csp->AddPolicies(std::move(parsed_embedder_policies));

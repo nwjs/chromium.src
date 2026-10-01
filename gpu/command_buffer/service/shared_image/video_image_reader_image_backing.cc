@@ -13,7 +13,6 @@
 #include "base/notimplemented.h"
 #include "base/task/bind_post_task.h"
 #include "base/task/single_thread_task_runner.h"
-#include "components/viz/common/gpu/vulkan_context_provider.h"
 #include "gpu/command_buffer/common/shared_image_usage.h"
 #include "gpu/command_buffer/service/ahardwarebuffer_utils.h"
 #include "gpu/command_buffer/service/dawn_context_provider.h"
@@ -26,6 +25,7 @@
 #include "gpu/command_buffer/service/skia_utils.h"
 #include "gpu/command_buffer/service/texture_manager.h"
 #include "gpu/command_buffer/service/texture_owner.h"
+#include "gpu/command_buffer/service/vulkan_context_provider.h"
 #include "gpu/vulkan/vulkan_device_queue.h"
 #include "gpu/vulkan/vulkan_fence_helper.h"
 #include "gpu/vulkan/vulkan_function_pointers.h"
@@ -134,21 +134,11 @@ class VideoImage : public base::RefCounted<VideoImage> {
 
 VideoImageReaderImageBacking::VideoImageReaderImageBacking(
     const Mailbox& mailbox,
-    const gfx::Size& size,
-    const gfx::ColorSpace color_space,
-    GrSurfaceOrigin surface_origin,
-    SkAlphaType alpha_type,
-    std::string debug_label,
+    const SharedImageInfo& si_info,
     scoped_refptr<StreamTextureSharedImageInterface> stream_texture_sii,
     scoped_refptr<SharedContextState> context_state,
     scoped_refptr<RefCountedLock> drdc_lock)
-    : AndroidVideoImageBacking(mailbox,
-                               size,
-                               color_space,
-                               surface_origin,
-                               alpha_type,
-                               std::move(debug_label),
-                               !!drdc_lock),
+    : AndroidVideoImageBacking(mailbox, si_info, !!drdc_lock),
       RefCountedLockHelperDrDc(std::move(drdc_lock)),
       stream_texture_sii_(std::move(stream_texture_sii)),
       gpu_main_task_runner_(base::SingleThreadTaskRunner::GetCurrentDefault()) {

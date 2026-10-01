@@ -20,8 +20,6 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/values.h"
 #include "build/build_config.h"
-#include "chrome/browser/ash/browser_delegate/browser_controller.h"
-#include "chrome/browser/ash/browser_delegate/browser_delegate.h"
 #include "chrome/browser/ash/extensions/dictionary_event_router.h"
 #include "chrome/browser/ash/extensions/ime_menu_event_router.h"
 #include "chrome/browser/ash/extensions/input_method_event_router.h"
@@ -37,6 +35,8 @@
 #include "chrome/browser/ui/ash/keyboard/chrome_keyboard_controller_client.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/common/extensions/api/input_method_private.h"
+#include "chromeos/ash/components/browser_delegate/browser_controller.h"
+#include "chromeos/ash/components/browser_delegate/browser_delegate.h"
 #include "chromeos/ash/components/language_packs/handwriting.h"
 #include "chromeos/ash/components/language_packs/language_pack_manager.h"
 #include "chromeos/components/kiosk/kiosk_utils.h"
@@ -50,6 +50,7 @@
 #include "ui/base/ime/ash/input_method_descriptor.h"
 #include "ui/base/ime/ash/input_method_manager.h"
 #include "ui/base/ime/ash/input_method_util.h"
+#include "ui/base/page_transition_types.h"
 #include "ui/base/window_open_disposition.h"
 
 namespace {
@@ -304,9 +305,10 @@ InputMethodPrivateOpenOptionsPageFunction::Run() {
                            web_contents)
                      : nullptr;
     if (browser) {
-      content::OpenURLParams url_params(options_page_url, content::Referrer(),
-                                        WindowOpenDisposition::SINGLETON_TAB,
-                                        ui::PAGE_TRANSITION_LINK, false);
+      content::OpenURLParams url_params =
+          content::OpenURLParams::CreateBrowserInitiated(
+              options_page_url, WindowOpenDisposition::SINGLETON_TAB,
+              ui::PAGE_TRANSITION_LINK);
       browser->GetBrowser().OpenURL(url_params,
                                     /*navigation_handle_callback=*/{});
     }

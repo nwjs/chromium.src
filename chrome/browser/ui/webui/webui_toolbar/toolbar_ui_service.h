@@ -36,7 +36,8 @@ class ToolbarUIService : public toolbar_ui_api::mojom::ToolbarUIService {
     virtual void HandleContextMenu(
         toolbar_ui_api::mojom::ContextMenuType menu_type,
         const gfx::RectF& bounds_in_css_pixels,
-        ui::mojom::MenuSourceType source) = 0;
+        ui::mojom::MenuSourceType source,
+        std::optional<uint32_t> show_menu_token) = 0;
     virtual void ShowOverflowMenu(
         std::vector<toolbar_ui_api::mojom::OverflowMenuItemPtr> controls,
         const gfx::RectF& bounds_in_css_pixels,
@@ -100,7 +101,10 @@ class ToolbarUIService : public toolbar_ui_api::mojom::ToolbarUIService {
     virtual void SetAvatarButtonFocused(bool focused) = 0;
     virtual void SetAvatarButtonIPHPromoShowing(bool showing) = 0;
     virtual void OnAppMenuFocusChanged(bool focused) = 0;
-    virtual void ExecuteExtensionAction(const std::string& extension_id) = 0;
+    virtual void ExecuteExtensionAction(const std::string& extension_id,
+                                        bool is_pointer_interaction) = 0;
+    virtual void OnExtensionActionPointerDown(
+        const std::string& extension_id) = 0;
     virtual void ShowExtensionContextMenu(const std::string& extension_id,
                                           ui::mojom::MenuSourceType source) = 0;
     virtual base::expected<
@@ -111,6 +115,8 @@ class ToolbarUIService : public toolbar_ui_api::mojom::ToolbarUIService {
     virtual void OnPerformanceInterventionButtonClicked(
         bool is_mouse_interaction) = 0;
     virtual void OnPerformanceInterventionButtonMousePressed() = 0;
+    virtual void OnMediaButtonClicked(bool is_mouse_interaction) = 0;
+    virtual void OnMediaButtonMousePressed() = 0;
   };
 
   ToolbarUIService(
@@ -130,12 +136,14 @@ class ToolbarUIService : public toolbar_ui_api::mojom::ToolbarUIService {
   void OnNavigationControlsStateChanged(
       const mojom::NavigationControlsState& state);
   void OnFocusRequested(toolbar_ui_api::mojom::FocusRequestTarget target);
+  void ShowSplitTabsContextMenu();
 
   // toolbar_ui_api::mojom::ToolbarUIService:
   void Bind(BindCallback callback) override;
   void ShowContextMenu(toolbar_ui_api::mojom::ContextMenuType menu_type,
                        const gfx::RectF& bounds_in_css_pixels,
-                       ui::mojom::MenuSourceType source) override;
+                       ui::mojom::MenuSourceType source,
+                       std::optional<uint32_t> show_menu_token) override;
   void ShowOverflowMenu(
       std::vector<toolbar_ui_api::mojom::OverflowMenuItemPtr> controls,
       const gfx::RectF& bounds_in_css_pixels,
@@ -200,7 +208,9 @@ class ToolbarUIService : public toolbar_ui_api::mojom::ToolbarUIService {
       bool showing,
       SetAvatarButtonIphPromoShowingCallback callback) override;
   void OnAppMenuFocusChanged(bool focused) override;
-  void ExecuteExtensionAction(const std::string& extension_id) override;
+  void ExecuteExtensionAction(const std::string& extension_id,
+                              bool is_pointer_interaction) override;
+  void OnExtensionActionPointerDown(const std::string& extension_id) override;
   void ShowExtensionContextMenu(const std::string& extension_id,
                                 ui::mojom::MenuSourceType source) override;
   void AdjustOmniboxTextForCopy(
@@ -210,6 +220,8 @@ class ToolbarUIService : public toolbar_ui_api::mojom::ToolbarUIService {
   void OnPerformanceInterventionButtonClicked(
       bool is_mouse_interaction) override;
   void OnPerformanceInterventionButtonMousePressed() override;
+  void OnMediaButtonClicked(bool is_mouse_interaction) override;
+  void OnMediaButtonMousePressed() override;
 
  private:
   mojo::Receiver<toolbar_ui_api::mojom::ToolbarUIService> service_;

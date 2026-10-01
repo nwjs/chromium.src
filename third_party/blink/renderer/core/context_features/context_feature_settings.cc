@@ -37,8 +37,15 @@ ContextFeatureSettings* ContextFeatureSettings::From(
 
 // static
 void ContextFeatureSettings::InitializeMojoJSAllowedProtectedMemory() {
-  static base::ProtectedMemoryInitializer mojo_js_allowed_initializer(
-      mojo_js_allowed_, false);
+  [[maybe_unused]] static const bool initialized = [] {
+    base::ProtectedMemoryInitializer mojo_js_allowed_initializer(
+        mojo_js_allowed_, false);
+    return true;
+  }();
+
+  // Get the RuntimeEnabledFeatures MojoJSEnabled value. Calling forces an
+  // initialization on all protected memory feature flags.
+  RuntimeEnabledFeatures::MojoJSEnabled();
 }
 
 // static
@@ -81,7 +88,7 @@ bool ContextFeatureSettings::isMojoJSEnabled() const {
 // 1) UnboundedElementOnTheOpenWeb is enabled,
 // 2) The context was marked privileged (enable_unbounded_element_), or
 // 3) The context origin is a privileged WebUI scheme
-// (SecurityOrigin::IsWebUI()).
+//    (SecurityOrigin::IsWebUI(), excluding chrome-untrusted).
 //
 // Note that enable_unbounded_element_ is set for WebUI contexts in
 // RenderFrameImpl, but can also be set when UnboundedElementOnTheOpenWeb is
@@ -95,7 +102,8 @@ ContextFeatureSettings::GetUnboundedElementAuth(
     return UnboundedElementAuth::kDenied;
   }
   const SecurityOrigin* security_origin = context->GetSecurityOrigin();
-  bool is_privileged = security_origin && security_origin->IsWebUI();
+  bool is_privileged = security_origin && security_origin->IsWebUI() &&
+                       security_origin->Protocol() != "chrome-untrusted";
   if (is_privileged) {
     return UnboundedElementAuth::kAllowedPrivileged;
   }

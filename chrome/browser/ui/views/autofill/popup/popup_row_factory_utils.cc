@@ -39,7 +39,6 @@
 #include "chrome/browser/user_education/user_education_service.h"
 #include "components/autofill/core/browser/filling/filling_product.h"
 #include "components/autofill/core/browser/integrators/autofill_ai/autofill_ai_labels.h"
-#include "components/autofill/core/browser/metrics/autofill_metrics.h"
 #include "components/autofill/core/browser/payments/bnpl_util.h"
 #include "components/autofill/core/browser/suggestions/suggestion.h"
 #include "components/autofill/core/browser/suggestions/suggestion_type.h"
@@ -188,8 +187,8 @@ std::unique_ptr<views::BoxLayoutView> GetAlternativePaymentMethodBadge(
               .SetBorder(views::CreateRoundedRectBorder(
                   /*thickness=*/0, /*corner_radius=*/100,
                   kPopupBadgeBorderInsets, ui::kColorSysNeutralContainer))
-              .SetBackground(views::CreateRoundedRectBackground(
-                  ui::kColorSysNeutralContainer, 100)))
+              .SetBackground(
+                  views::CreatePillBackground(ui::kColorSysNeutralContainer)))
       .Build();
 }
 
@@ -786,8 +785,7 @@ std::unique_ptr<PopupRowWithButtonView> CreateAutocompleteRowWithDeleteButton(
   // for it.
   base::RepeatingClosure deletion_action = base::BindRepeating(
       base::IgnoreResult(&AutofillPopupController::RemoveSuggestion),
-      controller, line_number,
-      AutofillMetrics::SingleEntryRemovalMethod::kDeleteButtonClicked);
+      controller, line_number);
   std::unique_ptr<views::ImageButton> button =
       views::CreateVectorImageButtonWithNativeTheme(
           CreateExecuteSoonWrapper(std::move(deletion_action)),

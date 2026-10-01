@@ -77,9 +77,6 @@ BASE_FEATURE(kAshSessionRestoreDeferOccludedActiveTabLoad,
 // Controls whether to enable assistive multi word suggestions.
 BASE_FEATURE(kAssistMultiWord, base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Enables audio I/O selection improvement algorithm. http://launch/4301655.
-BASE_FEATURE(kAudioSelectionImprovement, base::FEATURE_DISABLED_BY_DEFAULT);
-
 // Controls whether to enable the audio focus enforcement toggle in settings.
 BASE_FEATURE(kAudioFocusSetting, base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -301,11 +298,18 @@ const base::FeatureParam<int> kBocaReceiverCustomPollingMaxFailuresCount{
 
 BASE_FEATURE(kCrosSwitcher, base::FEATURE_ENABLED_BY_DEFAULT);
 
+// Enables Camera Cloud Storage for saving photos and videos on Google Drive
+// or OneDrive, controlled by CameraSaveLocation policy.
+BASE_FEATURE(kCameraCloudStorage, base::FEATURE_ENABLED_BY_DEFAULT);
+
 // Indicates whether the camera super resolution is supported. Note that this
 // feature is overridden by login_manager based on whether a per-board build
 // sets the USE camera_feature_super_res flag. Refer to:
 // chromiumos/src/platform2/login_manager/chrome_setup.cc
 BASE_FEATURE(kCameraSuperResSupported, base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Enable Borealis on Chrome OS.
+BASE_FEATURE(kBorealis, base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enable Big GL when using Borealis.
 BASE_FEATURE(kBorealisBigGl, base::FEATURE_ENABLED_BY_DEFAULT);
@@ -454,6 +458,9 @@ BASE_FEATURE(kCrosSafetyService, base::FEATURE_DISABLED_BY_DEFAULT);
 // features, including Eche and Phone Hub.
 BASE_FEATURE(kCryptauthAttestationSyncing, base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Enable project Crostini, Linux VMs on Chrome OS.
+BASE_FEATURE(kCrostini, base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Enables experimental containerless Crostini VMs.
 BASE_FEATURE(kCrostiniContainerless, base::FEATURE_ENABLED_BY_DEFAULT);
 
@@ -580,10 +587,6 @@ BASE_FEATURE(kEcheSWADisableStunServer, base::FEATURE_DISABLED_BY_DEFAULT);
 // Allows CrOS to analyze Android
 // network information to provide more context on connection errors.
 BASE_FEATURE(kEcheSWACheckAndroidNetworkInfo, base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Enables settings to control internal display brightness and auto-brightness.
-BASE_FEATURE(kEnableBrightnessControlInSettings,
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables external keyboard testers in the diagnostics app.
 BASE_FEATURE(kEnableExternalKeyboardsInDiagnostics,
@@ -747,9 +750,6 @@ BASE_FEATURE(kFilesLocalImageSearch, base::FEATURE_DISABLED_BY_DEFAULT);
 // Enables materialized views in Files App.
 BASE_FEATURE(kFilesMaterializedViews, base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Enables partitioning of removable disks in file manager.
-BASE_FEATURE(kFilesSinglePartitionFormat, base::FEATURE_DISABLED_BY_DEFAULT);
-
 // Enable background cleanup for old files in Trash.
 BASE_FEATURE(kFilesTrashAutoCleanup, base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -838,11 +838,6 @@ BASE_FEATURE(kGameDashboardUtilities, base::FEATURE_DISABLED_BY_DEFAULT);
 // Enables the Game Dashboard's Record Game feature. This flag is to be enabled
 // by the feature management module.
 BASE_FEATURE(kFeatureManagementGameDashboardRecordGame,
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Controls gamepad vibration in Exo.
-BASE_FEATURE(kGamepadVibration,
-             "ExoGamepadVibration",
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 // Enable a D-Bus service for accessing gesture properties.
@@ -1208,9 +1203,6 @@ BASE_FEATURE(kMacAddressRandomization, base::FEATURE_DISABLED_BY_DEFAULT);
 // Enabling this flag allows the managed local pin and password related changes
 // to be applied.
 BASE_FEATURE(kManagedLocalPinAndPassword, base::FEATURE_ENABLED_BY_DEFAULT);
-
-// Enables policy management for USB printers.
-BASE_FEATURE(kManagedUsbPrinters, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables Mantis on image contents in the Media App
 BASE_FEATURE(kMediaAppImageMantis, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -1950,6 +1942,9 @@ BASE_FEATURE(kWifiSyncUploadProxyConfigs, base::FEATURE_DISABLED_BY_DEFAULT);
 // Wi-Fi networks that are received from Chrome Sync.
 BASE_FEATURE(kWifiSyncApplyProxyConfigs, base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Enables window preview on hover for shelf app icons and menu items.
+BASE_FEATURE(kWindowPreviewOnShelf, base::FEATURE_DISABLED_BY_DEFAULT);
+
 // Enables an experimental feature that splits windows by dragging one window
 // over another window.
 BASE_FEATURE(kWindowSplitting, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -2144,6 +2139,11 @@ BASE_FEATURE(kHappinessTrackingSystemSlowAndLaggyDeepDive,
 // Enables new UX for files policy restrictions on ChromeOS.
 BASE_FEATURE(kNewFilesPolicyUX, base::FEATURE_ENABLED_BY_DEFAULT);
 
+// Enables the SkyVault (cloud-first) changes, some of which are also controlled
+// by policies: removing local storage, saving downloads and screen captures to
+// the cloud, and related UX changes, primarily in the Files App.
+BASE_FEATURE(kSkyVault, base::FEATURE_ENABLED_BY_DEFAULT);
+
 // Enables the SkyVault V2 changes, which are also controlled by policies:
 // LocalUserFilesAllowed, DownloadDirectory and ScreenCaptureLocation.
 BASE_FEATURE(kSkyVaultV2, base::FEATURE_ENABLED_BY_DEFAULT);
@@ -2175,10 +2175,6 @@ bool AreDesksTemplatesEnabled() {
 
 bool ForceOnDeviceAppControlsForAllRegions() {
   return base::FeatureList::IsEnabled(kForceOnDeviceAppControlsForAllRegions);
-}
-
-bool IsAudioSelectionImprovementEnabled() {
-  return base::FeatureList::IsEnabled(kAudioSelectionImprovement);
 }
 
 bool Is16DesksEnabled() {
@@ -2367,10 +2363,6 @@ bool IsBocaReceiverCustomPollingEnabled() {
 
 bool IsOnTaskStatusCheckEnabled() {
   return base::FeatureList::IsEnabled(kOnTaskStatusCheck);
-}
-
-bool IsBrightnessControlInSettingsEnabled() {
-  return base::FeatureList::IsEnabled(kEnableBrightnessControlInSettings);
 }
 
 bool IsCaptureModeEducationEnabled() {
@@ -3255,6 +3247,10 @@ bool IsWifiConcurrencyEnabled() {
 
 bool IsWifiSyncAndroidEnabled() {
   return base::FeatureList::IsEnabled(kWifiSyncAndroid);
+}
+
+bool IsWindowPreviewOnShelfEnabled() {
+  return base::FeatureList::IsEnabled(kWindowPreviewOnShelf);
 }
 
 bool IsWindowSplittingEnabled() {

@@ -10,13 +10,36 @@
 :host {
   display: block;
   position: relative;
+  transition: opacity 150ms ease;
   width: 100%;
+}
+
+:host(:not([is-active])) {
+  -webkit-app-region: no-drag;
+  opacity: 0.7;
+}
+
+:host(:not([is-active])) #searchbox,
+:host(:not([is-active])) #composebox,
+:host(:not([is-active])) #mostVisitedContainer,
+:host(:not([is-active])) cr-most-visited {
+  -webkit-app-region: no-drag;
+}
+
+:host(:not([is-active]):hover) {
+  opacity: 1;
+  --omnibox-inactive-hover-overlay: var(
+      --color-sys-state-hover-on-subtle, rgba(0, 0, 0, 0.06));
 }
 
 omnibox-everywhere-omnibox,
 omnibox-everywhere-composebox {
   --cr-searchbox-height: 48px;
+  --cr-searchbox-icon-container-size: 32px;
   --cr-searchbox-icon-left-position: 16px;
+  --cr-searchbox-icon-right-position: 0px;
+  --cr-searchbox-match-padding-inline-start: 16px;
+  --cr-searchbox-match-text-padding-inline-start: 8px;
   --cr-searchbox-icon-top-position: 0;
   --cr-searchbox-min-width: 100%;
 
@@ -43,6 +66,22 @@ omnibox-everywhere-omnibox::part(dropdown-content) {
   margin: 0;
 }
 
+/* Only set min height if it exists;
+ * otherwise use existing min height.
+ */
+:host(.has-permission-prompt) #voiceSearchDialog {
+  /* Shrink by 24px each vertical side to allow room for shadows
+   * to not be cut off by outer view container.
+   */
+  height: calc(100% - 48px);
+  min-height: var(--voice_search_minimum_height, 128px);
+  /* Shrinks each horizontal side by 24px to match dialog
+   * anchor's sizing.
+   */
+  width: anchor-size(width);
+  min-width: var(--voice_search_minimum_width);
+}
+
 #dialogAnchor {
   anchor-name: --dialog-anchor;
   inset-inline-start: 0;
@@ -62,7 +101,7 @@ omnibox-everywhere-omnibox::part(dropdown-content) {
   --cr-composebox-submit-width: 48px;
   background: var(--color-composebox-background, #fff);
   border: none;
-  border-radius: 28px;
+  border-radius: 16px;
   bottom: auto;
   box-shadow: 0 4px 20px 2px rgba(0, 0, 0, 0.25);
   font-family: inherit;
@@ -125,8 +164,10 @@ omnibox-everywhere-omnibox::part(dropdown-content) {
   -webkit-app-region: drag;
   align-items: center;
   animation: fadeInMvt 200ms cubic-bezier(0, 0, 0.2, 1);
-  background-clip: padding-box;
-  background-color: var(--color-sys-surface-container-high, #fff);
+  background: linear-gradient(
+          var(--omnibox-inactive-hover-overlay, transparent),
+          var(--omnibox-inactive-hover-overlay, transparent)),
+      var(--color-sys-surface-container-high, #fff);
   /* Preserves 2px border width parity with omnibox-everywhere-omnibox and
    * composebox. */
   border: 2px solid transparent;
@@ -135,15 +176,22 @@ omnibox-everywhere-omnibox::part(dropdown-content) {
   box-sizing: border-box;
   display: flex;
   justify-content: center;
+  margin-inline: auto;
   margin-top: 10px;
+  max-width: 100%;
   min-height: 80px;
   padding: 8px 16px;
-  width: 100%;
+  width: fit-content;
+  position: relative;
+  z-index: 100;
 }
 
 cr-most-visited {
   -webkit-app-region: drag;
   --most-visited-focus-shadow: 0 0 0 2px var(--color-sys-primary, #1a73e8);
+  /* Total inner width for 7 tiles:
+   * 680px (default content width) - 32px (16px * 2 padding) - 4px (2px * 2 border) = 644px.
+   * Distributed evenly across 6 gaps between 7 tiles. */
   --most-visited-gap: calc((644px - 7 * var(--most-visited-tile-size)) / 6);
   --most-visited-icon-margin-top: 8px;
   --most-visited-icon-size: 48px;
@@ -158,8 +206,43 @@ cr-most-visited {
   width: max-content;
 }
 
+:host([small-loomnibox]) omnibox-everywhere-omnibox {
+  /* In small Loomnibox, prioritize displaying page title/contents over the
+   * URL in autocomplete suggestions while preserving at least ~35% width
+   * for the URL. */
+  --cr-searchbox-url-contents-flex-shrink: 0;
+  --cr-searchbox-url-contents-max-width: 65%;
+}
+
+:host([small-loomnibox]) cr-most-visited {
+  /* Total inner width for 5 tiles:
+   * 480px (small content width) - 32px (16px * 2 padding) - 4px (2px * 2 border) = 444px.
+   * Distributed evenly across 4 gaps between 5 tiles. */
+  --most-visited-gap: calc((444px - 5 * var(--most-visited-tile-size)) / 4);
+}
+
+cr-most-visited[hide-title] {
+  --most-visited-icon-size: 48px;
+  --most-visited-managed-icon-top: 32px;
+  --most-visited-tile-size: 68px;
+}
+
+cr-most-visited:not([hide-title]) {
+  --most-visited-icon-size: 40px;
+  --most-visited-managed-icon-top: 26px;
+  --most-visited-tile-size: 80px;
+  --most-visited-title-font-size: 11px;
+  --most-visited-title-height: 20px;
+  --most-visited-title-line-height: 20px;
+  --most-visited-title-margin-top: 4px;
+}
+
 :host([show-voice-search-overlay_]) {
   min-height: 128px;
+}
+
+:host([show-voice-search-overlay_].has-permission-prompt) {
+  min-height: var(--voice_search_minimum_height, 128px);
 }
 
 :host([show-voice-search-overlay_]) #content {
@@ -167,6 +250,9 @@ cr-most-visited {
 }
 
 #content:has(omnibox-everywhere-omnibox[dropdown-is-visible]) #mostVisitedContainer,
+#content:has([has-user-input]) #mostVisitedContainer,
+#content:has([is-context-menu-open]) #mostVisitedContainer,
+#content:has([is-screenshot-menu-open]) #mostVisitedContainer,
 #content:has(#composebox) #mostVisitedContainer,
 #mostVisitedContainer[hidden],
 #mostVisitedContainer:has(cr-most-visited:not([visible_])),
@@ -174,13 +260,34 @@ cr-most-visited {
   display: none;
 }
 
-fre-modal {
+fre-modal,
+fre-chin {
+  -webkit-app-region: drag;
+  animation: fadeInFre 200ms cubic-bezier(0, 0, 0.2, 1);
+  /* Preserves 2px border width parity with omnibox-everywhere-omnibox and
+   * composebox. */
+  border-inline: 2px solid transparent;
+  box-sizing: border-box;
   margin-top: 10px;
+  position: relative;
 }
 
-fre-modal.dismissing {
+fre-modal.dismissing,
+fre-chin.dismissing {
+  -webkit-app-region: no-drag;
   animation: fadeOutFre 200ms cubic-bezier(0.4, 0, 1, 1) forwards;
   pointer-events: none;
+}
+
+@keyframes fadeInFre {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes fadeOutFre {
@@ -206,7 +313,13 @@ fre-modal.dismissing {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  fre-modal.dismissing {
+  :host {
+    transition: none;
+  }
+  fre-modal,
+  fre-chin,
+  fre-modal.dismissing,
+  fre-chin.dismissing {
     animation-duration: 0s;
   }
   #mostVisitedContainer {
@@ -215,6 +328,8 @@ fre-modal.dismissing {
 }
 
 #content:has(omnibox-everywhere-omnibox[dropdown-is-visible]) fre-modal,
-#content:has(#composebox) fre-modal {
+#content:has(omnibox-everywhere-omnibox[dropdown-is-visible]) fre-chin,
+#content:has(#composebox) fre-modal,
+#content:has(#composebox) fre-chin {
   display: none;
 }

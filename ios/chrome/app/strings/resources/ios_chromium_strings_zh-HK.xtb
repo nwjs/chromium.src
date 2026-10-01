@@ -8,12 +8,10 @@
 <translation id="1091252999271033193">這代表 Chromium 每次都會要求取得流動網站。</translation>
 <translation id="1115463765356382667">完成下列建議動作，充分運用 Chromium 的各項功能。</translation>
 <translation id="1185134272377778587">關於 Chromium</translation>
-<translation id="119044033865561140">在 iPad 上即時開啟 Chromium</translation>
 <translation id="1229234641991056119">在 Chromium 使用 Safari 密碼、記錄、書籤和信用卡</translation>
 <translation id="1257458525759135959">如要儲存圖片，請輕按 [設定] 並允許 Chromium 新增您的相片</translation>
 <translation id="1260702988262336471">開啟 Chromium 選單</translation>
 <translation id="12739128458173458">如要將此分頁傳送至其他裝置，請在這兩部裝置上登入 Chromium。</translation>
-<translation id="1279797561821266129">從 Dock 更快存取 Chromium</translation>
 <translation id="1361748954329991663">Chromium 版本過舊。如果<ph name="BEGIN_LINK" />應用程式商店<ph name="END_LINK" />沒有提供任何更新，您的裝置可能已停止支援新版本的 Chromium。</translation>
 <translation id="1383876407941801731">搜尋</translation>
 <translation id="1423007117030725713">在新的 Chromium 分頁上開始搜尋。</translation>
@@ -32,7 +30,6 @@
 <translation id="1553657876656159572">為你而設的自訂動態消息，涵蓋新聞、運動和天氣資訊。</translation>
 <translation id="1561849081734670621">在 iPhone 上關閉「封鎖模式」，就能在 Chromium 中停用此模式。</translation>
 <translation id="1569258826720962327">在 iOS 上使用 Chromium 操作</translation>
-<translation id="1573441572176948907">將 Chromium 移至 Dock</translation>
 <translation id="159029779861043703">Chromium 會使用 Face ID 保護你的敏感資料安全。</translation>
 <translation id="1591119736686995611">開啟 Chromium 分頁網格。</translation>
 <translation id="16001233025397167">「安全檢查」能確保系統安全，避免發生資料外洩或瀏覽不安全網站等問題。你可以在 Chromium 偵測到任何私隱或安全問題時接收快訊。</translation>
@@ -145,6 +142,7 @@
 <translation id="3855938650519180865">Chromium 的新功能</translation>
 <translation id="3886689467633467988">登入此網站和 Chromium，即可在所有裝置上存取書籤及其他設定。</translation>
 <translation id="3949514465204582407">Chromium 提示：在任何應用程式中取得密碼</translation>
+<translation id="3983298990898629929">將 Chromium 設定為預設瀏覽器，輕按一下即可開啟連結</translation>
 <translation id="4005283307739974863">在 Chromium 中開啟並執行「安全檢查」。</translation>
 <translation id="4043291146360695975">密碼只會儲存至此裝置上的「密碼管理工具」。</translation>
 <translation id="4046625794029820944">將 Chromium 設定為預設瀏覽器，即可直接載入網頁，省卻複製網址的麻煩。</translation>
@@ -182,7 +180,6 @@
 <translation id="4790638144988730920">繼續使用 Google 帳戶中的 Chromium 資料。</translation>
 <translation id="4828317641996116749">Chromium 無法檢查所有密碼。請稍後再試。</translation>
 <translation id="4856138222358683580">Chromium 操作</translation>
-<translation id="4869706986935301458">在 iPhone 上即時開啟 Chromium</translation>
 <translation id="4904452304169763785">在 Chromium 偵測到任何私隱或安全問題時接收快訊。</translation>
 <translation id="4962295957157529683">請完成你在其他已開啟的 Chromium 視窗中正在執行的動作。</translation>
 <translation id="4985291216379576555">離線，Chromium 無法檢查更新</translation>
@@ -277,6 +274,7 @@
 <translation id="6680609900732453726">裝置驗證功能讓你在關閉 Chromium 時確保瀏覽資料保密</translation>
 <translation id="6696512128741076907">將 Chromium 設定為預設瀏覽器，即時開啟其他應用程式中的連結。</translation>
 <translation id="6752854822223394465">您的機構正在設定 Chromium…</translation>
+<translation id="6777348401413221846">全螢幕影片說明點樣將 Chromium 設定做預設瀏覽器：喺 iOS 度打開 Chromium 設定，㩒 [預設瀏覽器應用程式]，然後揀 [Chromium]。</translation>
 <translation id="6794054469102824109">開啟 Chromium 恐龍遊戲。</translation>
 <translation id="6820823224820483452">Chromium 無法檢查所有密碼。請明天再試。</translation>
 <translation id="6830782797004194206">使用 Chromium 自動填入功能快速登入</translation>
@@ -306,8 +304,8 @@
 <translation id="7337881442233988129">Chromium</translation>
 <translation id="7395825497086981028">系統會將密碼儲存在 <ph name="EMAIL" /> 的「密碼管理工具」。</translation>
 <translation id="7434848749522628428">此密鑰會儲存至 <ph name="USER_EMAIL" /> 的「密碼管理工具」</translation>
+<translation id="7453822113116681031">將 Chromium 設定為預設瀏覽器，輕按一下即可開啟連結</translation>
 <translation id="7504829997542308412">開啟 Chromium</translation>
-<translation id="7507535968973352823">將 Chromium 放在底部區域，方便隨時存取</translation>
 <translation id="7531461704633548377">來自 Chromium</translation>
 <translation id="7554983317097061001">Chromium 提示：將 Chromium 移至捷徑列</translation>
 <translation id="7576863740961052505">管理 Chromium 設定</translation>
@@ -357,7 +355,6 @@
 <translation id="8730503818204408000">開啟 Chromium 設定，將 Chromium 設定為預設瀏覽器。</translation>
 <translation id="8754966941001340678">Chromium 建議使用強化保護功能</translation>
 <translation id="8759037115129007407">你的家庭成員目前無法接收密碼。請要求他們更新 Chromium 並同步處理密碼。<ph name="BEGIN_LINK" />瞭解詳情<ph name="END_LINK" /></translation>
-<translation id="8769418653786388149">Chromium 隨時候命</translation>
 <translation id="8776843108004031667">此帳戶和所有未儲存的資料將從 Chromium 中移除。</translation>
 <translation id="8793333988063379360">這裡會顯示 Chromium 設定和其他項目</translation>
 <translation id="8805148242934787134">將 Chromium 設定為預設瀏覽器</translation>

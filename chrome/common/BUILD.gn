@@ -34,6 +34,7 @@ fuzzer_test("ini_parser_fuzzer") {
   # Large ini files can cause test cases to timeout
   libfuzzer_options = [ "max_len=100000" ]
 }
+
 grit("resources") {
   source = "common_resources.grd"
   inputs = [
@@ -304,8 +305,8 @@ static_library("common_lib") {
       # platforms that don't support it (e.g. Android).
       "controlled_frame/controlled_frame.cc",
       "controlled_frame/controlled_frame.h",
-      "initialize_extensions_client.cc",
-      "initialize_extensions_client.h",
+      "scoped_chrome_extensions_client.cc",
+      "scoped_chrome_extensions_client.h",
     ]
 
     # Add controlled frame dependencies on platforms that support it.
@@ -488,6 +489,10 @@ static_library("non_code_constants") {
 
   if (is_win) {
     sources += [ "chrome_icon_resources_win.h" ]
+  }
+
+  if (is_chromeos) {
+    deps += [ "//ash/constants" ]
   }
 }
 
@@ -683,8 +688,6 @@ if (is_mac) {
 }
 
 mojom("mojo_bindings") {
-  disable_variants = true
-
   sources = [
     "actor.mojom",
     "chrome_render_frame.mojom",
@@ -698,6 +701,7 @@ mojom("mojo_bindings") {
     "plugin.mojom",
     "readaloud/read_aloud.mojom",
     "renderer_configuration.mojom",
+    "tab_context_decryption_token_extension.mojom",
     "trusted_vault_encryption_keys_extension.mojom",
   ]
 
@@ -752,6 +756,7 @@ mojom("mojo_bindings") {
     "//sandbox/policy/mojom",
     "//third_party/blink/public/mojom:mojom_core",
     "//third_party/blink/public/mojom:mojom_platform",
+    "//ui/accessibility:ax_features_mojo",
     "//ui/gfx/geometry/mojom",
     "//ui/gfx/image/mojom",
     "//url/mojom:url_mojom_gurl",
@@ -804,8 +809,6 @@ mojom("mojo_bindings") {
 }
 
 mojom("glic_enums_mojom") {
-  disable_variants = true
-
   sources = [ "glic_enums.mojom" ]
 
   webui_module_path = "/"
@@ -816,8 +819,6 @@ mojom("glic_enums_mojom") {
 }
 
 mojom("actor_webui_mojom") {
-  disable_variants = true
-
   sources = [ "actor_webui.mojom" ]
 
   webui_module_path = "/"

@@ -204,8 +204,8 @@ NotificationPtr CreateSystemNotification(
     message_center::RichNotificationData optional_fields) {
   return ash::CreateSystemNotificationPtr(
       NOTIFICATION_TYPE_SIMPLE, notification_id, title, message,
-      GetStringUTF16(IDS_FILEMANAGER_APP_NAME), GURL(), NotifierId(),
-      optional_fields, std::move(delegate), ash::kFolderIcon,
+      GetStringUTF16(IDS_FILEMANAGER_APP_NAME), NotifierId(), optional_fields,
+      std::move(delegate), ash::kFolderIcon,
       SystemNotificationWarningLevel::NORMAL);
 }
 
@@ -282,7 +282,7 @@ NotificationPtr SystemNotificationManager::CreateProgressNotification(
 
   return ash::CreateSystemNotificationPtr(
       NOTIFICATION_TYPE_PROGRESS, notification_id, title, message, app_name_,
-      GURL(), NotifierId(), rich_data,
+      NotifierId(), rich_data,
       MakeRefCounted<HandleNotificationClickDelegate>(
           BindRepeating(&SystemNotificationManager::HandleProgressClick,
                         weak_ptr_factory_.GetWeakPtr(), notification_id)),
@@ -330,7 +330,7 @@ NotificationPtr SystemNotificationManager::CreateIOTaskProgressNotification(
 
   auto notification = ash::CreateSystemNotificationPtr(
       NOTIFICATION_TYPE_PROGRESS, notification_id, title, message, app_name_,
-      GURL(), NotifierId(), rich_data,
+      NotifierId(), rich_data,
       MakeRefCounted<IOTaskProgressNotificationClickDelegate>(
           std::move(notification_click_handler), paused),
       ash::kFolderIcon, SystemNotificationWarningLevel::NORMAL);
@@ -420,8 +420,7 @@ void SystemNotificationManager::HandleDeviceEvent(
       break;
 
     case fmp::DeviceEventType::kFormatSuccess:
-    case fmp::DeviceEventType::kFormatFail:
-    case fmp::DeviceEventType::kPartitionFail: {
+    case fmp::DeviceEventType::kFormatFail: {
       // Hide the formatting notification.
       GetNotificationDisplayService()->Close(
           NotificationHandler::Type::TRANSIENT,
@@ -435,10 +434,7 @@ void SystemNotificationManager::HandleDeviceEvent(
       } else {
         message = GetStringFUTF16(IDS_FILE_BROWSER_FORMAT_FAILURE_MESSAGE,
                                   UTF8ToUTF16(event.device_label));
-        RecordDeviceNotificationMetric(
-            event.type == fmp::DeviceEventType::kFormatFail
-                ? DeviceNotificationUmaType::FORMAT_FAIL
-                : DeviceNotificationUmaType::PARTITION_FAIL);
+        RecordDeviceNotificationMetric(DeviceNotificationUmaType::FORMAT_FAIL);
       }
       notification = CreateNotification(
           id,
@@ -447,11 +443,6 @@ void SystemNotificationManager::HandleDeviceEvent(
           std::move(message));
       break;
     }
-
-    case fmp::DeviceEventType::kPartitionStart:
-    case fmp::DeviceEventType::kPartitionSuccess:
-      // No-op.
-      break;
 
     case fmp::DeviceEventType::kRenameFail:
       notification = CreateNotification(
@@ -493,10 +484,10 @@ void SystemNotificationManager::HandleBulkPinningNotificationClick() {
 NotificationPtr SystemNotificationManager::MakeBulkPinningErrorNotification(
     const Event& event) {
   // Parse the event args as a bulk-pinning progress struct.
-  DCHECK(!event.event_args.empty());
-  auto progress = fmp::BulkPinProgress::FromValue(event.event_args[0]);
+  DCHECK(!event.args().empty());
+  auto progress = fmp::BulkPinProgress::FromValue(event.args()[0]);
   if (!progress) {
-    LOG(ERROR) << "Cannot parse BulkPinProgress from " << event.event_args[0];
+    LOG(ERROR) << "Cannot parse BulkPinProgress from " << event.args()[0];
     return nullptr;
   }
 
@@ -562,11 +553,10 @@ NotificationPtr SystemNotificationManager::MakeBulkPinningErrorNotification(
 
 NotificationPtr SystemNotificationManager::MakeDriveSyncErrorNotification(
     const Event& event) {
-  DCHECK(!event.event_args.empty());
-  auto sync_error = fmp::DriveSyncErrorEvent::FromValue(event.event_args[0]);
+  DCHECK(!event.args().empty());
+  auto sync_error = fmp::DriveSyncErrorEvent::FromValue(event.args()[0]);
   if (!sync_error) {
-    LOG(ERROR) << "Cannot parse DriveSyncErrorEvent from "
-               << event.event_args[0];
+    LOG(ERROR) << "Cannot parse DriveSyncErrorEvent from " << event.args()[0];
     return nullptr;
   }
 
@@ -649,12 +639,11 @@ void SystemNotificationManager::HandleDriveDialogClick(
 
 NotificationPtr SystemNotificationManager::MakeDriveConfirmDialogNotification(
     const Event& event) {
-  DCHECK(!event.event_args.empty());
-  auto dialog_event =
-      fmp::DriveConfirmDialogEvent::FromValue(event.event_args[0]);
+  DCHECK(!event.args().empty());
+  auto dialog_event = fmp::DriveConfirmDialogEvent::FromValue(event.args()[0]);
   if (!dialog_event) {
     LOG(ERROR) << "Cannot parse DriveConfirmDialogEvent from "
-               << event.event_args[0];
+               << event.args()[0];
     return nullptr;
   }
 
@@ -674,7 +663,7 @@ NotificationPtr SystemNotificationManager::MakeDriveConfirmDialogNotification(
 }
 
 void SystemNotificationManager::HandleEvent(const Event& event) {
-  if (event.event_args.empty()) {
+  if (event.args().empty()) {
     DLOG(WARNING) << "Ignored empty Event {name: " << event.event_name
                   << ", histogram_value: " << event.histogram_value << "}";
     return;
@@ -702,7 +691,7 @@ void SystemNotificationManager::HandleEvent(const Event& event) {
     default:
       VLOG(1) << "Ignored Event {name: " << event.event_name
               << ", histogram_value: " << event.histogram_value
-              << ", args: " << event.event_args << "}";
+              << ", args: " << event.args() << "}";
       return;
   }
 

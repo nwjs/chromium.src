@@ -47,13 +47,14 @@
 #include "skia/ext/image_operations.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/page_transition_types.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/gfx/codec/jpeg_codec.h"
 #include "ui/gfx/codec/webp_codec.h"
 #include "ui/gfx/image/image_util.h"
 
 #if !BUILDFLAG(IS_ANDROID)
 #include "base/time/time.h"
-#include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"  // nogncheck crbug.com/40147906
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"  // nogncheck crbug.com/40147906
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"  // nogncheck crbug.com/40147906
@@ -111,9 +112,7 @@ void CoreTabHelper::UpdateContentRestrictions(int content_restrictions) {
     return;
   }
 
-  browser->GetFeatures()
-      .browser_command_controller()
-      ->ContentRestrictionsChanged();
+  chrome::BrowserCommandController::From(browser)->ContentRestrictionsChanged();
 #endif
 }
 
@@ -444,9 +443,7 @@ void CoreTabHelper::NavigationEntriesDeleted() {
       [this](BrowserWindowInterface* browser) {
         if (web_contents() ==
             browser->GetTabStripModel()->GetActiveWebContents()) {
-          browser->GetFeatures()
-              .browser_command_controller()
-              ->TabStateChanged();
+          chrome::BrowserCommandController::From(browser)->TabStateChanged();
         }
         return true;
       });
@@ -462,9 +459,7 @@ void CoreTabHelper::OnWebContentsFocused(
       GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(
           web_contents());
   if (browser) {
-    browser->GetFeatures()
-        .browser_command_controller()
-        ->WebContentsFocusChanged();
+    chrome::BrowserCommandController::From(browser)->WebContentsFocusChanged();
   }
 #endif  // BUILDFLAG(IS_ANDROID)
 }
@@ -476,9 +471,7 @@ void CoreTabHelper::OnWebContentsLostFocus(
       GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(
           web_contents());
   if (browser) {
-    browser->GetFeatures()
-        .browser_command_controller()
-        ->WebContentsFocusChanged();
+    chrome::BrowserCommandController::From(browser)->WebContentsFocusChanged();
   }
 #endif  // BUILDFLAG(IS_ANDROID)
 }
@@ -562,9 +555,10 @@ void CoreTabHelper::PostContentToURL(TemplateURLRef::PostContent post_content,
   if (!url.is_valid()) {
     return;
   }
-  content::OpenURLParams open_url_params(
-      url, content::Referrer(), WindowOpenDisposition::NEW_FOREGROUND_TAB,
-      ui::PAGE_TRANSITION_LINK, false);
+  content::OpenURLParams open_url_params =
+      content::OpenURLParams::CreateBrowserInitiated(
+          url, WindowOpenDisposition::NEW_FOREGROUND_TAB,
+          ui::PAGE_TRANSITION_LINK);
   const std::string& content_type = post_content.first;
   const std::string& post_data = post_content.second;
   if (!post_data.empty()) {

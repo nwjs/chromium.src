@@ -4,10 +4,13 @@
 
 #include "chrome/browser/enterprise/reporting/saas_usage/saas_usage_navigation_observer.h"
 
+#include <string>
 #include <string_view>
 
+#include "base/functional/bind.h"
 #include "base/memory/raw_ptr.h"
 #include "base/test/scoped_feature_list.h"
+#include "base/test/test_future.h"
 #include "chrome/browser/enterprise/reporting/saas_usage/saas_usage_reporting_controller_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/test/base/chrome_render_view_host_test_harness.h"
@@ -17,6 +20,7 @@
 #include "components/prefs/pref_registry_simple.h"
 #include "components/prefs/testing_pref_service.h"
 #include "content/public/test/navigation_simulator.h"
+#include "content/public/test/prerender_test_util.h"
 #include "content/public/test/web_contents_tester.h"
 #include "net/http/http_response_headers.h"
 #include "net/ssl/ssl_cipher_suite_names.h"
@@ -44,17 +48,23 @@ class MockSaasUsageReportingController : public SaasUsageReportingController {
               (const, override));
 };
 
-auto SaasUsageNavigationMatcher(const GURL& url,
-                                const std::string& encryption_protocol) {
+std::string GetEncryptionProtocol(
+    const SaasUsageReportingController::NavigationDataDelegate& delegate) {
+  base::test::TestFuture<std::string_view> result;
+  delegate.GetEncryptionProtocol(result.GetCallback());
+  return std::string(result.Get());
+}
+
+auto SaasUsageNavigationMatcher(
+    const testing::Matcher<GURL>& url,
+    const testing::Matcher<std::string>& encryption_protocol) {
   return testing::AllOf(
       testing::Property(
           &SaasUsageReportingController::NavigationDataDelegate::GetUrl, url),
-      testing::Property(&SaasUsageReportingController::NavigationDataDelegate::
-                            GetEncryptionProtocol,
-                        encryption_protocol));
+      testing::ResultOf(&GetEncryptionProtocol, encryption_protocol));
 }
 
-auto SaasUsageNavigationMatcher(const GURL& url) {
+auto SaasUsageNavigationMatcher(const testing::Matcher<GURL>& url) {
   return testing::Property(
       &SaasUsageReportingController::NavigationDataDelegate::GetUrl, url);
 }
@@ -210,6 +220,49 @@ TEST_F(SaasUsageNavigationObserverTest, DoNotReportIframeNavigation) {
       .Times(0);
   content::NavigationSimulator::NavigateAndCommitFromDocument(
       GURL("http://iframe.com/"), subframe);
+}
+
+TEST_F(SaasUsageNavigationObserverTest, DoNotReportFencedFrameNavigation) {
+  // The first navigation of the main frame.
+  EXPECT_CALL(
+      *mock_controller(),
+      RecordNavigation(SaasUsageNavigationMatcher(GURL("http://example.com/"))))
+      .Times(1);
+  content::NavigationSimulator::NavigateAndCommitFromBrowser(
+      web_contents(), GURL("http://example.com/"));
+  testing::Mock::VerifyAndClearExpectations(mock_controller());
+
+  // Create a fenced frame and navigate it.
+  content::RenderFrameHost* fenced_frame =
+      content::RenderFrameHostTester::For(main_rfh())->AppendFencedFrame();
+
+  EXPECT_CALL(*mock_controller(), RecordNavigation(SaasUsageNavigationMatcher(
+                                      GURL("http://fencedframe.com/"))))
+      .Times(0);
+  content::NavigationSimulator::NavigateAndCommitFromDocument(
+      GURL("http://fencedframe.com/"), fenced_frame);
+}
+
+TEST_F(SaasUsageNavigationObserverTest, DoNotReportPrerenderNavigation) {
+  content::test::ScopedPrerenderFeatureList prerender_feature_list;
+  content::test::ScopedPrerenderWebContentsDelegate web_contents_delegate(
+      *web_contents());
+
+  // The first navigation of the main frame.
+  EXPECT_CALL(
+      *mock_controller(),
+      RecordNavigation(SaasUsageNavigationMatcher(GURL("http://example.com/"))))
+      .Times(1);
+  content::NavigationSimulator::NavigateAndCommitFromBrowser(
+      web_contents(), GURL("http://example.com/"));
+  testing::Mock::VerifyAndClearExpectations(mock_controller());
+
+  // Prerender a page. Prerendering must be same-site with the initiator page.
+  EXPECT_CALL(*mock_controller(), RecordNavigation(SaasUsageNavigationMatcher(
+                                      GURL("http://example.com/prerender"))))
+      .Times(0);
+  content::WebContentsTester::For(web_contents())
+      ->AddPrerenderAndCommitNavigation(GURL("http://example.com/prerender"));
 }
 
 }  // namespace enterprise_reporting

@@ -17,6 +17,9 @@
 #include "chrome/browser/ui/webui/ash/settings/pages/storage/storage_section.h"
 #include "chrome/browser/ui/webui/ash/settings/pages/system_preferences/startup_section.h"
 
+class ApplicationLocaleStorage;
+class PrefService;
+
 namespace content {
 class WebUIDataSource;
 }  // namespace content
@@ -30,9 +33,14 @@ class SearchTagRegistry;
 // and Storage sections.
 class SystemPreferencesSection : public OsSettingsSection {
  public:
-  SystemPreferencesSection(Profile* profile,
-                           SearchTagRegistry* search_tag_registry,
-                           PrefService* pref_service);
+  // `local_state` and `application_locale_storage` must be non-null and must
+  // outlive `this`.
+  SystemPreferencesSection(
+      PrefService* local_state,
+      const ApplicationLocaleStorage* application_locale_storage,
+      Profile* profile,
+      SearchTagRegistry* search_tag_registry,
+      PrefService* pref_service);
   ~SystemPreferencesSection() override;
 
   // OsSettingsSection:

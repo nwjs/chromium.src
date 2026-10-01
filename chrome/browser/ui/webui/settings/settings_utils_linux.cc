@@ -24,6 +24,8 @@
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/web_contents.h"
+#include "ui/base/page_transition_types.h"
+#include "ui/base/window_open_disposition.h"
 
 using content::BrowserThread;
 using content::OpenURLParams;
@@ -68,9 +70,9 @@ void ShowLinuxProxyConfigUrl(base::WeakPtr<content::WebContents> web_contents,
   if (name) {
     LOG(ERROR) << "Could not find " << name << " network settings in $PATH";
   }
-  OpenURLParams params(GURL(kLinuxProxyConfigUrl), Referrer(),
-                       WindowOpenDisposition::NEW_FOREGROUND_TAB,
-                       ui::PAGE_TRANSITION_LINK, false);
+  OpenURLParams params = OpenURLParams::CreateBrowserInitiated(
+      GURL(kLinuxProxyConfigUrl), WindowOpenDisposition::NEW_FOREGROUND_TAB,
+      ui::PAGE_TRANSITION_LINK);
 
   if (web_contents) {
     web_contents->OpenURL(params, /*navigation_handle_callback=*/{});

@@ -44,7 +44,7 @@ import java.util.Set;
 public class BasicSuggestionProcessor extends BaseSuggestionViewProcessor {
     private static final String TAKEOVER_SEPARATOR = " - ";
 
-    /** Bookmarked state of a URL */
+    /** Bookmarked state of a URL. */
     public interface BookmarkState {
         /**
          * @param url URL to check.
@@ -75,7 +75,7 @@ public class BasicSuggestionProcessor extends BaseSuggestionViewProcessor {
 
     @Override
     public PropertyModel createModel() {
-        return new PropertyModel(SuggestionViewProperties.ALL_KEYS);
+        return createPropertyModel(SuggestionViewProperties.ALL_KEYS);
     }
 
     @VisibleForTesting
@@ -136,6 +136,9 @@ public class BasicSuggestionProcessor extends BaseSuggestionViewProcessor {
 
             case SuggestTemplateInfo.IconType.BOLT_VALUE:
                 return R.drawable.bolt_24dp;
+
+            case SuggestTemplateInfo.IconType.IMAGE_CREATE_VALUE:
+                return R.drawable.image_create_24dp;
 
             default: // Icon type is specified, but not recognized
                 assert false : "Unrecognized IconType: " + iconType;
@@ -260,7 +263,8 @@ public class BasicSuggestionProcessor extends BaseSuggestionViewProcessor {
         }
 
         model.set(SuggestionViewProperties.IS_SEARCH_SUGGESTION, isSearchSuggestion);
-        model.set(SuggestionViewProperties.ALLOW_WRAP_AROUND, isSearchSuggestion);
+        model.set(SuggestionViewProperties.TEXT_LINE_1_WRAP, isSearchSuggestion);
+        model.set(SuggestionViewProperties.TEXT_LINE_2_WRAP, suggestion.shouldWrapSecondaryText());
         model.set(SuggestionViewProperties.TEXT_LINE_1_TEXT, textLine1);
         model.set(SuggestionViewProperties.TEXT_LINE_2_TEXT, textLine2);
 

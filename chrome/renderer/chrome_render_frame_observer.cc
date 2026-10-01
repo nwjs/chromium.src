@@ -38,6 +38,7 @@
 #include "chrome/renderer/loadtimes_bindings.h"
 #include "chrome/renderer/media/media_feeds.h"
 #include "chrome/renderer/process_state.h"
+#include "components/actor/core/actor_features.h"
 #include "components/crash/core/common/crash_key.h"
 #include "components/guest_view/buildflags/buildflags.h"
 #include "components/guest_view/renderer/slim_web_view/slim_web_view_bindings.h"
@@ -59,6 +60,7 @@
 #include "content/public/renderer/render_frame_visitor.h"
 #include "content/public/renderer/render_thread.h"
 #include "content/public/renderer/window_features_converter.h"
+#include "extensions/buildflags/buildflags.h"
 #include "printing/buildflags/buildflags.h"
 #include "services/service_manager/public/cpp/binder_registry.h"
 #include "skia/ext/image_operations.h"
@@ -77,11 +79,13 @@
 #include "third_party/blink/public/web/web_view.h"
 #include "third_party/libwebp/src/src/webp/decode.h"
 #include "third_party/skia/include/core/SkBitmap.h"
+#include "ui/base/page_transition_types.h"
 #include "ui/gfx/codec/jpeg_codec.h"
 #include "ui/gfx/codec/png_codec.h"
 #include "ui/gfx/codec/webp_codec.h"
 #include "ui/gfx/geometry/size_f.h"
 #include "url/gurl.h"
+#include "url/url_constants.h"
 
 #if !BUILDFLAG(IS_ANDROID)
 #include "chrome/renderer/accessibility/read_anything/read_anything_app_controller.h"
@@ -200,6 +204,12 @@ bool ShouldForceTranslateAgentCreation(const GURL& url) {
   return false;
 #endif
 }
+
+#if BUILDFLAG(ENABLE_PDF)
+bool IsLocalPage(const GURL& url) {
+  return url.SchemeIs(url::kFileScheme) || url.SchemeIs(url::kContentScheme);
+}
+#endif  // BUILDFLAG(ENABLE_PDF)
 
 }  // namespace
 
@@ -725,19 +735,19 @@ void ChromeRenderFrameObserver::CreatePageStabilityMonitor(
         monitor,
     const actor::TaskId& task_id,
     bool supports_paint_stability) {
-  page_stability_monitor_ = std::make_unique<
-      page_content_annotations::PageStabilityMonitor>(
-      *render_frame(), supports_paint_stability,
-      std::make_unique<actor::ChromePageStabilityMonitorDelegate>(
-          task_id, *actor_journal_,
-          actor::PageStabilityMonitorDelegate::Thresholds{
-              .timeout_delay = features::kGlicActorPageStabilityTimeout.Get(),
-              .min_wait = features::kGlicActorPageStabilityMinWait.Get(),
-              .initial_paint_timeout =
-                  features::kActorPaintStabilityIntialPaintTimeout.Get(),
-              .subsequent_paint_timeout =
-                  features::kActorPaintStabilitySubsequentPaintTimeout.Get(),
-          }));
+  page_stability_monitor_ =
+      std::make_unique<page_content_annotations::PageStabilityMonitor>(
+          *render_frame(), supports_paint_stability,
+          std::make_unique<actor::ChromePageStabilityMonitorDelegate>(
+              task_id, *actor_journal_,
+              actor::PageStabilityMonitorDelegate::Thresholds{
+                  .timeout_delay = actor::kActorPageStabilityTimeout.Get(),
+                  .min_wait = actor::kActorPageStabilityMinWait.Get(),
+                  .initial_paint_timeout =
+                      actor::kActorPaintStabilityInitialPaintTimeout.Get(),
+                  .subsequent_paint_timeout =
+                      actor::kActorPaintStabilitySubsequentPaintTimeout.Get(),
+              }));
   page_stability_monitor_->Bind(std::move(monitor));
 }
 
@@ -756,7 +766,7 @@ void ChromeRenderFrameObserver::SetClientSidePhishingDetection() {
 void ChromeRenderFrameObserver::PdfPageCaptured(const std::u16string& contents,
                                                 const std::string& pdf_lang,
                                                 const GURL& page_url) {
-  if (translate_agent_) {
+  if (translate_agent_ && !IsLocalPage(page_url)) {
     translate_agent_->PdfPageCaptured(contents, pdf_lang, page_url);
   }
 }

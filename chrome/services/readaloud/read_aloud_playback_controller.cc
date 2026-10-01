@@ -10,9 +10,11 @@
 
 #include "base/containers/span.h"
 #include "base/functional/bind.h"
+#include "base/strings/utf_string_conversions.h"
 #include "base/types/pass_key.h"
 #include "chrome/services/readaloud/audio_renderer/read_aloud_audio_renderer.h"
 #include "chrome/services/readaloud/audio_segment_queue.h"
+#include "chrome/services/readaloud/synthesis_response_parser.h"
 #include "media/audio/audio_device_thread.h"
 #include "media/audio/audio_output_device_thread_callback.h"
 #include "media/base/audio_parameters.h"
@@ -37,9 +39,6 @@ ReadAloudPlaybackController::ReadAloudPlaybackController(
   receiver_.set_disconnect_handler(
       base::BindOnce(&ReadAloudPlaybackController::OnReceiverDisconnected,
                      factory_weak_factory_.GetWeakPtr()));
-  prefetch_manager_.SetRequestSynthesisCallback(base::BindRepeating(
-      &ReadAloudPlaybackController::OnPrefetchSynthesisRequest,
-      factory_weak_factory_.GetWeakPtr()));
 }
 
 ReadAloudPlaybackController::~ReadAloudPlaybackController() {
@@ -59,6 +58,7 @@ void ReadAloudPlaybackController::CreateController(
         "controller and client handles to be valid");
     return;
   }
+
   ResetSession();
   controller_receiver_.Bind(std::move(controller));
   controller_receiver_.set_disconnect_handler(
@@ -68,6 +68,13 @@ void ReadAloudPlaybackController::CreateController(
   client_.set_disconnect_handler(
       base::BindOnce(&ReadAloudPlaybackController::OnClientDisconnected,
                      session_weak_factory_.GetWeakPtr()));
+
+  prefetch_manager_.SetRequestSynthesisCallback(base::BindRepeating(
+      &ReadAloudPlaybackController::OnPrefetchSynthesisRequest,
+      session_weak_factory_.GetWeakPtr()));
+  prefetch_manager_.SetOnTextChunkedCallback(
+      base::BindRepeating(&ReadAloudPlaybackController::OnTextChunked,
+                          session_weak_factory_.GetWeakPtr()));
 }
 
 void ReadAloudPlaybackController::InitializeAudio(
@@ -158,9 +165,6 @@ void ReadAloudPlaybackController::SetTextContent(
           "ReadAloudPlaybackController: Null TextSegment in SetTextContent");
       return;
     }
-    if (segment->text.empty()) {
-      continue;
-    }
     if (i > 0 && segment->segment_index <= last_index) {
       controller_receiver_.ReportBadMessage(
           "ReadAloudPlaybackController: segment_index must be "
@@ -168,6 +172,10 @@ void ReadAloudPlaybackController::SetTextContent(
       return;
     }
     last_index = segment->segment_index;
+
+    if (segment->text.empty()) {
+      continue;
+    }
     if (segment->text.size() > kMaxTextLengthPerSegment) {
       controller_receiver_.ReportBadMessage(
           "ReadAloudPlaybackController: TextSegment length exceeds limit in "
@@ -238,7 +246,7 @@ void ReadAloudPlaybackController::SeekToWord(uint32_t segment_index,
 void ReadAloudPlaybackController::SeekToTime(base::TimeDelta position) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   if (position.is_negative() || position.is_max()) {
-    mojo::ReportBadMessage(
+    controller_receiver_.ReportBadMessage(
         "ReadAloudPlaybackController: Invalid position in SeekToTime");
     return;
   }
@@ -323,21 +331,42 @@ void ReadAloudPlaybackController::OnPrefetchSynthesisRequest(
                      chunk_index));
 }
 
+void ReadAloudPlaybackController::OnTextChunked(
+    const std::vector<std::u16string>& chunks) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  if (client_.is_bound()) {
+    client_->OnTextChunked(chunks);
+  }
+}
+
 void ReadAloudPlaybackController::OnSpeechSynthesisResponse(
     uint64_t sequence_id,
     uint32_t chunk_index,
     mojo_base::BigBuffer response_bytes,
     bool success) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
-  if (!success || response_bytes.size() == 0) {
+  if (!success) {
     prefetch_manager_.OnSynthesisResponse(sequence_id, chunk_index, nullptr,
                                           {});
+    decoder_sequencer_.ReplenishBuffer();
     return;
   }
-  scoped_refptr<media::DecoderBuffer> opus_buffer =
-      media::DecoderBuffer::CopyFrom(base::span(response_bytes));
-  prefetch_manager_.OnSynthesisResponse(sequence_id, chunk_index,
-                                        std::move(opus_buffer), {});
+
+  const std::vector<TextChunk>& timeline = prefetch_manager_.GetTimelineChunks();
+  if (chunk_index >= timeline.size()) {
+    prefetch_manager_.OnSynthesisResponse(sequence_id, chunk_index, nullptr,
+                                          {});
+    decoder_sequencer_.ReplenishBuffer();
+    return;
+  }
+  const TextChunk& chunk = timeline[chunk_index];
+
+  ParsedSynthesisResult result =
+      ParseAndValidateSynthesisResponse(std::move(response_bytes), chunk);
+
+  prefetch_manager_.OnSynthesisResponse(
+      sequence_id, chunk_index, std::move(result.audio_buffer),
+      std::move(result.timings));
 
   decoder_sequencer_.ReplenishBuffer();
 }

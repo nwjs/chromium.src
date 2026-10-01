@@ -12,6 +12,8 @@
 #include "components/autofill/core/browser/ui/payments/save_and_fill_dialog_controller.h"
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/web_contents.h"
+#include "ui/base/page_transition_types.h"
+#include "ui/base/window_open_disposition.h"
 
 using tabs::TabInterface;
 
@@ -51,11 +53,10 @@ void SaveAndFillViewDesktop::DismissThrobberAndUpdateMainView() {
 }
 
 void SaveAndFillViewDesktop::OnLegalMessageLinkClicked(const GURL& url) {
-  web_contents_->OpenURL(
-      content::OpenURLParams(
-          url, content::Referrer(), WindowOpenDisposition::NEW_FOREGROUND_TAB,
-          ui::PAGE_TRANSITION_LINK, /*is_renderer_initiated=*/false),
-      /*navigation_handle_callback=*/{});
+  web_contents_->OpenURL(content::OpenURLParams::CreateBrowserInitiated(
+                             url, WindowOpenDisposition::NEW_FOREGROUND_TAB,
+                             ui::PAGE_TRANSITION_LINK),
+                         /*navigation_handle_callback=*/{});
 }
 
 }  // namespace autofill

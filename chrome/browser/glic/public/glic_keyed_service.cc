@@ -46,8 +46,8 @@
 #include "chrome/browser/glic/host/glic.mojom.h"
 #include "chrome/browser/glic/host/glic_local_storage_migration.h"
 #include "chrome/browser/glic/host/glic_web_client_access.h"
+#include "chrome/browser/glic/host/glic_web_contents_manager.h"
 #include "chrome/browser/glic/host/host.h"
-#include "chrome/browser/glic/host/webui_contents_container.h"
 #include "chrome/browser/glic/public/features.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
 #include "chrome/browser/glic/public/glic_keyed_service_factory.h"
@@ -90,6 +90,7 @@
 #include "third_party/abseil-cpp/absl/strings/str_format.h"
 #include "third_party/blink/public/common/web_preferences/web_preferences.h"
 #include "ui/base/page_transition_types.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/views/widget/widget.h"
 #include "url/gurl.h"
 
@@ -110,17 +111,8 @@ namespace {
 
 base::TimeDelta GetWarmingDelay(GlicWarmingTrigger trigger) {
   switch (trigger) {
-    case GlicWarmingTrigger::kStartup: {
-      base::TimeDelta delay_start =
-          base::Milliseconds(features::kGlicWarmingDelayMs.Get());
-      base::TimeDelta delay_limit =
-          delay_start +
-          base::Milliseconds(features::kGlicWarmingJitterMs.Get());
-      if (delay_limit > delay_start) {
-        return RandTimeDelta(delay_start, delay_limit);
-      }
-      return delay_start;
-    }
+    case GlicWarmingTrigger::kStartup:
+      return base::Milliseconds(features::kGlicWarmingDelayMs.Get());
     case GlicWarmingTrigger::kNudge:
     case GlicWarmingTrigger::kIph:
       return base::TimeDelta();
@@ -195,11 +187,12 @@ GlicKeyedService::GlicKeyedService(
           enabling_.get(),
           contextual_cueing_service)),
       auth_controller_(
-          std::make_unique<AuthController>(profile, identity_manager)),
+          features::IsGlicNoWebviewEnabled()
+              ? nullptr
+              : std::make_unique<AuthController>(profile, identity_manager)),
 
       tab_data_observer_(std::make_unique<GlicTabDataObserver>(profile)),
       tab_favicon_observer_(std::make_unique<GlicTabFaviconObserver>(profile)) {
-
   CHECK(GlicEnabling::IsProfileEligible(Profile::FromBrowserContext(profile)));
 
   // TODO(crbug.com/450026474): Consider not constructing this metrics

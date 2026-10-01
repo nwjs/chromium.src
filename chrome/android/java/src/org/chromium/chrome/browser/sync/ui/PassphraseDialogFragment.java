@@ -7,8 +7,6 @@ package org.chromium.chrome.browser.sync.ui;
 import static org.chromium.build.NullUtil.assumeNonNull;
 
 import android.app.Dialog;
-import android.content.DialogInterface;
-import android.content.DialogInterface.OnClickListener;
 import android.graphics.PorterDuff;
 import android.graphics.drawable.Drawable;
 import android.os.Bundle;
@@ -33,15 +31,16 @@ import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.profiles.ProfileManager;
+import org.chromium.chrome.browser.settings.SettingsCustomTabLauncherImpl;
 import org.chromium.chrome.browser.sync.SyncServiceFactory;
-import org.chromium.chrome.browser.sync.settings.SyncSettingsUtils;
+import org.chromium.chrome.browser.sync.SyncSettingsUtils;
 import org.chromium.components.sync.SyncService;
 import org.chromium.ui.text.SpanApplier;
 import org.chromium.ui.text.SpanApplier.SpanInfo;
 
 /** Dialog to ask to user to enter their sync passphrase. */
 @NullMarked
-public class PassphraseDialogFragment extends DialogFragment implements OnClickListener {
+public class PassphraseDialogFragment extends DialogFragment {
     private static final String TAG = "Sync_UI";
 
     /** A delegate for passphrase events/dependencies. */
@@ -124,32 +123,22 @@ public class PassphraseDialogFragment extends DialogFragment implements OnClickL
                         .setView(v)
                         .setPositiveButton(
                                 R.string.submit,
-                                new OnClickListener() {
-                                    @Override
-                                    public void onClick(DialogInterface d, int which) {
-                                        // We override the onclick. This is a hack to not dismiss
-                                        // the dialog after click of OK and instead dismiss it after
-                                        // confirming the passphrase is correct.
-                                    }
+                                (_, _) -> {
+                                    // We override the onclick. This is a hack to not dismiss
+                                    // the dialog after click of OK and instead dismiss it after
+                                    // confirming the passphrase is correct.
                                 })
-                        .setNegativeButton(R.string.cancel, this)
+                        .setNegativeButton(R.string.cancel, (_, _) -> handleCancel())
                         .setTitle(R.string.sync_enter_passphrase_title)
                         .create();
 
         d.getDelegate().setHandleNativeActionModesEnabled(false);
         d.setOnShowListener(
-                dialog -> {
+                _ -> {
                     Button b = d.getButton(AlertDialog.BUTTON_POSITIVE);
-                    b.setOnClickListener(view -> handleSubmit());
+                    b.setOnClickListener(_ -> handleSubmit());
                 });
         return d;
-    }
-
-    @Override
-    public void onClick(DialogInterface dialog, int which) {
-        if (which == AlertDialog.BUTTON_NEGATIVE) {
-            handleCancel();
-        }
     }
 
     @Override
@@ -178,7 +167,8 @@ public class PassphraseDialogFragment extends DialogFragment implements OnClickL
                         new ClickableSpan() {
                             @Override
                             public void onClick(View view) {
-                                SyncSettingsUtils.openSyncDashboard(getActivity());
+                                SyncSettingsUtils.openSyncDashboard(
+                                        getContext(), new SettingsCustomTabLauncherImpl());
                             }
                         }));
     }

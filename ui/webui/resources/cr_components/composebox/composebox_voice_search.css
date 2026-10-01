@@ -74,14 +74,21 @@
   );
   outline: none;
   resize: none;
+  scrollbar-width: none;
   transition: var(--voice-search-fade-transition);
   width: 100%;
+}
+
+#input.empty {
+  mask-image: none;
+  overflow: hidden;
 }
 
 #input,
 #error-container {
   box-sizing: border-box;
-  color: var(--color-composebox-voice-search-font, rgba(71, 71, 71, 1));
+  color: var(--color-composebox-voice-search-font,
+      var(--color-composebox-font-light, #1F1F1F));
   flex-grow: 1;
   font-family: inherit;
   line-height: 24px;
@@ -137,7 +144,8 @@
   transition: var(--voice-search-fade-transition);
 }
 
-:host([live-transcript-enabled]) #container:not(.has-error) {
+:host([live-transcript-enabled]:not([audio-wave-enabled]))
+    #container:not(.has-error) {
   height: auto;
   inset: auto;
   justify-content: space-between;
@@ -153,10 +161,11 @@
   overflow-y: auto;
   padding-bottom: 0;
   padding-inline-end: 20px;
+  padding-inline-start: 20px;
   word-break: break-word;
 }
 
-:host([live-transcript-enabled]) #bottomActions {
+:host([live-transcript-enabled]:not([audio-wave-enabled])) #bottomActions {
   align-self: flex-end;
   margin-bottom: 0;
   margin-inline-end: var(--voice-bottom-actions-inset-inline-end, 12px);
@@ -169,7 +178,7 @@
   --cr-icon-button-fill-color: #1F1F1F;
   --cr-icon-button-icon-size: 12px;
   --cr-icon-button-size: 36px;
-  background-color: #E1E3E1;
+  background-color: #F0F2F5;
   border-radius: var(--cr-composebox-submit-border-radius, 50%);
   /* Has same height/width as submit button. */
   height: var(--cr-composebox-button-height,
@@ -188,6 +197,12 @@
     --cr-icon-button-fill-color: #E3E3E3;
     background-color: #444746;
   }
+
+  #input,
+  #error-container {
+    color: var(--color-composebox-voice-search-font,
+        var(--color-composebox-font-light, #E3E3E3));
+  }
 }
 
 #submitButton::part(submit) {
@@ -195,6 +210,26 @@
   bottom: auto;
   inset-inline-end: auto;
   position: relative;
+}
+
+/* Voice search uses the search token blues on every surface, instead of
+ * inheriting whichever submit color the embedding composebox happens to use.
+ */
+#submitButton {
+  --color-composebox-submit-button-background: #346BF1;
+}
+
+#submitButton[disabled] {
+  --color-composebox-submit-button-background: #C2D3FB;
+}
+
+/* The shared submit button fades itself out when disabled. The inactive color
+ * above is already the faded token, so keep both background layers at full
+ * opacity.
+ */
+#submitButton[disabled]::part(submit-icon),
+#submitButton[disabled]::part(button-energy) {
+  opacity: 1;
 }
 
 :host-context([webui-rounded-icons]) #stopButton {
@@ -207,6 +242,69 @@
 
 :host-context([in-voice-search-mode]) #submitButton::part(submit) {
   opacity: 1;
+}
+
+:host([audio-wave-enabled]) #container {
+  padding-bottom: 0;
+  padding-top: 0;
+}
+
+:host([audio-wave-enabled]) #input {
+  box-sizing: border-box;
+  font-family: var(--cr-composebox-font-family, 'Google Sans Text', inherit);
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 24px;
+  /* 20px top padding + 7 lines of 24px + 7px room for the bottom scroll fade. */
+  max-height: 195px;
+  overflow-y: auto;
+  /* Reserve 7px bottom padding for the scroll fade so it doesn't cover the
+   * bottom of the text.
+   */
+  padding-bottom: 7px;
+  padding-inline-end: 20px;
+  padding-inline-start: 20px;
+  padding-top: 20px;
+  text-align: start;
+  word-break: break-word;
+}
+
+:host([audio-wave-enabled]) #input.empty {
+  max-height: 44px;
+  overflow-y: hidden;
+  /* The placeholder is not scrollable and has no fade, so it does not need the
+   * padding reserved above.
+   */
+  padding-bottom: 0;
+  padding-inline-end: 0;
+  padding-inline-start: 0;
+  padding-top: 20px;
+  text-align: center;
+}
+
+:host([audio-wave-enabled]) #input.empty #transcript-text {
+  font-family: var(--cr-composebox-font-family, 'Google Sans', inherit);
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 24px;
+}
+
+/* Positioned absolute at bottom-end to stay fixed during dynamic height
+ * expansion (16px bottom per Figma spec). */
+:host([audio-wave-enabled]) #bottomActions {
+  bottom: var(--voice-bottom-actions-bottom, 16px);
+  inset-inline-end: var(--voice-bottom-actions-inset-inline-end, 16px);
+  margin: 0;
+  position: absolute;
+  transition: bottom 200ms ease-in-out, var(--voice-search-fade-transition);
+}
+
+:host([audio-wave-enabled]) #error-container {
+  padding-top: 20px;
+}
+
+:host([audio-wave-enabled]) #closeButton {
+  top: 14px;
 }
 
 /* Use opacity and pointer-events to utilize fade transition

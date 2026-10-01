@@ -17,7 +17,6 @@
 #include "net/base/schemeful_site.h"
 #include "net/first_party_sets/first_party_set_entry.h"
 #include "net/first_party_sets/global_first_party_sets.h"
-#include "net/first_party_sets/local_set_declaration.h"
 #include "net/first_party_sets/sets_mutation.h"
 
 namespace content {
@@ -48,9 +47,6 @@ class CONTENT_EXPORT FirstPartySetParser {
   static std::optional<net::SchemefulSite> CanonicalizeRegisteredDomain(
       std::string_view origin_string,
       bool emit_errors);
-
-  [[nodiscard]] static net::LocalSetDeclaration ParseFromCommandLine(
-      const std::string& switch_value);
 };
 
 }  // namespace content

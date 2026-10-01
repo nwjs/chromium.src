@@ -21,6 +21,8 @@
 #include "components/strings/grit/components_strings.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/models/dialog_model.h"
+#include "ui/base/page_transition_types.h"
+#include "ui/base/window_open_disposition.h"
 #include "url/gurl.h"
 
 namespace tab_groups {
@@ -88,7 +90,7 @@ void ShowSharedTabGroupVersionUpToDateToast(
     return;
   }
 
-  ToastController* toast_controller = browser->GetFeatures().toast_controller();
+  ToastController* toast_controller = ToastController::From(browser.get());
   if (!toast_controller) {
     return;
   }

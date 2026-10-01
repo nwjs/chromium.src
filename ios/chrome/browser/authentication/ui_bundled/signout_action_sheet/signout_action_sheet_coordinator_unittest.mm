@@ -36,7 +36,6 @@
 #import "ios/chrome/browser/shared/public/snackbar/snackbar_message_action.h"
 #import "ios/chrome/browser/signin/model/authentication_service.h"
 #import "ios/chrome/browser/signin/model/authentication_service_factory.h"
-#import "ios/chrome/browser/signin/model/fake_authentication_service_delegate.h"
 #import "ios/chrome/browser/signin/model/fake_system_identity.h"
 #import "ios/chrome/browser/signin/model/fake_system_identity_manager.h"
 #import "ios/chrome/browser/sync/model/mock_sync_service_utils.h"
@@ -69,8 +68,7 @@ class SignoutActionSheetCoordinatorTest : public PlatformTest {
                         ->GetPersonalProfileName());
     builder.AddTestingFactory(
         AuthenticationServiceFactory::GetInstance(),
-        AuthenticationServiceFactory::GetFactoryWithDelegateForTesting(
-            std::make_unique<FakeAuthenticationServiceDelegate>()));
+        AuthenticationServiceFactory::GetDefaultFactory());
     builder.AddTestingFactory(SyncServiceFactory::GetInstance(),
                               base::BindRepeating(&CreateMockSyncService));
     profile_ = profile_manager_.AddProfileWithBuilder(std::move(builder));
@@ -160,31 +158,6 @@ class SignoutActionSheetCoordinatorTest : public PlatformTest {
 
   PrefService* GetPrefs() { return profile_->GetPrefs(); }
 
-  void SignInManagedIdentity() {
-    // These tests only apply when a managed account is signed in to the
-    // personal profile (which, in prod, can only happen if the account was
-    // already signed in before kSeparateProfilesForManagedAccounts was
-    // enabled). This situation is tricky to replicate in a unit test; it's done
-    // here by first converting the (single) test profile to a managed profile,
-    // then marking it as the personal profile again.
-    // TODO(crbug.com/407498240): Remove the affected tests once all users are
-    // migrated to kSeparateProfilesForManagedAccounts.
-    GetApplicationContext()
-        ->GetAccountProfileMapper()
-        ->MakePersonalProfileManagedWithGaiaID(managed_identity_.gaiaId);
-
-    authentication_service()->SignIn(managed_identity_,
-                                     signin_metrics::AccessPoint::kStartPage);
-
-    // To set the personal profile.
-    GetApplicationContext()
-        ->GetProfileManager()
-        ->GetProfileAttributesStorage()
-        ->SetPersonalProfileName(profile_->GetProfileName());
-
-    ASSERT_TRUE(authentication_service()->HasPrimaryIdentityManaged());
-  }
-
  protected:
   // Needed for test profile created by TestProfileIOS().
   web::WebTaskEnvironment task_environment_;
@@ -273,41 +246,6 @@ TEST_F(SignoutActionSheetCoordinatorTest, ShouldShowActionSheetIfUnsyncedData) {
       "Sync.BookmarksLimitExceededOnSignoutPrompt", false, 1u);
 
   histogram_tester.ExpectTotalCount("Sync.SignoutWithUnsyncedData", 0u);
-}
-
-TEST_F(SignoutActionSheetCoordinatorTest,
-       ShouldShowActionSheetForManagedUserMigratedFromSyncing) {
-  // Sign in with a *managed* account.
-  SignInManagedIdentity();
-
-  // Mark the user as "migrated from previously syncing".
-  GetPrefs()->SetString(
-      prefs::kGoogleServicesSyncingGaiaIdMigratedToSignedIn,
-      authentication_service()->GetPrimaryIdentity().gaiaId.ToString());
-  GetPrefs()->SetString(
-      prefs::kGoogleServicesSyncingUsernameMigratedToSignedIn,
-      base::SysNSStringToUTF8(
-          authentication_service()->GetPrimaryIdentity().userEmail));
-
-  CreateCoordinator();
-  // There should be no query for unsynced data types: For a managed user who
-  // was migrated from the syncing state, the action sheet (asking to user to
-  // clear all data) should be shown independently of any unsynced data.
-  EXPECT_CALL(*sync_service_mock_, GetTypesWithUnsyncedData).Times(0);
-  EXPECT_CALL(completion_callback_, Run);
-
-  [signout_coordinator_ start];
-}
-
-TEST_F(SignoutActionSheetCoordinatorTest,
-       ShouldShowActionSheetForManagedUserWithClearDataonSignoutFeature) {
-  // Sign in with a *managed* account.
-  SignInManagedIdentity();
-
-  CreateCoordinator();
-
-  [signout_coordinator_ start];
-  ASSERT_NE(nil, signout_coordinator_.title);
 }
 
 TEST_F(SignoutActionSheetCoordinatorTest,

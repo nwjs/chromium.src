@@ -5,8 +5,12 @@
 #ifndef CHROME_BROWSER_UI_WEBUI_ASH_SETTINGS_PAGES_DATE_TIME_DATE_TIME_SECTION_H_
 #define CHROME_BROWSER_UI_WEBUI_ASH_SETTINGS_PAGES_DATE_TIME_DATE_TIME_SECTION_H_
 
+#include "base/memory/raw_ref.h"
 #include "base/values.h"
 #include "chrome/browser/ui/webui/ash/settings/pages/os_settings_section.h"
+
+class ApplicationLocaleStorage;
+class PrefService;
 
 namespace content {
 class WebUIDataSource;
@@ -19,7 +23,12 @@ class SearchTagRegistry;
 // Provides UI strings and search tags for Date and Time settings.
 class DateTimeSection : public OsSettingsSection {
  public:
-  DateTimeSection(Profile* profile, SearchTagRegistry* search_tag_registry);
+  // `local_state` and `application_locale_storage` must be non-null and must
+  // outlive `this`.
+  DateTimeSection(PrefService* local_state,
+                  const ApplicationLocaleStorage* application_locale_storage,
+                  Profile* profile,
+                  SearchTagRegistry* search_tag_registry);
   ~DateTimeSection() override;
 
   // OsSettingsSection:
@@ -32,6 +41,10 @@ class DateTimeSection : public OsSettingsSection {
   bool LogMetric(chromeos::settings::mojom::Setting setting,
                  base::Value& value) const override;
   void RegisterHierarchy(HierarchyGenerator* generator) const override;
+
+ private:
+  const raw_ref<PrefService> local_state_;
+  const raw_ref<const ApplicationLocaleStorage> application_locale_storage_;
 };
 
 }  // namespace ash::settings

@@ -18,6 +18,7 @@
 #include <vector>
 
 #include "ash/constants/ash_pref_names.h"
+#include "ash/constants/chrome_switches.h"
 #include "ash/constants/web_app_id_constants.h"
 #include "ash/display/display_configuration_controller.h"
 #include "ash/multi_user/multi_user_window_manager.h"
@@ -116,9 +117,9 @@
 #include "chrome/browser/ui/ash/shelf/shelf_spinner_controller.h"
 #include "chrome/browser/ui/ash/shelf/shelf_spinner_item_controller.h"
 #include "chrome/browser/ui/ash/wallpaper/wallpaper_controller_client_impl.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
@@ -136,7 +137,6 @@
 #include "chrome/browser/web_applications/web_app_install_info.h"
 #include "chrome/browser/web_applications/web_app_utils.h"
 #include "chrome/common/chrome_constants.h"
-#include "chrome/common/chrome_switches.h"
 #include "chrome/test/base/browser_with_test_window_test.h"
 #include "chrome/test/base/test_browser_window_aura.h"
 #include "chrome/test/base/testing_browser_process.h"
@@ -211,6 +211,7 @@
 #include "ui/display/display.h"
 #include "ui/display/display_switches.h"
 #include "ui/display/screen.h"
+#include "ui/display/types/display_constants.h"
 #include "ui/events/base_event_utils.h"
 #include "ui/events/event_constants.h"
 #include "ui/events/types/event_type.h"
@@ -485,7 +486,7 @@ class ChromeShelfControllerTestBase : public BrowserWithTestWindowTest,
                                       public apps::AppRegistryCache::Observer {
  protected:
   ChromeShelfControllerTestBase()
-      : BrowserWithTestWindowTest(Browser::TYPE_NORMAL),
+      : BrowserWithTestWindowTest(BrowserWindowInterface::TYPE_NORMAL),
         skip_preinstalled_web_app_startup_(
             web_app::PreinstalledWebAppManager::SkipStartupForTesting()) {}
 
@@ -494,7 +495,7 @@ class ChromeShelfControllerTestBase : public BrowserWithTestWindowTest,
     command_line->AppendSwitch(switches::kUseFirstDisplayAsInternal);
     // Prevent preinstalled apps from installing so these tests can control when
     // they are installed.
-    command_line->AppendSwitch(switches::kDisableDefaultApps);
+    command_line->AppendSwitch(ash::chrome_switches::kDisableDefaultApps);
 
     ash::ConciergeClient::InitializeFake(/*fake_cicerone_client=*/nullptr);
 
@@ -746,10 +747,10 @@ class ChromeShelfControllerTestBase : public BrowserWithTestWindowTest,
     return CreateTestBrowserWindowAura();
   }
 
-  std::unique_ptr<Browser> CreateBrowserWithTestWindowForProfile(
+  std::unique_ptr<BrowserWindowInterface> CreateBrowserWithTestWindowForProfile(
       Profile* profile) {
     auto browser_window = CreateTestBrowserWindowAura();
-    return CreateBrowser(profile, Browser::TYPE_NORMAL, false,
+    return CreateBrowser(profile, BrowserWindowInterface::TYPE_NORMAL, false,
                          browser_window.release());
   }
 
@@ -1482,11 +1483,11 @@ class V1App {
     browser_->GetTabStripModel()->CloseAllTabs();
   }
 
-  Browser* browser() { return browser_.get(); }
+  BrowserWindowInterface* browser() { return browser_.get(); }
 
  private:
   // The associated browser with this app.
-  std::unique_ptr<Browser> browser_;
+  std::unique_ptr<BrowserWindowInterface> browser_;
 };
 
 // A V2 application window created with an |extension| and for a |profile|.
@@ -1598,11 +1599,11 @@ class MultiProfileMultiBrowserShelfLayoutChromeShelfControllerTest
   }
 
   // Creates a browser with a |profile| and load a tab with a |title| and |url|.
-  std::unique_ptr<Browser> CreateBrowserAndTabWithProfile(
+  std::unique_ptr<BrowserWindowInterface> CreateBrowserAndTabWithProfile(
       Profile* profile,
       const std::string& title,
       const std::string& url) {
-    std::unique_ptr<Browser> browser(
+    std::unique_ptr<BrowserWindowInterface> browser(
         CreateBrowserWithTestWindowForProfile(profile));
     chrome::NewTab(browser.get(), NewTabTypes::kNoUserAction);
 
@@ -3227,7 +3228,7 @@ TEST_F(MultiProfileMultiBrowserShelfLayoutChromeShelfControllerTest,
       ash::Shell::Get()->multi_user_window_manager();
 
   // Create a browser window with a native window for user0.
-  std::unique_ptr<Browser> browser(
+  std::unique_ptr<BrowserWindowInterface> browser(
       CreateBrowserWithTestWindowForProfile(profile()));
   ui::BaseWindow* browser_window = browser->GetWindow();
   aura::Window* window = browser_window->GetNativeWindow();
@@ -3268,7 +3269,7 @@ TEST_F(MultiProfileMultiBrowserShelfLayoutChromeShelfControllerTest,
       web_app::test::InstallWebApp(profile(), std::move(web_app_info));
   PinAppWithIDToShelf(installed_app_id);
 
-  std::unique_ptr<Browser> profile1_browser =
+  std::unique_ptr<BrowserWindowInterface> profile1_browser =
       CreateBrowserAndTabWithProfile(profile1(), kWebAppName, kWebAppUrl);
   EXPECT_EQ(
       std::vector<std::string>({app_constants::kChromeAppId, installed_app_id}),
@@ -3690,7 +3691,7 @@ TEST_F(ChromeShelfControllerTest, BrowserMenuGeneration) {
   CheckAppMenu(shelf_controller_.get(), item_browser, 1, one_menu_item);
 
   // Create one more browser/window and check that one more was added.
-  std::unique_ptr<Browser> browser2(
+  std::unique_ptr<BrowserWindowInterface> browser2(
       CreateBrowserWithTestWindowForProfile(profile()));
   chrome::NewTab(browser2.get(), NewTabTypes::kNoUserAction);
   browser2->GetWindow()->Show();
@@ -3730,7 +3731,7 @@ TEST_F(MultiProfileMultiBrowserShelfLayoutChromeShelfControllerTest,
 
   // Create a browser for another user and check that it is not included in the
   // users running browser list.
-  std::unique_ptr<Browser> browser1(
+  std::unique_ptr<BrowserWindowInterface> browser1(
       CreateBrowserAndTabWithProfile(profile1(), "user1", "http://test1"));
   CheckAppMenu(shelf_controller_.get(), item_browser, 1, one_menu_item);
 

@@ -25,7 +25,6 @@ import org.chromium.components.omnibox.AutocompleteInput;
 import org.chromium.components.omnibox.AutocompleteInput.AutocompleteState;
 import org.chromium.components.omnibox.AutocompleteRequestType;
 import org.chromium.components.omnibox.OmniboxCapabilities;
-import org.chromium.components.omnibox.OmniboxFeatures;
 import org.chromium.components.omnibox.OmniboxFocusReason;
 import org.chromium.components.omnibox.PageClassificationUtils;
 import org.chromium.components.omnibox.TextSelection;
@@ -109,9 +108,7 @@ public class FuseboxSessionState implements UserData {
 
     /** Constructs a new, empty FuseboxSessionState. */
     public FuseboxSessionState() {
-        if (OmniboxFeatures.sShowModelPicker.getValue()) {
-            mAutocompleteInput.getRequestTypeSupplier().addSyncObserver(mOnRequestTypeChanged);
-        }
+        mAutocompleteInput.getRequestTypeSupplier().addSyncObserver(mOnRequestTypeChanged);
     }
 
     /** Returns the WebContents of the contextual tasks WebUI associated with the fusebox. */
@@ -288,9 +285,7 @@ public class FuseboxSessionState implements UserData {
         }
         mWebContents = null;
         mIsActive = false;
-        if (OmniboxFeatures.sShowModelPicker.getValue()) {
-            mAutocompleteInput.getRequestTypeSupplier().removeObserver(mOnRequestTypeChanged);
-        }
+        mAutocompleteInput.getRequestTypeSupplier().removeObserver(mOnRequestTypeChanged);
     }
 
     /** Unlinks and destroys session controllers. */
@@ -336,7 +331,6 @@ public class FuseboxSessionState implements UserData {
     }
 
     private void onRequestTypeChanged(@AutocompleteRequestType int requestType) {
-        assert OmniboxFeatures.sShowModelPicker.getValue();
         if (mComposeBoxQueryControllerBridge != null) {
             int toolMode =
                     ToolModeUtils.getToolModeForRequestType(
@@ -380,6 +374,15 @@ public class FuseboxSessionState implements UserData {
         return mFuseboxAttachmentModelList;
     }
 
+    private static boolean canStripTrailingSlash(GURL url) {
+        return url.isValid()
+                && !url.getScheme().equals(UrlConstants.FILE_SCHEME)
+                && !url.getScheme().equals(UrlConstants.FILESYSTEM_SCHEME)
+                && url.getQuery().isEmpty()
+                && url.getRef().isEmpty()
+                && url.getPath().equals("/");
+    }
+
     /**
      * Directly specify FuseboxSessionState object to be used to conduct tests.
      *
@@ -393,14 +396,5 @@ public class FuseboxSessionState implements UserData {
     /** Revert all overrides for testing. */
     public static void resetInstanceForTesting() {
         sInstanceForTesting = null;
-    }
-
-    private static boolean canStripTrailingSlash(GURL url) {
-        return url.isValid()
-                && !url.getScheme().equals(UrlConstants.FILE_SCHEME)
-                && !url.getScheme().equals(UrlConstants.FILESYSTEM_SCHEME)
-                && url.getQuery().isEmpty()
-                && url.getRef().isEmpty()
-                && url.getPath().equals("/");
     }
 }

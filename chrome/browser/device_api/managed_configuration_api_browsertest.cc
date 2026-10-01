@@ -12,7 +12,6 @@
 #include "base/values.h"
 #include "chrome/browser/device_api/managed_configuration_api_factory.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/test/base/in_process_browser_test.h"
@@ -225,6 +224,25 @@ IN_PROC_BROWSER_TEST_F(ManagedConfigurationAPITest, AppRemovedFromPolicyList) {
   ClearConfiguration();
   WaitForUpdate();
   ASSERT_EQ(GetValues({kKey1, kKey2}), std::nullopt);
+}
+
+IN_PROC_BROWSER_TEST_F(ManagedConfigurationAPITest,
+                       ReapplySameConfigurationAfterRemoval) {
+  EnableTestServer({{kConfigurationUrl1, {kConfigurationData1}}});
+  SetConfiguration(kConfigurationUrl1, kConfigurationHash1);
+  WaitForUpdate();
+  ASSERT_TRUE(DictValueEquals(GetValues({kKey1, kKey2}),
+                              {{kKey1, kValue1}, {kKey2, kValue2}}));
+
+  ClearConfiguration();
+  WaitForUpdate();
+  ASSERT_EQ(GetValues({kKey1, kKey2}), std::nullopt);
+
+  // Re-applying the same configuration should re-download and restore values.
+  SetConfiguration(kConfigurationUrl1, kConfigurationHash1);
+  WaitForUpdate();
+  ASSERT_TRUE(DictValueEquals(GetValues({kKey1, kKey2}),
+                              {{kKey1, kValue1}, {kKey2, kValue2}}));
 }
 
 IN_PROC_BROWSER_TEST_F(ManagedConfigurationAPITest, UnknownKeys) {

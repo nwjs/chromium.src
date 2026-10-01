@@ -127,7 +127,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="CustomTabs.AndroidBrowserHelper.Version" units="versioncode"
-    expires_after="2026-09-30">
+    expires_after="2027-09-30">
   <owner>hattorij@google.com</owner>
   <owner>ishitatsuyuki@google.com</owner>
   <owner>lt-performance@google.com</owner>
@@ -172,23 +172,6 @@ chromium-metrics-reviews@google.com.
 
     0b00001: client_id, 0b00010: redirect_uri, 0b00100: response_type, 0b01000:
     scope, 0b10000: state
-  </summary>
-</histogram>
-
-<histogram name="CustomTabs.AutoclosedSessionDuration" units="ms"
-    expires_after="2023-08-20">
-  <owner>jinsukkim@chromium.org</owner>
-  <owner>twellington@chromium.org</owner>
-  <owner>cct-team@google.com</owner>
-  <summary>
-    Android: Duration in milliseconds of a custom tab session (between onResume
-    and onPause). This is logged for the sessions closed automatically without
-    user intervention. Sessions closed by user input (back press/close button)
-    will not be logged.
-
-    Note that there can be user inputs that go undetected by the logic. So the
-    histogram can contain false positives i.e. session closed by user but
-    regarded as auto-closed.
   </summary>
 </histogram>
 
@@ -568,7 +551,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="CustomTabs.Navigation.FinishReason" enum="FinishReason"
-    expires_after="2026-09-06">
+    expires_after="2027-09-06">
   <owner>adelm@google.com</owner>
   <owner>chrome-connective-tissue@google.com</owner>
   <summary>
@@ -742,7 +725,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="CustomTabs.ResetTimeout.ElapsedTimeInMinutesOnReturn"
-    units="minutes" expires_after="2026-12-20">
+    units="minutes" expires_after="2027-02-28">
   <owner>tivi@google.com</owner>
   <owner>chrome-connective-tissue@google.com</owner>
   <summary>
@@ -769,7 +752,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="CustomTabs.ResetTimeout.Outcome"
-    enum="CustomTabsResetTimeoutOutcome" expires_after="2026-12-20">
+    enum="CustomTabsResetTimeoutOutcome" expires_after="2027-02-28">
   <owner>tivi@google.com</owner>
   <owner>chrome-connective-tissue@google.com</owner>
   <summary>
@@ -912,7 +895,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="CustomTabs.Startup.TimeToFirstContentfulPaint.{suffix}"
-    units="ms" expires_after="2027-01-03">
+    units="ms" expires_after="2027-03-07">
   <owner>mthiesse@chromium.org</owner>
   <owner>chrome-connective-tissue@google.com</owner>
   <summary>
@@ -954,7 +937,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="CustomTabs.TimeSpentInEngagementEventIpc" units="ms"
-    expires_after="2027-01-03">
+    expires_after="2027-03-07">
   <owner>nafisabedin@google.com</owner>
   <summary>
     The time spent in milliseconds processing IPCs on the UI thread related to
@@ -1048,18 +1031,6 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="CustomTabs.WebContentsStateOnLaunch" enum="WebContentsState"
-    expires_after="2026-08-23">
-  <owner>lizeb@chromium.org</owner>
-  <owner>mthiesse@chromium.org</owner>
-  <summary>
-    Android: When a CustomTabActivity creates its Tab, whether we use a
-    prerendered WebContents, a spare renderer or create a new WebContents.
-
-    Note: Expired from April 13-25, 2025.
-  </summary>
-</histogram>
-
 <histogram name="TrustedWebActivity.ExtraCommandSuccess.{command}"
     enum="BooleanSuccess" expires_after="2025-10-01">
   <owner>peconn@chromium.org</owner>
@@ -1139,9 +1110,26 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="TrustedWebActivity.QueryFirstTwaPackageTime" units="ms"
+    expires_after="2027-06-13">
+  <owner>dibyapal@chromium.org</owner>
+  <owner>peconn@chromium.org</owner>
+  <owner>
+    src/chrome/android/java/src/org/chromium/chrome/browser/browserservices/OWNERS
+  </owner>
+  <summary>
+    Records the time taken to query the PackageManager for the first installed
+    TWA package that can handle a given URL.
+
+    Recorded on page navigations when checking if an installed web app exists
+    for the current URL to display the 'Open in app' button in the toolbar /
+    omnibar, as well as when determining app installation state in the app menu.
+  </summary>
+</histogram>
+
 <histogram
     name="TrustedWebActivity.Startup.TimeToFirstCommitNavigation2.{suffix}"
-    units="ms" expires_after="2026-09-30">
+    units="ms" expires_after="2027-09-30">
   <owner>hattorij@google.com</owner>
   <owner>ishitatsuyuki@google.com</owner>
   <owner>lt-performance@google.com</owner>
@@ -1157,7 +1145,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="TrustedWebActivity.Startup.TimeToFirstContentfulPaint.{suffix}"
-    units="ms" expires_after="2026-09-30">
+    units="ms" expires_after="2027-09-30">
   <owner>hattorij@google.com</owner>
   <owner>ishitatsuyuki@google.com</owner>
   <owner>lt-performance@google.com</owner>
@@ -1173,7 +1161,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="TrustedWebActivity.Startup.TimeToLargestContentfulPaint2.{suffix}"
-    units="ms" expires_after="2026-09-30">
+    units="ms" expires_after="2027-09-30">
   <owner>hattorij@google.com</owner>
   <owner>ishitatsuyuki@google.com</owner>
   <owner>lt-performance@google.com</owner>

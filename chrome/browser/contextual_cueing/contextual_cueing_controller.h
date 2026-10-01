@@ -108,12 +108,18 @@ class ContextualCueingController
 
   void OnUrlChanged(const GURL& url);
 
-  // Hide the cue for this tab if it's showing.
+  // Hide the cue for this tab if it's showing (both the anchored message and
+  // omnibox chip).
   void HideCue();
+
+  // Hide the anchored message for this tab if it's showing, leaving the omnibox
+  // chip visible.
+  void HideAnchoredMessage();
 
   // Returns the CueTarget for the given CueTargetType, or nullptr if there is
   // none.
   CueTarget* GetTarget(CueTargetType type);
+  bool ShouldRecordUcbStats(CueTargetType type) const;
 
   void OnCueInteraction(
       ContextualCueingInteraction interaction_type,

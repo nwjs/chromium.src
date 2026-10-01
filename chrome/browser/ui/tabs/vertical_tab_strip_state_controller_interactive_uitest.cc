@@ -22,6 +22,7 @@
 #include "chrome/browser/ui/views/frame/browser_widget.h"
 #include "chrome/browser/ui/views/frame/system_menu_model_builder.h"
 #include "chrome/browser/ui/views/test/tab_strip_interactive_test_mixin.h"
+#include "chrome/browser/ui/views/toolbar/webui_test_utils.h"
 #include "chrome/grit/generated_resources.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
@@ -114,6 +115,11 @@ class VerticalTabStripInteractiveUiTest : public InteractiveBrowserTest {
                     &VerticalTabStripInteractiveUiTest::CreateFakeController,
                     base::Unretained(this)));
     InteractiveBrowserTest::SetUp();
+  }
+
+  void SetUpOnMainThread() override {
+    InteractiveBrowserTest::SetUpOnMainThread();
+    WaitForInitialWebUIToolbar(browser());
   }
 
   bool SystemMenuContainsStringId(int message_id) {
@@ -365,8 +371,7 @@ IN_PROC_BROWSER_TEST_F(VerticalTabStripInteractiveUiTest,
   fake_controller_->SetEnabled(true);
 
   // Get ToastController
-  ToastController* const toast_controller =
-      browser()->GetFeatures().toast_controller();
+  ToastController* const toast_controller = ToastController::From(browser());
   ASSERT_NE(toast_controller, nullptr);
   EXPECT_FALSE(toast_controller->IsShowingToast());
 
@@ -416,8 +421,7 @@ IN_PROC_BROWSER_TEST_F(VerticalTabStripInteractiveUiTest,
   fake_controller_->SetEnabled(true);
 
   // Get ToastController
-  ToastController* const toast_controller =
-      browser()->GetFeatures().toast_controller();
+  ToastController* const toast_controller = ToastController::From(browser());
   ASSERT_NE(toast_controller, nullptr);
   EXPECT_FALSE(toast_controller->IsShowingToast());
 
@@ -470,8 +474,7 @@ IN_PROC_BROWSER_TEST_F(VerticalTabStripInteractiveUiTest,
       ->SetVerticalTabsEnabled(false);
 
   // Stop the timer so it doesn't auto-dismiss during test execution.
-  ToastController* const toast_controller =
-      browser()->GetFeatures().toast_controller();
+  ToastController* const toast_controller = ToastController::From(browser());
   toast_controller->GetToastCloseTimerForTesting()->Stop();
 
   // Verify that vertical tabs are STILL enabled because state is locked
@@ -525,6 +528,10 @@ IN_PROC_BROWSER_TEST_F(VerticalTabStripInteractiveUiTest,
 
 IN_PROC_BROWSER_TEST_F(VerticalTabStripInteractiveUiTest,
                        KeyboardShortcutTogglesCollapse) {
+  ui::Accelerator toggle_collapse_accelerator;
+  ASSERT_TRUE(BrowserView::GetBrowserViewForBrowser(browser())->GetAccelerator(
+      IDC_TOGGLE_VERTICAL_TABS_COLLAPSE, &toggle_collapse_accelerator));
+
   base::UserActionTester user_action_tester;
   tabs::VerticalTabStripStateController* const controller =
       tabs::VerticalTabStripStateController::From(browser());
@@ -543,8 +550,7 @@ IN_PROC_BROWSER_TEST_F(VerticalTabStripInteractiveUiTest,
       CheckResult([controller]() { return controller->IsCollapsed(); }, false),
 
       // Send the accelerator.
-      SendKeyPress(kBrowserViewElementId, ui::VKEY_L,
-                   ui::EF_SHIFT_DOWN | ui::EF_PLATFORM_ACCELERATOR),
+      SendAccelerator(kBrowserViewElementId, toggle_collapse_accelerator),
 
       // Wait for the collapsed event.
       WaitForEvent(kTabStripRegionElementId,
@@ -561,8 +567,7 @@ IN_PROC_BROWSER_TEST_F(VerticalTabStripInteractiveUiTest,
       }),
 
       // Send the accelerator again.
-      SendKeyPress(kBrowserViewElementId, ui::VKEY_L,
-                   ui::EF_SHIFT_DOWN | ui::EF_PLATFORM_ACCELERATOR),
+      SendAccelerator(kBrowserViewElementId, toggle_collapse_accelerator),
 
       // Wait for the expansion to complete.
       Do([controller]() {

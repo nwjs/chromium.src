@@ -16,6 +16,7 @@
 #include "chrome/browser/glic/host/host.h"
 #include "chrome/browser/glic/service/glic_ui_embedder.h"
 #include "chrome/browser/glic/widget/browser_conditions.h"
+#include "chrome/browser/glic/widget/scoped_modal_dialog_manager_delegate.h"
 #include "chrome/browser/profiles/keep_alive/scoped_profile_keep_alive.h"
 #include "components/tabs/public/tab_interface.h"
 #include "components/web_modal/web_contents_modal_dialog_host.h"
@@ -38,6 +39,7 @@ class GlicInstanceMetrics;
 // A stub implementation of GlicUiEmbedder for floating UIs.
 class GlicFloatingUi : public GlicUiEmbedder,
                        public Host::EmbedderDelegate,
+                       public Host::Observer,
                        public LocalHotkeyManager::Panel,
                        public views::WidgetObserver,
                        public web_modal::WebContentsModalDialogManagerDelegate,
@@ -74,7 +76,7 @@ class GlicFloatingUi : public GlicUiEmbedder,
   void Resize(const gfx::Size& size,
               base::TimeDelta duration,
               base::OnceClosure callback) override;
-  void EnableDragResize(bool enabled) override;
+  void SetDragResizeEnabled(bool enabled) override;
   void Attach() override;
   void Detach() override;
   void SetMinimumWidgetSize(const gfx::Size& size) override;
@@ -87,6 +89,9 @@ class GlicFloatingUi : public GlicUiEmbedder,
   void ClosePanel() override;
   void OnReload() override;
   void OnMicrophoneStatusChanged(mojom::MicrophoneStatus status) override;
+
+  // Host::Observer:
+  void ActiveWebContentsChanged(content::WebContents* new_contents) override;
 
   // views::WidgetObserver implementation, monitoring the glic window widget.
   void OnWidgetActivationChanged(views::Widget* widget, bool active) override;
@@ -124,7 +129,8 @@ class GlicFloatingUi : public GlicUiEmbedder,
   void RemoveObserver(web_modal::ModalDialogHostObserver* observer) override;
 
  private:
-  void ClearWebContentsDelegate();
+  ScopedModalDialogManagerDelegate scoped_modal_dialog_delegate_{this};
+
   GlicWidget* GetGlicWidget() const;
   GlicView* GetGlicView() const;
   void CreateAndSetupWidget(gfx::Rect initial_bounds);
@@ -132,7 +138,6 @@ class GlicFloatingUi : public GlicUiEmbedder,
   void SetGlicWindowToFloatingMode(bool floating);
   void OnSourceTabDestroyed(tabs::TabInterface* tab);
   void FloatingPanelCanAttachChanged(bool can_attach);
-  void ConfigureWebContentsModalDialogs();
   void MaybeNotifyActivationChanged(bool window_active);
 
   // Whether the widget should be user resizable, kept here in case it's
@@ -153,6 +158,7 @@ class GlicFloatingUi : public GlicUiEmbedder,
   // Observes the glic widget.
   base::ScopedObservation<views::Widget, views::WidgetObserver>
       glic_widget_observation_{this};
+  base::ScopedObservation<Host, Host::Observer> host_observation_{this};
 
   // Used by web modals to listens for glic window events, e.g. size change or
   // window close.

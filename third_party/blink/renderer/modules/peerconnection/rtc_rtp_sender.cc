@@ -11,6 +11,7 @@
 #include <tuple>
 #include <utility>
 
+#include "base/feature_list.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/strings/stringprintf.h"
@@ -62,6 +63,11 @@
 namespace blink {
 
 namespace {
+
+// TODO(crbug.com/488071544): Remove this kill switch after the new behavior
+// has been stable by M156 or M157 without regressions.
+BASE_FEATURE(kWebRtcRejectSetParametersOnStoppedTransceiver,
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 webrtc::RtpCodec ToWebrtcRtpCodec(const RTCRtpCodec* codec);
 
@@ -825,6 +831,15 @@ ScriptPromise<IDLUndefined> RTCRtpSender::setParameters(
       script_state, exception_state.GetContext());
   auto promise = resolver->Promise();
 
+  if (base::FeatureList::IsEnabled(
+          kWebRtcRejectSetParametersOnStoppedTransceiver) &&
+      transceiver_ && transceiver_->stopped()) {
+    resolver->RejectWithDOMException(
+        DOMExceptionCode::kInvalidStateError,
+        "setParameters cannot be called on a stopped sender.");
+    return promise;
+  }
+
   if (!last_returned_parameters_) {
     resolver->RejectWithDOMException(
         DOMExceptionCode::kInvalidStateError,
@@ -1233,6 +1248,66 @@ void RTCRtpSender::SetVideoUnderlyingSink(
   video_to_packetizer_underlying_sink_ = new_underlying_sink;
 }
 
+ScriptPromise<IDLUndefined> RTCRtpSender::createEncodedSource(
+    ScriptState* script_state,
+    DedicatedWorker* worker,
+    ExceptionState& exception_state) {
+  return createEncodedSource(script_state, worker, ScriptValue(),
+                             HeapVector<ScriptObject>(), exception_state);
+}
+
+ScriptPromise<IDLUndefined> RTCRtpSender::createEncodedSource(
+    ScriptState* script_state,
+    DedicatedWorker* worker,
+    const ScriptValue& options,
+    ExceptionState& exception_state) {
+  return createEncodedSource(script_state, worker, options,
+                             HeapVector<ScriptObject>(), exception_state);
+}
+
+ScriptPromise<IDLUndefined> RTCRtpSender::createEncodedSource(
+    ScriptState* script_state,
+    DedicatedWorker* worker,
+    const ScriptValue& options,
+    const HeapVector<ScriptObject>& transfer,
+    ExceptionState& exception_state) {
+  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+
+  auto* resolver =
+      MakeGarbageCollected<ScriptPromiseResolver<IDLUndefined>>(script_state);
+  ScriptPromise<IDLUndefined> promise = resolver->Promise();
+
+  scoped_refptr<base::SingleThreadTaskRunner> main_task_runner =
+      ExecutionContext::From(script_state)
+          ->GetTaskRunner(TaskType::kInternalMediaRealTime);
+
+  if (kind_ == "video") {
+    worker->PostCustomEvent(
+        TaskType::kInternalMediaRealTime, script_state,
+        CrossThreadBindRepeating(
+            &RTCRtpSenderEncodedSource::CreateVideoEncodedSource,
+            MakeCrossThreadWeakHandle(this), main_task_runner,
+            MakeCrossThreadHandle(resolver)),
+        CrossThreadFunction<Event*(ScriptState*)>(), options, transfer,
+        exception_state);
+  } else if (kind_ == "audio") {
+    worker->PostCustomEvent(
+        TaskType::kInternalMediaRealTime, script_state,
+        CrossThreadBindRepeating(
+            &RTCRtpSenderEncodedSource::CreateAudioEncodedSource,
+            MakeCrossThreadWeakHandle(this), main_task_runner,
+            MakeCrossThreadHandle(resolver)),
+        CrossThreadFunction<Event*(ScriptState*)>(), options, transfer,
+        exception_state);
+  }
+
+  if (exception_state.HadException()) {
+    return ScriptPromise<IDLUndefined>();
+  }
+
+  return promise;
+}
+
 RTCInsertableStreams* RTCRtpSender::CreateEncodedVideoStreams(
     ScriptState* script_state) {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
@@ -1300,6 +1375,29 @@ RTCInsertableStreams* RTCRtpSender::CreateEncodedVideoStreams(
 
   encoded_streams_->setWritable(writable_stream);
   return encoded_streams_;
+}
+
+scoped_refptr<webrtc::EncodedVideoFrameInjectorInterface>
+RTCRtpSender::CreateEncodedVideoFrameInjector(
+    webrtc::KeyFrameCallback keyframe_callback,
+    webrtc::BitrateInfoCallback bitrate_callback) {
+  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+  if (sender_) {
+    return sender_->CreateEncodedVideoFrameInjector(
+        std::move(keyframe_callback), std::move(bitrate_callback));
+  }
+  return nullptr;
+}
+
+scoped_refptr<webrtc::EncodedAudioFrameInjectorInterface>
+RTCRtpSender::CreateEncodedAudioFrameInjector(
+    webrtc::TargetBitrateCallback bitrate_callback) {
+  DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+  if (sender_) {
+    return sender_->CreateEncodedAudioFrameInjector(
+        std::move(bitrate_callback));
+  }
+  return nullptr;
 }
 
 void RTCRtpSender::setTransform(RTCRtpScriptTransform* transform,

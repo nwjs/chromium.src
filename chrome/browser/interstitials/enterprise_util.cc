@@ -12,6 +12,7 @@
 #include "components/safe_browsing/content/browser/safe_browsing_navigation_observer_manager.h"
 #include "components/safe_browsing/core/common/features.h"
 #include "components/sessions/content/session_tab_helper.h"
+#include "components/sessions/core/session_id.h"
 #include "content/public/browser/web_contents.h"
 #include "extensions/buildflags/buildflags.h"
 
@@ -104,7 +105,8 @@ void MaybeTriggerSecurityInterstitialShownEvent(
     content::WebContents* web_contents,
     const GURL& page_url,
     const std::string& reason,
-    int net_error_code) {
+    int net_error_code,
+    const std::string& tab_title) {
 #if BUILDFLAG(ENABLE_EXTENSIONS) && BUILDFLAG(SAFE_BROWSING_AVAILABLE)
   extensions::SafeBrowsingPrivateEventRouter* safe_browsing_event_router =
       GetSafeBrowsingEventRouter(web_contents);
@@ -135,7 +137,7 @@ void MaybeTriggerSecurityInterstitialShownEvent(
   reporting_event_router->OnSecurityInterstitialShown(
       page_url, reason, net_error_code,
       prefs->GetBoolean(prefs::kSafeBrowsingProceedAnywayDisabled),
-      referrer_chain);
+      referrer_chain, tab_title);
 
 #endif  // BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS) || BUILDFLAG(IS_ANDROID)
 }
@@ -144,7 +146,8 @@ void MaybeTriggerSecurityInterstitialProceededEvent(
     content::WebContents* web_contents,
     const GURL& page_url,
     const std::string& reason,
-    int net_error_code) {
+    int net_error_code,
+    const std::string& tab_title) {
 #if BUILDFLAG(ENABLE_EXTENSIONS) && BUILDFLAG(SAFE_BROWSING_AVAILABLE)
   extensions::SafeBrowsingPrivateEventRouter* safe_browsing_event_router =
       GetSafeBrowsingEventRouter(web_contents);
@@ -169,7 +172,7 @@ void MaybeTriggerSecurityInterstitialProceededEvent(
   }
 
   reporting_event_router->OnSecurityInterstitialProceeded(
-      page_url, reason, net_error_code, referrer_chain);
+      page_url, reason, net_error_code, referrer_chain, tab_title);
 #endif  // BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS) || BUILDFLAG(IS_ANDROID)
 }
 
@@ -178,7 +181,8 @@ void MaybeTriggerUrlFilteringInterstitialEvent(
     content::WebContents* web_contents,
     const GURL& page_url,
     const std::string& threat_type,
-    safe_browsing::RTLookupResponse rt_lookup_response) {
+    safe_browsing::RTLookupResponse rt_lookup_response,
+    const std::string& tab_title) {
 #if BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
   google::protobuf::RepeatedPtrField<safe_browsing::ReferrerChainEntry>
       referrer_chain;
@@ -190,7 +194,7 @@ void MaybeTriggerUrlFilteringInterstitialEvent(
   }
 
   router->OnUrlFilteringInterstitial(page_url, threat_type, rt_lookup_response,
-                                     referrer_chain);
+                                     referrer_chain, tab_title);
 #endif  // BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
 
 #if BUILDFLAG(IS_ANDROID)
@@ -204,7 +208,7 @@ void MaybeTriggerUrlFilteringInterstitialEvent(
   }
 
   router->OnUrlFilteringInterstitial(page_url, threat_type, rt_lookup_response,
-                                     referrer_chain);
+                                     referrer_chain, tab_title);
 #endif  // BUILDFLAG(IS_ANDROID)
 }
 #endif  // BUILDFLAG(SAFE_BROWSING_AVAILABLE)

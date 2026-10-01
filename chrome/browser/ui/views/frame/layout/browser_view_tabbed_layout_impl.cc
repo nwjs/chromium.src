@@ -22,6 +22,7 @@
 #include "chrome/browser/ui/immersive/immersive_mode_controller.h"
 #include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/ui_features.h"
+#include "chrome/browser/ui/views/animations/organizer_panel_animations.h"
 #include "chrome/browser/ui/views/animations/side_panel_animations.h"
 #include "chrome/browser/ui/views/animations/tab_strip_animations.h"
 #include "chrome/browser/ui/views/bookmarks/bookmark_bar_view.h"
@@ -41,7 +42,7 @@
 #include "chrome/browser/ui/views/side_panel/side_panel_animation_content_view.h"
 #include "chrome/browser/ui/views/tabs/organizer/layout_constants.h"
 #include "chrome/browser/ui/views/tabs/organizer/organizer_panel_utils.h"
-#include "chrome/browser/ui/views/tabs/organizer/organizer_panel_view.h"
+#include "chrome/browser/ui/views/tabs/organizer/organizer_tray_view.h"
 #include "ui/base/ui_base_features.h"
 #include "ui/compositor/layer.h"
 #include "ui/gfx/geometry/insets.h"
@@ -339,7 +340,7 @@ int BrowserViewTabbedLayoutImpl::GetVerticalTabStripContentOverlap() const {
 std::pair<gfx::Size, gfx::Size>
 BrowserViewTabbedLayoutImpl::GetMinimumTabStripSize(
     const BrowserLayoutParams& params) const {
-  switch (GetTabStripType()) {
+  switch (delegate().GetTabStripType()) {
     case TabStripType::kHorizontal: {
       auto result = views().horizontal_tab_strip_region_view->GetMinimumSize();
       result.Enlarge(GetExclusionWidth(params), 0);
@@ -449,8 +450,16 @@ BrowserViewTabbedLayoutImpl::CalculateHorizontalLayout(
     min_side_panel_width = panel->GetMinimumSize().width();
     preferred_side_panel_width = panel->GetPreferredSize().width();
 
-    if (panel->GetCurrentEntryType() == SidePanelType::kContent &&
-        panel->ShouldRestrictMaxWidth()) {
+    // Previously the reading mode side panel had an exception to extend to 90%
+    // of the screen width, unlike other side panels. After a full-screen
+    // reading mode experience was added with Immersive reading mode, the
+    // exception was removed to allow reading mode to be capped at 66% of the
+    // page like other side panels. However, if the maximum for other side
+    // panels is reduced further in the future, special care should be taken to
+    // ensure that reading mode side panel users aren't negatively impacted.
+    // Another exception for reading mode may be needed, if this ever happens.
+    // See crbug.com/394339052 for more details.
+    if (panel->GetCurrentEntryType() == SidePanelType::kContent) {
       preferred_side_panel_width =
           std::min(preferred_side_panel_width,
                    base::ClampFloor(params.visual_client_area.width() *
@@ -606,7 +615,7 @@ int BrowserViewTabbedLayoutImpl::GetMinimumGrabHandlePadding() const {
 gfx::Size BrowserViewTabbedLayoutImpl::GetMinimumMainAreaSize(
     const BrowserLayoutParams& params) const {
   gfx::Size toolbar_size = views().toolbar->GetMinimumSize();
-  const auto tab_strip_type = GetTabStripType();
+  const auto tab_strip_type = delegate().GetTabStripType();
   if (tab_strip_type == TabStripType::kVertical) {
     toolbar_size.Enlarge(GetExclusionWidth(params), 0);
   }
@@ -625,15 +634,6 @@ gfx::Size BrowserViewTabbedLayoutImpl::GetMinimumMainAreaSize(
                      infobar_container_size.height() + contents_size.height();
 
   return gfx::Size(width, height);
-}
-
-BrowserViewTabbedLayoutImpl::TabStripType
-BrowserViewTabbedLayoutImpl::GetTabStripType() const {
-  if (delegate().ShouldDrawVerticalTabStrip()) {
-    return TabStripType::kVertical;
-  }
-  return delegate().ShouldDrawTabStrip() ? TabStripType::kHorizontal
-                                         : TabStripType::kNone;
 }
 
 BrowserViewTabbedLayoutImpl::VerticalTabStripCollapsedState
@@ -899,8 +899,7 @@ BrowserViewTabbedLayoutImpl::CalculateProposedLayout(
 
   // TODO(crbug.com/469425263): Ensure correct layout calculations for the
   // Organizer Panel Container.
-  if (IsParentedToAndVisible(views().organizer_panel_container,
-                             views().browser_view)) {
+  if (IsParentedTo(views().organizer_tray, views().browser_view)) {
     int target_width = organizer_panel::kOrganizerPanelMinWidth;
     bool organizer_panel_should_appear_elevated = true;
     if (layout_data_->tab_strip_type == TabStripType::kVertical) {
@@ -913,19 +912,24 @@ BrowserViewTabbedLayoutImpl::CalculateProposedLayout(
                                     views::Separator::kThickness);
       }
     }
-    views().organizer_panel_container->SetTargetWidth(target_width);
-    views().organizer_panel_container->SetIsElevated(
+    views().organizer_tray->SetTargetWidth(target_width);
+    views().organizer_tray->SetIsElevated(
         organizer_panel_should_appear_elevated);
 
     const double reveal_amount =
-        views().organizer_panel_container->GetResizeAnimationValue();
+        delegate()
+            .GetAnimationController()
+            ->GetCurrentValue(OrganizerPanelAnimations::kOrganizerPanel,
+                              OrganizerPanelAnimations::kVisibleWidth)
+            .value_or(0.0);
     const int visible_width = base::ClampFloor(target_width * reveal_amount);
 
     gfx::Rect organizer_panel_bounds =
         gfx::Rect(browser_params.visual_client_area.x(),
                   browser_params.visual_client_area.y(), visible_width,
                   browser_params.visual_client_area.height());
-    layout.AddChild(views().organizer_panel_container, organizer_panel_bounds);
+    layout.AddChild(views().organizer_tray, organizer_panel_bounds,
+                    visible_width > 0);
   }
 
   // When the tabstrip isn't at the top or in constrained widths, the top
@@ -1412,7 +1416,7 @@ void BrowserViewTabbedLayoutImpl::ConfigureTopContainerBackground(
   // parented to the `top_container()` and the frame header is not visible.
   // In these cases, the top container's background color should match the
   // frame color to ensure visual consistency.
-  if (GetTabStripType() == TabStripType::kHorizontal &&
+  if (layout_data_->tab_strip_type == TabStripType::kHorizontal &&
       IsParentedTo(views().horizontal_tab_strip_region_view,
                    views().top_container)) {
     background->SetPrimaryColor(ui::kColorFrameActive);
@@ -1468,7 +1472,7 @@ void BrowserViewTabbedLayoutImpl::DoPreLayoutComputations(
     const BrowserLayoutParams& params) {
   layout_data_ = std::make_unique<TransientLayoutData>(params);
   layout_data_->window_state = delegate().GetBrowserWindowState();
-  layout_data_->tab_strip_type = GetTabStripType();
+  layout_data_->tab_strip_type = delegate().GetTabStripType();
   layout_data_->horizontal_layout =
       CalculateHorizontalLayout(layout_data_->revised_params);
   layout_data_->vertical_tab_strip_animation =
@@ -1567,14 +1571,19 @@ void BrowserViewTabbedLayoutImpl::DoPostLayoutVisualAdjustments(
     // When the organizer panel is animating open or closed and does not appear
     // elevated, the background of vertical tabs should fade to match the
     // background color of the panel.
-    if (delegate().IsOrganizerPanelVisible()) {
+    if (IsParentedTo(views().organizer_tray, views().browser_view)) {
       CustomFloatingCorner* const vertical_tabs_top_corner =
           views().vertical_tab_strip_top_corner;
       CustomFloatingCorner* const vertical_tabs_bottom_corner =
           views().vertical_tab_strip_bottom_corner;
-      if (!views().organizer_panel_container->is_elevated()) {
-        auto organizer_panel_reveal_amount =
-            views().organizer_panel_container->GetResizeAnimationValue();
+      if (views().organizer_tray->GetVisible() &&
+          !views().organizer_tray->is_elevated()) {
+        const double organizer_panel_reveal_amount =
+            delegate()
+                .GetAnimationController()
+                ->GetCurrentValue(OrganizerPanelAnimations::kOrganizerPanel,
+                                  OrganizerPanelAnimations::kVisibleWidth)
+                .value_or(0.0);
         CustomCorners::ColorChoiceWithAlpha const fade_background{
             organizer_panel::kOrganizerPanelBackgroundColor,
             static_cast<float>(organizer_panel_reveal_amount)};

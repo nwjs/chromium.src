@@ -352,16 +352,12 @@ public class TopToolbarOverlayMediator implements ThemeColorObserver {
                 new ProgressBarObserver() {
                     @Override
                     public void onVisibleProgressUpdated() {
-                        if (ChromeFeatureList.sAndroidAnimatedProgressBarInBrowser.isEnabled()) {
-                            updateProgress();
-                        }
+                        updateProgress();
                     }
 
                     @Override
                     public void onCompositedLayersVisibilityChanged() {
-                        if (ChromeFeatureList.sAndroidAnimatedProgressBarInBrowser.isEnabled()) {
-                            updateProgress();
-                        }
+                        updateProgress();
                     }
                 };
         if (progressBar != null) {
@@ -593,7 +589,9 @@ public class TopToolbarOverlayMediator implements ThemeColorObserver {
         Tab tab = mTabSupplier.get();
         if (mSuppressToolbarSceneLayerSupplier.get()
                 || (tab != null && tab.isNativePage() && tab.isDisplayingBackForwardAnimation())
-                || (ChromeFeatureList.sBrowserControlsHidingToken.isEnabled()
+                || (tab != null
+                        && tab.isTrustedWebActivity()
+                        && ChromeFeatureList.sBrowserControlsHidingToken.isEnabled()
                         && mBrowserControlsVisibilityManager.hasHidingTokens())) {
             // TODO(crbug.com/365818512): Add a screenshot capture test to cover this case.
             mModel.set(TopToolbarOverlayProperties.VISIBLE, false);

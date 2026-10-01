@@ -42,6 +42,7 @@
 #include "components/webapps/browser/installable/installable_metrics.h"
 #include "components/webapps/browser/uninstall_result_code.h"
 #include "third_party/blink/public/common/features.h"
+#include "ui/base/window_open_disposition.h"
 
 namespace web_app {
 
@@ -112,8 +113,6 @@ ApplyManifestMigrationCommand::~ApplyManifestMigrationCommand() = default;
 void ApplyManifestMigrationCommand::StartWithLock(
     std::unique_ptr<AllAppsLock> lock) {
   all_apps_lock_ = std::move(lock);
-
-  CHECK(base::FeatureList::IsEnabled(blink::features::kWebAppMigrationApi));
 
   // Exit early if the source app cannot be migrated to a different app.
   if (!all_apps_lock_->registrar().AppMatches(

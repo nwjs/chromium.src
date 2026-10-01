@@ -65,3 +65,6 @@
 # wm::FocusController only on the try bots with OzoneBubblesUsePlatformWidgets
 # enabled.
 -PermissionElementBrowserTest.TabSwitchingClosesPrompt
+
+# TODO(crbug.com/40799125): Flaky.
+-PageLoadMetricsBrowserTest.SoftNavigation

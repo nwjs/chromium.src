@@ -25,7 +25,6 @@
 #include "chrome/browser/enterprise/data_controls/chrome_rules_service.h"
 #include "chrome/browser/enterprise/data_controls/data_controls_dialog_factory.h"
 #include "chrome/browser/enterprise/data_protection/paste_allowed_request.h"
-#include "chrome/browser/glic/host/guest_util.h"
 #include "chrome/browser/profiles/profile.h"
 #include "components/dom_distiller/core/url_utils.h"
 #include "components/enterprise/common/files_scan_data.h"
@@ -179,8 +178,9 @@ void HandleStringData(
             if (data.settings.cloud_or_local_settings.is_local_analysis() ||
                 base::FeatureList::IsEnabled(
                     enterprise_connectors::kDlpScanPastedImages)) {
-              image_blocked =
-                  !clipboard_paste_data.png.empty() && !result.image_result;
+              image_blocked = (!clipboard_paste_data.png.empty() ||
+                               !clipboard_paste_data.bitmap.empty()) &&
+                              !result.image_result;
             }
 
             if (text_blocked || image_blocked) {
@@ -297,8 +297,9 @@ void OnCopyDeepScanComplete(
     const enterprise_connectors::ContentAnalysisDelegate::Data& delegate_data,
     enterprise_connectors::ContentAnalysisDelegate::Result& result) {
   bool text_blocked = !result.text_results.empty() && !result.text_results[0];
-  bool image_blocked =
-      !clipboard_paste_data.png.empty() && !result.image_result;
+  bool image_blocked = (!clipboard_paste_data.png.empty() ||
+                        !clipboard_paste_data.bitmap.empty()) &&
+                       !result.image_result;
 
   if (text_blocked || image_blocked) {
     // In copy case, this could be a KeptInManagedChrome result, so we need to
@@ -941,44 +942,6 @@ void PasteFromGeminiIfAllowedByContentAnalysis(
 }
 
 }  // namespace
-
-BasicPasteSource::BasicPasteSource() = default;
-BasicPasteSource::BasicPasteSource(const BasicPasteSource&) = default;
-BasicPasteSource& BasicPasteSource::operator=(const BasicPasteSource&) =
-    default;
-BasicPasteSource::BasicPasteSource(BasicPasteSource&&) = default;
-BasicPasteSource& BasicPasteSource::operator=(BasicPasteSource&&) = default;
-BasicPasteSource::~BasicPasteSource() = default;
-
-FullPasteSource::FullPasteSource() = default;
-FullPasteSource::FullPasteSource(const FullPasteSource&) = default;
-FullPasteSource& FullPasteSource::operator=(const FullPasteSource&) = default;
-FullPasteSource::FullPasteSource(FullPasteSource&&) = default;
-FullPasteSource& FullPasteSource::operator=(FullPasteSource&&) = default;
-FullPasteSource::~FullPasteSource() = default;
-
-BasicPasteSource CacheBasicPasteSource(
-    const content::ClipboardEndpoint& source) {
-  BasicPasteSource cached;
-  cached.data_transfer_endpoint = source.data_transfer_endpoint();
-  if (source.browser_context()) {
-    cached.browser_context = source.browser_context()->GetWeakPtr();
-  }
-  cached.gemini_in_chrome =
-      source.web_contents() && (glic::IsGlicGuest(source.web_contents()) ||
-                                glic::IsGlicWebUI(source.web_contents()));
-  return cached;
-}
-
-FullPasteSource CacheFullPasteSource(const content::ClipboardEndpoint& source) {
-  FullPasteSource cached;
-  static_cast<BasicPasteSource&>(cached) = CacheBasicPasteSource(source);
-#if BUILDFLAG(ENTERPRISE_CONTENT_ANALYSIS)
-  cached.active_user =
-      enterprise_connectors::ContentAreaUserProvider::GetUser(source);
-#endif
-  return cached;
-}
 
 void PasteIfAllowedByPolicy(
     const content::ClipboardEndpoint& source,

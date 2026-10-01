@@ -129,8 +129,8 @@ static_library("v4_get_hash_protocol_manager") {
 
   public_deps = [
     ":safebrowsing_proto",
+    ":sb_protocol_config",
     ":util",
-    ":v4_protocol_config",
   ]
   deps = [
     ":v4_protocol_manager_util",
@@ -181,7 +181,7 @@ source_set("v5_get_hash_protocol_manager") {
     ":v5_search_hashes_cache",
     "//base",
     "//components/keyed_service/core",
-    "//components/safe_browsing/core/browser/db:v4_protocol_config",
+    "//components/safe_browsing/core/browser/db:sb_protocol_config",
     "//components/safe_browsing/core/common",
     "//components/safe_browsing/core/common/proto:webui_proto",
     "//services/network/public/cpp",
@@ -218,10 +218,10 @@ static_library("sb_local_database_manager") {
   ]
 }
 
-source_set("v4_protocol_config") {
+source_set("sb_protocol_config") {
   sources = [
-    "v4_protocol_config.cc",
-    "v4_protocol_config.h",
+    "sb_protocol_config.cc",
+    "sb_protocol_config.h",
   ]
 
   deps = [
@@ -230,7 +230,7 @@ source_set("v4_protocol_config") {
   ]
 }
 
-source_set("v4_protocol_manager_util") {
+source_set("sb_protocol_manager_util") {
   sources = [
     "sb_protocol_manager_util.cc",
     "sb_protocol_manager_util.h",
@@ -241,7 +241,7 @@ source_set("v4_protocol_manager_util") {
 
   public_deps = [ ":safebrowsing_proto" ]
   deps = [
-    ":v4_protocol_config",
+    ":sb_protocol_config",
     "//base",
     "//components/safe_browsing/core/common:features",
     "//components/safe_browsing/core/common:safe_browsing_prefs",
@@ -249,6 +249,12 @@ source_set("v4_protocol_manager_util") {
     "//net",
     "//url",
   ]
+}
+
+# TODO(crbug.com/362791941): Remove once all references are updated to
+# sb_protocol_manager_util.
+group("v4_protocol_manager_util") {
+  public_deps = [ ":sb_protocol_manager_util" ]
 }
 
 source_set("prefix_iterator") {
@@ -267,6 +273,7 @@ source_set("prefix_iterator") {
 
 if (is_android) {
   import("//build/config/android/rules.gni")
+
   java_cpp_enum("sb_threat_values") {
     sources = [ "sb_protocol_manager_util.h" ]
   }
@@ -347,14 +354,13 @@ source_set("sb_store") {
   ]
 }
 
-# TODO(crbug.com/362791941): Handle v4 references
-static_library("v4_test_util") {
+static_library("sb_test_util") {
   testonly = true
   sources = [
+    "sb_test_util.cc",
+    "sb_test_util.h",
     "v4_embedded_test_server_util.cc",
     "v4_embedded_test_server_util.h",
-    "v4_test_util.cc",
-    "v4_test_util.h",
     "v5_embedded_test_server_util.cc",
     "v5_embedded_test_server_util.h",
   ]
@@ -389,7 +395,7 @@ static_library("sb_update_protocol_manager") {
   configs += [ "//build/config/compiler:wexit_time_destructors" ]
 
   public_deps = [
-    ":v4_protocol_config",
+    ":sb_protocol_config",
     "//components/safe_browsing/core/common/proto:safebrowsingv5_proto",
   ]
 
@@ -445,11 +451,11 @@ source_set("unit_tests_shared") {
     ":allowlist_checker_client",
     ":database_manager",
     ":safebrowsing_proto",
+    ":sb_test_util",
     ":test_database_manager",
     ":util",
     ":v4_get_hash_protocol_manager",
     ":v4_protocol_manager_util",
-    ":v4_test_util",
     ":v5_get_hash_protocol_manager",
     ":v5_search_hashes_cache",
     ":v5_search_hashes_util",
@@ -482,12 +488,12 @@ source_set("unit_tests_local_db") {
     ":sb_database",
     ":sb_local_database_manager",
     ":sb_store",
+    ":sb_test_util",
     ":sb_update_protocol_manager",
     ":unit_tests_shared",
     ":util",
     ":v4_protocol_manager_util",
     ":v4_store_proto",
-    ":v4_test_util",
     ":v5_get_hash_protocol_manager",
     ":v5_search_hashes_cache",
     "//base",
@@ -548,8 +554,8 @@ fuzzer_test("v4_store_fuzzer") {
   sources = [ "v4_store_fuzzer.cc" ]
   deps = [
     ":sb_store",
+    ":sb_test_util",
     ":v4_protocol_manager_util",
-    ":v4_test_util",
     "//base/test:test_support",
     "//testing/libfuzzer:libfuzzer_base_wrappers",
   ]

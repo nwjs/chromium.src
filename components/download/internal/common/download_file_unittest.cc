@@ -5,6 +5,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <array>
 #include <memory>
 #include <string_view>
 #include <utility>
@@ -27,6 +28,7 @@
 #include "build/build_config.h"
 #include "components/download/public/common/download_create_info.h"
 #include "components/download/public/common/download_destination_observer.h"
+#include "components/download/public/common/download_features.h"
 #include "components/download/public/common/download_file_impl.h"
 #include "components/download/public/common/download_interrupt_reasons.h"
 #include "components/download/public/common/mock_input_stream.h"
@@ -70,10 +72,11 @@ int64_t GetBuffersLength(const char** buffers, size_t num_buffer) {
   return result;
 }
 
-std::string GetHexEncodedHashValue(crypto::SecureHash* hash_state) {
+std::string GetHexEncodedHashValue(
+    std::optional<crypto::hash::Hasher>& hash_state) {
   if (!hash_state)
     return std::string();
-  std::vector<uint8_t> hash_value(hash_state->GetHashLength());
+  std::array<uint8_t, crypto::hash::kSha256Size> hash_value;
   hash_state->Finish(hash_value);
   return base::HexEncode(hash_value);
 }
@@ -87,15 +90,14 @@ class MockDownloadDestinationObserver : public DownloadDestinationObserver {
   void DestinationError(
       DownloadInterruptReason reason,
       int64_t bytes_so_far,
-      std::unique_ptr<crypto::SecureHash> hash_state) override {
+      std::optional<crypto::hash::Hasher> hash_state) override {
     MockDestinationError(reason, bytes_so_far,
-                         GetHexEncodedHashValue(hash_state.get()));
+                         GetHexEncodedHashValue(hash_state));
   }
   void DestinationCompleted(
       int64_t total_bytes,
-      std::unique_ptr<crypto::SecureHash> hash_state) override {
-    MockDestinationCompleted(total_bytes,
-                             GetHexEncodedHashValue(hash_state.get()));
+      std::optional<crypto::hash::Hasher> hash_state) override {
+    MockDestinationCompleted(total_bytes, GetHexEncodedHashValue(hash_state));
   }
 
   MOCK_METHOD3(MockDestinationError,
@@ -1410,6 +1412,42 @@ class DownloadFileTestWithObfuscation : public DownloadFileTest {
 };
 
 TEST_F(DownloadFileTestWithObfuscation, ObfuscationEnabled) {
+  size_t length = strlen(kTestData1) + strlen(kTestData2) + strlen(kTestData3);
+  ASSERT_TRUE(CreateDownloadFile(length, true));
+  const char* chunks[] = {kTestData1, kTestData2, kTestData3};
+
+  EXPECT_CALL(*input_stream_, RegisterDataReadyCallback(_))
+      .Times(1)
+      .RetiresOnSaturation();
+
+  // Append dummy data for obfuscated size verification.
+  expected_data_ += std::string(CalculateObfuscationOverhead(3), '\0');
+  AppendDataToFile(chunks, 3);
+
+  // The download appends an empty chunk at the end of the file when completed,
+  // so we need to append its size.
+  expected_data_ += std::string(kObfuscationChunkOverhead, '\0');
+
+  // Original file hash should be returned, not the obfuscated hash.
+  FinishStream(DOWNLOAD_INTERRUPT_REASON_NONE, true, kDataHash);
+
+  // Verify that the file content is obfuscated.
+  std::string file_content;
+  ASSERT_TRUE(
+      base::ReadFileToString(download_file_->FullPath(), &file_content));
+  EXPECT_NE(file_content, std::string(kTestData1) + std::string(kTestData2) +
+                              std::string(kTestData3));
+  // Total size includes the 3 data chunks and the 1 empty termination chunk.
+  EXPECT_EQ(file_content.size(), length + CalculateObfuscationOverhead(4));
+
+  download_file_->Cancel();
+  DestroyDownloadFile(0, false);
+}
+
+TEST_F(DownloadFileTestWithObfuscation,
+       ObfuscationEnabledWithParallelDownloading) {
+  base::test::ScopedFeatureList parallel_feature(
+      features::kParallelDownloading);
   size_t length = strlen(kTestData1) + strlen(kTestData2) + strlen(kTestData3);
   ASSERT_TRUE(CreateDownloadFile(length, true));
   const char* chunks[] = {kTestData1, kTestData2, kTestData3};

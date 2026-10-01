@@ -5,16 +5,17 @@
 #include "chrome/browser/chrome_browser_interface_binders_webui.h"
 
 #include "build/android_buildflags.h"
+#include "chrome/browser/browser_actuator/internals/browser_actuator_internals.mojom.h"
+#include "chrome/browser/browser_actuator/internals/browser_actuator_internals_ui.h"
 #include "chrome/browser/chrome_browser_interface_binders.h"
 #include "chrome/browser/chrome_browser_interface_binders_webui_parts.h"
+#include "chrome/browser/contextual_tasks/contextual_tasks_toolbar.mojom.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_ui.h"
 #include "chrome/browser/media/media_engagement_score_details.mojom.h"
 #include "chrome/browser/optimization_guide/optimization_guide_internals_ui.h"
 #include "chrome/browser/ui/webui/actor_internals/actor_internals_ui.h"
 #include "chrome/browser/ui/webui/bluetooth_internals/bluetooth_internals.mojom.h"
 #include "chrome/browser/ui/webui/bluetooth_internals/bluetooth_internals_ui.h"
-#include "chrome/browser/ui/webui/chrome_finds_internals/chrome_finds_internals.mojom.h"
-#include "chrome/browser/ui/webui/chrome_finds_internals/chrome_finds_internals_ui.h"
 #include "chrome/browser/ui/webui/chrome_urls/chrome_urls_ui.h"
 #include "chrome/browser/ui/webui/connectors_internals/connectors_internals_ui.h"
 #include "chrome/browser/ui/webui/content_settings/content_settings_internals.mojom.h"
@@ -45,6 +46,7 @@
 #include "components/history_clusters/history_clusters_internals/webui/history_clusters_internals_ui.h"
 #include "components/policy/core/common/features.h"
 #include "components/site_engagement/core/mojom/site_engagement_details.mojom.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/web_ui_browser_interface_broker_registry.h"
 #include "content/public/browser/web_ui_controller_interface_binder.h"
 #include "mojo/public/cpp/bindings/binder_map.h"
@@ -55,6 +57,8 @@
 #include "ui/webui/tracked_element/tracked_element_handler_document_singleton.h"
 
 #if !BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/ui/webui/critical_actions/critical_actions.mojom.h"
+#include "chrome/browser/ui/webui/critical_actions/critical_actions_ui.h"
 #include "chrome/browser/ui/webui/history/history_ui.h"
 #include "chrome/browser/ui/webui/indigo_internals/indigo_internals.mojom.h"
 #include "chrome/browser/ui/webui/indigo_internals/indigo_internals_ui.h"
@@ -125,15 +129,22 @@ void BindColorChangeListener(
 }
 #endif  // !BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_DESKTOP_ANDROID)
 
+void FinishBindTrackedElementHandler(
+    mojo::PendingReceiver<tracked_element::mojom::TrackedElementHandler>
+        pending_receiver,
+    base::WeakPtr<ui::TrackedElementHandler> handler) {
+  if (handler) {
+    handler->BindInterface(std::move(pending_receiver));
+  }
+}
+
 void BindTrackedElementHandler(
     content::RenderFrameHost* frame_host,
     mojo::PendingReceiver<tracked_element::mojom::TrackedElementHandler>
         pending_receiver) {
-  auto handler =
-      ui::TrackedElementHandlerDocumentSingleton::GetOrCreate(frame_host);
-  if (handler) {
-    handler->BindInterface(std::move(pending_receiver));
-  }
+  ui::TrackedElementHandlerDocumentSingleton::GetOrCreateAsync(
+      frame_host, base::BindOnce(&FinishBindTrackedElementHandler,
+                                 std::move(pending_receiver)));
 }
 
 void BindTrackedElementHandlerRestricted(
@@ -179,8 +190,8 @@ void PopulateChromeWebUIFrameBindersPartsAllPlatforms(
     mojo::BinderMapWithContext<content::RenderFrameHost*>* map,
     content::RenderFrameHost* render_frame_host) {
   RegisterWebUIControllerInterfaceBinder<
-      chrome_finds_internals::mojom::PageHandlerFactory,
-      chrome_finds_internals::ChromeFindsInternalsUI>(map);
+      browser_actuator_internals::mojom::BrowserActuatorInternalsUIFactory,
+      browser_actuator::BrowserActuatorInternalsUI>(map);
 
   RegisterWebUIControllerInterfaceBinder<::mojom::BluetoothInternalsHandler,
                                          BluetoothInternalsUI>(map);
@@ -190,6 +201,9 @@ void PopulateChromeWebUIFrameBindersPartsAllPlatforms(
       map);
 
 #if !BUILDFLAG(IS_ANDROID)
+  RegisterWebUIControllerInterfaceBinder<
+      critical_actions::mojom::PageHandlerFactory,
+      critical_actions::CriticalActionsUI>(map);
   RegisterWebUIControllerInterfaceBinder<
       omnibox_popup_aim::mojom::PageHandlerFactory, OmniboxPopupUI>(map);
   RegisterWebUIControllerInterfaceBinder<
@@ -254,6 +268,9 @@ void PopulateChromeWebUIFrameBindersPartsAllPlatforms(
   if (contextual_tasks::IsContextualTasksUIEnabled()) {
     RegisterWebUIControllerInterfaceBinder<
         contextual_tasks::mojom::PageHandlerFactory, ContextualTasksUI>(map);
+    RegisterWebUIControllerInterfaceBinder<
+        contextual_tasks_toolbar::mojom::PageHandlerFactory,
+        ::ContextualTasksUI>(map);
     RegisterWebUIControllerInterfaceBinder<
         contextual_tasks_internals::mojom::
             ContextualTasksInternalsPageHandlerFactory,

@@ -14,6 +14,8 @@
 #include "base/strings/strcat.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/scoped_feature_list.h"
+#include "base/test/task_environment.h"
+#include "base/test/test_future.h"
 #include "base/values.h"
 #include "build/build_config.h"
 #include "components/omnibox/browser/autocomplete_match.h"
@@ -21,6 +23,13 @@
 #include "components/omnibox/browser/test_scheme_classifier.h"
 #include "components/omnibox/common/omnibox_feature_configs.h"
 #include "components/omnibox/common/omnibox_features.h"
+#include "net/base/net_errors.h"
+#include "net/http/http_status_code.h"
+#include "net/traffic_annotation/network_traffic_annotation_test_helper.h"
+#include "services/network/public/cpp/resource_request.h"
+#include "services/network/public/cpp/simple_url_loader.h"
+#include "services/network/test/test_url_loader_factory.h"
+#include "services/network/test/test_utils.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/omnibox_proto/entity_info.pb.h"
@@ -67,6 +76,31 @@ testing::Matcher<SearchSuggestionParser::SuggestResult> SuggestionIs(
     const std::u16string& expected) {
   return testing::Property(&SearchSuggestionParser::SuggestResult::suggestion,
                            testing::Eq(expected));
+}
+
+std::unique_ptr<network::SimpleURLLoader> CreateLoaderWithContentType(
+    network::TestURLLoaderFactory* url_loader_factory,
+    std::string_view content_type) {
+  const GURL url("https://example.com/");
+
+  auto response_head = network::CreateURLResponseHead(net::HTTP_OK);
+  response_head->headers->SetHeader("Content-Type", content_type);
+
+  url_loader_factory->AddResponse(url, std::move(response_head), /*content=*/"",
+                                  network::URLLoaderCompletionStatus(net::OK));
+
+  auto resource_request = std::make_unique<network::ResourceRequest>();
+  resource_request->url = url;
+
+  auto loader = network::SimpleURLLoader::Create(std::move(resource_request),
+                                                 TRAFFIC_ANNOTATION_FOR_TESTS);
+
+  base::test::TestFuture<std::optional<std::string>> future;
+  loader->DownloadToStringOfUnboundedSizeUntilCrashAndDie(url_loader_factory,
+                                                          future.GetCallback());
+  static_cast<void>(future.Get());
+
+  return loader;
 }
 
 }  // namespace
@@ -127,7 +161,75 @@ TEST(SearchSuggestionParserTest, DeserializeWithTrailingComma) {
 ////////////////////////////////////////////////////////////////////////////////
 // ExtractJsonData:
 
-// TODO(crbug.com/41382281): Add some ExtractJsonData tests.
+TEST(SearchSuggestionParserTest, ExtractJsonDataWithoutResponseBody) {
+  std::optional<std::string> response_body;
+
+  std::string result = SearchSuggestionParser::ExtractJsonData(
+      /*source=*/nullptr, response_body);
+
+  ASSERT_TRUE(result.empty());
+}
+
+TEST(SearchSuggestionParserTest, ExtractJsonDataWithoutSource) {
+  std::string response_body = R"(["one"])";
+
+  std::string result = SearchSuggestionParser::ExtractJsonData(
+      /*source=*/nullptr, response_body);
+
+  ASSERT_EQ(response_body, result);
+}
+
+TEST(SearchSuggestionParserTest, ExtractJsonDataWithoutCharset) {
+  base::test::SingleThreadTaskEnvironment task_environment;
+  network::TestURLLoaderFactory test_url_loader_factory;
+
+  std::string response_body = R"(["one"])";
+  auto loader =
+      CreateLoaderWithContentType(&test_url_loader_factory, "application/json");
+
+  std::string result =
+      SearchSuggestionParser::ExtractJsonData(loader.get(), response_body);
+
+  ASSERT_EQ(response_body, result);
+}
+
+TEST(SearchSuggestionParserTest, ExtractJsonDataWithInvalidEncodedData) {
+  base::test::SingleThreadTaskEnvironment task_environment;
+  network::TestURLLoaderFactory test_url_loader_factory;
+
+  // 0x22 is not a valid trail byte for the EUC-KR lead byte 0xFE.
+  std::string response_body = "\xFE\x22";
+
+  auto loader = CreateLoaderWithContentType(&test_url_loader_factory,
+                                            "application/json; charset=euc-kr");
+
+  std::string result =
+      SearchSuggestionParser::ExtractJsonData(loader.get(), response_body);
+
+  ASSERT_EQ(response_body, result);
+}
+
+TEST(SearchSuggestionParserTest, ExtractJsonDataWithNonUtf8Charset) {
+  base::test::SingleThreadTaskEnvironment task_environment;
+  network::TestURLLoaderFactory test_url_loader_factory;
+
+  // "안녕하세요" encoded as EUC-KR.
+  std::string response_body =
+      "[\""
+      "\xBE\xC8\xB3\xE7\xC7\xCF\xBC\xBC\xBF\xE4"
+      "\"]";
+
+  std::string expected =
+      base::UTF16ToUTF8(u"[\"\uC548\uB155\uD558\uC138\uC694\"]");
+
+  auto loader = CreateLoaderWithContentType(&test_url_loader_factory,
+                                            "application/json; charset=euc-kr");
+
+  std::string result =
+      SearchSuggestionParser::ExtractJsonData(loader.get(), response_body);
+
+  ASSERT_EQ(expected, result);
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 // ParseSuggestResults:
@@ -1594,7 +1696,16 @@ TEST(SearchSuggestionParserTest, ParseSuggestTemplateFromSuggestResults) {
     frag2->set_start_index(11);
     frag2->set_text("Wizards");
     frag2->set_is_bolded(false);
-    suggest_template_info.mutable_secondary_text()->set_text("MIA");
+    auto* secondary_text = suggest_template_info.mutable_secondary_text();
+    secondary_text->set_text("MIA Basketball");
+    auto* sec_frag1 = secondary_text->add_fragments();
+    sec_frag1->set_start_index(0);
+    sec_frag1->set_text("MIA ");
+    sec_frag1->set_is_bolded(true);
+    auto* sec_frag2 = secondary_text->add_fragments();
+    sec_frag2->set_start_index(4);
+    sec_frag2->set_text("Basketball");
+    sec_frag2->set_is_bolded(false);
     omnibox::SuggestTemplateInfo::Image* image =
         suggest_template_info.mutable_image();
     image->set_url("http://example.com/a.png");
@@ -1668,7 +1779,7 @@ TEST(SearchSuggestionParserTest, ParseSuggestTemplateFromSuggestResults) {
     // of the SuggestTemplateInfo.
     ASSERT_EQ(u"Washington Wizards",
               results.suggest_results[1].match_contents());
-    ASSERT_EQ(u"MIA", results.suggest_results[1].annotation());
+    ASSERT_EQ(u"MIA Basketball", results.suggest_results[1].annotation());
 
     // Verify classifications derived from suggest template fragments.
     const auto& classifications =
@@ -1678,6 +1789,25 @@ TEST(SearchSuggestionParserTest, ParseSuggestTemplateFromSuggestResults) {
     EXPECT_EQ(ACMatchClassification::MATCH, classifications[0].style);
     EXPECT_EQ(11U, classifications[1].offset);
     EXPECT_EQ(ACMatchClassification::NONE, classifications[1].style);
+
+    const auto sec_classifications =
+        results.suggest_results[1].ClassifyAnnotation();
+    ASSERT_EQ(2U, sec_classifications.size());
+    EXPECT_EQ(0U, sec_classifications[0].offset);
+    EXPECT_EQ(ACMatchClassification::MATCH | ACMatchClassification::DIM,
+              sec_classifications[0].style);
+    EXPECT_EQ(4U, sec_classifications[1].offset);
+    EXPECT_EQ(ACMatchClassification::DIM, sec_classifications[1].style);
+
+    // If SetAnnotation is called with a new string, it should not use stale
+    // template fragments and instead fall back to {0, DIM}.
+    results.suggest_results[1].SetAnnotation(u"New Annotation");
+    EXPECT_EQ(u"New Annotation", results.suggest_results[1].annotation());
+    const auto updated_sec_class =
+        results.suggest_results[1].ClassifyAnnotation();
+    ASSERT_EQ(1U, updated_sec_class.size());
+    EXPECT_EQ(0U, updated_sec_class[0].offset);
+    EXPECT_EQ(ACMatchClassification::DIM, updated_sec_class[0].style);
   }
   // Parse EntityInfo data from garbled proto field.
   {

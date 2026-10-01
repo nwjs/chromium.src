@@ -10,6 +10,7 @@
 #include "base/check.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
+#include "base/notimplemented.h"
 #include "base/task/sequenced_task_runner.h"
 #include "build/build_config.h"
 #include "chrome/browser/glic/host/host.h"
@@ -42,9 +43,12 @@ ShowOptions CreateShowOptions(
     const GlicInvokeOptions& options) {
   ShowOptions show_options = std::visit(
       absl::Overload{[&](const GlicInvokeHandler::TabSurface& tab_surface) {
-                       return ShowOptions::ForSidePanel(
-                           *tab_surface.tab, GlicPinTrigger::kInstanceCreation,
-                           options.GetInvocationSource());
+                       SidePanelShowOptions side_panel_options{
+                           *tab_surface.tab};
+                       side_panel_options.pin_trigger =
+                           GlicPinTrigger::kInstanceCreation;
+                       side_panel_options.pin_on_bind = options.pin_on_bind;
+                       return ShowOptions(side_panel_options);
                      },
                      [&](Floating) {
                        return ShowOptions::ForFloating(
@@ -137,11 +141,16 @@ GlicInvokeHandler::ResolvedTarget GlicInvokeHandler::ResolveTargetSurface(
     tabs::TabInterface* tab = tab_handle->Get();
     if (tab) {
       BrowserWindowInterface* browser = tab->GetBrowserWindowInterface();
-      if (!browser ||
-          browser->GetType() != BrowserWindowInterface::Type::TYPE_NORMAL) {
-        return {TabSurface{/*tab=*/nullptr, /*is_new=*/false}};
+      // Allow detached / background tabs for actuation, reject non-normal browser windows.
+      bool is_background_actuation =
+        !browser && target.actuation_target == mojom::ActuationTarget::kTargetSurface;
+      bool is_normal_browser =
+        browser && browser->GetType() == BrowserWindowInterface::Type::TYPE_NORMAL;
+
+      if (is_background_actuation || is_normal_browser) {
+        return {TabSurface{tab, /*is_new=*/false}};
       }
-      return {TabSurface{tab, /*is_new=*/false}};
+      return {TabSurface{/*tab=*/nullptr, /*is_new=*/false}};
     }
   }
 
@@ -249,6 +258,17 @@ void GlicInvokeHandler::Invoke() {
 
   std::vector<std::unique_ptr<GlicInvokeTask>> tasks;
 
+  // The copy check task must come first so that it is started immediately. This
+  // ensures that data needed for the check is cached immediately, removing the
+  // need to observe navigations that may disrupt the check.
+  if (options_.additional_context.has_value() &&
+      options_.additional_context->policy_check == PolicyCheck::kClipboard) {
+    tasks.push_back(std::make_unique<CopyPolicyTask>(
+        &*instance_, options_,
+        base::BindOnce(&GlicInvokeHandler::OnError,
+                       weak_ptr_factory_.GetWeakPtr())));
+  }
+
   if (IsActuatingFeatureMode() && IsTabTarget()) {
     tasks.push_back(std::make_unique<SetTabPendingActuationTask>(
         instance_->profile(), GetTab().GetHandle()));
@@ -257,14 +277,6 @@ void GlicInvokeHandler::Invoke() {
   if (should_wait_for_load_ && IsTabTarget()) {
     tasks.push_back(
         std::make_unique<WaitForNavigationTask>(GetTab().GetContents()));
-  }
-
-  if (options_.additional_context.has_value() &&
-      options_.additional_context->policy_check == PolicyCheck::kClipboard) {
-    tasks.push_back(std::make_unique<CopyPolicyTask>(
-        &*instance_, options_,
-        base::BindOnce(&GlicInvokeHandler::OnError,
-                       weak_ptr_factory_.GetWeakPtr())));
   }
 
   ShowOptions show_options = CreateShowOptions(resolved_target_, options_);
@@ -321,20 +333,24 @@ void GlicInvokeHandler::Invoke() {
   if (options_.additional_context.has_value() &&
       options_.additional_context->policy_check == PolicyCheck::kClipboard &&
       IsTabTarget()) {
-    tasks.push_back(std::make_unique<PastePolicyCheckTask>(
-        GetTab().GetContents(), &*instance_, options_,
+    tasks.push_back(std::make_unique<PastePolicyTask>(
+        &*instance_, options_,
         base::BindOnce(&GlicInvokeHandler::OnError,
                        weak_ptr_factory_.GetWeakPtr())));
   }
 
-  if (options_.fre_completion_wait_mode == FreCompletionWaitMode::kDefault) {
+  mojom::InvokeOptionsPtr mojo_options = CreateMojoOptions();
+  bool requires_client_invoke =
+      RequiresClientInvoke(mojo_options, auto_submit_passkey_.has_value());
+
+  if (options_.fre_completion_wait_mode == FreCompletionWaitMode::kAlways ||
+      (options_.fre_completion_wait_mode == FreCompletionWaitMode::kDefault &&
+       requires_client_invoke)) {
     tasks.push_back(std::make_unique<WaitForFreCompletionTask>(
         instance_->profile(), options_.fre_override));
   }
 
-  mojom::InvokeOptionsPtr mojo_options = CreateMojoOptions();
-
-  if (RequiresClientInvoke(mojo_options, auto_submit_passkey_.has_value())) {
+  if (requires_client_invoke) {
     tasks.push_back(std::make_unique<SendToClientTask>(
         &*instance_, std::move(mojo_options), auto_submit_passkey_));
   }
@@ -356,8 +372,31 @@ void GlicInvokeHandler::Invoke() {
                        weak_ptr_factory_.GetWeakPtr())));
   }
 
-  main_task_ = std::make_unique<SequentialTaskGroup>(std::move(tasks));
+  main_task_ = std::make_unique<SequentialTaskGroup>(
+      std::move(tasks),
+      base::BindRepeating(
+          [](base::WeakPtr<GlicInvokeHandler> handler,
+             std::optional<GlicTaskType> task_type, base::TimeDelta duration) {
+            if (handler && handler->metrics_) {
+              handler->metrics_->RecordTaskPhaseCompleted(task_type, duration);
+            }
+          },
+          weak_ptr_factory_.GetWeakPtr()));
 
+  int target_embedder_type = -1;
+  if (std::holds_alternative<TabSurface>(resolved_target_)) {
+    target_embedder_type = 0;
+  } else if (std::holds_alternative<Floating>(resolved_target_)) {
+    target_embedder_type = 1;
+  } else {
+    NOTIMPLEMENTED();
+  }
+
+  metrics_->RecordStarted(
+      options_.feature_mode.value_or(mojom::FeatureMode::kUnspecified),
+      target_embedder_type);
+  instance_->instance_metrics().SetActiveInvocationId(
+      metrics_->GetInvocationId());
   main_task_->Start(base::BindOnce(&GlicInvokeHandler::OnSuccess,
                                    weak_ptr_factory_.GetWeakPtr()));
 }
@@ -404,7 +443,8 @@ void GlicInvokeHandler::OnSuccess() {
     main_task_->NotifySequenceCompleted(/*success=*/true);
   }
 
-  metrics_->RecordSuccess();
+  metrics_->RecordSuccess(GetLastActiveTaskType());
+  instance_->instance_metrics().SetActiveInvocationId(std::nullopt);
 
   if (options_.on_success) {
     base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
@@ -422,7 +462,8 @@ void GlicInvokeHandler::OnError(GlicInvokeError error) {
     main_task_->NotifySequenceCompleted(/*success=*/false);
   }
 
-  metrics_->RecordError(error);
+  metrics_->RecordError(error, GetLastActiveTaskType());
+  instance_->instance_metrics().SetActiveInvocationId(std::nullopt);
 
   if (options_.on_error) {
     base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
@@ -493,6 +534,13 @@ mojom::InvokeOptionsPtr GlicInvokeHandler::CreateMojoOptions() {
   }
 
   return mojo_options;
+}
+
+std::optional<GlicTaskType> GlicInvokeHandler::GetLastActiveTaskType() const {
+  if (!main_task_) {
+    return std::nullopt;
+  }
+  return main_task_->GetLastActiveTaskType();
 }
 
 }  // namespace glic

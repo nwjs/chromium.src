@@ -32,7 +32,6 @@
 #import "ios/chrome/browser/lens_overlay/model/lens_overlay_url_utils.h"
 #import "ios/chrome/browser/shared/public/commands/open_new_tab_command.h"
 #import "ios/chrome/browser/shared/public/commands/scene_commands.h"
-#import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/public/features/system_flags.h"
 #import "ios/chrome/browser/signin/model/authentication_service.h"
 #import "ios/chrome/browser/signin/model/system_identity.h"
@@ -49,6 +48,7 @@
 #import "net/base/apple/url_conversions.h"
 #import "third_party/lens_server_proto/aim_communication.pb.h"
 #import "ui/base/l10n/l10n_util.h"
+#import "ui/base/page_transition_types.h"
 #import "url/gurl.h"
 
 @interface AssistantAIMMediator () <CRWWebFramesManagerObserver,
@@ -243,10 +243,11 @@
   // the main browser instead.
   if (requestInfo.target_frame_is_main) {
     decisionHandler(web::WebStatePolicyDecider::PolicyDecision::Cancel());
-    // Filter out about:blank initialization navigations to prevent spawning
-    // empty tabs in the main browser upon loading the Assistant AIM sheet.
-    if (URL.is_valid() && !URL.IsAboutBlank()) {
+    // Only replay valid HTTP or HTTPS URLs in the main browser.
+    if (URL.is_valid() && URL.SchemeIsHTTPOrHTTPS()) {
       UrlLoadParams params = UrlLoadParams::InNewTab(URL);
+      params.web_params.is_renderer_initiated = true;
+      params.web_params.transition_type = ui::PAGE_TRANSITION_LINK;
       _urlLoader->Load(params);
       [_containerHandler
           animateAssistantContainerToDetent:AssistantContainerDetent::kMinimized
@@ -268,7 +269,6 @@
   // regular mode.
   OpenNewTabCommand* command = [OpenNewTabCommand commandWithURLFromChrome:URL
                                                                inIncognito:NO];
-  command.openerWebState = webState->GetWeakPtr();
 
   [self.sceneHandler openURLInNewTab:command];
 
@@ -293,16 +293,6 @@
   if (!_context || !_context.url.is_valid()) {
     return;
   }
-  AssistantContainerDetent detent;
-  if (IsAssistantAimMinimizedStateEnabled()) {
-    detent = AssistantContainerDetent::kMinimized;
-  } else {
-    detent = AssistantContainerDetent::kMedium;
-  }
-  [_containerHandler
-      animateAssistantContainerToDetent:detent
-                               duration:kSheetDetentAnimationDuration
-                                  curve:UIViewAnimationCurveEaseInOut];
   GURL baseContextURL = _context.url;
   GURL urlWithTheme = net::AppendOrReplaceQueryParameter(
       baseContextURL, "cs", _isDarkMode ? "1" : "0");

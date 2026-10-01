@@ -90,6 +90,7 @@
 #include "components/user_manager/user_type.h"
 #include "content/public/browser/web_contents.h"
 #include "google_apis/gaia/gaia_auth_util.h"
+#include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "ui/aura/window.h"
 #include "ui/compositor/layer.h"
 #include "ui/events/event.h"
@@ -204,6 +205,10 @@ LoginDisplayHostMojo::LoginDisplayHostMojo(
           application_locale_storage,
           std::move(shared_url_loader_factory),
           browser_policy_connector_ash,
+          // TODO(crbug.com/404133029): Avoid using g_browser_process.
+          g_browser_process->platform_part()
+              ->multi_user_sign_in_policy_controller(),
+          g_browser_process->platform_part()->GetSystemClock(),
           displayed_screen)),
       auth_performer_(UserDataAuthClient::Get()),
       system_info_updater_(std::make_unique<MojoSystemInfoDispatcher>(
@@ -926,6 +931,8 @@ void LoginDisplayHostMojo::EnsureOobeDialogLoaded() {
       &application_locale_storage_.get(), shared_url_loader_factory_.get(),
       &browser_policy_connector_ash_.get(),
       g_browser_process->platform_part()->component_manager_ash(),
+      g_browser_process->platform_part()
+          ->device_restriction_schedule_controller(),
       GetWizardContext());
 
   GetLoginScreenCertProviderService()->pin_dialog_manager()->AddPinDialogHost(

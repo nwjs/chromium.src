@@ -47,6 +47,7 @@ source_set("tab_search") {
     "//chrome/browser/glic/resources:grit",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/resources/tab_search:resources",
+    "//chrome/browser/resources/tab_search/shared:resources",
     "//chrome/browser/sessions",
     "//chrome/browser/signin",
     "//chrome/browser/sync",
@@ -86,6 +87,17 @@ source_set("tab_search") {
   ]
 }
 
+source_set("unit_tests") {
+  testonly = true
+  sources = [ "search_handler_unittest.cc" ]
+  deps = [
+    ":tab_search",
+    "//base/test:test_support",
+    "//mojo/public/cpp/bindings",
+    "//testing/gtest",
+  ]
+}
+
 source_set("browser_tests") {
   testonly = true
   defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
@@ -99,6 +111,7 @@ source_set("browser_tests") {
     "//chrome/browser/ui",
     "//chrome/browser/ui:recently_audible_helper",
     "//chrome/browser/ui:tab_ui_helper",
+    "//chrome/browser/ui/browser_ui_controller",
     "//chrome/browser/ui/tabs/saved_tab_groups:test_support",
     "//chrome/browser/ui/webui:webui_util",
     "//chrome/browser/ui/webui/metrics_reporter:test_support",

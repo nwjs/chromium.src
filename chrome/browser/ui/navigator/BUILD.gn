@@ -6,15 +6,13 @@ import("//build/config/ui.gni")
 
 source_set("navigator") {
   public = [
+    "browser_navigator.h",
     "browser_navigator_params.h",
     "browser_navigator_params_utils.h",
   ]
 
   if (!is_android) {
-    public += [
-      "browser_navigator.h",
-      "browser_navigator_tab_modal.h",
-    ]
+    public += [ "browser_navigator_tab_modal.h" ]
   }
 
   public_deps = [
@@ -147,6 +145,7 @@ if (!is_android) {
       "//chrome/browser/ui/browser_window:create_browser_window",
       "//chrome/browser/ui/page_info",
       "//chrome/browser/ui/search:test_support_ui",
+      "//chrome/browser/ui/window_feature_controller",
       "//chrome/test:test_support",
       "//components/captive_portal/content",
       "//content/test:test_support",

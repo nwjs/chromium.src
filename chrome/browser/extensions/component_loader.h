@@ -19,6 +19,7 @@
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/values.h"
+#include "base/version.h"
 #include "build/branding_buildflags.h"
 #include "build/build_config.h"
 #include "build/chromeos_buildflags.h"
@@ -29,6 +30,7 @@
 
 static_assert(BUILDFLAG(ENABLE_EXTENSIONS_CORE));
 
+class PrefService;
 class Profile;
 
 namespace content {
@@ -44,6 +46,16 @@ class ExtensionSystem;
 class ComponentLoader : public KeyedService {
  public:
   static ComponentLoader* Get(content::BrowserContext* context);
+
+  // Stages `manifest` (downloaded by the component updater) in `local_state`
+  // for the next startup if its public key matches `extension_id` and its
+  // version is strictly newer than the bundled version. Returns true on
+  // success, otherwise clears any staged preferences and returns false.
+  static bool MaybeStageExtension(PrefService& local_state,
+                                  const ExtensionId& extension_id,
+                                  int manifest_resource_id,
+                                  const base::FilePath& relative_path,
+                                  std::optional<base::DictValue> manifest);
 
   ComponentLoader(const ComponentLoader&) = delete;
   ComponentLoader& operator=(const ComponentLoader&) = delete;
@@ -161,6 +173,7 @@ class ComponentLoader : public KeyedService {
  private:
   friend class ComponentLoaderFactory;
   friend class TtsApiTest;
+  friend class ComponentLoaderTest;
   FRIEND_TEST_ALL_PREFIXES(ComponentLoaderTest, ParseManifest);
   FRIEND_TEST_ALL_PREFIXES(ComponentLoaderTest, AddGlicExtension);
 
@@ -203,6 +216,15 @@ class ComponentLoader : public KeyedService {
 
   // Loads a registered component extension.
   void Load(const ComponentExtensionInfo& info);
+
+  // Loads a staged component extension from disk if `local_state` has a staged
+  // manifest and relative install path for `extension_id`, its public key
+  // matches `extension_id`, and its version is strictly newer than the bundled
+  // version. Returns true on success, otherwise clears any staged preferences
+  // and returns false.
+  bool MaybeLoadStagedExtension(PrefService& local_state,
+                                const ExtensionId& extension_id,
+                                int manifest_resource_id);
 
   void AddDefaultComponentExtensionsWithBackgroundPages(
       bool skip_session_components);

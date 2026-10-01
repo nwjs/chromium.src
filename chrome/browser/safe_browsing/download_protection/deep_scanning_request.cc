@@ -23,6 +23,7 @@
 #include "chrome/browser/enterprise/connectors/common.h"
 #include "chrome/browser/enterprise/connectors/connectors_service.h"
 #include "chrome/browser/enterprise/connectors/reporting/reporting_event_router_factory.h"
+#include "chrome/browser/enterprise/data_protection/data_protection_features.h"
 #include "chrome/browser/policy/dm_token_utils.h"
 #include "chrome/browser/safe_browsing/cloud_content_scanning/deep_scanning_utils.h"
 #include "chrome/browser/safe_browsing/cloud_content_scanning/file_analysis_request.h"
@@ -57,7 +58,6 @@
 
 #if BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS)
 #include "chrome/browser/enterprise/connectors/analysis/content_analysis_dialog_controller.h"
-#include "chrome/browser/enterprise/data_protection/data_protection_features.h"
 #endif  // BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS)
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -95,6 +95,7 @@ GetHighestPrecedenceForceSaveToCloudDestination(
   return TriggeredRule::UNSPECIFIED;
 }
 
+#if BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS)
 TriggeredRule::CustomRuleMessage GetForceSaveToCloudCustomRuleMessage(
     const enterprise_connectors::ContentAnalysisResponse& response) {
   for (const auto& result : response.results()) {
@@ -108,7 +109,6 @@ TriggeredRule::CustomRuleMessage GetForceSaveToCloudCustomRuleMessage(
   return TriggeredRule::CustomRuleMessage();
 }
 
-#if BUILDFLAG(ENTERPRISE_CLOUD_CONTENT_ANALYSIS)
 bool CanBypassForceSaveDialogForAutomation() {
   return base::CommandLine::ForCurrentProcess()->HasSwitch(
       switches::kEnableAutomation);
@@ -776,10 +776,6 @@ void DeepScanningRequest::OnEnterpriseScanComplete(
 
   DownloadCheckResult download_result = DownloadCheckResult::UNKNOWN;
 
-  enterprise_connectors::ContentAnalysisResponse::Result::TriggeredRule::
-      CustomRuleMessage custom_message =
-          GetForceSaveToCloudCustomRuleMessage(response);
-
   if (result == enterprise_connectors::ScanRequestUploadResult::kFileTooLarge &&
       analysis_settings_.block_large_files) {
     download_result = DownloadCheckResult::BLOCKED_TOO_LARGE;
@@ -847,6 +843,10 @@ void DeepScanningRequest::OnEnterpriseScanComplete(
                          weak_ptr_factory_.GetWeakPtr(),
                          DownloadCheckResult::SENSITIVE_CONTENT_BLOCK);
 
+      enterprise_connectors::ContentAnalysisResponse::Result::TriggeredRule::
+          CustomRuleMessage custom_message =
+              GetForceSaveToCloudCustomRuleMessage(
+                  file_metadata_.at(current_path).scan_response);
       ShowForceSaveToCloudDialog(
           std::move(keep_closure), std::move(discard_closure),
           force_save_web_contents, custom_message, /*file_count=*/1);
@@ -1076,7 +1076,16 @@ void DeepScanningRequest::FinishRequest(DownloadCheckResult result) {
               : GetEventResult(result, profile);
     }
 
-    report_callbacks_.Notify(event_result);
+    if (base::FeatureList::IsEnabled(
+            enterprise_data_protection::
+                kEnableForceSaveToCloudDeferredReporting) &&
+        (result == DownloadCheckResult::FORCE_SAVE_TO_GDRIVE ||
+         result == DownloadCheckResult::FORCE_SAVE_TO_ONEDRIVE)) {
+      // Skip reporting entirely as the force save to cloud reporting is
+      // handled in a separate flow.
+    } else {
+      report_callbacks_.Notify(event_result);
+    }
   }
 
   // If the deep-scanning result is unknown for whatever reason, `callback_`

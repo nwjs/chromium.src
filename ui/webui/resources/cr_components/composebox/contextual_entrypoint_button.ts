@@ -49,11 +49,10 @@ export class ContextualEntrypointButtonElement extends
       // Public properties
       // =========================================================================
       showContextMenuDescription: {type: Boolean},
-      showSuggestionLabel: {type: Boolean, reflect: true},
       inputState: {type: Object},
       glifAnimationState: {type: String, reflect: true},
       uploadButtonDisabled: {type: Boolean},
-      hasPopupFocus: {type: Boolean, reflect: true},
+      hasVirtualFocus: {type: Boolean, reflect: true},
       applyContextButtonBackground: {type: Boolean, reflect: true},
       isOblongShape: {type: Boolean, reflect: true},
       windowWidthBelowThreshold_: {type: Boolean},
@@ -72,14 +71,13 @@ export class ContextualEntrypointButtonElement extends
   }
 
   accessor showContextMenuDescription: boolean = false;
-  accessor showSuggestionLabel: boolean = false;
   accessor inputState: InputState|null = null;
   accessor sharedTabs: TabInfo[] = [];
   accessor restoredTabs: TabInfo[] = [];
   accessor glifAnimationState: GlifAnimationState =
       GlifAnimationState.INELIGIBLE;
   accessor uploadButtonDisabled: boolean = false;
-  accessor hasPopupFocus: boolean = false;
+  accessor hasVirtualFocus: boolean = false;
   accessor applyContextButtonBackground: boolean = false;
   accessor isOblongShape: boolean = false;
   accessor energyEffectAnimationEnabled: boolean = false;

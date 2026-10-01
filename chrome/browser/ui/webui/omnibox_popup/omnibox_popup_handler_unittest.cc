@@ -74,19 +74,25 @@ TEST_F(OmniboxPopupHandlerTest, OnShow) {
 }
 
 TEST_F(OmniboxPopupHandlerTest, SetFocus) {
-  EXPECT_CALL(page_, SetFocus(true, false));
+  EXPECT_CALL(page_, SetFocus(true, false, false));
   handler_->SetFocus(true);
   page_.FlushForTesting();
 }
 
 TEST_F(OmniboxPopupHandlerTest, SetFocusWithQueryZps) {
-  EXPECT_CALL(page_, SetFocus(true, true));
+  EXPECT_CALL(page_, SetFocus(true, true, false));
   handler_->SetFocus(true, /*query_zps=*/true);
   page_.FlushForTesting();
 }
 
+TEST_F(OmniboxPopupHandlerTest, SetFocusWithSelectAll) {
+  EXPECT_CALL(page_, SetFocus(true, true, true));
+  handler_->SetFocus(true, /*query_zps=*/true, /*select_all=*/true);
+  page_.FlushForTesting();
+}
+
 TEST_F(OmniboxPopupHandlerTest, SetFocusWithoutQueryZps) {
-  EXPECT_CALL(page_, SetFocus(false, false));
+  EXPECT_CALL(page_, SetFocus(false, false, false));
   handler_->SetFocus(false, /*query_zps=*/false);
   page_.FlushForTesting();
 }
@@ -124,12 +130,14 @@ TEST_F(OmniboxPopupHandlerTest, SetInputState) {
         EXPECT_EQ(state->permanent_display_text, permanent_display_text);
         EXPECT_TRUE(state->show_full_url);
         EXPECT_TRUE(state->query_zps);
+        EXPECT_TRUE(state->is_tab_switch);
       });
   handler_->SetInputState(test_text, test_selection,
                           /*user_input_in_progress=*/true, full_url,
                           /*is_focused=*/true, permanent_display_text,
                           show_full_url, query_zps,
-                          /*keyword_model=*/nullptr);
+                          /*keyword_model=*/nullptr,
+                          /*is_tab_switch=*/true);
   page_.FlushForTesting();
 }
 
@@ -160,7 +168,7 @@ TEST_F(OmniboxPopupHandlerTest, OnSelectionChangedSequenceGuard) {
                           /*user_input_in_progress=*/false, /*full_url=*/"",
                           /*is_focused=*/true, /*permanent_display_text=*/"",
                           /*show_full_url=*/false, /*query_zps=*/false,
-                          /*keyword_model=*/nullptr);
+                          /*keyword_model=*/nullptr, /*is_tab_switch=*/false);
 
   // A call with stale sequence number 0 should be discarded.
   gfx::Range selection2(2, 6);
@@ -221,7 +229,7 @@ TEST_F(OmniboxPopupHandlerTest, OnInputClearedSequenceGuard) {
                           /*user_input_in_progress=*/false, /*full_url=*/"",
                           /*is_focused=*/true, /*permanent_display_text=*/"",
                           /*show_full_url=*/false, /*query_zps=*/false,
-                          /*keyword_model=*/nullptr);
+                          /*keyword_model=*/nullptr, /*is_tab_switch=*/false);
   omnibox_controller->edit_model()->SetUserText(u"some text");
   test_omnibox_view->SetWindowTextAndCaretPos(u"some text", 0, false, false);
 
@@ -251,7 +259,7 @@ TEST_F(OmniboxPopupHandlerTest, RevertSequenceGuard) {
                           /*user_input_in_progress=*/false, /*full_url=*/"",
                           /*is_focused=*/true, /*permanent_display_text=*/"",
                           /*show_full_url=*/false, /*query_zps=*/false,
-                          /*keyword_model=*/nullptr);
+                          /*keyword_model=*/nullptr, /*is_tab_switch=*/false);
   omnibox_controller->edit_model()->SetUserText(u"draft text");
 
   handler_->Revert(/*sequence_number=*/0);
@@ -283,7 +291,7 @@ TEST_F(OmniboxPopupHandlerTest, OnPasteSequenceGuard) {
                           /*user_input_in_progress=*/false, /*full_url=*/"",
                           /*is_focused=*/true, /*permanent_display_text=*/"",
                           /*show_full_url=*/false, /*query_zps=*/false,
-                          /*keyword_model=*/nullptr);
+                          /*keyword_model=*/nullptr, /*is_tab_switch=*/false);
 
   // A call with stale sequence number 0 should be discarded.
   handler_->OnPaste("pasted text", gfx::Range(11, 11), /*sequence_number=*/0);
@@ -301,6 +309,8 @@ TEST_F(OmniboxPopupHandlerTest, OnPasteUpdatesEditModel) {
       std::make_unique<testing::NiceMock<MockOmniboxEditModel>>(
           omnibox_controller.get());
   auto* mock_edit_model_ptr = mock_edit_model.get();
+  TestOmniboxView test_view(omnibox_controller.get());
+  mock_edit_model_ptr->set_view(&test_view);
   omnibox_controller->SetEditModelForTesting(std::move(mock_edit_model));
 
   testing::NiceMock<MockOmniboxPopupPage> local_page;
@@ -312,7 +322,7 @@ TEST_F(OmniboxPopupHandlerTest, OnPasteUpdatesEditModel) {
                           /*user_input_in_progress=*/false, /*full_url=*/"",
                           /*is_focused=*/true, /*permanent_display_text=*/"",
                           /*show_full_url=*/false, /*query_zps=*/false,
-                          /*keyword_model=*/nullptr);
+                          /*keyword_model=*/nullptr, /*is_tab_switch=*/false);
 
   // OnPaste with valid sequence number 1 should:
   // 1. Invoke model->OnPaste() (recording Omnibox.Paste histogram).
@@ -336,7 +346,10 @@ TEST_F(OmniboxPopupHandlerTest, OnPasteUpdatesEditModel) {
   handler_->OnPaste("https://example.com", gfx::Range(19, 19),
                     /*sequence_number=*/1);
   histogram_tester.ExpectBucketCount("Omnibox.Paste", 1, 1);
+  EXPECT_EQ(test_view.GetText(), u"https://example.com");
+  EXPECT_EQ(test_view.GetSelectionBounds(), gfx::Range(19, 19));
 
+  mock_edit_model_ptr->set_view(nullptr);
   // Reset the handler to avoid dangling raw_ptr to the local
   // omnibox_controller.
   handler_.reset();
@@ -354,7 +367,7 @@ TEST_F(OmniboxPopupHandlerTest, OnCutOrCopySequenceGuard) {
                           /*user_input_in_progress=*/false, /*full_url=*/"",
                           /*is_focused=*/true, /*permanent_display_text=*/"",
                           /*show_full_url=*/false, /*query_zps=*/false,
-                          /*keyword_model=*/nullptr);
+                          /*keyword_model=*/nullptr, /*is_tab_switch=*/false);
 
   // Stale call (sequence 0) discarded.
   handler_->OnCutOrCopy(/*sequence_number=*/0, /*is_cut=*/false,
@@ -376,6 +389,8 @@ TEST_F(OmniboxPopupHandlerTest, OnCutUpdatesEditModel) {
       std::make_unique<testing::NiceMock<MockOmniboxEditModel>>(
           omnibox_controller.get());
   auto* mock_edit_model_ptr = mock_edit_model.get();
+  TestOmniboxView test_view(omnibox_controller.get());
+  mock_edit_model_ptr->set_view(&test_view);
   omnibox_controller->SetEditModelForTesting(std::move(mock_edit_model));
 
   testing::NiceMock<MockOmniboxPopupPage> local_page;
@@ -387,7 +402,7 @@ TEST_F(OmniboxPopupHandlerTest, OnCutUpdatesEditModel) {
                           /*user_input_in_progress=*/false, /*full_url=*/"",
                           /*is_focused=*/true, /*permanent_display_text=*/"",
                           /*show_full_url=*/false, /*query_zps=*/false,
-                          /*keyword_model=*/nullptr);
+                          /*keyword_model=*/nullptr, /*is_tab_switch=*/false);
 
   // OnCut (is_cut = true) cutting "example" (range 8-15) from
   // "https://example.com/" should pass text_differs = true, just_deleted_text =
@@ -412,6 +427,10 @@ TEST_F(OmniboxPopupHandlerTest, OnCutUpdatesEditModel) {
                         "https://example.com/",
                         /*selection=*/gfx::Range(8, 15));
 
+  EXPECT_EQ(test_view.GetText(), expected_new_text);
+  EXPECT_EQ(test_view.GetSelectionBounds(), gfx::Range(8, 8));
+
+  mock_edit_model_ptr->set_view(nullptr);
   handler_.reset();
 }
 
@@ -434,7 +453,7 @@ TEST_F(OmniboxPopupHandlerTest, OnCopyUpdatesEditModel) {
                           /*user_input_in_progress=*/false, /*full_url=*/"",
                           /*is_focused=*/true, /*permanent_display_text=*/"",
                           /*show_full_url=*/false, /*query_zps=*/false,
-                          /*keyword_model=*/nullptr);
+                          /*keyword_model=*/nullptr, /*is_tab_switch=*/false);
 
   // Set focus on edit model to record last_omnibox_focus timestamp.
   mock_edit_model_ptr->OnSetFocus(/*control_down=*/false);
@@ -494,7 +513,7 @@ TEST_F(OmniboxPopupHandlerTest, OnCopyZeroSuggestUpdatesEditModel) {
                           /*user_input_in_progress=*/false, /*full_url=*/"",
                           /*is_focused=*/true, /*permanent_display_text=*/"",
                           /*show_full_url=*/false, /*query_zps=*/true,
-                          /*keyword_model=*/nullptr);
+                          /*keyword_model=*/nullptr, /*is_tab_switch=*/false);
 
   // Set focus on edit model to record last_omnibox_focus timestamp.
   mock_edit_model_ptr->OnSetFocus(/*control_down=*/false);

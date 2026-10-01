@@ -12,14 +12,12 @@
 #include "ash/drag_drop/drag_drop_util.h"
 #include "ash/public/cpp/metrics_util.h"
 #include "ash/public/cpp/rounded_image_view.h"
-#include "ash/public/cpp/style/color_provider.h"
 #include "ash/resources/vector_icons/vector_icons.h"
 #include "ash/root_window_controller.h"
 #include "ash/shelf/shelf.h"
 #include "ash/shell.h"
 #include "ash/strings/grit/ash_strings.h"
 #include "ash/style/ash_color_id.h"
-#include "ash/style/ash_color_provider.h"
 #include "ash/style/icon_button.h"
 #include "ash/style/pill_button.h"
 #include "ash/style/typography.h"
@@ -55,6 +53,7 @@
 #include "ui/compositor/compositor.h"
 #include "ui/compositor/layer.h"
 #include "ui/compositor/layer_animator.h"
+#include "ui/decoration/shadow.h"
 #include "ui/gfx/animation/tween.h"
 #include "ui/gfx/codec/png_codec.h"
 #include "ui/gfx/color_utils.h"
@@ -68,7 +67,6 @@
 #include "ui/gfx/image/image_skia_operations.h"
 #include "ui/gfx/paint_vector_icon.h"
 #include "ui/gfx/scoped_animation_duration_scale_mode.h"
-#include "ui/gfx/shadow_util.h"
 #include "ui/gfx/text_constants.h"
 #include "ui/gfx/text_elider.h"
 #include "ui/message_center/message_center.h"
@@ -479,10 +477,14 @@ AshNotificationView::AshNotificationView(
                                views::FlexSpecification(
                                    views::MinimumFlexSizeRule::kScaleToZero,
                                    views::MaximumFlexSizeRule::kUnbounded))
-                  .AddChild(CreateHeaderRowBuilder()
-                                .SetIsInAshNotificationView(true)
-                                .SetColor(AshColorProvider::Get()->GetColor(
-                                    cros_tokens::kTextColorSecondary)))
+                  .AddChild(
+                      CreateHeaderRowBuilder()
+                          .SetIsInAshNotificationView(true)
+                          .SetColor(
+                              notification_style_utils::
+                                  GetColorProviderForNativeTheme()
+                                      ->GetColor(
+                                          cros_tokens::kTextColorSecondary)))
                   .AddChild(
                       CreateLeftContentBuilder()
                           .CopyAddressTo(&left_content_)
@@ -710,7 +712,7 @@ std::optional<gfx::ImageSkia> AshNotificationView::GetDragImage() {
   // Add the drop shadow.
   return gfx::ImageSkiaOperations::CreateImageWithDropShadow(
       drag_image_with_background,
-      drag_drop::GetDragImageShadowDetails(radius).values);
+      ui::Shadow::MakeShadowValues(drag_drop::kDragImageElevation));
 }
 
 void AshNotificationView::AttachDropData(ui::OSExchangeData* data) {
@@ -1317,8 +1319,8 @@ void AshNotificationView::CreateOrUpdateProgressViews(
   CreateOrUpdateProgressStatusView(notification);
   CreateOrUpdateProgressBarView(notification);
   if (progress_bar_view()) {
-    progress_bar_view()->SetForegroundColorId(cros_tokens::kCrosSysPrimary);
-    progress_bar_view()->SetBackgroundColorId(
+    progress_bar_view()->SetForegroundColor(cros_tokens::kCrosSysPrimary);
+    progress_bar_view()->SetBackgroundColor(
         cros_tokens::kCrosSysHighlightShape);
   }
 
@@ -1667,8 +1669,12 @@ void AshNotificationView::UpdateIconAndButtonsColor(
       !notification ||
       notification->rich_notification_data().ignore_accent_color_for_text;
   if (use_default_button_color) {
-    button_color = AshColorProvider::Get()->GetColor(
-        kColorAshControlBackgroundColorActive);
+    const auto* color_provider = GetColorProvider();
+    button_color =
+        color_provider
+            ? color_provider->GetColor(kColorAshControlBackgroundColorActive)
+            : notification_style_utils::GetColorProviderForNativeTheme()
+                  ->GetColor(kColorAshControlBackgroundColorActive);
   }
 
   for (views::LabelButton* action_button : action_buttons()) {

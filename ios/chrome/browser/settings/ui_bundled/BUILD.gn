@@ -74,8 +74,6 @@ source_set("ui_bundled") {
     "settings_navigation_controller.mm",
     "settings_table_view_controller.h",
     "settings_table_view_controller.mm",
-    "translate_table_view_controller.h",
-    "translate_table_view_controller.mm",
     "voice_search_table_view_controller.h",
     "voice_search_table_view_controller.mm",
   ]
@@ -171,6 +169,8 @@ source_set("ui_bundled") {
     "//ios/chrome/browser/settings/manage_sync/coordinator",
     "//ios/chrome/browser/settings/model/sync/utils",
     "//ios/chrome/browser/settings/model/sync/utils:identity_error_util",
+    "//ios/chrome/browser/settings/site_settings/coordinator",
+    "//ios/chrome/browser/settings/site_settings/public",
     "//ios/chrome/browser/settings/ui_bundled/address_bar_preference",
     "//ios/chrome/browser/settings/ui_bundled/autofill",
     "//ios/chrome/browser/settings/ui_bundled/bandwidth",
@@ -188,6 +188,7 @@ source_set("ui_bundled") {
     "//ios/chrome/browser/settings/ui_bundled/password",
     "//ios/chrome/browser/settings/ui_bundled/password/password_details",
     "//ios/chrome/browser/settings/ui_bundled/password/password_details:password_details_ui",
+    "//ios/chrome/browser/settings/ui_bundled/password/password_settings",
     "//ios/chrome/browser/settings/ui_bundled/password/resources",
     "//ios/chrome/browser/settings/ui_bundled/privacy",
     "//ios/chrome/browser/settings/ui_bundled/privacy:ui",
@@ -315,7 +316,6 @@ source_set("unit_tests") {
     "settings_navigation_controller_unittest.mm",
     "settings_root_table_view_controller_unittest.mm",
     "settings_table_view_controller_unittest.mm",
-    "translate_table_view_controller_unittest.mm",
     "voice_search_table_view_controller_unittest.mm",
   ]
   deps = [

@@ -63,6 +63,7 @@
 #include "chrome/browser/ui/webui/omnibox/logging/logs.mojom.h"
 #include "chrome/browser/ui/webui/omnibox/omnibox_ui.h"
 #include "chrome/browser/ui/webui/omnibox_everywhere/debug/omnibox_everywhere_debug.mojom.h"
+#include "chrome/browser/ui/webui/omnibox_everywhere/mojom/omnibox_everywhere.mojom.h"
 #include "chrome/browser/ui/webui/omnibox_everywhere/omnibox_everywhere_ui.h"
 #include "chrome/browser/ui/webui/omnibox_popup/omnibox_popup_ui.h"
 #include "chrome/browser/ui/webui/on_device_internals/on_device_internals_ui.h"
@@ -403,6 +404,9 @@ void PopulateChromeWebUIFrameBindersPartsDesktop(
       map);
 
   RegisterWebUIControllerInterfaceBinder<
+      omnibox_everywhere::mojom::PageHandlerFactory, OmniboxEverywhereUI>(map);
+
+  RegisterWebUIControllerInterfaceBinder<
       password_manager::mojom::PageHandlerFactory, PasswordManagerUI>(map);
 
   RegisterWebUIControllerInterfaceBinder<
@@ -658,7 +662,8 @@ void PopulateChromeWebUIFrameInterfaceBrokersTrustedPartsDesktop(
       .Add<tab_search::mojom::PageHandlerFactory>()
       .Add<tab_search::mojom::SearchHandler>();
   registry.ForWebUI<OrganizerPanelUI>()
-      .Add<tab_search::mojom::PageHandlerFactory>();
+      .Add<tab_search::mojom::PageHandlerFactory>()
+      .Add<tab_search::mojom::SearchHandler>();
 
   if (base::FeatureList::IsEnabled(ntp_features::kNtpFooter)) {
     registry.ForWebUI<NewTabFooterUI>()

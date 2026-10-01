@@ -50,10 +50,6 @@ chromium-metrics-reviews@google.com.
       summary="Used for testing purposes only."/>
   <variant name="PasswordManualFallbackAvailable"
       summary="For passwords manual fallback; shown in the context menu."/>
-  <variant name="PlusAddressesEnabled"
-      summary="For plus address creation; shown in the autofill popup."/>
-  <variant name="PlusAddressFallbackFromContextMenu"
-      summary="Plus address manual fallback entry point in the context menu."/>
   <variant name="ReadAnythingLineFocus"
       summary="Shown on the Line Focus menu item in Reading Mode settings
                menu."/>
@@ -138,6 +134,8 @@ chromium-metrics-reviews@google.com.
       summary="the module for Glitter Permissions AI"/>
   <variant name="GoogleLens" summary="the module for Google Lens"/>
   <variant name="Googlepayreauth" summary="the module for Google Pay Re-auth"/>
+  <variant name="HeadlessLiveCaption"
+      summary="the module for Headless Live Caption"/>
   <variant name="HelpMeWrite" summary="the module for Help Me Write"/>
   <variant name="HistoryEmbeddings"
       summary="the module for History Embeddings Search"/>
@@ -269,6 +267,8 @@ chromium-metrics-reviews@google.com.
     <variant name="Lens" summary="Lens"/>
     <variant name="Password" summary="Password"/>
     <variant name="Payment" summary="Payment"/>
+    <variant name="PriceTracking" summary="Price Tracking"/>
+    <variant name="TabGroups" summary="Tab Groups"/>
   </token>
 </histogram>
 
@@ -286,6 +286,8 @@ chromium-metrics-reviews@google.com.
     <variant name="Lens" summary="Lens"/>
     <variant name="Password" summary="Password"/>
     <variant name="Payment" summary="Payment"/>
+    <variant name="PriceTracking" summary="Price Tracking"/>
+    <variant name="TabGroups" summary="Tab Groups"/>
   </token>
   <token key="BubbleType">
     <variant name="QRCode" summary="QR Code Bubble"/>
@@ -425,7 +427,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="UserEducation.NtpPromos.ShowResult" enum="ShowNtpPromosResult"
-    expires_after="2027-01-03">
+    expires_after="2027-03-07">
   <owner>dfried@chromium.org</owner>
   <owner>cjgrant@chromium.org</owner>
   <owner>frizzle-team@google.com</owner>

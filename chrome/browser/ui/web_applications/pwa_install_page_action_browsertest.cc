@@ -265,9 +265,8 @@ class PwaInstallViewBrowserTest : public base::test::WithFeatureOverride,
   // Starts a navigation to |url| but does not wait for it to finish.
   void StartNavigateToUrl(const GURL& url) {
     browser()->OpenURL(
-        content::OpenURLParams(
-            url, content::Referrer(), WindowOpenDisposition::CURRENT_TAB,
-            ui::PAGE_TRANSITION_TYPED, false /* is_renderer_initiated */),
+        content::OpenURLParams::CreateBrowserInitiated(
+            url, WindowOpenDisposition::CURRENT_TAB, ui::PAGE_TRANSITION_TYPED),
         /*navigation_handle_callback=*/{});
     app_banner_manager_->WaitForInstallableCheckTearDown();
   }
@@ -374,7 +373,7 @@ class PwaInstallViewBrowserTest : public base::test::WithFeatureOverride,
           page_action_view, kActionInstallPwa);
       FastForwardAnimation(view);
     }
-    EXPECT_EQ(GetPageActionAccessor().IsChipVisible(), isVisible);
+    EXPECT_EQ(GetPageActionAccessor().ShouldShowSuggestionChip(), isVisible);
   }
 
   net::EmbeddedTestServer https_server_;
@@ -615,14 +614,14 @@ IN_PROC_BROWSER_TEST_P(PwaInstallViewBrowserTest, LabelAnimation) {
         GetPageActionView(), kActionInstallPwa);
     FastForwardAnimation(view);
   }
-  EXPECT_TRUE(GetPageActionAccessor().IsChipVisible());
+  EXPECT_TRUE(GetPageActionAccessor().ShouldShowSuggestionChip());
 
   chrome::NewTab(browser(), NewTabTypes::kNoUserAction);
   EXPECT_FALSE(GetPageActionAccessor().GetVisible());
 
   chrome::SelectPreviousTab(browser());
   EXPECT_TRUE(GetPageActionAccessor().GetVisible());
-  EXPECT_FALSE(GetPageActionAccessor().IsChipVisible());
+  EXPECT_FALSE(GetPageActionAccessor().ShouldShowSuggestionChip());
 }
 
 // Tests that the plus icon becomes invisible when the user is typing in the

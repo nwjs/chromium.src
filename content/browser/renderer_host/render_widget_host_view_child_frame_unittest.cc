@@ -304,7 +304,7 @@ class RenderWidgetHostViewChildFrameTest
     if (view_) {
       RenderWidgetHostViewChildFrame* local_view = view_;
       view_ = nullptr;
-      local_view->Destroy();
+      local_view->DestroyOrDefer();
     }
     widget_host_.reset();
     site_instance_group_.reset();
@@ -382,7 +382,7 @@ TEST_F(RenderWidgetHostViewChildFrameTest, ShowSharePickerFromChildFrame) {
       base::BindOnce([](blink::mojom::ShareError error) {
       }).Then(run_loop.QuitClosure()));
   run_loop.Run();
-  child_view->Destroy();
+  child_view->DestroyOrDefer();
   connector->SetRootRenderWidgetHostView(nullptr);
 }
 #endif  // BUILDFLAG(IS_MAC)
@@ -485,6 +485,21 @@ TEST_F(RenderWidgetHostViewChildFrameTest, GetViewBoundsWithoutTransform) {
   EXPECT_EQ(gfx::Point(0, 0), view_->GetViewBoundsWithoutTransform().origin());
 
   test_frame_connector_->SetParentRenderWidgetHostView(nullptr);
+}
+
+TEST_F(RenderWidgetHostViewChildFrameTest, UsesInitialSizeBeforeAttachment) {
+  view_->SetFrameConnector(nullptr);
+
+  const gfx::Size initial_size(800, 600);
+  view_->SetSize(initial_size);
+
+  EXPECT_TRUE(view_->HasSize());
+  EXPECT_EQ(initial_size, view_->GetViewBounds().size());
+
+  test_frame_connector_->SetLocalFrameSize(gfx::Size(400, 300));
+  view_->SetFrameConnector(test_frame_connector_.get());
+
+  EXPECT_EQ(gfx::Size(400, 300), view_->GetViewBounds().size());
 }
 
 // Tests that SynchronizeVisualProperties is called only once and all the
@@ -727,7 +742,7 @@ TEST_F(StylusHandwritingOnFocusFailedChildFrameTest,
 
   RenderWidgetHostViewChildFrame* local_view = view_;
   view_ = nullptr;
-  local_view->Destroy();
+  local_view->DestroyOrDefer();
 
   EXPECT_FALSE(
       StylusHandwritingControllerWin::GetInstance()->IsWaitingForFocusResult());
@@ -759,7 +774,7 @@ TEST_F(StylusHandwritingOnFocusFailedChildFrameTest,
   // Destroy the unrelated fixture view; it did not initiate the session.
   RenderWidgetHostViewChildFrame* local_view = view_;
   view_ = nullptr;
-  local_view->Destroy();
+  local_view->DestroyOrDefer();
 
   EXPECT_TRUE(
       StylusHandwritingControllerWin::GetInstance()->IsWaitingForFocusResult());
@@ -768,7 +783,7 @@ TEST_F(StylusHandwritingOnFocusFailedChildFrameTest,
   // below, which would otherwise trip the Times(0) expectation.
   testing::Mock::VerifyAndClearExpectations(mock_focus_args_.Get());
 
-  initiating_view->Destroy();
+  initiating_view->DestroyOrDefer();
   connector->SetRootRenderWidgetHostView(nullptr);
 }
 
@@ -793,7 +808,7 @@ TEST_F(StylusHandwritingOnFocusFailedChildFrameTest,
   // Destroying the initiating view before the target arrives arms the decline.
   RenderWidgetHostViewChildFrame* local_view = view_;
   view_ = nullptr;
-  local_view->Destroy();
+  local_view->DestroyOrDefer();
 
   // When TSF finally delivers the target, it is declined synchronously (S_OK,
   // not TF_S_ASYNC) and no focus result remains pending.
@@ -874,7 +889,7 @@ TEST_F(RenderWidgetHostViewChildFrameTest, SelectionBoundsClampedToViewBounds) {
   EXPECT_EQ(gfx::PointF(100.0f, 100.0f), end.edge_start());
   EXPECT_EQ(gfx::PointF(100.0f, 100.0f), end.edge_end());
 
-  child_view->Destroy();
+  child_view->DestroyOrDefer();
   connector->SetRootRenderWidgetHostView(nullptr);
 }
 
@@ -907,7 +922,7 @@ TEST_F(RenderWidgetHostViewChildFrameTest, ReportScrollJankStats) {
     child_view->ReportScrollJankStats(/*total_frames=*/50, /*janky_frames=*/5);
   }
 
-  child_view->Destroy();
+  child_view->DestroyOrDefer();
   connector->SetRootRenderWidgetHostView(nullptr);
 }
 #endif

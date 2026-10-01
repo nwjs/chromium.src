@@ -260,15 +260,16 @@ void AvatarToolbarButtonTestAccessor::WaitForAvatarButton() {
 #if BUILDFLAG(IS_CHROMEOS)
   // ChromeOS only badges Incognito, Guest, and captive portal signin icons in
   // the browser window.
-  show_avatar_toolbar_button = profile->IsIncognitoProfile() ||
-                               profile->IsGuestSession() ||
-                               (profile->IsOffTheRecord() &&
-                                profile->GetOTRProfileID().IsCaptivePortal());
+  show_avatar_toolbar_button =
+      profile->IsPrimaryOTRProfileWithRegularParent() ||
+      profile->IsGuestSession() ||
+      (profile->IsOffTheRecord() &&
+       profile->GetOTRProfileID().IsCaptivePortal());
 #else
   // DevTools profiles are OffTheRecord, so hide it there.
-  show_avatar_toolbar_button = profile->IsIncognitoProfile() ||
-                               profile->IsGuestSession() ||
-                               profile->IsRegularProfile();
+  show_avatar_toolbar_button =
+      profile->IsPrimaryOTRProfileWithRegularParent() ||
+      profile->IsGuestSession() || profile->IsRegularProfile();
 #endif
 
   if (!show_avatar_toolbar_button) {
@@ -295,7 +296,6 @@ bool AvatarToolbarButtonTestAccessor::WaitForTextNotEqual(
     const std::u16string& text) {
   return base::test::RunUntil([this, text]() { return GetText() != text; });
 }
-
 
 bool AvatarToolbarButtonTestAccessor::WaitForState(
     AvatarToolbarButtonState state) {
@@ -353,7 +353,6 @@ AvatarToolbarButtonState AvatarToolbarButtonTestAccessor::GetState() {
       },
       GetButton());
 }
-
 
 bool AvatarToolbarButtonTestAccessor::WaitForRenderedTooltipText(
     const std::u16string& text) {
@@ -795,6 +794,35 @@ void LeftClickExtensionButton(content::WebContents* web_contents,
   EXPECT_TRUE(content::ExecJs(
       web_contents, base::StringPrintf(kClickExtensionButtonScript, id.c_str(),
                                        "btn.click();")));
+}
+
+void LeftClickPointerSequenceExtensionButton(content::WebContents* web_contents,
+                                             const std::string& id) {
+  EXPECT_TRUE(content::ExecJs(
+      web_contents,
+      base::StringPrintf(kClickExtensionButtonScript, id.c_str(), R"(
+        btn.dispatchEvent(new PointerEvent('pointerdown', {
+          bubbles: true,
+          cancelable: true,
+          view: window,
+          button: 0,
+          pointerType: 'mouse'
+        }));
+        btn.dispatchEvent(new PointerEvent('pointerup', {
+          bubbles: true,
+          cancelable: true,
+          view: window,
+          button: 0,
+          pointerType: 'mouse'
+        }));
+        btn.dispatchEvent(new PointerEvent('click', {
+          bubbles: true,
+          cancelable: true,
+          view: window,
+          button: 0,
+          pointerType: 'mouse'
+        }));
+      )")));
 }
 
 void RightClickExtensionButton(content::WebContents* web_contents,

@@ -22,6 +22,8 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_PLATFORM_WTF_TEXT_STRING_HASH_H_
 #define THIRD_PARTY_BLINK_RENDERER_PLATFORM_WTF_TEXT_STRING_HASH_H_
 
+#include <string_view>
+
 #include "base/check_op.h"
 #include "base/compiler_specific.h"
 #include "third_party/blink/renderer/platform/wtf/allocator/allocator.h"
@@ -37,7 +39,7 @@ namespace blink {
 
 template <>
 struct HashTraits<StringImpl*> : GenericHashTraits<StringImpl*> {
-  static unsigned GetHash(const StringImpl* key) { return key->GetHash(); }
+  static uint32_t GetHash(const StringImpl* key) { return key->GetHash(); }
   static inline bool Equal(const StringImpl* a, const StringImpl* b) {
     return EqualNonNull(a, b);
   }
@@ -48,7 +50,7 @@ struct HashTraits<StringImpl*> : GenericHashTraits<StringImpl*> {
 template <>
 struct HashTraits<scoped_refptr<StringImpl>>
     : GenericHashTraits<scoped_refptr<StringImpl>> {
-  static unsigned GetHash(const scoped_refptr<StringImpl>& key) {
+  static uint32_t GetHash(const scoped_refptr<StringImpl>& key) {
     return key->GetHash();
   }
   static bool Equal(const scoped_refptr<StringImpl>& a,
@@ -60,7 +62,7 @@ struct HashTraits<scoped_refptr<StringImpl>>
 
 template <>
 struct HashTraits<String> : SimpleClassHashTraits<String> {
-  static unsigned GetHash(const String& key) { return key.Impl()->GetHash(); }
+  static uint32_t GetHash(const String& key) { return key.Impl()->GetHash(); }
   static bool Equal(const String& a, const String& b) {
     return EqualNonNull(a.Impl(), b.Impl());
   }
@@ -70,13 +72,13 @@ struct HashTraits<String> : SimpleClassHashTraits<String> {
   // but there are classes (e.g. WebString) with
   // implicit conversion operators both to String and one of the others,
   // which would cause ambiguous overloads.
-  static unsigned GetHash(const char* key) {
-    return StringHasher::ComputeHashAndMaskTop8Bits(key, strlen(key));
+  static uint32_t GetHash(const char* key) {
+    return HashString24(base::as_byte_span(std::string_view(key)));
   }
-  static unsigned GetHash(const LChar* key) {
+  static uint32_t GetHash(const LChar* key) {
     return GetHash(reinterpret_cast<const char*>(key));
   }
-  static unsigned GetHash(const UChar* key) {
+  static uint32_t GetHash(const UChar* key) {
     return blink::ComputeHashForWideString(
         // SAFETY: Safe when input is null-terminated string.
         UNSAFE_BUFFERS({key, blink::LengthOfNullTerminatedString(key)}));

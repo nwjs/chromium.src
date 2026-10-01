@@ -10,6 +10,7 @@ generate_jni("jni_headers") {
     "//chrome/browser/glic/public/android/java/src/org/chromium/chrome/browser/glic/GlicEnabling.java",
     "//chrome/browser/glic/public/android/java/src/org/chromium/chrome/browser/glic/GlicKeyedServiceFactory.java",
     "java/src/org/chromium/chrome/browser/glic/ActorLoginPermission.java",
+    "java/src/org/chromium/chrome/browser/glic/ActorTaskRowData.java",
     "java/src/org/chromium/chrome/browser/glic/GlicActorLoginBridge.java",
     "java/src/org/chromium/chrome/browser/glic/GlicBottomSheetComponentProvider.java",
     "java/src/org/chromium/chrome/browser/glic/GlicHelper.java",
@@ -42,9 +43,11 @@ android_resources("java_resources") {
     "java/res/drawable/ic_move_item_24dp.xml",
     "java/res/layout/glic_auto_browse.xml",
     "java/res/layout/glic_default_tab_access.xml",
+    "java/res/layout/glic_mic_permission_dialog.xml",
     "java/res/layout/glic_promo_bottom_sheet.xml",
     "java/res/layout/glic_settings_extra_info.xml",
     "java/res/layout/glic_settings_extra_info_enterprise.xml",
+    "java/res/layout/glic_spark_auto_browse.xml",
     "java/res/layout/preference_widget_hotkey.xml",
     "java/res/layout/preference_widget_hotkey_navigation.xml",
     "java/res/layout/preference_widget_revoke.xml",
@@ -57,6 +60,7 @@ android_resources("java_resources") {
   deps = [
     "//chrome/app:java_strings_grd",
     "//components/browser_ui/settings/android:java_resources",
+    "//components/browser_ui/styles/android:java_resources",
   ]
 }
 
@@ -98,6 +102,7 @@ android_library("menu_java") {
 
 android_library("common_java") {
   sources = [
+    "java/src/org/chromium/chrome/browser/glic/ActorTaskRowData.java",
     "java/src/org/chromium/chrome/browser/glic/GlicButtonDelegate.java",
     "java/src/org/chromium/chrome/browser/glic/GlicButtonStateController.java",
     "java/src/org/chromium/chrome/browser/glic/GlicSplitButtonDelegate.java",
@@ -137,6 +142,7 @@ android_library("java") {
     "java/src/org/chromium/chrome/browser/glic/GlicExtraInfoPreference.java",
     "java/src/org/chromium/chrome/browser/glic/GlicHelper.java",
     "java/src/org/chromium/chrome/browser/glic/GlicKeyedServiceImpl.java",
+    "java/src/org/chromium/chrome/browser/glic/GlicMicPermissionDialogCoordinator.java",
     "java/src/org/chromium/chrome/browser/glic/GlicNavigationUtils.java",
     "java/src/org/chromium/chrome/browser/glic/GlicPromoCoordinator.java",
     "java/src/org/chromium/chrome/browser/glic/GlicSettings.java",
@@ -256,6 +262,7 @@ robolectric_library("junit") {
     "java/src/org/chromium/chrome/browser/glic/GlicBottomSheetContentUnitTest.java",
     "java/src/org/chromium/chrome/browser/glic/GlicButtonStateControllerTest.java",
     "java/src/org/chromium/chrome/browser/glic/GlicHelperUnitTest.java",
+    "java/src/org/chromium/chrome/browser/glic/GlicMicPermissionDialogCoordinatorUnitTest.java",
     "java/src/org/chromium/chrome/browser/glic/GlicNavigationUtilsUnitTest.java",
     "java/src/org/chromium/chrome/browser/glic/GlicPromoCoordinatorUnitTest.java",
     "java/src/org/chromium/chrome/browser/glic/GlicSettingsUnitTest.java",
@@ -333,6 +340,7 @@ android_library("javatests") {
   sources = [
     "java/src/org/chromium/chrome/browser/glic/GlicActorLoginPermissionsFragmentRenderTest.java",
     "java/src/org/chromium/chrome/browser/glic/GlicAndroidMojoIntegrationTest.java",
+    "java/src/org/chromium/chrome/browser/glic/GlicMicPermissionDialogRenderTest.java",
     "java/src/org/chromium/chrome/browser/glic/GlicToolbarButtonRenderTest.java",
   ]
   deps = [
@@ -358,6 +366,7 @@ android_library("javatests") {
     "//chrome/test/android:chrome_java_integration_test_support",
     "//chrome/test/android:chrome_java_test_support_common",
     "//chrome/test/android:chrome_java_transit",
+    "//components/browser_ui/modaldialog/android:java",
     "//components/browser_ui/settings/android:java",
     "//components/browser_ui/settings/android:test_support_java",
     "//components/browser_ui/widget/android:java",

@@ -26,6 +26,7 @@ import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
+import org.mockito.quality.Strictness;
 
 import org.chromium.base.ContextUtils;
 import org.chromium.base.test.BaseRobolectricTestRunner;
@@ -47,7 +48,9 @@ import java.util.List;
 @RunWith(BaseRobolectricTestRunner.class)
 public class BaseCarouselSuggestionViewBinderUnitTest {
 
-    @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
+    @Rule
+    public final MockitoRule mMockitoRule = MockitoJUnit.rule().strictness(Strictness.STRICT_STUBS);
+
     @Mock private PropertyModel mPropertyModel;
     @Mock private BaseCarouselSuggestionView mBaseCarouselSuggestionView;
     private BaseCarouselSuggestionView mView;
@@ -68,9 +71,11 @@ public class BaseCarouselSuggestionViewBinderUnitTest {
         mBinder = new BaseCarouselSuggestionViewBinder();
         mTiles = new ModelList();
         mAdapter = new SimpleRecyclerViewAdapter(mTiles);
+        mModel =
+                new PropertyModel.Builder(BaseCarouselSuggestionViewProperties.ALL_KEYS)
+                        .with(SuggestionCommonProperties.RESOURCE_PROVIDER, mResourceProvider)
+                        .build();
         mView = spy(new BaseCarouselSuggestionView(mContext, mAdapter));
-        mModel = new PropertyModel(BaseCarouselSuggestionViewProperties.ALL_KEYS);
-        mModel.set(SuggestionCommonProperties.RESOURCE_PROVIDER, mResourceProvider);
         PropertyModelChangeProcessor.create(mModel, mView, mBinder);
     }
 

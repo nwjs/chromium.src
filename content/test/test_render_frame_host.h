@@ -69,8 +69,8 @@ class TestRenderFrameHost : public RenderFrameHostImpl,
       const blink::LocalFrameToken& frame_token,
       const blink::DocumentToken& document_token,
       base::UnguessableToken devtools_frame_token,
-      const base::UnguessableToken& initiator_state_token,
-      LifecycleStateImpl lifecycle_state,
+      const blink::InitiatorStateToken& initiator_state_token,
+      RenderFrameHostLifecycleStateImpl lifecycle_state,
       scoped_refptr<BrowsingContextState> browsing_context_state);
 
   TestRenderFrameHost(const TestRenderFrameHost&) = delete;

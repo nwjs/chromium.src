@@ -275,6 +275,8 @@ suite('SearchboxInputTest', () => {
       type: KeywordType.kInKeyword,
       keyword: '@bookmarks',
       displayText: 'Search Bookmarks',
+      iconPath: '',
+      placeholder: '',
     };
     // Even if a URL match with a destination URL is selected, keyword mode
     // should use the generic search loupe rather than the match's favicon.
@@ -285,9 +287,41 @@ suite('SearchboxInputTest', () => {
     await input.$.icon.updateComplete;
 
     assertTrue(input.$.icon.inKeywordMode);
+    assertEquals(
+        '//resources/cr_components/searchbox/icons/search_cr23.svg',
+        input.$.icon.defaultIcon);
     assertIconMaskImageUrl(
         input.$.icon,
         '//resources/cr_components/searchbox/icons/search_cr23.svg');
+    assertFalse(isVisible(input.$.icon.$.faviconImage));
+  });
+
+  test('Keyword mode displays custom keyword icon if set', async () => {
+    loadTimeData.resetForTesting({
+      isLensSearchbox: false,
+      isTopChromeSearchbox: false,
+    });
+    input = await createInput({
+      searchboxIcon: 'google_g.svg',
+    });
+
+    // Enter keyword mode with custom icon path (e.g. @gemini).
+    input.inputKeywordModel = {
+      type: KeywordType.kInKeyword,
+      keyword: '@gemini',
+      displayText: 'Gemini',
+      iconPath: '//resources/cr_components/searchbox/icons/spark.svg',
+      placeholder: '',
+    };
+    await input.updateComplete;
+    await input.$.icon.updateComplete;
+
+    assertTrue(input.$.icon.inKeywordMode);
+    assertEquals(
+        '//resources/cr_components/searchbox/icons/spark.svg',
+        input.$.icon.defaultIcon);
+    assertIconMaskImageUrl(
+        input.$.icon, '//resources/cr_components/searchbox/icons/spark.svg');
     assertFalse(isVisible(input.$.icon.$.faviconImage));
   });
 
@@ -304,6 +338,8 @@ suite('SearchboxInputTest', () => {
       type: KeywordType.kInKeyword,
       keyword: '@bookmarks',
       displayText: 'Search Bookmarks',
+      iconPath: '',
+      placeholder: '',
     };
     await input.updateComplete;
     await input.$.icon.updateComplete;
@@ -320,4 +356,208 @@ suite('SearchboxInputTest', () => {
     assertFalse(input.$.icon.inKeywordMode);
     assertEquals('google_g.svg', input.$.icon.defaultIcon);
   });
+
+  test('Keyword mode displays keyword placeholder', async () => {
+    input = await createInput({placeholderText: 'Default Search'});
+    assertEquals('Default Search', input.inputElement.placeholder);
+    assertFalse(input.hasAttribute('in-keyword-mode'));
+
+    // Enter keyword mode with placeholder.
+    input.inputKeywordModel = {
+      type: KeywordType.kInKeyword,
+      keyword: '@bookmarks',
+      displayText: 'Search Bookmarks',
+      iconPath: '',
+      placeholder: 'Search Bookmarks',
+    };
+    await input.updateComplete;
+
+    assertTrue(input.hasAttribute('in-keyword-mode'));
+    assertEquals('Search Bookmarks', input.inputElement.placeholder);
+
+    // Enter keyword mode with empty placeholder -> placeholder becomes empty
+    // string.
+    input.inputKeywordModel = {
+      type: KeywordType.kInKeyword,
+      keyword: '@bookmarks',
+      displayText: 'Search Bookmarks',
+      iconPath: '',
+      placeholder: '',
+    };
+    await input.updateComplete;
+
+    assertTrue(input.hasAttribute('in-keyword-mode'));
+    assertEquals('', input.inputElement.placeholder);
+
+    // Exit keyword mode restores default placeholder.
+    input.inputKeywordModel = null;
+    await input.updateComplete;
+
+    assertFalse(input.hasAttribute('in-keyword-mode'));
+    assertEquals('Default Search', input.inputElement.placeholder);
+  });
+
+  test(
+      'singleLineOnInlineAutocomplete and force-single-line with show-ellipsis',
+      async () => {
+        input = await createInput({
+          multiLineEnabled: true,
+          singleLineOnInlineAutocomplete: true,
+        });
+        input.focus();
+        assertTrue(input.singleLineOnInlineAutocomplete);
+        assertFalse(input.isMultiline());
+        assertFalse(input.hasAttribute('force-single-line'));
+        assertFalse(input.hasAttribute('show-ellipsis'));
+
+        Object.defineProperty(input.inputElement, 'clientWidth', {
+          get: () => 200,
+          configurable: true,
+        });
+        let mockScrollWidth = 300;
+        Object.defineProperty(input.inputElement, 'scrollWidth', {
+          get: () => mockScrollWidth,
+          configurable: true,
+        });
+
+        input.setInput({text: 'm', inline: 'essages.google.com'});
+        await input.updateComplete;
+
+        assertTrue(input.hasAttribute('force-single-line'));
+        assertTrue(input.hasAttribute('show-ellipsis'));
+        assertEquals('messages.google.com', input.inputElement.value);
+        assertEquals(
+            'clip', window.getComputedStyle(input.inputElement).textOverflow);
+        const ellipsisIndicator =
+            input.shadowRoot.querySelector<HTMLElement>('#ellipsisIndicator');
+        assertTrue(!!ellipsisIndicator);
+        assertEquals(
+            'block', window.getComputedStyle(ellipsisIndicator).display);
+
+        // Moving caret into the middle of text clears inline autocomplete and
+        // force-single-line mode.
+        input.setSelectionRange(5, 5);
+        document.dispatchEvent(new Event('selectionchange'));
+        await input.updateComplete;
+        assertFalse(input.hasAttribute('force-single-line'));
+        assertFalse(input.hasAttribute('show-ellipsis'));
+        assertEquals(
+            'clip', window.getComputedStyle(input.inputElement).textOverflow);
+        assertEquals(
+            'none', window.getComputedStyle(ellipsisIndicator).display);
+
+        // Setting inline autocomplete again.
+        input.setInput({text: 'm', inline: 'essages.google.com'});
+        await input.updateComplete;
+        assertTrue(input.hasAttribute('force-single-line'));
+        assertTrue(input.hasAttribute('show-ellipsis'));
+
+        // Moving caret to the end clears inline autocomplete and
+        // force-single-line mode.
+        input.setSelectionRange(
+            input.inputElement.value.length, input.inputElement.value.length);
+        document.dispatchEvent(new Event('selectionchange'));
+        await input.updateComplete;
+        assertFalse(input.hasAttribute('force-single-line'));
+        assertFalse(input.hasAttribute('show-ellipsis'));
+        assertEquals(
+            'clip', window.getComputedStyle(input.inputElement).textOverflow);
+
+        // Short inline autocomplete that fits within width (non-overflowing).
+        mockScrollWidth = 100;
+        input.setInput({text: 'm', inline: 'ail'});
+        await input.updateComplete;
+        assertTrue(input.hasAttribute('force-single-line'));
+        assertFalse(input.hasAttribute('show-ellipsis'));
+        assertEquals(
+            'ellipsis',
+            window.getComputedStyle(input.inputElement).textOverflow);
+        assertEquals(
+            'none', window.getComputedStyle(ellipsisIndicator).display);
+
+        input.setInput({text: 'm', inline: ''});
+        await input.updateComplete;
+
+        assertFalse(input.hasAttribute('force-single-line'));
+        assertFalse(input.hasAttribute('show-ellipsis'));
+        assertEquals(
+            'clip', window.getComputedStyle(input.inputElement).textOverflow);
+      });
+  test(
+      'isMatchPreview forces single line when user input is single line',
+      async () => {
+        input = await createInput({
+          multiLineEnabled: true,
+          singleLineOnInlineAutocomplete: true,
+        });
+        input.focus();
+
+        input.setInput({text: 'user query', inline: ''});
+        await input.updateComplete;
+        assertFalse(input.hasAttribute('force-single-line'));
+
+        // Simulating selecting a long suggestion match.
+        input.setInput({
+          text: 'user query that has a very long suggestion match',
+          inline: '',
+          isMatchPreview: true,
+        });
+        await input.updateComplete;
+
+        assertTrue(input.hasAttribute('force-single-line'));
+        assertFalse(input.hasAttribute('has-inline-selection'));
+        assertFalse(input.isMultiline());
+
+        // Navigating back to unselected user text.
+        input.setInput({
+          text: 'user query',
+          inline: '',
+          isMatchPreview: false,
+        });
+        await input.updateComplete;
+        assertFalse(input.hasAttribute('force-single-line'));
+
+        // Previewing match again.
+        input.setInput({
+          text: 'user query that has a very long suggestion match',
+          inline: '',
+          isMatchPreview: true,
+        });
+        await input.updateComplete;
+        assertTrue(input.hasAttribute('force-single-line'));
+
+        // Clicking in to edit the preview clears force-single-line.
+        input.setSelectionRange(5, 5);
+        document.dispatchEvent(new Event('selectionchange'));
+        await input.updateComplete;
+        assertFalse(input.hasAttribute('force-single-line'));
+      });
+
+  test(
+      'isMatchPreview does not force single line when user input was multiline',
+      async () => {
+        input = await createInput({
+          multiLineEnabled: true,
+          singleLineOnInlineAutocomplete: true,
+        });
+        input.focus();
+
+        input.setInput({text: 'first line\nsecond line', inline: ''});
+        await input.updateComplete;
+        assertFalse(input.hasAttribute('force-single-line'));
+
+        input.setInput({
+          text: 'some suggestion match',
+          inline: '',
+          isMatchPreview: true,
+        });
+        await input.updateComplete;
+
+        assertFalse(input.hasAttribute('force-single-line'));
+        Object.defineProperty(input.inputElement, 'scrollHeight', {
+          get: () => 64,
+          configurable: true,
+        });
+        assertTrue(input.isMultiline());
+      });
 });

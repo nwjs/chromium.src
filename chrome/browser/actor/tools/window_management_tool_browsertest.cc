@@ -12,8 +12,10 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "chrome/browser/ui/browser_window/public/profile_browser_collection.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/common/actor.mojom.h"
 #include "chrome/test/base/ui_test_utils.h"
+#include "components/sessions/core/session_id.h"
 #include "content/public/test/browser_test.h"
 #include "ui/base/base_window.h"
 #include "ui/base/ozone_buildflags.h"
@@ -110,10 +112,7 @@ IN_PROC_BROWSER_TEST_F(ActorWindowManagementToolBrowserTest,
   actor_task().Act(ToRequestList(action), result.GetCallback());
   ExpectOkResult(result);
 
-  EXPECT_EQ(new_window_observer.created_browser()
-                ->GetFeatures()
-                .tab_strip_model()
-                ->count(),
+  EXPECT_EQ(new_window_observer.created_browser()->GetTabStripModel()->count(),
             1);
   EXPECT_EQ(actor_task().GetTabs().size(), 1ul);
 }
@@ -136,8 +135,7 @@ IN_PROC_BROWSER_TEST_F(ActorWindowManagementToolBrowserTest,
     ExpectOkResult(result);
 
     first_new_window_tab = new_window_observer.created_browser()
-                               ->GetFeatures()
-                               .tab_strip_model()
+                               ->GetTabStripModel()
                                ->GetActiveTab();
   }
 

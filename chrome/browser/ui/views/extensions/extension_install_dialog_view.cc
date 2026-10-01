@@ -38,7 +38,9 @@
 #include "ui/base/metadata/metadata_header_macros.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/mojom/dialog_button.mojom.h"
+#include "ui/base/page_transition_types.h"
 #include "ui/base/resource/resource_bundle.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/gfx/geometry/insets.h"
 #include "ui/gfx/image/image_skia.h"
 #include "ui/views/bubble/bubble_frame_view.h"
@@ -482,9 +484,9 @@ void ExtensionInstallDialogView::OnShutdown(
 void ExtensionInstallDialogView::LinkClicked() {
   GURL store_url(extension_urls::GetWebstoreItemDetailURLPrefix() +
                  prompt_->extension()->id());
-  OpenURLParams params(store_url, Referrer(),
-                       WindowOpenDisposition::NEW_FOREGROUND_TAB,
-                       ui::PAGE_TRANSITION_LINK, false);
+  OpenURLParams params = OpenURLParams::CreateBrowserInitiated(
+      store_url, WindowOpenDisposition::NEW_FOREGROUND_TAB,
+      ui::PAGE_TRANSITION_LINK);
 
   DCHECK(show_params_);
   if (show_params_->GetParentWebContents()) {

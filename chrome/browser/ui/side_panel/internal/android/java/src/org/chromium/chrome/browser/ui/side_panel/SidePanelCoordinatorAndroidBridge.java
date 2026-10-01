@@ -6,7 +6,6 @@ package org.chromium.chrome.browser.ui.side_panel;
 
 import static org.chromium.chrome.browser.ui.side_panel.SidePanelUtils.log;
 
-import android.graphics.Rect;
 import android.view.View;
 
 import org.jni_zero.CalledByNative;
@@ -24,9 +23,6 @@ import org.chromium.chrome.browser.ui.browser_window.ChromeAndroidTaskFeature;
 @NullMarked
 final class SidePanelCoordinatorAndroidBridge implements ChromeAndroidTaskFeature {
     private static final String TAG = "SidePanelCoordinatorAndroidBridge";
-
-    /** Sentinel value for invalid or unset coordinates. */
-    private static final int INVALID_COORDINATE = -1;
 
     private final SidePanelNativeBridgeSelector mNativeBridgeSelector;
 
@@ -57,14 +53,13 @@ final class SidePanelCoordinatorAndroidBridge implements ChromeAndroidTaskFeatur
      * @see org.chromium.chrome.browser.ui.side_ui.SideUiContainer#hasContentToShow(Tab)
      */
     boolean hasContentToShow(Tab tab) {
-        // TODO(crbug.com/541376517): Update this method to actually pass the tab to native.
         boolean hasContentToShow =
                 mNativeSidePanelCoordinatorAndroid != 0
                         ? SidePanelCoordinatorAndroidBridgeJni.get()
-                                .hasContentToShow(mNativeSidePanelCoordinatorAndroid)
+                                .hasContentToShow(mNativeSidePanelCoordinatorAndroid, tab)
                         : false;
 
-        log(TAG, "hasContentToShow", hasContentToShow);
+        log(TAG, "hasContentToShow", hasContentToShow, "Tab#" + tab.getId());
         return hasContentToShow;
     }
 
@@ -189,16 +184,11 @@ final class SidePanelCoordinatorAndroidBridge implements ChromeAndroidTaskFeatur
             View sidePanelNativeView,
             @JniType("std::u16string_view") String title,
             boolean shouldShowHeader,
-            int x,
-            int y,
-            int width,
-            int height,
             boolean suppressAnimations) {
-        log(TAG, "startOpeningPanel", profile, sidePanelNativeView, title, x, y, width, height);
+        log(TAG, "startOpeningPanel", profile, sidePanelNativeView, title);
         mNativeBridgeSelector.startOpeningPanel(
                 profile,
                 new SidePanelContent(sidePanelNativeView, title, shouldShowHeader),
-                createRectFromCoordinates(x, y, width, height),
                 suppressAnimations || mDisableAnimationsForTesting);
     }
 
@@ -267,16 +257,6 @@ final class SidePanelCoordinatorAndroidBridge implements ChromeAndroidTaskFeatur
         return view.getWidth();
     }
 
-    private @Nullable Rect createRectFromCoordinates(int x, int y, int width, int height) {
-        if (x == INVALID_COORDINATE
-                && y == INVALID_COORDINATE
-                && width == INVALID_COORDINATE
-                && height == INVALID_COORDINATE) {
-            return null;
-        }
-        return new Rect(x, y, x + width, y + height);
-    }
-
     @NativeMethods
     interface Natives {
         /**
@@ -303,7 +283,8 @@ final class SidePanelCoordinatorAndroidBridge implements ChromeAndroidTaskFeatur
         void init(long nativeSidePanelCoordinatorAndroid);
 
         /** See {@link SidePanelCoordinatorAndroidBridge#hasContentToShow}. */
-        boolean hasContentToShow(long nativeSidePanelCoordinatorAndroid);
+        boolean hasContentToShow(
+                long nativeSidePanelCoordinatorAndroid, @JniType("TabAndroid*") Tab tab);
 
         /** See {@link SidePanelCoordinatorAndroidBridge#onPanelContainerUpdated}. */
         void onPanelContainerUpdated(

@@ -36,6 +36,7 @@
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
+#include "components/contextual_search/contextual_search_service.h"
 #include "components/contextual_search/input_state_model.h"
 #include "components/contextual_tasks/public/contextual_task_context.h"
 #include "components/contextual_tasks/public/contextual_tasks_service.h"
@@ -62,7 +63,9 @@
 #include "net/base/url_util.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "third_party/lens_server_proto/aim_communication.pb.h"
+#include "ui/base/page_transition_types.h"
 #include "ui/base/ui_base_switches.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/webui/resources/cr_components/composebox/composebox.mojom.h"
 
 namespace {
@@ -132,6 +135,10 @@ class MockContextualTasksPage : public contextual_tasks::mojom::Page {
   MOCK_METHOD(void,
               InjectInput,
               (contextual_tasks::mojom::InjectedInputPtr input),
+              (override));
+  MOCK_METHOD(void,
+              ResetForNewThread,
+              (const base::Uuid&, const GURL&),
               (override));
 
   mojo::PendingRemote<contextual_tasks::mojom::Page> BindAndGetRemote() {
@@ -377,12 +384,11 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksUIBrowserTest,
   });
 
   GURL url("https://www.google.com/search?q=test");
-  content::OpenURLParams params(
-      url, content::Referrer(), WindowOpenDisposition::CURRENT_TAB,
-      ui::PAGE_TRANSITION_LINK, /*is_renderer_initiated=*/false);
+  content::OpenURLParams params =
+      content::OpenURLParams::CreateBrowserInitiated(
+          url, WindowOpenDisposition::CURRENT_TAB, ui::PAGE_TRANSITION_LINK);
   controller_->TransferNavigationToEmbeddedPage(params);
   run_loop.Run();
-  browser()->tab_strip_model()->GetActiveWebContents()->Stop();
 }
 
 IN_PROC_BROWSER_TEST_F(ContextualTasksUIBrowserTest, HandleLensButtonClick) {

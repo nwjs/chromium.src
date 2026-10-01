@@ -99,17 +99,18 @@ BASE_DECLARE_FEATURE(kOmniboxAimSizeWebViewToPreferredHeight);
 BASE_DECLARE_FEATURE(kOmniboxWebUISizeWebViewToPreferredHeight);
 BASE_DECLARE_FEATURE(kOmniboxFullWebUISizeWebViewToPreferredHeight);
 BASE_DECLARE_FEATURE(kOmniboxWebUIPopupHideOnCreation);
+BASE_DECLARE_FEATURE(kOmniboxFullWebUIDestroyWidgetOnHide);
 BASE_DECLARE_FEATURE(kWebUISearchboxWithoutModelController);
 
 // Omnibox UI - these affect the UI or function of the location bar (not the
 // popup).
 BASE_DECLARE_FEATURE(kAimEligibilityComponentExtension);
+extern const base::FeatureParam<bool> kAimEligibilityUseComponentUpdater;
 BASE_DECLARE_FEATURE(kDynamicAimSubmit);
 extern const base::FeatureParam<bool> kShowRhsAimHint;
 BASE_DECLARE_FEATURE(kHideAimEntrypointOnUserInput);
 BASE_DECLARE_FEATURE(kHideAimEntrypointForUrlSuggestions);
 BASE_DECLARE_FEATURE(kOmniboxMultimodalInput);
-BASE_DECLARE_FEATURE(kAndroidDesktopAimGate);
 BASE_DECLARE_FEATURE(kOmniboxDebounceKeyboardVisibility);
 BASE_DECLARE_FEATURE(kOmniboxDisableTabsForCanvas);
 BASE_DECLARE_FEATURE(kAim3pEntrypoint);
@@ -239,6 +240,8 @@ extern const base::FeatureParam<bool>
 BASE_DECLARE_FEATURE(kVoiceSearchCoherenceSearchbox);
 extern const base::FeatureParam<bool>
     kVoiceSearchCoherenceSearchboxWithLiveTranscription;
+extern const base::FeatureParam<bool> kVoiceSearchCoherenceRealboxAutoEndpoint;
+extern const base::FeatureParam<bool> kVoiceSearchCoherenceRealboxHelperText;
 
 #if BUILDFLAG(IS_ANDROID)
 BASE_DECLARE_FEATURE(kDiagnostics);

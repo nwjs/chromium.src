@@ -9,6 +9,7 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/no_destructor.h"
 #include "base/strings/stringprintf.h"
+#include "base/task/single_thread_task_runner.h"
 #include "base/types/pass_key.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
@@ -35,6 +36,7 @@
 #include "content/public/common/referrer.h"
 #include "ui/android/window_android.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/page_transition_types.h"
 #include "ui/base/window_open_disposition.h"
 #include "url/gurl.h"
 #include "url/origin.h"
@@ -144,7 +146,12 @@ void SuspiciousSiteControllerAndroid::DidFinishNavigation(
 void SuspiciousSiteControllerAndroid::OnVisibilityChanged(
     content::Visibility visibility) {
   if (visibility == content::Visibility::VISIBLE && is_suspended_) {
-    MaybeShowDialog();
+    base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE,
+        base::BindOnce(&SuspiciousSiteControllerAndroid::MaybeShowDialog,
+                       weak_ptr_factory_.GetWeakPtr()));
+  } else if (visibility == content::Visibility::HIDDEN) {
+    is_suspended_ = true;
   }
 }
 
@@ -287,9 +294,14 @@ void SuspiciousSiteControllerAndroid::CloseDialog(
   }
 
   // Prevent false telemetry/HaTS triggers from phantom interactions while
-  // hidden, but allow terminal system events to properly clean up backgrounded
-  // tabs.
+  // hidden, but allow lifecycle and terminal system events to properly update
+  // state and clean up backgrounded tabs.
   if (is_suspended_ &&
+      dismissal_cause != ui::ModalDialogWrapper::DismissalCause::TAB_SWITCHED &&
+      dismissal_cause !=
+          ui::ModalDialogWrapper::DismissalCause::ACTIVITY_DESTROYED &&
+      dismissal_cause !=
+          ui::ModalDialogWrapper::DismissalCause::DIALOG_INTERACTION_DEFERRED &&
       dismissal_cause !=
           ui::ModalDialogWrapper::DismissalCause::TAB_DESTROYED &&
       dismissal_cause !=
@@ -541,10 +553,10 @@ void SuspiciousSiteControllerAndroid::OnHelpCenterLinkClicked() {
   }
   content::WebContents* contents = web_contents();
   CHECK(contents);
-  content::OpenURLParams params(
-      GURL(chrome::kUnsafeSiteWarningHelpCenterURL), content::Referrer(),
-      WindowOpenDisposition::NEW_FOREGROUND_TAB, ui::PAGE_TRANSITION_LINK,
-      /*is_renderer_initiated=*/false);
+  content::OpenURLParams params =
+      content::OpenURLParams::CreateBrowserInitiated(
+          GURL(chrome::kUnsafeSiteWarningHelpCenterURL),
+          WindowOpenDisposition::NEW_FOREGROUND_TAB, ui::PAGE_TRANSITION_LINK);
 
   contents->OpenURL(params, /*navigation_handle_callback=*/{});
 }

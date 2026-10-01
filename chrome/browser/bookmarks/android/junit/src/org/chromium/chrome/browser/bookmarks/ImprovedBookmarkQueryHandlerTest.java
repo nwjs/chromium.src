@@ -38,7 +38,6 @@ import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
-import org.robolectric.annotation.Config;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.util.Features.DisableFeatures;
@@ -62,7 +61,6 @@ import java.util.List;
 
 /** Unit tests for {@link ImprovedBookmarkQueryHandler}. */
 @RunWith(BaseRobolectricTestRunner.class)
-@Config(manifest = Config.NONE)
 @DisableFeatures(ChromeFeatureList.ANDROID_DESKTOP_BOOKMARK_DIALOG)
 public class ImprovedBookmarkQueryHandlerTest {
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();

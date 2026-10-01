@@ -17,17 +17,21 @@
 #include "chrome/browser/ui/accelerator_utils.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/omnibox/omnibox_next_features.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/toolbar_button_provider.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_popup_aim_presenter.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_popup_presenter.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_popup_presenter_base.h"
+#include "chrome/browser/ui/views/omnibox/omnibox_popup_view_full_webui.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_popup_view_webui.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_popup_webui_base_content.h"
 #include "chrome/browser/ui/views/page_info/page_info_bubble_view_base.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
 #include "chrome/browser/ui/views/toolbar/webui_toolbar_web_view.h"
 #include "chrome/browser/ui/waap/initial_web_ui_manager.h"
+#include "chrome/browser/ui/webui/omnibox_popup/omnibox_popup_handler.h"
 #include "chrome/browser/ui/webui/searchbox/searchbox_interactive_test_mixin.h"
 #include "chrome/browser/ui/webui/test_support/webui_interactive_test_mixin.h"
 #include "chrome/common/chrome_features.h"
@@ -52,6 +56,7 @@
 #include "ui/base/ime/mock_input_method.h"
 #include "ui/base/interaction/element_identifier.h"
 #include "ui/base/interaction/element_tracker.h"
+#include "ui/base/page_transition_types.h"
 #include "ui/display/screen.h"
 #include "ui/gfx/range/range.h"
 #include "ui/views/mouse_constants.h"
@@ -405,6 +410,9 @@ class WebUILocationBarInteractiveUiTest
             kAIMWebContentsVisible,
             [this]() {
               auto* view = GetActiveAimPopupWebView().Run();
+              if (!view || !view->GetWidget()) {
+                return false;
+              }
               auto* element =
                   views::ElementTrackerViews::GetInstance()->GetElementForView(
                       view, /* assign_temporary_id =*/true);
@@ -427,6 +435,9 @@ class WebUILocationBarInteractiveUiTest
           PollState(kAIMWebContentsHidden,
                     [this]() {
                       auto* view = GetActiveAimPopupWebView().Run();
+                      if (!view || !view->GetWidget()) {
+                        return true;
+                      }
                       auto* element =
                           views::ElementTrackerViews::GetInstance()
                               ->GetElementForView(
@@ -851,11 +862,26 @@ class WebUILocationBarInteractiveUiTest
     });
   }
 
+  gfx::Range GetBrowserSideSelection() {
+    auto* location_bar = browser()->GetFeatures().location_bar();
+    if (mode() == Mode::kFull) {
+      // Full popup stores the selection it saves on tab switch in
+      // PopupHandler rather than the OmniboxView.
+      return static_cast<OmniboxPopupViewFullWebUI*>(
+                 location_bar->GetOmniboxPopupView())
+          ->popup_handler_for_testing()
+          ->latest_selection();
+    } else {
+      return location_bar->GetOmniboxView()->GetSelectionBounds();
+    }
+  }
+
  private:
   static bool HandleRequest(
       content::URLLoaderInterceptor::RequestParams* params) {
     if (params->url_request.url.host() == "www.google.com" &&
-        params->url_request.url.path() == "/complete/search") {
+        (params->url_request.url.path() == "/complete/s" ||
+         params->url_request.url.path() == "/complete/search")) {
       constexpr std::string_view headers =
           "HTTP/1.1 200 OK\nContent-Type: application/json\n\n";
       constexpr std::string_view body =
@@ -1540,6 +1566,66 @@ IN_PROC_BROWSER_TEST_P(WebUILocationBarInteractiveUiTest, UnelideHome) {
       WaitTillOmniboxViewSelection("", gfx::Range(0)));
 }
 
+// Test that selection changes made by keyboard are propagated to the browser
+// (so it can save them on tab switch).
+IN_PROC_BROWSER_TEST_P(WebUILocationBarInteractiveUiTest,
+                       KeyboardSelectionPropagate) {
+  RunTestSequence(
+      InstrumentTab(kTabId), WaitForWebContentsReady(kTabId),
+      InstrumentNonTabWebView(kWebUIToolbarId, GetToolbarWebView()),
+      HandleAutofocus(), WaitTillOmniboxViewText("about:blank"),
+      WaitTillOmniboxViewSelection("about:blank", gfx::Range(11, 0)),
+      // Clear selection, and set a different one.
+      InAnyContext(SendKeyPress(InputWebContents(), ui::VKEY_RIGHT)),
+      InAnyContext(
+          SendKeyPress(InputWebContents(), ui::VKEY_LEFT, ui::EF_SHIFT_DOWN)),
+      InAnyContext(
+          SendKeyPress(InputWebContents(), ui::VKEY_LEFT, ui::EF_SHIFT_DOWN)),
+      WaitTillOmniboxViewSelection("nk", gfx::Range(11, 9)),
+      PollUntil(
+          [&]() {
+            gfx::Range selection = GetBrowserSideSelection();
+            return selection.GetMin() == 9 && selection.GetMax() == 11;
+          },
+          "selection propagated"));
+}
+
+IN_PROC_BROWSER_TEST_P(WebUILocationBarInteractiveUiTest,
+                       RestoreSelectionTabSwitch) {
+  FAILS_IN_MODE(Mode::kFull,
+                "Our behavior on autofocus of location bar (since no restore) "
+                "overwrites full's restore of selection");
+  RunTestSequence(
+      InstrumentTab(kTabId), WaitForWebContentsReady(kTabId),
+      InstrumentNonTabWebView(kWebUIToolbarId, GetToolbarWebView()),
+      HandleAutofocus(), WaitTillOmniboxViewText("about:blank"),
+      WaitTillOmniboxViewSelection("about:blank", gfx::Range(11, 0)),
+      // Clear selection, and set a different one.
+      InAnyContext(SendKeyPress(InputWebContents(), ui::VKEY_RIGHT)),
+      InAnyContext(
+          SendKeyPress(InputWebContents(), ui::VKEY_LEFT, ui::EF_SHIFT_DOWN)),
+      InAnyContext(
+          SendKeyPress(InputWebContents(), ui::VKEY_LEFT, ui::EF_SHIFT_DOWN)),
+      WaitTillOmniboxViewSelection("nk", gfx::Range(11, 9)),
+      PollUntil(
+          [&]() {
+            gfx::Range selection = GetBrowserSideSelection();
+            return selection.GetMin() == 9 && selection.GetMax() == 11;
+          },
+          "selection propagated"),
+      AddInstrumentedTab(kSecondTabId, GURL("https://local.test")),
+      If([&]() { return mode() == Mode::kFull; },
+         Then(InAnyContext(WaitForHide(kClassicPopupWebViewId)))),
+      WaitTillOmniboxViewText("local.test", View::kStatic),
+      SelectTab(kTabStripElementId, 0),
+      // Make sure the element for popup WebContents shows up so again we can
+      // poll it.
+      If([&]() { return mode() == Mode::kFull; },
+         Then(InAnyContext(WaitForShow(kClassicPopupWebViewId)))),
+      WaitTillOmniboxViewFocus(), WaitTillOmniboxViewText("about:blank"),
+      WaitTillOmniboxViewSelection("nk", gfx::Range(11, 9)));
+}
+
 // Tests that if initial interaction just selected-all and didn't unelide
 // that moving the caret will unelide.
 IN_PROC_BROWSER_TEST_P(WebUILocationBarInteractiveUiTest, UnelideCaretMove) {
@@ -1709,9 +1795,7 @@ IN_PROC_BROWSER_TEST_P(WebUILocationBarInteractiveUiTest, DoubleClick) {
       FocusTab(), NavigateWebContents(kTabId, GURL("https://local.test")),
       // Navigation will deactivate any full popup
       WaitTillOmniboxViewText("local.test", View::kStatic),
-      WaitTillOmniboxViewSelection(
-          "", mode() == Mode::kFull ? gfx::Range(0) : gfx::Range(10),
-          View::kStatic),
+      WaitTillOmniboxViewSelection("", gfx::Range(10), View::kStatic),
       InAnyContext(MoveMouseTo(
           kOmniboxElementId,
           base::BindOnce(
@@ -1742,9 +1826,7 @@ IN_PROC_BROWSER_TEST_P(WebUILocationBarInteractiveUiTest, DoubleClick2) {
       WaitTillOmniboxViewSelection("about:blank", gfx::Range(11, 0)),
       FocusTab(), NavigateWebContents(kTabId, GURL("https://local.test")),
       WaitTillOmniboxViewText("local.test", View::kStatic),
-      WaitTillOmniboxViewSelection(
-          "", mode() == Mode::kFull ? gfx::Range(0) : gfx::Range(10),
-          View::kStatic),
+      WaitTillOmniboxViewSelection("", gfx::Range(10), View::kStatic),
       // Focus location bar. This is important since if it's already focused
       // it won't try to select-all on first click. Also we do it with
       // JS and not Ctrl-L since that would unelide.

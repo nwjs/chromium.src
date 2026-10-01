@@ -40,6 +40,7 @@
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/web_contents.h"
 #include "extensions/buildflags/buildflags.h"
+#include "ui/base/page_transition_types.h"
 #include "ui/base/window_open_disposition.h"
 #include "ui/display/display.h"
 #include "ui/display/screen.h"
@@ -116,8 +117,11 @@ void GlicPageHandler::PrepareForClient(
       },
       this->weak_ptr_factory_.GetWeakPtr(), std::move(callback));
 
-  GetGlicService()->GetAuthController().CheckAuthBeforeLoad(
-      std::move(wrapped_callback));
+  if (auto* auth_controller = GetGlicService()->GetAuthController()) {
+    auth_controller->CheckAuthBeforeLoad(std::move(wrapped_callback));
+  } else {
+    std::move(wrapped_callback).Run(mojom::PrepareForClientResult::kSuccess);
+  }
 }
 
 void GlicPageHandler::WebviewCommitted(const GURL& url) {
@@ -137,17 +141,23 @@ void GlicPageHandler::OnZoomLevelChange(double zoom_factor) {
     LOG(ERROR) << "Glic [PageHandler] Invalid zoom level: " << zoom_factor;
     return;
   }
+  // LINT.ThenChange(//chrome/browser/resources/glic/webview.ts:GlicZoomFactors,//chrome/browser/glic/host/guest_util.cc:GlicZoomFactors)
+
   int zoom_percent = std::round(zoom_factor * 100);
   auto* pref_service =
       Profile::FromBrowserContext(browser_context_)->GetPrefs();
   // The webui sends a zoom level change on initialization. Skip these.
+  if (!has_received_initial_zoom_) {
+    has_received_initial_zoom_ = true;
+    pref_service->SetInteger(prefs::kGlicZoomLevel, zoom_percent);
+    return;
+  }
   if (pref_service->GetInteger(prefs::kGlicZoomLevel) != zoom_percent) {
     // Note that zoom level is already persisted in the glic webview partition -
     // this pref is only used for metrics.
     pref_service->SetInteger(prefs::kGlicZoomLevel, zoom_percent);
     host().instance_metrics().OnZoomLevelChange();
   }
-  // LINT.ThenChange(//chrome/browser/resources/glic/webview.ts:GlicZoomFactors,//chrome/browser/glic/host/guest_util.cc:GlicZoomFactors)
 }
 
 void GlicPageHandler::NotifyWindowIntentToShow() {
@@ -300,19 +310,15 @@ void GlicPageHandler::OpenHelpCenterTopicAndClosePanel(
 }
 
 void GlicPageHandler::SignInAndClosePanel() {
-  GetGlicService()->GetAuthController().ShowReauthForAccount(webui_contents_);
+  if (auto* auth_controller = GetGlicService()->GetAuthController()) {
+    auth_controller->ShowReauthForAccount(webui_contents_);
+  }
 }
 
 void GlicPageHandler::ResizeWidget(const gfx::Size& size,
                                    base::TimeDelta duration,
                                    ResizeWidgetCallback callback) {
   host().ResizePanel(size, duration, std::move(callback));
-}
-
-void GlicPageHandler::EnableDragResize(bool enabled) {
-  // features::kGlicUserResize is not checked here because the WebUI page
-  // invokes this method when it is disabled, too (when its state changes).
-  host().EnableDragResize(enabled);
 }
 
 void GlicPageHandler::OnWebUiStateChanged(glic::mojom::WebUiState new_state) {

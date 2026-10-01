@@ -11,7 +11,6 @@
 #include <list>
 #include <memory>
 #include <optional>
-#include <variant>
 #include <vector>
 
 #include "base/android/device_info.h"
@@ -30,6 +29,7 @@
 #include "base/task/sequenced_task_runner.h"
 #include "base/task/task_runner.h"
 #include "base/time/time.h"
+#include "base/types/expected.h"
 #include "chrome/browser/password_manager/android/password_manager_lifecycle_helper_impl.h"
 #include "chrome/browser/password_manager/android/password_store_android_backend_api_error_codes.h"
 #include "chrome/browser/password_manager/android/password_store_android_backend_bridge_helper.h"
@@ -140,15 +140,17 @@ bool MatchesIncludedPSLAndFederation(const PasswordForm& retrieved_login,
   return false;
 }
 
-void ValidateSignonRealm(const PasswordFormDigest& form_digest_to_match,
-                         bool include_psl,
-                         LoginsOrErrorReply callback,
-                         LoginsResultOrError logins_or_error) {
-  if (std::holds_alternative<PasswordStoreBackendError>(logins_or_error)) {
+void ValidateSignonRealm(
+    const PasswordFormDigest& form_digest_to_match,
+    bool include_psl,
+    LoginsOrErrorReply callback,
+    base::expected<std::vector<StoredCredential>, PasswordStoreBackendError>
+        logins_or_error) {
+  if (!logins_or_error) {
     std::move(callback).Run(std::move(logins_or_error));
     return;
   }
-  std::erase_if(std::get<LoginsResult>(logins_or_error),
+  std::erase_if(*logins_or_error,
                 [&form_digest_to_match, include_psl](const auto& form) {
                   return !MatchesIncludedPSLAndFederation(
                       ToPasswordForm(form), form_digest_to_match, include_psl);
@@ -156,14 +158,16 @@ void ValidateSignonRealm(const PasswordFormDigest& form_digest_to_match,
   std::move(callback).Run(std::move(logins_or_error));
 }
 
-void ProcessGroupedLoginsAndReply(const PasswordFormDigest& form_digest,
-                                  LoginsOrErrorReply callback,
-                                  LoginsResultOrError logins_or_error) {
-  if (std::holds_alternative<PasswordStoreBackendError>(logins_or_error)) {
+void ProcessGroupedLoginsAndReply(
+    const PasswordFormDigest& form_digest,
+    LoginsOrErrorReply callback,
+    base::expected<std::vector<StoredCredential>, PasswordStoreBackendError>
+        logins_or_error) {
+  if (!logins_or_error) {
     std::move(callback).Run(std::move(logins_or_error));
     return;
   }
-  for (auto& form : std::get<LoginsResult>(logins_or_error)) {
+  for (auto& form : *logins_or_error) {
     switch (GetMatchResult(form, form_digest)) {
       case MatchResult::NO_MATCH:
         // If it's not PSL nor exact match it has to be affiliated or grouped.
@@ -187,15 +191,17 @@ void ProcessGroupedLoginsAndReply(const PasswordFormDigest& form_digest,
   std::move(callback).Run(std::move(logins_or_error));
 }
 
-LoginsResultOrError JoinRetrievedLoginsOrError(
-    std::vector<LoginsResultOrError> results) {
-  LoginsResult joined_logins;
+base::expected<std::vector<StoredCredential>, PasswordStoreBackendError>
+JoinRetrievedLoginsOrError(
+    std::vector<base::expected<std::vector<StoredCredential>,
+                               PasswordStoreBackendError>> results) {
+  std::vector<StoredCredential> joined_logins;
   for (auto& result : results) {
     // If one of retrievals ended with an error, pass on the error.
-    if (std::holds_alternative<PasswordStoreBackendError>(result)) {
-      return std::move(std::get<PasswordStoreBackendError>(result));
+    if (!result) {
+      return base::unexpected(std::move(result).error());
     }
-    LoginsResult logins = std::move(std::get<LoginsResult>(result));
+    std::vector<StoredCredential> logins = std::move(*result);
     std::move(logins.begin(), logins.end(), std::back_inserter(joined_logins));
   }
   return joined_logins;
@@ -529,7 +535,7 @@ void PasswordStoreAndroidBackend::FillMatchingLoginsInternal(
     bool include_psl,
     const std::vector<PasswordFormDigest>& forms) {
   if (forms.empty()) {
-    std::move(callback).Run(LoginsResult());
+    std::move(callback).Run(std::vector<StoredCredential>());
     return;
   }
 
@@ -541,7 +547,8 @@ void PasswordStoreAndroidBackend::FillMatchingLoginsInternal(
 
   // Create a barrier callback that aggregates results of a multiple
   // calls to GetLoginsInternal.
-  auto barrier_callback = base::BarrierCallback<LoginsResultOrError>(
+  auto barrier_callback = base::BarrierCallback<
+      base::expected<std::vector<StoredCredential>, PasswordStoreBackendError>>(
       forms.size(), base::BindOnce(&JoinRetrievedLoginsOrError)
                         .Then(std::move(record_metrics_and_reply)));
 
@@ -603,7 +610,9 @@ void PasswordStoreAndroidBackend::DisableAutoSignInForOriginsInternal(
   PasswordChangesOrErrorReply record_metrics_and_run_completion =
       base::BindOnce(
           [](PasswordStoreBackendMetricsRecorder metrics_recorder,
-             base::OnceClosure completion, PasswordChangesOrError changes) {
+             base::OnceClosure completion,
+             base::expected<std::optional<PasswordStoreChangeList>,
+                            PasswordStoreBackendError> changes) {
             // Errors are not recorded at the moment.
             // TODO(crbug.com/40208332): Implement error handling,
             // when actual store changes will be received from the store.
@@ -636,14 +645,14 @@ void PasswordStoreAndroidBackend::ClearAllTasksAndReplyWithReason(
       main_task_runner_->PostTask(
           FROM_HERE,
           base::BindOnce(std::move(job_reply).Get<LoginsOrErrorReply>(),
-                         reply_error));
+                         base::unexpected(reply_error)));
 
     } else if (job_reply.Holds<PasswordChangesOrErrorReply>()) {
       main_task_runner_->PostTask(
           FROM_HERE,
           base::BindOnce(
               std::move(job_reply).Get<PasswordChangesOrErrorReply>(),
-              reply_error));
+              base::unexpected(reply_error)));
     }
   }
   request_for_job_.clear();
@@ -652,8 +661,9 @@ void PasswordStoreAndroidBackend::ClearAllTasksAndReplyWithReason(
   for (const auto& [id, retry_wrapper] : scheduled_retries_) {
     LoginsOrErrorReply reply_callback =
         retry_wrapper->GetReplyCallbackAndCancel();
-    main_task_runner_->PostTask(
-        FROM_HERE, base::BindOnce(std::move(reply_callback), reply_error));
+    main_task_runner_->PostTask(FROM_HERE,
+                                base::BindOnce(std::move(reply_callback),
+                                               base::unexpected(reply_error)));
   }
   scheduled_retries_.clear();
 }
@@ -815,8 +825,9 @@ void PasswordStoreAndroidBackend::OnCompleteWithLogins(
                                 std::move(passwords)));
 }
 
-void PasswordStoreAndroidBackend::OnLoginsChanged(JobId job_id,
-                                                  PasswordChanges changes) {
+void PasswordStoreAndroidBackend::OnLoginsChanged(
+    JobId job_id,
+    std::optional<PasswordStoreChangeList> changes) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(main_sequence_checker_);
   std::optional<JobReturnHandler> reply = GetAndEraseJob(job_id);
   if (!reply.has_value()) {
@@ -829,7 +840,7 @@ void PasswordStoreAndroidBackend::OnLoginsChanged(JobId job_id,
   main_task_runner_->PostTask(
       FROM_HERE,
       base::BindOnce(std::move(*reply).Get<PasswordChangesOrErrorReply>(),
-                     changes));
+                     std::move(changes)));
 }
 
 void PasswordStoreAndroidBackend::OnError(JobId job_id,
@@ -872,15 +883,15 @@ void PasswordStoreAndroidBackend::OnError(JobId job_id,
   if (reply->Holds<LoginsOrErrorReply>()) {
     main_task_runner_->PostTask(
         FROM_HERE, base::BindOnce(std::move(*reply).Get<LoginsOrErrorReply>(),
-                                  std::move(reported_error)));
+                                  base::unexpected(std::move(reported_error))));
     return;
   }
   if (reply->Holds<PasswordChangesOrErrorReply>()) {
-    // Run callback with empty resulting changelist.
+    // Forward the error to the write callback.
     main_task_runner_->PostTask(
         FROM_HERE,
         base::BindOnce(std::move(*reply).Get<PasswordChangesOrErrorReply>(),
-                       std::move(reported_error)));
+                       base::unexpected(std::move(reported_error))));
   }
 }
 
@@ -918,14 +929,14 @@ void PasswordStoreAndroidBackend::FilterAndRemoveLogins(
     base::Time delete_begin,
     base::Time delete_end,
     PasswordChangesOrErrorReply reply,
-    LoginsResultOrError result) {
-  if (std::holds_alternative<PasswordStoreBackendError>(result)) {
-    std::move(reply).Run(
-        std::move(std::get<PasswordStoreBackendError>(result)));
+    base::expected<std::vector<StoredCredential>, PasswordStoreBackendError>
+        result) {
+  if (!result) {
+    std::move(reply).Run(base::unexpected(std::move(result).error()));
     return;
   }
 
-  LoginsResult logins = std::move(std::get<LoginsResult>(result));
+  std::vector<StoredCredential> logins = std::move(*result);
   std::vector<PasswordForm> logins_to_remove;
   for (auto& login : logins) {
     if (login.date_created >= delete_begin && login.date_created < delete_end &&
@@ -936,7 +947,8 @@ void PasswordStoreAndroidBackend::FilterAndRemoveLogins(
 
   // Create a barrier callback that aggregates results of a multiple
   // calls to RemoveLoginAsync.
-  auto barrier_callback = base::BarrierCallback<PasswordChangesOrError>(
+  auto barrier_callback = base::BarrierCallback<base::expected<
+      std::optional<PasswordStoreChangeList>, PasswordStoreBackendError>>(
       logins_to_remove.size(),
       base::BindOnce(&JoinPasswordStoreChanges).Then(std::move(reply)));
 
@@ -956,14 +968,14 @@ void PasswordStoreAndroidBackend::FilterAndDisableAutoSignIn(
     std::string account,
     const base::RepeatingCallback<bool(const GURL&)>& origin_filter,
     PasswordChangesOrErrorReply completion,
-    LoginsResultOrError result) {
-  if (std::holds_alternative<PasswordStoreBackendError>(result)) {
-    std::move(completion)
-        .Run(std::move(std::get<PasswordStoreBackendError>(result)));
+    base::expected<std::vector<StoredCredential>, PasswordStoreBackendError>
+        result) {
+  if (!result) {
+    std::move(completion).Run(base::unexpected(std::move(result).error()));
     return;
   }
 
-  LoginsResult logins = std::move(std::get<LoginsResult>(result));
+  std::vector<StoredCredential> logins = std::move(*result);
   std::vector<PasswordForm> logins_to_update;
   for (auto& login : logins) {
     // Update login if it matches |origin_filer| and has autosignin enabled.
@@ -973,7 +985,8 @@ void PasswordStoreAndroidBackend::FilterAndDisableAutoSignIn(
     }
   }
 
-  auto barrier_callback = base::BarrierCallback<PasswordChangesOrError>(
+  auto barrier_callback = base::BarrierCallback<base::expected<
+      std::optional<PasswordStoreChangeList>, PasswordStoreBackendError>>(
       logins_to_update.size(),
       base::BindOnce(&JoinPasswordStoreChanges).Then(std::move(completion)));
 
@@ -1000,11 +1013,11 @@ PasswordStoreAndroidBackend::ReportMetricsAndInvokeCallbackForLoginsRetrieval(
   // this callback more gracefully when it's implemented.
   return base::BindOnce(
       [](PasswordStoreBackendMetricsRecorder metrics_recorder,
-         LoginsOrErrorReply callback, LoginsResultOrError results) {
+         LoginsOrErrorReply callback,
+         base::expected<std::vector<StoredCredential>,
+                        PasswordStoreBackendError> results) {
         metrics_recorder.RecordMetrics(
-            std::holds_alternative<PasswordStoreBackendError>(results)
-                ? SuccessStatus::kError
-                : SuccessStatus::kSuccess,
+            results ? SuccessStatus::kSuccess : SuccessStatus::kError,
             /*error=*/std::nullopt);
         std::move(callback).Run(std::move(results));
       },
@@ -1024,7 +1037,9 @@ PasswordChangesOrErrorReply PasswordStoreAndroidBackend::
   // this callback more gracefully when it's implemented.
   return base::BindOnce(
       [](PasswordStoreBackendMetricsRecorder metrics_recorder,
-         PasswordChangesOrErrorReply callback, PasswordChangesOrError results) {
+         PasswordChangesOrErrorReply callback,
+         base::expected<std::optional<PasswordStoreChangeList>,
+                        PasswordStoreBackendError> results) {
         // Errors are not recorded at the moment.
         // TODO(crbug.com/40208332): Implement error handling, when
         // actual store changes will be received from the store.

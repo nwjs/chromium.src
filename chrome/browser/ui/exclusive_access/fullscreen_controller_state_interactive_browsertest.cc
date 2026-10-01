@@ -18,6 +18,7 @@
 #include "content/public/test/browser_test.h"
 #include "content/public/test/test_utils.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "ui/base/page_transition_types.h"
 
 // FullscreenControllerStateInteractiveTest ------------------------------------
 
@@ -56,10 +57,7 @@ class FullscreenControllerStateInteractiveTest
 
   // FullscreenControllerStateTest:
   FullscreenController* GetFullscreenController() override {
-    return browser()
-        ->GetFeatures()
-        .exclusive_access_manager()
-        ->fullscreen_controller();
+    return ExclusiveAccessManager::From(browser())->fullscreen_controller();
   }
   content::WebContents* GetActiveWebContents() override {
     return browser()->GetTabStripModel()->GetActiveWebContents();

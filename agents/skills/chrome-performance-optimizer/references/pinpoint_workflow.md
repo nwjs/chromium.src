@@ -7,8 +7,9 @@ ______________________________________________________________________
 
 ## 1. Uploading CL to Gerrit (Work In Progress)
 
-Ensure the change is committed with clean descriptions and tags, and upload as
-**WIP** to prevent notifying reviewers:
+Ensure the candidate has passed the Pre-Upload Code Review gate and is committed
+with clean descriptions and tags, and upload as **WIP** to prevent notifying
+reviewers:
 
 ```bash
 git cl upload -o wip --no-autocc -m "Optimization summary"
@@ -51,7 +52,7 @@ main optimization loop or sit idle.**
 2. Delegate monitoring to a background task or subagent using
    `pinpoint_evaluator.py`:
    ```bash
-   vpython3 agents/skills/chrome-performance-optimizer/scripts/pinpoint_evaluator.py --action evaluate --job-id <JOB_ID>
+   vpython3 .agents/skills/chrome-performance-optimizer/scripts/pinpoint_evaluator.py --action evaluate --job-id <JOB_ID>
    ```
 3. Limit concurrent in-flight Pinpoint try jobs to **max 2** to avoid bot pool
    starvation.

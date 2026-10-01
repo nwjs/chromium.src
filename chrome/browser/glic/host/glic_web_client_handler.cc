@@ -97,12 +97,15 @@
 #include "mojo/public/cpp/bindings/callback_helpers.h"
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/base/base_window.h"
+#include "ui/base/page_transition_types.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/display/screen.h"
 
 #if !BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/feedback/system_logs/chrome_system_logs_fetcher.h"
 #include "chrome/browser/glic/glic_hotkey.h"
 #include "chrome/browser/glic/host/context/glic_focused_browser_manager.h"
+#include "chrome/browser/glic/host/glic_tools_desktop.h"
 #include "chrome/browser/glic/selection/selection_overlay_controller.h"
 #include "chrome/browser/media/audio_ducker.h"
 #include "chrome/browser/ui/tabs/tab_model.h"
@@ -415,6 +418,16 @@ class GlicWebClientHandler
     return host().GetSharingManagerInternal();
   }
 
+  void LogApiRequest(GlicHostApiRequestId request_type_id) {
+    LogApiRequestCount(request_type_id,
+                       mojom::GlicRequestEvent::kRequestReceived);
+    if (!active_state_calculator_.IsActive()) {
+      LogApiRequestCount(
+          request_type_id,
+          mojom::GlicRequestEvent::kRequestReceivedWhileInactive);
+    }
+  }
+
   // glic::mojom::WebClientHandler implementation.
   void SwitchConversation(glic::mojom::ConversationInfoPtr info,
                           SwitchConversationCallback callback) override {
@@ -476,6 +489,7 @@ class GlicWebClientHandler
   void WebClientCreated(
       ::mojo::PendingRemote<glic::mojom::WebClient> web_client,
       WebClientCreatedCallback callback) override {
+    LogApiRequestCount(GlicHostApiRequestId::kWebClientCreated);
     VLOG(1) << "Glic [WebClientHandler] WebClientCreated";
     web_client_.Bind(std::move(web_client));
     web_client_.set_disconnect_handler(base::BindOnce(
@@ -611,6 +625,7 @@ class GlicWebClientHandler
   }
 
   void WebClientInitialized() override {
+    LogApiRequestCount(GlicHostApiRequestId::kWebClientInitialized);
     VLOG(1) << "Glic [WebClientHandler] WebClientInitialized";
     host().WebClientInitialized();
     SetState(mojom::WebClientState::kResponsive);
@@ -643,6 +658,7 @@ class GlicWebClientHandler
   void CreateTab(const ::GURL& url,
                  glic::mojom::CreateTabOptionsPtr create_options,
                  CreateTabCallback callback) override {
+    LogApiRequest(GlicHostApiRequestId::kCreateTab);
     bool open_in_background = create_options->open_in_background;
     std::optional<int32_t> window_id = create_options->window_id;
     if (base::FeatureList::IsEnabled(media::kMediaLinkHelpers)) {
@@ -664,6 +680,7 @@ class GlicWebClientHandler
   void ActivateTabWithUrl(const ::GURL& exact_url,
                           glic::mojom::ActivateTabOptionsPtr options,
                           ActivateTabWithUrlCallback callback) override {
+    LogApiRequestCount(GlicHostApiRequestId::kActivateTabWithUrl);
     tabs::TabInterface* exact_match_tab = nullptr;
     tabs::TabInterface* pattern_match_tab = nullptr;
     std::string pattern_str = options ? options->pattern : "";
@@ -717,6 +734,7 @@ class GlicWebClientHandler
   }
 
   void OpenGlicSettingsPage(mojom::OpenSettingsOptionsPtr options) override {
+    LogApiRequestCount(GlicHostApiRequestId::kOpenGlicSettingsPage);
     std::string_view metric_suffix;
     switch (options->highlightField) {
       case mojom::SettingsPageField::kOsHotkey:
@@ -741,6 +759,7 @@ class GlicWebClientHandler
   }
 
   void OpenPasswordManagerSettingsPage() override {
+    LogApiRequestCount(GlicHostApiRequestId::kOpenPasswordManagerSettingsPage);
     if (!base::FeatureList::IsEnabled(
             features::kGlicOpenPasswordManagerSettingsPageApi)) {
       return;
@@ -748,15 +767,37 @@ class GlicWebClientHandler
     ::glic::OpenPasswordManagerSettingsPage(profile_);
   }
 
-  void ClosePanel() override { host().ClosePanel(); }
+  void OpenContactInfoSettingsPage() override {
+    LogApiRequestCount(GlicHostApiRequestId::kOpenContactInfoSettingsPage);
+    if (!base::FeatureList::IsEnabled(
+            features::kGlicOpenContactInfoSettingsPageApi)) {
+      return;
+    }
+    ::glic::OpenContactInfoSettingsPage(profile_);
+  }
 
-  void ClosePanelAndShutdown() override { ClosePanel(); }
+  void ClosePanel() override {
+    LogApiRequestCount(GlicHostApiRequestId::kClosePanel);
+    host().ClosePanel();
+  }
 
-  void AttachPanel() override { host().AttachPanel(); }
+  void ClosePanelAndShutdown() override {
+    LogApiRequestCount(GlicHostApiRequestId::kClosePanelAndShutdown);
+    host().ClosePanel();
+  }
 
-  void DetachPanel() override { host().DetachPanel(); }
+  void AttachPanel() override {
+    LogApiRequestCount(GlicHostApiRequestId::kAttachPanel);
+    host().AttachPanel();
+  }
+
+  void DetachPanel() override {
+    LogApiRequestCount(GlicHostApiRequestId::kDetachPanel);
+    host().DetachPanel();
+  }
 
   void ShowProfilePicker() override {
+    LogApiRequestCount(GlicHostApiRequestId::kShowProfilePicker);
     glic::GlicProfileManager::GetInstance()->ShowProfilePicker();
   }
 
@@ -968,6 +1009,24 @@ class GlicWebClientHandler
         std::move(receiver));
   }
 
+  void CreateAiOverlayTools(
+      mojo::PendingReceiver<ai_overlay_dialog::mojom::AiOverlayTools> receiver)
+      override {
+#if !BUILDFLAG(IS_ANDROID)
+    ai_overlay_tools_ =
+        CreateAiOverlayToolsForGlic(profile_, std::move(receiver));
+#endif
+  }
+
+  void CreateGeminiEnterpriseHandler(
+      mojo::PendingReceiver<mojom::GeminiEnterpriseHandler> receiver) override {
+    if (!GlicEnabling::GetGeminiEnterpriseSettings(profile_).has_value()) {
+      return;
+    }
+    host().instance_delegate().CreateGeminiEnterpriseHandler(
+        std::move(receiver));
+  }
+
   void ActivateTab(int32_t tab_id) override {
     tabs::TabInterface* tab = tabs::TabHandle(tab_id).Get();
     if (!tab) {
@@ -1057,7 +1116,7 @@ class GlicWebClientHandler
   }
 
   void EnableDragResize(bool enabled) override {
-    host().EnableDragResize(enabled);
+    host().SetDragResizeEnabled(enabled);
   }
 
   void SetMicrophonePermissionState(
@@ -1141,6 +1200,7 @@ class GlicWebClientHandler
   }
 
   void SetContextAccessIndicator(bool enabled) override {
+    LogApiRequestCount(GlicHostApiRequestId::kSetContextAccessIndicator);
     host().SetContextAccessIndicator(enabled);
   }
 
@@ -1194,8 +1254,12 @@ class GlicWebClientHandler
   }
 
   void SyncCookies(SyncCookiesCallback callback) override {
-    glic_service_->GetAuthController().ForceSyncCookies(
-        GlicCookieSyncTrigger::kGlicClient, std::move(callback));
+    if (auto* auth_controller = glic_service_->GetAuthController()) {
+      auth_controller->ForceSyncCookies(GlicCookieSyncTrigger::kGlicClient,
+                                        std::move(callback));
+    } else {
+      std::move(callback).Run(true);
+    }
   }
 
   void ClientErrorDialogStateChanged(
@@ -1204,13 +1268,17 @@ class GlicWebClientHandler
     if (shown_dialog_type) {
       base::UmaHistogramEnumeration("Glic.Api.Client.ErrorDialogShown",
                                     *shown_dialog_type);
-      glic_service_->GetAuthController().OnClientError();
+      if (auto* auth_controller = glic_service_->GetAuthController()) {
+        auth_controller->OnClientError();
+      }
     }
   }
 
   void ReportClientTransientError(
       mojo_base::mojom::AbslStatusCode status_code) override {
-    glic_service_->GetAuthController().OnClientTransientError(status_code);
+    if (auto* auth_controller = glic_service_->GetAuthController()) {
+      auth_controller->OnClientTransientError(status_code);
+    }
     base::UmaHistogramSparse("Glic.Api.Client.TransientError",
                              static_cast<int>(status_code));
   }
@@ -1394,6 +1462,7 @@ class GlicWebClientHandler
   }
 
   void OpenOsPermissionSettingsMenu(ContentSettingsType type) override {
+    LogApiRequestCount(GlicHostApiRequestId::kOpenOsPermissionSettingsMenu);
     if (type != ContentSettingsType::MEDIASTREAM_MIC &&
         type != ContentSettingsType::GEOLOCATION) {
       // This will terminate the render process.
@@ -1415,6 +1484,7 @@ class GlicWebClientHandler
   void SubscribeToPinCandidates(
       mojom::GetPinCandidatesOptionsPtr options,
       mojo::PendingRemote<mojom::PinCandidatesObserver> observer) override {
+    LogApiRequest(GlicHostApiRequestId::kSubscribeToPinCandidates);
     host().pin_candidate_provider().SubscribeToPinCandidates(
         std::move(options), std::move(observer));
   }
@@ -1823,6 +1893,9 @@ class GlicWebClientHandler
   std::unique_ptr<DebouncerDeduper> debouncer_deduper_;
   std::unique_ptr<PageMetadataManager> page_metadata_manager_;
   bool floating_panel_can_attach_ = false;
+#if !BUILDFLAG(IS_ANDROID)
+  std::unique_ptr<GlicToolsHolder> ai_overlay_tools_;
+#endif
 };
 
 std::unique_ptr<GlicWebClientAccess> MakeGlicWebClient(

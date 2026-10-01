@@ -11,6 +11,7 @@ import("//testing/test.gni")
 import("//third_party/blink/renderer/build/scripts/scripts.gni")  # TODO(crbug.com/397934758)
 
 _is_directory_transfer_required = is_fuchsia
+
 buildflag_header("buildflags") {
   header = "network_service_buildflags.h"
   flags = [
@@ -59,6 +60,8 @@ component("cpp") {
   sources = [
     "avail_language_header_parser.cc",
     "avail_language_header_parser.h",
+    "basic_data_buffer_factory.cc",
+    "basic_data_buffer_factory.h",
     "connection_allowlist_metrics.h",
     "connection_allowlist_parser.cc",
     "connection_allowlist_parser.h",
@@ -66,6 +69,8 @@ component("cpp") {
     "constants.h",
     "content_decoding_interceptor.cc",
     "content_decoding_interceptor.h",
+    "content_decoding_util.cc",
+    "content_decoding_util.h",
     "content_language_parser.cc",
     "content_language_parser.h",
     "cookie_encryption_provider_impl.cc",
@@ -82,6 +87,8 @@ component("cpp") {
     "cross_origin_resource_policy.h",
     "cross_thread_pending_shared_url_loader_factory.cc",
     "cross_thread_pending_shared_url_loader_factory.h",
+    "data_buffer_factory.cc",
+    "data_buffer_factory.h",
     "data_pipe_to_source_stream.cc",
     "data_pipe_to_source_stream.h",
     "declarative_performance_observer_parser.cc",
@@ -119,7 +126,14 @@ component("cpp") {
     "no_vary_search_header_parser.h",
     "not_implemented_url_loader_factory.cc",
     "not_implemented_url_loader_factory.h",
+    "orb/orb_api.cc",
     "orb/orb_api.h",
+    "orb/orb_impl.cc",
+    "orb/orb_impl.h",
+    "orb/orb_mimetypes.cc",
+    "orb/orb_mimetypes.h",
+    "orb/orb_sniffers.cc",
+    "orb/orb_sniffers.h",
     "origin_agent_cluster_parser.cc",
     "origin_agent_cluster_parser.h",
     "parsed_headers.cc",
@@ -136,6 +150,7 @@ component("cpp") {
     "self_deleting_url_loader_factory.cc",
     "self_deleting_url_loader_factory.h",
     "session_cookie_delete_predicate.h",
+    "shared_http_cache_client.h",
     "shared_url_loader_factory.cc",
     "shared_url_loader_factory.h",
     "simple_host_resolver.cc",
@@ -204,6 +219,13 @@ component("cpp") {
     "//net",
     "//services/proxy_resolver/public/mojom",
   ]
+
+  if (enable_disk_cache_sql_backend) {
+    sources += [ "shared_http_cache_client.cc" ]
+    deps += [ "//components/sqlite_vfs" ]
+  } else {
+    sources += [ "shared_http_cache_client_stub.cc" ]
+  }
 
   defines = [ "IS_NETWORK_CPP_IMPL" ]
 }
@@ -753,7 +775,10 @@ mojom("test_interfaces") {
 source_set("test_support") {
   testonly = true
 
-  sources = [ "is_potentially_trustworthy_unittest.h" ]
+  sources = [
+    "data_buffer_factory_test_util.h",
+    "is_potentially_trustworthy_unittest.h",
+  ]
 
   public_deps = [
     ":cpp",
@@ -774,9 +799,11 @@ source_set("tests") {
 
   sources = [
     "avail_language_header_parser_unittest.cc",
+    "basic_data_buffer_factory_unittest.cc",
     "client_hints_unittest.cc",
     "connection_allowlist_unittest.cc",
     "content_decoding_interceptor_unittest.cc",
+    "content_decoding_util_unittest.cc",
     "content_language_parser_unittest.cc",
     "content_security_policy/content_security_policy_unittest.cc",
     "content_security_policy/csp_context_unittest.cc",
@@ -828,6 +855,9 @@ source_set("tests") {
     "network_quality_tracker_unittest.cc",
     "no_vary_search_header_parser_unittest.cc",
     "optional_trust_token_params_unittest.cc",
+    "orb/orb_impl_unittest.cc",
+    "orb/orb_mimetypes_unittest.cc",
+    "orb/orb_sniffers_unittest.cc",
     "origin_agent_cluster_parser_unittest.cc",
     "originating_process_id_mojom_traits_unittest.cc",
     "parsed_headers_unittest.cc",
@@ -872,6 +902,10 @@ source_set("tests") {
 
   if (is_linux) {
     sources += [ "network_interface_change_listener_mojom_traits_unittest.cc" ]
+  }
+
+  if (enable_disk_cache_sql_backend) {
+    sources += [ "shared_http_cache_client_unittest.cc" ]
   }
 
   deps = [

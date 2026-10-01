@@ -1610,6 +1610,18 @@ ubsan_hardening("return") {
   sanitizer = "return"
 }
 
+# Enable `-fsanitize=unreachable` to crash deterministically if control
+# flow hits an unreachable point.
+ubsan_hardening("unreachable") {
+  sanitizer = "unreachable"
+
+  # TODO(crbug.com/501143596):
+  # 1.  `fuchsia-binary-size` tells us that web_engine and
+  #     chrome_fuchsia both grow 32768 bytes (10x that, uncompressed).
+  # 2.  `headless_shell_wpt_tests` fail on `mac-rel`.
+  condition = is_debug || !(is_mac || is_fuchsia)
+}
+
 config("rustc_revision") {
   if (rustc_revision != "") {
     # Similar to the `clang_revision` config, this is here so that all `.rs`
@@ -2056,20 +2068,15 @@ config("default_warnings") {
     ldflags += [ "-Wl,-no_warn_duplicate_libraries" ]
   }
 
-  configs = [ ":default_clippy_lints" ]
+  if (enable_rust_clippy) {
+    configs = [ ":default_clippy_lints" ]
+  }
 }
 
 # default_clippy_lints --------------------------------------------------------
 
 config("default_clippy_lints") {
   rustflags = [
-    # NOTE: Change `cr_clippy_revision` when 1) enabling new Clippy warnings or
-    # 2) enabling Clippy on new platforms/bots.  This is quite similar to
-    # `config("rustc_revision")` - a custom `--cfg` flag is used to force
-    # rebuilding of all `.rs` files (which as a side-effect should also trigger
-    # a Clippy check if `enable_rust_clippy = true`).
-    "--cfg=cr_clippy_revision=\"2026-07-20\"",
-
     # Treat all default Clippy lints as warnings.
     # See also `config("treat_warnings_as_errors")`.
     "-Wclippy::all",
@@ -2083,6 +2090,9 @@ config("default_clippy_lints") {
 
     # TODO(crbug.com/534628766): Fix and re-enable.
     "-Aclippy::chunks_exact_to_as_chunks",
+
+    # TODO(crbug.com/556789085): Fix and re-enable.
+    "-Aclippy::needless_range_loop",
   ]
 }
 

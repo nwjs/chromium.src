@@ -8,8 +8,6 @@ found in the LICENSE file.
 <resources>
     <dimen name="ttf_for_credit_card_icon_height">30dp</dimen>
     <dimen name="ttf_for_credit_card_icon_width">48dp</dimen>
-    <dimen name="ttf_for_payments_product_icon_height">32dp</dimen>
-    <dimen name="ttf_for_payments_product_icon_margin_vertical">12dp</dimen>
     <dimen name="ttf_for_payments_menu_item_icon_padding">12dp</dimen>
     <dimen name="ttf_for_payments_terms_label_margin_horizontal">8dp</dimen>
     <dimen name="ttf_for_payments_terms_label_margin_top">18dp</dimen>
@@ -45,4 +43,10 @@ found in the LICENSE file.
     <dimen name="ttf_tab_layout_corner_radius">12dp</dimen>
     <dimen name="ttf_tab_item_inset">4dp</dimen>
     <dimen name="ttf_tab_item_corner_radius">8dp</dimen>
+    <!-- Touch to Fill Loyalty Cards Dimensions -->
+    <dimen name="ttf_loyalty_card_first_time_use_title_bottom_margin">0dp</dimen>
+    <dimen name="ttf_loyalty_card_first_time_use_subtitle_bottom_margin">16dp</dimen>
+    <!-- Touch to Fill Ambient autofill notice properties -->
+    <dimen name="ttf_notice_header_title_bottom_margin">16dp</dimen>
+    <dimen name="ttf_notice_header_subtitle_bottom_margin">0dp</dimen>
 </resources>

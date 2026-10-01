@@ -14,6 +14,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
+import static org.chromium.base.test.transit.ViewElement.displayingAtLeastOption;
 import static org.chromium.base.test.transit.ViewFinder.waitForView;
 import static org.chromium.chrome.browser.flags.ChromeFeatureList.NEW_TAB_PAGE_CUSTOMIZATION_V2;
 import static org.chromium.chrome.browser.ntp.HomeSurfaceTestUtils.START_SURFACE_RETURN_TIME_IMMEDIATE;
@@ -103,6 +104,7 @@ public class ShowNtpAtStartupTest {
 
     private static final String TAB_URL = "https://foo.com/";
     private static final String TAB_URL_1 = "https://bar.com/";
+    private static final int MIN_DISPLAYED_PERCENTAGE = 10;
 
     @Before
     public void setUp() {
@@ -268,7 +270,6 @@ public class ShowNtpAtStartupTest {
     @MediumTest
     @Feature({"StartSurface"})
     @EnableFeatures(START_SURFACE_RETURN_TIME_IMMEDIATE)
-    @DisableFeatures(ChromeFeatureList.NTP_AURORA)
     public void testSingleTabModule() throws IOException {
         HomeSurfaceTestUtils.prepareTabStateMetadataFile(
                 new int[] {0, 1}, new String[] {TAB_URL, TAB_URL_1}, 0);
@@ -285,15 +286,16 @@ public class ShowNtpAtStartupTest {
         Assert.assertTrue(ntp.isMagicStackVisibleForTesting());
 
         waitForView(
+                View.class,
                 cta,
-                allOf(withId(R.id.tab_thumbnail), isDescendantOfA(withId(R.id.single_tab_view))));
+                allOf(withId(R.id.tab_thumbnail), isDescendantOfA(withId(R.id.single_tab_view))),
+                displayingAtLeastOption(MIN_DISPLAYED_PERCENTAGE));
     }
 
     @Test
     @MediumTest
     @Feature({"StartSurface"})
     @EnableFeatures({START_SURFACE_RETURN_TIME_IMMEDIATE})
-    @DisableFeatures(ChromeFeatureList.NTP_AURORA)
     public void testSingleTabModule_MagicStack() throws IOException {
         HomeSurfaceTestUtils.prepareTabStateMetadataFile(
                 new int[] {0, 1}, new String[] {TAB_URL, TAB_URL_1}, 0);
@@ -308,8 +310,10 @@ public class ShowNtpAtStartupTest {
 
         waitForView(cta, withId(R.id.home_modules_recycler_view));
         waitForView(
+                View.class,
                 cta,
-                allOf(withId(R.id.tab_thumbnail), isDescendantOfA(withId(R.id.single_tab_view))));
+                allOf(withId(R.id.tab_thumbnail), isDescendantOfA(withId(R.id.single_tab_view))),
+                displayingAtLeastOption(MIN_DISPLAYED_PERCENTAGE));
     }
 
     @Test
@@ -754,14 +758,23 @@ public class ShowNtpAtStartupTest {
                             mvTilesLayout.getChildCount(),
                             Matchers.greaterThan(1));
 
-                    // Expected: Calculate the expected slack mathematically from constants.
-                    int expectedContainerWidthSlack = calculateExpectedWidthSlack(width, res);
+                    int expectedMvtLateralMargin =
+                            ntp.getNewTabPageCoordinator().getLateralMarginToMatchFeeds();
 
-                    // Actual: Assert the actual container matches the expected slack.
-                    Criteria.checkThat(
-                            "MVT container width is inconsistent with screen width.",
-                            width - mvtContainer.getWidth(),
-                            Matchers.is(expectedContainerWidthSlack));
+                    if (mvtContainer.getLayoutParams().width
+                            == android.view.ViewGroup.LayoutParams.WRAP_CONTENT) {
+                        // On tablets, if the content fits, WRAP_CONTENT is used to center MVT.
+                        Criteria.checkThat(
+                                mvtContainer.getLayoutParams().width,
+                                Matchers.is(android.view.ViewGroup.LayoutParams.WRAP_CONTENT));
+                    } else {
+                        // If it doesn't fit, it scales to match the Feed width.
+                        int expectedContainerWidthSlack = expectedMvtLateralMargin * 2;
+                        Criteria.checkThat(
+                                "MVT container width is inconsistent with screen width.",
+                                width - mvtContainer.getWidth(),
+                                Matchers.is(expectedContainerWidthSlack));
+                    }
 
                     int mvt1LeftMargin =
                             ((MarginLayoutParams) mvTilesLayout.getTileAt(0).getLayoutParams())

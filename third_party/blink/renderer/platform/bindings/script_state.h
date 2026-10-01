@@ -10,12 +10,11 @@
 #include "base/memory/scoped_refptr.h"
 #include "gin/public/context_holder.h"
 #include "gin/public/gin_embedders.h"
-#include "gin/public/wrappable_pointer_tags.h"
 #include "third_party/blink/public/common/tokens/tokens.h"
 #include "third_party/blink/renderer/platform/bindings/scoped_persistent.h"
+#include "third_party/blink/renderer/platform/bindings/wrapper_type_info.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
 #include "third_party/blink/renderer/platform/heap/member.h"
-#include "third_party/blink/renderer/platform/heap/self_keep_alive.h"
 #include "third_party/blink/renderer/platform/platform_export.h"
 #include "third_party/blink/renderer/platform/wtf/assertions.h"
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
@@ -243,9 +242,7 @@ class PLATFORM_EXPORT ScriptState : public GarbageCollected<ScriptState> {
   }
 
  protected:
-  ScriptState(v8::Local<v8::Context>,
-              DOMWrapperWorld*,
-              scoped_refptr<scheduler::EventLoop>);
+  ScriptState(v8::Local<v8::Context>, DOMWrapperWorld*, scheduler::EventLoop*);
 
  private:
   static void OnV8ContextCollectedCallback(
@@ -264,13 +261,6 @@ class PLATFORM_EXPORT ScriptState : public GarbageCollected<ScriptState> {
 
   Member<V8PerContextData> per_context_data_;
 
-  // v8::Context has an internal field to this ScriptState* as a raw pointer,
-  // which is out of scope of Blink GC, but it must be a strong reference.  We
-  // use |reference_from_v8_context_| to represent this strong reference.  The
-  // lifetime of |reference_from_v8_context_| and the internal field must match
-  // exactly.
-  SelfKeepAlive<ScriptState> reference_from_v8_context_{{}, this};
-
   // Serves as a unique ID for this context, which can be used to name the
   // context in browser/renderer communications.
   V8ContextToken token_;
@@ -280,7 +270,8 @@ class PLATFORM_EXPORT ScriptState : public GarbageCollected<ScriptState> {
       static_cast<int>(gin::kEmbedderBlink);
 
   static constexpr v8::CppHeapPointerTag kTypeTag =
-      static_cast<v8::CppHeapPointerTag>(gin::kScriptState);
+      static_cast<v8::CppHeapPointerTag>(
+          CppHeapPointerTag::kScriptStateTag);
 
   // For accessing information about the last script compilation via
   // internals.idl.

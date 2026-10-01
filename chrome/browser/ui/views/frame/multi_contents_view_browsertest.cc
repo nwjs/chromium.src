@@ -12,9 +12,11 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/ui/tabs/split_tab_metrics.h"
 #include "chrome/browser/ui/tabs/tab_model.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/frame/custom_floating_corner.h"
 #include "chrome/browser/ui/views/frame/multi_contents_drop_target_view.h"
@@ -28,6 +30,7 @@
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/prefs/pref_service.h"
 #include "components/tabs/public/split_tab_data.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/common/url_constants.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
@@ -40,6 +43,7 @@
 #include "ui/base/dragdrop/os_exchange_data_provider.h"
 #include "ui/base/interaction/element_tracker.h"
 #include "ui/base/ozone_buildflags.h"
+#include "ui/base/page_transition_types.h"
 #include "ui/compositor/layer_tree_owner.h"
 #include "ui/ozone/public/ozone_platform.h"
 #include "ui/views/controls/separator.h"
@@ -377,7 +381,6 @@ IN_PROC_BROWSER_TEST_F(MultiContentsViewBrowserTest,
 class MultiContentsViewWebContentsReLayoutBrowserTest
     : public SplitViewBrowserTestMixin<InProcessBrowserTest> {
  protected:
-
   static constexpr char kReLayoutTestURL[] = "/re_layout_test.html";
 
   void SetUpOnMainThread() override {

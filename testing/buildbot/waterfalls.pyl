@@ -325,25 +325,6 @@
       'swarming_containment_auto',
     ],
     'machines': {
-      'ChromeOS FYI Release Skylab (jacuzzi)': {
-        'additional_compile_targets': [
-          'chromiumos_preflight',
-        ],
-        'browser_config': 'cros-chrome',
-        'os_type': 'chromeos',
-        'skip_merge_script': True,
-        'use_swarming': False,
-        'mixins': [
-          'limited_capacity_bot',
-          'long_skylab_timeout',
-        ],
-        'test_suites': {
-          # There should be the same gtests here as on a normal CrOS bot,
-          # but mixing test types on a single bot is not supported in Skylab
-          # yet.
-          'skylab_gpu_telemetry_tests': 'gpu_fyi_chromeos_release_telemetry_tests_jacuzzi_skylab',
-        },
-      },
       'gpu-fyi-chromeos-brya-chrome': {
         'additional_compile_targets': [
           'chromiumos_preflight',
@@ -607,16 +588,6 @@
           'isolated_scripts': 'devtools_web_isolated_scripts',
         },
       },
-      'DevTools Linux Fastbuild': {
-        'mixins': [
-          'linux-jammy',
-        ],
-        'additional_compile_targets': ['blink_tests'],
-        'test_suites': {
-          'gtest_tests': 'devtools_gtests',
-          'isolated_scripts': 'devtools_web_isolated_scripts',
-        },
-      },
     },
   },
   {
@@ -733,7 +704,7 @@
           'linux_nvidia_gtx_1660_stable',
         ],
         'test_suites': {
-          'gpu_telemetry_tests': 'gpu_all_linux_release_vulkan_telemetry_tests',
+          'gpu_telemetry_tests': 'legacy_gpu_all_linux_release_telemetry_tests',
         },
       },
       'Linux V8 FYI Release - pointer compression (NVIDIA)': {
@@ -743,7 +714,7 @@
           'linux_nvidia_gtx_1660_stable',
         ],
         'test_suites': {
-          'gpu_telemetry_tests': 'gpu_all_linux_release_vulkan_telemetry_tests',
+          'gpu_telemetry_tests': 'legacy_gpu_all_linux_release_telemetry_tests',
         },
       },
       'Mac V8 FYI Release (Apple M2)': {
@@ -1003,27 +974,6 @@
       'chrome-tester-service-account',
     ],
     'machines': {
-      'ai_wpt-mac-arm64': {
-        'mixins': [
-          'chrome-swarming-pool',
-          'mac_default_arm64',
-        ],
-        'test_suites': {
-           'isolated_scripts': 'chrome_ai_wpt_tests_suite',
-        },
-        'os_type': 'mac',
-      },
-      'ai_wpt-mac-x64': {
-        'mixins': [
-          'chrome-swarming-pool',
-          'mac_15_x64',
-          'x64_ai_wpt_shards',
-        ],
-        'test_suites': {
-           'isolated_scripts': 'chrome_ai_wpt_tests_suite',
-        },
-        'os_type': 'mac',
-      },
       'model_validation-linux': {
         'mixins': [
           'chrome-intelligence-swarming-pool',
@@ -1314,15 +1264,6 @@
     'mixins': ['chromium-tester-service-account'],
     'machines': {
       'devtools_frontend_linux_blink_light_rel': {
-        'mixins': [
-          'linux-jammy',
-        ],
-        'test_suites': {
-          'gtest_tests': 'devtools_browser_tests_suite',
-          'isolated_scripts': 'devtools_web_isolated_scripts',
-        },
-      },
-      'devtools_frontend_linux_blink_light_rel_fastbuild': {
         'mixins': [
           'linux-jammy',
         ],

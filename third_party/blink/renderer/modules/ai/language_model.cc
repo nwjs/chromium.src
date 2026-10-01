@@ -405,14 +405,6 @@ bool ParseConstraint(
     return true;
   }
 
-  if (base::FeatureList::IsEnabled(
-          on_device_model::features::kOnDeviceModelSpeculativeDecoding)) {
-    exception_state.ThrowDOMException(
-        DOMExceptionCode::kNotSupportedError,
-        kExceptionMessageSpeculativeDecodingConstraintConflict);
-    return false;
-  }
-
   if (!RuntimeEnabledFeatures::AIPromptAPIStructuredOutputEnabled(
           ExecutionContext::From(script_state))) {
     exception_state.ThrowDOMException(DOMExceptionCode::kNotSupportedError,
@@ -916,10 +908,9 @@ bool LanguageModel::ValidateInput(ScriptState* script_state,
 
   // TODO(crbug.com/411470034): Aggregate other input type sizes for UMA.
   if (input->IsString()) {
-    base::UmaHistogramCounts1M(
-        AIMetrics::GetAISessionRequestSizeMetricName(
-            AIMetrics::AISessionType::kLanguageModel),
-        static_cast<int>(input->GetAsString().CharactersSizeInBytes()));
+    base::UmaHistogramCounts1M(AIMetrics::GetAISessionRequestSizeMetricName(
+                                   AIMetrics::AISessionType::kLanguageModel),
+                               static_cast<int>(input->GetAsString().length()));
   }
 
   return true;

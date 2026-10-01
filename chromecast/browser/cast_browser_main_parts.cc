@@ -102,6 +102,8 @@
 #include "components/crash/content/browser/child_exit_observer_android.h"
 #include "components/crash/content/browser/child_process_crash_observer_android.h"
 #include "net/android/network_change_notifier_factory_android.h"
+#include "ui/events/devices/device_data_manager.h"
+#include "ui/events/devices/input_device_observer_android.h"
 #elif BUILDFLAG(IS_FUCHSIA)
 #include "chromecast/net/network_change_notifier_factory_fuchsia.h"
 #else
@@ -130,9 +132,6 @@
 #include "chromecast/graphics/cast_window_manager_default.h"  // nogncheck
 #endif
 
-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_FUCHSIA)
-#include "device/bluetooth/cast/bluetooth_adapter_cast.h"
-#endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_FUCHSIA)
 
 #if !BUILDFLAG(IS_FUCHSIA)
 #include "chromecast/base/cast_sys_info_util.h"
@@ -376,6 +375,11 @@ CastBrowserMainParts::CastBrowserMainParts(
 }
 
 CastBrowserMainParts::~CastBrowserMainParts() {
+#if BUILDFLAG(IS_ANDROID)
+  if (ui::DeviceDataManager::HasInstance()) {
+    ui::InputDeviceObserverAndroid::GetInstance()->Shutdown();
+  }
+#endif
   if (cast_content_browser_client_->GetMediaTaskRunner() &&
       media_pipeline_backend_manager_) {
     // Make sure that media_pipeline_backend_manager_ is destroyed after any
@@ -491,6 +495,9 @@ int CastBrowserMainParts::PreCreateThreads() {
   child_exit_observer_ = std::make_unique<crash_reporter::ChildExitObserver>();
   child_exit_observer_->RegisterClient(
       std::make_unique<crash_reporter::ChildProcessCrashObserver>());
+  if (!ui::DeviceDataManager::HasInstance()) {
+    ui::InputDeviceObserverAndroid::GetInstance()->Initialize();
+  }
 #endif
 
   service_connector_ = cast_content_browser_client_->CreateServiceConnector();
@@ -513,7 +520,7 @@ int CastBrowserMainParts::PreCreateThreads() {
   return 0;
 }
 
-void CastBrowserMainParts::PostCreateThreads() {
+int CastBrowserMainParts::PostCreateThreads() {
   if (GetSwitchValueBoolean(switches::kInProcessBroker, true)) {
     auto* service_manager_connector =
         ServiceManagerConnection::GetForProcess()->GetConnector();
@@ -528,6 +535,7 @@ void CastBrowserMainParts::PostCreateThreads() {
   media_connector_ = connector_->Clone();
   browser_service_ =
       std::make_unique<external_service_support::ExternalService>();
+  return content::RESULT_CODE_NORMAL_EXIT;
 }
 
 int CastBrowserMainParts::PreMainMessageLoopRun() {
@@ -540,12 +548,6 @@ int CastBrowserMainParts::PreMainMessageLoopRun() {
             monitor->CreateVoter()));
   }
 
-  // base::Unretained() is safe because the browser client will outlive any
-  // component in the browser; this factory method will not be called after
-  // the browser starts to tear down.
-  device::BluetoothAdapterCast::SetFactory(base::BindRepeating(
-      &CastContentBrowserClient::CreateBluetoothAdapter,
-      base::Unretained(cast_browser_process_->browser_client())));
 #endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_FUCHSIA)
 
   cast_content_browser_client_->SetPersistentCookieAccessSettings(

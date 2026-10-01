@@ -34,6 +34,7 @@
 #import "ios/chrome/grit/ios_strings.h"
 #import "testing/gtest_mac.h"
 #import "ui/base/l10n/l10n_util.h"
+#import "url/gurl.h"
 
 namespace {
 
@@ -60,13 +61,21 @@ class BookmarkMediatorUnitTest
   void SetUp() override {
     BookmarkIOSUnitTestSupport::SetUp();
     authentication_service_ =
-        AuthenticationServiceFactory::GetForProfile(profile_.get());
+        AuthenticationServiceFactory::GetForProfile(profile_);
 
     mediator_ =
         [[BookmarkMediator alloc] initWithBookmarkModel:bookmark_model_.get()
                                                   prefs:profile_->GetPrefs()
                                   authenticationService:authentication_service_
                                             syncService:&sync_service_];
+  }
+
+  void TearDown() override {
+    [mediator_ disconnect];
+    mediator_ = nil;
+    authentication_service_ = nullptr;
+    account_manager_service_ = nullptr;
+    BookmarkIOSUnitTestSupport::TearDown();
   }
 
   // Number of bookmark saved.
@@ -160,9 +169,9 @@ class BookmarkMediatorUnitTest
     return base::SysUTF16ToNSString(message);
   }
 
-  BookmarkMediator* mediator_;
-  raw_ptr<ChromeAccountManagerService> account_manager_service_;
-  raw_ptr<AuthenticationService> authentication_service_;
+  BookmarkMediator* __strong mediator_ = nil;
+  raw_ptr<ChromeAccountManagerService> account_manager_service_ = nullptr;
+  raw_ptr<AuthenticationService> authentication_service_ = nullptr;
   syncer::TestSyncService sync_service_;
   base::test::ScopedFeatureList scope_;
   base::HistogramTester histogram_tester_;
@@ -350,6 +359,52 @@ TEST_F(BookmarkMediatorUnitTest, TestBulkSnackbarMessageDuplicateBookmarks) {
   ASSERT_EQ(3U, bookmarks_dupes.size());
   ASSERT_NSEQ(snackbarMessageDuplicates.title, @"0 bookmarks saved");
   histogram_tester_.ExpectBucketCount("IOS.Bookmarks.BulkAddURLsCount", 3, 1);
+  histogram_tester_.ExpectBucketCount("IOS.Bookmarks.BulkAddURLsCount", 0, 1);
+}
+
+// Tests bulkAddBookmarksWithURLs rejects unsupported URL schemes
+// (e.g. javascript:, chrome:, file:, data:).
+TEST_F(BookmarkMediatorUnitTest, TestBulkSnackbarMessageUnsupportedSchemes) {
+  NSArray* URLs = @[
+    [[NSURL alloc] initWithString:@"javascript:alert(1)"],
+    [[NSURL alloc] initWithString:@"chrome://version"],
+    [[NSURL alloc] initWithString:@"data:text/html,<html></html>"],
+    [[NSURL alloc] initWithString:@"file:///path/to/file"],
+    [[NSURL alloc] initWithString:@"https://google.com"]
+  ];
+
+  SnackbarMessage* const snackbarMessage =
+      [mediator_ bulkAddBookmarksWithURLs:URLs
+                               viewAction:^{
+                               }];
+
+  std::vector<bookmarks::UrlAndTitle> bookmarks =
+      bookmark_model_->GetUniqueUrls();
+
+  ASSERT_EQ(1U, bookmarks.size());
+  EXPECT_EQ(GURL("https://google.com"), bookmarks[0].url);
+  ASSERT_NSEQ(snackbarMessage.title, @"Bookmark saved");
+  histogram_tester_.ExpectBucketCount("IOS.Bookmarks.BulkAddURLsCount", 1, 1);
+}
+
+// Tests bulkAddBookmarksWithURLs with only unsupported URL schemes.
+TEST_F(BookmarkMediatorUnitTest,
+       TestBulkSnackbarMessageOnlyUnsupportedSchemes) {
+  NSArray* URLs = @[
+    [[NSURL alloc] initWithString:@"javascript:alert(1)"],
+    [[NSURL alloc] initWithString:@"chrome://version"]
+  ];
+
+  SnackbarMessage* const snackbarMessage =
+      [mediator_ bulkAddBookmarksWithURLs:URLs
+                               viewAction:^{
+                               }];
+
+  std::vector<bookmarks::UrlAndTitle> bookmarks =
+      bookmark_model_->GetUniqueUrls();
+
+  ASSERT_EQ(0U, bookmarks.size());
+  ASSERT_NSEQ(snackbarMessage.title, @"0 bookmarks saved");
   histogram_tester_.ExpectBucketCount("IOS.Bookmarks.BulkAddURLsCount", 0, 1);
 }
 

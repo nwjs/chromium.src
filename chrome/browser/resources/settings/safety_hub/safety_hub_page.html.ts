@@ -1,0 +1,78 @@
+// Copyright 2026 The Chromium Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+import {html} from '//resources/lit/v3_0/lit.rollup.js';
+
+import {RestartType} from '../relaunch_mixin_lit.js';
+
+import type {SettingsSafetyHubPageElement} from './safety_hub_page.js';
+
+export function getHtml(this: SettingsSafetyHubPageElement) {
+  return html`<!--_html_template_start_-->
+<settings-subpage class="multi-card" page-title="$i18n{safetyHub}"
+    learn-more-url="$i18n{safetyHubHelpCenterURL}"
+    route-path="${this.routePath}">
+  <h2 class="section-header cr-secondary-text first">
+    $i18n{safetyHubPageCardSectionHeader}
+  </h2>
+  <div class="card-container">
+    <settings-safety-hub-card id="passwords" class="card box"
+        .data="${this.passwordCardData_}" @click="${this.onPasswordsClick_}"
+        tabindex="0" @keydown="${this.onPasswordsKeydown_}" role="link"
+        aria-description="$i18n{safetyHubPasswordNavigationAriaLabel}">
+    </settings-safety-hub-card>
+    <settings-safety-hub-card id="version" class="card box"
+        .data="${this.versionCardData_}" @click="${this.onVersionClick_}"
+        tabindex="0" @keydown="${this.onVersionKeydown_}"
+        role="${this.computeVersionCardRole_()}"
+        aria-description="${this.computeVersionCardAriaDescription_()}">
+    </settings-safety-hub-card>
+    <settings-safety-hub-card id="safeBrowsing" class="card box"
+        .data="${this.safeBrowsingCardData_}"
+        @click="${this.onSafeBrowsingClick_}"
+        tabindex="0" @keydown="${this.onSafeBrowsingKeydown_}" role="link"
+        aria-description="$i18n{safetyHubSBNavigationAriaLabel}">
+    </settings-safety-hub-card>
+  </div>
+  <h2 class="section-header cr-secondary-text">
+    $i18n{safetyHubPageModuleSectionHeader}
+  </h2>
+  ${this.showNotificationPermissions_ ? html`
+    <settings-safety-hub-notification-permissions-module class="module box">
+    </settings-safety-hub-notification-permissions-module>
+  ` : ''}
+  ${this.showUnusedSitePermissions_ ? html`
+    <settings-safety-hub-unused-site-permissions-module class="module box">
+    </settings-safety-hub-unused-site-permissions-module>
+  ` : ''}
+  ${this.showExtensions_ ? html`
+    <settings-safety-hub-extensions-module class="module box">
+    </settings-safety-hub-extensions-module>
+  ` : ''}
+  ${this.shouldShowNoRecommendationsState_() ? html`
+    <settings-safety-hub-module id="emptyStateModule" class="module box"
+        header="$i18n{safetyHubEmptyStateModuleHeader}"
+        subheader="$i18n{safetyHubEmptyStateModuleSubheader}"
+        header-icon="cr:check">
+    </settings-safety-hub-module>
+    <settings-safety-hub-module
+        id="userEducationModule"
+        @sh-module-item-link-click="${this.onShModuleItemLinkClick_}"
+        class="module box"
+        header="$i18n{safetyHubUserEduModuleHeader}"
+        header-icon="settings20:lightbulb-2"
+        .sites="${this.userEducationItemList_}">
+    </settings-safety-hub-module>
+  ` : ''}
+<if expr="not is_chromeos">
+  ${this.shouldShowRelaunchDialog ? html`
+    <relaunch-confirmation-dialog
+        .restartType="${RestartType.RELAUNCH}"
+        @close="${this.onRelaunchDialogClose}" is-version-update>
+    </relaunch-confirmation-dialog>
+  ` : ''}
+</if>
+</settings-subpage>
+<!--_html_template_end_-->`;
+}

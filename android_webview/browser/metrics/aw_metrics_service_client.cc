@@ -12,6 +12,8 @@
 
 #include "android_webview/browser/metrics/android_metrics_log_uploader.h"
 #include "android_webview/browser/metrics/android_metrics_provider.h"
+#include "android_webview/browser/metrics/aw_entropy_state_provider.h"
+#include "android_webview/browser/metrics/aw_metrics_service_accessor.h"
 #include "android_webview/common/aw_features.h"
 #include "base/android/callback_android.h"
 #include "base/android/jni_android.h"
@@ -21,7 +23,7 @@
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/hash/hash.h"
-#include "base/i18n/rtl.h"
+#include "base/i18n/icubridge/default_icu_locale.h"
 #include "base/metrics/field_trial_params.h"
 #include "base/metrics/persistent_histogram_allocator.h"
 #include "base/metrics/statistics_recorder.h"
@@ -44,7 +46,6 @@
 #include "components/metrics/content/subprocess_metrics_provider.h"
 #include "components/metrics/cpu_metrics_provider.h"
 #include "components/metrics/drive_metrics_provider.h"
-#include "components/metrics/entropy_state_provider.h"
 #include "components/metrics/file_metrics_provider.h"
 #include "components/metrics/metrics_features.h"
 #include "components/metrics/metrics_pref_names.h"
@@ -415,7 +416,7 @@ void AwMetricsServiceClient::RegisterMetricsProvidersAndInitState() {
   metrics_service_->RegisterMetricsProvider(
       std::make_unique<metrics::CPUMetricsProvider>());
   metrics_service_->RegisterMetricsProvider(
-      std::make_unique<metrics::EntropyStateProvider>(local_state_));
+      std::make_unique<AwEntropyStateProvider>(local_state_));
   metrics_service_->RegisterMetricsProvider(
       std::make_unique<metrics::ScreenInfoMetricsProvider>());
   metrics_service_->RegisterMetricsProvider(
@@ -466,8 +467,31 @@ void AwMetricsServiceClient::SetUploadIntervalForTesting(
   overridden_upload_interval_ = upload_interval;
 }
 
+void AwMetricsServiceClient::RegisterSyntheticFieldTrial(
+    std::string_view trial_name,
+    std::string_view group_name,
+    variations::SyntheticTrialAnnotationMode annotation_mode) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  if (!metrics_service_) {
+    return;
+  }
+  AwMetricsServiceAccessor::RegisterSyntheticFieldTrial(
+      metrics_service_.get(), trial_name, group_name, annotation_mode);
+}
+
+void AwMetricsServiceClient::FlushPendingSyntheticTrialsFromJava() {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  JNIEnv* env = base::android::AttachCurrentThread();
+  Java_AwMetricsServiceClient_flushPendingSyntheticTrials(env);
+}
+
 bool AwMetricsServiceClient::IsReadyToStart() const {
   return init_finished_ && set_consent_finished_ && !metrics_dir_.empty();
+}
+
+bool AwMetricsServiceClient::IsConsentDetermined() const {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+  return set_consent_finished_;
 }
 
 bool AwMetricsServiceClient::IsConsentGiven() const {
@@ -515,7 +539,7 @@ std::string AwMetricsServiceClient::GetApplicationLocale() {
           metrics::features::kConsolidateMetricsServiceLocales)) {
     return language::GetApplicationLocale(local_state_);
   }
-  return base::i18n::GetConfiguredLocale();
+  return std::string(base::i18n::GetDefaultIcuLocale().tag_string());
 }
 
 const network_time::NetworkTimeTracker*
@@ -867,6 +891,7 @@ void AwMetricsServiceClient::RegisterMetricsPrefs(
   metrics::FileMetricsProvider::RegisterPrefs(registry);
   metrics::StabilityMetricsHelper::RegisterPrefs(registry);
   AndroidMetricsProvider::RegisterPrefs(registry);
+  AwEntropyStateProvider::RegisterPrefs(registry);
 }
 
 // static
@@ -906,6 +931,17 @@ JNI_AwMetricsServiceClient_SetOnFinalMetricsCollectedListenerForTesting(
     base::RepeatingClosure listener) {
   AwMetricsServiceClient::GetInstance()
       ->SetOnFinalMetricsCollectedListenerForTesting(std::move(listener));
+}
+
+// static
+static void JNI_AwMetricsServiceClient_RegisterSyntheticFieldTrial(
+    JNIEnv* env,
+    const std::string& trial_name,
+    const std::string& group_name,
+    int32_t annotation_mode) {
+  AwMetricsServiceClient::GetInstance()->RegisterSyntheticFieldTrial(
+      trial_name, group_name,
+      static_cast<variations::SyntheticTrialAnnotationMode>(annotation_mode));
 }
 
 }  // namespace android_webview

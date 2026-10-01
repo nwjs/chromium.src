@@ -43,6 +43,7 @@
 #include "third_party/blink/renderer/bindings/modules/v8/v8_draw_element_image_options.h"
 #include "third_party/blink/renderer/core/css/properties/computed_style_utils.h"
 #include "third_party/blink/renderer/core/css/style_change_reason.h"
+#include "third_party/blink/renderer/core/dom/dom_node_ids.h"
 #include "third_party/blink/renderer/core/dom/element.h"
 #include "third_party/blink/renderer/core/dom/events/event.h"
 #include "third_party/blink/renderer/core/dom/node.h"
@@ -155,7 +156,7 @@ BaseRenderingContext2D::BaseRenderingContext2D(
 
 void BaseRenderingContext2D::ResetInternal() {
   Canvas2DRecorderContext::ResetInternal();
-
+  clear_frame_ = true;
 }
 
 CanvasRenderingContext2DSettings* BaseRenderingContext2D::getContextAttributes()
@@ -380,8 +381,7 @@ ImageData* BaseRenderingContext2D::getImageDataInternal(
   } else if (!sw || !sh) {
     exception_state.ThrowDOMException(
         DOMExceptionCode::kIndexSizeError,
-        UNSAFE_TODO(
-            String::Format("The source %s is 0.", sw ? "height" : "width")));
+        sw ? "The source height is 0." : "The source width is 0.");
   }
 
   if (exception_state.HadException())
@@ -724,9 +724,13 @@ void BaseRenderingContext2D::Trace(Visitor* visitor) const {
   Canvas2DRecorderContext::Trace(visitor);
 }
 
-void BaseRenderingContext2D::RestoreCanvasMatrixClipStack(
-    cc::PaintCanvas* c) const {
-  RestoreMatrixClipStack(c);
+void BaseRenderingContext2D::InitializeForRecording(
+    cc::PaintCanvas* canvas) const {
+  RestoreMatrixClipStack(canvas);
+}
+
+void BaseRenderingContext2D::RecordingCleared() {
+  clear_frame_ = true;
 }
 
 void BaseRenderingContext2D::Reset() {
@@ -737,30 +741,23 @@ std::optional<cc::PaintRecord> BaseRenderingContext2D::FlushCanvasInternal(
     Canvas2DResourceProvider* shared_image_provider,
     Canvas2DBitmapProvider* bitmap_provider,
     FlushReason reason) {
-  MemoryManagedPaintRecorder* recorder = nullptr;
-  if (shared_image_provider) {
-    recorder = &shared_image_provider->Recorder();
-  } else if (bitmap_provider) {
-    recorder = &bitmap_provider->Recorder();
-  }
+  MemoryManagedPaintRecorder* recorder = Recorder();
   if (!recorder || !recorder->HasReleasableDrawOps()) {
     return std::nullopt;
   }
 
   cc::PaintRecord recording = recorder->ReleaseMainRecording();
+  DidFlushRecording(recording, clear_frame_, reason);
+  clear_frame_ = false;
   if (shared_image_provider) {
     ScopedRasterTimer timer(shared_image_provider->IsAccelerated()
                                 ? shared_image_provider->RasterInterface()
                                 : nullptr,
                             *shared_image_provider);
-    DidFlushRecording(recording, shared_image_provider->clear_frame(), reason);
-    shared_image_provider->set_clear_frame(false);
     shared_image_provider->RasterRecord(recording);
     shared_image_provider->ReleaseImageProviderImages();
   } else if (bitmap_provider) {
     ScopedRasterTimer timer(nullptr, *bitmap_provider);
-    DidFlushRecording(recording, bitmap_provider->clear_frame(), reason);
-    bitmap_provider->set_clear_frame(false);
     bitmap_provider->RasterRecord(recording);
     bitmap_provider->ReleaseImageProviderImages();
   }
@@ -1474,6 +1471,7 @@ V8UnionDOMMatrixOrUndefined::Ret BaseRenderingContext2D::DrawElementInternal(
   float dpr = child_paint_record->paint_state.effective_zoom;
   gfx::RectF src_rect(child_paint_record->paint_state.box_size);
   if (sx && sy && swidth && sheight) {
+    AdjustRectForCanvas(*sx, *sy, *swidth, *sheight);
     src_rect = gfx::RectF(*sx * dpr, *sy * dpr, *swidth * dpr, *sheight * dpr);
   }
 
@@ -1494,13 +1492,14 @@ V8UnionDOMMatrixOrUndefined::Ret BaseRenderingContext2D::DrawElementInternal(
       GetCanvasGridScaleFactor(child_paint_record->paint_state, Host()->Size());
   ideal_dst_size.Scale(scale_factor.x(), scale_factor.y());
 
-  gfx::RectF dst_rect(x, y, 0, 0);
+  double dw = ideal_dst_size.width();
+  double dh = ideal_dst_size.height();
   if (dwidth && dheight) {
-    dst_rect.set_size(gfx::SizeF(*dwidth, *dheight));
-  } else {
-    // If no explicit destination size is given, default to the ideal size.
-    dst_rect.set_size(ideal_dst_size);
+    dw = *dwidth;
+    dh = *dheight;
+    AdjustRectForCanvas(x, y, dw, dh);
   }
+  gfx::RectF dst_rect(x, y, dw, dh);
 
   if (dst_rect.IsEmpty()) {
     return degenerate_return_value();
@@ -1595,7 +1594,7 @@ V8UnionDOMMatrixOrUndefined::Ret BaseRenderingContext2D::DrawElementInternal(
   // We start from the context's CTM, then offset by x,y, and finally apply any
   // dest scaling.
   gfx::Transform draw_transform = GetState().GetTransform().ToTransform();
-  draw_transform.Translate(x, y);
+  draw_transform.Translate(dst_rect.x(), dst_rect.y());
   // The drawing commands above scale by `dst_rect.size() / src_rect.size()`,
   // which does two things: 1) scales the drawing commands of `paint_record` (in
   // physical pixels) to canvas grid coordinates, and 2) applies any additional

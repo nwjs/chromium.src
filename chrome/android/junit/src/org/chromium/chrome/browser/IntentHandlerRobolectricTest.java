@@ -36,8 +36,6 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.ArgumentCaptor;
-import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.MockitoJUnit;
@@ -209,8 +207,6 @@ public class IntentHandlerRobolectricTest {
 
     @Mock IntentHandler.Natives mNativeMock;
     @Mock ExternalIntentUrlChecker.Natives mExternalIntentUrlCheckerNativeMock;
-
-    @Captor ArgumentCaptor<LoadUrlParams> mLoadUrlParamsCaptor;
 
     private ShadowPowerManager mShadowPowerManager;
     private ShadowKeyguardManager mShadowKeyguardManager;
@@ -618,6 +614,22 @@ public class IntentHandlerRobolectricTest {
 
     @Test
     @SmallTest
+    public void testGetAllUrlsFromShareIntent() {
+        Intent intent = new Intent(Intent.ACTION_SEND);
+        intent.setType("text/plain");
+        Assert.assertTrue(IntentHandler.getAllUrlsFromShareIntent(intent).isEmpty());
+        for (Object[] shareCase : SHARE_INTENT_CASES) {
+            intent.putExtra(Intent.EXTRA_TEXT, (String) shareCase[0]);
+            List<String> urls = IntentHandler.getAllUrlsFromShareIntent(intent);
+            Assert.assertEquals((int) shareCase[2], urls.size());
+            if ((int) shareCase[2] > 0) {
+                Assert.assertEquals((String) shareCase[1], urls.get(urls.size() - 1));
+            }
+        }
+    }
+
+    @Test
+    @SmallTest
     public void testNewIntentInitiatorFromNewTabUrl() {
         int tabId = 1;
         Intent intent = new Intent(Intent.ACTION_VIEW);
@@ -742,6 +754,10 @@ public class IntentHandlerRobolectricTest {
 
         trustedIntent.setData(Uri.parse("chrome-native://newtab"));
         Assert.assertFalse(IntentHandler.shouldIgnoreIntent(trustedIntent, null));
+
+        trustedIntent.setData(
+                Uri.parse("chrome-native://pdf/link?url=content%3A%2F%2Ftest.provider%2Ftest.pdf"));
+        Assert.assertFalse(IntentHandler.shouldIgnoreIntent(trustedIntent, null));
     }
 
     @Test
@@ -757,7 +773,32 @@ public class IntentHandlerRobolectricTest {
         untrustedIntent.setData(Uri.parse("chrome-native://newtab"));
         Assert.assertTrue(IntentHandler.shouldIgnoreIntent(untrustedIntent, null));
 
+        untrustedIntent.setData(
+                Uri.parse("chrome-native://pdf/link?url=content%3A%2F%2Ftest.provider%2Ftest.pdf"));
+        Assert.assertTrue(IntentHandler.shouldIgnoreIntent(untrustedIntent, null));
+
         untrustedIntent.addCategory("com.fake.category");
+        Assert.assertTrue(IntentHandler.shouldIgnoreIntent(untrustedIntent, null));
+    }
+
+    @Test
+    @SmallTest
+    @Feature({"Android-AppBase"})
+    public void testContentPdfUrlAllowedForExternalSources() {
+        Mockito.doReturn(true).when(mExternalIntentUrlCheckerNativeMock).validateUrl(any());
+        Intent externalIntent = new Intent(Intent.ACTION_VIEW);
+        externalIntent.setData(Uri.parse("content://test.provider/document.pdf"));
+        Assert.assertFalse(IntentHandler.shouldIgnoreIntent(externalIntent, null));
+    }
+
+    @Test
+    @SmallTest
+    @Feature({"Android-AppBase"})
+    public void testChromeFileProviderBlockedForUntrustedIntent() {
+        Intent untrustedIntent = new Intent(Intent.ACTION_VIEW);
+        String packageName = ContextUtils.getApplicationContext().getPackageName();
+        untrustedIntent.setData(
+                Uri.parse("content://" + packageName + ".FileProvider/document.pdf"));
         Assert.assertTrue(IntentHandler.shouldIgnoreIntent(untrustedIntent, null));
     }
 

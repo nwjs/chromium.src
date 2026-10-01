@@ -15,6 +15,7 @@
 #include "chrome/browser/content_settings/page_specific_content_settings_delegate.h"
 #include "chrome/browser/media/webrtc/media_capture_devices_dispatcher.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/views/picture_in_picture/document_pip_contents_view.h"
 #include "chrome/browser/ui/views/picture_in_picture/document_pip_dialog_manager_delegate.h"
 #include "chrome/browser/ui/views/picture_in_picture/document_pip_frame_view.h"
@@ -36,6 +37,7 @@
 #include "third_party/blink/public/mojom/mediastream/media_stream.mojom.h"
 #include "third_party/blink/public/mojom/use_counter/metrics/web_feature.mojom.h"
 #include "ui/base/mojom/window_show_state.mojom.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/size.h"
 #include "ui/views/view_utils.h"
@@ -199,6 +201,7 @@ void DocumentPipHost::CreateAndShowPipWindow(
   // is initialized because the dialog manager anchors to it.
   CreateChildWebContentsHelpers(GetChildWebContents());
 
+  restore_focus_on_activation_ = true;
   widget_->Show();
 }
 
@@ -763,13 +766,7 @@ void DocumentPipHost::SetWebContentsBlocked(content::WebContents* web_contents,
                                             bool blocked) {
   DCHECK_EQ(GetChildWebContents(), web_contents);
   if (!blocked && widget_ && widget_->IsActive()) {
-    if (widget_delegate_) {
-      if (auto* contents_view =
-              widget_delegate_->GetDocumentPipContentsView()) {
-        contents_view->RequestFocus();
-      }
-    }
-    web_contents->Focus();
+    FocusChildWebContents();
   }
 }
 
@@ -836,6 +833,20 @@ void DocumentPipHost::RemoveObserver(
 // views::WidgetObserver & views::ViewObserver
 // =============================================================================
 
+void DocumentPipHost::OnWidgetActivationChanged(views::Widget* widget,
+                                                bool active) {
+  if (!active || !restore_focus_on_activation_) {
+    return;
+  }
+
+  restore_focus_on_activation_ = false;
+  auto* manager = web_modal::WebContentsModalDialogManager::FromWebContents(
+      GetChildWebContents());
+  if (!manager || !manager->IsDialogActive()) {
+    FocusChildWebContents();
+  }
+}
+
 void DocumentPipHost::OnWidgetBoundsChanged(views::Widget* widget,
                                             const gfx::Rect& new_bounds) {
   NotifyPositionRequiresUpdate();
@@ -851,6 +862,19 @@ void DocumentPipHost::OnViewBoundsChanged(views::View* observed_view) {
 
 void DocumentPipHost::OnViewIsDeleting(views::View* observed_view) {
   contents_view_observation_.Reset();
+}
+
+void DocumentPipHost::FocusChildWebContents() {
+  if (!widget_delegate_) {
+    return;
+  }
+
+  if (auto* contents_view = widget_delegate_->GetDocumentPipContentsView()) {
+    contents_view->RequestFocus();
+  }
+  if (auto* child_web_contents = GetChildWebContents()) {
+    child_web_contents->Focus();
+  }
 }
 
 void DocumentPipHost::NotifyPositionRequiresUpdate() {

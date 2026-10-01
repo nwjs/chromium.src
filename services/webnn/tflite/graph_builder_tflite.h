@@ -139,7 +139,11 @@ class GraphBuilderTflite final {
       mojo::SharedRemote<mojom::WeightsFileSession> session,
       bool use_external_buffer);
 
-  static ContextProperties GetContextProperties();
+  // `context_device` selects the runtime accelerator the context targets. Some
+  // limits depend on the accelerator; for example the ML Drift GPU delegate
+  // does not support int64, so int64 is removed from all op support limits when
+  // `context_device` is `mojom::Device::kGpu`.
+  static ContextProperties GetContextProperties(mojom::Device context_device);
 
  private:
   using IdToOperandMap = base::flat_map<OperandId, mojom::OperandPtr>;
@@ -581,14 +585,6 @@ class GraphBuilderTflite final {
   base::expected<TensorIndex, std::string> SerializeTransposedConstant2D(
       OperandId operand_id);
 
-  // Serialize a sub graph (pow appending mul operation) for erf operation.
-  base::expected<TensorIndex, std::string> SerializeSubGraphPowMul(
-      base::span<const int32_t> input_dimensions,
-      ::tflite::TensorType input_tensor_type,
-      TensorIndex input_tensor_index,
-      int pow_exponent,
-      float mul_alpha);
-
   // Serialize a sub graph (input * weight + bias) for gru cell.
   base::expected<TensorIndex, std::string> SerializeSubGraphMatmulAdd(
       base::span<const int32_t> input_dimensions,
@@ -776,8 +772,22 @@ class GraphBuilderTflite final {
       const TensorInfo& output_tensor_info);
   base::expected<OperatorOffset, std::string> SerializeExpand(
       const mojom::Expand& expand);
+  // Emits a single `BROADCAST_TO`, except when the graph targets a GPU
+  // delegate, where `SerializeBroadcastToAsReshapeAndTile()` is used instead.
   base::expected<OperatorOffset, std::string> SerializeBroadcastToOperation(
       TensorIndex input_tensor_index,
+      base::span<const int32_t> input_dimensions,
+      ::tflite::TensorType input_tensor_type,
+      base::span<const int32_t> output_dimensions,
+      TensorIndex output_tensor_index);
+  // Expresses a broadcast as `RESHAPE` + `TILE`, which the ML Drift GPU
+  // delegate supports natively while `BROADCAST_TO` it does not. Only valid for
+  // shapes accepted by `CanBroadcastToAsReshapeAndTile()`.
+  base::expected<OperatorOffset, std::string>
+  SerializeBroadcastToAsReshapeAndTile(
+      TensorIndex input_tensor_index,
+      base::span<const int32_t> input_dimensions,
+      ::tflite::TensorType input_tensor_type,
       base::span<const int32_t> output_dimensions,
       TensorIndex output_tensor_index);
   base::expected<OperatorOffset, std::string> SerializeGather(

@@ -8,12 +8,10 @@
 <translation id="1091252999271033193">To znamená, že Chromium bude pokaždé odesílat požadavek na mobilní web.</translation>
 <translation id="1115463765356382667">Pokud Chromium chcete využít na maximum, proveďte níže uvedené navrhované akce.</translation>
 <translation id="1185134272377778587">O prohlížeči Chromium</translation>
-<translation id="119044033865561140">Otevírejte Chromium na iPadu okamžitě</translation>
 <translation id="1229234641991056119">Používejte hesla, historii, záložky a kreditní karty z prohlížeče Safari v prohlížeči Chromium</translation>
 <translation id="1257458525759135959">Pokud chcete ukládat obrázky, klepněte na Nastavení a povolte prohlížeči Chromium přidávat obrázky do vašich fotek</translation>
 <translation id="1260702988262336471">Otevřete nabídku Chromium</translation>
 <translation id="12739128458173458">Pokud tuto kartu chcete odeslat do jiného zařízení, na obou zařízeních se přihlaste do prohlížeče Chromium.</translation>
-<translation id="1279797561821266129">Získejte rychlejší přístup k prohlížeči Chromium z Docku</translation>
 <translation id="1361748954329991663">Prohlížeč Chromium je zastaralý. Pokud v obchodě <ph name="BEGIN_LINK" />App Store<ph name="END_LINK" /> není k dispozici žádná aktualizace, je možné, že vaše zařízení již nové verze prohlížeče Chromium nepodporuje.</translation>
 <translation id="1383876407941801731">Vyhledávání</translation>
 <translation id="1423007117030725713">Spustit vyhledávání na nové kartě prohlížeče Chromium.</translation>
@@ -32,7 +30,6 @@
 <translation id="1553657876656159572">Feed přizpůsobený pro vás – včetně zpráv, sportu a počasí.</translation>
 <translation id="1561849081734670621">Pokud chcete v prohlížeči Chromium deaktivovat režim blokování, vypněte ho na svém iPhonu.</translation>
 <translation id="1569258826720962327">Používání akci v prohlížeči Chromium v systému iOS</translation>
-<translation id="1573441572176948907">Přidejte si Chromium do Docku</translation>
 <translation id="159029779861043703">Chromium chrání vaše citlivá data pomocí Face ID.</translation>
 <translation id="1591119736686995611">Otevře mřížku karet prohlížeče Chromium.</translation>
 <translation id="16001233025397167">Bezpečnostní kontrola vás chrání před úniky dat, nebezpečnými weby a dalšími hrozbami. Nechte si zasílat upozornění na problémy s ochranou soukromí nebo zabezpečením, které u vás Chromium zjistí.</translation>
@@ -144,6 +141,7 @@ Zkuste před přepnutím účtů pár minut počkat. Pokud teď přepnete účty
 <translation id="3855938650519180865">Novinky v prohlížeči Chromium</translation>
 <translation id="3886689467633467988">Když se na tento web a do prohlížeče Chromium přihlásíte, budete mít své záložky a další položky k dispozici na všech svých zařízeních.</translation>
 <translation id="3949514465204582407">Tip pro Chromium: Používejte svá hesla v libovolné aplikaci</translation>
+<translation id="3983298990898629929">Nastavte si Chromium jako výchozí prohlížeč, ať můžete otevírat odkazy jedním klepnutím</translation>
 <translation id="4005283307739974863">Otevře a spustí bezpečnostní kontrolu v prohlížeči Chromium.</translation>
 <translation id="4043291146360695975">Hesla se ukládají pouze do Správce hesel na tomto zařízení.</translation>
 <translation id="4046625794029820944">Přestaňte kopírovat adresy URL. Nastavte si Chromium jako výchozí prohlížeč a otevírejte stránky přímo.</translation>
@@ -181,7 +179,6 @@ Pokud toto nastavení chcete změnit, <ph name="BEGIN_LINK" />vymažte data proh
 <translation id="4790638144988730920">Pokračujte v používání dat prohlížeče Chromium ve svém účtu Google.</translation>
 <translation id="4828317641996116749">Chromiu se nepodařilo zkontrolovat všechna hesla. Zkuste to později.</translation>
 <translation id="4856138222358683580">Akce v prohlížeči Chromium</translation>
-<translation id="4869706986935301458">Otevírejte Chromium na iPhonu okamžitě</translation>
 <translation id="4904452304169763785">Upozornění na problémy s ochranou soukromí nebo zabezpečením, které u vás Chromium zjistí.</translation>
 <translation id="4962295957157529683">Dokončete akci, kterou jste prováděli v jiném otevřeném okně prohlížeče Chromium.</translation>
 <translation id="4985291216379576555">Chrome nemůže vyhledat dostupné aktualizace, protože jste offline</translation>
@@ -276,6 +273,7 @@ Co je třeba zvážit:
 <translation id="6680609900732453726">Po zavření prohlížeče Chromium zajistit soukromí prohlížení pomocí ověření zařízení</translation>
 <translation id="6696512128741076907">Nastavte Chromium jako výchozí prohlížeč a okamžitě otevírejte odkazy z jiných aplikací.</translation>
 <translation id="6752854822223394465">Vaše organizace nastavuje Chromium…</translation>
+<translation id="6777348401413221846">Celoobrazovkový videonávod, jak nastavit Chromium jako výchozí prohlížeč: V systému iOS otevřete Nastavení prohlížeče Chromium, klepněte na Výchozí prohlížeč a vyberte Chromium.</translation>
 <translation id="6794054469102824109">Otevře dinosauří hru v prohlížeči Chromium</translation>
 <translation id="6820823224820483452">Chromiu se nepodařilo zkontrolovat všechna hesla. Zkuste to znovu zítra.</translation>
 <translation id="6830782797004194206">Přihlašujte se rychleji s automatickým vyplňováním v prohlížeči Chromium</translation>
@@ -305,8 +303,8 @@ Vaše šifrovaná data mohou číst pouze uživatelé, kteří mají vaši heslo
 <translation id="7337881442233988129">Chromium</translation>
 <translation id="7395825497086981028">Heslo bude uloženo do Správce hesel pro účet <ph name="EMAIL" />.</translation>
 <translation id="7434848749522628428">Tento přístupový klíč se uloží do Správce hesel pro účet <ph name="USER_EMAIL" /></translation>
+<translation id="7453822113116681031">Nastavte si Chromium jako výchozí prohlížeč, ať můžete otevírat odkazy jedním klepnutím</translation>
 <translation id="7504829997542308412">Otevřete Chromium</translation>
-<translation id="7507535968973352823">Přidejte si Chromium do spodní oblasti, ať ho máte kdykoli k dispozici</translation>
 <translation id="7531461704633548377">Z prohlížeče Chromium</translation>
 <translation id="7554983317097061001">Tip pro Chromium: Přesuňte Chromium do Docku</translation>
 <translation id="7576863740961052505">Spravovat nastavení prohlížeče Chromium</translation>
@@ -356,7 +354,6 @@ Vaše šifrovaná data mohou číst pouze uživatelé, kteří mají vaši heslo
 <translation id="8730503818204408000">Otevře nastavení prohlížeče Chromium, pomocí něhož ho lze nastavit jako výchozí prohlížeč.</translation>
 <translation id="8754966941001340678">Chromium doporučuje vylepšenou ochranu</translation>
 <translation id="8759037115129007407">Člen vaší rodiny momentálně nemůže přijímat hesla. Požádejte ho, aby aktualizoval Chromium a synchronizoval svá hesla. <ph name="BEGIN_LINK" />Další informace<ph name="END_LINK" /></translation>
-<translation id="8769418653786388149">Mějte své Chromium vždycky s sebou</translation>
 <translation id="8776843108004031667">Tento účet a všechna neuložená data budou z prohlížeče Chromium odstraněny.</translation>
 <translation id="8793333988063379360">Tady teď najdete nastavení prohlížeče Chromium a další položky</translation>
 <translation id="8805148242934787134">Nastavit Chromium jako výchozí prohlížeč</translation>

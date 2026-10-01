@@ -21,10 +21,12 @@ export function getHtml(this: OmniboxEverywhereOmniboxElement) {
         part="animated-glow">
       </search-animated-glow>
       <cr-searchbox-input id="input"
-          exportparts="searchbox-input"
+          exportparts="searchbox-input, icon"
           ?dropdown-is-visible="${this.dropdownIsVisible}"
           input-aria-live="${this.inputAriaLive}"
           ?multi-line-enabled="${this.multiLineEnabled}"
+          .singleLineOnInlineAutocomplete="${
+              this.singleLineOnInlineAutocomplete}"
           placeholder-text="${this.computePlaceholderText_()}"
           searchbox-aria-description="${this.searchboxAriaDescription}"
           searchbox-icon="${this.searchboxIcon_}"
@@ -72,30 +74,17 @@ export function getHtml(this: OmniboxEverywhereOmniboxElement) {
           <cr-composebox-file-inputs id="fileInputs" @file-change="${
       this.onFileChange_}">
             <div class="context-menu-container" id="contextMenuContainer">
-              <cr-composebox-contextual-entrypoint-and-menu id="context"
-                  exportparts="context-menu-entrypoint-icon"
+              <cr-composebox-contextual-entrypoint-button id="context"
+                  exportparts="context-menu-entrypoint-icon,
+                               entrypoint-button"
                   class="upload-button"
-                  disable-auto-reposition
                   .inputState="${this.inputState_}"
-                  .searchboxLayoutMode="${this.searchboxLayoutMode}"
-                  .tabSuggestions="${this.tabSuggestions_}"
-                  .tabSuggestionsState="${this.tabSuggestionsState_}"
-                  .contextManagementInComposeboxEnabled="${
-      this.contextManagementInComposeboxEnabled}"
-                  unbounded-menu-enabled
+                  .energyEffectAnimationEnabled="${
+                      this.energyEffectAnimationEnabled_}"
+                  .hasVirtualFocus="${this.isContextEntrypointVirtualFocused()}"
                   @context-menu-entrypoint-click="${
-      this.onContextMenuEntrypointClick_}"
-                  @context-menu-opened="${this.onContextMenuOpened_}"
-                  @context-menu-closed="${this.onContextMenuClosed_}"
-                  @add-tab-context="${this.onAddTabContext_}"
-                  @request-tab-suggestions-load="${
-      this.onRequestTabSuggestionsLoad}"
-                  @tool-click="${this.onToolClick_}"
-                  @deep-search-click="${this.onDeepSearchClick_}"
-                  @create-image-click="${this.onCreateImageClick_}"
-                  @model-click="${this.onModelClick_}"
-                  @open-drive-upload="${this.onOpenDriveUpload_}">
-              </cr-composebox-contextual-entrypoint-and-menu>
+      this.onContextMenuEntrypointClick_}">
+              </cr-composebox-contextual-entrypoint-button>
             </div>
           </cr-composebox-file-inputs>
         </div>
@@ -103,7 +92,8 @@ export function getHtml(this: OmniboxEverywhereOmniboxElement) {
         <div id="actionButtons">
           ${
               this.showVoiceSearchButton_() ? html`
-          <div class="searchbox-icon-button-container voice">
+          <div class="searchbox-icon-button-container voice"
+              ?has-virtual-focus="${this.isVoiceSearchVirtualFocused_()}">
             <button id="voiceSearchButton" class="searchbox-icon-button"
                 tabindex="${this.virtualFocusEnabled &&
                     this.dropdownIsVisible ? -1 : 0}"
@@ -115,10 +105,14 @@ export function getHtml(this: OmniboxEverywhereOmniboxElement) {
               ''}
           ${this.showLensSearchButton_() ? html`
           <div class="searchbox-icon-button-container lens ${
-              this.isScreenshotMenuOpen ? 'menu-open' : ''}">
+              this.isScreenshotMenuOpen ? 'menu-open' : ''} ${
+              this.isLensHelpBubbleShowing ? 'help-bubble-open' : ''}"
+              ?has-virtual-focus="${this.isLensSearchVirtualFocused_()}">
             <button id="lensSearchButton" class="searchbox-icon-button"
                 tabindex="${this.virtualFocusEnabled &&
                     this.dropdownIsVisible ? -1 : 0}"
+                @pointerdown="${this.onLensSearchPointerdown_}"
+                @pointercancel="${this.onLensSearchPointercancel_}"
                 @click="${this.onLensSearchClick_}"
                 title="${this.i18n('lensSearchButtonLabel')}">
             </button>

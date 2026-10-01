@@ -84,6 +84,7 @@ suite('ContextualTasksComposeboxTest', () => {
         hintText: 'Canvas hint',
         aimUrlParams: [{paramKey: 'rc', paramValue: '1'}],
         menuTooltip: '',
+        icon: 0,
       }] :
                                                [],
     });
@@ -184,6 +185,7 @@ suite('ContextualTasksComposeboxTest', () => {
           hintText: 'Canvas hint',
           aimUrlParams: [{paramKey: 'rc', paramValue: '1'}],
           menuTooltip: '',
+          icon: 0,
         }],
       },
     }));
@@ -723,8 +725,9 @@ suite('ContextualTasksComposeboxTest', () => {
       composed: true,
     }));
 
-    const [index, url] =
+    const [resultSequenceId, index, url] =
         await mockSearchboxPageHandler.whenCalled('openAutocompleteMatch');
+    assertEquals(0, resultSequenceId);
     assertEquals(0, index);
     assertEquals('https://test.com', url);
 

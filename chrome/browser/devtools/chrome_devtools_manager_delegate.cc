@@ -31,7 +31,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
-#include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
+#include "chrome/browser/ui/browser_window/public/profile_browser_collection.h"
 #include "chrome/browser/ui/navigator/browser_navigator.h"
 #include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
@@ -48,6 +48,7 @@
 #include "components/guest_view/browser/guest_view_base.h"
 #include "components/keep_alive_registry/keep_alive_types.h"
 #include "components/keep_alive_registry/scoped_keep_alive.h"
+#include "components/tab_groups/tab_group_id.h"
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/devtools_agent_host.h"
@@ -62,7 +63,9 @@
 #include "extensions/browser/view_type_utils.h"
 #include "extensions/common/manifest.h"
 #include "extensions/common/mojom/view_type.mojom.h"
+#include "ui/base/page_transition_types.h"
 #include "ui/base/resource/resource_bundle.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/gfx/switches.h"
 #include "ui/views/controls/webview/webview.h"
 
@@ -537,8 +540,11 @@ void ChromeDevToolsManagerDelegate::AcceptDebugging(AcceptCallback callback) {
         std::move(inner_callback).Run(result);
       },
       std::move(callback));
+  Profile* profile = Profile::FromBrowserContext(GetDefaultBrowserContext());
+  ProfileBrowserCollection* collection =
+      profile ? ProfileBrowserCollection::GetForProfile(profile) : nullptr;
   BrowserWindowInterface* last_active =
-      GlobalBrowserCollection::GetInstance()->GetLastActiveBrowser();
+      collection ? collection->GetLastActiveBrowser() : nullptr;
   DevToolsConnectionDialog::Show(last_active, std::move(wrapped_callback));
 }
 

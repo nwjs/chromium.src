@@ -25,6 +25,7 @@
 #include "content/common/content_switches_internal.h"
 #include "content/public/common/content_switches.h"
 #include "content/public/common/main_function_params.h"
+#include "content/public/common/result_codes.h"
 #include "third_party/skia/include/core/SkGraphics.h"
 #include "ui/base/ime/init/input_method_initializer.h"
 #include "ui/gfx/font_util.h"
@@ -45,6 +46,11 @@ namespace {
 base::AtomicFlag& GetExitedMainMessageLoopFlag() {
   static base::NoDestructor<base::AtomicFlag> flag;
   return *flag;
+}
+
+std::optional<int>& GetProcessResultCode() {
+  static std::optional<int> result_code;
+  return result_code;
 }
 
 }  // namespace
@@ -143,15 +149,15 @@ int BrowserMainRunnerImpl::Initialize(MainFunctionParams parameters) {
 }
 
 int BrowserMainRunnerImpl::Run() {
-  DCHECK(initialization_started_);
-  DCHECK(!is_shutdown_);
+  CHECK(initialization_started_, base::NotFatalUntil::M159);
+  CHECK(!is_shutdown_, base::NotFatalUntil::M159);
   main_loop_->RunMainMessageLoop();
   return main_loop_->GetResultCode();
 }
 
 void BrowserMainRunnerImpl::Shutdown() {
-  DCHECK(initialization_started_);
-  DCHECK(!is_shutdown_);
+  CHECK(initialization_started_, base::NotFatalUntil::M159);
+  CHECK(!is_shutdown_, base::NotFatalUntil::M159);
 
 #if BUILDFLAG(IS_CHROMEOS)
   // Reduces shutdown hangs on CrOS.
@@ -160,7 +166,6 @@ void BrowserMainRunnerImpl::Shutdown() {
 #endif
 
   main_loop_->PreShutdown();
-
 
   {
     // The trace event has to stay between profiler creation and destruction.
@@ -187,6 +192,17 @@ std::unique_ptr<BrowserMainRunner> BrowserMainRunner::Create() {
 // static
 bool BrowserMainRunner::ExitedMainMessageLoop() {
   return GetExitedMainMessageLoopFlag().IsSet();
+}
+
+// static
+void BrowserMainRunner::SetOverrideResultCode(int code) {
+  CHECK_GE(code, RESULT_CODE_LAST_CODE);
+  GetProcessResultCode() = code;
+}
+
+// static
+std::optional<int> BrowserMainRunnerImpl::GetOverrideResultCode() {
+  return GetProcessResultCode();
 }
 
 }  // namespace content

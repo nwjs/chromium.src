@@ -41,13 +41,14 @@ should be able to be added at any place in this file.
   <variant name=".kActionDevTools" summary="Developer tools action"/>
   <variant name=".kActionNewIncognitoWindow"
       summary="New incognito window action"/>
+  <variant name=".kActionNewIsolatedWindow"
+      summary="New isolated window action"/>
   <variant name=".kActionPrint" summary="Print action"/>
   <variant name=".kActionQrCodeGenerator" summary="QR code generator action"/>
   <variant name=".kActionRouteMedia" summary="Media router action"/>
   <variant name=".kActionSendSharedTabGroupFeedback"
       summary="Send shared tab group feedback action"/>
   <variant name=".kActionSendTabToSelf" summary="Send tab to self action"/>
-  <variant name=".kActionShowAddresses" summary="Show addresses action"/>
   <variant name=".kActionShowAddressesBubbleOrPage"
       summary="Show addresses action"/>
   <variant name=".kActionShowChromeLabs" summary="Show Chrome Labs action"/>
@@ -263,6 +264,8 @@ should be able to be added at any place in this file.
   <variant name="_AndroidBottomBarPromoDialog"
       summary="For the promo dialog shown to introduce the bottom bar."/>
   <variant name="_AndroidTabDeclutter" summary="For archived tabs on android."/>
+  <variant name="_AndroidVerticalTabsNewLabel"
+      summary="Enables the 'New' label for Android Vertical Tabs."/>
   <variant name="_AndroidVerticalTabsPromo"
       summary="For the vertical tabs promo on android horizontal tab strip."/>
   <variant name="_AppRatingPrompt" summary="For App Rating Prompt feature."/>
@@ -275,7 +278,8 @@ should be able to be added at any place in this file.
       summary="For AutoDarkUserEducationMessageOptIn feature."/>
   <variant name="_AutofillAccountNameEmailSuggestion"
       summary="For AutofillAccountNameEmailSuggestion feature."/>
-  <variant name="_AutofillAiOptIn" summary="For AutofillAiOptIn feature."/>
+  <variant name="_AutofillAiOptIn"
+      summary="For AutofillAiOptIn feature. (obsolete)"/>
   <variant name="_AutofillAiValuables"
       summary="For AutofillAiValuables feature."/>
   <variant name="_AutofillAtMemory"
@@ -423,7 +427,6 @@ should be able to be added at any place in this file.
   <variant name="_DownloadSettings" summary="For DownloadSettings feature."/>
   <variant name="_DownloadToolbarButton"
       summary="For Download toolbar button feature."/>
-  <variant name="_EphemeralTab" summary="For Ephemeral Tab."/>
   <variant name="_ExperimentalAIPromo" summary="For Experimental AI feature."/>
   <variant name="_ExplicitBrowserSigninPreferenceRemembered"
       summary="For Explicit Browser Signin Preference Remembered feature."/>
@@ -563,6 +566,10 @@ should be able to be added at any place in this file.
       summary="For iOSGeminiFullscreenPromoFeature feature"/>
   <variant name="_iOSGeminiImageRemix"
       summary="For iOSGeminiImageRemix IPH feature"/>
+  <variant name="_iOSGeminiLiveIPHFeature"
+      summary="For Gemini Live IPH tooltip feature."/>
+  <variant name="_iOSGeminiLiveNewBadgeFeature"
+      summary="For Gemini Live New badge feature."/>
   <variant name="_iOSHistoryOnOverflowMenuFeature"
       summary="For iOSHistoryOnOverflowMenuFeature feature"/>
   <variant name="_iOSHomepageCustomizationNewBadge"
@@ -602,6 +609,8 @@ should be able to be added at any place in this file.
   <variant name="_iOSPromoAppStore" summary="For iOSPromoAppStore feature"/>
   <variant name="_iOSPromoBackgroundCustomization"
       summary="For iOSPromoBackgroundCustomization feature."/>
+  <variant name="_iOSPromoContextualDefaultBrowserGemini"
+      summary="For iOSPromoContextualDefaultBrowserGemini feature"/>
   <variant name="_iOSPromoCredentialProviderExtension"
       summary="For iOSPromoCredentialProviderExtension feature"/>
   <variant name="_iOSPromoDefaultBrowser"
@@ -689,8 +698,6 @@ should be able to be added at any place in this file.
   <variant name="_LauncherSearchHelpUi"
       summary="For launcher search IPH feature."/>
   <variant name="_LensOverlay" summary="For Lens Overlay IPH feature."/>
-  <variant name="_LensOverlayTranslateButton"
-      summary="For LensOverlay translate button feature."/>
   <variant name="_LiveCaption" summary="For LiveCaption feature. (obsolete)"/>
   <variant name="_LongPressToolbarTip" summary="For LongPressToolbar feature."/>
   <variant name="_LowUserEngagementDetector"
@@ -750,11 +757,6 @@ should be able to be added at any place in this file.
                button feature."/>
   <variant name="_PerformanceNewBadge"
       summary="For new badge next to Performance feature."/>
-  <variant name="_PlusAddressCreateSuggestion"
-      summary="For creating plus addresses. (obsolete)"/>
-  <variant name="_PlusAddressFirstSaveFeature"
-      summary="For accessing settings after saving the first plus address.
-               (obsolete)"/>
   <variant name="_PowerBookmarksSidePanel"
       summary="For power bookmarks side panel feature."/>
   <variant name="_PreviewsOmniboxUI"
@@ -792,6 +794,8 @@ should be able to be added at any place in this file.
       summary="For ReadingListMessages feature."/>
   <variant name="_ReadingModeKeyboardShortcut"
       summary="For reading mode keyboard shortcut feature."/>
+  <variant name="_ReadingModeLineFocus"
+      summary="For reading mode line focus feature."/>
   <variant name="_ReadingModePageActionLabel"
       summary="For reading mode omnibox entrypoint."/>
   <variant name="_ReadingModePresentationMode"
@@ -804,8 +808,6 @@ should be able to be added at any place in this file.
       summary="For ReadLaterAppMenuBookmarkThisPage feature."/>
   <variant name="_ReadLaterBottomSheet"
       summary="For ReadLaterBottomSheet feature."/>
-  <variant name="_ReadLaterContextMenu"
-      summary="For ReadLaterContextMenu feature."/>
   <variant name="_RecentTabs" summary="For Recent tabs feature."/>
   <variant name="_ReopenTab" summary="For ReopenTab feature."/>
   <variant name="_RequestDesktopSiteAppMenu"
@@ -1058,11 +1060,10 @@ should be able to be added at any place in this file.
   <variant name=".GenerativeTheming" summary="Generative Theming"/>
   <variant name=".GoogleLens" summary="Google Lens"/>
   <variant name=".Googlepayreauth" summary="Google Pay Re-auth"/>
+  <variant name=".HeadlessLiveCaption" summary="Headless Live Caption"/>
   <variant name=".HelpMeWrite" summary="Help Me Write"/>
   <variant name=".HistoryEmbeddings" summary="History Embeddings Search"/>
   <variant name=".iOSLensSWYS" summary="iOS Lens Search What You See"/>
-  <variant name=".LensOverlayTranslateButton"
-      summary="Lens Overlay Translate Button"/>
   <variant name=".LightningVideo" summary="Lightning Video"/>
   <variant name=".PdfInk2" summary="PDF Ink Signatures (obsolete)"/>
   <variant name=".PdfSaveToDrive" summary="PDF Save to Drive"/>
@@ -3645,6 +3646,17 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="Android.CrossDeviceSettingImport.NonNtp.ObservationOnly"
+    not_user_triggered="true">
+  <owner>clank-app-team@google.com</owner>
+  <owner>jhimawan@google.com</owner>
+  <description>
+    Recorded when the user is eligible for cross-device setting import on a
+    non-NTP page based on a theme change, but the snackbar was not shown because
+    the XplatSyncedSetupThemes feature is in observation-only mode.
+  </description>
+</action>
+
 <action name="Android.CrossDeviceSettingImport.NonNtp.Redo">
   <owner>clank-app-team@google.com</owner>
   <owner>jhimawan@google.com</owner>
@@ -3662,6 +3674,17 @@ should be able to be added at any place in this file.
     Recorded when the user taps on the &quot;Undo&quot; button in the
     cross-device settings import snackbar, to undo applying settings that affect
     non-NTP pages (e.g. omnibox position and theme).
+  </description>
+</action>
+
+<action name="Android.CrossDeviceSettingImport.ObservationOnly"
+    not_user_triggered="true">
+  <owner>clank-app-team@google.com</owner>
+  <owner>jhimawan@google.com</owner>
+  <description>
+    Recorded when the user is eligible for cross-device setting import based on
+    a theme change, but the snackbar was not shown because the
+    XplatSyncedSetupThemes feature is in observation-only mode.
   </description>
 </action>
 
@@ -4590,6 +4613,18 @@ should be able to be added at any place in this file.
     <variant name=".ShareTab.MultiTab"
         summary="User shared multiple tabs via the tab context menu on
                  Vertical Tabs."/>
+    <variant name=".ShareTabWithGlicNewChat"
+        summary="User shared the tab(s) into a new Gemini chat via the tab
+                 context menu on Vertical Tabs."/>
+    <variant name=".ShareTabWithGlicNewChat.MultiTab"
+        summary="User shared multiple tabs into a new Gemini chat via the tab
+                 context menu on Vertical Tabs."/>
+    <variant name=".ShareTabWithGlicRecent"
+        summary="User shared the tab(s) into a recent Gemini conversation via
+                 the tab context menu on Vertical Tabs."/>
+    <variant name=".ShareTabWithGlicRecent.MultiTab"
+        summary="User shared multiple tabs into a recent Gemini conversation
+                 via the tab context menu on Vertical Tabs."/>
     <variant name=".Shown"
         summary="Tab context menu was shown on Vertical Tabs."/>
     <variant name=".Shown.MultiTab"
@@ -4610,6 +4645,12 @@ should be able to be added at any place in this file.
     <variant name=".UnpinTab.MultiTab"
         summary="User unpinned multiple tabs via the tab context menu on
                  Vertical Tabs."/>
+    <variant name=".UnshareTabWithGlic"
+        summary="User unshared the tab(s) from Gemini via the tab context
+                 menu on Vertical Tabs."/>
+    <variant name=".UnshareTabWithGlic.MultiTab"
+        summary="User unshared multiple tabs from Gemini via the tab context
+                 menu on Vertical Tabs."/>
   </token>
 </action>
 
@@ -8044,6 +8085,15 @@ should be able to be added at any place in this file.
   <description>Please enter the description of this user action.</description>
 </action>
 
+<action name="ClearBrowsingData_QuickDeleteFinished">
+  <owner>novakovica@google.com</owner>
+  <owner>bling-team@google.com</owner>
+  <description>
+    Recorded when the Quick Delete flow has completely finished on iOS and any
+    deletion animation or UI dismissal is done.
+  </description>
+</action>
+
 <action name="ClearBrowsingData_SameSiteNoneData" not_user_triggered="true">
   <owner>dylancutler@google.com</owner>
   <description>SameSite=None cookies were deleted.</description>
@@ -10493,6 +10543,15 @@ should be able to be added at any place in this file.
     User launched the Crow custom tab via an entry point. {Crow_Type}
   </description>
   <token key="Crow_Type" variants="Crow_Type"/>
+</action>
+
+<action name="CustomTabs.AlwaysOpenInBrowserOverride">
+  <owner>eisinger@google.com</owner>
+  <owner>jinsukkim@google.com</owner>
+  <description>
+    Emitted when a Custom Tab automatically overrides to open in Chrome browser
+    due to the always open in browser user setting.
+  </description>
 </action>
 
 <action name="CustomTabs.CloseButtonClicked">
@@ -14654,6 +14713,16 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="HistoryPage_EntryMenuGoToGeminiChat">
+  <owner>heychirag@google.com</owner>
+  <owner>polonium@google.com</owner>
+  <description>
+    Triggered when the user clicks 'Go to Gemini chat' in a context menu on
+    chrome://history. This option is shown for actor (agent-initiated) visits
+    with critical action entries when critical action linkouts are enabled.
+  </description>
+</action>
+
 <action name="HistoryPage_EntryMenuRemoveFromHistory">
   <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
   <description>Please enter the description of this user action.</description>
@@ -18660,6 +18729,15 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="Mobile.LensOverlay.WebsiteSearch.Performed">
+  <owner>rkgibson@google.com</owner>
+  <owner>pabouchard@google.com</owner>
+  <description>
+    Recorded when a search is performed via Lens Overlay on any
+    non-camera/gallery endpoint.
+  </description>
+</action>
+
 <action name="Mobile.LensViewFinder.CameraCapture">
   <owner>radunitescu@google.com</owner>
   <owner>stkhapugin@google.com</owner>
@@ -18713,6 +18791,14 @@ should be able to be added at any place in this file.
   <description>
     User tapped the 'paste' iOS/iPadOS button into the Omnibox and the resulting
     text in the Omnibox is a valid URL. iOS and iPadOS only.
+  </description>
+</action>
+
+<action name="Mobile.OmniboxContextMenu.HideToolbar">
+  <owner>alionadangla@chromium.org</owner>
+  <owner>bling-flags@google.com</owner>
+  <description>
+    User pressed 'Hide Toolbar' in the omnibox context menu (iOS only).
   </description>
 </action>
 
@@ -19044,6 +19130,14 @@ should be able to be added at any place in this file.
   <owner>chrome-autofill-team@google.com</owner>
   <description>
     Reported when Autofill and Passwords Settings UI was dismissed. iOS only.
+  </description>
+</action>
+
+<action name="MobileAutofillPasswordsPromoDismissed">
+  <owner>pabouchard@google.com</owner>
+  <owner>bling-mony-pod@google.com</owner>
+  <description>
+    Reported when the Autofill Passwords tip promo is dismissed. iOS only.
   </description>
 </action>
 
@@ -20036,6 +20130,15 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="MobileGeminiEntryPointDisabledByQuota" not_user_triggered="true">
+  <owner>hamzamoh@google.com</owner>
+  <owner>bling-alchemy-eng@google.com</owner>
+  <description>
+    Reported when the Gemini entry point is disabled because quota was reached.
+    iOS only.
+  </description>
+</action>
+
 <action name="MobileGeminiEntryPointImpression">
   <owner>kanouche@google.com</owner>
   <description>
@@ -20361,6 +20464,15 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="MobileGeminiQuotaReached" not_user_triggered="true">
+  <owner>hamzamoh@google.com</owner>
+  <owner>bling-alchemy-eng@google.com</owner>
+  <description>
+    Reported once per session when Gemini quota is reached upon receiving a
+    response, if quota is not refilled. iOS only.
+  </description>
+</action>
+
 <action name="MobileGeminiRegenerateButtonTapped">
   <owner>fbeauchamp@google.com</owner>
   <owner>bling-alchemy-eng@google.com</owner>
@@ -20663,6 +20775,14 @@ should be able to be added at any place in this file.
   <description>
     The user has started biometric authentication for incognito access. iOS
     only.
+  </description>
+</action>
+
+<action name="MobileIncognitoBrowserShown">
+  <owner>pabouchard@google.com</owner>
+  <owner>bling-team@google.com</owner>
+  <description>
+    Recorded when the incognito browser is shown on iOS.
   </description>
 </action>
 
@@ -21087,8 +21207,11 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="MobileLanguageSettingsBack">
-  <owner>eugenebut@chromium.org</owner>
-  <description>TODO(crbug.com/483962380): Write the description.</description>
+  <owner>noemies@google.com</owner>
+  <description>
+    Reported when user goes back from Language Settings UI to root Settings
+    screen. iOS only.
+  </description>
 </action>
 
 <action name="MobileLocationBarTapped">
@@ -22784,6 +22907,33 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="MobilePrivacySafeBrowsingSettingsCloseWithEnhancedProtection">
+  <owner>pabouchard@google.com</owner>
+  <owner>bling-mony-pod@google.com</owner>
+  <description>
+    Reported when Privacy Safe Browsing Settings UI was dismissed while Enhanced
+    Protection is enabled. iOS only.
+  </description>
+</action>
+
+<action name="MobilePrivacySafeBrowsingSettingsCloseWithNoProtection">
+  <owner>pabouchard@google.com</owner>
+  <owner>bling-mony-pod@google.com</owner>
+  <description>
+    Reported when Privacy Safe Browsing Settings UI was dismissed while No
+    Protection is selected. iOS only.
+  </description>
+</action>
+
+<action name="MobilePrivacySafeBrowsingSettingsCloseWithStandardProtection">
+  <owner>pabouchard@google.com</owner>
+  <owner>bling-mony-pod@google.com</owner>
+  <description>
+    Reported when Privacy Safe Browsing Settings UI was dismissed while Standard
+    Protection is enabled. iOS only.
+  </description>
+</action>
+
 <action name="MobilePrivacySettingsBack">
   <owner>msramek@chromium.org</owner>
   <description>
@@ -23113,6 +23263,15 @@ should be able to be added at any place in this file.
   <description>
     Reported when the user opens the Password Checkup page from a Safety Check
     notification. iOS only.
+  </description>
+</action>
+
+<action name="MobileSavePasswordsPromoDismissed">
+  <owner>pabouchard@google.com</owner>
+  <owner>bling-mony-pod@google.com</owner>
+  <description>
+    Reported when the Save Passwords tip promo is dismissed or stopped. iOS
+    only.
   </description>
 </action>
 
@@ -24588,6 +24747,24 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="MobileToolbarAssistantIncognitoSwitchModesTapped">
+  <owner>gambard@chromium.org</owner>
+  <owner>meridian@google.com</owner>
+  <description>
+    The user tapped on the 'Switch modes' snackbar action after tapping the
+    Assistant button in Incognito mode.
+  </description>
+</action>
+
+<action name="MobileToolbarAssistantIncognitoTapped">
+  <owner>gambard@chromium.org</owner>
+  <owner>meridian@google.com</owner>
+  <description>
+    The user tapped on the Assistant button in the AppBar or Toolbar while in
+    Incognito mode.
+  </description>
+</action>
+
 <action name="MobileToolbarBack">
   <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
   <description>Please enter the description of this user action.</description>
@@ -25262,6 +25439,18 @@ should be able to be added at any place in this file.
     <variant name=".ShareTab"
         summary="User shared the URL open in a tab, via the tab context menu
                  on tab strip on Android."/>
+    <variant name=".ShareTabWithGlicNewChat"
+        summary="User shared the tab(s) into a new Gemini chat via the tab
+                 context menu on tab strip on Android."/>
+    <variant name=".ShareTabWithGlicNewChat.MultiTab"
+        summary="User shared multiple tabs into a new Gemini chat via the tab
+                 context menu on tab strip on Android."/>
+    <variant name=".ShareTabWithGlicRecent"
+        summary="User shared the tab(s) into a recent Gemini conversation via
+                 the tab context menu on tab strip on Android."/>
+    <variant name=".ShareTabWithGlicRecent.MultiTab"
+        summary="User shared multiple tabs into a recent Gemini conversation
+                 via the tab context menu on tab strip on Android."/>
     <variant name=".Shown"
         summary="Recorded when the tab context menu is shown."/>
     <variant name=".Shown.MultiTab"
@@ -25284,6 +25473,12 @@ should be able to be added at any place in this file.
     <variant name=".UnpinTab.MultiTab"
         summary="User unpinned multiple tabs via the tab context menu on tab
                  strip on Android."/>
+    <variant name=".UnshareTabWithGlic"
+        summary="User unshared the tab(s) from Gemini via the tab context
+                 menu on tab strip on Android."/>
+    <variant name=".UnshareTabWithGlic.MultiTab"
+        summary="User unshared multiple tabs from Gemini via the tab context
+                 menu on tab strip on Android."/>
   </token>
 </action>
 
@@ -29833,246 +30028,6 @@ should be able to be added at any place in this file.
   <description>Please enter the description of this user action.</description>
 </action>
 
-<action name="PlusAddresses.AddressFillSuggestionShown">
-  <owner>vizcay@google.com</owner>
-  <owner>jkeitel@google.com</owner>
-  <description>
-    The user was shown an address suggestion with a plus address email override.
-  </description>
-</action>
-
-<action name="PlusAddresses.AffiliationErrorCanceled">
-  <owner>vizcay@google.com</owner>
-  <owner>jkeitel@google.com</owner>
-  <description>
-    User clicked &quot;cancel&quot; after an affiliation error occurred.
-  </description>
-</action>
-
-<action name="PlusAddresses.AffiliationErrorFilledExisting">
-  <owner>vizcay@google.com</owner>
-  <owner>jkeitel@google.com</owner>
-  <description>
-    User agreed to fill an existing affiliated plus address after an error
-    dialog was shown.
-  </description>
-</action>
-
-<action name="PlusAddresses.CreateErrorCanceled">
-  <owner>vizcay@google.com</owner>
-  <owner>jkeitel@google.com</owner>
-  <description>
-    User clicked on &quot;OK&quot; after a quota error occurred.
-  </description>
-</action>
-
-<action name="PlusAddresses.CreateErrorTryAgainClicked">
-  <owner>vizcay@google.com</owner>
-  <owner>jkeitel@google.com</owner>
-  <description>
-    User clicked on &quot;try again&quot; after an error occurred during the
-    creation of a plus address.
-  </description>
-</action>
-
-<action name="PlusAddresses.CreateSuggestionAccepted">
-  <owner>vizcay@google.com</owner>
-  <owner>jkeitel@google.com</owner>
-  <description>
-    The user accepted the option to create a plus address suggestion. Notably on
-    Desktop this is only recorded if the user has never accepted the notice.
-  </description>
-</action>
-
-<action name="PlusAddresses.CreateSuggestionFirstTimeNoticeShown">
-  <owner>vizcay@google.com</owner>
-  <owner>jkeitel@google.com</owner>
-  <description>
-    The user was shown the option to create a plus address suggestion and has
-    never accepted the plus address notice.
-  </description>
-</action>
-
-<action name="PlusAddresses.CreateSuggestionOnAddressManualFallbackSelected">
-  <owner>vizcay@google.com</owner>
-  <owner>jkeitel@google.com</owner>
-  <description>
-    The user tapped on &quot;Create plus address&quot; in the Address Manual
-    Fallback view.
-  </description>
-</action>
-
-<action name="PlusAddresses.CreateSuggestionOnPasswordManualFallbackSelected">
-  <owner>vizcay@google.com</owner>
-  <owner>jkeitel@google.com</owner>
-  <description>
-    The user tapped on &quot;Create plus address&quot; in the Password Manual
-    Fallback view.
-  </description>
-</action>
-
-<action name="PlusAddresses.CreateSuggestionShown">
-  <owner>vizcay@google.com</owner>
-  <owner>jkeitel@google.com</owner>
-  <description>
-    The user was shown the option to create a plus address suggestion and has
-    already accepted the plus address notice.
-  </description>
-</action>
-
-<action name="PlusAddresses.FillAddressSuggestionAccepted">
-  <owner>vizcay@google.com</owner>
-  <owner>jkeitel@google.com</owner>
-  <description>
-    User accepted an address suggestion with a plus address email override.
-  </description>
-</action>
-
-<action name="PlusAddresses.FillAddressSuggestionUndone">
-  <owner>vizcay@google.com</owner>
-  <owner>jkeitel@google.com</owner>
-  <description>
-    User undoes the filling of an address suggestion using a plus address email
-    override and rolls back to the original email address.
-  </description>
-</action>
-
-<action name="PlusAddresses.FillStandaloneSuggestionAccepted">
-  <owner>vizcay@google.com</owner>
-  <owner>jkeitel@google.com</owner>
-  <description>User accepted to fill a plus address suggestion.</description>
-</action>
-
-<action name="PlusAddresses.ManageOptionOnAddressManualFallbackSelected">
-  <owner>vizcay@google.com</owner>
-  <owner>jkeitel@google.com</owner>
-  <description>
-    The user tapped on &quot;Manage plus addresses&quot; in the Address Manual
-    Fallback view.
-  </description>
-</action>
-
-<action name="PlusAddresses.ManageOptionOnPasswordManualFallbackSelected">
-  <owner>vizcay@google.com</owner>
-  <owner>jkeitel@google.com</owner>
-  <description>
-    The user tapped on &quot;Manage plus addresses&quot; in the Password Manual
-    Fallback view.
-  </description>
-</action>
-
-<action name="PlusAddresses.ManageOptionOnSettingsSelected">
-  <owner>vizcay@google.com</owner>
-  <owner>jkeitel@google.com</owner>
-  <description>
-    The user tapped on &quot;Manage plus addresses&quot; in Chrome Settings.
-  </description>
-</action>
-
-<action name="PlusAddresses.ManualFallbackDesktopContextManualFallbackSelected">
-  <owner>vizcay@google.com</owner>
-  <owner>jkeitel@google.com</owner>
-  <description>
-    User selected manual fallback option for plus address in the context menu on
-    Desktop.
-  </description>
-</action>
-
-<action name="PlusAddresses.OfferedPlusAddressAccepted">
-  <owner>vizcay@google.com</owner>
-  <owner>jkeitel@google.com</owner>
-  <description>
-    User accepted a plus address creation suggestion. Note that this does not
-    mean that the creation was successful - a server error may have occurred.
-  </description>
-</action>
-
-<action name="PlusAddresses.OfferedPlusAddressDeclined">
-  <owner>vizcay@google.com</owner>
-  <owner>jkeitel@google.com</owner>
-  <description>User declined a plus address creation suggestion.</description>
-</action>
-
-<action name="PlusAddresses.QuotaErrorAccepted">
-  <owner>vizcay@google.com</owner>
-  <owner>jkeitel@google.com</owner>
-  <description>
-    User clicked on &quot;OK&quot; after a quota error occurred.
-  </description>
-</action>
-
-<action name="PlusAddresses.Refreshed">
-  <owner>vizcay@google.com</owner>
-  <owner>jkeitel@google.com</owner>
-  <description>
-    User clicked or tapped to refresh to proposed plus address.
-  </description>
-</action>
-
-<action name="PlusAddresses.ReserveErrorCanceled">
-  <owner>vizcay@google.com</owner>
-  <owner>jkeitel@google.com</owner>
-  <description>
-    User clicked on &quot;cancel&quot; in the plus address dialog or bottomsheet
-    after receiving a reserve error.
-  </description>
-</action>
-
-<action name="PlusAddresses.ReserveErrorTryAgainClicked">
-  <owner>vizcay@google.com</owner>
-  <owner>jkeitel@google.com</owner>
-  <description>
-    User tried again reserving a plus address after receiving a reserve error.
-    Only available on Mobile platforms.
-  </description>
-</action>
-
-<action
-    name="PlusAddresses.SelectPlusAddressOptionOnAddressManualFallbackSelected">
-  <owner>vizcay@google.com</owner>
-  <owner>jkeitel@google.com</owner>
-  <description>
-    The user tapped on &quot;Select plus addresses&quot; in the Address Manual
-    Fallback view.
-  </description>
-</action>
-
-<action
-    name="PlusAddresses.SelectPlusAddressOptionOnPasswordManualFallbackSelected">
-  <owner>vizcay@google.com</owner>
-  <owner>jkeitel@google.com</owner>
-  <description>
-    The user tapped on &quot;Select plus addresses&quot; in the Password Manual
-    Fallback view.
-  </description>
-</action>
-
-<action
-    name="PlusAddresses.StandaloneFillSuggestionOnAddressManualFallbackAccepted">
-  <owner>vizcay@google.com</owner>
-  <owner>jkeitel@google.com</owner>
-  <description>
-    The user tapped on the plus address in the Address manual fill view.
-  </description>
-</action>
-
-<action
-    name="PlusAddresses.StandaloneFillSuggestionOnPasswordManualFallbackAccepted">
-  <owner>vizcay@google.com</owner>
-  <owner>jkeitel@google.com</owner>
-  <description>
-    The user tapped on the plus address in the Password manual fill view.
-  </description>
-</action>
-
-<action name="PlusAddresses.StandaloneFillSuggestionShown">
-  <owner>vizcay@google.com</owner>
-  <owner>jkeitel@google.com</owner>
-  <description>
-    The user was shown the option to fill a standalone plus address suggestion.
-  </description>
-</action>
-
 <action name="PPAPI.BrokerSettingAllow">
   <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
   <description>Please enter the description of this user action.</description>
@@ -30632,6 +30587,8 @@ should be able to be added at any place in this file.
     <variant name=".PinnedGlicButton" summary="Pinned glic button"/>
     <variant name=".PinnedNewIncognitoWindowButton"
         summary="Pinned new incognito window button"/>
+    <variant name=".PinnedNewIsolatedWindowButton"
+        summary="Pinned new isolated window button"/>
     <variant name=".PinnedPrintButton" summary="Pinned print button"/>
     <variant name=".PinnedQrCodeGeneratorButton"
         summary="Pinned QR code generator button"/>
@@ -31116,6 +31073,36 @@ should be able to be added at any place in this file.
 <action name="SavePage">
   <owner>Please list the metric's owners. Add more owner tags as needed.</owner>
   <description>Please enter the description of this user action.</description>
+</action>
+
+<action name="ScheduledRestart_BubbleShown">
+  <owner>anunoy@chromium.org</owner>
+  <description>
+    Recorded when the Scheduled Restart reminder bubble is shown.
+  </description>
+</action>
+
+<action name="ScheduledRestart_Close">
+  <owner>anunoy@chromium.org</owner>
+  <description>
+    Recorded when the Scheduled Restart reminder bubble is dismissed or closed.
+  </description>
+</action>
+
+<action name="ScheduledRestart_RestartNow">
+  <owner>anunoy@chromium.org</owner>
+  <description>
+    Recorded when the user clicks the Restart Now button in the Scheduled
+    Restart reminder bubble.
+  </description>
+</action>
+
+<action name="ScheduledRestart_Scheduled">
+  <owner>anunoy@chromium.org</owner>
+  <description>
+    Recorded when the user selects a scheduled restart mode in the reminder
+    bubble.
+  </description>
 </action>
 
 <action name="ScreenLocker_OnLoginFailure">
@@ -32108,8 +32095,10 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="Settings.Language">
-  <owner>eugenebut@chromium.org</owner>
-  <description>TODO(crbug.com/483964250): Write the description.</description>
+  <owner>gambard@chromium.org</owner>
+  <description>
+    Reported when user navigates to Language Settings. iOS only.
+  </description>
 </action>
 
 <action name="Settings.ManageOptionOnSettingsSelected">
@@ -32709,6 +32698,14 @@ should be able to be added at any place in this file.
   <description>
     Reported when user navigates to the Site Permissions Settings page. iOS
     only.
+  </description>
+</action>
+
+<action name="Settings.SiteSettings">
+  <owner>scottyoder@google.com</owner>
+  <owner>bling-pandamonium@google.com</owner>
+  <description>
+    Reported when user navigates to the Site Settings page. iOS only.
   </description>
 </action>
 
@@ -35772,6 +35769,13 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="Signin_Signin_FromSkills">
+  <owner>aashnas@google.com</owner>
+  <description>
+    Recorded when a user clicks the sign-in button on the Skills error page.
+  </description>
+</action>
+
 <action name="Signin_Signin_FromStartPage">
   <owner>gogerald@chromium.org</owner>
   <description>
@@ -37995,6 +37999,13 @@ should be able to be added at any place in this file.
   </description>
 </action>
 
+<action name="TabContextMenu_FocusTabGroup">
+  <owner>top-chrome-desktop-ui@google.com</owner>
+  <description>
+    User selected Focus Tab Group from the tab context menu.
+  </description>
+</action>
+
 <action name="TabContextMenu_MoveTabToNewWindow">
   <owner>lgrey@chromium.org</owner>
   <owner>top-chrome-desktop-ui@google.com</owner>
@@ -38051,6 +38062,13 @@ should be able to be added at any place in this file.
   <owner>dpenning@chromium.org</owner>
   <owner>top-chrome-desktop-ui@google.com</owner>
   <description>User selected Pin/Unpin from tab context menu.</description>
+</action>
+
+<action name="TabContextMenu_UnfocusTabGroup">
+  <owner>top-chrome-desktop-ui@google.com</owner>
+  <description>
+    User selected Unfocus Tab Group from the tab context menu.
+  </description>
 </action>
 
 <action name="TabContextMenu_UnmuteTabs">
@@ -39789,6 +39807,17 @@ should be able to be added at any place in this file.
     Recorded when the user clicks on the toast's close button. {Toast_Type}
   </description>
   <token key="Toast_Type" variants="Toast_Type"/>
+</action>
+
+<action name="Toast.EmailVerified.ManageClicked">
+  <owner>ryqin@chromium.org</owner>
+  <owner>yigu@chromium.org</owner>
+  <owner>mamir@chromium.org</owner>
+  <owner>web-identity-eng@google.com</owner>
+  <description>
+    Recorded when the user clicks the Manage menu item from the Email Verified
+    toast menu.
+  </description>
 </action>
 
 <action name="ToggleBold">

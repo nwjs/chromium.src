@@ -449,17 +449,16 @@ static bool DisplayStateMediaFeatureEval(const MediaQueryExpValue& value,
 static bool ResizableMediaFeatureEval(const MediaQueryExpValue& value,
                                       MediaQueryOperator,
                                       const MediaValues& media_values) {
-  // No value = boolean context:
-  // https://w3c.github.io/csswg-drafts/mediaqueries/#mq-boolean-context
+  bool resizable = media_values.Resizable();
+
+  // No value = boolean context.
   if (!value.IsValid()) {
-    return true;
+    return resizable;
   }
 
   if (!value.IsId()) {
     return false;
   }
-
-  bool resizable = media_values.Resizable();
 
   return (resizable && value.Id() == CSSValueID::kTrue) ||
          (!resizable && value.Id() == CSSValueID::kFalse);
@@ -516,9 +515,12 @@ static bool DynamicRangeMediaFeatureEval(const MediaQueryExpValue& value,
   UseCounter::Count(media_values.GetDocument(),
                     WebFeature::kDynamicRangeMediaQuery);
 
-  if (!value.IsId()) {
-    return false;
+  // An invalid value is only possible in a boolean context with no value
+  // attached. We should treat no value as truthy.
+  if (!value.IsValid()) {
+    return true;
   }
+  CHECK(value.IsId());
 
   switch (value.Id()) {
     case CSSValueID::kStandard:

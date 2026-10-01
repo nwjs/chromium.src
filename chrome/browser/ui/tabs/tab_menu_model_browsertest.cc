@@ -30,6 +30,7 @@
 #include "chrome/browser/ui/tabs/split_tab_swap_menu_model.h"
 #include "chrome/browser/ui/tabs/split_view_layout_menu_model.h"
 #include "chrome/browser/ui/tabs/tab_menu_model_delegate.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tabs/test_tab_strip_model_delegate.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/common/chrome_features.h"
@@ -59,12 +60,23 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/models/menu_model.h"
 #include "ui/base/mojom/window_show_state.mojom.h"
+#include "ui/base/page_transition_types.h"
 #include "ui/base/ui_base_features.h"
 #include "ui/menus/simple_menu_model.h"
 
 class TabMenuModelBrowserTest : public MenuModelTest,
                                 public InProcessBrowserTest {
  public:
+  TabMenuModelBrowserTest() {
+    // TODO(crbug.com/557287887): Fix SplitViewLayoutMenuModel so that it
+    // doesn't break TabMenuModelBrowserTest.Basics.
+    feature_list_.InitWithFeaturesAndParameters(
+        /*enabled_features=*/{{tabs::kSplitViewHorizontal,
+                               {{"split_view_horizontal_direct_tab_access",
+                                 "false"}}}},
+        /*disabled_features=*/{});
+  }
+
   Profile* profile() { return browser()->GetProfile(); }
 
   void ActivateSwapWithSplitSubmenuCommand(
@@ -437,10 +449,14 @@ class TabMenuModelSplitViewHorizontalDirectAccessBrowserTest
  public:
   TabMenuModelSplitViewHorizontalDirectAccessBrowserTest() {
     scoped_feature_list_.InitWithFeaturesAndParameters(
-        /*enabled_features=*/{{tabs::kSplitViewHorizontal,
-                               {{"split_view_horizontal_direct_access",
-                                 "true"}}}},
+        /*enabled_features=*/GetEnabledFeaturesAndParams(),
         /*disabled_features=*/{});
+  }
+
+  virtual std::vector<base::test::FeatureRefAndParams>
+  GetEnabledFeaturesAndParams() {
+    return {{tabs::kSplitViewHorizontal,
+             {{"split_view_horizontal_direct_access", "true"}}}};
   }
 
   void TestNewSplit(SplitViewLayoutMenuModel::CommandId command_id,
@@ -483,6 +499,30 @@ IN_PROC_BROWSER_TEST_F(TabMenuModelSplitViewHorizontalDirectAccessBrowserTest,
 
 IN_PROC_BROWSER_TEST_F(TabMenuModelSplitViewHorizontalDirectAccessBrowserTest,
                        NewStackedSplit) {
+  TestNewSplit(SplitViewLayoutMenuModel::CommandId::kStacked,
+               split_tabs::SplitTabLayout::kStacked);
+}
+
+class TabMenuModelSplitViewHorizontalDirectTabAccessBrowserTest
+    : public TabMenuModelSplitViewHorizontalDirectAccessBrowserTest {
+ public:
+  std::vector<base::test::FeatureRefAndParams> GetEnabledFeaturesAndParams()
+      override {
+    return {{tabs::kSplitViewHorizontal,
+             {{"split_view_horizontal_direct_tab_access", "true"}}}};
+  }
+};
+
+IN_PROC_BROWSER_TEST_F(
+    TabMenuModelSplitViewHorizontalDirectTabAccessBrowserTest,
+    NewSideBySideSplit) {
+  TestNewSplit(SplitViewLayoutMenuModel::CommandId::kSideBySide,
+               split_tabs::SplitTabLayout::kSideBySide);
+}
+
+IN_PROC_BROWSER_TEST_F(
+    TabMenuModelSplitViewHorizontalDirectTabAccessBrowserTest,
+    NewStackedSplit) {
   TestNewSplit(SplitViewLayoutMenuModel::CommandId::kStacked,
                split_tabs::SplitTabLayout::kStacked);
 }

@@ -29,11 +29,13 @@
 #include "components/omnibox/common/composebox_features.h"
 #include "components/prefs/pref_service.h"
 #include "components/prefs/scoped_user_pref_update.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/page_navigator.h"
 #include "net/base/url_util.h"
 #include "third_party/metrics_proto/omnibox_event.pb.h"
 #include "third_party/omnibox_proto/chrome_aim_entry_point.pb.h"
 #include "ui/base/models/menu_model.h"
+#include "ui/base/page_transition_types.h"
 #include "ui/base/window_open_disposition.h"
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -82,8 +84,8 @@ void ComposeboxOmniboxClient::OnAutocompleteAccept(
   net::GetValueForKeyInQuery(destination_url, "q", &query_text);
   composebox_handler_->SubmitQuery(
       query_text, disposition,
-      PageClassificationToAimEntryPoint(
-          GetPageClassification(/*is_prefetch=*/false)),
+      GetAimEntryPoint(GetPageClassification(/*is_prefetch=*/false),
+                       composebox_handler_->GetContextualSessionHandle()),
       additional_params, /*is_voice_search=*/false);
 }
 
@@ -105,7 +107,8 @@ ComposeboxHandler::ComposeboxHandler(
                                                                   web_contents,
                                                                   this),
                         std::move(get_session_callback),
-                        std::move(clear_session_callback)) {}
+                        std::move(clear_session_callback),
+                        /*screenshare_delegate=*/nullptr) {}
 
 ComposeboxHandler::ComposeboxHandler(
     mojo::PendingReceiver<composebox::mojom::PageHandler> pending_handler,
@@ -116,13 +119,15 @@ ComposeboxHandler::ComposeboxHandler(
     content::WebContents* web_contents,
     std::unique_ptr<OmniboxClient> omnibox_client,
     GetSessionHandleCallback get_session_callback,
-    ClearSessionHandleCallback clear_session_callback)
+    ClearSessionHandleCallback clear_session_callback,
+    ContextualSearchboxScreenshareController::Delegate* screenshare_delegate)
     : ContextualSearchboxHandler(std::move(pending_searchbox_handler),
                                  std::move(pending_searchbox_page),
                                  profile,
                                  web_contents,
                                  std::move(omnibox_client),
-                                 std::move(get_session_callback)),
+                                 std::move(get_session_callback),
+                                 screenshare_delegate),
       clear_session_callback_(std::move(clear_session_callback)),
       handler_(this, std::move(pending_handler)) {
   // Set the callback for getting suggest inputs from the session.
@@ -206,9 +211,10 @@ void ComposeboxHandler::NavigateUrl(const GURL& url) {
   if (!browser_window_interface) {
     return;
   }
-  content::OpenURLParams params(url, content::Referrer(),
-                                WindowOpenDisposition::NEW_FOREGROUND_TAB,
-                                ui::PAGE_TRANSITION_LINK, false);
+  content::OpenURLParams params =
+      content::OpenURLParams::CreateBrowserInitiated(
+          url, WindowOpenDisposition::NEW_FOREGROUND_TAB,
+          ui::PAGE_TRANSITION_LINK);
   browser_window_interface->OpenURL(std::move(params),
                                     /*navigation_handle_callback=*/{});
 }
@@ -274,13 +280,13 @@ void ComposeboxHandler::SubmitQuery(const std::string& query_text,
   const WindowOpenDisposition disposition = ui::DispositionFromClick(
       /*middle_button=*/mouse_button == 1, alt_key, ctrl_key, meta_key,
       shift_key);
-  omnibox::ChromeAimEntryPoint aim_entry_point =
-      PageClassificationToAimEntryPoint(
-          client()->GetPageClassification(/*is_prefetch=*/false));
+  auto* session_handle = GetContextualSessionHandle();
+  omnibox::ChromeAimEntryPoint aim_entry_point = GetAimEntryPoint(
+      client()->GetPageClassification(/*is_prefetch=*/false), session_handle);
 
   if (auto* metrics_recorder = GetMetricsRecorder()) {
     int file_count = 0;
-    if (auto* session_handle = GetContextualSessionHandle()) {
+    if (session_handle) {
       file_count = session_handle->GetUploadedContextFileInfos().size();
     }
     metrics_recorder->RecordNoAcMatchSubmitQuery(query_text.size(), file_count,

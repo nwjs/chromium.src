@@ -51,6 +51,7 @@
 #include "ash/strings/grit/ash_strings.h"
 #include "ash/style/ash_color_id.h"
 #include "ash/style/pill_button.h"
+#include "ash/style/style_util.h"
 #include "ash/system/model/enterprise_domain_model.h"
 #include "ash/system/model/system_tray_model.h"
 #include "ash/system/power/power_button_controller.h"
@@ -264,8 +265,8 @@ class UserAddingScreenIndicator : public views::View {
 
     SetPaintToLayer();
     layer()->SetFillsBoundsOpaquely(false);
-    layer()->SetBackgroundBlur(ColorProvider::kBackgroundBlurSigma);
-    layer()->SetBackdropFilterQuality(ColorProvider::kBackgroundBlurQuality);
+    layer()->SetBackgroundBlur(StyleUtil::kBackgroundBlurSigma);
+    layer()->SetBackdropFilterQuality(StyleUtil::kBackgroundBlurQuality);
 
     SetBackground(views::CreateRoundedRectBackground(kColorAshShieldAndBase80,
                                                      kBubbleBorderRadius));

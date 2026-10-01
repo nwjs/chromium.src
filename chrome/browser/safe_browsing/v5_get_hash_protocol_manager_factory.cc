@@ -8,7 +8,7 @@
 
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/safe_browsing/chrome_v4_protocol_config_provider.h"
+#include "chrome/browser/safe_browsing/chrome_sb_protocol_config_provider.h"
 #include "chrome/browser/safe_browsing/safe_browsing_service.h"
 #include "chrome/browser/safe_browsing/v5_search_hashes_cache_factory.h"
 #include "components/keyed_service/core/service_access_type.h"
@@ -56,9 +56,8 @@ V5GetHashProtocolManagerFactory::BuildServiceInstanceForBrowserContext(
     return nullptr;
   }
   Profile* profile = Profile::FromBrowserContext(context);
-  // TODO(crbug.com/362791941): handle v4 references
   return std::make_unique<V5GetHashProtocolManager>(
-      g_browser_process->shared_url_loader_factory(), GetV4ProtocolConfig(),
+      g_browser_process->shared_url_loader_factory(), GetSBProtocolConfig(),
       V5SearchHashesCacheFactory::GetForProfile(profile));
 }
 

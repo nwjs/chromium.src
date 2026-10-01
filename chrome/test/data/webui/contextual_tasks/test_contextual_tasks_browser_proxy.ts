@@ -5,6 +5,9 @@
 import {ExtensionPageCallbackRouter, PageCallbackRouter} from 'chrome://contextual-tasks/contextual_tasks.mojom-webui.js';
 import type {ComposeboxPosition, ContextInfo, ContextualTaskId, ContextualWindowId, ExtensionPageHandlerInterface, ExtensionPageRemote, InjectedInput, PageHandlerInterface, PageInterface, PageRemote} from 'chrome://contextual-tasks/contextual_tasks.mojom-webui.js';
 import type {BrowserProxy, ExtensionBrowserProxy} from 'chrome://contextual-tasks/contextual_tasks_browser_proxy.js';
+import {PageCallbackRouter as ToolbarPageCallbackRouter} from 'chrome://contextual-tasks/contextual_tasks_toolbar.mojom-webui.js';
+import type {PageHandlerInterface as ToolbarPageHandlerInterface, PageRemote as ToolbarPageRemote} from 'chrome://contextual-tasks/contextual_tasks_toolbar.mojom-webui.js';
+import type {ToolbarBrowserProxy} from 'chrome://contextual-tasks/contextual_tasks_toolbar_browser_proxy.js';
 import type {PostMessageHandler} from 'chrome://contextual-tasks/post_message_handler.js';
 import type {UnguessableToken} from 'chrome://resources/mojo/mojo/public/mojom/base/unguessable_token.mojom-webui.js';
 import type {Uuid} from 'chrome://resources/mojo/mojo/public/mojom/base/uuid.mojom-webui.js';
@@ -47,6 +50,7 @@ class MockPage extends TestBrowserProxy implements PageInterface {
       'showSmartTabSharingTryItIph',
       'showSmartTabSharingDefaultOnIph',
       'onWindowClosed',
+      'resetForNewThread',
     ]);
   }
 
@@ -183,6 +187,10 @@ class MockPage extends TestBrowserProxy implements PageInterface {
   onWindowClosed(windowId: ContextualWindowId) {
     this.methodCalled('onWindowClosed', windowId);
   }
+
+  resetForNewThread(taskId: Uuid, threadUrl: Url) {
+    this.methodCalled('resetForNewThread', taskId, threadUrl);
+  }
 }
 
 /**
@@ -225,7 +233,7 @@ class TestContextualTasksPageHandler extends TestBrowserProxy implements
       'openMyActivityUi',
       'openOnboardingHelpUi',
       'openOverflowMenuHelpUi',
-      'openUrl',
+      'openAskGHelpUi',
       'reopenTabs',
       'setTaskId',
       'setThreadTitle',
@@ -338,8 +346,9 @@ class TestContextualTasksPageHandler extends TestBrowserProxy implements
     this.methodCalled('openOverflowMenuHelpUi');
   }
 
-  openUrl(url: Url|string, disposition: number) {
-    this.methodCalled('openUrl', url, disposition);
+  // eslint-disable-next-line @typescript-eslint/naming-convention
+  openAskGHelpUi() {
+    this.methodCalled('openAskGHelpUi');
   }
 
   onboardingTooltipDismissed() {
@@ -519,10 +528,16 @@ export class TestExtensionPageHandler extends TestBrowserProxy implements
   constructor() {
     super([
       'getHandshakeMessage',
+      'getLensCropPreview',
       'onWebviewMessage',
       'setTaskId',
       'updateComposeboxHeight',
     ]);
+  }
+
+  getLensCropPreview(dataId: string) {
+    this.methodCalled('getLensCropPreview', dataId);
+    return Promise.resolve({dataUri: null});
   }
 
   getHandshakeMessage() {
@@ -566,5 +581,35 @@ export class TestExtensionBrowserProxy extends TestBrowserProxy implements
     this.callbackRouterRemote =
         this.callbackRouter.$.bindNewPipeAndPassRemote();
     this.handler = new TestExtensionPageHandler();
+  }
+}
+
+/**
+ * Test version of the contextual_tasks_toolbar PageHandler used to verify calls
+ * to the browser from the toolbar WebUI.
+ */
+export class TestToolbarPageHandler extends TestBrowserProxy implements
+    ToolbarPageHandlerInterface {
+  constructor() {
+    super([]);
+  }
+}
+
+/**
+ * Test version of the ToolbarBrowserProxy used in connecting the Contextual
+ * Tasks toolbar WebUI to the browser.
+ */
+export class TestToolbarBrowserProxy extends TestBrowserProxy implements
+    ToolbarBrowserProxy {
+  callbackRouter: ToolbarPageCallbackRouter;
+  callbackRouterRemote: ToolbarPageRemote;
+  handler: TestToolbarPageHandler;
+
+  constructor() {
+    super([]);
+    this.callbackRouter = new ToolbarPageCallbackRouter();
+    this.callbackRouterRemote =
+        this.callbackRouter.$.bindNewPipeAndPassRemote();
+    this.handler = new TestToolbarPageHandler();
   }
 }

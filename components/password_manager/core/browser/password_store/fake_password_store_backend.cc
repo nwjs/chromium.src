@@ -8,13 +8,14 @@
 #include <iterator>
 #include <optional>
 #include <utility>
-#include <variant>
 
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/notimplemented.h"
 #include "base/task/sequenced_task_runner.h"
+#include "base/types/expected.h"
+#include "components/affiliations/core/browser/match_type.h"
 #include "components/password_manager/core/browser/affiliation/affiliated_match_helper.h"
 #include "components/password_manager/core/browser/password_form.h"
 #include "components/password_manager/core/browser/password_store/get_logins_with_affiliations_request_handler.h"
@@ -30,16 +31,15 @@ namespace {
 void InjectAffiliationAndBrandingInformation(
     AffiliatedMatchHelper* match_helper,
     BackendLoginsOrErrorReply callback,
-    BackendLoginsResultOrError result) {
-  if (!match_helper ||
-      std::holds_alternative<PasswordStoreBackendError>(result) ||
-      std::get<BackendLoginsResult>(result).empty()) {
+    base::expected<std::vector<StoredCredential>, PasswordStoreBackendError>
+        result) {
+  if (!match_helper || !result || result->empty()) {
     std::move(callback).Run(std::move(result));
     return;
   }
 
-  match_helper->InjectAffiliationAndBrandingInformation(
-      std::get<BackendLoginsResult>(std::move(result)), std::move(callback));
+  match_helper->InjectAffiliationAndBrandingInformation(std::move(*result),
+                                                        std::move(callback));
 }
 
 }  // namespace
@@ -137,7 +137,8 @@ void FakePasswordStoreBackend::NotifyAboutError() {
       error_type = PasswordStoreBackendErrorType::kUncategorized;
       break;
   }
-  remote_form_changes_received_.Run(PasswordStoreBackendError(error_type));
+  remote_form_changes_received_.Run(
+      base::unexpected(PasswordStoreBackendError(error_type)));
 }
 
 void FakePasswordStoreBackend::SetAffiliatedMatchHelper(
@@ -291,9 +292,7 @@ void FakePasswordStoreBackend::PostTaskAndReplyWithResultOrSimulateError(
     GetTaskRunner()->PostTask(
         FROM_HERE,
         base::BindOnce(std::move(callback),
-                       PasswordChangesOrError(
-                           std::in_place_type<PasswordStoreBackendError>,
-                           password_store_backend_error_.value())));
+                       base::unexpected(*password_store_backend_error_)));
     return;
   }
   GetTaskRunner()->PostTaskAndReplyWithResult(FROM_HERE, std::move(task),
@@ -301,23 +300,21 @@ void FakePasswordStoreBackend::PostTaskAndReplyWithResultOrSimulateError(
 }
 
 void FakePasswordStoreBackend::PostTaskAndReplyWithResultOrSimulateError(
-    base::OnceCallback<BackendLoginsResult()> task,
+    base::OnceCallback<std::vector<StoredCredential>()> task,
     BackendLoginsOrErrorReply callback) {
   if (password_store_backend_error_.has_value()) {
     GetTaskRunner()->PostTask(
-        FROM_HERE,
-        base::BindOnce(std::move(callback),
-                       BackendLoginsResultOrError(
-                           std::in_place_type<PasswordStoreBackendError>,
-                           password_store_backend_error_.value())));
+        FROM_HERE, base::BindOnce(std::move(callback),
+                                  base::unexpected(
+                                      password_store_backend_error_.value())));
     return;
   }
   GetTaskRunner()->PostTaskAndReplyWithResult(FROM_HERE, std::move(task),
                                               std::move(callback));
 }
 
-BackendLoginsResult FakePasswordStoreBackend::GetAllLoginsInternal() {
-  BackendLoginsResult result;
+std::vector<StoredCredential> FakePasswordStoreBackend::GetAllLoginsInternal() {
+  std::vector<StoredCredential> result;
   for (const auto& elements : stored_passwords_) {
     for (const auto& stored_cred : elements.second) {
       result.push_back(CloneStoredCredential(stored_cred));
@@ -326,8 +323,9 @@ BackendLoginsResult FakePasswordStoreBackend::GetAllLoginsInternal() {
   return result;
 }
 
-BackendLoginsResult FakePasswordStoreBackend::GetAutofillableLoginsInternal() {
-  BackendLoginsResult result;
+std::vector<StoredCredential>
+FakePasswordStoreBackend::GetAutofillableLoginsInternal() {
+  std::vector<StoredCredential> result;
   for (const auto& elements : stored_passwords_) {
     for (const auto& stored_cred : elements.second) {
       if (!stored_cred.blocked_by_user) {
@@ -338,12 +336,13 @@ BackendLoginsResult FakePasswordStoreBackend::GetAutofillableLoginsInternal() {
   return result;
 }
 
-BackendLoginsResult FakePasswordStoreBackend::FillMatchingLoginsInternal(
+std::vector<StoredCredential>
+FakePasswordStoreBackend::FillMatchingLoginsInternal(
     const std::vector<PasswordFormDigest>& forms,
     bool include_psl) {
-  BackendLoginsResult results;
+  std::vector<StoredCredential> results;
   for (const auto& form : forms) {
-    BackendLoginsResult matched_creds =
+    std::vector<StoredCredential> matched_creds =
         FillMatchingLoginsHelper(form, include_psl);
     results.insert(results.end(),
                    std::make_move_iterator(matched_creds.begin()),
@@ -352,10 +351,11 @@ BackendLoginsResult FakePasswordStoreBackend::FillMatchingLoginsInternal(
   return results;
 }
 
-BackendLoginsResult FakePasswordStoreBackend::FillMatchingLoginsHelper(
+std::vector<StoredCredential>
+FakePasswordStoreBackend::FillMatchingLoginsHelper(
     const PasswordFormDigest& form,
     bool include_psl) {
-  BackendLoginsResult matched_creds;
+  std::vector<StoredCredential> matched_creds;
   for (const auto& elements : stored_passwords_) {
     const bool realm_matches = elements.first == form.signon_realm;
     const bool realm_psl_matches =
@@ -380,11 +380,12 @@ BackendLoginsResult FakePasswordStoreBackend::FillMatchingLoginsHelper(
 }
 
 #if BUILDFLAG(IS_ANDROID)
-BackendLoginsResult FakePasswordStoreBackend::GetGroupedMatchingLoginsInternal(
+std::vector<StoredCredential>
+FakePasswordStoreBackend::GetGroupedMatchingLoginsInternal(
     const PasswordFormDigest& form_digest) {
-  BackendLoginsResult base_results =
+  std::vector<StoredCredential> base_results =
       FillMatchingLoginsHelper(form_digest, /*include_psl=*/true);
-  BackendLoginsResult final_results;
+  std::vector<StoredCredential> final_results;
 
   for (const StoredCredential& cred : base_results) {
     PasswordForm form = ToPasswordForm(cred);
@@ -392,23 +393,23 @@ BackendLoginsResult FakePasswordStoreBackend::GetGroupedMatchingLoginsInternal(
         (form_digest.scheme == PasswordForm::Scheme::kHtml &&
          password_manager::IsFederatedRealm(form.signon_realm,
                                             form_digest.url))) {
-      form.match_type = PasswordForm::MatchType::kExact;
+      form.match_type = affiliations::MatchType::kExact;
     } else if (IsPublicSuffixDomainMatch(form.signon_realm,
                                          form_digest.signon_realm)) {
-      form.match_type = PasswordForm::MatchType::kPSL;
+      form.match_type = affiliations::MatchType::kPSL;
     }
     final_results.push_back(FromPasswordForm(form));
   }
 
   if (auto it = affiliated_realms_.find(form_digest.signon_realm);
       it != affiliated_realms_.end()) {
-    AddLoginsWithMatchType(it->second, PasswordForm::MatchType::kAffiliated,
+    AddLoginsWithMatchType(it->second, affiliations::MatchType::kAffiliated,
                            final_results);
   }
 
   if (auto group_it = grouped_realms_.find(form_digest.signon_realm);
       group_it != grouped_realms_.end()) {
-    AddLoginsWithMatchType(group_it->second, PasswordForm::MatchType::kGrouped,
+    AddLoginsWithMatchType(group_it->second, affiliations::MatchType::kGrouped,
                            final_results);
   }
 
@@ -417,8 +418,8 @@ BackendLoginsResult FakePasswordStoreBackend::GetGroupedMatchingLoginsInternal(
 
 void FakePasswordStoreBackend::AddLoginsWithMatchType(
     const std::vector<std::string>& realms,
-    PasswordForm::MatchType match_type,
-    BackendLoginsResult& results) {
+    affiliations::MatchType match_type,
+    std::vector<StoredCredential>& results) {
   for (const std::string& realm : realms) {
     auto creds_it = stored_passwords_.find(realm);
     if (creds_it != stored_passwords_.end()) {
@@ -532,7 +533,7 @@ PasswordStoreChangeList
 FakePasswordStoreBackend::RemoveLoginsCreatedBetweenInternal(
     base::Time delete_begin,
     base::Time delete_end) {
-  BackendLoginsResult all_logins = GetAllLoginsInternal();
+  std::vector<StoredCredential> all_logins = GetAllLoginsInternal();
   PasswordStoreChangeList list;
   for (const auto& cred : all_logins) {
     if (delete_begin <= cred.date_created && cred.date_created < delete_end) {

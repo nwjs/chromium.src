@@ -37,6 +37,7 @@ compute-pressure
 cross-origin-isolated
 deferred-fetch
 deferred-fetch-minimal
+digital-credentials-create
 digital-credentials-get
 display-capture
 encrypted-media
@@ -56,6 +57,7 @@ local-network
 local-network-access
 loopback-network
 magnetometer
+media-playback-while-not-visible
 microphone
 midi
 on-device-speech-recognition
@@ -68,6 +70,7 @@ publickey-credentials-create
 publickey-credentials-get
 screen-wake-lock
 serial
+speaker-selection
 storage-access
 summarizer
 sync-xhr

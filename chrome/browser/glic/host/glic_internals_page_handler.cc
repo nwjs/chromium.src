@@ -16,9 +16,11 @@
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/types/expected.h"
 #include "base/values.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/glic/actor/glic_actor_policy_checker.h"
+#include "chrome/browser/glic/common/local_hotkey_manager.h"
 #include "chrome/browser/glic/experimental_opt_in/glic_experimental_opt_in_controller.h"
 #include "chrome/browser/glic/experimental_triggering/glic_experimental_triggering_manager.h"
 #include "chrome/browser/glic/glic_enums.h"
@@ -271,11 +273,13 @@ std::string InvocationSourceToString(glic::mojom::InvocationSource source) {
       return "kTabContextMenu";
     case glic::mojom::InvocationSource::kWebContinuity:
       return "kWebContinuity";
+    case glic::mojom::InvocationSource::kHistoryPageChatLinkout:
+      return "kHistoryPageChatLinkout";
   }
   LOG(ERROR) << "Unexpected value for InvocationSource: "
              << static_cast<int>(source);
   return "Unknown";
-  // LINT.ThenChange(//chrome/browser/glic/host/glic.mojom:InvocationSource)
+  // LINT.ThenChange(//chrome/common/glic_enums.mojom:InvocationSource)
 }
 
 std::string FeatureModeToString(glic::mojom::FeatureMode mode) {
@@ -602,6 +606,8 @@ void GlicInternalsPageHandler::GetInternalsDataPayload(
   boolean_settings["Get Tab by ID Enabled"] = state->enable_get_tab_by_id;
   boolean_settings["Open Password Manager Settings Page Enabled"] =
       state->enable_open_password_manager_settings_page;
+  boolean_settings["Open Contact Info Settings Page Enabled"] =
+      state->enable_open_contact_info_settings_page;
   boolean_settings["Skills Feature Enabled"] = state->enable_skills;
   boolean_settings["Get Tab Favicon by ID Enabled"] =
       state->enable_get_tab_favicon_by_id;
@@ -609,7 +615,10 @@ void GlicInternalsPageHandler::GetInternalsDataPayload(
       state->enable_process_counter_abuse_verdict;
 
   debug_info->boolean_settings = std::move(boolean_settings);
-  debug_info->hotkey = state->hotkey;
+  debug_info->hotkey =
+      base::UTF16ToUTF8(LocalHotkeyManager::GetConfigurableAccelerator(
+                            LocalHotkeyManager::Command::kPanelToggle)
+                            .GetShortcutText());
 
   // Locale and country settings
   if (auto* startup_data = g_browser_process->startup_data()) {
@@ -791,6 +800,9 @@ void GlicInternalsPageHandler::TriggerInvokeFromInternalsAction(
     case mojom::FreCompletionWaitMode::kNever:
       options.fre_completion_wait_mode = FreCompletionWaitMode::kNever;
       break;
+    case mojom::FreCompletionWaitMode::kAlways:
+      options.fre_completion_wait_mode = FreCompletionWaitMode::kAlways;
+      break;
   }
   options.target.actuation_target = mojo_options->actuation_target;
 
@@ -957,13 +969,19 @@ void GlicInternalsPageHandler::OnInvokeSuccess(
 
       triggering_manager->CaptureAndUploadEncryptedScreenshot(
           public_key, auth_secret,
-          base::BindOnce([](const std::optional<std::string>& file_token) {
-            if (file_token) {
+          base::BindOnce([](base::expected<std::string,
+                                           ScreenshotResult::Status> result) {
+            if (result.has_value() && !result.value().empty()) {
               VLOG(5) << "CaptureAndUploadEncryptedScreenshot "
                          "success, token: "
-                      << *file_token;
+                      << result.value();
             } else {
-              VLOG(5) << "CaptureAndUploadEncryptedScreenshot failed";
+              VLOG(5)
+                  << "CaptureAndUploadEncryptedScreenshot failed with status: "
+                  << static_cast<int>(
+                         !result.has_value()
+                             ? result.error()
+                             : ScreenshotResult::Status::kErrorServer);
             }
           }));
     }

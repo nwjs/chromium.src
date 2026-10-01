@@ -436,6 +436,8 @@ static_library("common") {
     "delegating_desktop_display_info_monitor.cc",
     "desktop_and_cursor_conditional_composer.cc",
     "desktop_resizer_proxy.cc",
+    "disconnect_window_base.cc",
+    "disconnect_window_base.h",
     "evaluate_capability.cc",
     "ftl_echo_message_listener.cc",
     "ftl_echo_message_listener.h",
@@ -786,6 +788,8 @@ static_library("common") {
     sources += [
       "audio_capturer_win.cc",
       "audio_capturer_win.h",
+      "certificate_broker_impl.cc",
+      "certificate_broker_impl.h",
       "continue_window_win.cc",
       "curtain_mode_win.cc",
       "daemon_process_win.cc",
@@ -888,10 +892,12 @@ source_set("unit_tests") {
     "chromoting_host_unittest.cc",
     "client_session_unittest.cc",
     "config_file_watcher_unittest.cc",
+    "continue_window_unittest.cc",
     "corp_host_status_logger_unittest.cc",
     "corp_signaling_connector_unittest.cc",
     "delegating_desktop_display_info_monitor_unittest.cc",
     "desktop_display_info_unittest.cc",
+    "disconnect_window_base_unittest.cc",
     "ftl_echo_message_listener_unittest.cc",
     "ftl_host_change_notification_listener_unittest.cc",
     "ftl_signaling_connector_unittest.cc",
@@ -1051,6 +1057,7 @@ source_set("unit_tests") {
       "audio_capturer_chromeos_unittest.cc",
       "desktop_display_info_loader_chromeos_unittest.cc",
       "input_injector_chromeos_unittest.cc",
+      "input_monitor/local_hotkey_input_monitor_chromeos_unittest.cc",
       "it2me/it2me_confirmation_dialog_chromeos_unittest.cc",
     ]
     deps += [
@@ -1069,6 +1076,7 @@ source_set("unit_tests") {
 
   if (is_win) {
     sources += [
+      "certificate_broker_impl_unittest.cc",
       "clipboard_win_unittest.cc",
       "pairing_registry_delegate_win_unittest.cc",
       "remote_client_cert_store_unittest.cc",
@@ -1429,6 +1437,7 @@ if (enable_me2me_host) {
     group("remoting_me2me_host") {
       deps = [ "//remoting/host/win:remoting_me2me_host" ]
     }
+
     group("remoting_native_messaging_host") {
       deps = [ "//remoting/host/win:remoting_native_messaging_host" ]
     }
@@ -1436,6 +1445,7 @@ if (enable_me2me_host) {
     group("remoting_me2me_host") {
       deps = [ "//remoting/host/mac:remoting_me2me_host" ]
     }
+
     group("remoting_native_messaging_host") {
       deps = [ "//remoting/host/mac:remoting_native_messaging_host" ]
     }
@@ -1446,6 +1456,7 @@ if (enable_me2me_host) {
       # https://crbug.com/1198747
       assert_no_deps = [ "//ui/gtk" ]
     }
+
     group("remoting_native_messaging_host") {
       public_deps = [ "//remoting/host/linux:remoting_native_messaging_host" ]
     }

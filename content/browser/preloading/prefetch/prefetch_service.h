@@ -16,8 +16,8 @@
 #include "base/types/strong_alias.h"
 #include "content/browser/preloading/prefetch/pre_prefetch_container.h"
 #include "content/browser/preloading/prefetch/prefetch_container.h"
+#include "content/browser/preloading/prefetch/prefetch_container_observer.h"
 #include "content/browser/preloading/prefetch/prefetch_key.h"
-#include "content/browser/preloading/prefetch/prefetch_match_resolver.h"
 #include "content/browser/preloading/prefetch/prefetch_streaming_url_loader_common_types.h"
 #include "content/common/content_export.h"
 #include "content/public/browser/frame_tree_node_id.h"
@@ -372,6 +372,7 @@ class CONTENT_EXPORT PrefetchService : public PrefetchContainerObserver {
   void OnDeterminedHead(const PrefetchContainer& prefetch_container) override;
   void OnPrefetchCompletedOrFailed(
       const PrefetchContainer& prefetch_container) override;
+  void OnPrefetchStale(const PrefetchContainer& prefetch_container) override;
 
   // When `prefetch_status_on_destruction` has a value, it's set as the final
   // `PrefetchStatus` of `prefetch_container` for metrics.

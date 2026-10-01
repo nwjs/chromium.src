@@ -50,6 +50,7 @@
 #include "content/public/test/browser_test_utils.h"
 #include "extensions/browser/background_script_executor.h"
 #include "ui/base/test/ui_controls.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/display/display.h"
 #include "ui/display/screen.h"
 #include "ui/display/test/virtual_display_util.h"
@@ -644,9 +645,7 @@ class GlicInstanceCoordinatorWithDelayedPreloadingUiTest
   GlicInstanceCoordinatorWithDelayedPreloadingUiTest() {
     features_.InitWithFeaturesAndParameters(
         /*enabled_features=*/
-        {{features::kGlicWarming,
-          {{features::kGlicWarmingDelayMs.name, "0"},
-           {features::kGlicWarmingJitterMs.name, "0"}}}},
+        {{features::kGlicWarming, {{features::kGlicWarmingDelayMs.name, "0"}}}},
         /*disabled_features=*/{});
   }
   ~GlicInstanceCoordinatorWithDelayedPreloadingUiTest() override = default;

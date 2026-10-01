@@ -77,8 +77,6 @@ namespace {
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(WEBNN_USE_LITERT)
 // Whether to use mojo data pipe for transferring tensor data between processes.
 BASE_FEATURE(kWebNNUseDataPipe, base::FEATURE_ENABLED_BY_DEFAULT);
-// Whether to enable LiteRT WebGPU execution in the renderer.
-BASE_FEATURE(kWebNNLiteRTGpuInRenderer, base::FEATURE_DISABLED_BY_DEFAULT);
 
 struct TensorDataPipes {
   mojo::ScopedDataPipeProducerHandle write_producer;
@@ -149,7 +147,8 @@ void RecordDeviceType(const mojom::Device device) {
 // (in-process) TFLite/LiteRT backend.
 bool ShouldUseInProcessTflite(const mojom::CreateContextOptions& options) {
   if (options.device == mojom::Device::kGpu &&
-      base::FeatureList::IsEnabled(kWebNNLiteRTGpuInRenderer)) {
+      base::FeatureList::IsEnabled(
+          mojom::features::kWebNNLiteRTGpuInRenderer)) {
     return true;
   }
   return options.device != mojom::Device::kGpu;
@@ -183,7 +182,7 @@ WebNNContextProviderImpl::WebNNContextProviderImpl(
     LoseAllContextsCallback lose_all_contexts_callback,
     scoped_refptr<base::SingleThreadTaskRunner> main_thread_task_runner,
     gpu::Scheduler* scheduler,
-    mojo::SharedRemote<viz::mojom::GpuHost> gpu_host)
+    mojo::PendingRemote<mojom::WebNNBrowserHost> webnn_browser_host)
     : gpu_feature_info_(std::move(gpu_feature_info)),
       gpu_info_(std::move(gpu_info)),
       shared_image_manager_(shared_image_manager),
@@ -191,13 +190,11 @@ WebNNContextProviderImpl::WebNNContextProviderImpl(
       scheduler_(scheduler),
       main_thread_task_runner_(std::move(main_thread_task_runner)),
       peak_memory_monitor_(std::move(peak_memory_monitor)),
-      gpu_host_(std::move(gpu_host)) {
+      webnn_browser_host_(std::move(webnn_browser_host)) {
   CHECK_NE(scheduler_, nullptr);
   CHECK_NE(main_thread_task_runner_, nullptr);
   DCHECK(main_thread_task_runner_->BelongsToCurrentThread());
-  // `gpu_host_` is used to ensure that the execution providers used by the ORT
-  // backend are ready. It should be connected to the browser process.
-  CHECK(gpu_host_.is_bound());
+  CHECK(webnn_browser_host_.is_bound());
 
 #if defined(ADDRESS_SANITIZER)
   LOG(ERROR) << "WebMachineLearningNeuralNetwork is an unsafe feature.";
@@ -229,11 +226,12 @@ std::unique_ptr<WebNNContextProviderImpl> WebNNContextProviderImpl::Create(
     LoseAllContextsCallback lose_all_contexts_callback,
     scoped_refptr<base::SingleThreadTaskRunner> main_thread_task_runner,
     gpu::Scheduler* scheduler,
-    mojo::SharedRemote<viz::mojom::GpuHost> gpu_host) {
+    mojo::PendingRemote<mojom::WebNNBrowserHost> webnn_browser_host) {
   return base::WrapUnique(new WebNNContextProviderImpl(
       std::move(gpu_feature_info), std::move(gpu_info), shared_image_manager,
       std::move(peak_memory_monitor), std::move(lose_all_contexts_callback),
-      std::move(main_thread_task_runner), scheduler, std::move(gpu_host)));
+      std::move(main_thread_task_runner), scheduler,
+      std::move(webnn_browser_host)));
 }
 
 void WebNNContextProviderImpl::BindWebNNContextProvider(
@@ -488,7 +486,7 @@ void WebNNContextProviderImpl::CreateWebNNContext(
       return;
     }
 
-    gpu_host_->EnsureWebNNExecutionProvidersReady(base::BindOnce(
+    webnn_browser_host_->EnsureExecutionProvidersReady(base::BindOnce(
         &WebNNContextProviderImpl::DidEnsureWebNNExecutionProvidersReady,
         AsWeakPtr(), std::move(scoped_trace), std::move(options),
         std::move(gpu_task_scheduler), std::move(owning_task_runner),
@@ -505,7 +503,8 @@ void WebNNContextProviderImpl::CreateWebNNContext(
       WebNNContextImplPtr context_impl = coreml::ContextImplCoreml::Create(
           std::move(receiver), AsWeakPtr(), std::move(options),
           std::move(gpu_task_scheduler), memory_tracker, owning_task_runner,
-          shared_image_manager_, main_thread_task_runner_);
+          shared_image_manager_, main_thread_task_runner_,
+          /*model_loader_receiver=*/mojo::NullReceiver());
       // Using mojo data pipe is not yet implemented in CoreML backend.
       OnCreateWebNNContextImpl(std::move(callback), std::move(remote),
                                mojo::ScopedDataPipeProducerHandle(),
@@ -607,8 +606,8 @@ void WebNNContextProviderImpl::FallbackToTFLite(
 }
 
 void WebNNContextProviderImpl::CreateWeightsFile(
-    viz::mojom::GpuHost::CreateWebNNWeightsFileCallback callback) {
-  gpu_host_->CreateWebNNWeightsFile(std::move(callback));
+    mojom::WebNNBrowserHost::CreateWeightsFileCallback callback) {
+  webnn_browser_host_->CreateWeightsFile(std::move(callback));
 }
 
 #if BUILDFLAG(WEBNN_USE_LITERT)
@@ -642,6 +641,34 @@ void WebNNContextProviderImpl::CreateLiteRtContext(
                      command_buffer_id));
 }
 #endif  // BUILDFLAG(WEBNN_USE_LITERT)
+
+#if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE)
+void WebNNContextProviderImpl::ReconnectCompilerContext(
+    mojom::CreateContextOptionsPtr options,
+    ContextProperties properties,
+#if BUILDFLAG(IS_WIN)
+    EpDeviceInfo target_device,
+#endif  // BUILDFLAG(IS_WIN)
+    mojo::PendingReceiver<mojom::WebNNCompilerContext>
+        compiler_context_receiver,
+    mojo::PendingRemote<mojom::WebNNModelLoader> model_loader_remote) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(main_sequence_checker_);
+
+  // This is a reconnect for an already-created context, so it cannot fall back
+  // to another backend at this point.
+  // TODO(crbug.com/524263705): Enable for IS_APPLE once implemented in
+  // WebNNBrowserHostImpl.
+#if BUILDFLAG(IS_WIN)
+  webnn_browser_host_->RequestCompilerContext(
+      std::move(options), properties, target_device,
+      std::move(compiler_context_receiver), std::move(model_loader_remote),
+      base::BindOnce([](bool success) {
+        LOG_IF(ERROR, !success)
+            << "[WebNN] Compiler context failed to reconnect.";
+      }));
+#endif  // BUILDFLAG(IS_WIN)
+}
+#endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_APPLE)
 
 #if BUILDFLAG(IS_WIN)
 void WebNNContextProviderImpl::OnOrtEnvCreated(
@@ -706,7 +733,7 @@ void WebNNContextProviderImpl::OnOrtEnvCreated(
             std::move(compiler_context_remote),
             std::move(model_loader_receiver), sequence_id, command_buffer_id);
 
-        gpu_host_->RequestWebNNCompilerContext(
+        webnn_browser_host_->RequestCompilerContext(
             std::move(options), properties, *selected_device,
             std::move(compiler_context_receiver),
             std::move(model_loader_remote), std::move(reply));
@@ -834,26 +861,6 @@ void WebNNContextProviderImpl::OnDispatchContextCreated(
       mojom::CreateContextResult::NewSuccess(std::move(context_success)));
 }
 
-void WebNNContextProviderImpl::ReconnectCompilerContext(
-    mojom::CreateContextOptionsPtr options,
-    ContextProperties properties,
-    EpDeviceInfo target_device,
-    mojo::PendingReceiver<mojom::WebNNCompilerContext>
-        compiler_context_receiver,
-    mojo::PendingRemote<mojom::WebNNModelLoader> model_loader_remote) {
-  DCHECK_CALLED_ON_VALID_SEQUENCE(main_sequence_checker_);
-
-  // This is a reconnect for an already-created context, so it cannot fall back
-  // to another backend at this point.
-  gpu_host_->RequestWebNNCompilerContext(
-      std::move(options), properties, target_device,
-      std::move(compiler_context_receiver), std::move(model_loader_remote),
-      base::BindOnce([](bool success) {
-        LOG_IF(ERROR, !success)
-            << "[WebNN] Compiler context failed to reconnect.";
-      }));
-}
-
 void WebNNContextProviderImpl::DidEnsureWebNNExecutionProvidersReady(
     ScopedTrace scoped_trace,
     mojom::CreateContextOptionsPtr options,
@@ -894,7 +901,7 @@ void WebNNContextProviderImpl::ForceOrtEnvironmentCreationForIntrospection(
         main_thread_task_runner_, std::move(callback),
         /*ep_package_info=*/{});
   } else {
-    gpu_host_->EnsureWebNNExecutionProvidersReady(base::BindOnce(
+    webnn_browser_host_->EnsureExecutionProvidersReady(base::BindOnce(
         &WebNNContextProviderImpl::
             DidEnsureWebNNExecutionProvidersReadyForIntrospection,
         AsWeakPtr(), main_thread_task_runner_, std::move(callback)));

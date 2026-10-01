@@ -31,6 +31,7 @@
 #include "chrome/browser/enterprise/platform_auth/platform_auth_proxying_url_loader_factory.h"
 #include "chrome/browser/enterprise/platform_auth/scoped_cf_prefs_observer_override.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
@@ -132,6 +133,11 @@ class ExtensibleEnterpriseSsoOktaBrowserTest : public InProcessBrowserTest {
     https_server_.SetCertHostnames({kDomain1, kDomain2, kDomain3});
 
     ASSERT_TRUE(https_server_.Start());
+  }
+
+  void TearDownOnMainThread() override {
+    platform_auth_policy_observer_.reset();
+    InProcessBrowserTest::TearDownOnMainThread();
   }
 
   void TearDown() override {

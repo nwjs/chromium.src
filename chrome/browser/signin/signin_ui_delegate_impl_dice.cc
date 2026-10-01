@@ -11,6 +11,7 @@
 #include "chrome/browser/ui/signin/signin_view_controller.h"
 #include "chrome/browser/ui/webui/signin/turn_sync_on_helper.h"
 #include "google_apis/gaia/core_account_id.h"
+#include "url/gurl.h"
 
 namespace signin_ui_util {
 
@@ -26,11 +27,11 @@ void ShowDiceTab(BrowserWindowInterface* browser,
     return;
 
   if (enable_sync) {
-    browser->GetFeatures().signin_view_controller()->ShowDiceEnableSyncTab(
+    SigninViewController::From(browser)->ShowDiceEnableSyncTab(
         access_point, promo_action, email);
   } else {
-    browser->GetFeatures().signin_view_controller()->ShowDiceAddAccountTab(
-        access_point, email);
+    SigninViewController::From(browser)->ShowDiceAddAccountTab(access_point,
+                                                               email);
   }
 }
 
@@ -60,6 +61,7 @@ void SigninUiDelegateImplDice::ShowReauthUI(
 
 void SigninUiDelegateImplDice::ShowCrossDeviceSigninQrBubble(
     BrowserWindowInterface* browser,
+    GURL qr_code_url,
     base::OnceClosure closing_callback) {
   if (!browser) {
     if (closing_callback) {
@@ -67,9 +69,8 @@ void SigninUiDelegateImplDice::ShowCrossDeviceSigninQrBubble(
     }
     return;
   }
-  browser->GetFeatures()
-      .signin_view_controller()
-      ->ShowCrossDeviceSigninQrBubble(std::move(closing_callback));
+  SigninViewController::From(browser)->ShowCrossDeviceSigninQrBubble(
+      std::move(qr_code_url), std::move(closing_callback));
 }
 
 }  // namespace signin_ui_util

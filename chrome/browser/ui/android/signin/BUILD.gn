@@ -228,6 +228,7 @@ robolectric_library("junit") {
     "java/src/org/chromium/chrome/browser/ui/signin/signin_promo/SigninPromoMediatorTest.java",
     "junit/src/org/chromium/chrome/browser/ui/signin/AccountPreviewPreferenceStringUtilsUnitTest.java",
     "junit/src/org/chromium/chrome/browser/ui/signin/BottomSheetSigninAndHistorySyncConfigTest.java",
+    "junit/src/org/chromium/chrome/browser/ui/signin/ForcedSigninControllerTest.java",
     "junit/src/org/chromium/chrome/browser/ui/signin/FullscreenSigninPromoLauncherTest.java",
     "junit/src/org/chromium/chrome/browser/ui/signin/SigninAndHistorySyncBundleHelperTest.java",
     "junit/src/org/chromium/chrome/browser/ui/signin/SigninBottomSheetCoordinatorTest.java",
@@ -237,6 +238,7 @@ robolectric_library("junit") {
     "junit/src/org/chromium/chrome/browser/ui/signin/account_picker/AccountPickerMediatorTest.java",
     "junit/src/org/chromium/chrome/browser/ui/signin/account_picker/WebSigninAccountPickerDelegateTest.java",
     "junit/src/org/chromium/chrome/browser/ui/signin/fullscreen_signin/FreManagementNoticeDialogHelperTest.java",
+    "junit/src/org/chromium/chrome/browser/ui/signin/fullscreen_signin/FullscreenSigninViewBinderTest.java",
   ]
   deps = [
     ":java",
@@ -270,6 +272,7 @@ robolectric_library("junit") {
     "//components/user_prefs/android:java",
     "//content/public/android:content_java",
     "//google_apis/gaia/android:java",
+    "//third_party/android_deps:com_airbnb_android_lottie_java",
     "//third_party/androidx:androidx_activity_activity_java",
     "//third_party/androidx:androidx_annotation_annotation_java",
     "//third_party/androidx:androidx_appcompat_appcompat_java",

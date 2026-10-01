@@ -25,8 +25,7 @@
 #include "sql/meta_table.h"
 #include "sql/statement.h"
 #include "sql/transaction.h"
-#include "third_party/abseil-cpp/absl/container/flat_hash_set.h"
-#include "ui/base/page_transition_types.h"
+#include "url/gurl.h"
 
 #if BUILDFLAG(IS_APPLE)
 #include "base/apple/backup_util.h"
@@ -90,7 +89,8 @@ HistoryDatabase::HistoryDatabase(
 #endif  // !BUILDFLAG(IS_FUCHSIA)
               ,
           /*tag=*/"History"),
-      history_metadata_db_(&db_, &meta_table_) {
+      history_metadata_db_(&db_, &meta_table_),
+      journeys_metadata_db_(&db_, &meta_table_) {
 }
 
 HistoryDatabase::~HistoryDatabase() = default;
@@ -161,7 +161,8 @@ sql::InitStatus HistoryDatabase::Init(const base::FilePath& history_name) {
   if (!CreateURLTable(false) || !InitVisitTable() ||
       !InitKeywordSearchTermsTable() || !InitDownloadTable() ||
       !InitSegmentTables() || !InitVisitAnnotationsTables() ||
-      !CreateVisitedLinkTable() || !history_metadata_db_.Init()) {
+      !CreateVisitedLinkTable() || !history_metadata_db_.Init() ||
+      !InitJourneysTables() || !journeys_metadata_db_.Init()) {
     return LogInitFailure(InitStep::CREATE_TABLES);
   }
   CreateMainURLIndex();
@@ -447,6 +448,13 @@ bool HistoryDatabase::RecreateAllTablesButURL() {
   if (!InitVisitAnnotationsTables())
     return false;
 
+  if (!DropJourneysTables()) {
+    return false;
+  }
+  if (!InitJourneysTables()) {
+    return false;
+  }
+
   return true;
 }
 
@@ -546,6 +554,11 @@ void HistoryDatabase::SetKnownToSyncVisitsExist(bool exist) {
 
 HistorySyncMetadataDatabase* HistoryDatabase::GetHistoryMetadataDB() {
   return &history_metadata_db_;
+}
+
+journeys::JourneysSyncMetadataDatabase*
+HistoryDatabase::GetJourneysMetadataDB() {
+  return &journeys_metadata_db_;
 }
 
 sql::Database& HistoryDatabase::GetDBForTesting() {

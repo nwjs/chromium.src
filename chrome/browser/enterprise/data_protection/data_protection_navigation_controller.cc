@@ -16,8 +16,13 @@
 #include "components/enterprise/connectors/core/reporting_constants.h"
 #include "components/enterprise/data_protection/utils.h"
 #include "components/tabs/public/tab_interface.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_observer.h"
+
+#if !BUILDFLAG(IS_ANDROID)
+#include "chrome/browser/ui/tabs/public/tab_features.h"  // nogncheck
+#endif
 
 #if BUILDFLAG(ENTERPRISE_WATERMARK)
 #include "components/enterprise/watermarking/content/watermark_text_container.h"
@@ -25,6 +30,35 @@
 #endif  // BUILDFLAG(ENTERPRISE_WATERMARK)
 
 namespace enterprise_data_protection {
+
+// static
+DataProtectionNavigationController*
+DataProtectionNavigationController::FromWebContents(
+    content::WebContents* web_contents) {
+  if (!web_contents) {
+    return nullptr;
+  }
+#if !BUILDFLAG(IS_ANDROID)
+  tabs::TabInterface* tab =
+      tabs::TabInterface::MaybeGetFromContents(web_contents);
+  if (!tab || !tab->GetTabFeatures()) {
+    return nullptr;
+  }
+  return tab->GetTabFeatures()->data_protection_controller();
+#else
+  return nullptr;
+#endif
+}
+
+bool IsScreenShareBlocked(content::WebContents* web_contents) {
+#if BUILDFLAG(ENTERPRISE_SCREENSHOT_PROTECTION)
+  if (auto* controller =
+          DataProtectionNavigationController::FromWebContents(web_contents)) {
+    return !controller->screenshot_allowed();
+  }
+#endif  // BUILDFLAG(ENTERPRISE_SCREENSHOT_PROTECTION)
+  return false;
+}
 
 DataProtectionNavigationController::DataProtectionNavigationController(
     tabs::TabInterface* tab_interface)

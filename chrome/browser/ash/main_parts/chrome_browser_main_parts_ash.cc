@@ -66,9 +66,12 @@
 #include "chrome/browser/ash/boot_times_recorder/boot_times_recorder.h"
 #include "chrome/browser/ash/browser_delegate/browser_controller_impl.h"
 #include "chrome/browser/ash/browser_delegate/keyed_service_provider/desk_sync_service_provider_impl.h"
+#include "chrome/browser/ash/browser_delegate/keyed_service_provider/favicon_service_provider_impl.h"
+#include "chrome/browser/ash/browser_delegate/keyed_service_provider/feature_engagement_tracker_provider_impl.h"
 #include "chrome/browser/ash/browser_delegate/keyed_service_provider/identity_manager_provider_impl.h"
 #include "chrome/browser/ash/browser_delegate/keyed_service_provider/sync_service_provider_impl.h"
 #include "chrome/browser/ash/browser_delegate/keyed_service_provider/template_url_service_provider_impl.h"
+#include "chrome/browser/ash/browser_delegate/keyed_service_provider/wifi_configuration_sync_service_provider_impl.h"
 #include "chrome/browser/ash/camera/camera_general_survey_handler.h"
 #include "chrome/browser/ash/certs/system_token_cert_db_initializer.h"
 #include "chrome/browser/ash/child_accounts/parent_access_code/parent_access_service.h"
@@ -192,6 +195,7 @@
 #include "chrome/browser/ui/ash/keyboard/chrome_keyboard_controller_client.h"
 #include "chrome/browser/ui/ash/login/user_adding_screen.h"
 #include "chrome/browser/ui/ash/session/session_controller_client_impl.h"
+#include "chrome/browser/ui/webui/ash/config/ash_web_ui_config_manager.h"
 #include "chrome/browser/ui/webui/ash/emoji/emoji_ui.h"
 #include "chrome/common/chrome_constants.h"
 #include "chrome/common/chrome_paths.h"
@@ -294,6 +298,7 @@
 #include "net/base/network_change_notifier_passive.h"
 #include "printing/backend/print_backend.h"
 #include "services/audio/public/cpp/sounds/global_sounds_manager.h"
+#include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "third_party/cros_system_api/dbus/service_constants.h"
 #include "third_party/cros_system_api/dbus/vm_launch/dbus-constants.h"
 #include "third_party/cros_system_api/dbus/vm_wl/dbus-constants.h"
@@ -958,10 +963,15 @@ void ChromeBrowserMainPartsAsh::PreProfileInit() {
   // List of instances providing KeyedService related services.
   app_service_registry_ = std::make_unique<apps::AppServiceRegistry>();
   desk_sync_service_provider_ = std::make_unique<DeskSyncServiceProviderImpl>();
+  favicon_service_provider_ = std::make_unique<FaviconServiceProviderImpl>();
+  feature_engagement_tracker_provider_ =
+      std::make_unique<FeatureEngagementTrackerProviderImpl>();
   identity_manager_provider_ = std::make_unique<IdentityManagerProviderImpl>();
   sync_service_provider_ = std::make_unique<SyncServiceProviderImpl>();
   template_url_service_provider_ =
       std::make_unique<TemplateURLServiceProviderImpl>();
+  wifi_configuration_sync_service_provider_ =
+      std::make_unique<WifiConfigurationSyncServiceProviderImpl>();
 
   token_handle_store_factory_ = std::make_unique<TokenHandleStoreFactory>(
       g_browser_process->local_state());
@@ -992,7 +1002,10 @@ void ChromeBrowserMainPartsAsh::PreProfileInit() {
       g_browser_process->platform_part()->browser_policy_connector_ash(),
       SessionManagerClient::Get(), session_termination_manager_.get(),
       session_manager::SessionManager::Get(), user_manager::UserManager::Get(),
-      UserAddingScreen::Get());
+      UserAddingScreen::Get(),
+      g_browser_process->platform_part()
+          ->multi_user_sign_in_policy_controller(),
+      g_browser_process->platform_part()->GetSystemClock());
 
   // This forces the ProfileManager to be created and register for the
   // notification it needs to track the logged in user.
@@ -1224,6 +1237,11 @@ void ChromeBrowserMainPartsAsh::PreProfileInit() {
   local_printer_ = std::make_unique<LocalPrinterImpl>(
       g_browser_process->GetFeatures()->application_locale_storage());
 #endif
+
+  ash_web_ui_config_manager_ = std::make_unique<AshWebUIConfigManager>(
+      g_browser_process->local_state(),
+      g_browser_process->GetFeatures()->application_locale_storage(),
+      g_browser_process->platform_part()->browser_policy_connector_ash());
 }
 
 class GuestLanguageSetCallbackData {
@@ -1830,6 +1848,8 @@ void ChromeBrowserMainPartsAsh::PostMainMessageLoopRun() {
   // NOTE: Closes ash and destroys `Shell`.
   ChromeBrowserMainPartsLinux::PostMainMessageLoopRun();
 
+  ash_web_ui_config_manager_.reset();
+
 #if BUILDFLAG(USE_CUPS)
   local_printer_.reset();
 #endif
@@ -1877,9 +1897,12 @@ void ChromeBrowserMainPartsAsh::PostMainMessageLoopRun() {
 
   bluetooth_log_controller_.reset();
 
+  wifi_configuration_sync_service_provider_.reset();
   template_url_service_provider_.reset();
   sync_service_provider_.reset();
   identity_manager_provider_.reset();
+  feature_engagement_tracker_provider_.reset();
+  favicon_service_provider_.reset();
   desk_sync_service_provider_.reset();
   app_service_registry_.reset();
   services_customization_document_.reset();

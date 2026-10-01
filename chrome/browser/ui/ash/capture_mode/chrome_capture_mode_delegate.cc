@@ -57,13 +57,13 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/screen_ai/public/optical_character_recognizer.h"
-#include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/ui/ash/capture_mode/search_results_view.h"
 #include "chrome/browser/ui/ash/system_web_apps/system_web_app_ui_utils.h"
 #include "chrome/browser/ui/webui/ash/cloud_upload/cloud_upload_util.h"
 #include "chromeos/ash/components/browser_context_helper/browser_context_helper.h"
 #include "chromeos/ash/components/login/login_state/login_state.h"
 #include "chromeos/ash/components/search_engines/template_url_service_provider.h"
+#include "chromeos/ash/components/signin/identity_manager_provider.h"
 #include "chromeos/ash/experiences/screenshot_area/screenshot_area.h"
 #include "chromeos/ash/services/recording/public/mojom/recording_service.mojom.h"
 #include "components/drive/file_errors.h"
@@ -89,6 +89,7 @@
 #include "services/network/public/cpp/header_util.h"
 #include "services/network/public/cpp/network_connection_tracker.h"
 #include "services/network/public/cpp/resource_request.h"
+#include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "services/network/public/cpp/simple_url_loader.h"
 #include "services/network/public/mojom/url_response_head.mojom.h"
 #include "services/screen_ai/public/mojom/screen_ai_service.mojom.h"
@@ -795,6 +796,7 @@ void ChromeCaptureModeDelegate::DetectTextInImage(
 void ChromeCaptureModeDelegate::SendLensWebRegionSearch(
     const gfx::Image& image,
     const bool is_standalone_session,
+    const AccountId& account_id,
     ash::OnSearchUrlFetchedCallback search_callback,
     ash::OnTextDetectionComplete text_callback,
     ash::OnLensErrorCallback error_callback) {
@@ -805,7 +807,10 @@ void ChromeCaptureModeDelegate::SendLensWebRegionSearch(
   // Increment the `lens_request_id_` to represent a new request id.
   ++lens_request_id_;
 
+  lens_request_account_id_ = account_id;
+
   GetPrimaryAccountAccessToken(
+      lens_request_account_id_,
       base::BindRepeating(
           &ChromeCaptureModeDelegate::OnAccessTokenAvailableForImageSearch,
           weak_ptr_factory_.GetWeakPtr(), image, is_standalone_session,
@@ -911,16 +916,11 @@ void ChromeCaptureModeDelegate::ResetOcr() {
 }
 
 void ChromeCaptureModeDelegate::GetPrimaryAccountAccessToken(
+    const AccountId& account_id,
     base::RepeatingCallback<void(const std::string& access_token)> callback,
     AccessTokenPurpose purpose) {
-  const user_manager::User* const active_user =
-      user_manager::UserManager::Get()->GetActiveUser();
-  CHECK(active_user);
-
-  Profile* profile = Profile::FromBrowserContext(
-      ash::BrowserContextHelper::Get()->GetBrowserContextByUser(active_user));
   signin::IdentityManager* identity_manager =
-      IdentityManagerFactory::GetForProfile(profile);
+      ash::IdentityManagerProvider::Get().Find(account_id);
 
   if (!identity_manager ||
       !identity_manager->HasPrimaryAccount(signin::ConsentLevel::kSignin)) {
@@ -1214,6 +1214,7 @@ void ChromeCaptureModeDelegate::OnDispatchCompleteForImageSearch(
   // Get a new access token, as they are short lived and we don't want to risk
   // the original expiring.
   GetPrimaryAccountAccessToken(
+      lens_request_account_id_,
       base::BindRepeating(
           &ChromeCaptureModeDelegate::OnAccessTokenAvailableForCopyText,
           weak_ptr_factory_.GetWeakPtr(), vsr_id, request_id),

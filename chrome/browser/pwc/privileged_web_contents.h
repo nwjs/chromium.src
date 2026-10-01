@@ -7,18 +7,34 @@
 
 #include <memory>
 
+#include "base/memory/raw_ptr.h"
 #include "chrome/browser/pwc/pwc_component_policy.h"
+#include "content/public/browser/keyboard_event_processing_result.h"
 #include "content/public/browser/preloading.h"
 #include "content/public/browser/preloading_trigger_type.h"
 #include "content/public/browser/web_contents_delegate.h"
 #include "content/public/browser/web_contents_observer.h"
+#include "third_party/blink/public/mojom/choosers/file_chooser.mojom-forward.h"
+#include "third_party/blink/public/mojom/mediastream/media_stream.mojom-shared.h"
+#include "third_party/blink/public/mojom/page/draggable_region.mojom-forward.h"
 #include "ui/base/unowned_user_data/unowned_user_data_host.h"
 
 namespace content {
 class BrowserContext;
+struct DropData;
+class FileSelectListener;
 class NavigationHandle;
+class RenderFrameHost;
 class WebContents;
 }  // namespace content
+
+namespace input {
+struct NativeWebKeyboardEvent;
+}  // namespace input
+
+namespace url {
+class Origin;
+}  // namespace url
 
 namespace pwc {
 
@@ -80,6 +96,46 @@ class PrivilegedWebContents : public content::WebContentsDelegate,
     return unowned_user_data_host_;
   }
 
+  // Optional embedder delegate for forwarding embedder-specific
+  // WebContentsDelegate callbacks (e.g. keyboard events, zoom changes, and
+  // media access permissions) to UI embedders.
+  // The registered delegate must either outlive `PrivilegedWebContents` or call
+  // `SetEmbedderDelegate(nullptr)` prior to its destruction.
+  class EmbedderDelegate {
+   public:
+    virtual ~EmbedderDelegate() = default;
+    virtual content::KeyboardEventProcessingResult PreHandleKeyboardEvent(
+        content::WebContents* source,
+        const input::NativeWebKeyboardEvent& event);
+    virtual bool HandleKeyboardEvent(
+        content::WebContents* source,
+        const input::NativeWebKeyboardEvent& event);
+    virtual void ContentsZoomChange(bool zoom_in);
+    virtual void RequestMediaAccessPermission(
+        content::WebContents* web_contents,
+        const content::MediaStreamRequest& request,
+        content::MediaResponseCallback callback);
+    virtual bool CheckMediaAccessPermission(
+        content::RenderFrameHost* render_frame_host,
+        const url::Origin& security_origin,
+        blink::mojom::MediaStreamType type);
+    virtual void RunFileChooser(
+        content::RenderFrameHost* render_frame_host,
+        scoped_refptr<content::FileSelectListener> listener,
+        const blink::mojom::FileChooserParams& params);
+    virtual bool CanDragEnter(content::WebContents* source,
+                              const content::DropData& data,
+                              blink::DragOperationsMask operations_allowed);
+    virtual void DraggableRegionsChanged(
+        const std::vector<blink::mojom::DraggableRegionPtr>& regions,
+        content::WebContents* contents);
+  };
+
+  void SetEmbedderDelegate(EmbedderDelegate* delegate) {
+    embedder_delegate_ = delegate;
+  }
+  EmbedderDelegate* embedder_delegate() const { return embedder_delegate_; }
+
   // content::WebContentsDelegate:
   // Privileged content never prerenders: a prerendered page is activated into
   // the primary main frame without running navigation throttles, which would
@@ -100,6 +156,28 @@ class PrivilegedWebContents : public content::WebContentsDelegate,
       const blink::mojom::WindowFeatures& window_features,
       bool user_gesture,
       bool* was_blocked) override;
+  content::KeyboardEventProcessingResult PreHandleKeyboardEvent(
+      content::WebContents* source,
+      const input::NativeWebKeyboardEvent& event) override;
+  bool HandleKeyboardEvent(content::WebContents* source,
+                           const input::NativeWebKeyboardEvent& event) override;
+  void ContentsZoomChange(bool zoom_in) override;
+  void RequestMediaAccessPermission(
+      content::WebContents* web_contents,
+      const content::MediaStreamRequest& request,
+      content::MediaResponseCallback callback) override;
+  bool CheckMediaAccessPermission(content::RenderFrameHost* render_frame_host,
+                                  const url::Origin& security_origin,
+                                  blink::mojom::MediaStreamType type) override;
+  void RunFileChooser(content::RenderFrameHost* render_frame_host,
+                      scoped_refptr<content::FileSelectListener> listener,
+                      const blink::mojom::FileChooserParams& params) override;
+  bool CanDragEnter(content::WebContents* source,
+                    const content::DropData& data,
+                    blink::DragOperationsMask operations_allowed) override;
+  void DraggableRegionsChanged(
+      const std::vector<blink::mojom::DraggableRegionPtr>& regions,
+      content::WebContents* contents) override;
 
   // content::WebContentsObserver:
   // Disables the back-forward cache for every committed document, so a
@@ -113,10 +191,14 @@ class PrivilegedWebContents : public content::WebContentsDelegate,
                         content::BrowserContext* browser_context,
                         std::unique_ptr<PwcPolicyDelegate> policy_delegate);
 
+  bool IsPrimaryMainFrame(content::RenderFrameHost* render_frame_host) const;
+  bool IsPrimaryMainFrame(int render_process_id, int render_frame_id) const;
+
   const PwcComponentPolicy policy_;
   std::unique_ptr<content::WebContents> web_contents_;
   std::unique_ptr<PwcApiBinder> bridge_;
   ui::UnownedUserDataHost unowned_user_data_host_;
+  raw_ptr<EmbedderDelegate> embedder_delegate_ = nullptr;
 };
 
 }  // namespace pwc

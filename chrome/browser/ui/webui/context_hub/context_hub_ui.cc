@@ -43,8 +43,14 @@ ContextHubUI::ContextHubUI(content::WebUI* web_ui)
   source->AddBoolean(
       "kAutoTodos",
       base::FeatureList::IsEnabled(browser::context_hub::mojom::kAutoTodos));
+  source->AddBoolean(
+      "kSmartSearch",
+      base::FeatureList::IsEnabled(browser::context_hub::mojom::kSmartSearch));
   source->AddInteger("kMaxTabGroupChatHistoryTurns",
                      context_hub::features::kMaxTabGroupChatHistoryTurns.Get());
+  source->AddInteger(
+      "kMaxMemoryBankChatHistoryTurns",
+      context_hub::features::kMaxMemoryBankChatHistoryTurns.Get());
 
 #if !BUILDFLAG(IS_ANDROID)
   content::URLDataSource::Add(

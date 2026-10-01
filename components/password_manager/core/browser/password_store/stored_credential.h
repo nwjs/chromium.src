@@ -7,11 +7,12 @@
 
 #include <optional>
 #include <string>
-#include <variant>
 #include <vector>
 
 #include "base/containers/flat_map.h"
 #include "base/time/time.h"
+#include "base/types/expected.h"
+#include "components/affiliations/core/browser/match_type.h"
 #include "components/autofill/core/common/form_data.h"
 #include "components/password_manager/core/browser/password_form.h"
 #include "components/password_manager/core/browser/password_store/password_store_backend_error.h"
@@ -68,7 +69,7 @@ struct StoredCredential {
   std::string app_display_name;
   GURL app_icon_url;
   std::string previously_associated_sync_account_email;
-  std::optional<PasswordForm::MatchType> match_type;
+  std::optional<affiliations::MatchType> match_type;
   bool skip_zero_click = false;
 
   PasswordForm::GenerationUploadStatus generation_upload_status =
@@ -126,11 +127,8 @@ inline auto StoredCredentialUniqueKey(const StoredCredential& f) {
 bool AreStoredCredentialUniqueKeysEqual(const StoredCredential& left,
                                         const StoredCredential& right);
 
-using BackendLoginsResult = std::vector<StoredCredential>;
-using BackendLoginsResultOrError =
-    std::variant<BackendLoginsResult, PasswordStoreBackendError>;
-using BackendLoginsOrErrorReply =
-    base::OnceCallback<void(BackendLoginsResultOrError)>;
+using BackendLoginsOrErrorReply = base::OnceCallback<void(
+    base::expected<std::vector<StoredCredential>, PasswordStoreBackendError>)>;
 
 }  // namespace password_manager
 

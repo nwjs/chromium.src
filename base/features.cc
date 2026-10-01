@@ -8,6 +8,7 @@
 
 #include "base/debug/stack_trace.h"
 #include "base/files/file_path.h"
+#include "base/message_loop/message_pump_wakeup_counter.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/synchronization/lock.h"
 #include "base/task/sequence_manager/sequence_manager_impl.h"
@@ -41,16 +42,6 @@
 #endif
 
 namespace base::features {
-
-namespace {
-
-// An atomic is used because this can be queried racily by a thread checking if
-// an optimization is enabled and a thread initializing this from the
-// FeatureList. All operations use std::memory_order_relaxed because there are
-// no dependent memory operations.
-std::atomic_bool g_is_reduce_ppms_enabled{false};
-
-}  // namespace
 
 // Alphabetical:
 
@@ -93,8 +84,6 @@ BASE_FEATURE_PARAM(std::string,
                    &kRecordLockAcquisitionTime,
                    "RecordLockAcquisitionTimeAllowedThreads",
                    "CrBrowserMain,CrRendererMain");
-
-BASE_FEATURE(kReducePPMs, FEATURE_ENABLED_BY_DEFAULT);
 
 // Apply base::ScopedBestEffortExecutionFence to registered task queues as well
 // as the thread pool.
@@ -240,13 +229,7 @@ BASE_FEATURE_PARAM(int, kSpinCountArm, &kBaseLockTrySpin, "spin_count_arm", 0);
 #endif  // defined(ARCH_CPU_X86_FAMILY)
 #endif  // BUILDFLAG(IS_POSIX)
 
-bool IsReducePPMsEnabled() {
-  return g_is_reduce_ppms_enabled.load(std::memory_order_relaxed);
-}
-
 void Init() {
-  g_is_reduce_ppms_enabled.store(FeatureList::IsEnabled(kReducePPMs),
-                                 std::memory_order_relaxed);
   strings_internal::InitializeUtfStringConversionsFeatures();
 #if BUILDFLAG(IS_POSIX)
   base::Lock::InitializeFeatures();
@@ -258,6 +241,7 @@ void Init() {
 
   debug::StackTrace::InitializeFeatures();
   FilePath::InitializeFeatures();
+  MessagePumpWakeupCounter::InitializeFeatures();
 
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_ANDROID)
   MessagePumpEpoll::InitializeFeatures();

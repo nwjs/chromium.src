@@ -39,7 +39,6 @@
 <translation id="1330562121671411446">ກວດຫາພາສາ</translation>
 <translation id="1342274909142618978">ລຶບຂໍ້ມູນອອກຈາກ Chromium (<ph name="URL" />) ນຳ</translation>
 <translation id="1345251407431278948">ປັກໝຸດແລ້ວ! ທ່ານສາມາດເຂົ້າເຖິງການຊອກຫາຮູບໄດ້ອີກຄັ້ງຈາກປຸ່ມໃໝ່ໃນແຖບເຄື່ອງມື</translation>
-<translation id="1356661055722410047">ໃໝ່! ທ່ານສາມາດແປໄດ້ທັງຂໍ້ຄວາມ ແລະ ຮູບພາບຢູ່ໜ້າຈໍຂອງທ່ານ</translation>
 <translation id="1383876407941801731">ຊອກຫາ</translation>
 <translation id="1388276868779258475">ໃຊ້ແອັບ Chromium ເພື່ອທ່ອງເວັບໄດ້ທຸກບ່ອນທຸກເວລາ</translation>
 <translation id="141901961143729572">ແບ່ງປັນຄວາມຄິດຂອງທ່ານ</translation>
@@ -71,6 +70,7 @@
 <translation id="1793486931176048546">ຄລິກ <ph name="BEGIN_BOLD" />ແມ່ນ<ph name="END_BOLD" /> ໃນການແຈ້ງເຕືອນ Windows ເພື່ອປັກໝຸດ Chromium ໄວ້ຢູ່ແຖບໜ້າວຽກຂອງທ່ານເພື່ອການເຂົ້າເຖິງດ່ວນ.</translation>
 <translation id="1808667845054772817">ຕິດຕັ້ງ Chromium ຄືນໃໝ່</translation>
 <translation id="1820835682567584003">Chromium ກຳລັງພະຍາຍາມໃຊ້ <ph name="AUTHENTICATION_PURPOSE" /></translation>
+<translation id="1828328511398219809"><ph name="EXISTING_USER" /> ເຂົ້າສູ່ລະບົບຢູ່ແລ້ວ. ເພື່ອແຍກການທ່ອງເວັບຂອງທ່ານໄວ້ຕ່າງຫາກ, ໃຫ້ເຂົ້າສູ່ລະບົບ Chromium ໃນໂປຣໄຟລ໌ຂອງທ່ານເອງດ້ວຍ <ph name="USER_EMAIL_ADDRESS" />. ນອກຈາກນີ້, ທ່ານຍັງຈະໄດ້ຮັບສ່ວນຂະຫຍາຍ ແລະ ຂໍ້ມູນອື່ນໆຂອງທ່ານຈາກ <ph name="DEVICE" /> ນຳ.</translation>
 <translation id="183031085822326697">ເທື່ອຕໍ່ໄປທີ່ທ່ານເປີດ Chromium ຢູ່ <ph name="DEVICE_TYPE" /> ຂອງທ່ານ, ທ່ານຈະເຫັນຂໍ້ຄວາມແຈ້ງໃຫ້ໃຊ້ຕົວຈັດການລະຫັດຜ່ານ Google.</translation>
 <translation id="1838374766361614909">ລຶບ​ການ​ຊອກ​ຫາ</translation>
 <translation id="18552579716432081">ເພື່ອລຶບຂໍ້ມູນການທ່ອງເວັບໃນອຸປະກອນນີ້ເທົ່ານັ້ນ, ແຕ່ຍັງຮັກສາຂໍ້ມູນດັ່ງກ່າວໄວ້ໃນບັນຊີ Google ຂອງທ່ານ, ໃຫ້ <ph name="BEGIN_LINK" />ອອກຈາກລະບົບ Chromium<ph name="END_LINK" />.</translation>
@@ -149,6 +149,7 @@
 <translation id="2575822587468774919">ເລືອກຫຍັງກໍໄດ້ເພື່ອຊອກຫາດ້ວຍການຊອກຫາຮູບ</translation>
 <translation id="2576118232315942160">ເພື່ອຮັບລະຫັດຜ່ານ ແລະ ຂໍ້ມູນອື່ນໆຂອງທ່ານໃນອຸປະກອນທຸກເຄື່ອງຂອງທ່ານ, ໃຫ້ເຂົ້າສູ່ລະບົບ Chromium</translation>
 <translation id="2587622539943955767">ສະແກນລະຫັດ QR ດ້ວຍໂທລະສັບຂອງທ່ານເພື່ອດາວໂຫຼດ Chromium ແລະ ເຂົ້າສູ່ລະບົບບັນຊີ Google ຂອງທ່ານ.</translation>
+<translation id="2587885422541096572">ເພື່ອຊອກຫາດ້ວຍ Chromium.</translation>
 <translation id="2592940277904433508">ສືບຕໍ່ນຳໃຊ້ Chromium</translation>
 <translation id="259935314519650377">ການແຄສຕົວຕິດຕັ້ງທີ່ດາວໂຫຼດໄວ້ບໍ່ສຳເລັດ. ຂໍ້ຜິດພາດ: <ph name="UNPACK_CACHING_ERROR_CODE" />.</translation>
 <translation id="2620436844016719705">ລະ​ບົບ</translation>
@@ -193,6 +194,7 @@
 <translation id="3038232873781883849">ກຳ​ລັງ​ລໍ​ຖ້າ​ຕິດ​ຕັ້ງ...</translation>
 <translation id="3045032126857188731">ພາສາທີ່ແປ: <ph name="LANGUAGE" /></translation>
 <translation id="3047590466164881923">ປິດກ່ອງໂຕ້ຕອບຄຳຕິຊົມ</translation>
+<translation id="3064717200427679322"><ph name="EXISTING_USER" /> ເຂົ້າສູ່ລະບົບຢູ່ແລ້ວ. ເພື່ອແຍກການທ່ອງເວັບຂອງທ່ານໄວ້ຕ່າງຫາກ, ໃຫ້ເຂົ້າສູ່ລະບົບ Chromium ໃນໂປຣໄຟລ໌ຂອງທ່ານເອງດ້ວຍ <ph name="USER_EMAIL_ADDRESS" />. ນອກຈາກນີ້, ທ່ານຍັງຈະໄດ້ຮັບລາຍຊື່ການອ່ານ ແລະ ຂໍ້ມູນອື່ນໆຂອງທ່ານຈາກ <ph name="DEVICE" /> ນຳ.</translation>
 <translation id="3068187312562070417">ໂປຣໄຟລ໌ Chromium ອື່ນ</translation>
 <translation id="3068290154869370196">ສ່ວນຂະຫຍາຍແມ່ນສ່ວນເສີມທີ່ຊ່ວຍໃຫ້ທ່ານປັບແຕ່ງ Chromium ໄດ້. ຕັ້ງແຕ່ການຈັດລະບຽບໄປຈົນຮອດການເຮັດໃຫ້ໜ້າວຽກປະຈຳວັນງ່າຍຂຶ້ນ, ສ່ວນຂະຫຍາຍຊ່ວຍໃຫ້ທ່ານປັບແຕ່ງ Chromium ໃຫ້ເປັນຂອງທ່ານເອງໄດ້.</translation>
 <translation id="3068515742935458733">ຊ່ວຍເຮັດໃຫ້ Chromium ດີຂຶ້ນໂດຍການສົ່ງລາຍງານການ​ຂັດຂ້ອງ ແລະ  <ph name="UMA_LINK" />  ຫາ Google.</translation>
@@ -294,6 +296,7 @@
 <translation id="4147856324248078748">ປັບແຕ່ງ Chromium ຂອງທ່ານ</translation>
 <translation id="4148957013307229264">ກໍາລັງ​ຕິດ​ຕັ້ງ...</translation>
 <translation id="419998258129752635"><ph name="PAGE_TITLE" /> - ການເຂົ້າສູ່ລະບົບເຄືອຂ່າຍ - Chromium</translation>
+<translation id="4208652172235621272"><ph name="EXISTING_USER" /> ເຂົ້າສູ່ລະບົບຢູ່ແລ້ວ. ເພື່ອແຍກການທ່ອງເວັບຂອງທ່ານໄວ້ຕ່າງຫາກ, ໃຫ້ເຂົ້າສູ່ລະບົບ Chromium ໃນໂປຣໄຟລ໌ຂອງທ່ານເອງດ້ວຍ <ph name="USER_EMAIL_ADDRESS" />. ນອກຈາກນີ້, ທ່ານຍັງຈະໄດ້ຮັບລາຍຊື່ການອ່ານ ແລະ ຂໍ້ມູນອື່ນໆຂອງທ່ານໃນອຸປະກອນທຸກເຄື່ອງຂອງທ່ານນຳ.</translation>
 <translation id="421369550622382712">ຄົ້ນພົບແອັບ, ເກມ, ສ່ວນຂະຫຍາຍ ແລະ ຮູບແບບສີສັນສຳລັບ Chromium.</translation>
 <translation id="4217080900579554343">ເພື່ອຮັບສ່ວນຂະຫຍາຍນີ້ ແລະ ອື່ນໆຢູ່ຄອມພິວເຕີທັງໝົດຂອງທ່ານ, ໃຫ້ເຂົ້າສູ່ລະບົບ Chromium</translation>
 <translation id="4217972271355023382">ເພື່ອທ່ອງໂລກອອນລາຍຢ່າງປອດໄພຍິ່ງຂຶ້ນດ້ວຍຕົວເລືອກຂອງຜູ້ປົກຄອງຂອງທ່ານ, ໃຫ້ປ່ຽນໄປໃຊ້ໂປຣໄຟລ໌ Chromium ຂອງທ່ານທີ່ເຂົ້າສູ່ລະບົບໃນຖານະ <ph name="USER_EMAIL_ADDRESS" /> ຢູ່ກ່ອນແລ້ວ</translation>
@@ -308,7 +311,6 @@
 <translation id="4298125729853015961">ສົ່ງອອກລະຫັດຜ່ານຈາກ Chromium</translation>
 <translation id="4304713468139749426">ຕົວຈັດການລະຫັດຜ່ານ</translation>
 <translation id="4334241893986177674">ຊອກຫາຮູບໜ້າຈໍນີ້</translation>
-<translation id="4368547723231502008">ຊອກຫາ ແລະ ຖາມຄຳຖາມໄດ້ຈາກທຸກບ່ອນ, ເຖິງແມ່ນວ່າຈະຫຍໍ້ Chromium ຢູ່</translation>
 <translation id="4384331407722351213">ເປີດໃຊ້ Chromium ເມື່ອ Windows ເລີ່ມເຮັດວຽກ</translation>
 <translation id="4400772909124543403">ບໍ່ມີອັບເດດພ້ອມນຳໃຊ້</translation>
 <translation id="4407044323746248786">ຢືນຢັນການອອກຈາກ Chromium ບໍ?</translation>
@@ -339,6 +341,7 @@
 <translation id="4621240073146040695">ອັບເດດໃກ້ແລ້ວໆ! ກະລຸນາປິດແລ້ວເປີດ Chromium ຄືນໃໝ່ເພື່ອສິ້ນສຸດຂັ້ນຕອນການອັບເດດ.</translation>
 <translation id="4625064703209785397">ເພີ່ມຄວາມໄວເວັບໄຊດ້ວຍເຄື່ອງຈັກ V8 ຂອງ Chromium ແຕ່ເຮັດໃຫ້ Chromium ມີຄວາມທົນທານຕໍ່ການໂຈມຕີໜ້ອຍລົງເລັກນ້ອຍ</translation>
 <translation id="4626321472657185181">ເປີດການຊອກຫາດ້ວຍ Chromium</translation>
+<translation id="4654639495249754755">ໂປຣໄຟລ໌ Chromium</translation>
 <translation id="4665829708273112819">ຄຳເຕືອນ: Chromium ບໍ່ສາມາດປ້ອງກັນສ່ວນຂະຫຍາຍບໍ່ໃຫ້ບັນທຶກປະຫວັດການທ່ອງເວັບຂອງທ່ານໄດ້. ເພື່ອປິດການນຳໃຊ້ສ່ວນຂະຫຍາຍນີ້ໃນໂໝດທີ່ບໍ່ເປີດເຜີຍຕົວຕົນ, ກະລຸນາບໍ່ເລືອກຕົວເລືອກນີ້.</translation>
 <translation id="4673151026126227699">ຫາກທ່ານແບ່ງປັນລາຍງານການນຳໃຊ້ Chromium ນຳ, ລາຍງານເຫຼົ່ານັ້ນຈະຮວມເອົາ URL ທີ່ທ່ານເຂົ້າເບິ່ງໄວ້ພ້ອມ</translation>
 <translation id="4673710618874938871">ເຂົ້າສູ່ລະບົບໃນຊື່ <ph name="USER_NAME" />, ສະມາຊິກ. ເປີດເມນູບັນຊີ</translation>
@@ -394,6 +397,7 @@
 <translation id="5382964351116519680">ເປີດການຊອກຫາດ້ວຍ Chromium</translation>
 <translation id="5383439451358640070">ສຶກສາວ່າເປັນຫຍັງ Chromium ຈຶ່ງບລັອກໄຟລ໌ບາງລາຍການ</translation>
 <translation id="5386450000063123300">ກຳລັງອັບເດດ Chromium (<ph name="PROGRESS_PERCENT" />)</translation>
+<translation id="5387586787134731891"><ph name="EXISTING_USER" /> ເຂົ້າສູ່ລະບົບຢູ່ແລ້ວ. ເພື່ອແຍກການທ່ອງເວັບຂອງທ່ານໄວ້ຕ່າງຫາກ, ໃຫ້ເຂົ້າສູ່ລະບົບ Chromium ໃນໂປຣໄຟລ໌ຂອງທ່ານເອງດ້ວຍ <ph name="USER_EMAIL_ADDRESS" />. ນອກຈາກນີ້, ທ່ານຍັງຈະໄດ້ຮັບສ່ວນຂະຫຍາຍ ແລະ ຂໍ້ມູນອື່ນໆຂອງທ່ານໃນອຸປະກອນທຸກເຄື່ອງຂອງທ່ານນຳ.</translation>
 <translation id="538767207339317086">ອະນຸຍາດການເຂົ້າສູ່ລະບົບ Chromium</translation>
 <translation id="5405650547142096840">ເອົາ​ອອກ​ຈາກ Chromium</translation>
 <translation id="5424544524441439284">ຫຼຸດປະສິດທິພາບ ແຕ່ເຮັດໃຫ້ Chromium ທົນທານຕໍ່ການໂຈມຕີໄດ້ຫຼາຍຂຶ້ນ</translation>
@@ -470,6 +474,7 @@
 <translation id="6174920971222007286">ໄຟລ໌ນີ້ອາດເປັນອັນຕະລາຍ<ph name="LINE_BREAK" />Chromium ສາມາດກວດສອບການດາວໂຫຼດນີ້ໃຫ້ທ່ານໄດ້ຫາກທ່ານລະບຸລະຫັດຜ່ານ. ຂໍ້ມູນກ່ຽວກັບໄຟລ໌ຈະຖືກສົ່ງໄປຫາ Google Safe Browsing, ແຕ່ເນື້ອຫາໄຟລ໌ ແລະ ລະຫັດຜ່ານຈະຍັງຢູ່ໃນອຸປະກອນຂອງທ່ານ.</translation>
 <translation id="6182736845697986886">ການຕິດຕັ້ງບໍ່ສຳເລັດເນື່ອງຈາກເຊີບເວີອັບເດດເກີດຂໍ້ຜິດພາດພາຍໃນ.</translation>
 <translation id="6183079672144801177">ກວດໃຫ້ແນ່ໃຈວ່າທ່ານໄດ້ເຂົ້າສູ່ລະບົບ Chrome ໃນ <ph name="TARGET_DEVICE_NAME" /> ຂອງທ່ານ ແລ້ວລອງສົ່ງໃໝ່.</translation>
+<translation id="6192070012454216182">ຊອກຫາ ແລະ ຖາມຄຳຖາມໄດ້ຈາກທຸກບ່ອນ, ເຖິງແມ່ນວ່າຈະຫຍໍ້ Chromium ຢູ່. ອະນຸຍາດໃຫ້ Chromium ເຮັດວຽກໃນພື້ນຫຼັງ.</translation>
 <translation id="6212496753309875659">ຄອມພິວເຕີນີ້ມີ Chromium ລຸ້ນໃໝ່ກ່ວາຢູ່ຮຽບຮ້ອຍແລ້ວ. ຖ້າຊອບແວບໍ່ເຮັດວຽກ, ກະລຸນາຖອນຕິດຕັ້ງ Chromium ແລະລອງໃໝ່ອີກ.</translation>
 <translation id="6219195342503754812">{0,plural, =0{Chromium ຈະເປີດຄືນໃໝ່ດຽວນີ້}=1{Chromium ຈະເປີດຄືນໃໝ່ໃນ 1 ວິນາທີ}other{Chromium ຈະເປີດຄືນໃໝ່ໃນ # ວິນາທີ}}</translation>
 <translation id="6241367896540709610">Chromium ຕ້ອງການການອະນຸຍາດເຂົ້າເຖິງບ່ອນຈັດເກັບຂໍ້ມູນເພື່ອດາວໂຫຼດໄຟລ໌</translation>
@@ -596,6 +601,7 @@
 <translation id="7288567540154601580">ແຖບ ແລະ ສ່ວນຂະຫຍາຍ</translation>
 <translation id="7295544978856094497">{NUM_EXTENSIONS,plural, =1{Chromium ແນະນຳໃຫ້ທ່ານລຶບອອກ}other{Chromium ແນະນຳໃຫ້ທ່ານລຶບອອກ}}</translation>
 <translation id="7296334833518879294">ເພື່ອແບ່ງປັນສຽງຂອງລະບົບ, ໃຫ້ເປີດການຕັ້ງຄ່າລະບົບ ແລະ ອະນຸຍາດ 'ການບັນທຶກສຽງຂອງລະບົບເທົ່ານັ້ນ' ສຳລັບ Chromium. ຈາກນັ້ນທ່ານຈະຕ້ອງຣີສະຕາດ Chromium.</translation>
+<translation id="7299899569525778554">ຊອກຫາຈາກເດັສທັອບ</translation>
 <translation id="731795002583552498">ກໍາລັງອັບເດດ Chromium</translation>
 <translation id="7318036098707714271">ໄຟລ໌ທີ່ມັກຂອງທ່ານເສຍຫາຍ ຫຼືໃຊ້ບໍ່ໄດ້.
 
@@ -651,6 +657,7 @@ Chromium ບໍ່ສາມາດກູ້ການຕັ້ງຄ່າຂອ�
 <translation id="7790626492778995050"><ph name="PAGE_TITLE" /> - Chromium Canary</translation>
 <translation id="7803986347287457849">ເຮັດໃຫ້ຜູ້ທີ່ມີສິດເຂົ້າເຖິງທຣາບຟິກອິນເຕີເນັດຂອງທ່ານເບິ່ງວ່າທ່ານເຂົ້າເບິ່ງເວັບໄຊໃດແດ່ໄດ້ຍາກຂຶ້ນ. Chromium ໃຊ້ການເຊື່ອມຕໍ່ທີ່ປອດໄພເພື່ອຊອກຫາທີ່ຢູ່ IP ຂອງເວັບໄຊໃນ DNS (ລະບົບຊື່ໂດເມນ).</translation>
 <translation id="7810005234485217901">ທ່ານສາມາດປັກໝຸດການຊອກຫາຮູບເພື່ອໃຫ້ເຂົ້າເຖິງໄດ້ງ່າຍ</translation>
+<translation id="7813626943009612327">ຖາມກ່ຽວກັບເນື້ອຫານອກ Chromium ເຊັ່ນ: ແອັບ ຫຼື ໄຟລ໌ອື່ນທີ່ທ່ານເປີດຢູ່</translation>
 <translation id="7828527096541974699">ເລືອກສິ່ງທີ່ຈະແບ່ງປັນກັບ Chromium</translation>
 <translation id="7828947555739565424">ມີໂປຣໄຟລ໌ Chromium ກັບບັນຊີນີ້ຢູ່ອຸປະກອນນີ້ຢູ່ກ່ອນແລ້ວ</translation>
 <translation id="7845233973568007926">ຂໍຂອບໃຈສຳລັບການຕິດຕັ້ງ. ທ່ານຈະຕ້ອງຣີສະຕາດຄອມພິວເຕີຂອງທ່ານກ່ອນການໃຊ້ <ph name="BUNDLE_NAME" />.</translation>
@@ -738,10 +745,10 @@ Chromium ບໍ່ສາມາດກູ້ການຕັ້ງຄ່າຂອ�
 <translation id="856656450041460113">ຊອກຫາລາຍການພາສາ</translation>
 <translation id="8576826849825683917">ຫຼາຍອົງການຈັດການ Chromium</translation>
 <translation id="8586442755830160949">ລິຂະສິດ <ph name="YEAR" /> ຜູ້ຂຽນ Chromium. ສະຫງວນສິດທັງໝົດ.</translation>
-<translation id="8601359445272098721">ໃໝ່! ທ່ານສາມາດແປໄດ້ທັງຂໍ້ຄວາມ ແລະ ຮູບພາບຢູ່ໜ້າຈໍຂອງທ່ານໂດຍເລືອກປຸ່ມ "ແປໜ້າຈໍ"</translation>
 <translation id="8619360774459241877">ກຳລັງເປີດໃຊ້ Chromium...</translation>
 <translation id="8624541899164515475">ການຕັ້ງຄ່າ, ເປີດໃນແຖບໃໝ່.</translation>
 <translation id="8648201657708811153">ບໍ່ສາມາດຕັ້ງ Google Chrome ສຳລັບການທົດສອບເປັນໂປຣແກຣມທ່ອງເວັບເລີ່ມຕົ້ນຂອງທ່ານໄດ້.</translation>
+<translation id="8676101123715131330">ຊອກຫາດ້ວຍ Chromium ໄດ້ຈາກທຸກບ່ອນ</translation>
 <translation id="8697124171261953979">ມັນຍັງຄວບຄຸມວ່າຈະໃຫ້ສະແດງໜ້າໃດຂຶ້ນ ເມື່ອທ່ານເລີ່ມຕົ້ນເປີດ Chromium ຫຼືຄົ້ນຫາຈາກ Omnibox.</translation>
 <translation id="8704119203788522458">ນີ້​ແມ່ນ Chromium ຂອງ​ທ່ານ</translation>
 <translation id="8712637175834984815">ເຂົ້າໃຈແລ້ວ</translation>
@@ -775,6 +782,7 @@ Chromium ບໍ່ສາມາດກູ້ການຕັ້ງຄ່າຂອ�
 <translation id="897581876605952338">ໂລໂກ້ Chromium Enterprise</translation>
 <translation id="8980139959902937527">ນຳຄວາມປອດໄພຂອງ Google ໄປໄດ້ທຸກບ່ອນທຸກເວລາດ້ວຍແອັບ Chromium ຢູ່ <ph name="DEVICE_TYPE" /> ຂອງທ່ານ</translation>
 <translation id="8981150672034878610">ບໍ່ສາມາດເລີ່ມ Chromium ໄດ້ເນື່ອງຈາກມີບາງຢ່າງຜິດພາດເກີດຂຶ້ນເມື່ອເປີດໂປຣໄຟລ໌ຂອງທ່ານ. ລອງຣີສະຕາດ Chromium.</translation>
+<translation id="8981886272598860786">ເພື່ອຊອກຫາດ້ວຍ Chromium ຫຼື ປັບແຕ່ງໃນ <ph name="BEGIN_LINK" />ການຕັ້ງຄ່າ<ph name="END_LINK" /></translation>
 <translation id="8988036198400390003">ຈັດການໂປຣໄຟລ໌ Chromium</translation>
 <translation id="8993855408334954620">ໃຊ້ແປ້ນພິມຂອງທ່ານເພື່ອນຳທາງລະຫວ່າງ Gemini ໃນ Chromium ແລະ ແຖບທີ່ເປີດຢູ່ຂອງທ່ານ.</translation>
 <translation id="9018218886431812662">ສຳເລັດການຕິດຕັ້ງແລ້ວ</translation>

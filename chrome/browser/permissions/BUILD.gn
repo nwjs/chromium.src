@@ -113,6 +113,7 @@ source_set("permissions") {
     "//components/content_extraction/content/browser",
     "//components/content_settings/core/browser",
     "//components/content_settings/core/browser:cookie_settings",
+    "//components/contextual_tasks/public:feature_list",
     "//components/embedder_support:permissions",
     "//components/google/core/common",
     "//components/infobars/content",
@@ -171,6 +172,10 @@ source_set("permissions") {
   }
   allow_circular_includes_from = []
 
+  if (enable_extensions_core) {
+    deps += [ "//extensions/common" ]
+  }
+
   if (enable_extensions) {
     deps += [ "//chrome/browser/clipboard" ]
   }
@@ -226,9 +231,17 @@ source_set("test_support") {
     "system/mock_platform_handle.h",
   ]
 
+  if (is_mac) {
+    sources += [
+      "system/system_media_permission_cache_mac_test_helper.h",
+      "system/system_media_permission_cache_mac_test_helper.mm",
+    ]
+  }
+
   deps = [
     ":permissions",
     "//base",
+    "//chrome/browser/permissions/system",
     "//components/passage_embeddings/core:test_support",
     "//components/permissions:test_support",
     "//components/safe_browsing/core/browser/db:database_manager",
@@ -277,6 +290,7 @@ source_set("unit_tests") {
     "//chrome/browser/ui/safety_hub",
     "//chrome/browser/ui/safety_hub:test_support",
     "//chrome/test:test_support",
+    "//components/contextual_tasks/public:feature_list",
     "//components/optimization_guide/core:test_support",
     "//components/passage_embeddings/core",
     "//components/permissions/prediction_service",
@@ -365,6 +379,7 @@ if (!is_android) {
       "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/views/permissions",
       "//chrome/test:test_support",
+      "//chrome/test/base:web_feature_histogram_tester",
       "//components/back_forward_cache",
       "//components/contextual_tasks/public",
       "//components/optimization_guide/core:test_support",
@@ -404,6 +419,7 @@ if (!is_android && !is_chromeos_device) {
 
     deps = [
       ":permissions",
+      ":test_support",
       "//chrome/browser/content_settings:content_settings_factory",
       "//chrome/browser/permissions/system",
       "//chrome/browser/ui/browser_window",
@@ -416,12 +432,6 @@ if (!is_android && !is_chromeos_device) {
 
     if (is_mac || is_win) {
       sources += [ "system/system_permission_settings_interactive_uitest.cc" ]
-    }
-    if (is_mac) {
-      sources += [
-        "system/system_media_permission_cache_mac_test_helper.h",
-        "system/system_media_permission_cache_mac_test_helper.mm",
-      ]
     }
   }
 }

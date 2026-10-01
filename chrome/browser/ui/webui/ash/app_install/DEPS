@@ -13,7 +13,6 @@ include_rules = [
   "+chrome/browser/apps/almanac_api_client",
   "+chrome/browser/apps/app_service",
   "+chrome/browser/profiles/profile.h",
-  "+chrome/browser/ui/browser.h",
   "+chrome/browser/ui/browser_window.h",
   "+chrome/browser/ui/browser_window/public",
   "+chrome/browser/ui/web_applications",

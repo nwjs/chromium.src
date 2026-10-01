@@ -22,7 +22,7 @@
 #include "components/signin/public/base/signin_buildflags.h"
 #include "components/signin/public/base/signin_metrics.h"
 #include "components/signin/public/identity_manager/token_binding_info.h"
-#include "crypto/signature_verifier.h"
+#include "crypto/sign.h"
 #include "google_apis/gaia/core_account_id.h"
 #include "google_apis/gaia/google_service_auth_error.h"
 #include "google_apis/gaia/oauth2_access_token_manager.h"
@@ -36,10 +36,10 @@ namespace signin {
 class IdentityManager;
 }
 
-struct AccountInfo;
-class PrefService;
-class PrefRegistrySimple;
+class AccountInfo;
 class OAuth2AccessTokenConsumer;
+class PrefRegistrySimple;
+class PrefService;
 class ProfileOAuth2TokenServiceDelegate;
 
 // ProfileOAuth2TokenService retrieves OAuth2 access tokens for a given set of
@@ -297,8 +297,7 @@ class ProfileOAuth2TokenService : public OAuth2AccessTokenManager::Delegate,
   // Returns false if the generation cannot be started. In that case, `callback`
   // will not be invoked.
   bool GenerateBindingKeyRegistrationToken(
-      base::span<const crypto::SignatureVerifier::SignatureAlgorithm>
-          supported_algorithms,
+      base::span<const crypto::sign::SignatureKind> supported_algorithms,
       std::string_view auth_code,
       base::OnceCallback<void(
           std::optional<signin::BindingKeyRegistrationTokenResult>)> callback);

@@ -305,10 +305,6 @@ public final class ProductionSupportedFlagList {
                     + " hashes of form and field metadata, and evaluate the accuracy of returned"
                     + " experimental predictions."),
         Flag.baseFeature(
-                AutofillFeatures.AUTOFILL_SERVER_QUERY_PREDICTIONS_EARLY,
-                "When enabled, Autofill enables querying the server for predictions before the form"
-                        + " has been parsed locally."),
-        Flag.baseFeature(
                 AutofillFeatures.AUTOFILL_SUPPORT_SPLIT_ZIP_CODE,
                 "When enabled, two-part zip codes are splitted into two fields while filling and"
                         + " imported from two adjacent fields."),
@@ -471,6 +467,10 @@ public final class ProductionSupportedFlagList {
         Flag.baseFeature(
                 MetricsFeatures.METRICS_LOG_TRIMMING, "Controls trimming for metrics logs."),
         Flag.baseFeature(
+                "HistogramDenylist",
+                "Disables or overrides the denylist for UMA histogram uploads "
+                        + "(e.g. Variations.FeatureAccess)."),
+        Flag.baseFeature(
                 ContentFeatures.REDUCE_SUBRESOURCE_RESPONSE_STARTED_IPC,
                 "When enabled, reduces SubresourceResponseStarted IPC by sending"
                         + " subresource notifications only if the user has allowed"
@@ -511,12 +511,19 @@ public final class ProductionSupportedFlagList {
         Flag.baseFeature(NetFeatures.HAPPY_EYEBALLS_V2, "Enables Happy Eyeballs V2"),
         Flag.baseFeature(NetFeatures.HAPPY_EYEBALLS_V3, "Enables Happy Eyeballs V3"),
         Flag.baseFeature(NetFeatures.OPTIMISTIC_DNS_FOR_TCP, "Enables optimistic DNS for TCP"),
+        Flag.baseFeature(NetFeatures.OPTIMISTIC_DNS_FOR_QUIC, "Enables optimistic DNS for QUIC"),
         Flag.baseFeature(
                 NetFeatures.ADJUST_I_PV6_FALLBACK_TIME,
                 "Enables controlling the Happy Eyeballs slow timer (IPv6 fallback time)"),
         Flag.baseFeature(
                 NetFeatures.I_PV6_FALLBACK_BASED_ON_RTT,
                 "Enables the Happy Eyeballs slow timer to be based on the network RTT"),
+        Flag.baseFeature(
+                NetFeatures.ADJUST_QUIC_SLOW_TIMER_DELAY,
+                "Enables controlling the QUIC slow timer"),
+        Flag.baseFeature(
+                NetFeatures.QUIC_SLOW_TIMER_BASED_ON_RTT,
+                "Enables the QUIC slow timer to be based on the network RTT"),
         Flag.baseFeature(NetFeatures.ENABLE_TLS13_EARLY_DATA, "Enables TLS 1.3 Early Data"),
         Flag.baseFeature(
                 NetFeatures.HTTP_CACHE_NO_VARY_SEARCH,
@@ -529,6 +536,9 @@ public final class ProductionSupportedFlagList {
                 "Enables caching of certificate verification results"),
         Flag.baseFeature("MojoIpcz"),
         Flag.baseFeature("MojoFixGeometricBufferGrowth"),
+        Flag.baseFeature(
+                "MojoDirectSharedMemoryAllocation",
+                "Enables direct shared memory allocation in Mojo without brokering."),
         Flag.baseFeature(
                 "FixDataPipeTrapBug",
                 "Used to disable a specific bug fix for a long-standing bug that may"
@@ -608,6 +618,9 @@ public final class ProductionSupportedFlagList {
                 BaseFeatures.PARTITION_ALLOC_STRAIGHTEN_LARGER_SLOT_SPAN_FREE_LISTS,
                 "Straightens free lists for larger slot spans in PartitionRoot::PurgeMemory() -> "
                         + "... -> PartitionPurgeSlotSpan()."),
+        Flag.baseFeature(
+                BaseFeatures.PARTITION_ALLOC_TIGHTER_ALIGNED_ALLOC_BOUND,
+                "Allocates less memory for aligned allocations."),
         Flag.baseFeature(
                 "PartitionAllocUseSmallSingleSlotSpans",
                 "Uses a more nuanced heuristic to classify small single-slot spans."),
@@ -1231,17 +1244,6 @@ public final class ProductionSupportedFlagList {
                 AwFeatures.WEBVIEW_VIZ_DIRECT_COMPOSITOR_THREAD_IPC_FRAME_SINK_MANAGER,
                 "Binds FrameSinkManager as a DirectReceiver, allowing FSM and all mojoms passed"
                         + " through it to receive IPCs directly."),
-
-        // Features for PerfCombined2025_WebView study
-        Flag.baseFeature("ReducePPMs"),
-        Flag.baseFeature("RemoveCancelledScriptedIdleTasks"),
-        Flag.baseFeature("MemoryCacheChangeStrongReferencePruneDelay"),
-        Flag.baseFeature("MemoryCacheStrongReference"),
-        Flag.baseFeature("ReleaseResourceStrongReferencesOnMemoryPressure"),
-        Flag.baseFeature("ReleaseResourceDecodedDataOnMemoryPressure"),
-        Flag.baseFeature("SuppressMemoryListeners"),
-        Flag.baseFeature("SuppressMemoryMonitor"),
-        Flag.baseFeature("CompressParkableStrings"),
         Flag.baseFeature(
                 ContentFeatures.ANDROID_MEDIA_INSERTION,
                 "When enabled, IMEs should be able to insert media content such as images, gifs and"
@@ -1267,6 +1269,7 @@ public final class ProductionSupportedFlagList {
                 ContentFeatureList.TEXT_CLASSIFIER_TIMEOUT,
                 "Enable timeout for TextClassifier calls. The timeout is configurable with a"
                         + " default of 200ms."),
+        Flag.baseFeature(BlinkFeatures.HARF_RUST_SHAPING, "Use HarfRust for text shaping."),
         Flag.baseFeature(
                 BlinkFeatures.XML_RUST_FOR_NON_XSLT,
                 "Enables the Rust based XML parser in situations where the XML document is"
@@ -1286,9 +1289,6 @@ public final class ProductionSupportedFlagList {
                 BlinkFeatures.UNTHROTTLE_ASYNC_TOUCH_MOVES,
                 "When enabled, touch move events to javascript handlers are unthrottled if "
                         + "they are sent as async to Renderer."),
-        Flag.baseFeature(
-                BlinkFeatures.RUSTY_BMP_FEATURE,
-                "When enabled, uses Rust `image` crate to decode BMP images."),
         Flag.baseFeature(
                 "NoSequenceForLevelDBCleanupTasks",
                 "When enabled, LevelDB cleanup tasks are run concurrently instead of in sequence."),
@@ -1482,6 +1482,10 @@ public final class ProductionSupportedFlagList {
         Flag.baseFeature(
                 PaymentFeatureList.THREE_D_SECURE_TELEMETRY,
                 "When enabled, collect telemetry for 3D Secure challenge flow."),
+        Flag.baseFeature(
+                BlinkFeatures.XSLT,
+                "Controls whether XSLT is supported by the browser. Disabling this flag disables"
+                        + " all XSLT processing."),
         // Add new commandline switches and features above. The final entry should have a
         // trailing comma for cleaner diffs.
     };

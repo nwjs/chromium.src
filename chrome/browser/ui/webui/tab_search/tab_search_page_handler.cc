@@ -29,12 +29,14 @@
 #include "chrome/browser/ui/browser_live_tab_context.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/interaction/browser_elements.h"
 #include "chrome/browser/ui/navigator/browser_navigator.h"
 #include "chrome/browser/ui/tab_ui_helper.h"
 #include "chrome/browser/ui/tabs/alert/tab_alert_controller.h"
+#include "chrome/browser/ui/tabs/features.h"
 #include "chrome/browser/ui/tabs/tab_data.h"
 #include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/browser/ui/tabs/tab_strip_api/tab_strip_model_impl/browser_tab_strip_service_tracker.h"
@@ -57,9 +59,11 @@
 #include "components/browser_apis/tab_strip/tab_strip_service.h"
 #include "components/browser_apis/tab_strip/types/node_id.h"
 #include "components/prefs/pref_service.h"
+#include "components/sessions/core/session_id.h"
 #include "components/signin/public/base/signin_metrics.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
 #include "components/split_tabs/split_tab_visual_data.h"
+#include "components/tab_groups/tab_group_id.h"
 #include "components/tabs/public/split_tab_data.h"
 #include "components/tabs/public/tab_alert.h"
 #include "components/tabs/public/tab_group_tab_collection.h"
@@ -67,11 +71,13 @@
 #include "components/user_education/common/tutorial/tutorial_identifier.h"
 #include "components/user_education/common/tutorial/tutorial_service.h"
 #include "content/public/browser/navigation_controller.h"
+#include "content/public/browser/navigation_entry.h"
 #include "third_party/abseil-cpp/absl/container/flat_hash_set.h"
 #include "ui/base/base_window.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/l10n/time_format.h"
 #include "ui/base/models/image_model.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/color/color_provider.h"
 #include "ui/gfx/image/image_skia.h"
 
@@ -437,7 +443,7 @@ void TabSearchPageHandler::StartTabGroupTutorial() {
   auto* const user_education_service =
       UserEducationServiceFactory::GetForBrowserContext(browser_->GetProfile());
   user_education::TutorialService* const tutorial_service =
-      user_education_service ? &user_education_service->tutorial_service()
+      user_education_service ? user_education_service->tutorial_service()
                              : nullptr;
   CHECK(tutorial_service);
 
@@ -782,20 +788,29 @@ tab_search::mojom::TabPtr TabSearchPageHandler::GetTab(
   if (favicon.IsEmpty()) {
     tab_mojom_data->is_default_favicon = true;
   } else {
-    const ui::ColorProvider& provider =
-        web_ui_->GetWebContents()->GetColorProvider();
-    const gfx::ImageSkia default_favicon =
-        favicon::GetDefaultFaviconModel().Rasterize(&provider);
-    gfx::ImageSkia raster_favicon = favicon.Rasterize(&provider);
+    // In OTR profiles, we always need to raster, encode, and theme the favicons
+    // because chrome://favicon2 is not available. In regular profiles, we used
+    // to do the same but kTabSearchPerformanceImprovements makes it so we
+    // instead don't pass a favicon and let the tab search webui use
+    // chrome://favicon2 lazily.
+    if (!base::FeatureList::IsEnabled(
+            tabs::kTabSearchPerformanceImprovements) ||
+        profile_->IsOffTheRecord()) {
+      const ui::ColorProvider& provider =
+          web_ui_->GetWebContents()->GetColorProvider();
+      const gfx::ImageSkia default_favicon =
+          favicon::GetDefaultFaviconModel().Rasterize(&provider);
+      gfx::ImageSkia raster_favicon = favicon.Rasterize(&provider);
 
-    if (tab_ui_helper->ShouldThemifyFavicon()) {
-      raster_favicon = ThemeFavicon(raster_favicon, provider);
+      if (tab_ui_helper->ShouldThemifyFavicon()) {
+        raster_favicon = ThemeFavicon(raster_favicon, provider);
+      }
+
+      tab_mojom_data->favicon_url = GURL(webui::EncodePNGAndMakeDataURI(
+          raster_favicon, web_ui_->GetDeviceScaleFactor()));
+      tab_mojom_data->is_default_favicon =
+          raster_favicon.BackedBySameObjectAs(default_favicon);
     }
-
-    tab_mojom_data->favicon_url = GURL(webui::EncodePNGAndMakeDataURI(
-        raster_favicon, web_ui_->GetDeviceScaleFactor()));
-    tab_mojom_data->is_default_favicon =
-        raster_favicon.BackedBySameObjectAs(default_favicon);
   }
 
   tab_mojom_data->show_icon = tab_ui_helper->ShouldDisplayFavicon();

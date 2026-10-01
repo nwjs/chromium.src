@@ -25,6 +25,7 @@
 #include "chrome/browser/themes/custom_theme_supplier.h"
 #include "chrome/browser/themes/theme_service.h"
 #include "chrome/browser/themes/theme_service_factory.h"
+#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_init_state.h"
 #include "chrome/browser/ui/browser_manager_service.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
@@ -49,6 +50,7 @@
 #include "ui/base/ui_base_features.h"
 #include "ui/color/color_provider_key.h"
 #include "ui/views/controls/menu/menu_runner.h"
+#include "ui/views/input_protection/widget_stationarity_monitor.h"
 #include "ui/views/widget/native_widget.h"
 
 #if BUILDFLAG(IS_CHROMEOS)
@@ -115,6 +117,7 @@ BrowserWidget::BrowserWidget(BrowserView* browser_view, bool frameless)
       browser_view_(browser_view) {
   // Don't focus anything on creation, selecting a tab will set the focus.
   set_focus_on_creation(false);
+  views::WidgetStationarityMonitor::GetInstance().TrackWidget(*this);
 }
 
 BrowserWidget::~BrowserWidget() {

@@ -22,6 +22,8 @@
 #include "content/public/browser/web_contents.h"
 #include "services/device/public/cpp/hid/hid_switches.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/page_transition_types.h"
+#include "ui/base/window_open_disposition.h"
 
 namespace {
 
@@ -223,12 +225,11 @@ void HidChooserController::OpenHelpCenterUrl() const {
     return;
   }
 
-  web_contents->OpenURL(
-      content::OpenURLParams(
-          GURL(chrome::kChooserHidOverviewUrl), content::Referrer(),
-          WindowOpenDisposition::NEW_FOREGROUND_TAB,
-          ui::PAGE_TRANSITION_AUTO_TOPLEVEL, /*is_renderer_initiated=*/false),
-      /*navigation_handle_callback=*/{});
+  web_contents->OpenURL(content::OpenURLParams::CreateBrowserInitiated(
+                            GURL(chrome::kChooserHidOverviewUrl),
+                            WindowOpenDisposition::NEW_FOREGROUND_TAB,
+                            ui::PAGE_TRANSITION_AUTO_TOPLEVEL),
+                        /*navigation_handle_callback=*/{});
 }
 
 void HidChooserController::OnDeviceAdded(

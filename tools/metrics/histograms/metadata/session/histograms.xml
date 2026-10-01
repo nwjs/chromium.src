@@ -38,6 +38,15 @@ chromium-metrics-reviews@google.com.
   <variant name="Encrypted"/>
 </variants>
 
+<variants name="FindLastSessionFileResult">
+  <variant name="Found"
+      summary="a valid session file was found (either the newest file or
+               after falling back to older files)"/>
+  <variant name="NotFound"
+      summary="no valid session file was found (either 0 candidate files
+               existed or all candidate files were invalid)"/>
+</variants>
+
 <variants name="SmartRestartTabCount">
   <variant name="" summary="all sessions"/>
   <variant name=".HighTab" summary="sessions with more than 20 tabs"/>
@@ -58,7 +67,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Session.Background.TotalDuration" units="ms"
-    expires_after="2027-01-03">
+    expires_after="2027-03-07">
   <owner>asvitkine@chromium.org</owner>
   <owner>src/base/metrics/OWNERS</owner>
   <summary>
@@ -89,7 +98,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Session.CommandStorageBackend.{SessionType}.{EncryptedStatus}.AppendCommands.{Slice}.Duration"
-    units="ms" expires_after="2027-01-01">
+    units="ms" expires_after="2027-03-07">
   <owner>sammon@google.com</owner>
   <owner>dljames@chromium.org</owner>
   <summary>
@@ -105,7 +114,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Session.CommandStorageBackend.{SessionType}.{EncryptedStatus}.AppendCommands.{Slice}.FileSize"
-    units="bytes" expires_after="2027-01-01">
+    units="bytes" expires_after="2027-03-07">
   <owner>sammon@google.com</owner>
   <owner>dljames@chromium.org</owner>
   <summary>
@@ -121,7 +130,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Session.CommandStorageBackend.{SessionType}.{EncryptedStatus}.AppendCommands.{Slice}.Status"
-    enum="CommandStorageWriteStatus" expires_after="2027-01-01">
+    enum="CommandStorageWriteStatus" expires_after="2027-03-07">
   <owner>sammon@google.com</owner>
   <owner>dljames@chromium.org</owner>
   <summary>
@@ -136,8 +145,29 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram
+    name="Session.CommandStorageBackend.{SessionType}.{EncryptedStatus}.FindLastSessionFile.{Result}.FilesRead"
+    units="files" expires_after="2027-09-01">
+  <owner>jacastro@google.com</owner>
+  <owner>chrome-counter-abuse-alerts@google.com</owner>
+  <summary>
+    The number of candidate session files inspected/read by
+    CommandStorageBackend for {SessionType} sessions ({EncryptedStatus}) when
+    {Result}.
+
+    For 'Found', records the number of candidate files inspected (1 if the
+    newest file was valid, &gt;=2 if fallback files were inspected). For
+    'NotFound', records 0 if no candidate files existed in the session directory
+    (e.g. fresh profile), or &gt;=1 if candidate files existed but all lacked a
+    valid marker. Recorded during backend initialization.
+  </summary>
+  <token key="SessionType" variants="CommandStorageSessionType"/>
+  <token key="EncryptedStatus" variants="EncryptedStatus"/>
+  <token key="Result" variants="FindLastSessionFileResult"/>
+</histogram>
+
+<histogram
     name="Session.CommandStorageBackend.{SessionType}.{EncryptedStatus}.ReadLastSessionCommands.Duration"
-    units="ms" expires_after="2027-01-01">
+    units="ms" expires_after="2027-03-07">
   <owner>sammon@google.com</owner>
   <owner>dljames@chromium.org</owner>
   <summary>
@@ -151,7 +181,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Session.CommandStorageBackend.{SessionType}.{EncryptedStatus}.ReadLastSessionCommands.Status"
-    enum="CommandStorageReadStatus" expires_after="2027-01-01">
+    enum="CommandStorageReadStatus" expires_after="2027-03-07">
   <owner>sammon@google.com</owner>
   <owner>dljames@chromium.org</owner>
   <summary>
@@ -164,7 +194,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Session.CommandStorageManager.EncryptedBackendUninitialized"
-    enum="SessionEncryptedBackendUninitialized" expires_after="2027-01-01">
+    enum="SessionEncryptedBackendUninitialized" expires_after="2027-03-07">
   <owner>sammon@google.com</owner>
   <owner>dljames@chromium.org</owner>
   <summary>
@@ -174,7 +204,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Session.CommandStorageManager.EncryptedReadMatch"
-    enum="SessionReadComparisonResult" expires_after="2027-01-01">
+    enum="SessionReadComparisonResult" expires_after="2027-03-07">
   <owner>sammon@google.com</owner>
   <owner>dljames@chromium.org</owner>
   <summary>
@@ -185,7 +215,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Session.CommandStorageManager.OnEncryptorReadyDuration"
-    units="ms" expires_after="2027-01-01">
+    units="ms" expires_after="2027-03-07">
   <owner>sammon@google.com</owner>
   <owner>dljames@chromium.org</owner>
   <summary>
@@ -360,6 +390,52 @@ chromium-metrics-reviews@google.com.
   </token>
 </histogram>
 
+<histogram name="Session.ScheduledRestart.BlockerEncountered"
+    enum="ScheduledRestartBlocker" expires_after="2027-08-01">
+  <owner>anunoy@chromium.org</owner>
+  <owner>chrome-counter-abuse-alerts@google.com</owner>
+  <summary>
+    Records unique blocker types (e.g. downloads, active audio/video capture)
+    encountered while an idle restart was scheduled. Recorded once per blocker
+    type upon schedule termination (either when the restart successfully
+    executes or when the schedule is canceled before execution).
+  </summary>
+</histogram>
+
+<histogram name="Session.ScheduledRestart.DialogChoice"
+    enum="ScheduledRestartDialogChoice" expires_after="2027-08-01">
+  <owner>anunoy@chromium.org</owner>
+  <owner>chrome-counter-abuse-alerts@google.com</owner>
+  <summary>
+    Records the choice selected by the user when presented with the scheduled
+    restart relaunch recommendation dialog.
+  </summary>
+</histogram>
+
+<histogram name="Session.ScheduledRestart.ExecutionOutcome"
+    enum="ScheduledRestartExecutionOutcome" expires_after="2027-08-01">
+  <owner>anunoy@chromium.org</owner>
+  <owner>chrome-counter-abuse-alerts@google.com</owner>
+  <summary>
+    Records the terminal execution outcome of a scheduled restart.
+
+    Recorded exactly once per scheduled restart lifecycle: either when an idle
+    restart successfully executes or when an active schedule is canceled before
+    execution (e.g. via immediate relaunch or browser shutdown).
+  </summary>
+</histogram>
+
+<histogram name="Session.ScheduledRestart.TimeToUpdateAfterScheduled"
+    units="ms" expires_after="2027-08-01">
+  <owner>anunoy@chromium.org</owner>
+  <owner>chrome-counter-abuse-alerts@google.com</owner>
+  <summary>
+    Records the elapsed wall-clock duration from when the user scheduled a
+    restart until the restart callback actually executed. Recorded once upon
+    successful relaunch, and not on blocked or canceled attempts.
+  </summary>
+</histogram>
+
 <histogram name="Session.SessionCrashed.Bubble"
     enum="SessionCrashedBubbleUserAction" expires_after="2027-05-29">
   <owner>miketaylr@chromium.org</owner>
@@ -401,7 +477,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Session.SmartRestart.Lock.SuppressedBeforeUnloadCount"
-    units="tabs" expires_after="2026-12-27">
+    units="tabs" expires_after="2027-02-28">
   <owner>victortan@chromium.org</owner>
   <owner>chrome-analysis-team@google.com</owner>
   <summary>
@@ -414,7 +490,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Session.SmartRestart.Lock.SuppressedBeforeUnloadEngagementScore"
-    units="units" expires_after="2026-12-27">
+    units="units" expires_after="2027-02-28">
   <owner>victortan@chromium.org</owner>
   <owner>chrome-analysis-team@google.com</owner>
   <summary>
@@ -426,7 +502,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Session.SmartRestart.Lock.SuppressedBeforeUnloadRatio"
-    units="%" expires_after="2026-12-27">
+    units="%" expires_after="2027-02-28">
   <owner>victortan@chromium.org</owner>
   <owner>chrome-analysis-team@google.com</owner>
   <summary>
@@ -561,7 +637,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Session.TotalDuration.IgnoreNonInteractiveTimeForOSLaunchedSessions"
-    units="ms" expires_after="2026-12-27">
+    units="ms" expires_after="2027-02-28">
   <owner>atharvmaan@google.com</owner>
   <owner>chrome-desktop-ui-waterloo@google.com</owner>
   <summary>
@@ -829,7 +905,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Session.TotalDuration.TabletMode" units="ms"
-    expires_after="2027-01-02">
+    expires_after="2027-03-07">
   <owner>robliao@chromium.org</owner>
   <owner>gerchiko@microsoft.com</owner>
   <owner>wangsongjin@microsoft.com</owner>
@@ -1162,7 +1238,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Session.WebStates.LoadingTimeOnMainThread" units="ms"
-    expires_after="2026-12-31">
+    expires_after="2027-03-07">
   <owner>fedegermi@google.com</owner>
   <owner>sdefresne@chromium.org</owner>
   <summary>
@@ -1232,7 +1308,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Session.WebStates.SavingTimeOnMainThread" units="ms"
-    expires_after="2026-12-31">
+    expires_after="2027-03-07">
   <owner>fedegermi@google.com</owner>
   <owner>sdefresne@chromium.org</owner>
   <summary>
@@ -1299,7 +1375,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SessionRestore.ForegroundTabFirstPaint4.FinishReason"
-    enum="SessionRestoreFinishReason" expires_after="2027-01-03">
+    enum="SessionRestoreFinishReason" expires_after="2027-03-07">
   <owner>joenotcharles@google.com</owner>
   <owner>catan-team@chromium.org</owner>
   <summary>
@@ -1340,7 +1416,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SessionRestore.InfoBar.TurnOffFromRestart"
-    enum="SessionRestoreInfoBarAction" expires_after="2027-01-03">
+    enum="SessionRestoreInfoBarAction" expires_after="2027-03-07">
   <owner>musalmaan@chromium.org</owner>
   <owner>koretadaniel@chromium.org</owner>
   <summary>
@@ -1350,7 +1426,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SessionRestore.InfoBar.TurnOnSessionRestore"
-    enum="SessionRestoreInfoBarAction" expires_after="2027-01-03">
+    enum="SessionRestoreInfoBarAction" expires_after="2027-03-07">
   <owner>musalmaan@chromium.org</owner>
   <owner>koretadaniel@chromium.org</owner>
   <summary>
@@ -1427,7 +1503,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SessionRestore.WindowDiffAfterRestart.{Type}" units="windows"
-    expires_after="2026-12-01">
+    expires_after="2027-02-28">
   <owner>victortan@chromium.org</owner>
   <owner>chrome-analysis-team@google.com</owner>
   <summary>

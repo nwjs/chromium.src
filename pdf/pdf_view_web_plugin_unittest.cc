@@ -403,6 +403,7 @@ class FakePdfHost : public pdf::mojom::PdfHost {
               (mojo::PendingRemote<pdf::mojom::PdfListener>),
               (override));
   MOCK_METHOD(void, OnDocumentLoadComplete, (), (override));
+  MOCK_METHOD(void, OnPdfFirstContentPainted, (base::TimeTicks), (override));
   MOCK_METHOD(void, UpdateContentRestrictions, (int32_t), (override));
   MOCK_METHOD(void, SavePdf, (), (override));
   MOCK_METHOD(void,
@@ -797,6 +798,25 @@ TEST_F(PdfViewWebPluginFullFrameTest, DocumentLoadComplete) {
 
   EXPECT_EQ(PdfViewWebPlugin::DocumentLoadState::kComplete,
             plugin_->document_load_state_for_testing());
+  pdf_receiver_.FlushForTesting();
+}
+
+TEST_F(PdfViewWebPluginTest, OnFirstContentPaintedNotSentWhenNotFullFrame) {
+  // A PDF embedded in an HTML page is already described by that page's own
+  // contentful paints, so it must not feed the startup PDF paint metric.
+  EXPECT_CALL(pdf_host_, OnPdfFirstContentPainted).Times(0);
+
+  plugin_->OnFirstContentPainted();
+
+  pdf_receiver_.FlushForTesting();
+}
+
+TEST_F(PdfViewWebPluginFullFrameTest, OnFirstContentPainted) {
+  EXPECT_CALL(pdf_host_, OnPdfFirstContentPainted(
+                             ::testing::Not(::testing::Eq(base::TimeTicks()))));
+
+  plugin_->OnFirstContentPainted();
+
   pdf_receiver_.FlushForTesting();
 }
 
@@ -2389,6 +2409,31 @@ TEST_F(PdfViewWebPluginSaveTest, EditedInEditMode) {
   })"));
 }
 
+TEST_F(PdfViewWebPluginSaveTest, EditedInEditModeWithContentDisposition) {
+  plugin_->EnteredEditMode();
+
+  EXPECT_EQ(blink::WebTextInputType::kWebTextInputTypeNone,
+            plugin_->GetPluginTextInputType());
+
+  EXPECT_CALL(*engine_ptr_, GetFileNameFromContentDisposition)
+      .WillOnce(Return("custom.pdf"));
+
+  base::Value expected_response = base::test::ParseJson(R"({
+    "type": "saveData",
+    "token": "edited-in-edit-mode",
+    "fileName": "custom.pdf",
+    "editModeForTesting": true,
+  })");
+  AddDataToValue(base::span(TestPDFiumEngine::kSaveData), expected_response);
+  EXPECT_CALL(*client_ptr_, PostMessage(base::test::IsJson(expected_response)));
+
+  plugin_->OnMessage(ParseMessage(R"({
+    "type": "save",
+    "saveRequestType": "EDITED",
+    "token": "edited-in-edit-mode",
+  })"));
+}
+
 class PdfViewWebPluginSaveInBlocksTest : public PdfViewWebPluginTest {
  protected:
   base::DictValue CreateRequest(pdf::mojom::SaveRequestType request_type,
@@ -2448,6 +2493,25 @@ TEST_F(PdfViewWebPluginSaveInBlocksTest, GetSuggestedFileName) {
     "type": "getSuggestedFileNameReply",
     "messageId": "foo",
     "fileName": "example.pdf",
+  })")));
+
+  plugin_->OnMessage(ParseMessage(R"({
+    "type": "getSuggestedFileName",
+    "messageId": "foo",
+  })"));
+
+  pdf_receiver_.FlushForTesting();
+}
+
+TEST_F(PdfViewWebPluginSaveInBlocksTest,
+       GetSuggestedFileNameWithContentDisposition) {
+  EXPECT_CALL(*engine_ptr_, GetFileNameFromContentDisposition)
+      .WillOnce(Return("custom.pdf"));
+
+  EXPECT_CALL(*client_ptr_, PostMessage(base::test::IsJson(R"({
+    "type": "getSuggestedFileNameReply",
+    "messageId": "foo",
+    "fileName": "custom.pdf",
   })")));
 
   plugin_->OnMessage(ParseMessage(R"({

@@ -60,9 +60,10 @@ bool FrameView::DisplayLockedInParentFrame() {
   return DisplayLockUtilities::LockedInclusiveAncestorPreventingPaint(*owner);
 }
 
-void FrameView::UpdateViewportIntersection(unsigned flags,
-                                           bool needs_occlusion_tracking) {
-  if (!(flags & IntersectionObservation::kImplicitRootObserversNeedUpdate)) {
+void FrameView::UpdateViewportIntersection(
+    IntersectionObservation::ComputeFlags flags,
+    bool needs_occlusion_tracking) {
+  if (!flags.Has(IntersectionObservation::kImplicitRootObserversNeedUpdate)) {
     return;
   }
 
@@ -99,7 +100,7 @@ void FrameView::UpdateViewportIntersection(unsigned flags,
   bool display_locked_in_parent_frame = DisplayLockedInParentFrame();
   if (!owner_layout_object ||
       owner_layout_object->PhysicalContentBoxRect().IsEmpty() ||
-      (flags & IntersectionObservation::kAncestorFrameIsDetachedFromLayout) ||
+      flags.Has(IntersectionObservation::kAncestorFrameIsDetachedFromLayout) ||
       display_locked_in_parent_frame) {
     // The frame, or an ancestor frame, is detached from layout, not visible, or
     // zero size, or it's display locked in parent frame; leave
@@ -108,10 +109,11 @@ void FrameView::UpdateViewportIntersection(unsigned flags,
     occlusion_state = mojom::blink::FrameOcclusionState::kPossiblyOccluded;
   } else if (parent_lifecycle_state >= DocumentLifecycle::kLayoutClean &&
              !owner_document.View()->NeedsLayout()) {
-    unsigned geometry_flags =
-        IntersectionGeometry::kForFrameViewportIntersection;
-    if (should_compute_occlusion)
-      geometry_flags |= IntersectionGeometry::kShouldComputeVisibility;
+    IntersectionGeometry::Flags geometry_flags = {
+        IntersectionGeometry::kForFrameViewportIntersection};
+    if (should_compute_occlusion) {
+      geometry_flags.Put(IntersectionGeometry::kShouldComputeVisibility);
+    }
 
     std::optional<IntersectionGeometry::RootGeometry> root_geometry;
     IntersectionGeometry geometry(
@@ -175,11 +177,16 @@ void FrameView::UpdateViewportIntersection(unsigned flags,
 
     // Generate matrix to transform from the space of the containing document
     // to the space of the iframe's contents.
+    MapCoordinatesFlags map_flags;
+    if (RuntimeEnabledFeatures::UsePaintGeometryForIntersectionEnabled() &&
+        IntersectionGeometry::CanUseGeometryMapper(*owner_layout_object)) {
+      map_flags = {MapCoordinatesMode::kUseGeometryMapper};
+    }
     TransformState parent_frame_to_iframe_content_transform(
         TransformState::kUnapplyInverseTransformDirection);
     // First transform to box coordinates of the iframe element...
     owner_layout_object->MapAncestorToLocal(
-        nullptr, parent_frame_to_iframe_content_transform, {});
+        nullptr, parent_frame_to_iframe_content_transform, map_flags);
     // ... then apply content_box_offset to translate to the coordinate of the
     // child frame.
     parent_frame_to_iframe_content_transform.Move(
@@ -252,14 +259,12 @@ void FrameView::UpdateViewportIntersection(unsigned flags,
       child_frame_to_root_frame.Move(PhysicalOffset::FromPointFRound(
           gfx::PointF(frame.GetOutermostMainFrameScrollPosition())));
     }
-    if (owner_layout_object) {
-      owner_layout_object->MapAncestorToLocal(
-          nullptr, child_frame_to_root_frame,
-          {MapCoordinatesMode::kTraverseDocumentBoundaries,
-           MapCoordinatesMode::kApplyRemoteMainFrameTransform});
-      child_frame_to_root_frame.Move(
-          owner_layout_object->PhysicalContentBoxRect().offset);
-    }
+    map_flags.PutAll({MapCoordinatesMode::kTraverseDocumentBoundaries,
+                      MapCoordinatesMode::kApplyRemoteMainFrameTransform});
+    owner_layout_object->MapAncestorToLocal(nullptr, child_frame_to_root_frame,
+                                            map_flags);
+    child_frame_to_root_frame.Move(
+        owner_layout_object->PhysicalContentBoxRect().offset);
     main_frame_transform_matrix =
         child_frame_to_root_frame.AccumulatedTransform();
   }

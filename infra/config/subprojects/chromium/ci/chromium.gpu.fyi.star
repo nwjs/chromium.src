@@ -137,37 +137,19 @@ ci.thin_tester(
             "android_webview_pixel_skia_gold_test": targets.remove(
                 reason = "TODO(crbug.com/541312843): Determine if we want to run this suite after standardizing test bundles",
             ),
-            "context_lost_passthrough_ganesh_tests": targets.remove(
-                reason = "TODO(crbug.com/541312843): Determine if we want to run this suite after standardizing test bundles",
+            "context_lost_validating_tests": targets.remove(
+                reason = "TODO(crbug.com/541312843): Determine if validating test coverage is worth it on these devices since passthrough has already shipped aside from WebView",
             ),
-            "context_lost_passthrough_tests": targets.remove(
-                reason = "TODO(crbug.com/541312843): Determine if we want to run this suite after standardizing test bundles",
+            "expected_color_pixel_validating_test": targets.remove(
+                reason = "TODO(crbug.com/541312843): Determine if validating test coverage is worth it on these devices since passthrough has already shipped aside from WebView",
             ),
-            "expected_color_pixel_passthrough_ganesh_test": targets.remove(
-                reason = "TODO(crbug.com/541312843): Determine if we want to run this suite after standardizing test bundles",
+            "pixel_skia_gold_validating_test": targets.remove(
+                reason = "TODO(crbug.com/541312843): Determine if validating test coverage is worth it on these devices since passthrough has already shipped aside from WebView",
             ),
-            "expected_color_pixel_passthrough_test": targets.remove(
-                reason = "TODO(crbug.com/541312843): Determine if we want to run this suite after standardizing test bundles",
-            ),
-            "pixel_skia_gold_passthrough_ganesh_test": targets.remove(
-                reason = "TODO(crbug.com/541312843): Determine if we want to run this suite after standardizing test bundles",
-            ),
-            "pixel_skia_gold_passthrough_test": targets.remove(
-                reason = "TODO(crbug.com/541312843): Determine if we want to run this suite after standardizing test bundles",
-            ),
-            "screenshot_sync_passthrough_ganesh_tests": targets.remove(
-                reason = "TODO(crbug.com/541312843): Determine if we want to run this suite after standardizing test bundles",
-            ),
-            "screenshot_sync_passthrough_tests": targets.remove(
-                reason = "TODO(crbug.com/541312843): Determine if we want to run this suite after standardizing test bundles",
+            "screenshot_sync_validating_tests": targets.remove(
+                reason = "TODO(crbug.com/541312843): Determine if validating test coverage is worth it on these devices since passthrough has already shipped aside from WebView",
             ),
             "webcodecs_validating_ganesh_tests": targets.remove(
-                reason = "TODO(crbug.com/541312843): Determine if we want to run this suite after standardizing test bundles",
-            ),
-            "webgl_conformance_gles_passthrough_ganesh_tests": targets.remove(
-                reason = "TODO(crbug.com/541312843): Determine if we want to run this suite after standardizing test bundles",
-            ),
-            "webgl_conformance_validating_ganesh_tests": targets.remove(
                 reason = "TODO(crbug.com/541312843): Determine if we want to run this suite after standardizing test bundles",
             ),
             "webrtc_validating_ganesh_tests": targets.remove(
@@ -220,9 +202,6 @@ ci.thin_tester(
             "gpu_pixel_4_stable",
         ],
         per_test_modifications = {
-            "context_lost_passthrough_tests": targets.remove(
-                reason = "TODO(crbug.com/541312843): Determine if we want to run this suite after standardizing test bundles",
-            ),
             "expected_color_pixel_passthrough_ganesh_test": targets.mixin(
                 # Pixel 4s are weird in that they can output in different color spaces
                 # simultaneously. The readback code for capturing a screenshot assumes
@@ -232,9 +211,6 @@ ci.thin_tester(
                 args = [
                     "--extra-browser-args=--disable-wcg-for-test",
                 ],
-            ),
-            "expected_color_pixel_passthrough_test": targets.remove(
-                reason = "TODO(crbug.com/541312843): Determine if we want to run this suite after standardizing test bundles",
             ),
             "expected_color_pixel_validating_test": targets.mixin(
                 # Pixel 4s are weird in that they can output in different color spaces
@@ -256,9 +232,6 @@ ci.thin_tester(
                     "--extra-browser-args=--disable-wcg-for-test",
                 ],
             ),
-            "pixel_skia_gold_passthrough_test": targets.remove(
-                reason = "TODO(crbug.com/541312843): Determine if we want to run this suite after standardizing test bundles",
-            ),
             "pixel_skia_gold_validating_test": targets.mixin(
                 # Pixel 4s are weird in that they can output in different color spaces
                 # simultaneously. The readback code for capturing a screenshot assumes
@@ -279,9 +252,6 @@ ci.thin_tester(
                     "--extra-browser-args=--disable-wcg-for-test",
                 ],
             ),
-            "screenshot_sync_passthrough_tests": targets.remove(
-                reason = "TODO(crbug.com/541312843): Determine if we want to run this suite after standardizing test bundles",
-            ),
             "screenshot_sync_validating_tests": targets.mixin(
                 # Pixel 4s are weird in that they can output in different color spaces
                 # simultaneously. The readback code for capturing a screenshot assumes
@@ -291,9 +261,6 @@ ci.thin_tester(
                 args = [
                     "--extra-browser-args=--disable-wcg-for-test",
                 ],
-            ),
-            "webgl_conformance_gles_passthrough_tests": targets.remove(
-                reason = "TODO(crbug.com/541312843): Determine if we want to run this suite after standardizing test bundles",
             ),
         },
     ),
@@ -348,27 +315,12 @@ ci.thin_tester(
             "android_webview_pixel_skia_gold_test": targets.remove(
                 reason = "TODO(crbug.com/40212160): Screenshot fails most of the time on these devices",
             ),
-            "context_lost_passthrough_tests": targets.remove(
-                reason = "Explicit passthrough + Graphite and passthrough + Ganesh are already run",
-            ),
-            "expected_color_pixel_passthrough_test": targets.remove(
-                reason = "Explicit passthrough + Graphite and passthrough + Ganesh are already run",
-            ),
-            "pixel_skia_gold_passthrough_test": targets.remove(
-                reason = "Explicit passthrough + Graphite and passthrough + Ganesh are already run",
-            ),
-            "screenshot_sync_passthrough_tests": targets.remove(
-                reason = "Explicit passthrough + Graphite and passthrough + Ganesh are already run",
-            ),
             "webgl2_conformance_validating_tests": targets.remove(
                 reason = [
                     "Currently not enough capacity to run these tests on this config.",
                     "TODO(crbug.com/40208926): Re-enable once more of the Pixel 6 capacity",
                     "is deployed.",
                 ],
-            ),
-            "webgl_conformance_gles_passthrough_tests": targets.remove(
-                reason = "Explicit passthrough + Graphite and passthrough + Ganesh are already run",
             ),
         },
     ),
@@ -426,18 +378,6 @@ ci.thin_tester(
             "android_webview_pixel_skia_gold_test": targets.remove(
                 reason = "TODO(crbug.com/541312843): Determine if we want to run this suite after standardizing test bundles",
             ),
-            "context_lost_passthrough_tests": targets.remove(
-                reason = "TODO(crbug.com/541312843): Determine if we want to run this suite after standardizing test bundles",
-            ),
-            "expected_color_pixel_passthrough_test": targets.remove(
-                reason = "TODO(crbug.com/541312843): Determine if we want to run this suite after standardizing test bundles",
-            ),
-            "pixel_skia_gold_passthrough_test": targets.remove(
-                reason = "TODO(crbug.com/541312843): Determine if we want to run this suite after standardizing test bundles",
-            ),
-            "screenshot_sync_passthrough_tests": targets.remove(
-                reason = "TODO(crbug.com/541312843): Determine if we want to run this suite after standardizing test bundles",
-            ),
             "webgl2_conformance_gles_passthrough_tests": targets.remove(
                 reason = [
                     "Currently not enough capacity to run these tests on this config.",
@@ -451,9 +391,6 @@ ci.thin_tester(
                     "TODO(crbug.com/40208926): Re-enable once more of the Pixel 6 capacity",
                     "is deployed.",
                 ],
-            ),
-            "webgl_conformance_gles_passthrough_tests": targets.remove(
-                reason = "TODO(crbug.com/541312843): Determine if we want to run this suite after standardizing test bundles",
             ),
         },
     ),
@@ -507,17 +444,11 @@ ci.thin_tester(
             "has_native_resultdb_integration",
         ],
         per_test_modifications = {
-            "context_lost_passthrough_ganesh_tests": targets.remove(
-                reason = "TODO(crbug.com/496616828): Swap out the default passthrough tests for this once Graphite is supported on Pixel 10 devices",
-            ),
             "context_lost_passthrough_graphite_tests": targets.remove(
                 reason = "TODO(crbug.com/496616828): Graphite is currently explicitly blocked on Pixel 10 devices",
             ),
             "context_lost_validating_tests": targets.remove(
                 reason = "Passthrough is already shipped everywhere but Webview",
-            ),
-            "expected_color_pixel_passthrough_ganesh_test": targets.remove(
-                reason = "TODO(crbug.com/496616828): Swap out the default passthrough tests for this once Graphite is supported on Pixel 10 devices",
             ),
             "expected_color_pixel_passthrough_graphite_test": targets.remove(
                 reason = "TODO(crbug.com/496616828): Graphite is currently explicitly blocked on Pixel 10 devices",
@@ -535,17 +466,11 @@ ci.thin_tester(
                     "Passthrough is default on Pixel 10",
                 ],
             ),
-            "pixel_skia_gold_passthrough_ganesh_test": targets.remove(
-                reason = "TODO(crbug.com/496616828): Swap out the default passthrough tests for this once Graphite is supported on Pixel 10 devices",
-            ),
             "pixel_skia_gold_passthrough_graphite_test": targets.remove(
                 reason = "TODO(crbug.com/496616828): Graphite is currently explicitly blocked on Pixel 10 devices",
             ),
             "pixel_skia_gold_validating_test": targets.remove(
                 reason = "Passthrough is already shipped everywhere but Webview",
-            ),
-            "screenshot_sync_passthrough_ganesh_tests": targets.remove(
-                reason = "TODO(crbug.com/496616828): Swap out the default passthrough tests for this once Graphite is supported on Pixel 10 devices",
             ),
             "screenshot_sync_passthrough_graphite_tests": targets.remove(
                 reason = "TODO(crbug.com/496616828): Graphite is currently explicitly blocked on Pixel 10 devices",
@@ -576,9 +501,6 @@ ci.thin_tester(
             ),
             "webgl2_conformance_validating_tests": targets.remove(
                 reason = "Passthrough is already shipped everywhere but Webview",
-            ),
-            "webgl_conformance_gles_passthrough_ganesh_tests": targets.remove(
-                reason = "TODO(crbug.com/496616828): Swap out the default passthrough tests for this once Graphite is supported on Pixel 10 devices",
             ),
             "webgl_conformance_gles_passthrough_graphite_tests": targets.remove(
                 reason = "TODO(crbug.com/496616828): Graphite is currently explicitly blocked on Pixel 10 devices",
@@ -616,6 +538,138 @@ ci.thin_tester(
         category = "Android|arm64|IMG",
         short_name = "P10",
     ),
+)
+
+ci.thin_tester(
+    name = "Android FYI Experimental Release (Pixel 11)",
+    description_html = "Runs release GPU tests on experimental Pixel 11 configs",
+    parent = "GPU FYI Android arm64 Builder",
+    builder_spec = gpu_fyi_thin_tester_builder_spec(
+        gclient_config = builder_config.gclient_config(
+            config = "chromium",
+            apply_configs = [
+                "android",
+            ],
+        ),
+        chromium_config = builder_config.chromium_config(
+            config = "main_builder",
+            apply_configs = [
+                "mb",
+                "download_xr_test_apks",
+            ],
+            build_config = builder_config.build_config.RELEASE,
+            target_arch = builder_config.target_arch.ARM,
+            target_bits = 64,
+            target_platform = builder_config.target_platform.ANDROID,
+        ),
+        android_config = builder_config.android_config(
+            config = "base_config",
+        ),
+    ),
+    targets = targets.bundle(
+        # If the experimental configuration is the same as stable, this should
+        # only be running 'gpu_noop_sleep_telemetry_test'. Otherwise, this
+        # should be running the same tests as 'Android FYI Release (Pixel 11)'.
+        targets = [
+            "gpu_all_android_arm64_release_gtests",
+            "gpu_all_android_arm64_release_telemetry_tests",
+        ],
+        mixins = [
+            "has_native_resultdb_integration",
+            "gpu_pixel_11_experimental",
+            "very_limited_capacity_bot",
+        ],
+        per_test_modifications = {
+            "context_lost_passthrough_graphite_tests": targets.remove(
+                reason = "TODO(crbug.com/496616828): Graphite is currently explicitly blocked on Pixel 11 devices",
+            ),
+            "context_lost_validating_tests": targets.remove(
+                reason = "Passthrough is already shipped everywhere but Webview",
+            ),
+            "expected_color_pixel_passthrough_graphite_test": targets.remove(
+                reason = "TODO(crbug.com/496616828): Graphite is currently explicitly blocked on Pixel 11 devices",
+            ),
+            "expected_color_pixel_validating_test": targets.remove(
+                reason = "Passthrough is already shipped everywhere but Webview",
+            ),
+            "gl_tests_passthrough": targets.mixin(
+                args = [
+                    "--test-launcher-filter-file=../../testing/buildbot/filters/android.pixel_11.gl_tests_passthrough.filter",
+                ],
+            ),
+            "gl_tests_validating": targets.remove(
+                reason = "Passthrough is already shipped everywhere but Webview",
+            ),
+            "pixel_skia_gold_passthrough_graphite_test": targets.remove(
+                reason = "TODO(crbug.com/496616828): Graphite is currently explicitly blocked on Pixel 11 devices",
+            ),
+            "pixel_skia_gold_validating_test": targets.remove(
+                reason = "Passthrough is already shipped everywhere but Webview",
+            ),
+            "screenshot_sync_passthrough_graphite_tests": targets.remove(
+                reason = "TODO(crbug.com/496616828): Graphite is currently explicitly blocked on Pixel 11 devices",
+            ),
+            "screenshot_sync_validating_tests": targets.remove(
+                reason = "Passthrough is already shipped everywhere but Webview",
+            ),
+            "webcodecs_graphite_tests": targets.remove(
+                reason = "TODO(crbug.com/496616828): Graphite is currently explicitly blocked on Pixel 11 devices",
+            ),
+            "webcodecs_validating_ganesh_tests": targets.per_test_modification(
+                replacements = targets.replacements(
+                    args = {
+                        # This is currently necessary due to this config
+                        # originally testing default behavior, but default
+                        # behavior testing generally being omitted from FYI
+                        # testers as part of bundle standardization.
+                        # TODO(crbug.com/541312843): Remove this once we decide
+                        # which explicit configuration to test here.
+                        "--extra-browser-args": None,
+                    },
+                ),
+            ),
+            "webgl2_conformance_validating_tests": targets.remove(
+                reason = "Passthrough is already shipped everywhere but Webview",
+            ),
+            "webgl_conformance_gles_passthrough_graphite_tests": targets.remove(
+                reason = "TODO(crbug.com/496616828): Graphite is currently explicitly blocked on Pixel 11 devices",
+            ),
+            "webgl_conformance_validating_ganesh_tests": targets.remove(
+                reason = "Passthrough is already shipped everywhere but Webview",
+            ),
+            "webgl_conformance_validating_graphite_tests": targets.remove(
+                reason = "Passthrough is already shipped everywhere but Webview",
+            ),
+            "webrtc_graphite_tests": targets.remove(
+                reason = "TODO(crbug.com/496616828): Graphite is currently explicitly blocked on Pixel 11 devices",
+            ),
+            "webrtc_validating_ganesh_tests": targets.per_test_modification(
+                replacements = targets.replacements(
+                    args = {
+                        # This is currently necessary due to this config
+                        # originally testing default behavior, but default
+                        # behavior testing generally being omitted from FYI
+                        # testers as part of bundle standardization.
+                        # TODO(crbug.com/541312843): Remove this once we decide
+                        # which explicit configuration to test here.
+                        "--extra-browser-args": None,
+                    },
+                ),
+            ),
+        },
+    ),
+    targets_settings = targets.settings(
+        browser_config = targets.browser_config.ANDROID_CHROMIUM,
+        os_type = targets.os_type.ANDROID,
+        use_android_merge_script_by_default = False,
+    ),
+    # Uncomment this entry when this experimental tester is actually in use.
+    console_view_entry = consoles.console_view_entry(
+        category = "Android|arm64|IMG",
+        short_name = "P11e",
+    ),
+    list_view = "chromium.gpu.experimental",
+    execution_timeout = 12 * time.hour,
 )
 
 ci.thin_tester(
@@ -658,25 +712,13 @@ ci.thin_tester(
             "context_lost_passthrough_ganesh_tests": targets.remove(
                 reason = "TODO(crbug.com/541312843): Determine if we want to run this suite after standardizing test bundles",
             ),
-            "context_lost_passthrough_tests": targets.remove(
-                reason = "TODO(crbug.com/541312843): Determine if we want to run this suite after standardizing test bundles",
-            ),
             "expected_color_pixel_passthrough_ganesh_test": targets.remove(
-                reason = "TODO(crbug.com/541312843): Determine if we want to run this suite after standardizing test bundles",
-            ),
-            "expected_color_pixel_passthrough_test": targets.remove(
                 reason = "TODO(crbug.com/541312843): Determine if we want to run this suite after standardizing test bundles",
             ),
             "pixel_skia_gold_passthrough_ganesh_test": targets.remove(
                 reason = "TODO(crbug.com/541312843): Determine if we want to run this suite after standardizing test bundles",
             ),
-            "pixel_skia_gold_passthrough_test": targets.remove(
-                reason = "TODO(crbug.com/541312843): Determine if we want to run this suite after standardizing test bundles",
-            ),
             "screenshot_sync_passthrough_ganesh_tests": targets.remove(
-                reason = "TODO(crbug.com/541312843): Determine if we want to run this suite after standardizing test bundles",
-            ),
-            "screenshot_sync_passthrough_tests": targets.remove(
                 reason = "TODO(crbug.com/541312843): Determine if we want to run this suite after standardizing test bundles",
             ),
             "webcodecs_validating_ganesh_tests": targets.remove(
@@ -689,9 +731,6 @@ ci.thin_tester(
                 reason = "TODO(crbug.com/541312843): Determine if we want to run this suite after standardizing test bundles",
             ),
             "webgl_conformance_gles_passthrough_ganesh_tests": targets.remove(
-                reason = "TODO(crbug.com/541312843): Determine if we want to run this suite after standardizing test bundles",
-            ),
-            "webgl_conformance_gles_passthrough_tests": targets.remove(
                 reason = "TODO(crbug.com/541312843): Determine if we want to run this suite after standardizing test bundles",
             ),
             "webgl_conformance_validating_ganesh_tests": targets.mixin(
@@ -761,25 +800,13 @@ ci.thin_tester(
             "context_lost_passthrough_ganesh_tests": targets.remove(
                 reason = "TODO(crbug.com/541312843): Determine if we want to run this suite after standardizing test bundles",
             ),
-            "context_lost_passthrough_tests": targets.remove(
-                reason = "TODO(crbug.com/541312843): Determine if we want to run this suite after standardizing test bundles",
-            ),
             "expected_color_pixel_passthrough_ganesh_test": targets.remove(
-                reason = "TODO(crbug.com/541312843): Determine if we want to run this suite after standardizing test bundles",
-            ),
-            "expected_color_pixel_passthrough_test": targets.remove(
                 reason = "TODO(crbug.com/541312843): Determine if we want to run this suite after standardizing test bundles",
             ),
             "pixel_skia_gold_passthrough_ganesh_test": targets.remove(
                 reason = "TODO(crbug.com/541312843): Determine if we want to run this suite after standardizing test bundles",
             ),
-            "pixel_skia_gold_passthrough_test": targets.remove(
-                reason = "TODO(crbug.com/541312843): Determine if we want to run this suite after standardizing test bundles",
-            ),
             "screenshot_sync_passthrough_ganesh_tests": targets.remove(
-                reason = "TODO(crbug.com/541312843): Determine if we want to run this suite after standardizing test bundles",
-            ),
-            "screenshot_sync_passthrough_tests": targets.remove(
                 reason = "TODO(crbug.com/541312843): Determine if we want to run this suite after standardizing test bundles",
             ),
             "webcodecs_validating_ganesh_tests": targets.remove(
@@ -792,9 +819,6 @@ ci.thin_tester(
                 reason = "TODO(crbug.com/541312843): Determine if we want to run this suite after standardizing test bundles",
             ),
             "webgl_conformance_gles_passthrough_ganesh_tests": targets.remove(
-                reason = "TODO(crbug.com/541312843): Determine if we want to run this suite after standardizing test bundles",
-            ),
-            "webgl_conformance_gles_passthrough_tests": targets.remove(
                 reason = "TODO(crbug.com/541312843): Determine if we want to run this suite after standardizing test bundles",
             ),
             "webrtc_validating_ganesh_tests": targets.remove(
@@ -862,16 +886,10 @@ ci.thin_tester(
             "context_lost_passthrough_graphite_tests": targets.remove(
                 reason = "TODO(crbug.com/541312843): Determine if we want to run this suite after standardizing test bundles",
             ),
-            "context_lost_passthrough_tests": targets.remove(
-                reason = "TODO(crbug.com/541312843): Determine if we want to run this suite after standardizing test bundles",
-            ),
             "expected_color_pixel_passthrough_ganesh_test": targets.remove(
                 reason = "TODO(crbug.com/541312843): Determine if we want to run this suite after standardizing test bundles",
             ),
             "expected_color_pixel_passthrough_graphite_test": targets.remove(
-                reason = "TODO(crbug.com/541312843): Determine if we want to run this suite after standardizing test bundles",
-            ),
-            "expected_color_pixel_passthrough_test": targets.remove(
                 reason = "TODO(crbug.com/541312843): Determine if we want to run this suite after standardizing test bundles",
             ),
             "pixel_skia_gold_passthrough_ganesh_test": targets.remove(
@@ -880,16 +898,10 @@ ci.thin_tester(
             "pixel_skia_gold_passthrough_graphite_test": targets.remove(
                 reason = "TODO(crbug.com/541312843): Determine if we want to run this suite after standardizing test bundles",
             ),
-            "pixel_skia_gold_passthrough_test": targets.remove(
-                reason = "TODO(crbug.com/541312843): Determine if we want to run this suite after standardizing test bundles",
-            ),
             "screenshot_sync_passthrough_ganesh_tests": targets.remove(
                 reason = "TODO(crbug.com/541312843): Determine if we want to run this suite after standardizing test bundles",
             ),
             "screenshot_sync_passthrough_graphite_tests": targets.remove(
-                reason = "TODO(crbug.com/541312843): Determine if we want to run this suite after standardizing test bundles",
-            ),
-            "screenshot_sync_passthrough_tests": targets.remove(
                 reason = "TODO(crbug.com/541312843): Determine if we want to run this suite after standardizing test bundles",
             ),
             "webcodecs_graphite_tests": targets.remove(
@@ -908,9 +920,6 @@ ci.thin_tester(
                 reason = "TODO(crbug.com/541312843): Determine if we want to run this suite after standardizing test bundles",
             ),
             "webgl_conformance_gles_passthrough_graphite_tests": targets.remove(
-                reason = "TODO(crbug.com/541312843): Determine if we want to run this suite after standardizing test bundles",
-            ),
-            "webgl_conformance_gles_passthrough_tests": targets.remove(
                 reason = "TODO(crbug.com/541312843): Determine if we want to run this suite after standardizing test bundles",
             ),
             "webgl_conformance_validating_graphite_tests": targets.remove(
@@ -1282,6 +1291,7 @@ shared_gpu.ci.linux_builder(
 
 shared_gpu.ci.mac_builder(
     name = "GPU FYI Mac Builder",
+    branch_selector = branches.selector.MAC_BRANCHES,
     description_html = "Builds release Mac x64 binaries for GPU testing",
     builder_spec = builder_config.builder_spec(
         gclient_config = builder_config.gclient_config(
@@ -1455,6 +1465,9 @@ ci.thin_tester(
                     "--test-launcher-filter-file=../../testing/buildbot/filters/linux.amd.5500xt.wayland.gl_tests_passthrough.filter",
                 ],
             ),
+            "vulkan_pixel_skia_gold_test": targets.remove(
+                reason = "Only run on NVIDIA",
+            ),
         },
     ),
     targets_settings = targets.settings(
@@ -1538,6 +1551,11 @@ ci.thin_tester(
             "very_limited_capacity_bot",
             "gpu_amd_rx_9070_xt_linux_experimental",
         ],
+        per_test_modifications = {
+            "vulkan_pixel_skia_gold_test": targets.remove(
+                reason = "Only run on NVIDIA",
+            ),
+        },
     ),
     targets_settings = targets.settings(
         browser_config = targets.browser_config.RELEASE,
@@ -1622,7 +1640,7 @@ ci.thin_tester(
         # should be running the same tests as 'Linux FYI Release (NVIDIA)'.
         targets = [
             "gpu_all_linux_release_gtests",
-            "gpu_all_linux_release_vulkan_telemetry_tests",
+            "gpu_all_linux_release_telemetry_tests",
         ],
         mixins = [
             "limited_capacity_bot",
@@ -1662,7 +1680,7 @@ ci.thin_tester(
     targets = targets.bundle(
         targets = [
             "gpu_all_linux_release_gtests",
-            "gpu_all_linux_release_vulkan_telemetry_tests",
+            "gpu_all_linux_release_telemetry_tests",
         ],
         mixins = [
             "very_limited_capacity_bot",
@@ -1701,7 +1719,7 @@ ci.thin_tester(
     targets = targets.bundle(
         targets = [
             "gpu_fyi_linux_release_gtests",
-            "gpu_fyi_linux_release_vulkan_telemetry_tests",
+            "gpu_fyi_linux_release_telemetry_tests",
         ],
         mixins = [
             "linux_nvidia_gtx_1660_stable",
@@ -1738,7 +1756,7 @@ ci.thin_tester(
     targets = targets.bundle(
         targets = [
             "gpu_all_linux_release_gtests",
-            "gpu_all_linux_release_vulkan_telemetry_tests",
+            "gpu_all_linux_release_telemetry_tests",
         ],
         mixins = [
             "linux_nvidia_rtx_4070_super_stable",
@@ -1781,6 +1799,11 @@ ci.thin_tester(
         mixins = [
             "linux_amd_rx_5500_xt",
         ],
+        per_test_modifications = {
+            "vulkan_pixel_skia_gold_test": targets.remove(
+                reason = "Only run on NVIDIA",
+            ),
+        },
     ),
     targets_settings = targets.settings(
         browser_config = targets.browser_config.RELEASE,
@@ -1818,6 +1841,11 @@ ci.thin_tester(
         mixins = [
             "linux_amd_rx_7600_stable",
         ],
+        per_test_modifications = {
+            "vulkan_pixel_skia_gold_test": targets.remove(
+                reason = "Only run on NVIDIA",
+            ),
+        },
     ),
     targets_settings = targets.settings(
         browser_config = targets.browser_config.RELEASE,
@@ -1940,6 +1968,11 @@ ci.thin_tester(
         mixins = [
             "linux_intel_uhd_630_stable",
         ],
+        per_test_modifications = {
+            "vulkan_pixel_skia_gold_test": targets.remove(
+                reason = "Only run on NVIDIA",
+            ),
+        },
     ),
     targets_settings = targets.settings(
         browser_config = targets.browser_config.RELEASE,
@@ -1982,6 +2015,9 @@ ci.thin_tester(
                 args = [
                     "--test-launcher-filter-file=../../testing/buildbot/filters/linux.uhd_770.gl_tests_passthrough.filter",
                 ],
+            ),
+            "vulkan_pixel_skia_gold_test": targets.remove(
+                reason = "Only run on NVIDIA",
             ),
         },
     ),
@@ -2496,6 +2532,7 @@ ci.thin_tester(
 
 ci.thin_tester(
     name = "Mac FYI Release (Intel)",
+    branch_selector = branches.selector.MAC_BRANCHES,
     description_html = "Runs release GPU tests on stable Mac/Intel UHD 630 Mac Mini configs",
     parent = "GPU FYI Mac Builder",
     builder_spec = gpu_fyi_thin_tester_builder_spec(
@@ -2570,6 +2607,7 @@ ci.thin_tester(
 
 ci.thin_tester(
     name = "Mac FYI Retina Release (AMD)",
+    branch_selector = branches.selector.MAC_BRANCHES,
     description_html = "Runs release GPU tests on stable Mac/AMD Macbook Pro configs",
     parent = "GPU FYI Mac Builder",
     builder_spec = gpu_fyi_thin_tester_builder_spec(

@@ -16,7 +16,6 @@
 #include "chrome/browser/sessions/session_restore.h"
 #include "chrome/browser/sessions/session_service_base.h"
 #include "chrome/browser/sessions/session_service_lookup.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/send_tab_to_self/send_tab_to_self_activation_tracker.h"
@@ -31,10 +30,11 @@
 #include "components/tab_groups/tab_group_id.h"
 #include "components/tabs/public/tab_group.h"
 #include "components/tabs/public/tab_interface.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/restore_type.h"
-#include "content/public/browser/session_storage_namespace.h"
+#include "content/public/browser/session_storage_namespace_handle.h"
 #include "content/public/browser/web_contents.h"
 #include "third_party/blink/public/common/user_agent/user_agent_metadata.h"
 #include "ui/gfx/geometry/size.h"
@@ -57,17 +57,17 @@ std::unique_ptr<WebContents> CreateRestoredTab(
     const std::string& extension_app_id,
     base::TimeTicks last_active_time_ticks,
     base::Time last_active_time,
-    content::SessionStorageNamespace* session_storage_namespace,
+    content::SessionStorageNamespaceHandle* session_storage_namespace,
     const sessions::SerializedUserAgentOverride& user_agent_override,
     const std::map<std::string, std::string>& extra_data,
     bool initially_hidden,
     bool from_session_restore) {
   // TODO(ajwong): Remove the temporary session_storage_namespace_map when
   // we teach session restore to understand that one tab can have multiple
-  // SessionStorageNamespace objects. Also remove the
-  // session_storage_namespace.h include since we only need that to assign
-  // into the map.
-  content::SessionStorageNamespaceMap session_storage_namespace_map =
+  // SessionStorageNamespaceHandle objects. Also remove the
+  // session_storage_namespace_handle.h include since we only need that to
+  // assign into the map.
+  content::SessionStorageNamespaceHandleMap session_storage_namespace_map =
       content::CreateMapWithDefaultSessionStorageNamespace(
           browser->GetProfile(), session_storage_namespace);
   WebContents::CreateParams create_params(browser->GetProfile());
@@ -276,7 +276,7 @@ WebContents* AddRestoredTab(
     bool pin,
     base::TimeTicks last_active_time_ticks,
     base::Time last_active_time,
-    content::SessionStorageNamespace* session_storage_namespace,
+    content::SessionStorageNamespaceHandle* session_storage_namespace,
     const sessions::SerializedUserAgentOverride& user_agent_override,
     const std::map<std::string, std::string>& extra_data,
     bool from_session_restore,
@@ -297,7 +297,7 @@ WebContents* ReplaceRestoredTab(
     base::span<const SerializedNavigationEntry> navigations,
     int selected_navigation,
     const std::string& extension_app_id,
-    content::SessionStorageNamespace* session_storage_namespace,
+    content::SessionStorageNamespaceHandle* session_storage_namespace,
     const sessions::SerializedUserAgentOverride& user_agent_override,
     const std::map<std::string, std::string>& extra_data,
     bool from_session_restore) {

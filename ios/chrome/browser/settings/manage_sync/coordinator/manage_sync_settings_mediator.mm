@@ -25,6 +25,7 @@
 #import "components/sync/base/user_selectable_type.h"
 #import "components/sync/service/local_data_description.h"
 #import "components/sync/service/sync_service.h"
+#import "components/sync/service/sync_service_utils.h"
 #import "components/sync/service/sync_user_settings.h"
 #import "ios/chrome/browser/authentication/history_sync/model/history_sync_utils.h"
 #import "ios/chrome/browser/authentication/ui_bundled/cells/central_account_view.h"
@@ -56,7 +57,6 @@
 #import "ios/chrome/browser/signin/model/authentication_service_observer_bridge.h"
 #import "ios/chrome/browser/signin/model/avatar/avatar_provider.h"
 #import "ios/chrome/browser/signin/model/chrome_account_manager_service.h"
-#import "ios/chrome/browser/signin/model/constants.h"
 #import "ios/chrome/browser/sync/model/enterprise_utils.h"
 #import "ios/chrome/browser/sync/model/sync_observer_bridge.h"
 #import "ios/chrome/common/ui/colors/semantic_color_names.h"
@@ -485,10 +485,7 @@ constexpr CGFloat kBatchUploadSymbolPointSize = 22.;
     [self loadManageAccountsSection];
     [self loadSwitchAccountAndSignOutSection];
     if (notifyConsumer) {
-      NSUInteger sectionIndex =
-          [model sectionForSectionIdentifier:ManageAndSignOutSectionIdentifier];
-      [self.consumer insertSections:[NSIndexSet indexSetWithIndex:sectionIndex]
-                       rowAnimation:NO];
+      [self.consumer reloadTableData];
     }
   }
 }
@@ -702,29 +699,25 @@ constexpr CGFloat kBatchUploadSymbolPointSize = 22.;
   if (![model hasSectionForSectionIdentifier:BatchUploadSectionIdentifier]) {
     return;
   }
-  NSInteger sectionIndex =
-      [model sectionForSectionIdentifier:BatchUploadSectionIdentifier];
   [model removeSectionWithIdentifier:BatchUploadSectionIdentifier];
   self.batchUploadItem = nil;
 
   if (notifyConsumer) {
-    // Remove the batch upload section from the table view.
-    NSIndexSet* indexSet = [NSIndexSet indexSetWithIndex:sectionIndex];
-    [self.consumer deleteSections:indexSet rowAnimation:YES];
+    [self.consumer reloadTableData];
   }
 }
 
 // Updates the batch upload section according to data already fetched.
-// `notifyConsummer` if YES, call the consumer to update the table view.
+// `notifyConsumer` if YES, call the consumer to update the table view.
 // `firstLoad` if YES, load the section without animations.
-- (void)updateBatchUploadSectionWithNotifyConsumer:(BOOL)notifyConsummer
+- (void)updateBatchUploadSectionWithNotifyConsumer:(BOOL)notifyConsumer
                                          firstLoad:(BOOL)firstLoad {
   // Batch upload option is not shown if sync is disabled by policy, if the
   // account is in a persistent error state that requires a user action, or if
   // there is no local data to offer the batch upload.
   if (self.syncErrorItem || self.isSyncDisabledByAdministrator ||
       (!_localPasswordsToUpload && !_localItemsToUpload)) {
-    [self removeBatchUploadSectionNotifyConsumer:notifyConsummer];
+    [self removeBatchUploadSectionNotifyConsumer:notifyConsumer];
     return;
   }
 
@@ -738,7 +731,13 @@ constexpr CGFloat kBatchUploadSymbolPointSize = 22.;
   NSInteger batchUploadSectionIndex = 0;
 
   BOOL batchUploadSectionAlreadyExists = self.batchUploadItem;
-  if (!batchUploadSectionAlreadyExists) {
+  if (batchUploadSectionAlreadyExists) {
+    // The section already exists, update it.
+    self.batchUploadItem.detailText = [self itemsToUploadRecommendationString];
+    if (notifyConsumer) {
+      [self.consumer reloadItem:self.batchUploadItem];
+    }
+  } else {
     // Creates the batch upload section.
     [model insertSectionWithIdentifier:BatchUploadSectionIdentifier
                                atIndex:batchUploadSectionIndex];
@@ -747,22 +746,9 @@ constexpr CGFloat kBatchUploadSymbolPointSize = 22.;
         toSectionWithIdentifier:BatchUploadSectionIdentifier];
     [model addItem:[self batchUploadButtonItem]
         toSectionWithIdentifier:BatchUploadSectionIdentifier];
-  } else {
-    // The section already exists, update it.
-    self.batchUploadItem.detailText = [self itemsToUploadRecommendationString];
-    [self.consumer reloadItem:self.batchUploadItem];
-  }
-
-  if (!notifyConsummer) {
-    return;
-  }
-  NSIndexSet* indexSet = [NSIndexSet indexSetWithIndex:batchUploadSectionIndex];
-  if (batchUploadSectionAlreadyExists) {
-    // The section should be updated if it already exists.
-    [self.consumer reloadSections:indexSet];
-  } else {
-    // The animation is not needed if this is a first time load of the card.
-    [self.consumer insertSections:indexSet rowAnimation:!firstLoad];
+    if (notifyConsumer) {
+      [self.consumer reloadTableData];
+    }
   }
 }
 
@@ -1068,7 +1054,8 @@ constexpr CGFloat kBatchUploadSymbolPointSize = 22.;
 
 - (void)extendedAccountInfoDidUpdate:(const AccountInfo&)info {
   id<SystemIdentity> identity =
-      _chromeAccountManagerService->GetIdentityOnDeviceWithGaiaID(info.gaia);
+      _chromeAccountManagerService->GetIdentityOnDeviceWithGaiaID(
+          info.GetGaiaId());
   if ([_signedInIdentity isEqual:identity]) {
     [self updatePrimaryAccountDetails];
     // Update the model without notifying the consumer, then reload atomically.
@@ -1199,15 +1186,13 @@ constexpr CGFloat kBatchUploadSymbolPointSize = 22.;
   syncErrorItem.image =
       SymbolWithPointSize(SymbolErrorCircleFill, kErrorSymbolPointSize);
   syncErrorItem.imageViewTintColor = [UIColor colorNamed:kRed500Color];
-  syncErrorItem.accessibilityElementsHidden = YES;
   return syncErrorItem;
 }
 
 // Creates an error action button item to handle the indicated sync error type
 // for signed in users.
 - (TableViewItem*)createSyncErrorButtonItemWithItemType:(NSInteger)itemType
-                                          buttonLabelID:(int)buttonLabelID
-                                              messageID:(int)messageID {
+                                          buttonLabelID:(int)buttonLabelID {
   CHECK((itemType == PrimaryAccountMdmErrorItemType) ||
         (itemType == PrimaryAccountReauthErrorItemType) ||
         (itemType == ShowPassphraseDialogErrorItemType) ||
@@ -1218,7 +1203,6 @@ constexpr CGFloat kBatchUploadSymbolPointSize = 22.;
   CHECK(self.accountStateSignedIn);
   TableViewTextItem* item = [[TableViewTextItem alloc] initWithType:itemType];
   item.text = l10n_util::GetNSString(buttonLabelID);
-  item.accessibilityLabel = l10n_util::GetNSString(messageID);
   item.textColor = [UIColor colorNamed:kBlueColor];
   item.accessibilityTraits = UIAccessibilityTraitButton;
   item.accessibilityIdentifier = kSyncErrorButtonIdentifier;
@@ -1232,15 +1216,12 @@ constexpr CGFloat kBatchUploadSymbolPointSize = 22.;
   if (![model hasSectionForSectionIdentifier:SyncErrorsSectionIdentifier]) {
     return;
   }
-  NSInteger sectionIndex =
-      [model sectionForSectionIdentifier:SyncErrorsSectionIdentifier];
   [model removeSectionWithIdentifier:SyncErrorsSectionIdentifier];
   self.syncErrorItem = nil;
 
   // Remove the sync error section from the table view model.
   if (notifyConsumer) {
-    NSIndexSet* indexSet = [NSIndexSet indexSetWithIndex:sectionIndex];
-    [self.consumer deleteSections:indexSet rowAnimation:NO];
+    [self.consumer reloadTableData];
   }
 }
 
@@ -1280,7 +1261,7 @@ constexpr CGFloat kBatchUploadSymbolPointSize = 22.;
     if (errorSectionPreviouslyExisted) {
       [self removeSyncErrorsSection:notifyConsumer];
     }
-      self.syncErrorItem = nil;
+    self.syncErrorItem = nil;
     return;
   }
 
@@ -1303,10 +1284,12 @@ constexpr CGFloat kBatchUploadSymbolPointSize = 22.;
   }
 
   // 4. Construct and populate the error message and actionable button items.
+  syncer::MaybeRecordIdentityErrorShown(
+      syncer::IdentityErrorDisplaySurface::kSyncSettings,
+      errorUIInfo.errorType);
   self.syncErrorItem =
       [self createSyncErrorButtonItemWithItemType:type.value()
-                                    buttonLabelID:errorUIInfo.buttonLabelID
-                                        messageID:errorUIInfo.messageID];
+                                    buttonLabelID:errorUIInfo.buttonLabelID];
   [model addItem:[self createSyncErrorMessageItem:errorUIInfo.messageID]
       toSectionWithIdentifier:SyncErrorsSectionIdentifier];
   [model addItem:self.syncErrorItem
@@ -1314,14 +1297,7 @@ constexpr CGFloat kBatchUploadSymbolPointSize = 22.;
 
   // 5. Batch notify the consumer of the collection updates.
   if (notifyConsumer) {
-    NSInteger sectionIndex =
-        [model sectionForSectionIdentifier:SyncErrorsSectionIdentifier];
-    NSIndexSet* indexSet = [NSIndexSet indexSetWithIndex:sectionIndex];
-    if (errorSectionPreviouslyExisted) {
-      [self.consumer reloadSections:indexSet];
-    } else {
-      [self.consumer insertSections:indexSet rowAnimation:NO];
-    }
+    [self.consumer reloadTableData];
   }
 }
 

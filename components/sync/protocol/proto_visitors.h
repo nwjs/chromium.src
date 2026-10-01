@@ -12,6 +12,7 @@
 #include "components/sync/protocol/app_setting_specifics.pb.h"
 #include "components/sync/protocol/app_specifics.pb.h"
 #include "components/sync/protocol/arc_package_specifics.pb.h"
+#include "components/sync/protocol/autofill_entity_suppression_specifics.pb.h"
 #include "components/sync/protocol/autofill_offer_specifics.pb.h"
 #include "components/sync/protocol/autofill_specifics.pb.h"
 #include "components/sync/protocol/autofill_valuable_metadata_specifics.pb.h"
@@ -73,7 +74,6 @@
 #include "components/sync/protocol/unique_position.pb.h"
 #include "components/sync/protocol/user_consent_specifics.pb.h"
 #include "components/sync/protocol/user_event_specifics.pb.h"
-#include "components/sync/protocol/web_apk_specifics.pb.h"
 #include "components/sync/protocol/web_app_specifics.pb.h"
 #include "components/sync/protocol/webauthn_credential_specifics.pb.h"
 #include "components/sync/protocol/workspace_desk_specifics.pb.h"
@@ -796,6 +796,7 @@ VISIT_PROTO_FIELDS(const sync_pb::EntitySpecifics& proto) {
   VISIT(app_setting);
   VISIT(arc_package);
   VISIT(autofill);
+  VISIT(autofill_entity_suppression);
   VISIT(autofill_offer);
   VISIT(autofill_profile);
   VISIT(autofill_valuable);
@@ -844,7 +845,6 @@ VISIT_PROTO_FIELDS(const sync_pb::EntitySpecifics& proto) {
   VISIT(user_consent);
   VISIT(user_event);
   VISIT(wallet_metadata);
-  VISIT(web_apk);
   VISIT(web_app);
   VISIT(webauthn_credential);
   VISIT(wifi_configuration);
@@ -2044,22 +2044,6 @@ VISIT_PROTO_FIELDS(const sync_pb::WalletMaskedIban& proto) {
   VISIT(nickname);
 }
 
-VISIT_PROTO_FIELDS(const sync_pb::WebApkIconInfo& proto) {
-  VISIT(size_in_px);
-  VISIT(url);
-  VISIT_ENUM(purpose);
-}
-
-VISIT_PROTO_FIELDS(const sync_pb::WebApkSpecifics& proto) {
-  VISIT(manifest_id);
-  VISIT(start_url);
-  VISIT(name);
-  VISIT(theme_color);
-  VISIT(scope);
-  VISIT_REP(icon_infos);
-  VISIT(last_used_time_windows_epoch_micros);
-}
-
 VISIT_PROTO_FIELDS(const sync_pb::WebAppIconInfo& proto) {
   VISIT(size_in_px);
   VISIT(url);
@@ -2219,6 +2203,8 @@ VISIT_PROTO_FIELDS(const sync_pb::AutofillValuableSpecifics& proto) {
   VISIT(offer);
   VISIT(order);
   VISIT(shipment);
+  VISIT(context_token);
+  VISIT(pass_view_url);
 }
 
 VISIT_PROTO_FIELDS(const sync_pb::Any& proto) {
@@ -2455,6 +2441,7 @@ VISIT_PROTO_FIELDS(const sync_pb::SkillSpecifics& proto) {
   VISIT(schema_version);
   VISIT_ENUM(skill_source);
   VISIT(source_skill_id);
+  VISIT(enabled);
 }
 
 VISIT_PROTO_FIELDS(const sync_pb::SimpleSkill& proto) {
@@ -2523,6 +2510,22 @@ VISIT_PROTO_FIELDS(const sync_pb::ContextualTaskSpecifics& proto) {
   VISIT(contextual_task);
   VISIT(url_resource);
   VISIT(version);
+}
+
+VISIT_PROTO_FIELDS(const sync_pb::EntitySuppressionKey::Attribute& proto) {
+  VISIT(name);
+  VISIT_BYTES(value_hash);
+}
+
+VISIT_PROTO_FIELDS(const sync_pb::EntitySuppressionKey& proto) {
+  VISIT(entity_type_name);
+  VISIT_REP(attributes);
+}
+
+VISIT_PROTO_FIELDS(const sync_pb::AutofillEntitySuppressionSpecifics& proto) {
+  VISIT(guid);
+  VISIT(entity_suppression_key);
+  VISIT(schema_version);
 }
 
 }  // namespace syncer

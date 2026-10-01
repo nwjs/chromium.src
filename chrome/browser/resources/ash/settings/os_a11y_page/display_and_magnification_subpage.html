@@ -231,15 +231,13 @@
         label="$i18n{screenMagnifierSelectToSpeakFocusFollowingLabel}"
         deep-link-focus-id$="[[Setting.kAccessibilityMagnifierFollowsSts]]">
     </settings-toggle-button>
-    <template is="dom-if" if="[[isAccessibilityMagnifierFollowsChromeVoxEnabled_]]">
-      <settings-toggle-button
-          id="fullScreenMagnifierFollowsChromeVoxToggle"
-          class="settings-box hr"
-          pref="{{prefs.settings.a11y.screen_magnifier_chromevox_focus_following}}"
-          label="$i18n{screenMagnifierChromeVoxFocusFollowingLabel}"
-          deep-link-focus-id$="[[Setting.kMagnifierFollowsChromeVox]]">
-      </settings-toggle-button>
-    </template>
+    <settings-toggle-button
+        id="fullScreenMagnifierFollowsChromeVoxToggle"
+        class="settings-box hr"
+        pref="{{prefs.settings.a11y.screen_magnifier_chromevox_focus_following}}"
+        label="$i18n{screenMagnifierChromeVoxFocusFollowingLabel}"
+        deep-link-focus-id$="[[Setting.kMagnifierFollowsChromeVox]]">
+    </settings-toggle-button>
     <div class="settings-box">
       <div class="flex start settings-box-text" id="labelWrapper">
         <div class="label" aria-hidden="true">
@@ -285,28 +283,24 @@
         label="$i18n{screenMagnifierSelectToSpeakFocusFollowingLabel}"
         deep-link-focus-id$="[[Setting.kAccessibilityMagnifierFollowsSts]]" >
     </settings-toggle-button>
-    <template is="dom-if" if="[[isAccessibilityMagnifierFollowsChromeVoxEnabled_]]">
-      <settings-toggle-button
-          id="dockedMagnifierFollowsChromeVoxToggle"
-          class="settings-box hr"
-          pref="{{prefs.settings.a11y.screen_magnifier_chromevox_focus_following}}"
-          label="$i18n{screenMagnifierChromeVoxFocusFollowingLabel}"
-          deep-link-focus-id$="[[Setting.kMagnifierFollowsChromeVox]]" >
-      </settings-toggle-button>
-    </template>
+    <settings-toggle-button
+        id="dockedMagnifierFollowsChromeVoxToggle"
+        class="settings-box hr"
+        pref="{{prefs.settings.a11y.screen_magnifier_chromevox_focus_following}}"
+        label="$i18n{screenMagnifierChromeVoxFocusFollowingLabel}"
+        deep-link-focus-id$="[[Setting.kMagnifierFollowsChromeVox]]" >
+    </settings-toggle-button>
   </div>
 </template>
-<template is="dom-if" if="[[isAccessibilityReducedAnimationsEnabled_]]">
-  <settings-toggle-button
-    class="hr"
-    id="enableReducedAnimations"
-    icon="os-settings:reduced-animations"
-    pref="{{prefs.settings.a11y.reduced_animations.enabled}}"
-    label="$i18n{reducedAnimationsLabel}"
-    sub-label="$i18n{reducedAnimationsDescription}"
-    deep-link-focus-id$="[[Setting.kReducedAnimationsEnabled]]">
-  </settings-toggle-button>
-</template>
+<settings-toggle-button
+  class="hr"
+  id="enableReducedAnimations"
+  icon="os-settings:reduced-animations"
+  pref="{{prefs.settings.a11y.reduced_animations.enabled}}"
+  label="$i18n{reducedAnimationsLabel}"
+  sub-label="$i18n{reducedAnimationsDescription}"
+  deep-link-focus-id$="[[Setting.kReducedAnimationsEnabled]]">
+</settings-toggle-button>
 <settings-toggle-button class="hr" id="enableAlwaysShowScrollbars" icon="os-settings:scroll-vertical"
   pref="{{prefs.settings.a11y.overlay_scrollbar.enabled}}" label="$i18n{alwaysShowScrollbarsLabel}"
   deep-link-focus-id$="[[Setting.kAlwaysShowScrollbarsEnabled]]">

@@ -28,6 +28,7 @@ ci/Dawn Win11 arm64 DEPS Release (Qualcomm Snapdragon X Elite)
 ci/GPU FYI Android arm Builder
 ci/GPU FYI Android arm64 Builder
 ci/GPU FYI Linux Builder
+ci/GPU FYI Mac Builder
 ci/GPU FYI Mac arm64 Builder
 ci/GPU FYI Win arm64 Builder
 ci/GPU FYI Win x64 Builder
@@ -52,6 +53,8 @@ ci/Linux Tests
 ci/Linux Tests (dbg)(1)
 ci/Mac Builder
 ci/Mac Builder (dbg)
+ci/Mac FYI Release (Intel)
+ci/Mac FYI Retina Release (AMD)
 ci/Mac FYI Retina Release (Apple M2)
 ci/Mac Release (Intel)
 ci/Mac Retina Release (AMD)

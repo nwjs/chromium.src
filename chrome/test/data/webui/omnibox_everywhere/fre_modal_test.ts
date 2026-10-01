@@ -6,6 +6,7 @@ import 'chrome://omnibox-everywhere.top-chrome/fre_modal.js';
 
 import type {FreModalElement} from 'chrome://omnibox-everywhere.top-chrome/fre_modal.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
+import {isMac} from 'chrome://resources/js/platform.js';
 import {assertEquals, assertTrue} from 'chrome://webui-test/chai_assert.js';
 import {eventToPromise, isVisible} from 'chrome://webui-test/test_util.js';
 
@@ -15,20 +16,14 @@ suite('FreModalTest', () => {
   setup(async () => {
     document.body.innerHTML = window.trustedTypes!.emptyHTML;
     loadTimeData.resetForTesting({
-      loomniboxFreTitle: 'Ask Google from anywhere',
-      loomniboxFreLensPrimary:
-          'Use the lens button to share what\'s on your screen',
+      loomniboxFreTitle: 'Search with Chrome from anywhere',
+      loomniboxFreLensPrimary: 'Share what’s on your screen with Google Lens',
       loomniboxFreLensSecondary:
-          'Add context to your question by selecting an area or ' +
-          'your entire screen',
-      loomniboxFreKeyboardPrimary: 'Easily open with',
-      loomniboxFreKeyboardBadgeOption: 'Option',
-      loomniboxFreKeyboardBadgeSpace: 'Space',
-      loomniboxFreAcceptHotkey: 'Accept hotkey',
-      loomniboxFreOr: 'or',
-      loomniboxFreEditOwn: 'edit your own',
+          'Ask about content outside of Chrome, like another app or file ' +
+          'you have open',
+      loomniboxFreWhereToFindPrimary: 'Open from the Mac menu bar',
       loomniboxFreCloseButtonAria: 'Close',
-      loomniboxFreEditButtonAria: 'Edit Hotkey',
+      isFuseboxEligible: true,
     });
     freModal = document.createElement('fre-modal');
     document.body.appendChild(freModal);
@@ -39,22 +34,38 @@ suite('FreModalTest', () => {
     assertTrue(isVisible(freModal));
     const title = freModal.shadowRoot.querySelector('.title');
     assertTrue(!!title);
+    assertEquals('Search with Chrome from anywhere', title.textContent.trim());
+
+    const logo = freModal.shadowRoot.querySelector('.chrome-logo');
+    assertTrue(!!logo);
 
     const closeBtn =
         freModal.shadowRoot.querySelector<HTMLElement>('.close-button');
     assertTrue(!!closeBtn);
 
-    const keyBadges =
-        freModal.shadowRoot.querySelectorAll<HTMLElement>('.key-badge');
-    assertEquals(2, keyBadges.length);
+    const listItems =
+        freModal.shadowRoot.querySelectorAll<HTMLElement>('.list-item');
+    assertEquals(2, listItems.length);
 
-    const acceptBtn = freModal.shadowRoot.querySelector<HTMLButtonElement>(
-        '.accept-hotkey-btn');
-    assertTrue(!!acceptBtn);
+    const lensPrimary = listItems[0]!.querySelector('.primary-text');
+    assertTrue(!!lensPrimary);
+    assertEquals(
+        'Share what’s on your screen with Google Lens',
+        lensPrimary.textContent.trim());
 
-    const editLink =
-        freModal.shadowRoot.querySelector<HTMLAnchorElement>('.edit-link');
-    assertTrue(!!editLink);
+    const whereToFindPrimary = listItems[1]!.querySelector('.primary-text');
+    assertTrue(!!whereToFindPrimary);
+    assertEquals(
+        'Open from the Mac menu bar', whereToFindPrimary.textContent.trim());
+
+    const openInNewIcon = listItems[1]!.querySelector('.open-in-new-icon');
+    assertTrue(!!openInNewIcon);
+
+    const img = listItems[1]!.querySelector('img');
+    assertTrue(!!img);
+    if (isMac) {
+      assertEquals('images/mac_menu_bar.png', img.getAttribute('src'));
+    }
   });
 
   test('clicking close button fires close event', async () => {
@@ -65,19 +76,49 @@ suite('FreModalTest', () => {
     await closePromise;
   });
 
-  test('clicking accept hotkey button fires accept-hotkey event', async () => {
-    const acceptBtn = freModal.shadowRoot.querySelector<HTMLButtonElement>(
-        '.accept-hotkey-btn')!;
-    const acceptPromise = eventToPromise('accept-hotkey', freModal);
-    acceptBtn.click();
-    await acceptPromise;
+  test('omits lens value prop row when not fusebox eligible', async () => {
+    document.body.innerHTML = window.trustedTypes!.emptyHTML;
+    loadTimeData.resetForTesting({
+      loomniboxFreTitle: 'Search with Chrome from anywhere',
+      loomniboxFreLensPrimary: 'Share what’s on your screen with Google Lens',
+      loomniboxFreLensSecondary:
+          'Ask about content outside of Chrome, like another app or file ' +
+          'you have open',
+      loomniboxFreWhereToFindPrimary: 'Open from the Mac menu bar',
+      loomniboxFreCloseButtonAria: 'Close',
+      isFuseboxEligible: false,
+    });
+    freModal = document.createElement('fre-modal');
+    document.body.appendChild(freModal);
+    await freModal.updateComplete;
+
+    const listItems =
+        freModal.shadowRoot.querySelectorAll<HTMLElement>('.list-item');
+    assertEquals(1, listItems.length);
+
+    const whereToFindPrimary = listItems[0]!.querySelector('.primary-text');
+    assertTrue(!!whereToFindPrimary);
+    assertEquals(
+        'Open from the Mac menu bar', whereToFindPrimary.textContent.trim());
   });
 
-  test('clicking edit-link fires open-settings event', async () => {
-    const editLink =
-        freModal.shadowRoot.querySelector<HTMLAnchorElement>('.edit-link')!;
-    const settingsPromise = eventToPromise('open-settings', freModal);
-    editLink.click();
-    await settingsPromise;
-  });
+  test(
+      'renders small illustration when small loomnibox is enabled',
+      async () => {
+        freModal.smallLoomnibox = true;
+        await freModal.updateComplete;
+
+        assertTrue(freModal.hasAttribute('small-loomnibox'));
+        if (isMac) {
+          const img = freModal.shadowRoot.querySelector<HTMLImageElement>(
+              '.mac-menubar-img');
+          assertTrue(!!img);
+          assertEquals(
+              'images/mac_menu_bar_small.png', img.getAttribute('src'));
+        } else {
+          const imgs = freModal.shadowRoot.querySelectorAll<HTMLImageElement>(
+              '.windows-taskbar-img');
+          assertEquals(2, imgs.length);
+        }
+      });
 });

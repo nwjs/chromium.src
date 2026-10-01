@@ -8,154 +8,41 @@
 #include <memory>
 #include <utility>
 
-#include "base/i18n/rtl.h"
-#include "base/metrics/histogram_functions.h"
-#include "base/metrics/user_metrics.h"
 #include "build/build_config.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/actions/chrome_action_id.h"
+#include "chrome/browser/ui/animation/browser_animation_controller.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
-#include "chrome/browser/ui/tabs/organizer/organizer_panel_state_controller.h"
-#include "chrome/browser/ui/views/frame/browser_frame_view.h"
+#include "chrome/browser/ui/views/animations/organizer_panel_animations.h"
+#include "chrome/browser/ui/views/frame/custom_corners_background.h"
 #include "chrome/browser/ui/views/tabs/organizer/layout_constants.h"
-#include "chrome/browser/ui/views/tabs/organizer/organizer_panel_controls_view.h"
 #include "chrome/browser/ui/views/tabs/organizer/organizer_panel_utils.h"
-#include "chrome/browser/ui/views/tabs/organizer/organizer_panel_view.h"
+#include "chrome/browser/ui/webui/webui_embedding_context.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/grit/generated_resources.h"
-#include "components/saved_tab_groups/public/features.h"
 #include "extensions/buildflags/buildflags.h"
-#include "ui/actions/actions.h"
+#include "ui/accessibility/ax_enums.mojom-shared.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/compositor/layer.h"
-#include "ui/compositor_extra/shadow.h"
 #include "ui/views/accessibility/view_accessibility.h"
-#include "ui/views/actions/action_view_controller.h"
-#include "ui/views/background.h"
 #include "ui/views/controls/webview/web_contents_set_background_color.h"
 #include "ui/views/controls/webview/webview.h"
-#include "ui/views/event_monitor.h"
-#include "ui/views/focus/focus_search.h"
-#include "ui/views/layout/flex_layout.h"
-#include "ui/views/layout/flex_layout_types.h"
 #include "ui/views/view_class_properties.h"
-#include "ui/views/view_shadow.h"
-#include "ui/views/widget/widget.h"
-#include "url/gurl.h"
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
-#include "chrome/browser/extensions/api/side_panel/side_panel_service.h"
-#include "chrome/browser/extensions/extension_tab_util.h"
-#include "chrome/browser/extensions/extension_view_host.h"
-#include "chrome/browser/extensions/extension_view_host_factory.h"
-#include "chrome/browser/ui/views/extensions/extension_view_views.h"
-#include "extensions/browser/extension_host.h"
-#include "extensions/browser/extension_host_observer.h"
-#include "extensions/browser/extension_registry.h"
-#include "extensions/common/extension.h"
-#endif
+#include "chrome/browser/ui/views/tabs/organizer/organizer_panel_extension_view.h"
+#endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 
 namespace {
 
-constexpr int kClipRectMarginForShadow = 32;
-constexpr int kProjectPanelRightCornerRadius = 16;
-constexpr int kShadowElevation = 2;
-
-constexpr base::TimeDelta kPanelShowAnimationDuration = base::Milliseconds(250);
-constexpr base::TimeDelta kPanelHideAnimationDuration = base::Milliseconds(200);
-
-static bool disable_animations_for_testing_ = false;
-
-}  // namespace
-
-#if BUILDFLAG(ENABLE_EXTENSIONS)
-class OrganizerPanelView::ExtensionObserverHelper
-    : public ExtensionViewViews::Observer,
-      public extensions::ExtensionHostObserver {
+// The normal implementation of the panel view.
+class OrganizerPanelViewImpl : public OrganizerPanelView {
  public:
-  explicit ExtensionObserverHelper(OrganizerPanelView* panel_view)
-      : panel_view_(panel_view) {}
-  ~ExtensionObserverHelper() override = default;
-
-  void ObserveView(ExtensionViewViews* view) {
-    scoped_view_observation_.Reset();
-    if (view) {
-      scoped_view_observation_.Observe(view);
-    }
-  }
-
-  void ObserveHost(extensions::ExtensionHost* host) {
-    scoped_host_observation_.Reset();
-    if (host) {
-      scoped_host_observation_.Observe(host);
-    }
-  }
-
-  void Reset() {
-    scoped_view_observation_.Reset();
-    scoped_host_observation_.Reset();
-  }
-
-  void ResetHost() { scoped_host_observation_.Reset(); }
-
-  // ExtensionViewViews::Observer:
-  void OnViewDestroying() override { panel_view_->OnViewDestroying(); }
-
-  // extensions::ExtensionHostObserver:
-  void OnExtensionHostDestroyed(extensions::ExtensionHost* host) override {
-    panel_view_->OnExtensionHostDestroyed(host);
-  }
-
- private:
-  const raw_ptr<OrganizerPanelView> panel_view_;
-  base::ScopedObservation<ExtensionViewViews, ExtensionViewViews::Observer>
-      scoped_view_observation_{this};
-  base::ScopedObservation<extensions::ExtensionHost,
-                          extensions::ExtensionHostObserver>
-      scoped_host_observation_{this};
-};
-#endif
-
-OrganizerPanelView::OrganizerPanelView(
-    BrowserWindowInterface* browser,
-    actions::ActionItem* root_action_item,
-    OrganizerPanelStateController* state_controller)
-    : browser_(browser),
-      root_action_item_(root_action_item),
-      action_view_controller_(std::make_unique<views::ActionViewController>()),
-      state_controller_(state_controller),
-      resize_animation_(this),
-      focus_search_(std::make_unique<views::FocusSearch>(this,
-                                                         /*cycle=*/true,
-                                                         /*accessibility_mode=*/
-                                                         true)) {
-  SetPaintToLayer();
-  layer()->SetFillsBoundsOpaquely(false);
-
-  content_container_ = AddChildView(std::make_unique<views::View>());
-  content_container_->SetPaintToLayer();
-  content_container_->layer()->SetFillsBoundsOpaquely(false);
-
-  content_shadow_ =
-      std::make_unique<views::ViewShadow>(content_container_, kShadowElevation);
-  content_shadow_->SetRoundedCornerRadius(kProjectPanelRightCornerRadius);
-
-  SetIsElevated(true);
-
-  content_container_->SetLayoutManager(std::make_unique<views::FlexLayout>())
-      ->SetOrientation(views::LayoutOrientation::kVertical)
-      .SetCrossAxisAlignment(views::LayoutAlignment::kStretch);
-
-  controls_view_ = content_container_->AddChildView(
-      std::make_unique<OrganizerPanelControlsView>(root_action_item_.get()));
-  controls_view_->SetProperty(views::kMarginsKey,
-                              organizer_panel::kOrganizerPanelControlsMargins);
-
-  if (browser_ && browser_->GetProfile() &&
-      !organizer_panel::IsShowExtensionsSidePanelUiInOrganizerPanelEnabled()) {
-    auto web_view = std::make_unique<views::WebView>(browser_->GetProfile());
+  explicit OrganizerPanelViewImpl(BrowserWindowInterface& browser)
+      : OrganizerPanelView(browser) {
+    auto web_view = std::make_unique<views::WebView>(browser.GetProfile());
+    webui::SetBrowserWindowInterface(web_view->GetWebContents(), &browser);
     views::WebContentsSetBackgroundColor::CreateForWebContentsWithColor(
         web_view->GetWebContents(), SK_ColorTRANSPARENT);
     web_view->LoadInitialURL(GURL(chrome::kChromeUIOrganizerPanelURL));
@@ -163,484 +50,86 @@ OrganizerPanelView::OrganizerPanelView(
         views::kFlexBehaviorKey,
         views::FlexSpecification(views::MinimumFlexSizeRule::kScaleToZero,
                                  views::MaximumFlexSizeRule::kUnbounded));
-    web_view_ = content_container_->AddChildView(std::move(web_view));
+    web_view->SetProperty(views::kElementIdentifierKey, kWebViewElementId);
+    AddChildView(std::move(web_view));
   }
+};
 
-  resize_animation_.SetTweenType(gfx::Tween::Type::EASE_IN_OUT_EMPHASIZED);
+}  // namespace
 
-  AddAccelerator(ui::Accelerator(ui::VKEY_ESCAPE, ui::EF_NONE));
+// static
+std::unique_ptr<OrganizerPanelView> OrganizerPanelView::Create(
+    BrowserWindowInterface& browser) {
+#if BUILDFLAG(ENABLE_EXTENSIONS)
+  if (organizer_panel::IsShowExtensionsSidePanelUiInOrganizerPanelEnabled()) {
+    return std::make_unique<OrganizerPanelExtensionView>(browser);
+  }
+#endif
+  return std::make_unique<OrganizerPanelViewImpl>(browser);
+}
+
+DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(OrganizerPanelView, kWebViewElementId);
+
+OrganizerPanelView::OrganizerPanelView(BrowserWindowInterface& browser)
+    : animation_subscription_(
+          BrowserAnimationController::From(&browser)->Subscribe(
+              OrganizerPanelAnimations::kOrganizerPanel,
+              base::BindRepeating(
+                  [](OrganizerPanelView* view,
+                     const BrowserAnimationController*,
+                     BrowserAnimationUpdate) { view->InvalidateLayout(); },
+                  base::Unretained(this)))) {
+  SetPaintToLayer();
+  layer()->SetFillsBoundsOpaquely(false);
+  layer()->SetIsFastRoundedCorner(true);
+
+  SetPreferredSize(gfx::Size(organizer_panel::kOrganizerPanelMinWidth, 0));
+  SetProperty(views::kElementIdentifierKey, kOrganizerPanelViewElementId);
 
   auto& accessibility = GetViewAccessibility();
   accessibility.SetRole(ax::mojom::Role::kPane);
   accessibility.SetName(l10n_util::GetStringUTF16(IDS_ORGANIZER_PANEL));
   SetFocusBehavior(FocusBehavior::NEVER);
-
-  SetVisible(false);
-  SetPreferredSize(gfx::Size(organizer_panel::kOrganizerPanelMinWidth, 0));
-  SetProperty(views::kElementIdentifierKey, kOrganizerPanelViewElementId);
-
-#if BUILDFLAG(ENABLE_EXTENSIONS)
-  if (organizer_panel::IsShowExtensionsSidePanelUiInOrganizerPanelEnabled()) {
-    extension_observer_helper_ =
-        std::make_unique<ExtensionObserverHelper>(this);
-  }
-#endif
 }
 
-#if BUILDFLAG(ENABLE_EXTENSIONS)
-OrganizerPanelView::~OrganizerPanelView() {
-  ResetExtensionContent();
-}
-#else
 OrganizerPanelView::~OrganizerPanelView() = default;
-#endif
 
-bool OrganizerPanelView::IsPositionInWindowCaption(const gfx::Point& point) {
-  gfx::Point point_in_target = point;
-  views::View::ConvertPointToTarget(this, controls_view_, &point_in_target);
-  if (controls_view_->HitTestPoint(point_in_target)) {
-    return controls_view_->IsPositionInWindowCaption(point_in_target);
-  }
-
+bool OrganizerPanelView::IsInExtensionModeForTesting() const {
   return false;
-}
-
-void OrganizerPanelView::OnOrganizerPanelStateChanged(
-    OrganizerPanelStateController* state_controller) {
-  TooltipTextChanged();
-  controls_view_->UpdateTooltipText();
-
-  const bool visible = state_controller->IsOrganizerPanelVisible();
-
-#if BUILDFLAG(ENABLE_EXTENSIONS)
-  if (visible &&
-      organizer_panel::IsShowExtensionsSidePanelUiInOrganizerPanelEnabled()) {
-    if (state_controller->active_extension_id().has_value()) {
-      UpdateExtensionContent(*state_controller->active_extension_id());
-    } else {
-      UpdateDefaultExtensionContent();
-    }
-  }
-#endif
-
-  if (visible) {
-    views::Widget* widget = GetWidget();
-    if (widget && widget->GetNativeWindow()) {
-      event_monitor_ = views::EventMonitor::CreateWindowMonitor(
-          &mouse_event_handler_, widget->GetNativeWindow(),
-          {ui::EventType::kMousePressed, ui::EventType::kGestureTapDown});
-    }
-
-    if (!observing_focus_manager_ && GetFocusManager()) {
-      GetFocusManager()->AddFocusChangeListener(this);
-      last_focused_view_before_opening_.SetView(
-          GetFocusManager()->GetFocusedView());
-      observing_focus_manager_ = true;
-    }
-
-    last_opened_time_ = base::TimeTicks::Now();
-  } else {
-    if (observing_focus_manager_ && GetFocusManager()) {
-      GetFocusManager()->RemoveFocusChangeListener(this);
-      if (last_focused_view_before_opening_) {
-        GetFocusManager()->SetFocusedView(
-            last_focused_view_before_opening_.view());
-        last_focused_view_before_opening_.SetView(nullptr);
-      }
-      observing_focus_manager_ = false;
-    }
-    event_monitor_.reset();
-
-    base::TimeDelta open_duration = base::TimeTicks::Now() - last_opened_time_;
-    base::UmaHistogramCustomCounts("Projects.ProjectsPanel.TimeOpen",
-                                   open_duration.InSeconds(), 1,
-                                   base::Minutes(5).InSeconds(), 50);
-  }
-
-  if (disable_animations_for_testing_) {
-    resize_animation_.SetSlideDuration(base::TimeDelta());
-    resize_animation_.Reset(/*value=*/visible ? 1.0 : 0.0);
-    SetVisible(visible);
-    if (!visible) {
-      AnimationEnded(&resize_animation_);
-    }
-  } else {
-    if (visible) {
-      SetVisible(true);
-      resize_animation_.SetSlideDuration(kPanelShowAnimationDuration);
-      resize_animation_.Show();
-    } else {
-      resize_animation_.SetSlideDuration(kPanelHideAnimationDuration);
-      resize_animation_.Hide();
-    }
-  }
-
-  if (visible && GetFocusManager()) {
-    GetFocusManager()->SetFocusedView(this);
-  }
-}
-
-double OrganizerPanelView::GetResizeAnimationValue() const {
-  return resize_animation_.GetCurrentValue();
-}
-
-void OrganizerPanelView::SetTargetWidth(int target_width) {
-  if (target_width_ == target_width) {
-    return;
-  }
-  target_width_ = target_width;
-
-  InvalidateLayout();
-}
-
-void OrganizerPanelView::AddedToWidget() {
-  gfx::RoundedCornersF window_corners;
-  if (auto* non_client_view = GetWidget()->non_client_view()) {
-    if (auto* frame_view = views::AsViewClass<BrowserFrameView>(
-            non_client_view->frame_view())) {
-      window_corners = frame_view->GetWindowRoundedCorners();
-    }
-  }
-
-  // Apply the window corners to the layer. This ensures the browser window has
-  // a consistent corner radius as the panel slides in.
-  gfx::RoundedCornersF panel_layer_corners;
-  if (base::i18n::IsRTL()) {
-    panel_layer_corners = gfx::RoundedCornersF(0, window_corners.upper_right(),
-                                               window_corners.lower_right(), 0);
-  } else {
-    panel_layer_corners = gfx::RoundedCornersF(window_corners.upper_left(), 0,
-                                               0, window_corners.lower_left());
-  }
-  layer()->SetRoundedCornerRadius(panel_layer_corners);
-}
-
-void OrganizerPanelView::SetIsElevated(bool elevated) {
-  if (elevated_ == elevated) {
-    return;
-  }
-  elevated_ = elevated;
-
-  const int elevation = elevated_ ? kShadowElevation : 0;
-  content_shadow_->shadow()->SetElevation(elevation);
-
-  const int corner_radius = elevated_ ? kProjectPanelRightCornerRadius : 0;
-  gfx::RoundedCornersF radii;
-  if (base::i18n::IsRTL()) {
-    radii = gfx::RoundedCornersF(corner_radius, 0, 0, corner_radius);
-  } else {
-    radii = gfx::RoundedCornersF(0, corner_radius, corner_radius, 0);
-  }
-
-  content_container_->layer()->SetRoundedCornerRadius(radii);
-  content_container_->SetBackground(views::CreateRoundedRectBackground(
-      organizer_panel::kOrganizerPanelBackgroundColor, radii));
-
-  InvalidateLayout();
 }
 
 void OrganizerPanelView::Layout(PassKey) {
-  const int visible_width = width();
-  content_container_->SetBounds(-(target_width_ - visible_width), 0,
-                                target_width_, height());
+  LayoutSuperclass<views::View>(this);
 
-  // The content_container_ slides in from the edge of the window. In LTR this
-  // is the left edge, and it should be clipped to that edge. However, we still
-  // want the shadow to be visible on the opposite side, so we set a clip rect
-  // that extends slightly beyond that edge.
-  gfx::Rect clip_rect(0, 0, target_width_, height());
-  if (base::i18n::IsRTL()) {
-    clip_rect.Inset(gfx::Insets::TLBR(0, -kClipRectMarginForShadow, 0, 0));
-  } else {
-    clip_rect.Inset(gfx::Insets::TLBR(0, 0, 0, -kClipRectMarginForShadow));
-  }
-  layer()->SetClipRect(clip_rect);
-}
-
-void OrganizerPanelView::RemovedFromWidget() {
-  if (observing_focus_manager_ && GetFocusManager()) {
-    GetFocusManager()->RemoveFocusChangeListener(this);
-    observing_focus_manager_ = false;
-  }
-}
-
-bool OrganizerPanelView::AcceleratorPressed(
-    const ui::Accelerator& accelerator) {
-  if (accelerator.key_code() == ui::VKEY_ESCAPE) {
-    ClosePanel();
-    return true;
-  }
-  return false;
-}
-
-views::FocusTraversable* OrganizerPanelView::GetPaneFocusTraversable() {
-  return this;
-}
-
-views::FocusSearch* OrganizerPanelView::GetFocusSearch() {
-  return focus_search_.get();
-}
-
-views::FocusTraversable* OrganizerPanelView::GetFocusTraversableParent() {
-  return parent() ? parent()->GetFocusTraversable() : nullptr;
-}
-
-views::View* OrganizerPanelView::GetFocusTraversableParentView() {
-  return this;
-}
-
-void OrganizerPanelView::AnimationProgressed(const gfx::Animation* animation) {
-#if BUILDFLAG(IS_MAC)
-  // On Mac, start fading in the close button when the panel has completed half
-  // of its opening animation. Similarly when closing, fade out the button until
-  // the panel has completed half of its closing animation.
-  if (controls_view_) {
-    const double value = animation->GetCurrentValue();
-    controls_view_->SetButtonOpacity(std::max(0.0, (value - 0.5) * 2.0));
-  }
-#endif
-  InvalidateLayout();
-}
-
-void OrganizerPanelView::AnimationEnded(const gfx::Animation* animation) {
-  if (animation->GetCurrentValue() == 0.0) {
-    SetVisible(false);
-#if BUILDFLAG(ENABLE_EXTENSIONS)
-    ResetExtensionContent();
-#endif
-    if (on_close_animation_ended_callback_) {
-      std::move(on_close_animation_ended_callback_).Run();
+  // Set clip region based on parent.
+  if (parent()) {
+    const gfx::Rect clip_bounds = GetLocalBounds();
+    const gfx::Rect parent_bounds = views::View::ConvertRectToTarget(
+        parent(), this, parent()->GetLocalBounds());
+    gfx::Rect clip_rect = clip_bounds;
+    clip_rect.Intersect(parent_bounds);
+    layer()->SetClipRect(clip_rect);
+    gfx::RoundedCornersF corners;
+    if (parent()->background()) {
+      if (auto* const background =
+              parent()->background()->AsA<CustomCornersBackground>();
+          background && background->is_visible()) {
+        // Note: this mirrors for RtL.
+        corners = background->GetRoundedCornerRadii().value_or(
+            gfx::RoundedCornersF());
+        // These bounds are also mirrored for RtL.
+        if (clip_bounds.x() < parent_bounds.x()) {
+          corners.set_upper_left(0.f);
+          corners.set_lower_left(0.f);
+        }
+        if (clip_bounds.right() > parent_bounds.right()) {
+          corners.set_upper_right(0.f);
+          corners.set_lower_right(0.f);
+        }
+      }
     }
+    layer()->SetRoundedCornerRadius(corners);
   }
-}
-
-// We must also call AnimationEnded when an animation is canceled (which happens
-// when the view is destroyed or a new animation is started mid-flight) to
-// guarantee that the state is properly set to hidden.
-void OrganizerPanelView::AnimationCanceled(const gfx::Animation* animation) {
-  AnimationEnded(animation);
-}
-
-// static
-views::View* OrganizerPanelView::web_view_for_testing() {
-#if BUILDFLAG(ENABLE_EXTENSIONS)
-  if (extension_view_) {
-    return extension_view_;
-  }
-#endif
-  return web_view_;
-}
-
-void OrganizerPanelView::disable_animations_for_testing() {
-  disable_animations_for_testing_ = true;
-}
-
-#if BUILDFLAG(ENABLE_EXTENSIONS)
-void OrganizerPanelView::HandleCloseExtensionHost(
-    extensions::ExtensionHost* host) {
-  ClosePanel(false);
-}
-
-void OrganizerPanelView::UpdateExtensionContent(
-    const extensions::ExtensionId& extension_id) {
-  if (current_extension_id_ == extension_id && extension_view_ &&
-      extension_host_) {
-    return;
-  }
-
-  ResetExtensionContent();
-
-  if (!browser_ || !browser_->GetProfile()) {
-    return;
-  }
-
-  Profile* profile = browser_->GetProfile();
-  const extensions::Extension* extension =
-      extensions::ExtensionRegistry::Get(profile)->enabled_extensions().GetByID(
-          extension_id);
-  if (!extension) {
-    return;
-  }
-
-  extensions::SidePanelService* service =
-      extensions::SidePanelService::Get(profile);
-  if (!service) {
-    return;
-  }
-
-  auto options = service->GetOptions(*extension, /*tab_id=*/std::nullopt);
-  if (!options.enabled.value_or(false) || !options.path.has_value()) {
-    return;
-  }
-
-  GURL side_panel_url = GURL(*options.path);
-  if (!side_panel_url.SchemeIsHTTPOrHTTPS()) {
-    side_panel_url = extension->ResolveExtensionURL(*options.path);
-  }
-
-  extension_host_ = extensions::ExtensionViewHostFactory::CreateSidePanelHost(
-      *extension, side_panel_url, browser_, /*tab_interface=*/nullptr);
-  if (!extension_host_) {
-    return;
-  }
-
-  // Handle window.close() inside extension side panel.
-  extension_host_->SetCloseHandler(base::BindOnce(
-      &OrganizerPanelView::HandleCloseExtensionHost, base::Unretained(this)));
-
-  auto extension_view =
-      std::make_unique<ExtensionViewViews>(profile, extension_host_.get());
-  extension_view->Init();
-  extension_view->SetProperty(
-      views::kFlexBehaviorKey,
-      views::FlexSpecification(views::MinimumFlexSizeRule::kScaleToZero,
-                               views::MaximumFlexSizeRule::kUnbounded));
-
-  extension_view_ = content_container_->AddChildView(std::move(extension_view));
-  current_extension_id_ = extension_id;
-
-  if (extension_observer_helper_) {
-    extension_observer_helper_->ObserveView(extension_view_.get());
-    extension_observer_helper_->ObserveHost(extension_host_.get());
-  }
-
-  service->DispatchOnOpenedEvent(
-      extension_id, extensions::ExtensionTabUtil::GetWindowId(browser_),
-      /*tab_id=*/std::nullopt, side_panel_url.GetPath());
-}
-
-void OrganizerPanelView::UpdateDefaultExtensionContent() {
-  if (!browser_ || !browser_->GetProfile()) {
-    return;
-  }
-
-  auto* registry = extensions::ExtensionRegistry::Get(browser_->GetProfile());
-  auto* service = extensions::SidePanelService::Get(browser_->GetProfile());
-  if (!registry || !service) {
-    return;
-  }
-
-  for (const auto& extension : registry->enabled_extensions()) {
-    auto options = service->GetOptions(*extension, std::nullopt);
-    if (options.enabled.value_or(false) && options.path.has_value()) {
-      UpdateExtensionContent(extension->id());
-      return;
-    }
-  }
-}
-
-void OrganizerPanelView::ResetExtensionContent() {
-  if (current_extension_id_ && extension_host_ && browser_ &&
-      browser_->GetProfile()) {
-    auto* service = extensions::SidePanelService::Get(browser_->GetProfile());
-    if (service) {
-      service->DispatchOnClosedEvent(
-          *current_extension_id_,
-          extensions::ExtensionTabUtil::GetWindowId(browser_),
-          /*tab_id=*/std::nullopt, extension_host_->initial_url().GetPath());
-    }
-  }
-
-  if (extension_observer_helper_) {
-    extension_observer_helper_->Reset();
-  }
-  if (extension_view_) {
-    auto view_to_remove = extension_view_.ExtractAsDangling();
-    content_container_->RemoveChildViewT(view_to_remove.get());
-  }
-  extension_host_.reset();
-  current_extension_id_.reset();
-}
-
-void OrganizerPanelView::OnViewDestroying() {
-  // Clear `extension_view_` so ResetExtensionContent() will not attempt to
-  // remove or delete a view that is already being destroyed.
-  extension_view_ = nullptr;
-  ResetExtensionContent();
-}
-
-void OrganizerPanelView::OnExtensionHostDestroyed(
-    extensions::ExtensionHost* host) {
-  DCHECK_EQ(extension_host_.get(), host);
-  if (extension_observer_helper_) {
-    extension_observer_helper_->ResetHost();
-  }
-  if (current_extension_id_ && browser_ && browser_->GetProfile()) {
-    auto* service = extensions::SidePanelService::Get(browser_->GetProfile());
-    if (service) {
-      service->DispatchOnClosedEvent(
-          *current_extension_id_,
-          extensions::ExtensionTabUtil::GetWindowId(browser_),
-          /*tab_id=*/std::nullopt, host->initial_url().GetPath());
-    }
-  }
-  // Release ownership because `host` is currently executing its destructor.
-  extension_host_.release();
-  ResetExtensionContent();
-}
-#endif
-
-void OrganizerPanelView::ClosePanel(bool caused_by_focus_lost) {
-  // If the panel is closing due to focus being lost (e.g., a tab group was
-  // focused or a tab was activated), the last focused view before the panel was
-  // opened should not be refocused.
-  if (caused_by_focus_lost) {
-    last_focused_view_before_opening_.SetView(nullptr);
-  }
-
-  // Ignore if the panel is already animating closed.
-  if (!GetVisible() || resize_animation_.IsClosing()) {
-    return;
-  }
-
-  actions::ActionItem* action_item = actions::ActionManager::Get().FindAction(
-      kActionToggleOrganizerPanel, root_action_item_);
-  if (action_item) {
-    action_item->InvokeAction();
-  }
-}
-
-OrganizerPanelView::MouseEventHandler::MouseEventHandler(
-    OrganizerPanelView* owning_view)
-    : owning_view_(owning_view) {}
-
-OrganizerPanelView::MouseEventHandler::~MouseEventHandler() = default;
-
-void OrganizerPanelView::MouseEventHandler::OnEvent(const ui::Event& event) {
-  // Ignore mouse events when the panel is closed.
-  if (!owning_view_->GetVisible()) {
-    return;
-  }
-
-  if (event.type() != ui::EventType::kMousePressed &&
-      event.type() != ui::EventType::kGestureTapDown) {
-    return;
-  }
-
-  if (!owning_view_->GetWidget()) {
-    return;
-  }
-
-  auto point_in_view = event.AsLocatedEvent()->location();
-
-  // Convert the point from the event's target to the panel's coordinates.
-  views::View::ConvertPointFromWidget(owning_view_, &point_in_view);
-
-  if (!owning_view_->GetLocalBounds().Contains(point_in_view)) {
-    owning_view_->ClosePanel();
-  }
-}
-
-void OrganizerPanelView::OnWillChangeFocus(views::View* focused_before,
-                                           views::View* focused_now) {}
-
-void OrganizerPanelView::OnDidChangeFocus(views::View* focused_before,
-                                          views::View* focused_now) {
-  if (!GetVisible() || Contains(focused_now)) {
-    return;
-  }
-
-  ClosePanel();
 }
 
 BEGIN_METADATA(OrganizerPanelView)

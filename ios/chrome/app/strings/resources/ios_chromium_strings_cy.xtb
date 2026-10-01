@@ -8,12 +8,10 @@
 <translation id="1091252999271033193">Mae hyn yn golygu y bydd Chromium yn gofyn am y wefan symudol bob tro.</translation>
 <translation id="1115463765356382667">Cwblhau'r gweithredoedd a awgrymir isod i gael y gorau o Chromium.</translation>
 <translation id="1185134272377778587">Ynghylch Chromium</translation>
-<translation id="119044033865561140">Agor Chromium ar unwaith pan fyddwch ar eich iPad</translation>
 <translation id="1229234641991056119">Defnyddiwch eich cyfrineiriau, hanes, nodau tudalen a chardiau credyd Safari yn Chromium</translation>
 <translation id="1257458525759135959">I gadw lluniau, tapiwch ar Gosodiadau i ganiatáu i Chromium ychwanegu at eich lluniau</translation>
 <translation id="1260702988262336471">Agorwch y ddewislen Chromium</translation>
 <translation id="12739128458173458">I anfon y tab hwn i ddyfais arall, mewngofnodwch i Chromium ar y ddwy ddyfais.</translation>
-<translation id="1279797561821266129">Cael mynediad at Chromium yn gyflymach o'ch doc</translation>
 <translation id="1361748954329991663">Mae Chromium yn hen. Os nad oes diweddariad ar gael yn <ph name="BEGIN_LINK" />App Store<ph name="END_LINK" />, mae'n bosib nad yw'ch dyfais yn cefnogi fersiynau newydd o Chromium mwyach.</translation>
 <translation id="1383876407941801731">Chwilio</translation>
 <translation id="1423007117030725713">Dechrau chwiliad mewn tab Chromium newydd.</translation>
@@ -32,7 +30,6 @@
 <translation id="1553657876656159572">Ffrwd wedi'i theilwra ar eich cyfer chi. Gan gynnwys newyddion, chwaraeon a thywydd.</translation>
 <translation id="1561849081734670621">I analluogi Modd Cloi i Lawr yn Chromium trowch ef i ffwrdd ar eich dyfais.</translation>
 <translation id="1569258826720962327">Defnyddio gweithredoedd Chromium ar iOS</translation>
-<translation id="1573441572176948907">Symud Chromium i'ch doc</translation>
 <translation id="159029779861043703">Mae Chromium yn cadw'ch data sensitif yn ddiogel gyda Face ID.</translation>
 <translation id="1591119736686995611">Yn Agor y Grid Tabiau Chromium.</translation>
 <translation id="16001233025397167">Mae Gwiriad Diogelwch yn eich cadw'n ddiogel rhag toriadau data, gwefannau anniogel a rhagor. Derbyn rhybuddion am unrhyw faterion preifatrwydd neu ddiogelwch y mae Chromium yn eu canfod i chi.</translation>
@@ -145,6 +142,7 @@ Arhoswch ychydig funudau cyn newid cyfrif. Os byddwch yn newid cyfrif nawr, bydd
 <translation id="3855938650519180865">Beth sy'n newydd yn Chromium</translation>
 <translation id="3886689467633467988">Mewngofnodwch i'r wefan hon a Chromium i gael eich nodau tudalen a rhagor ar eich holl ddyfeisiau.</translation>
 <translation id="3949514465204582407">Awgrym Chromium: Cael eich cyfrineiriau mewn unrhyw ap</translation>
+<translation id="3983298990898629929">Gosodwch Chromium fel eich porwr diofyn i agor dolenni gydag un tap</translation>
 <translation id="4005283307739974863">Yn Agor a Rhedeg Gwiriad Diogelwch yn Chromium.</translation>
 <translation id="4043291146360695975">Mae cyfrineiriau'n cael eu cadw i'r Rheolwr Cyfrineiriau ar y ddyfais hon yn unig.</translation>
 <translation id="4046625794029820944">Stopio copïo URLau. Gosod Chromium fel porwr diofyn i lwytho tudalennau yn uniongyrchol.</translation>
@@ -182,7 +180,6 @@ I newid y gosodiad hwn, <ph name="BEGIN_LINK" />dileu'r data Chromium yn eich cy
 <translation id="4790638144988730920">Parhewch i ddefnyddio'r data Chromium yn eich Cyfrif Google.</translation>
 <translation id="4828317641996116749">Nid oedd modd i Chromium wirio'r holl gyfrineiriau. Rhowch gynnig arall arni'n nes ymlaen.</translation>
 <translation id="4856138222358683580">Gweithredoedd Chromium</translation>
-<translation id="4869706986935301458">Agor Chromium ar unwaith pan fyddwch ar eich iPhone</translation>
 <translation id="4904452304169763785">Rhybuddion ar unrhyw faterion preifatrwydd neu ddiogelwch y mae Chromium yn eu canfod i chi.</translation>
 <translation id="4962295957157529683">Gorffennwch yr hyn roeddech yn ei wneud yn y ffenestr arall a oedd ar agor gennych yn Chromium.</translation>
 <translation id="4985291216379576555">All-lein, ni all Chromuim wirio am ddiweddariadau</translation>
@@ -277,6 +274,7 @@ Pethau i'w hystyried:
 <translation id="6680609900732453726">Cadwch eich pori yn breifat gyda dilysiad dyfais pan fyddwch yn cau Chromium</translation>
 <translation id="6696512128741076907">Gosod Chromium fel eich porwr diofyn i agor dolenni ar unwaith o apiau eraill.</translation>
 <translation id="6752854822223394465">Mae'ch sefydliad wrthi'n gosod Chromium…</translation>
+<translation id="6777348401413221846">Fideo sgrîn lawn o sut i osod Chromium fel y porwr diofyn: Agorwch y gosodiadau Chromium yn iOS, tapiwch 'Default Browser App' a dewiswch Chromium.</translation>
 <translation id="6794054469102824109">Yn Agor Gêm Dino Chromium.</translation>
 <translation id="6820823224820483452">Nid oedd modd i Chromium wirio'r holl gyfrineiriau. Rhowch gynnig arall arni yfory.</translation>
 <translation id="6830782797004194206">Mewngofnodwch yn gyflymach gydag awtolenwi Chromium</translation>
@@ -306,8 +304,8 @@ Dim ond rhywun sydd â'ch cyfrinymadrodd all ddarllen eich data sydd wedi'u hamg
 <translation id="7337881442233988129">Chromium</translation>
 <translation id="7395825497086981028">Bydd eich cyfrinair yn cael ei gadw i'r Rheolwr Cyfrineiriau ar gyfer <ph name="EMAIL" />.</translation>
 <translation id="7434848749522628428">Bydd y cod pas hwn yn cael ei gadw i'r Rheolwr Cyfrineiriau ar gyfer <ph name="USER_EMAIL" /></translation>
+<translation id="7453822113116681031">Gwnewch Chromium yn borwr diofyn i agor dolenni gydag un tap</translation>
 <translation id="7504829997542308412">Agor Chromium</translation>
-<translation id="7507535968973352823">Rhowch Chromium yn yr ardal waelod i gael mynediad ato unrhyw bryd</translation>
 <translation id="7531461704633548377">O Chromium</translation>
 <translation id="7554983317097061001">Awgrym Chromium: Symudwch Chromium i'r doc</translation>
 <translation id="7576863740961052505">Rheoli gosodiadau Chromium</translation>
@@ -357,7 +355,6 @@ Dim ond rhywun sydd â'ch cyfrinymadrodd all ddarllen eich data sydd wedi'u hamg
 <translation id="8730503818204408000">Yn agor y Gosodiad Chromium i osod Chromium fel y Porwr Diofyn.</translation>
 <translation id="8754966941001340678">Mae Chromium yn argymell gwell amddiffyniad</translation>
 <translation id="8759037115129007407">Ni all aelod o'ch teulu dderbyn cyfrineiriau ar hyn o bryd. Gofynnwch iddynt ddiweddaru Chromium a chysoni eu cyfrineiriau. <ph name="BEGIN_LINK" />Dysgu rhagor<ph name="END_LINK" /></translation>
-<translation id="8769418653786388149">Ewch â'ch Chromium gyda chi</translation>
 <translation id="8776843108004031667">Bydd y cyfrif hwn ac unrhyw ddata sydd heb eu cadw yn cael eu tynnu o Chromium.</translation>
 <translation id="8793333988063379360">Gallwch ddod o hyd i osodiadau Chromium a rhagor yma</translation>
 <translation id="8805148242934787134">Gosod Chromium fel y porwr diofyn</translation>

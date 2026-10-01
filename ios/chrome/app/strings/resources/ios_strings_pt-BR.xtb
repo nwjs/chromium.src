@@ -9,6 +9,7 @@
 <translation id="1016495303386450659">Item atualizado</translation>
 <translation id="1018804590490383958">Digitalizar e preencher automaticamente</translation>
 <translation id="1019990162050689579">Atividade nos apps do Gemini</translation>
+<translation id="102645702181682900">Tarefa iniciada</translation>
 <translation id="102916930470544692">Chave de acesso</translation>
 <translation id="1030376737535466765">Abra o Gerenciador de senhas</translation>
 <translation id="1035980983510608210">Ao fechar todas as guias, as fixadas também vão ser fechadas.</translation>
@@ -63,6 +64,7 @@
 <translation id="1179890706672152411">O armazenamento está cheio</translation>
 <translation id="1181037720776840403">Remover</translation>
 <translation id="1190609913194133056">Central de Notificações</translation>
+<translation id="1195433173321863960">As imagens vão estar disponíveis de novo quando seu limite for redefinido, em <ph name="RESET_TIME" />.</translation>
 <translation id="1196534270480620381">Faça um pequeno resumo desta página</translation>
 <translation id="1199631150313925648">Informar manualmente</translation>
 <translation id="1199963004393929848">Tema verde</translation>
@@ -171,6 +173,7 @@
 <translation id="1506733063065214205">Cliente RCS MLS</translation>
 <translation id="1508263560970797965">Continuar na navegação anônima</translation>
 <translation id="1509486075633541495">Fazer login no site</translation>
+<translation id="1509922846321012406">Conheça mais formas de aumentar sua privacidade e segurança</translation>
 <translation id="1513858653616922153">Excluir senha</translation>
 <translation id="1517166097004694782">Ocultar "Continuar com esta guia"</translation>
 <translation id="1520027731907768768">Receba alertas de redução no preço dos produtos que você monitora.</translation>
@@ -239,6 +242,7 @@
 <translation id="1709916727352927457">Excluir chave de acesso</translation>
 <translation id="1715515772563243997">Se você confia no site <ph name="SITE" />, pode fazer login com uma senha salva.</translation>
 <translation id="1718835860248848330">Última hora</translation>
+<translation id="1726013039921383235">Sempre permitir</translation>
 <translation id="1728549374069268714">Colar e ir</translation>
 <translation id="1732468323901456775">Ative as notificações de <ph name="MODULE_NAME" /></translation>
 <translation id="1739364174357629566">Atualizar o número do programa de passageiro conhecido</translation>
@@ -265,6 +269,7 @@
 <translation id="17906873777101817">Oferecer para salvar senhas e chaves de acesso</translation>
 <translation id="1794893174442046596">Grupo de guias</translation>
 <translation id="1807893857950749072">Permitir notificações de monitoramento de preços…</translation>
+<translation id="1808142805674973090">Trocar de modo</translation>
 <translation id="1809929083618343438">Essa ação remove as informações selecionadas do Chrome, mas não as exclui da sua Conta do Google.</translation>
 <translation id="1810976980198522421">Cancelar</translation>
 <translation id="1815941218935345331">Senha</translation>
@@ -451,6 +456,7 @@
 <translation id="2381405137052800939">Conceitos básicos</translation>
 <translation id="2384692388811649784">Ocultar guias anônimas</translation>
 <translation id="2386793615875593361">Uma selecionada</translation>
+<translation id="2388949452472546050">Os sites que você visita, incluindo o Google, são responsáveis por determinar como responder a essa solicitação. Dependendo das leis da sua região, os sites podem responder limitando a venda e o compartilhamento dos seus dados ou o uso deles para anúncios personalizados. <ph name="BEGIN_LINK" />Saiba mais<ph name="END_LINK" /></translation>
 <translation id="2390457533592708044">Ocultar "<ph name="MODULE_NAME" />"</translation>
 <translation id="2393230427496852974">Leia o que as pessoas estão dizendo</translation>
 <translation id="2394659309569789395">Abrir site mesmo assim</translation>
@@ -602,6 +608,7 @@
 <translation id="2893168226686371498">Navegador padrão</translation>
 <translation id="2893791155497534382">Senhas e outras atividades podem ser excluídas nas configurações de gerenciamento correspondentes</translation>
 <translation id="2894757982205307093">Nova guia no grupo</translation>
+<translation id="2897858638449756400">Conheça outras formas de pesquisar</translation>
 <translation id="2902312830803030883">Mais ações</translation>
 <translation id="2904788871580817212">Redução no preço na sua guia aberta: <ph name="PRODUCT_NAME" /> de <ph name="PREVIOUS_PRICE" /> por <ph name="PRICE" /> em <ph name="DOMAIN" /></translation>
 <translation id="2905479111267140204">Você tem <ph name="NUMBER_OF_PASSWORDS" /> senhas reutilizadas que podem colocar sua segurança em risco.</translation>
@@ -740,7 +747,7 @@
 <translation id="3409785640040772790">Maps</translation>
 <translation id="3416023309465857378">25 outubro de 2023</translation>
 <translation id="3419787211763835342">Ajude a melhorar o preenchimento automático aprimorado</translation>
-<translation id="3426715535827854458">Não mostrar a opção Ocultar Barra de Ferramentas</translation>
+<translation id="3430407169377889553">Use o Gemini com cuidado e assuma o controle se necessário. Você é responsável pelas ações do Gemini durante as tarefas.</translation>
 <translation id="3435738964857648380">Segurança</translation>
 <translation id="3441673211568148613">Mantenha a privacidade da sua navegação</translation>
 <translation id="3443810440409579745">Guia recebida.</translation>
@@ -845,6 +852,7 @@
 <translation id="3779810277399252432">Sem conexão com a Internet.</translation>
 <translation id="3782614601387961027">Dispensar aviso</translation>
 <translation id="3789841737615482174">Instalar</translation>
+<translation id="3793603310364129123">Links mais rápidos em menos etapas</translation>
 <translation id="380329542618494757">Nome</translation>
 <translation id="3803696231112616155">Oferecer a opção de traduzir esse site</translation>
 <translation id="3810973564298564668">Gerenciar</translation>
@@ -928,6 +936,7 @@
 <translation id="4021447724486050609">Atualize o navegador</translation>
 <translation id="4021931095789478915">Adicionar ${url} à Lista de leitura</translation>
 <translation id="4028871427853484857">Salvar na conta…</translation>
+<translation id="4034354558246368274">Permitir desta vez</translation>
 <translation id="4038354071007134711">Nenhum app deste dispositivo pode abrir o arquivo.</translation>
 <translation id="4042870976416480368">Buscar na página</translation>
 <translation id="4045441967987592849">Reabrir</translation>
@@ -1089,6 +1098,7 @@
 <translation id="4592672037257622855">{count,plural, =1{Página adicionada à Lista de leitura}one{{count} página adicionada à Lista de leitura}other{{count} páginas adicionadas à Lista de leitura}}</translation>
 <translation id="459644946100970322">Ativar os alertas de preço?</translation>
 <translation id="4597892826846980979">Receber notificações de guias</translation>
+<translation id="459792494991530234">Digitando</translation>
 <translation id="4601095002996233687">Faz verificações detalhadas de downloads suspeitos.</translation>
 <translation id="4606247758155004938">O navegador é gerenciado pela sua organização.</translation>
 <translation id="4607887340472970274">Monitoramento de preços</translation>
@@ -1154,6 +1164,7 @@
 <translation id="4792385443586519711">Nome da empresa</translation>
 <translation id="479628432297359449">Parar o download?</translation>
 <translation id="4796496140132859135">Grupo de guias. Fechado.</translation>
+<translation id="4800912004582762296">Clicando</translation>
 <translation id="4802185666270672526">Ocultar "Pedir site para computador"</translation>
 <translation id="4802678077012980341">Check-up de senha concluído!</translation>
 <translation id="4803185665210547709">Gerenciado pela sua organização.
@@ -1173,6 +1184,7 @@
 <translation id="484280513275854557">Sua conta foi desconectada e os dados de navegação foram excluídos</translation>
 <translation id="484462545196658690">Automática</translation>
 <translation id="4846662396507502151">Navegue mais rápido com a nova barra de ferramentas</translation>
+<translation id="4850669014075537160">Rolagem</translation>
 <translation id="4850886885716139402">Ver</translation>
 <translation id="4854068532375923088">Permitir que o "Gemini" use sua câmera</translation>
 <translation id="4860895144060829044">Ligar</translation>
@@ -1242,6 +1254,7 @@
 <translation id="5055551113846164633">Essa ação exclui os endereços salvos neste dispositivo. Ela também remove os endereços salvos na sua Conta do Google <ph name="USER_EMAIL" />.</translation>
 <translation id="5056446788882570708">Problemas encontrados <ph name="TIME" />.</translation>
 <translation id="5056587122125565772">Criar imagem</translation>
+<translation id="5058813911021873087">Descubra mais formas de se organizar e economizar tempo</translation>
 <translation id="5059136629401106827">OK</translation>
 <translation id="5061202435354361813">Deixe sua navegação ainda melhor</translation>
 <translation id="5062321486222145940">Instalar o Google Drive</translation>
@@ -1371,6 +1384,7 @@
 <translation id="5467163657366219870">Desativar Maps Previews</translation>
 <translation id="5474397204728336997">Senhas da família, novas personalizações e muito mais. Toque para saber mais.</translation>
 <translation id="5475793109165786685">{count,plural, =0{Nenhuma senha foi importada}=1{{count} senha importada}one{{count} senha importada}other{{count} senhas importadas}}</translation>
+<translation id="5477188385487393357">Pule a etapa de copiar e colar</translation>
 <translation id="5478327362747197944">Crie eventos do Google Agenda clicando em uma data em uma página da Web.</translation>
 <translation id="5482922178977937393">Quer receber notificações de notícias, esportes e muito mais com base nos seus interesses?</translation>
 <translation id="5483838506518938965">Está tudo pronto</translation>
@@ -1625,6 +1639,7 @@ A "Transição" também deve ser ativada na seção "Geral" das configurações.
 <translation id="6259928806013786178">Falha no modo de leitura</translation>
 <translation id="626335165106398104">O Gemini funciona com outros serviços</translation>
 <translation id="6268773951964630964">Pesquisar imagem copiada</translation>
+<translation id="6270944267518310103">Aguardando</translation>
 <translation id="6271462272606946663">Ocultar opção "Solicitar o site móvel"</translation>
 <translation id="6271824294945464304">Compartilhando senha</translation>
 <translation id="628251768213143684">Você pode gerenciar quando quiser o que é salvo na sua Conta do Google</translation>
@@ -1658,6 +1673,7 @@ A "Transição" também deve ser ativada na seção "Geral" das configurações.
 <translation id="6350745006329795504">Gerenciar seus dispositivos</translation>
 <translation id="6351147166808964033">Entrar no Seletor de guias</translation>
 <translation id="63519665078626091">Para usar o Web Inspector, conecte-se ao Safari no computador usando um cabo e acesse o iPad no menu de desenvolvimento. Você pode ativar o menu de desenvolvimento na seção "Avançado" das configurações do Safari no computador.</translation>
+<translation id="6354695695659930684">Preenchendo senha</translation>
 <translation id="6355820183143562453">Ocultar o card "Monitoramento de preços"</translation>
 <translation id="6355820205320395730">Senhas fracas são fáceis de adivinhar. Você precisa criar senhas fortes. <ph name="BEGIN_LINK" />Confira mais dicas de segurança<ph name="END_LINK" />.</translation>
 <translation id="6357455205205567365">Faça login para acessar todos os seus itens, como senhas, favoritos e muito mais.</translation>
@@ -1735,6 +1751,7 @@ A "Transição" também deve ser ativada na seção "Geral" das configurações.
 <translation id="6585618849026997638">Adicione uma página importante aos favoritos para acessá-la com facilidade</translation>
 <translation id="6589001036857939353">Juntar credenciais duplicadas</translation>
 <translation id="659407965921887085">Este card mostra reduções de preço na Web para produtos que você está monitorando</translation>
+<translation id="6596324345367949437">O Gemini não está disponível no modo de navegação anônima</translation>
 <translation id="6596481460663245319">Pesquisar imagem com o Google</translation>
 <translation id="6601302169302852717">Imagem salva no Google Fotos de <ph name="USER_EMAIL" /></translation>
 <translation id="6602173570135186741">Preenc. automático e senhas</translation>
@@ -1872,6 +1889,7 @@ Para continuar pelo computador, mude para <ph name="OTHER_EMAIL" />. Você vai r
 <translation id="6987201788018524855">Conheça recursos úteis que você pode ter deixado passar</translation>
 <translation id="6989636517316575338">Pergunte sobre qualquer página</translation>
 <translation id="6990519590575500580">Converse por FaceTime</translation>
+<translation id="6998236305642926573">Todas as tarefas</translation>
 <translation id="6998251471716094661">Monitore os preços dos produtos e receba alertas quando houver uma redução em algum site</translation>
 <translation id="7004032350256606903">Sua organização requer o uso do modo de navegação privada.
 <ph name="BEGIN_LINK" />Saiba mais<ph name="END_LINK" /></translation>
@@ -1947,6 +1965,9 @@ Para continuar pelo computador, mude para <ph name="OTHER_EMAIL" />. Você vai r
 <translation id="7280980607183752256">Não é possível importar este arquivo</translation>
 <translation id="7282197670900591579">Tema limão</translation>
 <translation id="7293429513719260019">Selecionar idioma</translation>
+<translation id="72961285530871072">Isso vai excluir permanentemente seu progresso no Level Up, e os dados de uso do recurso pelo seu perfil não serão mais enviados ao Google.
+
+Você pode reiniciar a qualquer momento.</translation>
 <translation id="7300448350764260141">Mais proteção contra ameaças on-line.</translation>
 <translation id="7311244614769792472">Nenhum resultado encontrado</translation>
 <translation id="7312823817809783355">Suas tarefas</translation>
@@ -2097,6 +2118,7 @@ Para continuar pelo computador, mude para <ph name="OTHER_EMAIL" />. Você vai r
 <translation id="7772948288262733182">Que bom que você voltou</translation>
 <translation id="777637629667389858">Protege você em todos os Serviços do Google quando sua conta está conectada.</translation>
 <translation id="7776604279034196531">Acessar o Modo de Leitura na barra de endereço quando disponível</translation>
+<translation id="7780992949171378848">Enviar aos sites uma solicitação para recusar o uso dos seus dados</translation>
 <translation id="7781829728241885113">Ontem</translation>
 <translation id="7788474973847076315">Tirar foto</translation>
 <translation id="7788868432173225918">Dispensar exibição expandida</translation>
@@ -2197,7 +2219,7 @@ Para continuar pelo computador, mude para <ph name="OTHER_EMAIL" />. Você vai r
 <translation id="8061584726507121204">Histórico</translation>
 <translation id="8065136076319366194">Não é recomendado salvar</translation>
 <translation id="8065556469005366939">Compartilhe as guias para receber respostas mais relevantes</translation>
-<translation id="8069394452933076548">Escolha quando as guias que não foram usadas recentemente serão movidas para a seção de guias inativas.</translation>
+<translation id="8069394452933076548">Escolha quando as guias que não foram usadas recentemente devem ser movidas para a seção de guias inativas.</translation>
 <translation id="8073670137947914548">Download concluído</translation>
 <translation id="8076492880354921740">Guias</translation>
 <translation id="8079530767338315840">Repetir</translation>
@@ -2247,6 +2269,7 @@ Para continuar pelo computador, mude para <ph name="OTHER_EMAIL" />. Você vai r
 <translation id="8233237502828137700">Fechar banner promocional</translation>
 <translation id="823339794112333264">Ativar microfone</translation>
 <translation id="8240217649914883113">Adicione à minha agenda</translation>
+<translation id="824379025871762038">Nunca permitir</translation>
 <translation id="8250920743982581267">Documentos</translation>
 <translation id="8252980988000695656">Google Lens concluído!</translation>
 <translation id="8258734532103758067">Exportei meus dados</translation>

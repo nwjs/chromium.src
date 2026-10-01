@@ -26,10 +26,12 @@
 #include "components/skills/public/skill.mojom.h"
 #include "components/skills/public/skills_metrics.h"
 #include "components/web_modal/web_contents_modal_dialog_manager.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
 #include "ui/base/interaction/element_identifier.h"
 #include "ui/base/interaction/element_tracker.h"
+#include "ui/base/page_transition_types.h"
 #include "ui/views/controls/webview/webview.h"
 #include "ui/views/interaction/element_tracker_views.h"
 #include "ui/views/test/widget_test.h"
@@ -463,7 +465,7 @@ IN_PROC_BROWSER_TEST_F(SkillsUiTabControllerBrowserTest,
 IN_PROC_BROWSER_TEST_F(SkillsUiTabControllerBrowserTest,
                        OnSkillDeletedTriggersToast) {
   // Ensure no toast is initially showing.
-  const auto* toast_controller = browser()->GetFeatures().toast_controller();
+  const auto* toast_controller = ToastController::From(browser());
   EXPECT_FALSE(toast_controller->IsShowingToast());
 
   // Trigger the deletion notification on the Tab Controller.

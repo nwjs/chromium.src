@@ -140,13 +140,16 @@
 #include "components/user_education/webui/help_bubble_handler.h"
 #include "components/user_education/webui/help_bubble_webui.h"
 #include "components/vector_icons/vector_icons.h"
+#include "extensions/buildflags/buildflags.h"
 #include "extensions/common/extension_urls.h"
 #include "pdf/buildflags.h"
 #include "ui/accessibility/accessibility_features.h"
 #include "ui/base/interaction/element_identifier.h"
 #include "ui/base/interaction/element_tracker.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/page_transition_types.h"
 #include "ui/base/ui_base_features.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/gfx/vector_icon_types.h"
 #include "ui/views/interaction/element_tracker_views.h"
 #include "ui/views/vector_icons.h"
@@ -484,37 +487,6 @@ void MaybeRegisterChromeFeaturePromos(
               "Triggered after a name and email suggestion is available to "
               "user for filling")));
 
-  // kIPHAutofillAiOptInFeature:
-  registry.RegisterFeature(std::move(
-      FeaturePromoSpecification::CreateForCustomAction(
-          feature_engagement::kIPHAutofillAiOptInFeature,
-          autofill::PopupViewViews::kAutofillAiOptInIphElementId,
-          IDS_AUTOFILL_AI_OPT_IN_IPH_BODY, IDS_AUTOFILL_AI_OPT_IN_IPH_TURN_ON,
-          base::BindRepeating(
-              [](ContextPtr ctx,
-                 user_education::FeaturePromoHandle promo_handle) {
-                BrowserWindowInterface* const browser = GetBrowser(ctx);
-                TabStripModel* const tab_strip_model =
-                    browser->GetTabStripModel();
-                if (!tab_strip_model) {
-                  return;
-                }
-                content::WebContents* const web_contents =
-                    tab_strip_model->GetActiveWebContents();
-                feature_first_run::ShowAutofillAiFirstRunDialog(web_contents);
-              }))
-          .SetCustomActionIsDefault(true)
-          .SetCustomActionDismissText(IDS_AUTOFILL_AI_OPT_IN_IPH_MAYBE_LATER)
-          .SetBubbleTitleText(IDS_AUTOFILL_AI_OPT_IN_IPH_TITLE)
-          .SetBubbleArrow(HelpBubbleArrow::kTopRight)
-          .AddPreconditionExemption(kUserNotActivePrecondition)
-          .SetMetadata(136, "brunobraga@google.com",
-                       "Displayed on input fields that are eligible for "
-                       "AutofillAI. These can be input fields on any website "
-                       "as long as the field has AutofillAI predictions. "
-                       "The IPH is displayed when the user clicks on such an "
-                       "input field and is anchored against it.")));
-
   registry.RegisterFeature(std::move(
       FeaturePromoSpecification::CreateForToastPromo(
           feature_engagement::kIPHAutofillAiValuablesFeature,
@@ -712,7 +684,7 @@ void MaybeRegisterChromeFeaturePromos(
                     UserEducationServiceFactory::GetForBrowserContext(
                         browser->GetProfile());
                 user_education::TutorialService* tutorial_service =
-                    service ? &service->tutorial_service() : nullptr;
+                    service ? service->tutorial_service() : nullptr;
                 if (!tutorial_service) {
                   return;
                 }
@@ -1316,6 +1288,22 @@ void MaybeRegisterChromeFeaturePromos(
                        "Triggered to educate users about the keyboard shortcut "
                        "for Reading Mode.")));
 
+  // kIPHReadingModeLineFocusFeature:
+  registry.RegisterFeature(std::move(
+      user_education::FeaturePromoSpecification::CreateForToastPromo(
+          feature_engagement::kIPHReadingModeLineFocusFeature,
+          kReadAnythingSettingsButtonElementId,
+          IDS_READING_MODE_LINE_FOCUS_IPH_BODY,
+          IDS_READING_MODE_LINE_FOCUS_IPH_SCREENREADER,
+          user_education::FeaturePromoSpecification::AcceleratorInfo())
+          .SetBubbleTitleText(IDS_READING_MODE_LINE_FOCUS_IPH_TITLE)
+          .SetBubbleIcon(&vector_icons::kWbIncandescentIcon)
+          .SetBubbleArrow(user_education::HelpBubbleArrow::kTopRight)
+          .SetInAnyContext(true)
+          .SetMetadata(155, "kristislee@google.com",
+                       "Triggered to educate users about the line focus "
+                       "feature in Reading Mode.")));
+
   // kIPHReadingModePresentationModeFeature:
   registry.RegisterFeature(std::move(
       user_education::FeaturePromoSpecification::CreateForToastPromo(
@@ -1888,20 +1876,6 @@ void MaybeRegisterChromeFeaturePromos(
                     IDS_BACK_NAVIGATION_MENU_PROMO_ACCESSIBLE_TEXT,
                     FeaturePromoSpecification::AcceleratorInfo())
                     .SetBubbleArrow(HelpBubbleArrow::kTopLeft)));
-
-  // kIPHLensOverlayTranslateButtonFeature:
-  registry.RegisterFeature(std::move(
-      FeaturePromoSpecification::CreateForToastPromo(
-          feature_engagement::kIPHLensOverlayTranslateButtonFeature,
-          kLensOverlayTranslateButtonElementId,
-          IDS_LENS_OVERLAY_TRANSLATE_BUTTON_IPH,
-          IDS_LENS_OVERLAY_TRANSLATE_BUTTON_IPH_SCREENREADER,
-          FeaturePromoSpecification::AcceleratorInfo())
-          .SetBubbleArrow(HelpBubbleArrow::kTopRight)
-          .SetInAnyContext(true)
-          .SetMetadata(131, "juanmojica@google.com",
-                       "Triggered to inform users of the availability of the "
-                       "new translate screen feature on the Lens Overlay.")));
 
   // kIPHOmniboxEverywhereLensPromoFeature:
   registry.RegisterFeature(std::move(
@@ -2804,7 +2778,7 @@ CreateUserEducationResources(UserEducationService& user_education_service) {
       &user_education_service.help_bubble_factory_registry(),
       &user_education_service.user_education_storage_service(),
       &user_education_service.feature_promo_session_policy(),
-      &user_education_service.tutorial_service(),
+      user_education_service.tutorial_service(),
       user_education_service.product_messaging_controller());
   result->Init();
   return result;

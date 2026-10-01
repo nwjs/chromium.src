@@ -79,6 +79,7 @@
     "GPU FYI Android arm Builder": "ci/GPU FYI Android arm Builder/gn-args.json",
     "GPU FYI Android arm64 Builder": "ci/GPU FYI Android arm64 Builder/gn-args.json",
     "GPU FYI Linux Builder": "ci/GPU FYI Linux Builder/gn-args.json",
+    "GPU FYI Mac Builder": "ci/GPU FYI Mac Builder/gn-args.json",
     "GPU FYI Mac arm64 Builder": "ci/GPU FYI Mac arm64 Builder/gn-args.json",
     "GPU FYI Win arm64 Builder": "ci/GPU FYI Win arm64 Builder/gn-args.json",
     "GPU FYI Win x64 Builder": "ci/GPU FYI Win x64 Builder/gn-args.json"

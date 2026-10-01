@@ -9,12 +9,15 @@
 #include "base/strings/string_split.h"
 #include "build/android_buildflags.h"
 #include "build/build_config.h"
+#include "chrome/browser/pwc/pwc_features.mojom-features.h"
 
 namespace features {
 
 BASE_FEATURE(kGlicAndroidSidePanel, base::FEATURE_DISABLED_BY_DEFAULT);
 BASE_FEATURE(kGlicDragAndDropFileUploadAndroid,
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kGlicAndroidOffscreenRendering, base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kGlicChromeStatusIcon, base::FEATURE_ENABLED_BY_DEFAULT);
 const base::FeatureParam<int> kGlicChromeStatusIconSizePx{
@@ -52,8 +55,8 @@ const base::FeatureParam<bool> kGlicSelectionPromptInlineFulfillment{
     &kGlicSelectionPrompt, "inline_fulfillment", false};
 const base::FeatureParam<std::string> kGlicSelectionPromptInlinePromptTemplate{
     &kGlicSelectionPrompt, "inline_prompt_template", ""};
-const base::FeatureParam<bool> kGlicSelectionPromptSkills{
-    &kGlicSelectionPrompt, "skills", true};
+const base::FeatureParam<bool> kGlicSelectionPromptSkills{&kGlicSelectionPrompt,
+                                                          "skills", true};
 const base::FeatureParam<std::string> kGlicSelectionDefaultBlockedSites{
     &kGlicSelectionPrompt, "GlicSelectionDefaultBlockedSites", ""};
 
@@ -63,6 +66,12 @@ base::flat_set<std::string> GetGlicSelectionDefaultBlockedSites() {
       sites_str, ",", base::TRIM_WHITESPACE, base::SPLIT_WANT_NONEMPTY);
   return base::flat_set<std::string>(std::move(sites));
 }
+
+BASE_FEATURE(kGlicSelectionOverlayPrompt, base::FEATURE_DISABLED_BY_DEFAULT);
+
+BASE_FEATURE(kGlicSelectionSmallChip, base::FEATURE_DISABLED_BY_DEFAULT);
+const base::FeatureParam<bool> kGlicSelectionSmallChipOnTop{
+    &kGlicSelectionSmallChip, "on_top", true};
 
 BASE_FEATURE(kGlicClearTurnIdOnPanelWillOpen,
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -120,7 +129,11 @@ const base::FeatureParam<bool> kGlicContextMenuWithOnboarding{
 
 BASE_FEATURE(kGlicContextMenuBelowSearch, base::FEATURE_DISABLED_BY_DEFAULT);
 
+BASE_FEATURE(kGlicDynamicChromeTools, base::FEATURE_DISABLED_BY_DEFAULT);
+
 BASE_FEATURE(kGlicTextSelectionContextMenu, base::FEATURE_DISABLED_BY_DEFAULT);
+const base::FeatureParam<bool> kGlicTextSelectionContextMenuMessageFirstFre{
+    &kGlicTextSelectionContextMenu, "message_first_fre", false};
 
 BASE_FEATURE(kGlicTieredRolloutV2, base::FEATURE_DISABLED_BY_DEFAULT);
 const base::FeatureParam<std::string> kGlicTieredRolloutV2EligibleTiers{
@@ -253,17 +266,20 @@ BASE_FEATURE(kGlicWebPasteEligibilityCheck,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kGlicTabGroups, base::FEATURE_DISABLED_BY_DEFAULT);
-const base::FeatureParam<bool> kGlicTabGroupsUseFullTabEmbedder{
-    &kGlicTabGroups, "use_full_tab_embedder", false};
 BASE_FEATURE(kGlicSparkSettingsAccessibleLabels,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kGlicOptInDialogA11yFix, base::FEATURE_ENABLED_BY_DEFAULT);
-BASE_FEATURE(kGlicStructuredYieldMetadata, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kGlicStructuredYieldMetadata, base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Runs the glic client in a PrivilegedWebContents instead of a webview.
 // This is a work in progress. See b/534807813.
 BASE_FEATURE(kGlicNoWebview, base::FEATURE_DISABLED_BY_DEFAULT);
+bool IsGlicNoWebviewEnabled() {
+  return base::FeatureList::IsEnabled(kGlicNoWebview) &&
+         base::FeatureList::IsEnabled(
+             pwc::mojom::features::kPrivilegedWebContents);
+}
 // Whether to disallow webview communication directly with the glic host
 // (chrome/browser/resources/glic/glic_api_impl/host). When enabled, some
 // functionality implemented by glic's webview.ts is implemented instead by c++
@@ -272,6 +288,8 @@ BASE_FEATURE(kGlicDisconnectedWebview, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kGlicShakeTrigger,
              "GlicShakeTrigger",
              base::FEATURE_DISABLED_BY_DEFAULT);
+const base::FeatureParam<bool> kGlicShakeTriggerOnlyOnSidePanel{
+    &kGlicShakeTrigger, "only_on_side_panel", true};
 
 BASE_FEATURE(kGlicAndroidTablet, base::FEATURE_DISABLED_BY_DEFAULT);
 

@@ -247,19 +247,8 @@ class SafeBrowsingServiceImpl : public SafeBrowsingServiceInterface,
       const GURL& permission_prompt_origin,
       base::TimeDelta permission_prompt_display_duration_sec);
 
-  // Create the default v4 protocol config struct. This just calls into a helper
-  // function, but it's still useful so that TestSafeBrowsingService can
-  // override it.
-  virtual V4ProtocolConfig GetV4ProtocolConfig() const;
-
-  // Report the external app redirect to Safe Browsing if the following
-  // conditions are met:
-  // - User is opted in to ESB and not Incognito
-  // - The user has not redirected to this app recently
-  // - Neither the current page nor the destination app are allowlisted.
-  void ReportExternalAppRedirect(content::WebContents* web_contents,
-                                 std::string_view app_name,
-                                 std::string_view uri) override;
+  // Create the default SB protocol config struct.
+  SBProtocolConfig GetSBProtocolConfig() const;
 
  protected:
   // Creates the safe browsing service.  Need to initialize before using.
@@ -390,12 +379,6 @@ class SafeBrowsingServiceImpl : public SafeBrowsingServiceInterface,
   void SetUrlIsAllowlistedForTesting() {
     url_is_allowlisted_for_testing_ = true;
   }
-
-  void MaybeSendExternalAppRedirectReport(
-      Profile* profile,
-      const std::string& app_name,
-      std::unique_ptr<ClientSafeBrowsingReportRequest> report,
-      bool should_send);
 
   std::unique_ptr<ProxyConfigMonitor> proxy_config_monitor_;
 

@@ -37,7 +37,6 @@ import static org.chromium.ui.test.util.ViewUtils.onViewWaiting;
 
 import android.app.Activity;
 import android.content.Intent;
-import android.os.Build;
 
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.espresso.Espresso;
@@ -66,7 +65,6 @@ import org.chromium.base.test.transit.ViewElement;
 import org.chromium.base.test.util.ApplicationTestUtils;
 import org.chromium.base.test.util.CommandLineFlags;
 import org.chromium.base.test.util.CriteriaHelper;
-import org.chromium.base.test.util.DisableIf;
 import org.chromium.base.test.util.DoNotBatch;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
@@ -119,10 +117,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 /** Integration tests for the sign-in and history sync opt-in flow. */
 @RunWith(ChromeJUnit4ClassRunner.class)
 @DoNotBatch(reason = "This test relies on native initialization")
-// TODO(crbug.com/428281174): Test content is blocked by system UI on B+.
-@DisableIf.Build(
-        sdk_is_greater_than = Build.VERSION_CODES.VANILLA_ICE_CREAM,
-        message = "crbug.com/428281174")
 @CommandLineFlags.Add(ChromeSwitches.DISABLE_STARTUP_PROMOS)
 @Restriction(DeviceFormFactor.PHONE)
 public class BottomSheetSigninAndHistorySyncIntegrationTest {
@@ -209,6 +203,10 @@ public class BottomSheetSigninAndHistorySyncIntegrationTest {
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
                     mPrefService.setBoolean(Pref.SIGNIN_ALLOWED, true);
+                    if (mCoordinator != null) {
+                        mCoordinator.destroy();
+                        mCoordinator = null;
+                    }
                 });
     }
 
@@ -985,6 +983,15 @@ public class BottomSheetSigninAndHistorySyncIntegrationTest {
                 .perform(click());
         mSigninTestRule.setAddAccountFlowResult(TestAccounts.AADC_ADULT_ACCOUNT);
 
+        // Destroy the previous coordinator before activity recreation to prevent
+        // AccountPickerBottomSheetMediator from leaking the destroyed activity via
+        // FakeAccountManagerFacade observers.
+        ThreadUtils.runOnUiThreadBlocking(
+                () -> {
+                    mCoordinator.destroy();
+                    mCoordinator = null;
+                });
+
         // Recreate base activity then confirm account addition.
         mBaseActivityTestRule.recreateActivity();
         createSigninCoordinator();
@@ -1089,6 +1096,7 @@ public class BottomSheetSigninAndHistorySyncIntegrationTest {
     @MediumTest
     @DisableFeatures(SigninFeatures.ENABLE_SEAMLESS_SIGNIN)
     public void testWithNoAccount_noSignIn() {
+        mBaseActivityTestRule.startOnBlankPage();
         launchActivity(
                 NoAccountSigninMode.NO_SIGNIN,
                 WithAccountSigninMode.DEFAULT_ACCOUNT_BOTTOM_SHEET,
@@ -1539,6 +1547,10 @@ public class BottomSheetSigninAndHistorySyncIntegrationTest {
         ChromeTabbedActivity baseActivity = mBaseActivityTestRule.getActivity();
         ThreadUtils.runOnUiThreadBlocking(
                 () -> {
+                    if (mCoordinator != null) {
+                        mCoordinator.destroy();
+                        mCoordinator = null;
+                    }
                     Profile profile =
                             baseActivity.getProfileProviderSupplier().get().getOriginalProfile();
                     OneshotSupplierImpl<Profile> profileSupplier = new OneshotSupplierImpl<>();

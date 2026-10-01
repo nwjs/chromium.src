@@ -19,8 +19,6 @@
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/web_contents.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
-#include "mojo/public/cpp/bindings/receiver.h"
-#include "mojo/public/cpp/bindings/remote.h"
 #include "ui/shell_dialogs/select_file_dialog.h"
 #include "ui/shell_dialogs/selected_file_info.h"
 #include "ui/webui/resources/cr_components/composebox/composebox.mojom.h"
@@ -212,6 +210,20 @@ class ContextualTasksComposeboxHandler
 
   // Helper to send the pending query if all uploads are complete.
   void MaybeSendPendingQuery();
+
+  // Returns true if the current contextual session handle has previous turns
+  // or submitted context.
+  bool HasSubmittedContextOrTurns();
+
+  // Deactivates Smart Tab Sharing across thread state, session handle,
+  // input state model, and the WebUI page.
+  void DeactivateSmartTabSharing();
+
+  void ForwardTabContextResult(
+      const base::UnguessableToken& token,
+      AddTabContextCallback callback,
+      base::expected<base::UnguessableToken,
+                     contextual_search::ContextUploadErrorType> result);
 
   TakeInputStateModelCallback take_input_model_callback_;
   raw_ptr<contextual_tasks::ContextualTasksUIInterface> web_ui_interface_;

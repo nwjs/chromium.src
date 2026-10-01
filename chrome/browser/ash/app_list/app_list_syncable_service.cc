@@ -50,8 +50,6 @@
 #include "chrome/browser/ash/extensions/default_app_order.h"
 #include "chrome/browser/extensions/extension_service.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/sync/sync_service_factory.h"
-#include "chrome/common/chrome_switches.h"
 #include "chromeos/ash/components/file_manager/app_id.h"
 #include "chromeos/constants/chromeos_features.h"
 #include "components/app_constants/constants.h"
@@ -1479,7 +1477,6 @@ void AppListSyncableService::SetAppListPreferredOrder(
   const auto reorder_params =
       reorder::GenerateReorderParamsForSyncItems(order, sync_items_);
   for (const auto& reorder_param : reorder_params) {
-    sync_pb::AppListSpecifics specifics;
     SyncItem* sync_item = FindSyncItem(reorder_param.sync_item_id);
     const syncer::StringOrdinal& old_ordinal = sync_item->item_ordinal;
     const syncer::StringOrdinal& new_ordinal = reorder_param.ordinal;

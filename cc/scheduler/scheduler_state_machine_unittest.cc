@@ -199,6 +199,12 @@ class StateMachine : public SchedulerStateMachine {
   BeginImplFrameState begin_impl_frame_state() const {
     return begin_impl_frame_state_;
   }
+  base::TimeDelta consecutive_no_damage_throttled_interval() const {
+    return main_frame_consecutive_no_damage_throttled_interval_;
+  }
+  base::TimeDelta throttled_interval() const {
+    return main_frame_throttled_interval_;
+  }
 
   LayerTreeFrameSinkState layer_tree_frame_sink_state() const {
     return layer_tree_frame_sink_state_;
@@ -3626,9 +3632,9 @@ TEST(SchedulerStateMachineTest, ThrottleDueToConsecutiveNoDamageFrames) {
   EXPECT_EQ(base::TimeDelta(), state.MainFrameThrottledInterval());
   EXPECT_FALSE(state.ShouldThrottleSendBeginMainFrame());
 
-  // Simulating 90 consecutive no-update frames.
-  // The threshold for throttling is 90 consecutive no-update frames.
-  for (int i = 0; i < 90; i++) {
+  // Simulating 360 consecutive no-update frames.
+  // The threshold for throttling is 360 consecutive no-update frames.
+  for (int i = 0; i < 360; i++) {
     state.IssueNextBeginImplFrame();
     state.SetNeedsBeginMainFrame(false);
     EXPECT_ACTION_UPDATE_STATE(
@@ -3670,8 +3676,8 @@ TEST(SchedulerStateMachineTest, UnthrottledBeginMainFrameRequest) {
 
   state.FrameIntervalUpdated(base::Hertz(60));
 
-  // Simulating 90 consecutive no-update frames to trigger throttling.
-  for (int i = 0; i < 90; i++) {
+  // Simulating 360 consecutive no-update frames to trigger throttling.
+  for (int i = 0; i < 360; i++) {
     state.IssueNextBeginImplFrame();
     state.SetNeedsBeginMainFrame(false);
     EXPECT_ACTION_UPDATE_STATE(
@@ -3857,7 +3863,7 @@ TEST(SchedulerStateMachineTest,
   // throttle.
   state.SetRequestHighFramerate(true);
 
-  for (int i = 0; i < 90; i++) {
+  for (int i = 0; i < 360; i++) {
     state.IssueNextBeginImplFrame();
     state.SetNeedsBeginMainFrame(false);
     EXPECT_ACTION_UPDATE_STATE(
@@ -3886,8 +3892,8 @@ TEST(SchedulerStateMachineTest,
 
   // 2. Simulate throttling first, then request high framerate. Throttling
   // should stop. We already have 1 no-damage frame from the previous step after
-  // reset. Need 89 more to throttle.
-  for (int i = 0; i < 89; i++) {
+  // reset. Need 359 more to throttle.
+  for (int i = 0; i < 359; i++) {
     state.IssueNextBeginImplFrame();
     state.SetNeedsBeginMainFrame(false);
     EXPECT_ACTION_UPDATE_STATE(
@@ -3928,6 +3934,50 @@ TEST(SchedulerStateMachineTest,
   state.IssueNextBeginImplFrame();
   state.SetNeedsBeginMainFrame(false);
   EXPECT_FALSE(state.ShouldThrottleSendBeginMainFrame());
+}
+
+TEST(SchedulerStateMachineTest,
+     ThrottleDueToConsecutiveNoDamageFramesWithInputEvent) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(
+      features::kThrottleRepeatedNoDamageFrames);
+
+  SchedulerSettings default_scheduler_settings;
+  StateMachine state(default_scheduler_settings);
+  SET_UP_STATE(state);
+
+  state.FrameIntervalUpdated(base::Hertz(60));
+
+  // Simulate throttling.
+  for (int i = 0; i < 360; i++) {
+    state.IssueNextBeginImplFrame();
+    state.SetNeedsBeginMainFrame(false);
+    EXPECT_ACTION_UPDATE_STATE(
+        SchedulerStateMachine::Action::SEND_BEGIN_MAIN_FRAME);
+    state.BeginMainFrameAborted(CommitEarlyOutReason::kFinishedNoUpdates);
+  }
+
+  // Should throttle now.
+  state.IssueNextBeginImplFrame();
+  state.SetNeedsBeginMainFrame(false);
+  EXPECT_TRUE(state.ShouldThrottleSendBeginMainFrame());
+  EXPECT_ACTION(SchedulerStateMachine::Action::NONE);
+
+  // Verify intervals before input.
+  EXPECT_TRUE(state.consecutive_no_damage_throttled_interval().is_positive());
+
+  // Trigger input event.
+  state.NotifyInputEvent();
+
+  // Verify intervals after input.
+  EXPECT_EQ(base::TimeDelta(),
+            state.consecutive_no_damage_throttled_interval());
+  EXPECT_EQ(base::TimeDelta(), state.throttled_interval());
+
+  // Throttling should stop immediately.
+  EXPECT_FALSE(state.ShouldThrottleSendBeginMainFrame());
+  EXPECT_ACTION_UPDATE_STATE(
+      SchedulerStateMachine::Action::SEND_BEGIN_MAIN_FRAME);
 }
 
 }  // namespace

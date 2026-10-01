@@ -22,34 +22,35 @@ source_set("loader") {
   ]
 
   sources = [
-    "chunk_stream.h",
     "data_document_loader.cc",
     "document_loader_impl.cc",
     "range_set.cc",
-    "range_set.h",
     "url_loader.cc",
-    "url_loader_wrapper.h",
     "url_loader_wrapper_impl.cc",
   ]
 
   configs += [ "//pdf:strict" ]
 
   public = [
+    "chunk_stream.h",
     "data_document_loader.h",
     "document_loader.h",
     "document_loader_impl.h",
+    "range_set.h",
     "result_codes.h",
     "url_loader.h",
     "url_loader_wrapper.h",
     "url_loader_wrapper_impl.h",
   ]
-
-  deps = [
+  public_deps = [
     "//base",
+    "//third_party/blink/public:blink_headers",
+    "//ui/gfx/range",
+  ]
+  deps = [
     "//net",
     "//pdf:features",
     "//third_party/blink/public:blink",
-    "//ui/gfx/range",
     "//url",
   ]
 }

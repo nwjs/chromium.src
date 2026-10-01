@@ -30,8 +30,10 @@
 #include "ui/base/models/table_model.h"
 #include "ui/base/mojom/dialog_button.mojom.h"
 #include "ui/base/mojom/ui_base_types.mojom-shared.h"
+#include "ui/base/page_transition_types.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/base/ui_base_features.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/base/window_open_disposition_utils.h"
 #include "ui/gfx/favicon_size.h"
 #include "ui/gfx/image/image_skia.h"
@@ -83,14 +85,14 @@ class DeprecatedAppsDialogView::DeprecatedAppsTableModel
   ~DeprecatedAppsTableModel() override = default;
 
   // ui::TableModel implementations:
-  size_t RowCount() override { return rows_.size(); }
+  size_t RowCount() const override { return rows_.size(); }
 
-  std::u16string GetText(size_t index, int column_id) override {
+  std::u16string GetText(size_t index, int column_id) const override {
     DCHECK(index < RowCount());
     return base::UTF8ToUTF16(rows_[index].app_name);
   }
 
-  ui::ImageModel GetIcon(size_t index) override {
+  ui::ImageModel GetIcon(size_t index) const override {
     return ui::ImageModel::FromImageSkia(rows_[index].icon->image_skia());
   }
 
@@ -215,12 +217,11 @@ void DeprecatedAppsDialogView::InitDialog() {
   learn_more->SetCallback(base::BindRepeating(
       [](content::WebContents* web_contents, const ui::Event& event) {
         web_contents->OpenURL(
-            content::OpenURLParams(
+            content::OpenURLParams::CreateBrowserInitiated(
                 GURL(chrome::kChromeAppsDeprecationLearnMoreURL),
-                content::Referrer(),
                 ui::DispositionFromEventFlags(
                     event.flags(), WindowOpenDisposition::NEW_FOREGROUND_TAB),
-                ui::PAGE_TRANSITION_LINK, /*is_renderer_initiated=*/false),
+                ui::PAGE_TRANSITION_LINK),
             /*navigation_handle_callback=*/{});
       },
       web_contents_));

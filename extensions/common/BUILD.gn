@@ -82,8 +82,6 @@ source_set("extension_features") {
 
 mojom("mojom") {
   # We don't want Blink variants of bindings to be generated.
-  disable_variants = true
-
   sources = [
     "mojom/api_permission_id.mojom",
     "mojom/app_window.mojom",
@@ -132,6 +130,24 @@ mojom("mojom") {
   }
 
   cpp_typemaps = [
+    {
+      types = [
+        {
+          mojom = "extensions.mojom.EventArgs"
+          cpp = "::scoped_refptr<const ::extensions::EventArgs>"
+        },
+      ]
+      traits_headers = [
+        "//extensions/common/event_args.h",
+        "//extensions/common/mojom/event_dispatcher_mojom_traits.h",
+      ]
+      traits_sources =
+          [ "//extensions/common/mojom/event_dispatcher_mojom_traits.cc" ]
+      traits_public_deps = [
+        "//base",
+        "//mojo/public/cpp/base",
+      ]
+    },
     {
       types = [
         {
@@ -333,6 +349,7 @@ static_library("common") {
     "dom_action_types.h",
     "error_utils.cc",
     "error_utils.h",
+    "event_args.h",
     "event_filter.cc",
     "event_filter.h",
     "event_matcher.cc",
@@ -656,6 +673,8 @@ source_set("test_support") {
     "api/declarative_net_request/test_utils.h",
     "api/extension_action/action_info_test_util.cc",
     "api/extension_action/action_info_test_util.h",
+    "features/feature_test_util.cc",
+    "features/feature_test_util.h",
     "warnings_test_util.cc",
     "warnings_test_util.h",
   ]
@@ -736,6 +755,7 @@ source_set("unit_tests") {
     "manifest_handlers/web_urls_unittest.cc",
     "manifest_unittest.cc",
     "message_bundle_unittest.cc",
+    "mojom/event_dispatcher_mojom_traits_unittest.cc",
     "mojom/event_router_mojom_unittest.cc",
     "mojom/extension_id_mojom_traits_unittest.cc",
     "mojom/frame_mojom_unittest.cc",

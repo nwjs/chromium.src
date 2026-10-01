@@ -51,10 +51,10 @@ void AccountStateFetcher::EnforceTimeoutReachedForTesting() {
 
 void AccountStateFetcher::OnExtendedAccountInfoUpdated(
     const AccountInfo& account_info) {
-  if (account_info.account_id != core_account_info_.account_id) {
+  if (account_info.GetAccountId() != core_account_info_.account_id) {
     return;
   }
-  GetOrWaitForAccountInfo(account_info);
+  GetOrWaitForAccountInfo(account_info.GetCoreAccountInfo());
 }
 
 void AccountStateFetcher::OnIdentityManagerShutdown(

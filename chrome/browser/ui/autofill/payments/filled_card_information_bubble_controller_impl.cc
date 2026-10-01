@@ -23,7 +23,9 @@
 #include "ui/base/clipboard/clipboard.h"
 #include "ui/base/clipboard/scoped_clipboard_writer.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/page_transition_types.h"
 #include "ui/base/resource/resource_bundle.h"
+#include "ui/base/window_open_disposition.h"
 
 namespace autofill {
 
@@ -226,9 +228,9 @@ bool FilledCardInformationBubbleControllerImpl::ShouldIconBeVisible() const {
 
 void FilledCardInformationBubbleControllerImpl::OnLinkClicked() {
   web_contents()->OpenURL(
-      content::OpenURLParams(GetLearnMoreUrl(), content::Referrer(),
-                             WindowOpenDisposition::NEW_FOREGROUND_TAB,
-                             ui::PAGE_TRANSITION_LINK, false),
+      content::OpenURLParams::CreateBrowserInitiated(
+          GetLearnMoreUrl(), WindowOpenDisposition::NEW_FOREGROUND_TAB,
+          ui::PAGE_TRANSITION_LINK),
       /*navigation_handle_callback=*/{});
 }
 
@@ -272,9 +274,10 @@ void FilledCardInformationBubbleControllerImpl::OnFieldClicked(
   clicked_field_ = field;
   LogFilledCardInformationBubbleFieldClicked(field);
   // Strip the whitespaces that were added to the card number for legibility.
-  UpdateClipboard(field == FilledCardInformationBubbleField::kCardNumber
-                      ? StripCardNumberSeparators(GetValueForField(field))
-                      : GetValueForField(field));
+  UpdateClipboard(
+      field == FilledCardInformationBubbleField::kCardNumber
+          ? StripSeparatorsAndNormalizeDigits(GetValueForField(field))
+          : GetValueForField(field));
 }
 
 bool FilledCardInformationBubbleControllerImpl::ShouldShowGooglePayIconInTitle()

@@ -10,6 +10,8 @@ source_set("coordinator") {
     "at_memory_granular_fill_coordinator.mm",
     "at_memory_granular_fill_mediator.h",
     "at_memory_granular_fill_mediator.mm",
+    "at_memory_mediator.h",
+    "at_memory_mediator.mm",
     "at_memory_search_coordinator.h",
     "at_memory_search_coordinator.mm",
     "at_memory_search_mediator.h",
@@ -21,7 +23,7 @@ source_set("coordinator") {
     "//components/autofill/core/browser",
     "//components/autofill/ios/browser",
     "//components/personal_context/first_run",
-    "//ios/chrome/browser/autofill/atmemory/model",
+    "//components/ukm/ios:ukm_url_recorder",
     "//ios/chrome/browser/autofill/atmemory/public",
     "//ios/chrome/browser/autofill/atmemory/ui",
     "//ios/chrome/browser/autofill/atmemory/ui:item",
@@ -35,20 +37,38 @@ source_set("coordinator") {
     "//ios/chrome/browser/shared/public/commands",
     "//ios/chrome/browser/shared/ui/table_view:utils",
     "//ios/web/public",
+    "//url",
   ]
+}
+
+source_set("test_support") {
+  testonly = true
+  sources = [
+    "fake_at_memory_fill_handler.h",
+    "fake_at_memory_fill_handler.mm",
+  ]
+  deps = [ "//ios/chrome/browser/autofill/atmemory/public" ]
 }
 
 source_set("unit_tests") {
   testonly = true
-  sources = [ "at_memory_search_mediator_unittest.mm" ]
+  sources = [
+    "at_memory_granular_fill_mediator_unittest.mm",
+    "at_memory_mediator_unittest.mm",
+    "at_memory_search_mediator_unittest.mm",
+  ]
   deps = [
     ":coordinator",
+    ":test_support",
     "//base",
     "//base/test:test_support",
     "//components/autofill/core/browser:test_support",
+    "//components/autofill/ios/browser:test_support",
     "//components/personal_context/first_run",
     "//ios/chrome/browser/autofill/atmemory/public",
     "//ios/chrome/browser/autofill/atmemory/ui",
+    "//ios/chrome/browser/autofill/atmemory/ui:item",
+    "//ios/chrome/browser/autofill/manual_fill/public",
     "//ios/web/public/test",
     "//ios/web/public/test/fakes",
     "//testing/gmock",

@@ -4,7 +4,7 @@
 
 #include "extensions/browser/test_blocklist_state_fetcher.h"
 
-#include "components/safe_browsing/core/browser/db/v4_test_util.h"
+#include "components/safe_browsing/core/browser/db/sb_test_util.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/pending_remote.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
@@ -53,7 +53,7 @@ class DummySharedURLLoaderFactory : public network::SharedURLLoaderFactory {
 TestBlocklistStateFetcher::TestBlocklistStateFetcher(
     BlocklistStateFetcher* fetcher)
     : fetcher_(fetcher) {
-  fetcher_->SetSafeBrowsingConfig(safe_browsing::GetTestV4ProtocolConfig());
+  fetcher_->SetSafeBrowsingConfig(safe_browsing::GetTestSBProtocolConfig());
 
   url_loader_factory_ = base::MakeRefCounted<DummySharedURLLoaderFactory>();
   fetcher_->url_loader_factory_ = url_loader_factory_.get();

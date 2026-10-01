@@ -2998,40 +2998,6 @@ be describing additional metrics about the same event.
   </metric>
 </event>
 
-<event name="Autofill.AtAtPressed">
-  <owner>schwering@google.com</owner>
-  <owner>autofill-internal@google.com</owner>
-  <summary>
-    Recorded whenever the user hits &quot;@&quot; twice in quick succession.
-  </summary>
-  <metric name="FieldSessionIdentifier">
-    <summary>
-      A random variable assigned to a specific instance of a form control (e.g.
-      a HTML input element). This should be globally unique and suitable for
-      distinguishing fields. Two different users would have different values.
-      For the same user, the same field in the same form in two different tabs
-      would have two different values.
-    </summary>
-  </metric>
-  <metric name="FieldSignature">
-    <summary>
-      The field signature of the field where the &quot;@@&quot; sequence was
-      typed (value taken modulo 1021).
-    </summary>
-  </metric>
-  <metric name="FormControlType" enum="AutofillFormControlType2">
-    <summary>
-      The form control type of the field where &quot;@@&quot; was typed.
-    </summary>
-  </metric>
-  <metric name="FormSignature">
-    <summary>
-      The form signature of the form where &quot;@@&quot; was typed (value taken
-      modulo 1021).
-    </summary>
-  </metric>
-</event>
-
 <event name="Autofill.Bnpl.AiAmountExtraction.AmountInIssuerRange">
   <owner>jamessun@google.com</owner>
   <owner>payments-autofill-team@google.com</owner>
@@ -3492,6 +3458,59 @@ be describing additional metrics about the same event.
       Type of form. Stored as bitvector. A set ith bit implies enum
       FormTypeNameForLogging's ith type was detected. Multiple types are
       possible.
+    </summary>
+  </metric>
+</event>
+
+<event name="Autofill.OneTimeTokens">
+  <owner>kazinova@google.com</owner>
+  <owner>battre@chromium.org</owner>
+  <summary>
+    Recorded when one-time token (OTP) events occur on a page.
+  </summary>
+  <metric name="Latency.FieldDetectionToTickleInMillis">
+    <summary>
+      Records the latency in milliseconds between detecting an OTP field on a
+      web page and receiving a push notification (tickle) from the backend.
+      Recorded when a tickle arrives after an OTP field was detected.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="Latency.TickleToFieldDetectionInMillis">
+    <summary>
+      Records the latency in milliseconds between receiving a push notification
+      (tickle) from the backend and detecting an OTP field on a web page.
+      Recorded when an OTP field is detected on a page after a tickle was
+      already received.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <quantiles type="std-percentiles"/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+  <metric name="Tickle.Arrival" enum="OneTimeTokensTickleArrival">
+    <summary>
+      Records the arrival order and timing of push notifications (tickles)
+      relative to OTP form detection on a web page. Only recorded for
+      kAfterFieldDetection and kBeforeFieldDetection, where an OTP form was
+      detected and the URL can be reliably established.
+    </summary>
+  </metric>
+  <metric name="Tickle.FormOutcome" enum="OneTimeTokensTickleFormOutcome">
+    <summary>
+      Records the outcome of an OTP form on a web page relative to push
+      notification (tickle) delivery and user interaction (e.g. tickle arrived
+      before user interaction, after user interaction, or no tickle received
+      within timeout).
     </summary>
   </metric>
 </event>
@@ -10755,6 +10774,28 @@ be describing additional metrics about the same event.
   </metric>
 </event>
 
+<event name="Glic.MediaContext">
+  <owner>ahmedmoussa@google.com</owner>
+  <owner>liberato@chromium.org</owner>
+  <summary>
+    Recorded when a GlicMediaContext (associated with a document/frame) is
+    destroyed, storing the origin/domain of the document and whether any
+    transcripts were recorded.
+  </summary>
+  <metric name="HasTranscript" enum="Boolean">
+    <summary>
+      Whether any transcript chunks were recorded in GlicMediaContext.
+    </summary>
+    <aggregation>
+      <history>
+        <statistics>
+          <enumeration/>
+        </statistics>
+      </history>
+    </aggregation>
+  </metric>
+</event>
+
 <event name="Glic.Onboarding">
   <owner>sanaakbani@google.com</owner>
   <owner>birnie@google.com</owner>
@@ -16205,7 +16246,6 @@ be describing additional metrics about the same event.
 
 <event name="NavigationRequestBreakDown" singular="True">
   <owner>chikamune@chromium.org</owner>
-  <owner>hayato@chromium.org</owner>
   <owner>chrome-loading@google.com</owner>
   <summary>
     Metrics to measure the main frame navigation timings by tracking
@@ -16321,7 +16361,7 @@ be describing additional metrics about the same event.
 </event>
 
 <event name="NavigationTimeline" singular="True">
-  <owner>hayato@chromium.org</owner>
+  <owner>chikamune@chromium.org</owner>
   <owner>chrome-loading@google.com</owner>
   <summary>
     Metrics to measure the navigation timings. These are recorded for 1 out of
@@ -18576,7 +18616,7 @@ be describing additional metrics about the same event.
 </event>
 
 <event name="PartitionedCookiePresentV3">
-  <owner>selya@chromium.org</owner>
+  <owner>selya@google.com</owner>
   <owner>dylancutler@google.com</owner>
   <summary>
     Recorded when a page has a partitioned cookie present and the cookie's name
@@ -20417,77 +20457,6 @@ be describing additional metrics about the same event.
   <summary>
     Recorded when a Flash object instance is created.
   </summary>
-</event>
-
-<event name="PlusAddresses.Submission">
-  <owner>jkeitel@google.com</owner>
-  <owner>vizcay@google.com</owner>
-  <summary>
-    An email was submitted in a form for which the user had previously seen a
-    plus address suggestions. More precisely, this event is recorded whenever a
-    user submits a form that contains a form field for which a plus address
-    suggestion was shown and the form field contains either a plus address or
-    the current profile's GAIA email.
-  </summary>
-  <metric name="CheckoutOrCartPage" enum="Boolean">
-    <summary>
-      Boolean value representing whether commerce heuristics suggest that the
-      main frame URL belongs to a checkout or a cart page.
-    </summary>
-  </metric>
-  <metric name="FieldCountBrowserForm">
-    <summary>
-      The number of fields in the browser form. This uses exponential bucketing
-      with a spacing of 1.15.
-    </summary>
-  </metric>
-  <metric name="FieldCountRendererForm">
-    <summary>
-      The number of fields in the renderer form. This uses exponential bucketing
-      with a spacing of 1.15.
-    </summary>
-  </metric>
-  <metric name="ManagedProfile" enum="Boolean">
-    <summary>
-      Boolean value representing whether the active profile is managed.
-    </summary>
-  </metric>
-  <metric name="NewlyCreatedPlusAddress" enum="Boolean">
-    <summary>
-      Boolean value representing whether the submitted email was newly created
-      for this submission.
-    </summary>
-  </metric>
-  <metric name="PasswordFormType" enum="AutofillPasswordFormType">
-    <summary>
-      The password manager classification of the form focused by the user when
-      showing the plus address suggestion.
-    </summary>
-  </metric>
-  <metric name="PlusAddressCount" enum="PlusAddressCountBucket">
-    <summary>
-      The (bucketed) number of plus addresses the user had when shown the plus
-      address suggestion.
-    </summary>
-  </metric>
-  <metric name="SubmittedPlusAddress" enum="Boolean">
-    <summary>
-      Boolean value representing whether the submitted email was a plus address.
-    </summary>
-  </metric>
-  <metric name="SuggestionContext"
-      enum="AutofillPlusAddressDelegateSuggestionContext">
-    <summary>
-      The context in which the plus address suggestion (filling or creation) was
-      shown in the Autofill UI.
-    </summary>
-  </metric>
-  <metric name="WasShownCreateSuggestion" enum="Boolean">
-    <summary>
-      Boolean value representing whether the user was offered a suggestion to
-      create a new plus address.
-    </summary>
-  </metric>
 </event>
 
 <event name="Popup.Closed">

@@ -77,10 +77,12 @@
 #include "content/browser/service_host/utility_process_host.h"
 #include "content/browser/startup_data_impl.h"
 #include "content/browser/startup_helper.h"
+#include "content/browser/tracing/background_tracing_manager_impl.h"
 #include "content/browser/tracing/memory_instrumentation_util.h"
 #include "content/child/field_trial.h"
 #include "content/child/memory_coordinator/child_memory_coordinator.h"
 #include "content/common/content_constants_internal.h"
+#include "content/common/features.h"
 #include "content/common/process_priority_tracker.h"
 #include "content/common/pseudonymization_salt.h"
 #include "content/common/url_schemes.h"
@@ -114,12 +116,12 @@
 #include "mojo/public/cpp/platform/platform_channel.h"
 #include "mojo/public/cpp/system/invitation.h"
 #include "mojo/public/cpp/system/message_pipe.h"
-#include "net/first_party_sets/local_set_declaration.h"
 #include "sandbox/policy/linux/landlock_util.h"
 #include "sandbox/policy/sandbox.h"
 #include "sandbox/policy/sandbox_type.h"
 #include "sandbox/policy/switches.h"
 #include "services/network/public/cpp/features.h"
+#include "services/tracing/public/cpp/background_tracing/background_tracing_manager.h"
 #include "services/tracing/public/cpp/perfetto/perfetto_traced_process.h"
 #include "services/tracing/public/cpp/trace_startup.h"
 #include "services/tracing/public/cpp/tracing_features.h"
@@ -312,8 +314,8 @@ void AsanProcessInfoCB(const char* reason,
 #endif  // defined(ADDRESS_SANITIZER)
 
 #if BUILDFLAG(USE_ZYGOTE)
-pid_t LaunchZygoteHelper(base::CommandLine* cmd_line,
-                         base::ScopedFD* control_fd) {
+ZygoteLaunchCompletionCallback LaunchZygoteHelper(base::CommandLine* cmd_line,
+                                                  base::ScopedFD* control_fd) {
   // Append any switches from the browser process that need to be forwarded on
   // to the zygote/renderers.
   static const char* const kForwardSwitches[] = {
@@ -369,13 +371,7 @@ void InitializeZygoteSandboxForBrowserProcess(
   if (!parsed_command_line.HasSwitch(switches::kNoUnsandboxedZygote)) {
     CreateUnsandboxedZygote(base::BindOnce(LaunchZygoteHelper));
   }
-  ZygoteCommunication* generic_zygote =
-      CreateGenericZygote(base::BindOnce(LaunchZygoteHelper));
-
-  // This operation is done through the ZygoteHostImpl as a proxy because of
-  // race condition concerns.
-  ZygoteHostImpl::GetInstance()->SetRendererSandboxStatus(
-      generic_zygote->GetSandboxStatus());
+  CreateGenericZygote(base::BindOnce(LaunchZygoteHelper));
 }
 #endif  // BUILDFLAG(USE_ZYGOTE)
 
@@ -448,7 +444,7 @@ void PreSandboxInit() {
   PreloadLibraryCdms();
 #endif
   InitializeWebRtcModuleBeforeSandbox();
-  webnn::PreSandboxWebNNInitialization();
+  webnn::PreSandboxWebNNInitialization(/*is_gpu_process=*/false);
 
 #if BUILDFLAG(BUILD_TFLITE_WITH_XNNPACK)
   // cpuinfo needs to parse /proc/cpuinfo, or its equivalent.
@@ -1340,6 +1336,21 @@ int ContentMainRunnerImpl::RunBrowser(MainFunctionParams main_params,
       BrowserTaskExecutor::PostFeatureListInit();
     }
 
+#if BUILDFLAG(USE_ZYGOTE)
+    // The zygotes, if any, were forked in Initialize(), before the
+    // FeatureList existed. Unless deferring is enabled, finish their handshake
+    // now that it does, which keeps the wait on the main thread ahead of
+    // BrowserMain.
+    if (!base::CommandLine::ForCurrentProcess()->HasSwitch(
+            switches::kNoZygote) &&
+        !base::FeatureList::IsEnabled(features::kDeferZygoteHandshake)) {
+      if (GetUnsandboxedZygote()) {
+        GetUnsandboxedZygote()->EnsureLaunchFinished();
+      }
+      GetGenericZygote()->EnsureLaunchFinished();
+    }
+#endif
+
     // The hang watcher needs to be started once the feature list is available
     // but before the IO thread is started.
     if (base::HangWatcher::IsEnabled()) {
@@ -1363,6 +1374,8 @@ int ContentMainRunnerImpl::RunBrowser(MainFunctionParams main_params,
           /*enable_consumer=*/true, /*will_trace_thread_restart=*/false,
           base::BindRepeating(&ShouldAllowSystemTracingConsumer));
     }
+    background_tracing_manager_ =
+        CreateBackgroundTracingManagerAndInitializeScenarios();
 
     if (!delegate_->IsInitFeatureListEarly()) {
       // The FeatureList needs to be created before starting the ThreadPool.
@@ -1392,8 +1405,7 @@ int ContentMainRunnerImpl::RunBrowser(MainFunctionParams main_params,
       ForceInProcessNetworkService();
       // Minimal browser mode doesn't initialize First-Party Sets the "usual"
       // way, so we do it manually.
-      content::FirstPartySetsHandlerImpl::GetInstance()->Init(
-          base::FilePath(), net::LocalSetDeclaration());
+      content::FirstPartySetsHandlerImpl::GetInstance()->Init(base::FilePath());
     }
 
     discardable_shared_memory_manager_ =
@@ -1437,7 +1449,10 @@ int ContentMainRunnerImpl::RunBrowser(MainFunctionParams main_params,
   }
 
   is_browser_main_loop_started_ = true;
-  main_params.startup_data = mojo_ipc_support_->CreateBrowserStartupData();
+  auto startup_data = mojo_ipc_support_->CreateBrowserStartupData();
+  startup_data->background_tracing_manager =
+      std::move(background_tracing_manager_);
+  main_params.startup_data = std::move(startup_data);
   return RunBrowserProcessMain(std::move(main_params), delegate_);
 }
 

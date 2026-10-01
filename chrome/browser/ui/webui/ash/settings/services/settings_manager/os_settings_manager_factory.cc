@@ -11,7 +11,11 @@
 #include "chrome/browser/ash/kerberos/kerberos_credentials_manager_factory.h"
 #include "chrome/browser/ash/multidevice_setup/multidevice_setup_client_factory.h"
 #include "chrome/browser/ash/phonehub/phone_hub_manager_factory.h"
+#include "chrome/browser/ash/policy/core/browser_policy_connector_ash.h"
 #include "chrome/browser/ash/printing/cups_printers_manager_factory.h"
+#include "chrome/browser/browser_process.h"
+#include "chrome/browser/browser_process_platform_part.h"
+#include "chrome/browser/global_features.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/ui/webui/ash/settings/services/settings_manager/os_settings_manager.h"
@@ -63,7 +67,12 @@ OsSettingsManagerFactory::BuildServiceInstanceForBrowserContext(
     content::BrowserContext* context) const {
   Profile* profile = Profile::FromBrowserContext(context);
 
+  // NOTE: Allow g_browser_process here as this class is initialized lazily with
+  // base::NoDestructor.
   return std::make_unique<OsSettingsManager>(
+      g_browser_process->local_state(),
+      g_browser_process->GetFeatures()->application_locale_storage(),
+      g_browser_process->platform_part()->browser_policy_connector_ash(),
       profile,
       local_search_service::LocalSearchServiceProxyFactory::
           GetForBrowserContext(context),

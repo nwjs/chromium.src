@@ -34,7 +34,6 @@
 #include "chrome/browser/contextual_tasks/mock_contextual_tasks_ui_service_delegate.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
@@ -51,6 +50,7 @@
 #include "chrome/browser/ui/omnibox/omnibox_view.h"
 #include "chrome/browser/ui/side_panel/side_panel_ui.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/toolbar/webui_test_utils.h"
 #include "chrome/browser/ui/views/toolbar/webui_toolbar_web_view.h"
@@ -74,6 +74,7 @@
 #include "components/sessions/content/session_tab_helper.h"
 #include "components/signin/public/identity_manager/identity_test_utils.h"
 #include "components/tabs/public/tab_interface.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/content_features.h"
 #include "content/public/test/browser_test.h"
@@ -97,6 +98,7 @@
 #include "ui/base/accelerators/accelerator.h"
 #include "ui/base/clipboard/clipboard_monitor.h"
 #include "ui/base/clipboard/clipboard_observer.h"
+#include "ui/base/page_transition_types.h"
 #include "ui/base/unowned_user_data/user_data_factory.h"
 #include "ui/events/keycodes/keyboard_codes.h"
 #include "ui/gfx/scoped_animation_duration_scale_mode.h"
@@ -362,7 +364,8 @@ class ContextualTasksInteractiveUiTest : public InteractiveBrowserTest {
         [&](content::URLLoaderInterceptor::RequestParams* params) {
           const GURL& url = params->url_request.url;
           if (url.host() == kMockAimPageHost &&
-              url.path() == "/complete/search") {
+              (url.path() == "/complete/s" ||
+               url.path() == "/complete/search")) {
             std::string q_param;
             net::GetValueForKeyInQuery(url, "q", &q_param);
             std::string query = base::UnescapeURLComponent(
@@ -431,7 +434,7 @@ class ContextualTasksInteractiveUiTest : public InteractiveBrowserTest {
             contextual_search::SearchContentSharingSettingsValue::kEnabled));
 
     // Disable side panel animations to avoid WaitForShow/WaitForHide flakiness.
-    browser()->GetFeatures().side_panel_ui()->DisableAnimationsForTesting();
+    SidePanelUI::From(browser())->DisableAnimationsForTesting();
   }
 
   void TearDownOnMainThread() override {
@@ -487,15 +490,54 @@ class ContextualTasksInteractiveUiTest : public InteractiveBrowserTest {
         "app?.shadowRoot?.querySelector('#composebox')?.shadowRoot?."
         "querySelector('#composebox');"
         "  if (!composebox) return false;"
-        "  if (composebox.contextMenuOpened) return true;"
-        "  const btn = "
+        "  if (composebox.contextMenuOpened) {"
+        "    app._entrypointClicked = false;"
+        "    return true;"
+        "  }"
+        "  if (!app._entrypointClicked) {"
+        "    const btn = "
         "composebox.shadowRoot?.querySelector('#contextEntrypoint')?."
         "shadowRoot?."
         "querySelector('#entrypointButton')?.shadowRoot?.querySelector('#"
         "entrypoint');"
-        "  if (btn) { btn.click(); }"
+        "    if (btn && !btn.disabled) {"
+        "      app._entrypointClicked = true;"
+        "      btn.click();"
+        "    }"
+        "  }"
         "  return false;"
         "}";
+    change.event = kElementExistsEvent;
+    return WaitForStateChange(contents_id, change);
+  }
+
+  // Helper to force click a button in the context menu matching the selector.
+  auto ForceClickMenuButtonBySelector(const ui::ElementIdentifier& contents_id,
+                                      const std::string& selector) {
+    StateChange change;
+    change.type = StateChange::Type::kExistsAndConditionTrue;
+    change.where = {"contextual-tasks-app"};
+    change.test_function = base::StringPrintf(
+        R"(
+        function(app) {
+          const btn = app?.shadowRoot
+              ?.querySelector('#composebox')
+              ?.shadowRoot
+              ?.querySelector('#composebox')
+              ?.shadowRoot
+              ?.querySelector('#contextEntrypoint')
+              ?.shadowRoot
+              ?.querySelector('#menu')
+              ?.shadowRoot
+              ?.querySelector('%s');
+          if (btn && !btn.disabled) {
+            btn.click();
+            return true;
+          }
+          return false;
+        }
+        )",
+        selector.c_str());
     change.event = kElementExistsEvent;
     return WaitForStateChange(contents_id, change);
   }
@@ -505,56 +547,16 @@ class ContextualTasksInteractiveUiTest : public InteractiveBrowserTest {
   // identified by its position or index in the list.
   auto ForceClickMenuButton(const ui::ElementIdentifier& contents_id,
                             int target_index) {
-    StateChange change;
-    change.type = StateChange::Type::kExistsAndConditionTrue;
-    change.where = {"contextual-tasks-app"};
-    change.test_function = base::StringPrintf(
-        "function(app) {"
-        "  const composebox = "
-        "app?.shadowRoot?.querySelector('#composebox')?.shadowRoot?."
-        "querySelector('#composebox');"
-        "  if (!composebox) return false;"
-        "  const btn = "
-        "composebox.shadowRoot?.querySelector('#contextEntrypoint')?."
-        "shadowRoot?.querySelector('#menu')?.shadowRoot?.querySelector('button."
-        "dropdown-item[data-index=\"' + %d + '\"]');"
-        "  if (btn) {"
-        "    btn.click();"
-        "    return true;"
-        "  }"
-        "  return false;"
-        "}",
-        target_index);
-    change.event = kElementExistsEvent;
-    return WaitForStateChange(contents_id, change);
+    return ForceClickMenuButtonBySelector(
+        contents_id,
+        base::StringPrintf("button.dropdown-item[data-index=\"%d\"]",
+                           target_index));
   }
 
   // Forces a click on a context menu item identified by its ID string.
   auto ForceClickMenuButton(const ui::ElementIdentifier& contents_id,
                             const std::string& button_id) {
-    StateChange change;
-    change.type = StateChange::Type::kExistsAndConditionTrue;
-    change.where = {"contextual-tasks-app"};
-    change.test_function = base::StringPrintf(
-        "function(app) {"
-        "  const composebox = "
-        "app?.shadowRoot?.querySelector('#composebox')?.shadowRoot?."
-        "querySelector('#composebox');"
-        "  if (!composebox) return false;"
-        "  const menu = "
-        "composebox.shadowRoot?.querySelector('#contextEntrypoint')?."
-        "shadowRoot?.querySelector('#menu');"
-        "  if (!menu) return false;"
-        "  const btn = menu.shadowRoot?.querySelector('#%s');"
-        "  if (btn) {"
-        "    btn.click();"
-        "    return true;"
-        "  }"
-        "  return false;"
-        "}",
-        button_id.c_str());
-    change.event = kElementExistsEvent;
-    return WaitForStateChange(contents_id, change);
+    return ForceClickMenuButtonBySelector(contents_id, "#" + button_id);
   }
 
   auto WaitForComposeboxFilesCount(int expected_count) {
@@ -1123,8 +1125,8 @@ class ContextualTasksInteractiveUiTest : public InteractiveBrowserTest {
 };
 
 // TODO(crbug.com/500717050): Parameterize this test suite on the feature flag.
-// TODO(crbug.com/524797987): Re-enable this test on ChromeOS.
-#if BUILDFLAG(IS_CHROMEOS)
+// TODO(crbug.com/524797987): Re-enable this test on ChromeOS and Linux.
+#if BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_LINUX)
 #define MAYBE_AddAndRemovePdfChipFromComposebox \
   DISABLED_AddAndRemovePdfChipFromComposebox
 #else
@@ -1182,15 +1184,8 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksInteractiveUiTest,
 }
 
 // TODO(crbug.com/524797987): Re-enable this test.
-#if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_WIN)
-#define MAYBE_AddAndRemoveImageChipFromComposebox \
-  DISABLED_AddAndRemoveImageChipFromComposebox
-#else
-#define MAYBE_AddAndRemoveImageChipFromComposebox \
-  AddAndRemoveImageChipFromComposebox
-#endif
 IN_PROC_BROWSER_TEST_F(ContextualTasksInteractiveUiTest,
-                       MAYBE_AddAndRemoveImageChipFromComposebox) {
+                       DISABLED_AddAndRemoveImageChipFromComposebox) {
   const GURL kInterceptionUrl("https://www.google.com/search?udm=50");
 
   base::FilePath test_data_dir;
@@ -1219,7 +1214,7 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksInteractiveUiTest,
                   ForceClickAddContextEntrypoint(kPrimaryTab),
                   ForceClickMenuButton(kPrimaryTab, "imageUpload"),
 
-                  WaitForElementExists(kPrimaryTab, kImgChip),
+                  WaitForElementVisible(kPrimaryTab, kImgChip),
                   WaitForComposeboxFilesCount(1),
 
                   ClickButton(kPrimaryTab, kRemoveImgButton),
@@ -1387,7 +1382,9 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksInteractiveUiTest,
   RunTestSequence(
       InstrumentTab(kPrimaryTab, 0),
       AddInstrumentedTab(kGenericTab2, kGenericPageUrl2),
+      WaitForWebContentsReady(kGenericTab2, kGenericPageUrl2),
       AddInstrumentedTab(kGenericTab, kGenericPageUrl1),
+      WaitForWebContentsReady(kGenericTab, kGenericPageUrl1),
       SelectTab(kTabStripElementId, 0),
       OpenContextualTasksInCurrentTab(kInterceptionUrl),
       InstrumentInnerWebContents(kInnerWebContentsId, kPrimaryTab, 0),
@@ -1398,18 +1395,19 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksInteractiveUiTest,
       WaitForFaviconGroupWithTitle(kPrimaryTab, "title1.html"),
       WaitForComposeboxFilesCount(1),
 
-      // 2. Add Tab 2 (now shifted to Index 1 since Tab 1 is selected. Menu is
-      // already open!)
+      // 2. Add Tab 2
+      ForceClickAddContextEntrypoint(kPrimaryTab),
       ForceClickMenuButton(kPrimaryTab, 1),
       WaitForFaviconGroupWithTitle(kPrimaryTab, "Title Of Awesomeness"),
       WaitForComposeboxFilesCount(2),
 
-      // 3. Set factory for PDF and upload PDF. Menu is still open!
+      // 3. Set factory for PDF and upload PDF
       Do(base::BindLambdaForTesting([&]() {
         ui::SelectFileDialog::SetFactory(
             std::make_unique<content::FakeSelectFileDialogFactory>(
                 std::vector<base::FilePath>{pdf_path}));
       })),
+      ForceClickAddContextEntrypoint(kPrimaryTab),
       ForceClickMenuButton(kPrimaryTab, "fileUpload"),
       WaitForDocumentChipWithTitle(kPrimaryTab, "download.pdf"),
       WaitForComposeboxFilesCount(3),
@@ -1479,16 +1477,8 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksInteractiveUiTest,
       WaitForInputCleared(kPrimaryTab));
 }
 
-// TODO(crbug.com/516333831): Re-enable this test on Windows.
-#if BUILDFLAG(IS_WIN)
-#define MAYBE_AddAndSubmitMultipleContextsWithTextFromComposebox \
-  DISABLED_AddAndSubmitMultipleContextsWithTextFromComposebox
-#else
-#define MAYBE_AddAndSubmitMultipleContextsWithTextFromComposebox \
-  AddAndSubmitMultipleContextsWithTextFromComposebox
-#endif
 IN_PROC_BROWSER_TEST_F(ContextualTasksInteractiveUiTest,
-                       MAYBE_AddAndSubmitMultipleContextsWithTextFromComposebox) {
+                       AddAndSubmitMultipleContextsWithTextFromComposebox) {
   const GURL kInterceptionUrl("https://www.google.com/search?udm=50");
   const GURL kGenericPageUrl1 = embedded_test_server()->GetURL("/title1.html");
   const GURL kGenericPageUrl2 = embedded_test_server()->GetURL("/title2.html");
@@ -1559,6 +1549,7 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksInteractiveUiTest,
       InputText(kPrimaryTab, "Query with multiple attachments"),
 
       // 6. Submit
+      WaitForSubmitButtonEnabled(kPrimaryTab),
       ClickButton(kPrimaryTab, kSubmitButton),
 
       // 7. Verify multiple inputs + query text in the final message

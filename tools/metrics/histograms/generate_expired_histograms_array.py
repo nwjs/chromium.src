@@ -224,7 +224,7 @@ def _GenerateFileContent(
   Raises:
     Error if there is an error in input xml files.
   """
-  histograms, had_errors = extract_histograms.ExtractHistogramsFromDom(
+  histograms, had_errors = extract_histograms.ExtractHistogramsFromXmlET(
     descriptions
   )
   if had_errors:

@@ -9,7 +9,6 @@
 #include "chrome/browser/renderer_preferences_util.h"
 #include "chrome/browser/ui/blocked_content/popunder_preventer.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
-#include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/webui/chrome_web_contents_handler.h"
 #include "chrome/browser/ui/webui/constrained_web_dialog_ui.h"
 #include "components/constrained_window/constrained_window_views.h"
@@ -17,12 +16,14 @@
 #include "components/web_modal/web_contents_modal_dialog_manager.h"
 #include "components/web_modal/web_contents_modal_dialog_manager_delegate.h"
 #include "components/zoom/zoom_controller.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/render_widget_host_view.h"
 #include "content/public/browser/web_contents.h"
 #include "ui/base/metadata/metadata_header_macros.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/mojom/ui_base_types.mojom-shared.h"
+#include "ui/base/page_transition_types.h"
 #include "ui/views/controls/webview/unhandled_keyboard_event_handler.h"
 #include "ui/views/controls/webview/webview.h"
 #include "ui/views/view.h"
@@ -496,15 +497,16 @@ gfx::Size ConstrainedDialogWebView::CalculatePreferredSize(
 }
 
 gfx::Size ConstrainedDialogWebView::GetMinimumSize() const {
-  return min_size();
+  return AutoResizeMinSize();
 }
 
 gfx::Size ConstrainedDialogWebView::GetMaximumSize() const {
-  return !max_size().IsEmpty() ? max_size() : WebView::GetMaximumSize();
+  return !AutoResizeMaxSize().IsEmpty() ? AutoResizeMaxSize()
+                                        : WebView::GetMaximumSize();
 }
 
 void ConstrainedDialogWebView::DocumentOnLoadCompletedInPrimaryMainFrame() {
-  if (!max_size().IsEmpty() && initiator_web_contents_) {
+  if (!AutoResizeMaxSize().IsEmpty() && initiator_web_contents_) {
     content::WebContents* top_level_web_contents =
         constrained_window::GetTopLevelWebContents(
             initiator_web_contents_.get());

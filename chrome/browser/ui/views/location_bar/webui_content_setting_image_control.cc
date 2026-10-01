@@ -97,6 +97,9 @@ WebUIContentSettingImageControl::ProcessContentSettingState(
     // location bar, managed by the Permissions Dashboard, so we don't include
     // them in the right hand side content setting images here.
     if (model->image_type() == ImageType::kMediaStream) {
+      model->Update(setting_view_delegate_->ShouldHideContentSettingImage()
+                        ? nullptr
+                        : web_contents);
       continue;
     }
 
@@ -240,7 +243,7 @@ WebUIContentSettingImageControl::ShowContentSettingsBubbleImpl(ImageType type) {
 }
 
 bool WebUIContentSettingImageControl::TestPressed(size_t index) {
-  if (index >= models_.size() || !models_[index]->is_visible()) {
+  if (!IsContentSettingImageVisible(index)) {
     return false;
   }
   auto result = ShowContentSettingsBubbleImpl(models_[index]->image_type());
@@ -253,4 +256,16 @@ bool WebUIContentSettingImageControl::IsBubbleShowing(size_t index) const {
   }
   return IsBubbleShowing() &&
          last_tracked_bubble_type_ == models_[index]->image_type();
+}
+
+bool WebUIContentSettingImageControl::IsContentSettingImageVisible(
+    size_t index) const {
+  return index < models_.size() && models_[index]->is_visible();
+}
+
+views::Widget* WebUIContentSettingImageControl::GetBubbleWidget(size_t index) {
+  if (!IsBubbleShowing(index)) {
+    return nullptr;
+  }
+  return bubble_reopen_suppressor_.GetWidget();
 }

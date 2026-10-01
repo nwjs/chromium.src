@@ -428,11 +428,12 @@ void PrimaryAccountManager::PrepareToLoadPrefs() {
   if (!pref_account_id.empty()) {
     if (account_tracker_service_->GetMigrationState() ==
         AccountTrackerService::MIGRATION_IN_PROGRESS) {
-      CoreAccountInfo account_info =
+      AccountInfo account_info =
           account_tracker_service_->FindAccountInfoByEmail(pref_account_id);
-      // |account_info.gaia| could be empty if |account_id| is already gaia id.
-      if (!account_info.gaia.empty()) {
-        pref_account_id = account_info.gaia.ToString();
+      // |account_info.GetGaiaId()| could be empty if |account_id| is already
+      // gaia id.
+      if (!account_info.GetGaiaId().empty()) {
+        pref_account_id = account_info.GetGaiaId().ToString();
         prefs->SetString(prefs::kGoogleServicesAccountId, pref_account_id);
       }
     }
@@ -453,7 +454,7 @@ PrimaryAccountManager::GetOrRestorePrimaryAccountInfoOnInitialize(
   CHECK(!account_id.empty());
 
   CoreAccountInfo account_info =
-      account_tracker_service_->GetAccountInfo(account_id);
+      account_tracker_service_->GetAccountInfo(account_id).GetCoreAccountInfo();
   if (!account_info.IsEmpty()) {
     return std::make_pair(account_info,
                           InitializeAccountInfoState::kAccountInfoAvailable);
@@ -498,9 +499,10 @@ PrimaryAccountManager::GetOrRestorePrimaryAccountInfoOnInitialize(
           last_syncing_gaia_id, last_syncing_email,
           signin_metrics::AccessPoint::kRestorePrimaryAccountOnProfileLoad));
 
-  return std::make_pair(account_tracker_service_->GetAccountInfo(account_id),
-                        InitializeAccountInfoState::
-                            kEmptyAccountInfo_RestoreSuccessFromLastSyncInfo);
+  return std::make_pair(
+      account_tracker_service_->GetAccountInfo(account_id).GetCoreAccountInfo(),
+      InitializeAccountInfoState::
+          kEmptyAccountInfo_RestoreSuccessFromLastSyncInfo);
 #endif  // BUILDFLAG(IS_IOS)
 }
 
@@ -654,7 +656,8 @@ void PrimaryAccountManager::UpdatePrimaryAccountInfo() {
   CHECK(!primary_account_id.empty());
 
   const CoreAccountInfo updated_account_info =
-      account_tracker_service_->GetAccountInfo(primary_account_id);
+      account_tracker_service_->GetAccountInfo(primary_account_id)
+          .GetCoreAccountInfo();
   CHECK_EQ(primary_account_id, updated_account_info.account_id);
 
   // Calling SetPrimaryAccountInternal() is avoided in this case as the
@@ -930,11 +933,11 @@ void PrimaryAccountManager::OnRefreshTokensLoaded() {
     const CoreAccountId primary_account_id_ =
         GetPrimaryAccountId(signin::ConsentLevel::kSignin);
     for (const auto& account : accounts_in_tracker_service) {
-      if (primary_account_id_ != account.account_id &&
-          !token_service_->RefreshTokenIsAvailable(account.account_id)) {
+      if (primary_account_id_ != account.GetAccountId() &&
+          !token_service_->RefreshTokenIsAvailable(account.GetAccountId())) {
         VLOG(0) << "Removed account from account tracker service: "
-                << account.account_id;
-        account_tracker_service_->RemoveAccount(account.account_id);
+                << account.GetAccountId();
+        account_tracker_service_->RemoveAccount(account.GetAccountId());
       }
     }
   }

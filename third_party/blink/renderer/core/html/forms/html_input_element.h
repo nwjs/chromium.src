@@ -159,6 +159,8 @@ class CORE_EXPORT HTMLInputElement
   unsigned size() const;
   bool GetSizeWithDecoration(int& preferred_size) const;
 
+  String FilterBeforeTextInserted(const String& text) override;
+
   void setType(const AtomicString&);
 
   String Value() const override;
@@ -419,7 +421,9 @@ class CORE_EXPORT HTMLInputElement
   bool HandleCommandInternal(HTMLElement& invoker,
                              CommandEventType command) override;
 
-  void SetFocused(bool is_focused, mojom::blink::FocusType) override;
+  void SetFocused(bool is_focused,
+                  mojom::blink::FocusType,
+                  BlurEventBehavior) override;
   bool IsKeyboardFocusableSlow(UpdateBehavior update_behavior =
                                    UpdateBehavior::kStyleAndLayout) const final;
 

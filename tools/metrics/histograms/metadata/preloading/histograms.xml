@@ -23,6 +23,7 @@ chromium-metrics-reviews@google.com.
 <variants name="ChromeInitiatorLocation">
   <variant name="Backward" summary="Initiated by a back navigation"/>
   <variant name="BookmarkBar" summary="Initiated from BookmarkBar"/>
+  <variant name="FormSubmission" summary="Initiated by a form submission"/>
   <variant name="Forward" summary="Initiated by a forward navigation"/>
   <variant name="LinkClick" summary="Initiated by a link click"/>
   <variant name="NewTabPage" summary="Initiated from NewTabPage"/>
@@ -53,7 +54,10 @@ chromium-metrics-reviews@google.com.
 <variants name="InitiatorLocation">
   <variant name="All"
       summary="All initiator locations. No additional condition."/>
+  <variant name="Backward" summary="Initiated by a back navigation"/>
   <variant name="BookmarkBar" summary="Initiated from BookmarkBar"/>
+  <variant name="FormSubmission" summary="Initiated by a form submission"/>
+  <variant name="Forward" summary="Initiated by a forward navigation"/>
   <variant name="LinkClick" summary="Initiated by a link click"/>
   <variant name="NewTabPage" summary="Initiated from NewTabPage"/>
   <variant name="OmniboxDefaultSearchEngine"
@@ -61,6 +65,7 @@ chromium-metrics-reviews@google.com.
   <variant name="OmniboxDirectUrlInput"
       summary="Initiated from OmniboxDirectUrlInput"/>
   <variant name="Other" summary="Initiated from other"/>
+  <variant name="Reload" summary="Initiated by a reload navigation"/>
 </variants>
 
 <variants name="NavigationDestinationSuffix">
@@ -348,7 +353,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Preloading.Prefetch.PrefetchStatus"
-    enum="PrefetchProxyPrefetchStatus" expires_after="2026-12-20">
+    enum="PrefetchProxyPrefetchStatus" expires_after="2027-02-28">
   <owner>adithyas@chromium.org</owner>
   <owner>portals-team@google.com</owner>
   <summary>
@@ -514,6 +519,23 @@ chromium-metrics-reviews@google.com.
     instead.
   </summary>
   <token key="WithPreloadSuffix" variants="WithPreloadSuffix"/>
+</histogram>
+
+<histogram
+    name="PreloadServingMetrics.PageLoad.Clients.PaintTiming.NavigationToLargestContentfulPaint2.{InitiatorLocation}.{NavigationDestinationSuffix}.{UsedInstantLoad}"
+    units="ms" expires_after="2027-02-07">
+  <owner>kenoss@chromium.org</owner>
+  <owner>chrome-prerendering@google.com</owner>
+  <summary>
+    LargestContentfulPaint.
+
+    Recorded when {InitiatorLocation}, {NavigationDestinationSuffix}, and
+    {UsedInstantLoad}.
+  </summary>
+  <token key="InitiatorLocation" variants="InitiatorLocation"/>
+  <token key="NavigationDestinationSuffix"
+      variants="NavigationDestinationSuffix"/>
+  <token key="UsedInstantLoad" variants="UsedInstantLoad"/>
 </histogram>
 
 <histogram

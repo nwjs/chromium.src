@@ -282,7 +282,7 @@ WebContents* ExtensionOptionsGuest::CreateCustomWebContents(
     WindowOpenDisposition disposition,
     const blink::mojom::WindowFeatures& window_features,
     const content::StoragePartitionConfig& partition_config,
-    content::SessionStorageNamespace* session_storage_namespace) {
+    content::SessionStorageNamespaceHandle* session_storage_namespace) {
   CHECK(!base::FeatureList::IsEnabled(features::kGuestViewMPArch));
 
   // To get links out of the guest view, we just open the URL in a new tab.
@@ -290,9 +290,9 @@ WebContents* ExtensionOptionsGuest::CreateCustomWebContents(
   //   ctrl-click or middle mouse button click
   if (extension_options_guest_delegate_) {
     extension_options_guest_delegate_->OpenURLInNewTab(
-        content::OpenURLParams(target_url, content::Referrer(),
-                               WindowOpenDisposition::NEW_FOREGROUND_TAB,
-                               ui::PAGE_TRANSITION_LINK, false),
+        content::OpenURLParams::CreateBrowserInitiated(
+            target_url, WindowOpenDisposition::NEW_FOREGROUND_TAB,
+            ui::PAGE_TRANSITION_LINK),
         /*navigation_handle_callback=*/{});
   }
 

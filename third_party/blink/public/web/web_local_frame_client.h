@@ -276,7 +276,7 @@ class BLINK_EXPORT WebLocalFrameClient {
   using FinishChildFrameCreationFn = base::FunctionRef<void(
       WebLocalFrame*,
       const DocumentToken&,
-      const base::UnguessableToken& initiator_state_token,
+      const InitiatorStateToken& initiator_state_token,
       CrossVariantMojoRemote<mojom::BrowserInterfaceBrokerInterfaceBase>,
       std::unique_ptr<base::UnguessableToken> sandbox_origin_token)>;
   virtual WebLocalFrame* CreateChildFrame(
@@ -796,6 +796,9 @@ class BLINK_EXPORT WebLocalFrameClient {
   // Specifies whether to disable DOM storage interfaces such as localStorage
   // and sessionStorage.
   virtual bool IsDomStorageDisabled() const { return false; }
+
+  // Specifies whether to disable dedicated workers.
+  virtual bool AreDedicatedWorkersDisabled() const { return false; }
 
   // Returns a scriptable object for the given plugin element. This is used for
   // having an external handler implement certain customized APIs for the

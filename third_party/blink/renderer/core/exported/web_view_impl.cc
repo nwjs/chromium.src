@@ -120,7 +120,7 @@
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/frame/local_frame_client.h"
-#include "third_party/blink/renderer/core/frame/local_frame_ukm_aggregator.h"
+#include "third_party/blink/renderer/core/frame/local_frame_metrics_aggregator.h"
 #include "third_party/blink/renderer/core/frame/local_frame_view.h"
 #include "third_party/blink/renderer/core/frame/page_scale_constraints_set.h"
 #include "third_party/blink/renderer/core/frame/remote_frame.h"
@@ -1630,6 +1630,7 @@ void WebView::ApplyWebPreferences(const web_pref::WebPreferences& prefs,
   settings->SetAllowScriptsToCloseWindows(prefs.allow_scripts_to_close_windows);
   settings->SetAllowUnrestrictedWindowFocus(
       prefs.allow_unrestricted_window_focus);
+  settings->SetClipboardFocusExempt(prefs.clipboard_focus_exempt);
   settings->SetDownloadableBinaryFontsEnabled(prefs.remote_fonts_enabled);
   settings->SetJavaScriptCanAccessClipboard(
       prefs.javascript_can_access_clipboard);
@@ -1793,6 +1794,8 @@ void WebView::ApplyWebPreferences(const web_pref::WebPreferences& prefs,
   settings->SetDontSendKeyEventsToJavascript(
       prefs.dont_send_key_events_to_javascript);
   settings->SetWebAppScope(WebString::FromAscii(prefs.web_app_scope.spec()));
+  settings->SetWebAppCustomManifestUrl(
+      WebURL(KURL(prefs.web_app_custom_manifest_url)));
   settings->SetIsInitialProfile(prefs.is_initial_profile);
 
 #if BUILDFLAG(IS_ANDROID)

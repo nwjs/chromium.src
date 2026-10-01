@@ -107,11 +107,13 @@ EventDispatchHelper::EventDispatchHelper(
     const ExtensionRegistry& extension_registry,
     BrowserContext& browser_context,
     EventListenerMap& listeners,
+    const ListenerRegistrationPhaseMap& listener_registration_phases,
     DispatchFunction dispatch_function,
     DispatchToProcessFunction dispatch_to_process_function)
     : extension_registry_(extension_registry),
       browser_context_(browser_context),
       listeners_(listeners),
+      listener_registration_phases_(listener_registration_phases),
       dispatch_function_(std::move(dispatch_function)),
       dispatch_to_process_function_(std::move(dispatch_to_process_function)) {}
 
@@ -121,6 +123,7 @@ EventDispatchHelper::~EventDispatchHelper() = default;
 void EventDispatchHelper::DispatchEvent(
     content::BrowserContext& browser_context,
     EventListenerMap& listeners,
+    const ListenerRegistrationPhaseMap& listener_registration_phases,
     DispatchFunction dispatch_function,
     DispatchToProcessFunction dispatch_to_process_function,
     const ExtensionId& restrict_to_extension_id,
@@ -131,7 +134,8 @@ void EventDispatchHelper::DispatchEvent(
   DCHECK(extension_registry);
 
   EventDispatchHelper(*extension_registry, browser_context, listeners,
-                      dispatch_function, dispatch_to_process_function)
+                      listener_registration_phases, dispatch_function,
+                      dispatch_to_process_function)
       .DispatchEventImpl(restrict_to_extension_id, restrict_to_url,
                          std::move(event));
 }
@@ -203,7 +207,9 @@ void EventDispatchHelper::DispatchEventImpl(
   if (!did_handle_event && event->cannot_dispatch_callback) {
     // No matching listener handled this event. This can happen if the targeted
     // listener was removed or if an extension asynchronously registers event
-    // listeners. In this case, notify the caller (if they subscribed via a
+    // listeners (which is only supported with the
+    // `background.async_listener_registration` opt-in, but may be happening
+    // without it). In this case, notify the caller (if they subscribed via a
     // callback) and drop the event.
     //
     // NOTE: we need to post a task rather than just executing the callback,
@@ -362,7 +368,21 @@ bool EventDispatchHelper::TryQueueEventDispatch(
   LazyContextTaskQueue* queue = dispatch_context.GetTaskQueue();
   event.lazy_background_active_on_dispatch =
       queue->IsReadyToRunTasks(browser_context, extension);
-  if (!queue->ShouldEnqueueTask(browser_context, extension)) {
+  // During the listener registration phase, events matching persisted lazy
+  // listeners still reach the worker even if no active listener is registered
+  // yet. The renderer queues these events until registration finishes.
+  // TODO(crbug.com/509627729): Events could be dispatched as soon as the
+  // worker context is created rather than waiting for the worker to be ready,
+  // since the renderer queues them anyway. This would reduce dispatch latency
+  // when the phase completes.
+  // TODO(crbug.com/509627729): For a ready worker, this relies on the task
+  // queue dispatching the pending task immediately. Dispatch directly to the
+  // running worker in DispatchEventToLazyListener() instead.
+  const bool should_enqueue =
+      queue->ShouldEnqueueTask(browser_context, extension) ||
+      listener_registration_phases_->IsStarted(extension->id(),
+                                               *browser_context);
+  if (!should_enqueue) {
     return false;
   }
 
@@ -392,7 +412,7 @@ std::unique_ptr<Event> EventDispatchHelper::CreateEventForDispatch(
     mojom::ContextType target_context_type,
     bool* dispatch_separate_event_out) {
   if (event.will_dispatch_callback.is_null()) {
-    return event.DeepCopy();
+    return event.Clone();
   }
 
   // Run the callback before copying the event to determine if events need
@@ -407,20 +427,8 @@ std::unique_ptr<Event> EventDispatchHelper::CreateEventForDispatch(
     return nullptr;
   }
 
-  // If `event_args` or `filter_info` are modified, we avoid cloning the
-  // original ones (which can be costly) by using a selective copy mechanism.
-  const bool is_event_args_modified = modified_event_args.has_value();
-  const bool is_filter_info_modified = !!modified_event_filter_info;
   std::unique_ptr<Event> dispatched_event = event.CopySelectively(
-      /*copy_event_args=*/!is_event_args_modified,
-      /*copy_filter_info=*/!is_filter_info_modified);
-
-  if (is_event_args_modified) {
-    dispatched_event->event_args = std::move(*modified_event_args);
-  }
-  if (is_filter_info_modified) {
-    dispatched_event->filter_info = std::move(modified_event_filter_info);
-  }
+      std::move(modified_event_args), std::move(modified_event_filter_info));
   dispatched_event->will_dispatch_callback.Reset();
 
   return dispatched_event;

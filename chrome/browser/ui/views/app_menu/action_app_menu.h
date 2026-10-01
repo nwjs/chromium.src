@@ -6,15 +6,18 @@
 #define CHROME_BROWSER_UI_VIEWS_APP_MENU_ACTION_APP_MENU_H_
 
 #include <memory>
+#include <optional>
 
 #include "base/containers/flat_map.h"
 #include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
+#include "ui/actions/action_id.h"
 #include "ui/base/command_id_constants.h"
 #include "ui/views/actions/action_view_controller.h"
 #include "ui/views/controls/menu/menu_delegate.h"
 
 class ActionAppMenuManager;
+class AppMenuSearchBarView;
 class BrowserWindowInterface;
 
 namespace actions {
@@ -44,12 +47,16 @@ class ActionAppMenu : public views::MenuDelegate {
   // views::MenuDelegate:
   void ExecuteCommand(int id, int mouse_event_flags) override;
   void OnMenuClosed(views::MenuItemView* menu) override;
+  void WillShowMenu(views::MenuItemView* menu) override;
   const gfx::FontList* GetLabelFontList(int id) const override;
   std::optional<SkColor> GetLabelColor(int id) const override;
 
   views::MenuItemView* root_menu_item_for_testing() { return root_; }
+  AppMenuSearchBarView* search_bar_for_testing() { return search_bar_; }
 
  private:
+  void CancelAndEvaluate(actions::ActionId action_id);
+
   // Recursively populates the menu item with the `base_action_item`'s
   // children.
   void PopulateMenu(views::MenuItemView* view_parent,
@@ -60,25 +67,26 @@ class ActionAppMenu : public views::MenuDelegate {
   views::MenuItemView* AppendMenuItem(actions::BaseAction* base_action_item,
                                       views::MenuItemView* parent_menu_item);
 
-  // Configures the section header in a menu to display the correct text. A
-  // section header is essentially a non-interactive piece of text within the
-  // menu to helps break up the menu into sections.
-  void ConfigureSectionHeader(views::MenuItemView* header_menu_item);
-
   // Configures the menu item to populate with the correct icon, text, and
-  // padding. ConfigureMenuItem() differs from ConfigureSectionHeader() in that
-  // ConfigureMenuItem() should only be used for clickable menu items within the
-  // action app menu or have a sub-menu.
+  // padding. ConfigureMenuItem() should only be used for clickable menu items
+  // within the action app menu or have a sub-menu.
   void ConfigureMenuItem(views::MenuItemView* menu_item,
                          actions::BaseAction* child_base,
-                         bool is_first_item,
-                         bool is_last_item);
+                         bool round_top_corners,
+                         bool round_bottom_corners);
 
+  void PopulateSearchBar(views::MenuItemView* view_parent,
+                         actions::ActionItem* search_action_item);
+  void PopulateHeader(views::MenuItemView* view_parent,
+                      actions::ActionItem* header_action_item);
   void PopulateFooter(views::MenuItemView* view_parent,
                       actions::ActionItem* footer_action_item);
-
-  void PopulateBlockMenuItem(views::MenuItemView* view_parent,
-                             actions::ActionItem* block_action_item);
+  void PopulateBlockSection(views::MenuItemView* view_parent,
+                            actions::ActionItem* block_action_item);
+  void PopulateCustomRow(views::MenuItemView* view_parent,
+                         actions::BaseAction* custom_action_item);
+  void PopulateDivider(views::MenuItemView* view_parent,
+                       actions::ActionItem* divider_action_item);
 
   // The browser window interface associated with this menu.
   raw_ptr<BrowserWindowInterface> browser_window_interface_;
@@ -86,8 +94,8 @@ class ActionAppMenu : public views::MenuDelegate {
   // Callback run when the menu is closed to notify the menu button.
   base::RepeatingClosure on_menu_closed_callback_;
 
-  // Maps command/menu item IDs back to their corresponding ActionItem.
-  base::flat_map<int, raw_ptr<actions::ActionItem>> command_to_action_map_;
+  // Maps command/menu item IDs back to their corresponding BaseAction.
+  base::flat_map<int, raw_ptr<actions::BaseAction>> command_to_action_map_;
 
   // Manages ActionItem and MenuItemView relationships.
   views::ActionViewController action_view_controller_;
@@ -97,6 +105,14 @@ class ActionAppMenu : public views::MenuDelegate {
 
   // The root menu item view. Owned by `menu_runner_`.
   raw_ptr<views::MenuItemView> root_ = nullptr;
+
+  // The search bar view in the menu, if kChroMenuSearch is enabled.
+  raw_ptr<AppMenuSearchBarView> search_bar_ = nullptr;
+
+  size_t header_count_ = 0;
+
+  // The action to execute when the menu is closed.
+  std::optional<actions::ActionId> action_to_execute_on_close_;
 
   // Manages the ActionItem hierarchy and dynamic submenus.
   std::unique_ptr<ActionAppMenuManager> menu_manager_;

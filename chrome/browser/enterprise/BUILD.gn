@@ -16,12 +16,14 @@ source_set("enterprise") {
     "connectors/analysis/analysis_service_settings.h",
     "connectors/connectors_manager.h",
     "connectors/connectors_service.h",
+    "connectors/interstitials/delayed_interstitial_reporter.h",
     "connectors/interstitials/enterprise_block_controller_client.h",
     "connectors/interstitials/enterprise_block_page.h",
     "connectors/interstitials/enterprise_warn_controller_client.h",
     "connectors/interstitials/enterprise_warn_page.h",
     "connectors/referrer_cache_utils.h",
     "core/dependency_factory_impl.h",
+    "data_protection/data_protection_features.h",
     "data_protection/view_source_navigation_throttle.h",
     "encryption/cache_encryption_provider_impl.h",
     "identifiers/profile_id_delegate_impl.h",
@@ -29,6 +31,8 @@ source_set("enterprise") {
     "net/enterprise_network_auth_service_factory.h",
     "net/enterprise_proxy_error_service_factory.h",
     "net/enterprise_proxy_service_factory.h",
+    "net/enterprise_proxy_tab_helper_delegate.h",
+    "net/proxy_error_utils.h",
     "profile_management/saml_response_parser.h",
     "reporting/cloud_profile_reporting_service.h",
     "reporting/cloud_profile_reporting_service_factory.h",
@@ -231,7 +235,7 @@ source_set("enterprise") {
     public += [
       "data_controls/chrome_clipboard_context.h",
       "data_protection/data_protection_clipboard_utils.h",
-      "data_protection/data_protection_features.h",
+      "data_protection/data_protection_clipboard_utils_types.h",
       "data_protection/data_protection_navigation_controller.h",
       "data_protection/data_protection_navigation_observer.h",
       "data_protection/data_protection_page_user_data.h",
@@ -409,6 +413,7 @@ source_set("impl") {
     "connectors/analysis/analysis_service_settings.cc",
     "connectors/connectors_manager.cc",
     "connectors/connectors_service.cc",
+    "connectors/interstitials/delayed_interstitial_reporter.cc",
     "connectors/interstitials/enterprise_block_controller_client.cc",
     "connectors/interstitials/enterprise_block_page.cc",
     "connectors/interstitials/enterprise_warn_controller_client.cc",
@@ -427,6 +432,8 @@ source_set("impl") {
     "net/enterprise_network_auth_service_factory.cc",
     "net/enterprise_proxy_error_service_factory.cc",
     "net/enterprise_proxy_service_factory.cc",
+    "net/enterprise_proxy_tab_helper_delegate.cc",
+    "net/proxy_error_utils.cc",
     "profile_management/saml_response_parser.cc",
     "remote_commands/job_profile_picker.cc",
     "reporting/cloud_profile_reporting_service.cc",
@@ -678,6 +685,7 @@ source_set("impl") {
     sources += [
       "data_controls/chrome_clipboard_context.cc",
       "data_protection/data_protection_clipboard_utils.cc",
+      "data_protection/data_protection_clipboard_utils_types.cc",
     ]
     deps += [ "//chrome/browser/enterprise/data_controls" ]
     if (!is_android) {
@@ -860,6 +868,20 @@ source_set("unit_tests") {
     "//chrome/test:test_support",
     "//testing/gtest",
   ]
+
+  if (is_android) {
+    sources += [ "net/enterprise_proxy_tab_helper_delegate_unittest.cc" ]
+    deps += [
+      "//chrome/browser/android:tabs_impl",
+      "//chrome/browser/android:tabs_public",
+      "//chrome/browser/signin",
+      "//chrome/browser/signin:identity_test_support",
+      "//components/signin/public/identity_manager:test_support",
+      "//content/test:test_support",
+      "//testing/gmock",
+      "//url",
+    ]
+  }
 }
 
 if (!is_android) {

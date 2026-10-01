@@ -20,7 +20,6 @@
 #include "chrome/browser/default_browser/test_support/fake_shell_delegate.h"
 #include "chrome/browser/global_features.h"
 #include "chrome/browser/notifications/notification_display_service_tester.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/omnibox/omnibox_next_features.h"
 #include "chrome/browser/ui/toasts/api/toast_id.h"
@@ -458,8 +457,7 @@ IN_PROC_BROWSER_TEST_F(DefaultBrowserManagerBrowserTest, OnAcceptedShowsToast) {
   controller.OnAccepted(future.GetCallback());
   EXPECT_EQ(future.Get(), DefaultBrowserState::IS_DEFAULT);
 
-  ToastController* toast_controller =
-      browser()->GetFeatures().toast_controller();
+  ToastController* toast_controller = ToastController::From(browser());
   ASSERT_TRUE(toast_controller);
   EXPECT_TRUE(toast_controller->IsShowingToast());
   EXPECT_EQ(toast_controller->GetCurrentToastId(),

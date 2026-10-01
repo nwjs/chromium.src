@@ -197,10 +197,6 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration) {
   return [ChromeEarlGreyAppInterface isCurrentLayoutBottomOmnibox];
 }
 
-- (BOOL)isComposeboxIOSEnabled {
-  return [ChromeEarlGreyAppInterface isComposeboxIOSEnabled];
-}
-
 - (BOOL)isProactiveSuggestionsFrameworkEnabled {
   return [ChromeEarlGreyAppInterface isProactiveSuggestionsFrameworkEnabled];
 }
@@ -1671,9 +1667,6 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration) {
   return [ChromeEarlGreyAppInterface isOverflowMenuNTPRefactorEnabled];
 }
 
-- (BOOL)isChromeNextShareIconVisible {
-  return [ChromeEarlGreyAppInterface isChromeNextShareIconVisible];
-}
 
 #pragma mark - ContentSettings
 
@@ -2264,9 +2257,10 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration) {
 - (void)openSendTabToSelfNewBackgroundTabWithURL:(NSString*)url
                                     textFragment:(NSString*)textFragment
                                        entryGUID:(NSString*)guid {
-  [ChromeEarlGreyAppInterface openSendTabToSelfNewBackgroundTabWithURL:url
-                                                          textFragment:textFragment
-                                                             entryGUID:guid];
+  [ChromeEarlGreyAppInterface
+      openSendTabToSelfNewBackgroundTabWithURL:url
+                                  textFragment:textFragment
+                                     entryGUID:guid];
 }
 
 - (BOOL)isViewAnimatingWithAccessibilityID:(NSString*)accessibilityID {

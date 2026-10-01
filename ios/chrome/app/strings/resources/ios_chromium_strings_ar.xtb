@@ -8,12 +8,10 @@
 <translation id="1091252999271033193">‏يعني هذا أنّ Chromium سيطلب دائمًا استخدام الموقع الإلكتروني المتوافق مع الأجهزة الجوّالة.</translation>
 <translation id="1115463765356382667">‏يمكنك إكمال هذه الإجراءات المقترَحة أدناه للاستفادة إلى أقصى حدّ من Chromium.</translation>
 <translation id="1185134272377778587">‏لمحة عن Chromium</translation>
-<translation id="119044033865561140">‏يُرجى فتح Chromium على الفور عند استخدام جهاز iPad</translation>
 <translation id="1229234641991056119">‏يمكنك استخدام كلمات المرور والسجلّ والإشارات المرجعية وبطاقات الائتمان من Safari على Chromium</translation>
 <translation id="1257458525759135959">‏لحفظ الصور، يُرجى النقر على "الإعدادات" للسماح لمتصفّح Chromium بأن يضيف إلى صورك.</translation>
 <translation id="1260702988262336471">‏فتح قائمة Chromium</translation>
 <translation id="12739128458173458">‏لإرسال علامة التبويب هذه إلى جهاز آخر، عليك تسجيل الدخول إلى متصفِّح Chromium على كلا الجهازين.</translation>
-<translation id="1279797561821266129">‏يمكنك الوصول إلى Chromium بشكل أسرع من خلال شريط التطبيقات</translation>
 <translation id="1361748954329991663">‏إصدار Chromium قديم. في حال عدم توفُّر تحديث في <ph name="BEGIN_LINK" />متجر التطبيقات<ph name="END_LINK" />، قد يعني هذا أن جهازك لم يعد متوافقًا مع الإصدارات الجديدة من Chromium.</translation>
 <translation id="1383876407941801731">البحث</translation>
 <translation id="1423007117030725713">‏يمكنك بدء البحث في علامة تبويب جديدة على Chromium.</translation>
@@ -32,7 +30,6 @@
 <translation id="1553657876656159572">اطّلِع على خلاصة مخصَّصة لك تشمل محتوى عن الأخبار والرياضة والطقس وغير ذلك.</translation>
 <translation id="1561849081734670621">‏لإيقاف "وضع إلغاء الفتح الذكي" في Chromium، عليك إيقافه على جهاز iPhone.</translation>
 <translation id="1569258826720962327">‏استخدام "إجراءات Chrome" على نظام التشغيل iOS</translation>
-<translation id="1573441572176948907">‏ما رأيك بنقل Chromium إلى "شريط التطبيقات"؟</translation>
 <translation id="159029779861043703">‏يحمي Chromium بياناتك الحسّاسة باستخدام ميزة "التعرُّف على الوجه".</translation>
 <translation id="1591119736686995611">‏فتح شبكة علامات تبويب Chromium</translation>
 <translation id="16001233025397167">‏تحميك ميزة "التحقّق من الأمان" من عمليات اختراق البيانات والمواقع الإلكترونية غير الآمنة وغيرها من المشاكل. يمكنك تلقّي تنبيهات بشأن أي مشاكل تتعلّق بالخصوصية أو الأمان يرصدها Chromium.</translation>
@@ -145,6 +142,7 @@
 <translation id="3855938650519180865">‏الميزات الجديدة في Chromium</translation>
 <translation id="3886689467633467988">‏يمكنك تسجيل الدخول إلى هذا الموقع الإلكتروني وإلى Chromium للحصول على إشاراتك المرجعية وغيرها على جميع أجهزتك.</translation>
 <translation id="3949514465204582407">‏نصيحة من Chromium: يمكنك الوصول إلى كلمات المرور في أي تطبيق</translation>
+<translation id="3983298990898629929">‏يمكنك ضبط Chromium كمتصفّح تلقائي لفتح الروابط بنقرة واحدة</translation>
 <translation id="4005283307739974863">‏يؤدي هذا الاختصار إلى فتح صفحة "التحقّق من الأمان" وإجرائه في Chromium.</translation>
 <translation id="4043291146360695975">يتم حفظ كلمات المرور في "مدير كلمات المرور" على هذا الجهاز فقط.</translation>
 <translation id="4046625794029820944">‏لا داعي لنسخ عناوين URL، فما عليك سوى ضبط Chromium كمتصفّح تلقائي لتحميل الصفحات مباشرةً.</translation>
@@ -182,7 +180,6 @@
 <translation id="4790638144988730920">‏مواصلة استخدام بيانات Chromium في حسابك على Google</translation>
 <translation id="4828317641996116749">‏تعذّر على متصفِّح Chromium التحقُّق من جميع كلمات المرور. يُرجى إعادة المحاولة لاحقًا.</translation>
 <translation id="4856138222358683580">‏إجراءات Chromium</translation>
-<translation id="4869706986935301458">‏يُرجى فتح Chromium على الفور عند استخدام هاتف iPhone</translation>
 <translation id="4904452304169763785">‏تتعلّق هذه التنبيهات بشأن أي مشاكل في الخصوصية أو الأمان يرصدها Chromium.</translation>
 <translation id="4962295957157529683">‏يجب إكمال ما كنت تفعله في نافذة Chromium المفتوحة الأخرى.</translation>
 <translation id="4985291216379576555">‏بلا اتصال بالإنترنت، يتعذّر على Chromium البحث عن تحديثات.</translation>
@@ -277,6 +274,7 @@
 <translation id="6680609900732453726">‏للحفاظ على خصوصية بيانات التصفُّح المتخفي، ننصحك بتفعيل خيار مصادقة الجهاز عند إغلاق Chromium</translation>
 <translation id="6696512128741076907">‏يمكنك ضبط Chromium كمتصفّح تلقائي لفتح الروابط على الفور من التطبيقات الأخرى.</translation>
 <translation id="6752854822223394465">‏تعمل مؤسستك حاليًا على إعداد Chromium...</translation>
+<translation id="6777348401413221846">‏فيديو بملء الشاشة حول طريقة ضبط Chromium كمتصفِّح تلقائي: يُرجى فتح إعدادات Chromium في نظام التشغيل iOS، ثم النقر على "تطبيق المتصفِّح التلقائي" (Default Browser App) واختيار Chromium.</translation>
 <translation id="6794054469102824109">‏يؤدي هذا الاختصار إلى فتح لعبة الديناصور في Chromium.</translation>
 <translation id="6820823224820483452">‏تعذّر على متصفِّح Chromium التحقُّق من جميع كلمات المرور. يُرجى إعادة المحاولة غدًا.</translation>
 <translation id="6830782797004194206">‏يمكنك تسجيل الدخول بشكل أسرع باستخدام ميزة "الملء التلقائي" في Chromium</translation>
@@ -306,8 +304,8 @@
 <translation id="7337881442233988129">Chromium</translation>
 <translation id="7395825497086981028">سيتم حفظ كلمة المرور في "مدير كلمات المرور" لعنوان البريد الإلكتروني <ph name="EMAIL" />.</translation>
 <translation id="7434848749522628428">سيتم حفظ مفتاح المرور هذا في "مدير كلمات المرور" ضمن الحساب <ph name="USER_EMAIL" /></translation>
+<translation id="7453822113116681031">‏يمكنك جعل Chromium المتصفّح التلقائي لفتح الروابط بنقرة واحدة</translation>
 <translation id="7504829997542308412">‏فتح Chromium</translation>
-<translation id="7507535968973352823">‏يُرجى وضع Chromium في المنطقة السفلية للوصول إليه في أي وقت</translation>
 <translation id="7531461704633548377">‏من Chromium</translation>
 <translation id="7554983317097061001">‏نصيحة من Chromium: انقُل Chromium إلى شريط التطبيقات</translation>
 <translation id="7576863740961052505">‏إدارة إعدادات Chromium</translation>
@@ -357,7 +355,6 @@
 <translation id="8730503818204408000">‏يؤدي هذا الاختصار إلى فتح إعدادات Chromium لضبطه كمتصفِّح تلقائي.</translation>
 <translation id="8754966941001340678">‏يقترح Chromium استخدام مستوى الحماية المحسَّنة</translation>
 <translation id="8759037115129007407">‏لا يمكن لأفراد عائلتك تلقّي كلمات المرور الآن. اطلب منهم تحديث تطبيق Chromium ومزامنة كلمات المرور لديهم. <ph name="BEGIN_LINK" />مزيد من المعلومات<ph name="END_LINK" /></translation>
-<translation id="8769418653786388149">‏‫Chromium معك في أي مكان</translation>
 <translation id="8776843108004031667">‏ستتم إزالة هذا الحساب بالإضافة إلى أي بيانات لم يتم حفظها من Chromium.</translation>
 <translation id="8793333988063379360">‏يمكنك العثور على إعدادات Chromium والمزيد هنا</translation>
 <translation id="8805148242934787134">‏ضبط Chromium كمتصفِّح تلقائي</translation>

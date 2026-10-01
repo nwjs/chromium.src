@@ -22,8 +22,7 @@ if (!is_android) {
     deps = [
       "//base",
       "//base/test:test_support",
-      "//chrome/test/base:in_process_browser_test",
-      "//chrome/test/base:in_process_browser_test_mixin",
+      "//chrome/test/base:mixin_based_in_process_browser_test",
       "//content/public/common",
       "//testing/gtest",
       "//ui/base",
@@ -33,6 +32,8 @@ if (!is_android) {
       "//ui/views",
       "//ui/views:test_support",
       "//ui/views:view_pixel_diff_test_support",
+      "//ui/views/controls/webview",
+      "//ui/webui/tracked_element",
     ]
 
     if (is_chromeos) {
@@ -81,7 +82,6 @@ if (!is_android) {
       "//base",
       "//base/test:test_support",
       "//chrome/browser/infobars:test_support",
-      "//chrome/browser/ui",
       "//chrome/browser/ui/browser_window",
       "//chrome/test:test_support",
       "//components/embedder_support",

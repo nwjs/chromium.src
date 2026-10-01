@@ -14,12 +14,12 @@ import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.actor.ui.ActorUiTabController.UiTabState;
 import org.chromium.chrome.browser.actor.ui.TabIndicatorStatus;
-import org.chromium.chrome.browser.tab.MediaState;
 import org.chromium.chrome.browser.tab_ui.TabListFaviconProvider.TabFaviconFetcher;
 import org.chromium.chrome.tab_ui.R;
 import org.chromium.components.browser_ui.util.TextResolver;
 import org.chromium.components.browser_ui.util.motion.MotionEventInfo;
 import org.chromium.components.browser_ui.util.motion.OnPeripheralClickListener;
+import org.chromium.components.tabs.TabAlert;
 import org.chromium.ui.modelutil.PropertyModel;
 
 /**
@@ -280,42 +280,40 @@ public class TabListViewBinderUtils {
 
     /**
      * Resolves the string template resource for the tab's accessibility description based on pinned
-     * state and media indicator.
+     * state and alert state.
+     *
+     * @param isPinned Whether the tab is pinned.
+     * @param alertState The {@link TabAlert} state of the tab.
+     * @return The string resource ID for the accessibility description.
      */
+    // TODO(crbug.com/456216687): Refactor a11y labels.
     public static @StringRes int getTabContentDescriptionStringId(
-            boolean isPinned, @MediaState int mediaState) {
-        switch (mediaState) {
-            case MediaState.MUTED:
-                // e.g. "Google, Pinned Muted Tab" or "Google, Muted Tab".
-                return isPinned
-                        ? R.string.accessibility_tabstrip_tab_pinned_muted
-                        : R.string.accessibility_tabstrip_tab_muted;
-            case MediaState.AUDIBLE:
-                // e.g. "Google, Pinned Audible Tab" or "Google, Audible Tab".
-                return isPinned
-                        ? R.string.accessibility_tabstrip_tab_pinned_audible
-                        : R.string.accessibility_tabstrip_tab_audible;
-            case MediaState.RECORDING:
-                // e.g. "Google, Pinned Recording Tab" or "Google, Recording Tab".
-                return isPinned
-                        ? R.string.accessibility_tabstrip_tab_pinned_recording
-                        : R.string.accessibility_tabstrip_tab_recording;
-            case MediaState.SHARING:
-                // e.g. "Google, Pinned Sharing Tab" or "Google, Sharing Tab".
-                return isPinned
-                        ? R.string.accessibility_tabstrip_tab_pinned_sharing
-                        : R.string.accessibility_tabstrip_tab_sharing;
-            case MediaState.PICTURE_IN_PICTURE:
-                // e.g. "Google, Pinned Picture-in-Picture Tab" or "Google, Picture-in-Picture Tab".
-                return isPinned
-                        ? R.string.accessibility_tabstrip_tab_pinned_picture_in_picture
-                        : R.string.accessibility_tabstrip_tab_picture_in_picture;
-            case MediaState.NONE:
-            default:
-                // e.g. "Google, Pinned Tab" or "Google, Tab".
-                return isPinned
-                        ? R.string.accessibility_tabstrip_tab_pinned
-                        : R.string.accessibility_tabstrip_tab;
-        }
+            boolean isPinned, @TabAlert int alertState) {
+        return switch (alertState) {
+            case TabAlert.AUDIO_MUTING ->
+                    isPinned
+                            ? R.string.accessibility_tabstrip_tab_pinned_muted
+                            : R.string.accessibility_tabstrip_tab_muted;
+            case TabAlert.AUDIO_PLAYING ->
+                    isPinned
+                            ? R.string.accessibility_tabstrip_tab_pinned_audible
+                            : R.string.accessibility_tabstrip_tab_audible;
+            case TabAlert.AUDIO_RECORDING, TabAlert.MEDIA_RECORDING, TabAlert.VIDEO_RECORDING ->
+                    isPinned
+                            ? R.string.accessibility_tabstrip_tab_pinned_recording
+                            : R.string.accessibility_tabstrip_tab_recording;
+            case TabAlert.TAB_CAPTURING, TabAlert.DESKTOP_CAPTURING ->
+                    isPinned
+                            ? R.string.accessibility_tabstrip_tab_pinned_sharing
+                            : R.string.accessibility_tabstrip_tab_sharing;
+            case TabAlert.PIP_PLAYING ->
+                    isPinned
+                            ? R.string.accessibility_tabstrip_tab_pinned_picture_in_picture
+                            : R.string.accessibility_tabstrip_tab_picture_in_picture;
+            default ->
+                    isPinned
+                            ? R.string.accessibility_tabstrip_tab_pinned
+                            : R.string.accessibility_tabstrip_tab;
+        };
     }
 }

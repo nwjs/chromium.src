@@ -198,19 +198,6 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="OSCrypt.Mac.SuccessAfterPreviousError"
-    enum="MacSecurityFrameworkOSStatus" expires_after="2026-10-18">
-  <owner>thestig@chromium.org</owner>
-  <owner>thomasanderson@chromium.org</owner>
-  <owner>wfh@chromium.org</owner>
-  <summary>
-    Logged when a Keychain operation successfully retrieves or adds a password
-    after a previous operation in the same browser lifetime resulted in an
-    error. The logged value is the OSStatus of the *previous* error. This helps
-    track which errors are transient and can be successfully recovered from.
-  </summary>
-</histogram>
-
 <histogram name="OSCrypt.SecretPortalKeyProvider.GotToken" enum="Boolean"
     expires_after="2025-11-30">
   <owner>thomasanderson@chromium.org</owner>
@@ -402,7 +389,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Security.HttpsFirstMode.InterstitialReason"
-    enum="HttpsFirstModeInterstitialReason" expires_after="2027-01-03">
+    enum="HttpsFirstModeInterstitialReason" expires_after="2027-03-07">
   <owner>meacer@chromium.org</owner>
   <owner>trusty-transport@chromium.org</owner>
   <summary>
@@ -425,7 +412,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Security.HttpsFirstMode.SettingChanged2"
-    enum="HttpsFirstModeSetting" expires_after="2027-01-03">
+    enum="HttpsFirstModeSetting" expires_after="2027-03-07">
   <owner>cthomp@chromium.org</owner>
   <owner>trusty-transport@chromium.org</owner>
   <summary>
@@ -721,7 +708,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Security.PopupBypassAllowedType" enum="PopupBypassType"
-    expires_after="2026-12-31">
+    expires_after="2027-03-07">
   <owner>evasu@chromium.org</owner>
   <owner>extensions-core@chromium.org</owner>
   <summary>
@@ -733,7 +720,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Security.PopupBypassDeniedByContentEmbedder" enum="Boolean"
-    expires_after="2026-12-31">
+    expires_after="2027-03-07">
   <owner>evasu@chromium.org</owner>
   <owner>extensions-core@chromium.org</owner>
   <summary>
@@ -1143,7 +1130,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SiteIsolation.IsSitePerProcessOrStricter.AndroidDesktop"
-    enum="Boolean" expires_after="2026-11-01">
+    enum="Boolean" expires_after="2027-02-28">
   <owner>alexmos@chromium.org</owner>
   <owner>creis@chromium.org</owner>
   <owner>wenz@chromium.org</owner>
@@ -1155,7 +1142,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SiteIsolation.MainFrameProcessReuse.BlockReason2"
-    enum="MainFrameProcessReuseBlockReason" expires_after="2026-12-31">
+    enum="MainFrameProcessReuseBlockReason" expires_after="2027-03-07">
   <owner>bashi@chromium.org</owner>
   <owner>gjc@google.com</owner>
   <owner>blink-network-stack@google.com</owner>
@@ -1329,7 +1316,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="SiteIsolation.SiteInstancesPerBrowsingInstance" units="units"
-    expires_after="2026-12-27">
+    expires_after="2027-02-28">
   <owner>alexmos@chromium.org</owner>
   <owner>creis@chromium.org</owner>
   <owner>lukasza@chromium.org</owner>

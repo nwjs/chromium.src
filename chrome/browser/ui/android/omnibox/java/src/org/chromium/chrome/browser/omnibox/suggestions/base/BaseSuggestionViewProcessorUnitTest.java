@@ -10,9 +10,10 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 import android.graphics.Typeface;
 import android.text.Spannable;
@@ -26,6 +27,7 @@ import org.mockito.ArgumentMatcher;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
+import org.mockito.quality.Strictness;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.chrome.browser.omnibox.MatchClassificationStyle;
@@ -39,14 +41,16 @@ import java.util.List;
 public class BaseSuggestionViewProcessorUnitTest {
     private static final int FAKE_STRING_LENGTH = 10;
 
-    @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
+    @Rule
+    public final MockitoRule mMockitoRule = MockitoJUnit.rule().strictness(Strictness.STRICT_STUBS);
+
     @Mock private Spannable mText;
 
     private ArgumentMatcher<StyleSpan> mIsHighlightStyle;
 
     @Before
     public void setUp() {
-        when(mText.length()).thenReturn(FAKE_STRING_LENGTH);
+        lenient().when(mText.length()).thenReturn(FAKE_STRING_LENGTH);
 
         mIsHighlightStyle = (StyleSpan style) -> style.getStyle() == Typeface.BOLD;
     }
@@ -54,14 +58,14 @@ public class BaseSuggestionViewProcessorUnitTest {
     @Test
     public void highlightTest_noClassifications() {
         assertFalse(BaseSuggestionViewProcessor.applyHighlightToMatchRegions(mText, null));
-        verify(mText, times(0)).setSpan(any(), anyInt(), anyInt(), anyInt());
+        verify(mText, never()).setSpan(any(), anyInt(), anyInt(), anyInt());
     }
 
     @Test
     public void highlightTest_noMatch() {
         assertFalse(
                 BaseSuggestionViewProcessor.applyHighlightToMatchRegions(mText, new ArrayList<>()));
-        verify(mText, times(0)).setSpan(any(), anyInt(), anyInt(), anyInt());
+        verify(mText, never()).setSpan(any(), anyInt(), anyInt(), anyInt());
     }
 
     /** Verify string is correctly highlighted when match is the last one on the list. */
@@ -73,7 +77,7 @@ public class BaseSuggestionViewProcessorUnitTest {
         classifications.add(new MatchClassification(matchStart, MatchClassificationStyle.MATCH));
         assertTrue(
                 BaseSuggestionViewProcessor.applyHighlightToMatchRegions(mText, classifications));
-        verify(mText, times(1))
+        verify(mText)
                 .setSpan(
                         argThat(mIsHighlightStyle),
                         eq(matchStart),
@@ -81,7 +85,7 @@ public class BaseSuggestionViewProcessorUnitTest {
                         eq(Spannable.SPAN_EXCLUSIVE_EXCLUSIVE));
 
         // Check that the total amount of calls to setSpan.
-        verify(mText, times(1)).setSpan(any(), anyInt(), anyInt(), anyInt());
+        verify(mText).setSpan(any(), anyInt(), anyInt(), anyInt());
     }
 
     @Test
@@ -95,7 +99,7 @@ public class BaseSuggestionViewProcessorUnitTest {
 
         assertTrue(
                 BaseSuggestionViewProcessor.applyHighlightToMatchRegions(mText, classifications));
-        verify(mText, times(1))
+        verify(mText)
                 .setSpan(
                         argThat(mIsHighlightStyle),
                         eq(matchStart),
@@ -103,7 +107,7 @@ public class BaseSuggestionViewProcessorUnitTest {
                         eq(Spannable.SPAN_EXCLUSIVE_EXCLUSIVE));
 
         // Check that the total amount of calls to setSpan.
-        verify(mText, times(1)).setSpan(any(), anyInt(), anyInt(), anyInt());
+        verify(mText).setSpan(any(), anyInt(), anyInt(), anyInt());
     }
 
     /** Verify that multiple matches receive proper highlight. */
@@ -122,13 +126,13 @@ public class BaseSuggestionViewProcessorUnitTest {
 
         assertTrue(
                 BaseSuggestionViewProcessor.applyHighlightToMatchRegions(mText, classifications));
-        verify(mText, times(1))
+        verify(mText)
                 .setSpan(
                         argThat(mIsHighlightStyle),
                         eq(matchStart1),
                         eq(matchEnd1),
                         eq(Spannable.SPAN_EXCLUSIVE_EXCLUSIVE));
-        verify(mText, times(1))
+        verify(mText)
                 .setSpan(
                         argThat(mIsHighlightStyle),
                         eq(matchStart2),
@@ -151,13 +155,13 @@ public class BaseSuggestionViewProcessorUnitTest {
 
         assertTrue(
                 BaseSuggestionViewProcessor.applyHighlightToMatchRegions(mText, classifications));
-        verify(mText, times(1))
+        verify(mText)
                 .setSpan(
                         argThat(mIsHighlightStyle),
                         eq(matchStart1),
                         eq(matchStart2),
                         eq(Spannable.SPAN_EXCLUSIVE_EXCLUSIVE));
-        verify(mText, times(1))
+        verify(mText)
                 .setSpan(
                         argThat(mIsHighlightStyle),
                         eq(matchStart2),
@@ -179,6 +183,6 @@ public class BaseSuggestionViewProcessorUnitTest {
 
         assertFalse(
                 BaseSuggestionViewProcessor.applyHighlightToMatchRegions(mText, classifications));
-        verify(mText, times(0)).setSpan(any(), anyInt(), anyInt(), anyInt());
+        verify(mText, never()).setSpan(any(), anyInt(), anyInt(), anyInt());
     }
 }

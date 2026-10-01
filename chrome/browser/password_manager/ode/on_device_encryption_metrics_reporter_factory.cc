@@ -7,14 +7,16 @@
 #include <memory>
 #include <utility>
 
-#include "chrome/browser/password_manager/ode/on_device_encryption_metrics_reporter.h"
-#include "chrome/browser/password_manager/ode/passkey_on_device_encryption_state_tracker.h"
-#include "chrome/browser/password_manager/ode/password_trusted_vault_on_device_encryption_state_tracker.h"
+#include "base/check_deref.h"
+#include "chrome/browser/password_manager/ode/chrome_passkey_on_device_encryption_state_tracker.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_selections.h"
 #include "chrome/browser/sync/sync_service_factory.h"
 #include "chrome/browser/webauthn/enclave_manager_factory.h"
 #include "chrome/browser/webauthn/passkey_model_factory.h"
+#include "components/password_manager/core/browser/ode/on_device_encryption_metrics_reporter.h"
+#include "components/password_manager/core/browser/ode/password_trusted_vault_on_device_encryption_state_tracker.h"
+#include "components/pref_registry/pref_registry_syncable.h"
 #include "components/sync/service/sync_service.h"
 
 namespace password_manager {
@@ -57,14 +59,20 @@ OnDeviceEncryptionMetricsReporterFactory::BuildServiceInstanceForBrowserContext(
       EnclaveManagerFactory::GetForProfile(profile);
 
   auto passkey_tracker =
-      std::make_unique<PasskeyOnDeviceEncryptionStateTracker>(
+      std::make_unique<ChromePasskeyOnDeviceEncryptionStateTracker>(
           sync_service, enclave_manager, passkey_model);
   auto password_tracker =
       std::make_unique<PasswordTrustedVaultOnDeviceEncryptionStateTracker>(
           sync_service);
 
   return std::make_unique<OnDeviceEncryptionMetricsReporter>(
-      std::move(passkey_tracker), std::move(password_tracker));
+      std::move(passkey_tracker), std::move(password_tracker),
+      CHECK_DEREF(profile->GetPrefs()));
+}
+
+void OnDeviceEncryptionMetricsReporterFactory::RegisterProfilePrefs(
+    user_prefs::PrefRegistrySyncable* registry) {
+  OnDeviceEncryptionMetricsReporter::RegisterProfilePrefs(registry);
 }
 
 bool OnDeviceEncryptionMetricsReporterFactory::

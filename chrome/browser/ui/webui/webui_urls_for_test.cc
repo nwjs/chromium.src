@@ -40,8 +40,8 @@ base::span<const std::string_view> GetChromeUrlsForTest() {
 
       "chrome://bookmarks",
       "chrome://bookmarks-side-panel.top-chrome",
+      "chrome://browser-actuator-internals",
       "chrome://certificate-manager",
-      "chrome://chrome-finds-internals",
       "chrome://chrome-urls",
       "chrome://color-pipeline-internals",
       "chrome://comments-side-panel.top-chrome",
@@ -59,6 +59,9 @@ base::span<const std::string_view> GetChromeUrlsForTest() {
 // TODO(crbug.com/40913109): Re-enable this test
 #if !BUILDFLAG(IS_LINUX) && !BUILDFLAG(IS_CHROMEOS)
       "chrome://credits",
+#endif
+#if !BUILDFLAG(IS_ANDROID)
+      "chrome://critical-actions-internals",
 #endif
       "chrome://customize-chrome-side-panel.top-chrome",
       "chrome://data-sharing-internals",
@@ -198,6 +201,7 @@ base::span<const std::string_view> GetChromeUrlsForTest() {
 #endif
 
 #if BUILDFLAG(IS_ANDROID)
+      "chrome://chrome-finds-internals",
       "chrome://explore-sites-internals",
       "chrome://internals/notifications",
       "chrome://internals/query-tiles",

@@ -9,7 +9,6 @@ source_set("android") {
   visibility = [
     ":*",
     "//chrome/browser/android:*",
-    "//chrome/browser/ui/side_panel:side_panel_ui_provider",
     "//chrome/browser/ui/side_panel/internal:*",
   ]
   sources = [
@@ -47,11 +46,10 @@ source_set("android") {
 
 android_resources("java_resources") {
   sources = [
-    "java/res/drawable/side_panel_container_bg.xml",
-    "java/res/drawable/side_panel_container_stroke.xml",
+    "java/res/drawable/side_panel_container_toolbar_height_bg.xml",
+    "java/res/drawable/side_panel_container_webcontent_height_bg.xml",
     "java/res/layout/side_panel_container.xml",
     "java/res/layout/side_panel_dev_feature.xml",
-    "java/res/values/colors.xml",
     "java/res/values/dimens.xml",
   ]
   deps = [
@@ -87,6 +85,7 @@ android_library("java") {
     "//base/version_info/android:version_constants_java",
     "//build/android:build_java",
     "//chrome/browser/android/content:java",
+    "//chrome/browser/browser_controls/android:java",
     "//chrome/browser/flags:java",
     "//chrome/browser/profiles/android:java",
     "//chrome/browser/tab:java",
@@ -95,7 +94,6 @@ android_library("java") {
     "//chrome/browser/ui/browser_window/public/android:java",
     "//chrome/browser/ui/side_panel/android:java",
     "//chrome/browser/ui/side_ui/public:java",
-    "//chrome/browser/ui/vertical_tabs:java",
     "//components/cached_flags:java",
     "//components/embedder_support/android:content_view_java",
     "//components/embedder_support/android:context_menu_java",
@@ -133,7 +131,7 @@ source_set("unit_tests") {
     "//chrome/browser/tab_list:test_support",
     "//chrome/browser/ui:test_support",
     "//chrome/browser/ui/android/tab_model:test_support",
-    "//chrome/browser/ui/side_panel:side_panel_ui_provider",
+    "//chrome/browser/ui/side_panel",
     "//chrome/browser/ui/side_panel:side_panel_views_dependent",
     "//chrome/browser/ui/side_panel/test/android:native_unit_test_support_jni",
     "//components/tabs:test_support",
@@ -155,7 +153,6 @@ source_set("browser_tests") {
     "//chrome/browser/ui/browser_window",
     "//chrome/browser/ui/browser_window:create_browser_window",
     "//chrome/browser/ui/side_panel",
-    "//chrome/browser/ui/side_panel:side_panel_ui_provider",
     "//chrome/browser/ui/side_panel:side_panel_views_dependent",
     "//chrome/browser/ui/side_panel/android",
     "//chrome/browser/ui/side_panel/test/android:browser_test_support",

@@ -117,8 +117,7 @@ WidevineCdm\_platform_specific\win_arm64\widevinecdm.dll.sig: %(ChromeDir)s\Wide
 snapshot_blob.bin: %(ChromeDir)s\
 
 [DXC]
-# Only include the DXC dlls if dawn_use_built_dxc is enabled. When this flag is false,
-# these DLLs may be present in the build dir if Dawn tests are built, in which case we
-# do not want to include them in the installer.
+# Only include dxcompiler.dll if dawn_use_built_dxc is enabled. When this flag is false,
+# this DLL may be present in the build dir if Dawn tests are built, in which case we
+# do not want to include it in the installer.
 dxcompiler.dll: %(ChromeDir)s\
-dxil.dll: %(ChromeDir)s\

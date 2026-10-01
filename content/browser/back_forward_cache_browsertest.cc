@@ -35,6 +35,7 @@
 #include "content/browser/back_forward_cache/back_forward_cache_impl.h"
 #include "content/browser/bad_message.h"
 #include "content/browser/renderer_host/frame_tree_node.h"
+#include "content/browser/renderer_host/navigation_request.h"
 #include "content/browser/renderer_host/render_frame_host_impl.h"
 #include "content/browser/renderer_host/should_swap_browsing_instance.h"
 #include "content/browser/web_contents/web_contents_impl.h"
@@ -1112,9 +1113,10 @@ IN_PROC_BROWSER_TEST_F(BackForwardCacheBrowserTest,
   delete_rfh_a2.WaitUntilDeleted();
 }
 
-// Sub-frame doesn't transition from LifecycleStateImpl::kInBackForwardCache to
-// LifecycleStateImpl::kRunningUnloadHandlers even when the sub-frame having
-// unload handlers is being evicted from BackForwardCache.
+// Sub-frame doesn't transition from
+// RenderFrameHostLifecycleStateImpl::kInBackForwardCache to
+// RenderFrameHostLifecycleStateImpl::kRunningUnloadHandlers even when the
+// sub-frame having unload handlers is being evicted from BackForwardCache.
 IN_PROC_BROWSER_TEST_F(BackForwardCacheUnloadBrowserTest,
                        SubframeWithUnloadHandler) {
   ASSERT_TRUE(embedded_test_server()->Start());
@@ -3568,57 +3570,6 @@ INSTANTIATE_TEST_SUITE_P(
     &BackForwardCacheWithSubframeNavigationWithParamBrowserTest::
         DescribeParams);
 
-class BackForwardCacheFencedFrameBrowserTest
-    : public BackForwardCacheBrowserTest {
- public:
-  BackForwardCacheFencedFrameBrowserTest() = default;
-  ~BackForwardCacheFencedFrameBrowserTest() override = default;
-  BackForwardCacheFencedFrameBrowserTest(
-      const BackForwardCacheFencedFrameBrowserTest&) = delete;
-
-  BackForwardCacheFencedFrameBrowserTest& operator=(
-      const BackForwardCacheFencedFrameBrowserTest&) = delete;
-
-  void SetUpCommandLine(base::CommandLine* command_line) override {
-    BackForwardCacheBrowserTest::SetUpCommandLine(command_line);
-    fenced_frame_helper_ = std::make_unique<test::FencedFrameTestHelper>();
-  }
-
-  test::FencedFrameTestHelper& fenced_frame_test_helper() {
-    return *fenced_frame_helper_;
-  }
-
- private:
-  std::unique_ptr<test::FencedFrameTestHelper> fenced_frame_helper_;
-};
-
-IN_PROC_BROWSER_TEST_F(BackForwardCacheFencedFrameBrowserTest,
-                       FencedFramePageNotStoredInBackForwardCache) {
-  ASSERT_TRUE(embedded_test_server()->Start());
-  GURL url_a(embedded_test_server()->GetURL("a.com", "/title1.html"));
-  GURL url_b(
-      embedded_test_server()->GetURL("b.com", "/fenced_frames/title1.html"));
-  GURL url_c(
-      embedded_test_server()->GetURL("c.com", "/fenced_frames/title1.html"));
-
-  // 1) Navigate to A.
-  EXPECT_TRUE(NavigateToURL(shell(), url_a));
-
-  // 2) Create a fenced frame.
-  content::RenderFrameHostImpl* fenced_frame_host =
-      static_cast<content::RenderFrameHostImpl*>(
-          fenced_frame_test_helper().CreateFencedFrame(
-              web_contents()->GetPrimaryMainFrame(), url_b));
-  RenderFrameHostWrapper fenced_frame_host_wrapper(fenced_frame_host);
-
-  // 3) Navigate to C on the fenced frame host.
-  fenced_frame_test_helper().NavigateFrameInFencedFrameTree(fenced_frame_host,
-                                                            url_c);
-  EXPECT_TRUE(WaitForLoadStop(shell()->web_contents()));
-
-  if (!fenced_frame_host_wrapper.IsRenderFrameDeleted())
-    EXPECT_FALSE(fenced_frame_host->IsInBackForwardCache());
-}
 
 IN_PROC_BROWSER_TEST_F(BackForwardCacheBrowserTest,
                        RendererInitiatedNavigateToSameUrl) {

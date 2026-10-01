@@ -19,8 +19,6 @@
 #include "base/types/expected.h"
 #include "content/browser/renderer_host/browsing_context_group_swap.h"
 #include "content/browser/renderer_host/browsing_context_state.h"
-#include "content/browser/renderer_host/navigation_request.h"
-#include "content/browser/renderer_host/render_frame_host_impl.h"
 #include "content/browser/renderer_host/scoped_view_transition_resources.h"
 #include "content/browser/renderer_host/should_swap_browsing_instance.h"
 #include "content/browser/renderer_host/stored_page.h"
@@ -54,6 +52,8 @@ class NavigationControllerImpl;
 class NavigationEntry;
 class NavigationRequest;
 class NavigatorTest;
+class PageImpl;
+class RenderFrameHostImpl;
 class RenderFrameHostManagerTest;
 class RenderFrameProxyHost;
 class RenderViewHost;
@@ -61,6 +61,7 @@ class RenderViewHostImpl;
 class RenderWidgetHostViewBase;
 class RenderWidgetHostViewChildFrame;
 class TestWebContents;
+enum class ErrorPageProcess;
 
 using PageBroadcastMethodCallback =
     base::FunctionRef<void(RenderViewHostImpl*)>;
@@ -335,7 +336,7 @@ class CONTENT_EXPORT RenderFrameHostManager {
                  const blink::LocalFrameToken& frame_token,
                  const blink::DocumentToken& document_token,
                  const base::UnguessableToken& devtools_frame_token,
-                 const base::UnguessableToken& initiator_state_token,
+                 const blink::InitiatorStateToken& initiator_state_token,
                  blink::FramePolicy frame_policy,
                  std::string frame_name,
                  std::string frame_unique_name);
@@ -656,9 +657,7 @@ class CONTENT_EXPORT RenderFrameHostManager {
   // Returns a const reference to the map of proxy hosts. The keys are
   // SiteInstanceGroup IDs, the values are RenderFrameProxyHosts.
   const BrowsingContextState::RenderFrameProxyHostMap&
-  GetAllProxyHostsForTesting() const {
-    return render_frame_host_->browsing_context_state()->proxy_hosts();
-  }
+  GetAllProxyHostsForTesting() const;
 
   // Called when the render process is gone for
   // `speculative_render_frame_host_`. Cancels the navigation and cleans up the
@@ -759,10 +758,7 @@ class CONTENT_EXPORT RenderFrameHostManager {
   // FrameTree immediately after this call.
   std::unique_ptr<StoredPage> TakePrerenderedPage();
 
-  const blink::mojom::FrameReplicationState& current_replication_state() const {
-    return render_frame_host_->browsing_context_state()
-        ->current_replication_state();
-  }
+  const blink::mojom::FrameReplicationState& current_replication_state() const;
 
   // In certain cases, such as when navigating from a non-live (e.g., crashed
   // or initial) RenderFrameHost, the target speculative RenderFrameHost needs
@@ -872,7 +868,7 @@ class CONTENT_EXPORT RenderFrameHostManager {
       const UrlInfo& destination_url_info,
       bool destination_is_view_source_mode,
       ui::PageTransition transition,
-      NavigationRequest::ErrorPageProcess error_page_process,
+      ErrorPageProcess error_page_process,
       bool is_reload,
       bool is_same_document,
       IsSameSiteGetter& is_same_site,
@@ -897,7 +893,7 @@ class CONTENT_EXPORT RenderFrameHostManager {
       SiteInstanceImpl* dest_instance,
       SiteInstanceImpl* candidate_instance,
       ui::PageTransition transition,
-      NavigationRequest::ErrorPageProcess error_page_process,
+      ErrorPageProcess error_page_process,
       bool is_reload,
       bool is_same_document,
       IsSameSiteGetter& is_same_site,
@@ -930,7 +926,7 @@ class CONTENT_EXPORT RenderFrameHostManager {
       SiteInstanceImpl* current_instance,
       SiteInstanceImpl* dest_instance,
       ui::PageTransition transition,
-      NavigationRequest::ErrorPageProcess error_page_process,
+      ErrorPageProcess error_page_process,
       IsSameSiteGetter& is_same_site,
       BrowsingContextGroupSwap browsing_context_group_swap,
       bool was_server_redirect,
@@ -944,7 +940,7 @@ class CONTENT_EXPORT RenderFrameHostManager {
       const UrlInfo& dest_url_info,
       SiteInstanceImpl* current_instance,
       SiteInstanceImpl* dest_instance,
-      NavigationRequest::ErrorPageProcess error_page_process,
+      ErrorPageProcess error_page_process,
       const BrowsingContextGroupSwap& browsing_context_group_swap,
       bool was_server_redirect);
 
@@ -970,12 +966,11 @@ class CONTENT_EXPORT RenderFrameHostManager {
       const GURL& dest_url);
 
   // Returns true if we can use `source_instance` for `dest_url_info`.
-  bool CanUseSourceSiteInstance(
-      const UrlInfo& dest_url_info,
-      SiteInstanceImpl* source_instance,
-      bool was_server_redirect,
-      NavigationRequest::ErrorPageProcess error_page_process,
-      std::string* reason = nullptr);
+  bool CanUseSourceSiteInstance(const UrlInfo& dest_url_info,
+                                SiteInstanceImpl* source_instance,
+                                bool was_server_redirect,
+                                ErrorPageProcess error_page_process,
+                                std::string* reason = nullptr);
 
   // Converts a SiteInstanceDescriptor to the actual SiteInstance it describes.
   // If a `candidate_instance` is provided (is not nullptr) and it matches the
@@ -1079,7 +1074,7 @@ class CONTENT_EXPORT RenderFrameHostManager {
       const blink::LocalFrameToken& frame_token,
       const blink::DocumentToken& document_token,
       base::UnguessableToken devtools_frame_token,
-      const base::UnguessableToken& initiator_state_token,
+      const blink::InitiatorStateToken& initiator_state_token,
       bool renderer_initiated_creation,
       scoped_refptr<BrowsingContextState> browsing_context_state,
       const ProcessAllocationContext& process_allocation_context);

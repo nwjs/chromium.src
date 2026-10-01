@@ -10,6 +10,7 @@
 #include "base/test/scoped_feature_list.h"
 #include "chrome/browser/password_manager/password_change/features.h"
 #include "chrome/browser/password_manager/password_change_delegate_mock.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/grit/generated_resources.h"
 #include "chrome/test/base/in_process_browser_test.h"
@@ -26,10 +27,12 @@
 #include "ui/events/keycodes/keyboard_codes.h"
 #include "ui/events/test/test_event.h"
 #include "ui/views/bubble/bubble_dialog_delegate_view.h"
+#include "ui/views/bubble/bubble_frame_view.h"
 #include "ui/views/controls/button/image_button.h"
 #include "ui/views/controls/button/md_text_button.h"
 #include "ui/views/controls/label.h"
 #include "ui/views/controls/styled_label.h"
+#include "ui/views/controls/theme_tracking_animated_image_view.h"
 #include "ui/views/test/button_test_api.h"
 #include "ui/views/view_utils.h"
 #include "ui/views/window/dialog_delegate.h"
@@ -196,7 +199,6 @@ IN_PROC_BROWSER_TEST_F(PasswordChangeUIControllerBrowserTest,
   EXPECT_EQ(GetDialogDelegate()->GetWindowTitle(),
             l10n_util::GetStringUTF16(
                 IDS_PASSWORD_MANAGER_UI_PASSWORD_CHANGE_LEAK_DIALOG_TITLE));
-
   EXPECT_CALL(delegate_, Stop);
   GetDialogDelegate()->CancelDialog();
 
@@ -686,6 +688,36 @@ IN_PROC_BROWSER_TEST_F(
       "PasswordManager.PasswordChange.LeakDetectionDialog.WithPrivacyNotice",
       PasswordChangeDialogAction::kLinkClicked,
       /*expected_bucket_count=*/1);
+}
+
+IN_PROC_BROWSER_TEST_F(
+    PasswordChangeUIControllerWithPrivateInferenceBrowserTest,
+    AnimatedBannerSetAsHeaderView) {
+  EXPECT_CALL(delegate_, GetDisplayOrigin)
+      .WillRepeatedly(testing::Return(u"example.com"));
+
+  UpdateState(PasswordChangeDelegate::State::kWaitingForAgreement);
+
+  views::BubbleFrameView* frame_view =
+      GetDialogDelegate()->AsBubbleDialogDelegate()->GetBubbleFrameView();
+  ASSERT_TRUE(frame_view);
+  EXPECT_TRUE(views::IsViewClass<views::ThemeTrackingAnimatedImageView>(
+      frame_view->GetHeaderViewForTesting()));
+}
+
+IN_PROC_BROWSER_TEST_F(
+    PasswordChangeUIControllerWithPrivateInferenceBrowserTest,
+    OfferingPasswordChangeAnimatedBannerSetAsHeaderView) {
+  EXPECT_CALL(delegate_, GetDisplayOrigin)
+      .WillRepeatedly(testing::Return(u"example.com"));
+
+  UpdateState(PasswordChangeDelegate::State::kOfferingPasswordChange);
+
+  views::BubbleFrameView* frame_view =
+      GetDialogDelegate()->AsBubbleDialogDelegate()->GetBubbleFrameView();
+  ASSERT_TRUE(frame_view);
+  EXPECT_TRUE(views::IsViewClass<views::ThemeTrackingAnimatedImageView>(
+      frame_view->GetHeaderViewForTesting()));
 }
 
 }  // namespace

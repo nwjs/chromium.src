@@ -37,6 +37,7 @@
 #include "chrome/browser/profiles/profile_statistics_factory.h"
 #include "chrome/browser/profiles/profile_window.h"
 #include "chrome/browser/profiles/profiles_state.h"
+#include "chrome/browser/signin/chrome_signin_helper.h"
 #include "chrome/browser/signin/signin_util.h"
 #include "chrome/browser/sync/sync_service_factory.h"
 #include "chrome/browser/ui/browser_window.h"
@@ -72,8 +73,10 @@
 #include "third_party/skia/include/core/SkColor.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/mojom/themes.mojom.h"
+#include "ui/base/page_transition_types.h"
 #include "ui/base/ui_base_features.h"
 #include "ui/base/webui/web_ui_util.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/color/color_id.h"
 #include "ui/color/color_provider.h"
 #include "ui/gfx/color_utils.h"
@@ -180,9 +183,8 @@ std::pair<std::string, bool> GetAvatarIconUrlAndAvatarRingStatus(
         entry->GetAvatarIcon(avatar_icon_size).AsBitmap(), scale);
     ui::ImageModel avatar_model = ui::ImageModel::FromImageSkia(avatar_skia);
 
-    avatar_skia = AddLinearGradientRingToAvatar(
-        avatar_model, *color_provider, avatar_icon_size_dip, kAvatarRingGapDip,
-        kAvatarRingThicknessDip);
+    avatar_skia = AddLinearGradientRingToAvatar(avatar_model, *color_provider,
+                                                avatar_icon_size_dip);
 
     SkBitmap bitmap = avatar_skia.GetRepresentation(scale).GetBitmap();
     return {webui::GetBitmapDataUrl(bitmap), has_gradient_ring};
@@ -253,12 +255,11 @@ void OpenLearnMoreURL(bool is_profile_list_empty,
   }
 
   browser->OpenURL(
-      content::OpenURLParams(
+      content::OpenURLParams::CreateBrowserInitiated(
           GURL(is_profile_list_empty
                    ? chrome::kSigninOnDesktopLearnMoreURL
                    : chrome::kAddNewProfileOnDesktopLearnMoreURL),
-          content::Referrer(), WindowOpenDisposition::NEW_FOREGROUND_TAB,
-          ui::PAGE_TRANSITION_LINK, false),
+          WindowOpenDisposition::NEW_FOREGROUND_TAB, ui::PAGE_TRANSITION_LINK),
       /*navigation_handle_callback=*/{});
 }
 

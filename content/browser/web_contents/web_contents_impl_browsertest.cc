@@ -60,6 +60,7 @@
 #include "content/browser/site_info.h"
 #include "content/browser/site_instance_impl.h"
 #include "content/browser/surface_embed/surface_embed_connector_impl.h"
+#include "content/browser/web_contents/file_chooser_impl.h"
 #include "content/browser/web_contents/web_contents_impl.h"
 #include "content/browser/web_contents/web_contents_view.h"
 #include "content/common/content_navigation_policy.h"
@@ -131,6 +132,7 @@
 #include "services/network/public/mojom/web_client_hints_types.mojom.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/abseil-cpp/absl/cleanup/cleanup.h"
 #include "third_party/blink/public/common/client_hints/client_hints.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/page/page_zoom.h"
@@ -2558,7 +2560,7 @@ void DownloadImageTestInternal(Shell* shell,
       .WillByDefault(
           InvokeWithoutArgs(loop_runner.get(), &MessageLoopRunner::Quit));
 
-  shell->LoadURL(GURL("about:blank"));
+  ASSERT_TRUE(NavigateToURL(shell, GURL("about:blank")));
   shell->web_contents()->DownloadImage(
       image_url, false, gfx::Size(), 1024, false,
       base::BindOnce(&DownloadImageObserver::OnFinishDownloadImage,
@@ -2628,7 +2630,7 @@ IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest,
 IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest, DownloadImage_NoValidImage) {
   ASSERT_TRUE(embedded_test_server()->Start());
   const GURL kImageUrl = embedded_test_server()->GetURL("/invalid.ico");
-  shell()->LoadURL(GURL("about:blank"));
+  ASSERT_TRUE(NavigateToURL(shell(), GURL("about:blank")));
   base::RunLoop run_loop;
   shell()->web_contents()->DownloadImage(
       kImageUrl, false, gfx::Size(), 2, false,
@@ -2661,7 +2663,7 @@ IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest,
                        DownloadImage_PreferredSize) {
   ASSERT_TRUE(embedded_test_server()->Start());
   const GURL kImageUrl = embedded_test_server()->GetURL("/rgb.svg");
-  shell()->LoadURL(GURL("about:blank"));
+  ASSERT_TRUE(NavigateToURL(shell(), GURL("about:blank")));
   base::RunLoop run_loop;
   shell()->web_contents()->DownloadImage(
       kImageUrl, false, gfx::Size(30, 30), 1024, false,
@@ -2675,7 +2677,7 @@ IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest,
                        DownloadImage_PreferredSizeZero) {
   ASSERT_TRUE(embedded_test_server()->Start());
   const GURL kImageUrl = embedded_test_server()->GetURL("/rgb.svg");
-  shell()->LoadURL(GURL("about:blank"));
+  ASSERT_TRUE(NavigateToURL(shell(), GURL("about:blank")));
   base::RunLoop run_loop;
   shell()->web_contents()->DownloadImage(
       kImageUrl, false, gfx::Size(), 1024, false,
@@ -2689,7 +2691,7 @@ IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest,
                        DownloadImage_PreferredSizeClampedByMaxSize) {
   ASSERT_TRUE(embedded_test_server()->Start());
   const GURL kImageUrl = embedded_test_server()->GetURL("/rgb.svg");
-  shell()->LoadURL(GURL("about:blank"));
+  ASSERT_TRUE(NavigateToURL(shell(), GURL("about:blank")));
   base::RunLoop run_loop;
   shell()->web_contents()->DownloadImage(
       kImageUrl, false, gfx::Size(60, 60), 30, false,
@@ -2703,7 +2705,7 @@ IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest,
                        DownloadImage_PreferredWidthClampedByMaxSize) {
   ASSERT_TRUE(embedded_test_server()->Start());
   const GURL kImageUrl = embedded_test_server()->GetURL("/rgb.svg");
-  shell()->LoadURL(GURL("about:blank"));
+  ASSERT_TRUE(NavigateToURL(shell(), GURL("about:blank")));
   base::RunLoop run_loop;
   shell()->web_contents()->DownloadImage(
       kImageUrl, false, gfx::Size(60, 30), 30, false,
@@ -2717,7 +2719,7 @@ IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest,
                        DownloadImage_PreferredHeightClampedByMaxSize) {
   ASSERT_TRUE(embedded_test_server()->Start());
   const GURL kImageUrl = embedded_test_server()->GetURL("/rgb.svg");
-  shell()->LoadURL(GURL("about:blank"));
+  ASSERT_TRUE(NavigateToURL(shell(), GURL("about:blank")));
   base::RunLoop run_loop;
   shell()->web_contents()->DownloadImage(
       kImageUrl, false, gfx::Size(30, 60), 30, false,
@@ -2754,7 +2756,7 @@ IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest,
   ASSERT_TRUE(embedded_test_server()->Start());
   const GURL kImageUrl =
       embedded_test_server()->GetURL("/icon-with-two-entries.ico");
-  shell()->LoadURL(GURL("about:blank"));
+  ASSERT_TRUE(NavigateToURL(shell(), GURL("about:blank")));
   base::RunLoop run_loop;
   std::vector<gfx::Size> expected_sizes{{16, 16}, {32, 32}};
   shell()->web_contents()->DownloadImage(
@@ -9192,7 +9194,7 @@ IN_PROC_BROWSER_TEST_F(
   RenderFrameHost* iframe_rfh =
       ChildFrameAt(web_contents->GetPrimaryMainFrame(), 0);
   ASSERT_NE(iframe_rfh, nullptr);
-  iframe_rfh->UpdateIsAdFrame(/*is_ad_frame=*/true);
+  iframe_rfh->UpdateToAdFrame();
   ASSERT_TRUE(iframe_rfh->IsAdFrame());
 
   // TODO(crbug.com/461821799): If only ad subframe remains loading,
@@ -9387,100 +9389,6 @@ IN_PROC_BROWSER_TEST_F(WebContentsPrerenderWithDiscardBrowserTest,
   web_contents()->Discard(base::NullCallback());
   EXPECT_TRUE(web_contents()->WasDiscarded());
   EXPECT_FALSE(registry->FindNonReservedHostById(host_id));
-}
-
-class WebContentsFencedFrameBrowserTest : public WebContentsImplBrowserTest {
- public:
-  WebContentsFencedFrameBrowserTest() = default;
-  ~WebContentsFencedFrameBrowserTest() override = default;
-
-  WebContentsImpl* web_contents() {
-    return static_cast<WebContentsImpl*>(shell()->web_contents());
-  }
-
-  test::FencedFrameTestHelper& fenced_frame_test_helper() {
-    return fenced_frame_test_helper_;
-  }
-
- private:
-  content::test::FencedFrameTestHelper fenced_frame_test_helper_;
-};
-
-// Tests that DidUpdateFaviconURL() works only with the primary page by checking
-// if it's not called on the fenced frame loading.
-IN_PROC_BROWSER_TEST_F(WebContentsFencedFrameBrowserTest, UpdateFavicon) {
-  ASSERT_TRUE(embedded_test_server()->Start());
-  testing::NiceMock<MockWebContentsObserver> observer(web_contents());
-  const GURL main_url =
-      embedded_test_server()->GetURL("fencedframe.test", "/title1.html");
-
-  RenderFrameHost* primary_rfh = web_contents()->GetPrimaryMainFrame();
-  EXPECT_CALL(observer,
-              DidUpdateFaviconURL(primary_rfh, testing::_, testing::_));
-  ASSERT_TRUE(NavigateToURL(shell(), main_url));
-  ASSERT_TRUE(WaitForLoadStop(web_contents()));
-
-  // Create fenced frame.
-  const GURL fenced_frame_url = embedded_test_server()->GetURL(
-      "fencedframe.test", "/fenced_frames/title1.html");
-
-  RenderFrameHost* inner_fenced_frame_rfh =
-      fenced_frame_test_helper().CreateFencedFrame(primary_rfh,
-                                                   fenced_frame_url);
-  EXPECT_CALL(observer, DidUpdateFaviconURL(inner_fenced_frame_rfh, testing::_,
-                                            testing::_))
-      .Times(0);
-}
-
-// Tests that pages are still visible after a page is navigated away
-// from a page that contained a fenced frame. (crbug.com/1265615)
-IN_PROC_BROWSER_TEST_F(WebContentsFencedFrameBrowserTest, RemainsVisible) {
-  ASSERT_TRUE(embedded_test_server()->Start());
-  const GURL main_url =
-      embedded_test_server()->GetURL("fencedframe.test", "/title1.html");
-
-  RenderFrameHost* primary_rfh = web_contents()->GetPrimaryMainFrame();
-  ASSERT_TRUE(NavigateToURL(shell(), main_url));
-  ASSERT_TRUE(WaitForLoadStop(web_contents()));
-  EXPECT_EQ(Visibility::VISIBLE, web_contents()->GetVisibility());
-
-  // Create fenced frame.
-  const GURL fenced_frame_url = embedded_test_server()->GetURL(
-      "fencedframe.test", "/fenced_frames/title1.html");
-  content::RenderFrameHost* fenced_frame_host =
-      fenced_frame_test_helper().CreateFencedFrame(primary_rfh,
-                                                   fenced_frame_url);
-  EXPECT_NE(nullptr, fenced_frame_host);
-
-  const GURL same_origin_url =
-      embedded_test_server()->GetURL("fencedframe.test", "/title3.html");
-
-  ASSERT_TRUE(NavigateToURL(shell(), same_origin_url));
-  ASSERT_TRUE(WaitForLoadStop(web_contents()));
-  EXPECT_EQ(Visibility::VISIBLE, web_contents()->GetVisibility());
-}
-
-// Tests that AXTreeIDForMainFrameHasChanged() works only with the primary page
-// by checking if it's not called on the fenced frame loading.
-IN_PROC_BROWSER_TEST_F(WebContentsFencedFrameBrowserTest, DoNotUpdateAXTree) {
-  ASSERT_TRUE(embedded_test_server()->Start());
-  testing::NiceMock<MockWebContentsObserver> observer(web_contents());
-  const GURL main_url =
-      embedded_test_server()->GetURL("fencedframe.test", "/title1.html");
-
-  EXPECT_CALL(observer, AXTreeIDForMainFrameHasChanged())
-      .Times(testing::AtLeast(1));
-  ASSERT_TRUE(NavigateToURL(shell(), main_url));
-  testing::Mock::VerifyAndClearExpectations(&observer);
-
-  // Create fenced frame.
-  const GURL fenced_frame_url = embedded_test_server()->GetURL(
-      "fencedframe.test", "/fenced_frames/title1.html");
-  EXPECT_CALL(observer, AXTreeIDForMainFrameHasChanged()).Times(0);
-  RenderFrameHost* fenced_frame_rfh =
-      fenced_frame_test_helper().CreateFencedFrame(
-          web_contents()->GetPrimaryMainFrame(), fenced_frame_url);
-  EXPECT_NE(nullptr, fenced_frame_rfh);
 }
 
 namespace {
@@ -9845,6 +9753,8 @@ IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest,
   }
 }
 
+// Simulates a delegate that removes an iframe synchronously upon exiting
+// fullscreen.
 class DetachFrameOnFullscreenExitDelegate : public WebContentsDelegate {
  public:
   DetachFrameOnFullscreenExitDelegate(WebContentsDelegate* original_delegate,
@@ -9991,6 +9901,91 @@ IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest,
   if (opener_contents) {
     opener_contents->SetDelegate(shell());
   }
+}
+
+// Tracks whether FileSelectionCanceled() was called.
+class CancellationTrackingFileSelectListener
+    : public FileChooserImpl::FileSelectListenerImpl {
+ public:
+  CancellationTrackingFileSelectListener()
+      : FileSelectListenerImpl(/*owner=*/nullptr) {}
+
+  bool was_canceled() const { return was_canceled_; }
+
+  // FileChooserImpl::FileSelectListenerImpl:
+  void FileSelectionCanceled() override {
+    was_canceled_ = true;
+    FileSelectListenerImpl::FileSelectionCanceled();
+  }
+
+ protected:
+  ~CancellationTrackingFileSelectListener() override = default;
+
+ private:
+  bool was_canceled_ = false;
+};
+
+IN_PROC_BROWSER_TEST_F(WebContentsImplBrowserTest,
+                       EnumerateDirectoryFrameDetachOnFullscreenExit) {
+  ASSERT_TRUE(embedded_test_server()->Start());
+  GURL url(embedded_test_server()->GetURL("/title1.html"));
+  EXPECT_TRUE(NavigateToURL(shell(), url));
+
+  WebContentsImpl* opener_contents =
+      static_cast<WebContentsImpl*>(shell()->web_contents());
+
+  ShellAddedObserver new_shell_observer;
+  EXPECT_TRUE(ExecJs(opener_contents, "window.open('about:blank', 'popup')"));
+  Shell* popup_shell = new_shell_observer.GetShell();
+  WebContentsImpl* popup_contents =
+      static_cast<WebContentsImpl*>(popup_shell->web_contents());
+
+  EXPECT_EQ(opener_contents,
+            popup_contents->GetFirstWebContentsInLiveOriginalOpenerChain());
+
+  FullscreenWebContentsObserver observer(
+      opener_contents, opener_contents->GetPrimaryMainFrame());
+  EXPECT_TRUE(ExecJs(opener_contents->GetPrimaryMainFrame(),
+                     "document.body.webkitRequestFullscreen();"));
+  observer.Wait();
+  EXPECT_TRUE(opener_contents->IsFullscreen());
+
+  EXPECT_TRUE(ExecJs(popup_contents, R"(
+    new Promise(resolve => {
+      let iframe = document.createElement('iframe');
+      iframe.src = 'about:blank';
+      iframe.onload = resolve;
+      document.body.appendChild(iframe);
+    });
+  )"));
+
+  RenderFrameHostImpl* child_rfh = static_cast<RenderFrameHostImpl*>(
+      ChildFrameAt(popup_contents->GetPrimaryMainFrame(), 0));
+  ASSERT_TRUE(child_rfh);
+
+  base::WeakPtr<RenderFrameHostImpl> weak_child_rfh = child_rfh->GetWeakPtr();
+
+  DetachFrameOnFullscreenExitDelegate intercepting_delegate(
+      opener_contents->GetDelegate(), popup_contents);
+  opener_contents->SetDelegate(&intercepting_delegate);
+  // `intercepting_delegate` lives on the stack, so it must be detached before
+  // this scope ends no matter how the test exits.
+  absl::Cleanup restore_delegate = [opener_contents, shell = shell()] {
+    opener_contents->SetDelegate(shell);
+  };
+
+  auto listener =
+      base::MakeRefCounted<CancellationTrackingFileSelectListener>();
+  // EnumerateDirectory() calls ForSecurityDropFullscreen() to prevent
+  // fullscreen spoofing. Because `opener_contents` is in the opener chain of
+  // `popup_contents` and is currently in fullscreen,
+  // ForSecurityDropFullscreen() asks `opener_contents` to exit fullscreen.
+  popup_contents->EnumerateDirectory(nullptr, child_rfh, listener,
+                                     base::FilePath());
+
+  EXPECT_EQ(weak_child_rfh, nullptr);
+  // Ensure the listener is answered to avoid leaking the Mojo callback.
+  EXPECT_TRUE(listener->was_canceled());
 }
 
 }  // namespace content

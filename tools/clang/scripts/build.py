@@ -226,14 +226,14 @@ def CheckoutGitRepo(name, git_url, commit, dir):
 
 # Git commits include timing and author metadata in their hash.
 # To ensure we get a consistent hash when applying local changes,
-# set everything to fixed values via environment variable
+# set everything to fixed values via environment variable.
 GIT_METADATA_OVERRIDES = {
   'GIT_AUTHOR_NAME': 'Dummy Author',
   'GIT_AUTHOR_EMAIL': 'none@none.com',
-  'GIT_AUTHOR_DATE': '2099-01-01 10:10:10',
+  'GIT_AUTHOR_DATE': '2099-01-01 10:10:10 -0800',
   'GIT_COMMITTER_NAME': 'Dummy Committer',
   'GIT_COMMITTER_EMAIL': 'none@none.com',
-  'GIT_COMMITTER_DATE': '2099-01-01 10:10:10',
+  'GIT_COMMITTER_DATE': '2099-01-01 10:10:10 -0800',
 }
 
 
@@ -649,7 +649,7 @@ def BuildZStd(cc, cxx, cmake_sysroot, mac_deployment_target):
 
 
 def DownloadPinnedClang():
-  PINNED_CLANG_VERSION = 'llvmorg-21-init-5118-g52cd27e6-4'
+  PINNED_CLANG_VERSION = 'llvmorg-24-init-7747-g62397f8b-27'
   DownloadAndUnpackPackage(
     'clang', PINNED_CLANG_DIR, GetDefaultHostOs(), PINNED_CLANG_VERSION
   )

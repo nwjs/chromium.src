@@ -11,6 +11,7 @@
 #include "chrome/browser/ui/browser_window/public/desktop_browser_window_capabilities.h"
 #include "chrome/browser/ui/sync/browser_synced_tab_delegate.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "components/sessions/core/session_id.h"
 #include "components/sync/base/features.h"
 #include "components/tabs/public/tab_interface.h"
 
@@ -30,12 +31,21 @@ void ResetTabCachedLastActiveTimeForContents(content::WebContents* contents) {
 
 }  // namespace
 
+DEFINE_USER_DATA(BrowserSyncedWindowDelegate);
+
+// static
+BrowserSyncedWindowDelegate* BrowserSyncedWindowDelegate::From(
+    BrowserWindowInterface* browser) {
+  return Get(browser->GetUnownedUserDataHost());
+}
+
 BrowserSyncedWindowDelegate::BrowserSyncedWindowDelegate(
     BrowserWindowInterface* browser,
     TabStripModel* tab_strip_model,
     SessionID session_id,
     BrowserWindowInterface::Type type)
-    : browser_(CHECK_DEREF(browser)),
+    : scoped_unowned_user_data_(browser->GetUnownedUserDataHost(), *this),
+      browser_(CHECK_DEREF(browser)),
       tab_strip_model_(CHECK_DEREF(tab_strip_model)),
       session_id_(session_id),
       type_(type) {

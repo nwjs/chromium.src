@@ -171,27 +171,17 @@ class PLATFORM_EXPORT ShapeResultView final
 
     PLATFORM_EXPORT void Trace(Visitor*) const;
 
-    using const_iterator = const HarfBuzzRunGlyphData*;
-    const_iterator begin() const { return range_.begin(); }
-    const_iterator end() const { return range_.end(); }
-    using const_reverse_iterator = std::reverse_iterator<const_iterator>;
-    const_reverse_iterator rbegin() const {
-      return const_reverse_iterator(end());
+    GlyphDataRange::Reader CreateReader() const {
+      return GlyphDataRange::Reader(range_);
     }
-    const_reverse_iterator rend() const {
-      return const_reverse_iterator(begin());
-    }
-    const HarfBuzzRunGlyphData& GlyphAt(unsigned index) const {
-      return range_.Glyphs()[index];
-    }
-    template <bool has_non_zero_glyph_offsets>
-    GlyphOffsetIterator<has_non_zero_glyph_offsets> GetGlyphOffsets() const {
-      return GlyphOffsetIterator<has_non_zero_glyph_offsets>(range_);
+    template <bool kHasNonZeroGlyphOffsets>
+    GlyphOffsetIterator<kHasNonZeroGlyphOffsets> GetGlyphOffsets() const {
+      return GlyphOffsetIterator<kHasNonZeroGlyphOffsets>(range_);
     }
     bool HasGlyphOffsets() const { return range_.HasOffsets(); }
     // The end character index of |this| without considering offsets in
     // |ShapeResultView|. This is analogous to:
-    //   GlyphAt(IsRtl() ? -1 : NumGlyphs()).character_index
+    //   CreateReader()[IsRtl() ? -1 : NumGlyphs()].character_index
     // if such |HarfBuzzRunGlyphData| is available.
     unsigned CharacterIndexOfEndGlyph() const {
       return num_characters_ + offset_;
@@ -274,17 +264,17 @@ class PLATFORM_EXPORT ShapeResultView final
 
   unsigned CharacterIndexOffsetForGlyphData(const RunInfoPart&) const;
 
-  template <bool is_horizontal_run, bool has_glyph_offsets>
+  template <bool kIsHorizontalRun, bool kHasGlyphOffsets>
   void ComputePartInkBounds(const ShapeResultView::RunInfoPart&,
                             float run_advance,
                             gfx::RectF* ink_bounds) const;
 
-  template <bool is_horizontal_run, bool has_glyph_offsets>
+  template <bool kIsHorizontalRun, bool kHasGlyphOffsets>
   void ComputePartInkBoundsScalar(const ShapeResultView::RunInfoPart&,
                                   float run_advance,
                                   gfx::RectF* ink_bounds) const;
 #if defined(USE_SIMD_FOR_COMPUTING_GLYPH_BOUNDS)
-  template <bool is_horizontal_run, bool has_non_zero_glyph_offsets>
+  template <bool kIsHorizontalRun, bool kHasNonZeroGlyphOffsets>
   void ComputePartInkBoundsVectorized(const ShapeResultView::RunInfoPart&,
                                       float run_advance,
                                       gfx::RectF* ink_bounds) const;
@@ -318,13 +308,13 @@ class PLATFORM_EXPORT ShapeResultView final
  private:
   friend class ShapeResult;
 
-  template <bool has_glyph_offsets>
+  template <bool kHasGlyphOffsets>
   float ForEachGlyphImpl(float initial_advance,
                          GlyphCallback,
                          void* context,
                          const RunInfoPart& part) const;
 
-  template <bool has_glyph_offsets>
+  template <bool kHasGlyphOffsets>
   float ForEachGlyphImpl(float initial_advance,
                          unsigned from,
                          unsigned to,

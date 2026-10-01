@@ -78,6 +78,7 @@ import org.chromium.chrome.browser.ChromeActivitySessionTracker;
 import org.chromium.chrome.browser.ChromeApplicationImpl;
 import org.chromium.chrome.browser.ChromeKeyboardVisibilityDelegate;
 import org.chromium.chrome.browser.ChromeWindow;
+import org.chromium.chrome.browser.ConfirmQuitHelper;
 import org.chromium.chrome.browser.DeferredStartupHandler;
 import org.chromium.chrome.browser.GracefulShutdownService;
 import org.chromium.chrome.browser.IntentHandler;
@@ -92,8 +93,6 @@ import org.chromium.chrome.browser.actor.ActorUtils;
 import org.chromium.chrome.browser.app.appmenu.AppMenuPropertiesDelegateImpl;
 import org.chromium.chrome.browser.app.download.DownloadMessageUiDelegate;
 import org.chromium.chrome.browser.app.metrics.LaunchCauseMetrics;
-import org.chromium.chrome.browser.app.tab_activity_glue.PopupCreatorImpl;
-import org.chromium.chrome.browser.app.tab_activity_glue.ReparentingDelegateFactory;
 import org.chromium.chrome.browser.app.tab_activity_glue.TabReparentingController;
 import org.chromium.chrome.browser.app.tabmodel.AsyncTabParamsManagerSingleton;
 import org.chromium.chrome.browser.app.tabmodel.TabModelOrchestrator;
@@ -117,7 +116,6 @@ import org.chromium.chrome.browser.compositor.layouts.LayoutManagerImpl;
 import org.chromium.chrome.browser.compositor.layouts.SceneChangeObserver;
 import org.chromium.chrome.browser.compositor.layouts.content.TabContentManagerHandler;
 import org.chromium.chrome.browser.contextualsearch.ContextualSearchManager;
-import org.chromium.chrome.browser.customtabs.PopupCreatorFactory;
 import org.chromium.chrome.browser.desktop_site.DesktopSiteUtils;
 import org.chromium.chrome.browser.device.DeviceClassManager;
 import org.chromium.chrome.browser.devtools.DevToolsWindowAndroid;
@@ -186,6 +184,7 @@ import org.chromium.chrome.browser.screenshot_protection.ScreenshotProtectionCon
 import org.chromium.chrome.browser.selection.SelectionPopupBackPressHandler;
 import org.chromium.chrome.browser.settings.SettingsInTab;
 import org.chromium.chrome.browser.settings.SettingsNavigationFactory;
+import org.chromium.chrome.browser.settings.SettingsTabUtil;
 import org.chromium.chrome.browser.share.ShareDelegate;
 import org.chromium.chrome.browser.share.ShareDelegateImpl;
 import org.chromium.chrome.browser.share.ShareDelegateSupplier;
@@ -558,10 +557,6 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
 
     @Override
     public void performPreInflationStartup() {
-        // Initialize PopupCreator early so that it's available when WebContentsDelegateAndroid
-        // wants to create a new window.
-        PopupCreatorFactory.setInstance(new PopupCreatorImpl());
-
         mUmaActivityObserver =
                 new UmaActivityObserver(this, getLifecycleDispatcher(), getActivityType());
         setupUnownedUserDataSuppliers();
@@ -786,7 +781,8 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
                             () ->
                                     PriceDropNotificationManagerFactory.create(
                                             mTabModelProfileSupplier.get()),
-                            mRootUiCoordinator::getBookmarkBarVisibility);
+                            mRootUiCoordinator::getBookmarkBarVisibility,
+                            OfflinePageUtils::saveBookmarkOffline);
             mTabBookmarkerSupplier.set(tabBookmarker);
             if (!isCustomTab()) {
                 mStartupSigninStateCheckController =
@@ -1611,6 +1607,8 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
 
     @Override
     public void onPauseWithNative() {
+        // Cancel any pending hold-to-quit timer and reset state when moving to the background.
+        ConfirmQuitHelper.getInstance().cancel(/* dismissToast= */ true);
         RecordUserAction.record("MobileGoToBackground");
         mLaunchCause = LaunchCauseMetrics.LaunchCause.UNINITIALIZED;
         Tab tab = getActivityTab();
@@ -2208,6 +2206,19 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
         return false;
     }
 
+    @Override
+    public boolean onKeyUp(int keyCode, KeyEvent event) {
+        // Cancel the hold-to-quit timer if the user releases either key of the Ctrl+Q shortcut
+        // (releasing Q or releasing Ctrl). Releasing unrelated keys while Ctrl is still held
+        // does not abort the quit or consume the key event.
+        if (ConfirmQuitHelper.getInstance().isQuitInProgress()
+                && (keyCode == KeyEvent.KEYCODE_Q || !event.isCtrlPressed())) {
+            ConfirmQuitHelper.getInstance().cancel(/* dismissToast= */ false);
+            return true;
+        }
+        return super.onKeyUp(keyCode, event);
+    }
+
     /** Returns snackbar manager for all snackbar related operations. */
     @Override
     public SnackbarManager getSnackbarManager() {
@@ -2313,9 +2324,7 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
         }
         mTabReparentingControllerSupplier.set(
                 new TabReparentingController(
-                        ReparentingDelegateFactory.createReparentingControllerDelegate(
-                                getTabModelSelector()),
-                        AsyncTabParamsManagerSingleton.getInstance()));
+                        this::getTabModelSelector, AsyncTabParamsManagerSingleton.getInstance()));
 
         // This must be initialized after initialization of tab reparenting controller.
         var windowAndroid = getWindowAndroid();
@@ -2462,6 +2471,7 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
         if (mTabModelOrchestratorSupplier == null) {
             mTabModelOrchestratorSupplier = ObservableSuppliers.createMonotonic();
         }
+        mTabModelOrchestrator = tabModelOrchestrator;
         mTabModelOrchestratorSupplier.set(tabModelOrchestrator);
     }
 
@@ -2470,7 +2480,9 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
         return mTabModelSelectorSupplier;
     }
 
-    /** Returns an {@link SettableMonotonicObservableSupplier} for {@link EphemeralTabCoordinator}. */
+    /**
+     * Returns an {@link SettableMonotonicObservableSupplier} for {@link EphemeralTabCoordinator}.
+     */
     public final SettableMonotonicObservableSupplier<EphemeralTabCoordinator>
             getEphemeralTabCoordinatorSupplier() {
         return mEphemeralTabCoordinatorSupplier;
@@ -2687,8 +2699,8 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
     }
 
     /**
-     * @return An {@link MonotonicObservableSupplier} that will supply the {@link ShareDelegate} when
-     *         it is ready.
+     * Returns an {@link MonotonicObservableSupplier} that will supply the {@link ShareDelegate}
+     * when it is ready.
      */
     public MonotonicObservableSupplier<ShareDelegate> getShareDelegateSupplier() {
         return mShareDelegateSupplier;
@@ -2919,6 +2931,18 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
         }
     }
 
+    /** Returns true if settings should be opened in a tab instead of an independent activity. */
+    private boolean shouldOpenSettingsInTab() {
+        if (!SettingsInTab.isEnabled()) return false;
+
+        // Foldables support settings in a tab so that a tab opened while unfolded continues
+        // to display settings when folded. However, when opening settings from the menu while
+        // in phone mode (non-tablet), open them in an activity instead of a tab.
+        if (DeviceInfo.isFoldable() && !isTablet()) return false;
+
+        return true;
+    }
+
     /**
      * @return The {@link MenuOrKeyboardActionController} for registering menu or keyboard action
      *     handler for this activity.
@@ -2952,12 +2976,22 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
         int type = Profile.getBrowserProfileTypeFromProfile(getCurrentTabModel().getProfile());
 
         if (id == R.id.preferences_id) {
-            if (SettingsInTab.isEnabled()) {
-                LoadUrlParams params =
-                        new LoadUrlParams(UrlConstants.SETTINGS_URL, PageTransition.LINK);
-                // Settings are associated with the on-the-record profile, never incognito.
-                getTabCreator(/* incognito= */ false)
-                        .createNewTab(params, TabLaunchType.FROM_CHROME_UI, getActivityTab());
+            if (shouldOpenSettingsInTab()) {
+                Tab settingsTab =
+                        areTabModelsInitialized()
+                                ? SettingsTabUtil.findSettingsTab(getTabModelSelector())
+                                : null;
+                if (settingsTab != null) {
+                    // Activate an existing settings tab if one exists.
+                    SettingsTabUtil.activateSettingsTab(getTabModelSelector(), settingsTab);
+                } else {
+                    // Otherwise create a new settings tab.
+                    LoadUrlParams params =
+                            new LoadUrlParams(UrlConstants.SETTINGS_URL, PageTransition.LINK);
+                    // Settings are associated with the on-the-record profile, never incognito.
+                    getTabCreator(/* incognito= */ false)
+                            .createNewTab(params, TabLaunchType.FROM_CHROME_UI, getActivityTab());
+                }
             } else {
                 SettingsNavigation settingsNavigation =
                         SettingsNavigationFactory.createSettingsNavigation();
@@ -2976,6 +3010,10 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
                             getProfileProviderSupplier().get().getOriginalProfile())
                     .onMenuItemClicked(this);
             return true;
+        }
+
+        if (id == R.id.quit_chrome && !fromMenu) {
+            return ConfirmQuitHelper.getInstance().handleQuitRequest(this);
         }
 
         final Tab currentTab = getActivityTab();
@@ -3217,7 +3255,7 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
 
         if (id == R.id.open_webapk_id) {
             RecordUserAction.record("MobileMenuOpenWebApk");
-            return AppInstallMenuHandler.doOpenWebApk(this, currentTab);
+            return AppInstallMenuHandler.doOpenWebApp(this, currentTab);
         }
 
         if (id == R.id.request_desktop_site_id || id == R.id.request_desktop_site_check_id) {

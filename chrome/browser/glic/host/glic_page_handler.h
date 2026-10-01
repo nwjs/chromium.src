@@ -84,8 +84,6 @@ class GlicPageHandler : public glic::mojom::PageHandler,
                     base::TimeDelta duration,
                     ResizeWidgetCallback callback) override;
 
-  void EnableDragResize(bool enabled) override;
-
   // TODO(crbug.com/454120908): Remove this method after WebContents warming is
   // rolled out.
   // Called any time the ready state of the profile changes.
@@ -117,6 +115,7 @@ class GlicPageHandler : public glic::mojom::PageHandler,
   mojo::Remote<glic::mojom::WebClient> web_client_;
   base::ScopedObservation<Host, Host::Observer> host_observation_{this};
   std::vector<base::CallbackListSubscription> subscriptions_;
+  bool has_received_initial_zoom_ = false;
   base::WeakPtrFactory<GlicPageHandler> weak_ptr_factory_{this};
 };
 

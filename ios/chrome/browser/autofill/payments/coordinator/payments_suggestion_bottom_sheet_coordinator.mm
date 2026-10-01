@@ -13,17 +13,20 @@
 #import "ios/chrome/browser/shared/model/browser/browser.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
-#import "ios/chrome/browser/shared/public/commands/browser_coordinator_commands.h"
+#import "ios/chrome/browser/shared/public/commands/autofill_commands.h"
+#import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
 #import "ios/chrome/browser/shared/public/commands/settings_commands.h"
 #import "ios/web/public/web_state.h"
 
 using PaymentsSuggestionBottomSheetExitReason::kCouldNotPresent;
 using PaymentsSuggestionBottomSheetExitReason::kDismissal;
+using PaymentsSuggestionBottomSheetExitReason::kNavigationOrTabChange;
 using PaymentsSuggestionBottomSheetExitReason::kShowPaymentDetails;
 using PaymentsSuggestionBottomSheetExitReason::kShowPaymentMethods;
 using PaymentsSuggestionBottomSheetExitReason::kUsePaymentsSuggestion;
 
-@interface PaymentsSuggestionBottomSheetCoordinator () {
+@interface PaymentsSuggestionBottomSheetCoordinator () <
+    CreditCardSuggestionBottomSheetMediatorDelegate> {
   // Information regarding the triggering form for this bottom sheet.
   autofill::FormActivityParams _params;
 
@@ -41,6 +44,9 @@ using PaymentsSuggestionBottomSheetExitReason::kUsePaymentsSuggestion;
 // Used to find the CreditCard object and use it to open the credit card details
 // view.
 @property(nonatomic, assign) autofill::PersonalDataManager* personalDataManager;
+
+// Handler for Autofill Commands.
+@property(nonatomic, readonly) id<AutofillCommands> autofillHandler;
 
 @end
 
@@ -75,6 +81,7 @@ using PaymentsSuggestionBottomSheetExitReason::kUsePaymentsSuggestion;
       initWithHandler:self
                   URL:URL];
   self.mediator.consumer = self.viewController;
+  self.mediator.delegate = self;
   self.viewController.delegate = self.mediator;
 
   // This is a fallback since the code enabling the bottom sheet happens earlier
@@ -113,7 +120,7 @@ using PaymentsSuggestionBottomSheetExitReason::kUsePaymentsSuggestion;
   // stopped.
   if (!self.viewController.presentingViewController) {
     [self.mediator logExitReason:kCouldNotPresent];
-    [self.browserCoordinatorCommandsHandler dismissPaymentSuggestions];
+    [self.autofillHandler dismissPaymentsBottomSheet];
   }
 }
 
@@ -123,6 +130,16 @@ using PaymentsSuggestionBottomSheetExitReason::kUsePaymentsSuggestion;
   self.viewController = nil;
   [self.mediator disconnect];
   self.mediator = nil;
+}
+
+#pragma mark - CreditCardSuggestionBottomSheetMediatorDelegate
+
+- (void)creditCardSuggestionBottomSheetMediatorDidRequestDismissal:
+    (CreditCardSuggestionBottomSheetMediator*)mediator {
+  // This dismissal is only requested when the observed WebState undergoes
+  // cross-document navigation, tab switching, or destruction, so
+  // `kNavigationOrTabChange` is the only applicable exit reason.
+  [self tearDownWithExitReason:kNavigationOrTabChange];
 }
 
 #pragma mark - CreditCardSuggestionBottomSheetHandler
@@ -135,8 +152,8 @@ using PaymentsSuggestionBottomSheetExitReason::kUsePaymentsSuggestion;
       dismissViewControllerAnimated:NO
                          completion:^{
                            [weakSelf.settingsHandler showCreditCardSettings];
-                           [weakSelf.browserCoordinatorCommandsHandler
-                                   dismissPaymentSuggestions];
+                           [weakSelf
+                                   .autofillHandler dismissPaymentsBottomSheet];
                          }];
 }
 
@@ -153,8 +170,7 @@ using PaymentsSuggestionBottomSheetExitReason::kUsePaymentsSuggestion;
         [](__weak __typeof(self) weak_self, autofill::CreditCard credit_card) {
           [weak_self.settingsHandler showCreditCardDetails:credit_card
                                                 inEditMode:NO];
-          [weak_self
-                  .browserCoordinatorCommandsHandler dismissPaymentSuggestions];
+          [weak_self.autofillHandler dismissPaymentsBottomSheet];
         },
         weakSelf, std::move(*creditCard));
     [self.baseViewController.presentedViewController
@@ -186,8 +202,8 @@ using PaymentsSuggestionBottomSheetExitReason::kUsePaymentsSuggestion;
                            [weakSelf dismissSoftKeyboard];
                            [weakSelf didSelectCreditCard:creditCardData
                                                  atIndex:index];
-                           [weakSelf.browserCoordinatorCommandsHandler
-                                   dismissPaymentSuggestions];
+                           [weakSelf
+                                   .autofillHandler dismissPaymentsBottomSheet];
                          }];
 }
 
@@ -197,16 +213,26 @@ using PaymentsSuggestionBottomSheetExitReason::kUsePaymentsSuggestion;
 }
 
 - (void)viewDidDisappear {
-  if (_dismissing) {
-    return;
-  }
-
-  [self.mediator logExitReason:kDismissal];
-  [self.mediator disconnect];
-  [_browserCoordinatorCommandsHandler dismissPaymentSuggestions];
+  [self tearDownWithExitReason:kDismissal];
 }
 
 #pragma mark - Private
+
+// Records `exitReason`, tears down the mediator and dismisses the bottom sheet.
+// Guarded by `_dismissing` so that a sheet that is already on its way out (for
+// example because a navigation commits while the dismissal animation is still
+// running) doesn't record a second exit reason.
+- (void)tearDownWithExitReason:
+    (PaymentsSuggestionBottomSheetExitReason)exitReason {
+  if (_dismissing || !self.mediator) {
+    return;
+  }
+
+  _dismissing = YES;
+  [self.mediator logExitReason:exitReason];
+  [self.mediator disconnect];
+  [self.autofillHandler dismissPaymentsBottomSheet];
+}
 
 - (void)didSelectCreditCard:(CreditCardData*)creditCardData
                     atIndex:(NSInteger)index {
@@ -229,6 +255,12 @@ using PaymentsSuggestionBottomSheetExitReason::kUsePaymentsSuggestion;
   if (activeWebState) {
     [activeWebState->GetView() endEditing:NO];
   }
+}
+
+// Returns the AutofillCommands handler.
+- (id<AutofillCommands>)autofillHandler {
+  return HandlerForProtocol(self.browser->GetCommandDispatcher(),
+                            AutofillCommands);
 }
 
 @end

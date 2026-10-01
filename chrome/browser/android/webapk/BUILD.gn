@@ -20,9 +20,6 @@ source_set("webapk_sources") {
     "webapk_metrics.h",
     "webapk_post_share_target_navigator.cc",
     "webapk_post_share_target_navigator.h",
-    "webapk_registrar.h",
-    "webapk_registry_update.cc",
-    "webapk_registry_update.h",
     "webapk_ukm_recorder.cc",
     "webapk_ukm_recorder.h",
     "webapk_update_data_fetcher.cc",
@@ -37,12 +34,10 @@ source_set("webapk_sources") {
   ]
   deps = [
     "//chrome/android:jni_headers",
-    "//chrome/browser/android/webapk/proto",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/web_share_target",
     "//chrome/common:channel_info",
     "//components/crx_file",
-    "//components/sync",
     "//components/ukm",
     "//components/webapps/browser",
     "//components/webapps/common",
@@ -52,4 +47,55 @@ source_set("webapk_sources") {
     "//ui/android",
   ]
   defines = [ "REQUEST_UPDATE_FOR_SHELL_APK_VERSION_VALUE=$request_update_for_shell_apk_version" ]
+}
+
+source_set("android_browsertests") {
+  testonly = true
+  defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
+
+  sources = [
+    "webapk_icons_hasher_browsertest.cc",
+    "webapk_installer_browsertest.cc",
+    "webapk_restore_task_browsertest.cc",
+  ]
+  deps = [
+    ":webapk_sources",
+    "//base/test:test_support",
+    "//chrome/browser/android",
+    "//chrome/browser/android:shortcut_helper",
+    "//chrome/browser/profiles:profile",
+    "//chrome/common:constants",
+    "//chrome/test/base:android_browser_test",
+    "//chrome/test/base:chrome_test_utils",
+    "//components/ukm:test_support",
+    "//components/webapk:proto",
+    "//components/webapps/browser",
+    "//content/test:test_support",
+    "//net:test_support",
+    "//services/network:test_support",
+    "//skia",
+    "//testing/gtest",
+    "//ui/gfx:test_support",
+    "//url",
+  ]
+}
+
+source_set("unit_tests") {
+  testonly = true
+
+  sources = [
+    "webapk_helpers_unittest.cc",
+    "webapk_restore_manager_unittest.cc",
+  ]
+  deps = [
+    ":webapk_sources",
+    "//base/test:test_support",
+    "//chrome/browser/android",
+    "//chrome/test:test_support",
+    "//components/webapps/common",
+    "//content/test:test_support",
+    "//testing/gmock",
+    "//testing/gtest",
+    "//url",
+  ]
 }

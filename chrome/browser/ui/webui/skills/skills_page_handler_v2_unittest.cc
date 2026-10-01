@@ -9,10 +9,13 @@
 #include <unordered_map>
 #include <vector>
 
+#include "base/auto_reset.h"
 #include "base/test/bind.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/test_future.h"
 #include "chrome/browser/glic/public/glic_invoke_options.h"
+#include "chrome/browser/signin/signin_ui_delegate.h"
+#include "chrome/browser/signin/signin_ui_util.h"
 #include "chrome/browser/skills/skills_service_factory.h"
 #include "chrome/browser/skills/skills_ui_tab_controller_interface.h"
 #include "chrome/browser/ui/webui/skills/skills_dialog_delegate.h"
@@ -57,6 +60,7 @@ class MockSkillsPageV2 : public skills::mojom::SkillsPageV2 {
               LoadProvidedSkills,
               ((const std::vector<skills::Skill>&)),
               (override));
+  MOCK_METHOD(void, OnUserSkillsUpdated, (), (override));
 
   mojo::Receiver<skills::mojom::SkillsPageV2> receiver_{this};
 };
@@ -71,6 +75,32 @@ class MockSkillsDialogDelegate : public SkillsDialogDelegate {
               (),
               (override));
 };
+
+#if BUILDFLAG(ENABLE_DICE_SUPPORT)
+class MockSigninUiDelegate : public signin_ui_util::SigninUiDelegate {
+ public:
+  MOCK_METHOD(void,
+              ShowSigninUI,
+              (Profile*,
+               bool,
+               signin_metrics::AccessPoint,
+               signin_metrics::PromoAction,
+               const std::string&),
+              (override));
+  MOCK_METHOD(void,
+              ShowReauthUI,
+              (Profile*,
+               const std::string&,
+               bool,
+               signin_metrics::AccessPoint,
+               signin_metrics::PromoAction),
+              (override));
+  MOCK_METHOD(void,
+              ShowCrossDeviceSigninQrBubble,
+              (BrowserWindowInterface*, GURL, base::OnceClosure),
+              (override));
+};
+#endif
 
 class MockSkillsUiTabController : public SkillsUiTabControllerInterface {
  public:
@@ -225,6 +255,42 @@ TEST_F(SkillsPageHandlerV2Test, CloseDialog) {
   remote_handler.FlushForTesting();
 }
 
+#if BUILDFLAG(ENABLE_DICE_SUPPORT)
+TEST_F(SkillsPageHandlerV2Test, SignInWithPrimaryAccount) {
+  testing::StrictMock<MockSigninUiDelegate> mock_signin_ui_delegate;
+  base::AutoReset<signin_ui_util::SigninUiDelegate*> delegate_auto_reset =
+      signin_ui_util::SetSigninUiDelegateForTesting(&mock_signin_ui_delegate);
+
+  identity_test_env_.MakePrimaryAccountAvailable("test@example.com",
+                                                 signin::ConsentLevel::kSignin);
+
+  EXPECT_CALL(
+      mock_signin_ui_delegate,
+      ShowReauthUI(profile(), "test@example.com", /*enable_sync=*/false,
+                   signin_metrics::AccessPoint::kSkills,
+                   signin_metrics::PromoAction::PROMO_ACTION_NO_SIGNIN_PROMO));
+
+  remote_handler_->SignIn();
+  remote_handler_.FlushForTesting();
+}
+
+TEST_F(SkillsPageHandlerV2Test, SignInWithoutPrimaryAccount) {
+  testing::StrictMock<MockSigninUiDelegate> mock_signin_ui_delegate;
+  base::AutoReset<signin_ui_util::SigninUiDelegate*> delegate_auto_reset =
+      signin_ui_util::SetSigninUiDelegateForTesting(&mock_signin_ui_delegate);
+
+  EXPECT_CALL(mock_signin_ui_delegate,
+              ShowSigninUI(profile(), /*enable_sync=*/false,
+                           signin_metrics::AccessPoint::kSkills,
+                           signin_metrics::PromoAction::
+                               PROMO_ACTION_NEW_ACCOUNT_NO_EXISTING_ACCOUNT,
+                           /*extension_name=*/""));
+
+  remote_handler_->SignIn();
+  remote_handler_.FlushForTesting();
+}
+#endif
+
 TEST_F(SkillsPageHandlerV2Test, ShowToastNoopWithoutBrowser) {
   remote_handler_->ShowSaveToast();
   remote_handler_->ShowSaveAndInvokeToast("id", "name", "icon");
@@ -283,6 +349,23 @@ TEST_F(SkillsPageHandlerV2Test, OnProvidedSkillsChanged) {
 
   handler_->OnProvidedSkillsChanged(nullptr);
   mock_page.receiver_.FlushForTesting();
+}
+
+TEST_F(SkillsPageHandlerV2Test, OnSkillUpdated_NotifiesPage) {
+  MockSkillsPageV2 mock_page;
+  remote_handler_->SetPage(mock_page.BindAndGetRemote());
+  remote_handler_.FlushForTesting();
+
+  EXPECT_CALL(mock_page, OnUserSkillsUpdated()).Times(1);
+
+  handler_->OnSkillUpdated("skill_id", SkillsService::UpdateSource::kSync,
+                           /*is_position_changed=*/false);
+  mock_page.receiver_.FlushForTesting();
+}
+
+TEST_F(SkillsPageHandlerV2Test, OnSkillUpdated_PageNotBound_NoCrash) {
+  handler_->OnSkillUpdated("skill_id", SkillsService::UpdateSource::kSync,
+                           /*is_position_changed=*/false);
 }
 
 }  // namespace

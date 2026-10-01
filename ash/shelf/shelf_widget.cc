@@ -454,7 +454,7 @@ void ShelfWidgetDelegateView::UpdateBackgroundBlur() {
   opaque_background_layer()->SetBackgroundBlur(
       should_blur_background ? kShelfBlurRadius : 0);
   opaque_background_layer()->SetBackdropFilterQuality(
-      ColorProvider::kBackgroundBlurQuality);
+      StyleUtil::kBackgroundBlurQuality);
 
   background_is_currently_blurred_ = should_blur_background;
 }

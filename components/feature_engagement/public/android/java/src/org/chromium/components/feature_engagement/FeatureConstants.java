@@ -34,6 +34,7 @@ import java.lang.annotation.RetentionPolicy;
     FeatureConstants.ANDROID_BOTTOM_BAR_NEW_TAB,
     FeatureConstants.ANDROID_BOTTOM_BAR_PROMO_DIALOG,
     FeatureConstants.ANDROID_TAB_DECLUTTER_FEATURE,
+    FeatureConstants.ANDROID_VERTICAL_TABS_NEW_LABEL,
     FeatureConstants.ANDROID_VERTICAL_TABS_PROMO_FEATURE,
     FeatureConstants.APP_RATING_PROMPT_FEATURE,
     FeatureConstants.APP_SPECIFIC_HISTORY_FEATURE,
@@ -63,7 +64,6 @@ import java.lang.annotation.RetentionPolicy;
     FeatureConstants.DOWNLOAD_PAGE_FEATURE,
     FeatureConstants.DOWNLOAD_PAGE_SCREENSHOT_FEATURE,
     FeatureConstants.DOWNLOAD_SETTINGS_FEATURE,
-    FeatureConstants.EPHEMERAL_TAB_FEATURE,
     FeatureConstants.FEED_CARD_MENU_FEATURE,
     FeatureConstants.FEED_HEADER_MENU_FEATURE,
     FeatureConstants.FEED_SWIPE_REFRESH_FEATURE,
@@ -115,7 +115,6 @@ import java.lang.annotation.RetentionPolicy;
     FeatureConstants.READ_LATER_APP_MENU_BOOKMARKS_FEATURE,
     FeatureConstants.READ_LATER_APP_MENU_BOOKMARK_THIS_PAGE_FEATURE,
     FeatureConstants.READ_LATER_BOTTOM_SHEET_FEATURE,
-    FeatureConstants.READ_LATER_CONTEXT_MENU_FEATURE,
     FeatureConstants.REQUEST_DESKTOP_SITE_DEFAULT_ON_FEATURE,
     FeatureConstants.REQUEST_DESKTOP_SITE_EXCEPTIONS_GENERIC_FEATURE,
     FeatureConstants.REQUEST_DESKTOP_SITE_WINDOW_SETTING_FEATURE,
@@ -200,6 +199,7 @@ public @interface FeatureConstants {
     String ANDROID_BOTTOM_BAR_PROMO_DIALOG = "IPH_AndroidBottomBarPromoDialog";
 
     String ANDROID_TAB_DECLUTTER_FEATURE = "IPH_AndroidTabDeclutter";
+    String ANDROID_VERTICAL_TABS_NEW_LABEL = "IPH_AndroidVerticalTabsNewLabel";
     String ANDROID_VERTICAL_TABS_PROMO_FEATURE = "IPH_AndroidVerticalTabsPromo";
 
     String APP_RATING_PROMPT_FEATURE = "IPH_AppRatingPrompt";
@@ -272,8 +272,6 @@ public @interface FeatureConstants {
      * accessible through Downloads Home.
      */
     String DOWNLOAD_SETTINGS_FEATURE = "IPH_DownloadSettings";
-
-    String EPHEMERAL_TAB_FEATURE = "IPH_EphemeralTab";
 
     /** An IPH feature to show on a card menu on the FeedNewTabPage. */
     String FEED_CARD_MENU_FEATURE = "IPH_FeedCardMenu";
@@ -422,8 +420,6 @@ public @interface FeatureConstants {
     String READ_LATER_APP_MENU_BOOKMARK_THIS_PAGE_FEATURE = "IPH_ReadLaterAppMenuBookmarkThisPage";
 
     String READ_LATER_BOTTOM_SHEET_FEATURE = "IPH_ReadLaterBottomSheet";
-
-    String READ_LATER_CONTEXT_MENU_FEATURE = "IPH_ReadLaterContextMenu";
 
     /**
      * An IPH feature prompting user that they can find their recently closed tabs and windows in

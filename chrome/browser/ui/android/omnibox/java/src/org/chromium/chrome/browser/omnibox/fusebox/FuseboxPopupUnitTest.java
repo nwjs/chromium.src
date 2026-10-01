@@ -42,6 +42,7 @@ import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
+import org.mockito.quality.Strictness;
 import org.robolectric.Robolectric;
 import org.robolectric.Shadows;
 
@@ -65,7 +66,8 @@ import java.util.Locale;
 /** Unit tests for FuseboxPopup. */
 @RunWith(BaseRobolectricTestRunner.class)
 public class FuseboxPopupUnitTest {
-    @Rule public final MockitoRule mockitoRule = MockitoJUnit.rule();
+    @Rule
+    public final MockitoRule mMockitoRule = MockitoJUnit.rule().strictness(Strictness.STRICT_STUBS);
 
     @Mock private AnchoredPopupWindow mPopupWindow;
     @Mock private DynamicRectProvider mDynamicRectProvider;
@@ -106,7 +108,8 @@ public class FuseboxPopupUnitTest {
                         mPopupWindow,
                         mContentView,
                         mDynamicRectProvider,
-                        /* isBottomSheet= */ false);
+                        /* isBottomSheet= */ false,
+                        /* useCarousel= */ false);
     }
 
     @After
@@ -121,7 +124,7 @@ public class FuseboxPopupUnitTest {
                 });
     }
 
-    private void recreateFuseboxPopup(boolean isBottomSheet) {
+    private void recreateFuseboxPopup(boolean isBottomSheet, boolean useCarousel) {
         mContentView = LayoutInflater.from(mActivity).inflate(R.layout.fusebox_context_popup, null);
         mActivity.setContentView(mContentView);
         mFuseboxPopup =
@@ -131,7 +134,8 @@ public class FuseboxPopupUnitTest {
                         mPopupWindow,
                         mContentView,
                         mDynamicRectProvider,
-                        isBottomSheet);
+                        isBottomSheet,
+                        useCarousel);
     }
 
     private void setupMultiWindowMetrics(
@@ -256,7 +260,7 @@ public class FuseboxPopupUnitTest {
         OmniboxFeatures.setShowBottomSheetPopupForTesting(false);
 
         // Re-create content view and popup to trigger new inflation logic
-        recreateFuseboxPopup(/* isBottomSheet= */ false);
+        recreateFuseboxPopup(/* isBottomSheet= */ false, /* useCarousel= */ false);
 
         // Verify that we can find the elements
         assertNotNull(mFuseboxPopup.mAddCurrentTab);
@@ -264,6 +268,7 @@ public class FuseboxPopupUnitTest {
         assertNotNull(mFuseboxPopup.mCameraButton);
         assertNotNull(mFuseboxPopup.mGalleryButton);
         assertNotNull(mFuseboxPopup.mFileButton);
+        assertNotNull(mFuseboxPopup.mDriveButton);
     }
 
     @Test
@@ -272,7 +277,7 @@ public class FuseboxPopupUnitTest {
         OmniboxFeatures.setShowBottomSheetPopupForTesting(true);
 
         // Re-create content view and popup to trigger new inflation logic
-        recreateFuseboxPopup(/* isBottomSheet= */ true);
+        recreateFuseboxPopup(/* isBottomSheet= */ true, /* useCarousel= */ true);
 
         // Verify that we can find the elements
         assertNotNull(mFuseboxPopup.mAddCurrentTab);
@@ -280,6 +285,7 @@ public class FuseboxPopupUnitTest {
         assertNotNull(mFuseboxPopup.mCameraButton);
         assertNotNull(mFuseboxPopup.mGalleryButton);
         assertNotNull(mFuseboxPopup.mFileButton);
+        assertNotNull(mFuseboxPopup.mDriveButton);
     }
 
     @Test
@@ -297,17 +303,6 @@ public class FuseboxPopupUnitTest {
 
     @Test
     public void testUpdateInsets_ImeVisible() {
-        Insets imeInsets = Insets.of(0, 0, 0, 100);
-        Insets navBarInsets = Insets.of(0, 0, 0, 50);
-        Insets statusBarsInsets = Insets.of(0, 20, 0, 0);
-
-        when(mInsetObserver.getLastRawWindowInsets()).thenReturn(mWindowInsets);
-        when(mWindowInsets.getInsets(WindowInsetsCompat.Type.ime())).thenReturn(imeInsets);
-        when(mWindowInsets.getInsets(WindowInsetsCompat.Type.navigationBars()))
-                .thenReturn(navBarInsets);
-        when(mWindowInsets.getInsets(WindowInsetsCompat.Type.statusBars()))
-                .thenReturn(statusBarsInsets);
-
         doReturn(true).when(mPopupWindow).isShowing();
         mFuseboxPopup.setPopupState(PopupState.FLOATING);
 
@@ -316,31 +311,6 @@ public class FuseboxPopupUnitTest {
         assertEquals(0, mFuseboxPopup.mScrollView.getPaddingBottom());
 
         // Second layout update to test idempotency.
-        mFuseboxPopup.updateLayout();
-        assertEquals(0, mFuseboxPopup.mScrollView.getPaddingBottom());
-    }
-
-    @Test
-    public void testUpdateInsets_ImeHidden() {
-        Insets imeInsets = Insets.of(0, 0, 0, 0);
-        Insets navBarInsets = Insets.of(0, 0, 0, 50);
-        Insets statusBarsInsets = Insets.of(0, 20, 0, 0);
-
-        when(mInsetObserver.getLastRawWindowInsets()).thenReturn(mWindowInsets);
-        when(mWindowInsets.getInsets(WindowInsetsCompat.Type.ime())).thenReturn(imeInsets);
-        when(mWindowInsets.getInsets(WindowInsetsCompat.Type.navigationBars()))
-                .thenReturn(navBarInsets);
-        when(mWindowInsets.getInsets(WindowInsetsCompat.Type.statusBars()))
-                .thenReturn(statusBarsInsets);
-
-        doReturn(true).when(mPopupWindow).isShowing();
-        mFuseboxPopup.setPopupState(PopupState.FLOATING);
-
-        // First layout update
-        mFuseboxPopup.updateLayout();
-        assertEquals(0, mFuseboxPopup.mScrollView.getPaddingBottom());
-
-        // Second layout update to test idempotency
         mFuseboxPopup.updateLayout();
         assertEquals(0, mFuseboxPopup.mScrollView.getPaddingBottom());
     }
@@ -361,7 +331,7 @@ public class FuseboxPopupUnitTest {
 
     @Test
     public void testFlingDismissesPopup_whenBottomSheet() {
-        recreateFuseboxPopup(/* isBottomSheet= */ true);
+        recreateFuseboxPopup(/* isBottomSheet= */ true, /* useCarousel= */ false);
 
         // Call onFling directly on the exposed listener to avoid flaky MotionEvents.
         int minFlingVelocity = ViewConfiguration.get(mActivity).getScaledMinimumFlingVelocity();
@@ -398,7 +368,7 @@ public class FuseboxPopupUnitTest {
                     mActivity.getResources().updateConfiguration(config, null);
                 });
 
-        recreateFuseboxPopup(/* isBottomSheet= */ false);
+        recreateFuseboxPopup(/* isBottomSheet= */ false, /* useCarousel= */ false);
 
         RobolectricUtil.runAllBackgroundAndUi();
         assertEquals(View.LAYOUT_DIRECTION_RTL, mFuseboxPopup.mScrollView.getLayoutDirection());
@@ -415,7 +385,7 @@ public class FuseboxPopupUnitTest {
         config.setLayoutDirection(Locale.getDefault());
         mActivity.getResources().updateConfiguration(config, null);
 
-        recreateFuseboxPopup(/* isBottomSheet= */ false);
+        recreateFuseboxPopup(/* isBottomSheet= */ false, /* useCarousel= */ false);
 
         RobolectricUtil.runAllBackgroundAndUi();
         assertEquals(View.LAYOUT_DIRECTION_LTR, mFuseboxPopup.mScrollView.getLayoutDirection());
@@ -423,7 +393,7 @@ public class FuseboxPopupUnitTest {
 
     @Test
     public void testUpdateInsets_BottomSheet_MultiWindow_Top() {
-        recreateFuseboxPopup(/* isBottomSheet= */ true);
+        recreateFuseboxPopup(/* isBottomSheet= */ true, /* useCarousel= */ true);
         mFuseboxPopup.setPopupState(PopupState.BOTTOM);
         doReturn(true).when(mPopupWindow).isShowing();
 
@@ -438,7 +408,7 @@ public class FuseboxPopupUnitTest {
 
     @Test
     public void testUpdateInsets_BottomSheet_MultiWindow_Bottom() {
-        recreateFuseboxPopup(/* isBottomSheet= */ true);
+        recreateFuseboxPopup(/* isBottomSheet= */ true, /* useCarousel= */ true);
         mFuseboxPopup.setPopupState(PopupState.BOTTOM);
         doReturn(true).when(mPopupWindow).isShowing();
 
@@ -449,5 +419,28 @@ public class FuseboxPopupUnitTest {
         mFuseboxPopup.updateLayout();
 
         assertEquals(initialPadding + 100, mFuseboxPopup.mScrollView.getPaddingBottom());
+    }
+
+    @Test
+    public void testSetAccordionExpanded() {
+        mFuseboxPopup.setAccordionEnabled(true);
+        assertNotNull(mFuseboxPopup.mAccordionContainer);
+        assertEquals(View.GONE, mFuseboxPopup.mAccordionContainer.getVisibility());
+
+        mFuseboxPopup.setAccordionExpanded(true);
+        assertEquals(View.VISIBLE, mFuseboxPopup.mAccordionContainer.getVisibility());
+
+        mFuseboxPopup.setAccordionExpanded(false);
+        assertEquals(View.GONE, mFuseboxPopup.mAccordionContainer.getVisibility());
+    }
+
+    @Test
+    public void testSetAccordionEnabled() {
+        mFuseboxPopup.setAccordionEnabled(false);
+        assertNotNull(mFuseboxPopup.mAccordionContainer);
+        assertEquals(View.VISIBLE, mFuseboxPopup.mAccordionContainer.getVisibility());
+
+        mFuseboxPopup.setAccordionEnabled(true);
+        assertEquals(View.GONE, mFuseboxPopup.mAccordionContainer.getVisibility());
     }
 }

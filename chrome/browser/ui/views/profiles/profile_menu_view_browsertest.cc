@@ -71,8 +71,8 @@
 #include "chrome/browser/ui/signin/account_preview_utils.h"
 #include "chrome/browser/ui/signin/signin_view_controller.h"
 #include "chrome/browser/ui/tabs/tab_enums.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/test/test_browser_dialog.h"
-#include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/profiles/profile_menu_coordinator.h"
 #include "chrome/browser/ui/views/profiles/profile_menu_view_base.h"
@@ -102,6 +102,7 @@
 #include "components/bookmarks/browser/bookmark_model.h"
 #include "components/bookmarks/browser/bookmark_node.h"
 #include "components/bookmarks/test/bookmark_test_helpers.h"
+#include "components/enterprise/isolated_mode/isolated_mode_features.h"
 #include "components/feature_engagement/public/feature_constants.h"
 #include "components/google/core/common/google_util.h"
 #include "components/password_manager/core/common/password_manager_features.h"
@@ -131,6 +132,7 @@
 #include "components/user_education/common/feature_promo/feature_promo_controller.h"
 #include "components/user_education/common/feature_promo/feature_promo_result.h"
 #include "components/webapps/common/web_app_id.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/test_navigation_observer.h"
@@ -147,6 +149,7 @@
 #include "services/network/test/test_url_loader_factory.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "ui/base/page_transition_types.h"
 #include "ui/events/event_utils.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/controls/button/label_button.h"
@@ -206,7 +209,7 @@ class MockSigninUiDelegate : public signin_ui_util::SigninUiDelegate {
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
   MOCK_METHOD(void,
               ShowCrossDeviceSigninQrBubble,
-              (BrowserWindowInterface*, base::OnceClosure),
+              (BrowserWindowInterface*, GURL, base::OnceClosure),
               (override));
 #endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 };
@@ -276,9 +279,21 @@ class ProfileMenuViewTestBase {
                     base::Unretained(this)))),
         override_testing_factories_(override_testing_factories) {}
 
-  void OpenProfileMenu(BrowserWindowInterface* target_browser = nullptr) {
+  void OpenProfileMenu(BrowserWindowInterface* target_browser = nullptr,
+                       bool from_avatar_promo = false) {
     if (target_browser == nullptr) {
       target_browser = target_browser_;
+    }
+    if (from_avatar_promo) {
+      auto* coordinator = ProfileMenuCoordinator::From(target_browser);
+      ASSERT_TRUE(coordinator);
+      coordinator->Show(/*is_source_accelerator=*/false,
+                        /*from_avatar_promo=*/true);
+      ASSERT_TRUE(base::test::RunUntil(
+          [coordinator]() { return coordinator->IsShowing(); }));
+      ASSERT_NO_FATAL_FAILURE(WaitForMenuToBeActive(profile_menu_view()));
+      profile_menu_view()->GetFocusManager()->ClearFocus();
+      return;
     }
     // Click the avatar button to open the menu.
     AvatarToolbarButtonTestAccessor avatar_accessor(target_browser);
@@ -682,8 +697,7 @@ class ProfileMenuViewSignoutTest : public ProfileMenuViewTestBase,
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
     if (observer.get()) {
       observer->Wait();
-      auto* signin_view_controller =
-          browser()->GetFeatures().signin_view_controller();
+      auto* signin_view_controller = SigninViewController::From(browser());
       auto* signout_ui = SignoutConfirmationUI::GetForTesting(
           signin_view_controller->GetModalDialogWebContentsForTesting());
       if (!signout_ui) {
@@ -913,8 +927,10 @@ class ProfileMenuViewSyncErrorButtonTest : public ProfileMenuViewTestBase,
     // Add an account.
     signin::IdentityManager* identity_manager =
         IdentityManagerFactory::GetForProfile(browser()->GetProfile());
-    account_info_ = signin::MakePrimaryAccountAvailable(
-        identity_manager, kTestEmail, signin::ConsentLevel::kSync);
+    account_info_ =
+        signin::MakePrimaryAccountAvailable(identity_manager, kTestEmail,
+                                            signin::ConsentLevel::kSync)
+            .GetCoreAccountInfo();
     signin::SetInvalidRefreshTokenForPrimaryAccount(identity_manager);
     ASSERT_TRUE(
         identity_manager->HasAccountWithRefreshTokenInPersistentErrorState(
@@ -982,8 +998,10 @@ IN_PROC_BROWSER_TEST_F(ProfileMenuViewSyncServiceUnavailableTest,
   // Add an account with sync consent.
   signin::IdentityManager* identity_manager =
       IdentityManagerFactory::GetForProfile(browser()->GetProfile());
-  CoreAccountInfo account_info = signin::MakePrimaryAccountAvailable(
-      identity_manager, kTestEmail, signin::ConsentLevel::kSync);
+  CoreAccountInfo account_info =
+      signin::MakePrimaryAccountAvailable(identity_manager, kTestEmail,
+                                          signin::ConsentLevel::kSync)
+          .GetCoreAccountInfo();
 
   // Set an invalid refresh token to trigger the kSyncPaused state.
   signin::SetInvalidRefreshTokenForPrimaryAccount(identity_manager);
@@ -1012,9 +1030,12 @@ class ProfileMenuViewWebOnlyTest : public ProfileMenuViewTestBase,
     // Add an account, not signed in.
     signin::IdentityManager* identity_manager =
         IdentityManagerFactory::GetForProfile(browser()->GetProfile());
-    account_info_ = identity_test_env()->MakeAccountAvailable(
-        kTestEmail,
-        {.primary_account_consent_level = std::nullopt, .set_cookie = true});
+    account_info_ =
+        identity_test_env()
+            ->MakeAccountAvailable(
+                kTestEmail, {.primary_account_consent_level = std::nullopt,
+                             .set_cookie = true})
+            .GetCoreAccountInfo();
 
     ASSERT_FALSE(
         identity_manager->HasPrimaryAccount(signin::ConsentLevel::kSignin));
@@ -1108,7 +1129,7 @@ IN_PROC_BROWSER_TEST_F(ProfileMenuViewWebOnlyTest, AccountPreferenceSubtitle) {
   OpenProfileMenu();
 
   std::optional<std::string> expected_subtitle =
-      signin::GetAccountPreviewPromoSubtitle(pref);
+      signin::GetAccountPreviewProfileMenuSubtitle(account_info_.email, pref);
   ASSERT_TRUE(expected_subtitle.has_value());
 
   auto get_labels = [](views::View* root,
@@ -1192,8 +1213,10 @@ class ProfileMenuViewSigninPendingTest : public ProfileMenuViewTestBase,
     Profile* profile = browser()->GetProfile();
     signin::IdentityManager* identity_manager =
         IdentityManagerFactory::GetForProfile(profile);
-    account_info_ = signin::MakePrimaryAccountAvailable(
-        identity_manager, kTestEmail, signin::ConsentLevel::kSignin);
+    account_info_ =
+        signin::MakePrimaryAccountAvailable(identity_manager, kTestEmail,
+                                            signin::ConsentLevel::kSignin)
+            .GetCoreAccountInfo();
     signin::UpdatePersistentErrorOfRefreshTokenForAccount(
         identity_manager, account_info_.account_id,
         GoogleServiceAuthError::FromInvalidGaiaCredentialsReason(
@@ -1304,14 +1327,16 @@ class ProfileMenuClickTest : public InProcessBrowserTest,
   AccountInfo EnableSync() {
     AccountInfo account_info = signin::MakePrimaryAccountAvailable(
         identity_manager(), kTestEmail, signin::ConsentLevel::kSync);
-    sync_service()->SetSignedIn(signin::ConsentLevel::kSync, account_info);
+    sync_service()->SetSignedIn(signin::ConsentLevel::kSync,
+                                account_info.GetCoreAccountInfo());
     return account_info;
   }
 
   AccountInfo Signin() {
     AccountInfo account_info = signin::MakePrimaryAccountAvailable(
         identity_manager(), kTestEmail, signin::ConsentLevel::kSignin);
-    sync_service()->SetSignedIn(signin::ConsentLevel::kSignin, account_info);
+    sync_service()->SetSignedIn(signin::ConsentLevel::kSignin,
+                                account_info.GetCoreAccountInfo());
     return account_info;
   }
 
@@ -1336,8 +1361,9 @@ class ProfileMenuClickTest : public InProcessBrowserTest,
   }
 
   // This should be called in the test body.
-  void RunTest() {
-    ASSERT_NO_FATAL_FAILURE(OpenProfileMenu());
+  void RunTest(bool from_avatar_promo = false) {
+    ASSERT_NO_FATAL_FAILURE(
+        OpenProfileMenu(/*target_browser=*/nullptr, from_avatar_promo));
 
     // These tests don't care about performing the actual menu actions, only
     // about the histogram recorded.
@@ -1502,7 +1528,7 @@ class ProfileMenuViewBookmarksLimitExceededTest
 
     // Wait for the error to appear in SyncService.
     BookmarksLimitExceededChecker checker(GetSyncService(0));
-    checker.Wait();
+    ASSERT_TRUE(checker.Wait());
   }
 
  private:
@@ -1614,11 +1640,8 @@ constexpr std::array kActionableItems_ManagedProfile = {
     // there are no other buttons at the end.
     ProfileMenuViewBase::ActionableItem::kProfileManagementLabel};
 
-PROFILE_MENU_CLICK_WITH_FEATURE_TEST(
-    kActionableItems_ManagedProfile,
-    ProfileMenuClickTest_ManagedProfile,
-    /*enabled_features=*/{features::kEnterpriseProfileBadgingForMenu},
-    /*disabled_features=*/{}) {
+PROFILE_MENU_CLICK_TEST(kActionableItems_ManagedProfile,
+                        ProfileMenuClickTest_ManagedProfile) {
   enterprise_util::SetUserAcceptedAccountManagement(browser()->GetProfile(),
                                                     true);
   std::unique_ptr<policy::ScopedManagementServiceOverrideForTesting>
@@ -2266,7 +2289,41 @@ PROFILE_MENU_CLICK_WITH_FEATURE_TEST(
   batch_upload_test_helper().SetReturnDescriptions(syncer::PASSWORDS,
                                                    /*item_count=*/5);
 
-  RunTest();
+  RunTest(/*from_avatar_promo=*/true);
+}
+
+// List of actionable items in the correct order as they appear in the menu when
+// batch upload is eligible, but the menu is opened normally (outside pill
+// expansion). Only the row button to upload data is shown, not the primary
+// promo button.
+constexpr std::array kActionableItems_WithBatchUploadOnlyRowButton = {
+    ProfileMenuViewBase::ActionableItem::kBatchUploadButton,
+    ProfileMenuViewBase::ActionableItem::kAutofillSettingsButton,
+    ProfileMenuViewBase::ActionableItem::kManageGoogleAccountButton,
+    ProfileMenuViewBase::ActionableItem::kEditProfileButton,
+    ProfileMenuViewBase::ActionableItem::kAccountSettingsButton,
+    ProfileMenuViewBase::ActionableItem::kSignoutButton,
+    ProfileMenuViewBase::ActionableItem::kAddNewProfileButton,
+    ProfileMenuViewBase::ActionableItem::kGuestProfileButton,
+    ProfileMenuViewBase::ActionableItem::kManageProfilesButton,
+    // The first button is added again to finish the cycle and test that
+    // there are no other buttons at the end.
+    ProfileMenuViewBase::ActionableItem::kBatchUploadButton};
+
+PROFILE_MENU_CLICK_WITH_FEATURE_TEST(
+    kActionableItems_WithBatchUploadOnlyRowButton,
+    ProfileMenuClickTest_WithBatchUploadOnlyRowButton,
+    /*enabled_features=*/
+    std::vector<base::test::FeatureRef>(
+        {syncer::kReplaceSyncPromosWithSignInPromos,
+         switches::kSigninWindows10DepreciationStateBypassForTesting}),
+    /*disabled_features=*/{}) {
+  Signin();
+  signin_util::EnableHistorySync(sync_service());
+  batch_upload_test_helper().SetReturnDescriptions(syncer::PASSWORDS,
+                                                   /*item_count=*/5);
+
+  RunTest(/*from_avatar_promo=*/false);
 }
 
 // List of actionable items in the correct order as they appear in the menu. If
@@ -2302,7 +2359,7 @@ PROFILE_MENU_CLICK_WITH_FEATURE_TEST(
   batch_upload_test_helper().SetReturnDescriptions(syncer::PASSWORDS,
                                                    /*item_count=*/5);
 
-  RunTest();
+  RunTest(/*from_avatar_promo=*/true);
 }
 
 // List of actionable items in the correct order as they appear in the menu. If
@@ -2343,7 +2400,7 @@ PROFILE_MENU_CLICK_WITH_FEATURE_TEST(
   batch_upload_test_helper().SetReturnDescriptions(syncer::BOOKMARKS,
                                                    /*item_count=*/5);
 
-  RunTest();
+  RunTest(/*from_avatar_promo=*/true);
 }
 
 // List of actionable items in the correct order as they appear in the menu in
@@ -2431,8 +2488,7 @@ PROFILE_MENU_CLICK_WITH_FEATURE_TEST(
     ProfileMenuClickTest_GuestProfileButtonNotAvailable_SignedInSupervised_ReplaceSyncPromosEnabled,
     /*enabled_features=*/
     std::vector<base::test::FeatureRef>(
-        {features::kEnterpriseProfileBadgingForMenu,
-         syncer::kReplaceSyncPromosWithSignInPromos}),
+        {syncer::kReplaceSyncPromosWithSignInPromos}),
     /*disabled_features=*/{}) {
   AccountInfo account_info = Signin();
   supervised_user::UpdateSupervisionStatusForAccount(
@@ -2467,8 +2523,7 @@ PROFILE_MENU_CLICK_WITH_FEATURE_TEST(
     kActionableItems_GuestProfileButtonNotAvailable_SignedInSupervised_ReplaceSyncPromosDisabled,
     ProfileMenuClickTest_GuestProfileButtonNotAvailable_SignedInSupervised_ReplaceSyncPromosDisabled,
     /*enabled_features=*/
-    std::vector<base::test::FeatureRef>(
-        {features::kEnterpriseProfileBadgingForMenu}),
+    std::vector<base::test::FeatureRef>(),
     /*disabled_features=*/
     (std::vector<base::test::FeatureRef>{
         syncer::kReplaceSyncPromosWithSignInPromos,
@@ -2495,6 +2550,43 @@ constexpr std::array kActionableItems_IncognitoProfile = {
 PROFILE_MENU_CLICK_TEST(kActionableItems_IncognitoProfile,
                         ProfileMenuClickTest_IncognitoProfile) {
   SetTargetBrowser(CreateIncognitoBrowser(browser()->GetProfile()));
+
+  RunTest();
+}
+
+class ProfileMenuClickTestEnterpriseIsolated : public ProfileMenuClickTest {
+ public:
+  void SetUpCommandLine(base::CommandLine* command_line) override {
+    ProfileMenuClickTest::SetUpCommandLine(command_line);
+    command_line->AppendSwitch(
+        enterprise_isolated_mode::switches::
+            kForceEnterpriseIsolatedModeReplacesIncognito);
+  }
+};
+
+// List of actionable items in the correct order as they appear in the menu.
+// If a new button is added to the menu, it should also be added to this list.
+constexpr std::array kActionableItems_EnterpriseIsolatedProfile = {
+    ProfileMenuViewBase::ActionableItem::kProfileManagementLabel,
+    ProfileMenuViewBase::ActionableItem::kExitProfileButton,
+    // The first button is added again to finish the cycle and test that
+    // there are no other buttons at the end.
+    ProfileMenuViewBase::ActionableItem::kProfileManagementLabel};
+
+PROFILE_MENU_CLICK_TEST_F(ProfileMenuClickTestEnterpriseIsolated,
+                          kActionableItems_EnterpriseIsolatedProfile,
+                          ProfileMenuClickTest_EnterpriseIsolatedProfile) {
+  enterprise_util::SetUserAcceptedAccountManagement(browser()->GetProfile(),
+                                                    true);
+  policy::ScopedManagementServiceOverrideForTesting scoped_browser_management(
+      policy::ManagementServiceFactory::GetForProfile(browser()->GetProfile()),
+      policy::EnterpriseManagementAuthority::CLOUD);
+
+  BrowserWindowInterface* isolated_browser =
+      CreateIncognitoBrowser(browser()->GetProfile());
+  ASSERT_TRUE(
+      isolated_browser->GetProfile()->IsEnterpriseIsolatedModeProfile());
+  SetTargetBrowser(isolated_browser);
 
   RunTest();
 }
@@ -3058,10 +3150,12 @@ class ProfileMenuSigninAccessPointTest : public SigninBrowserTestBase {
     // Add a signed in account.
     signin::IdentityManager* identity_manager =
         IdentityManagerFactory::GetForProfile(browser()->GetProfile());
-    account_info_ = identity_test_env()->MakeAccountAvailable(
-        kTestEmail,
-        {.primary_account_consent_level = signin::ConsentLevel::kSignin,
-         .set_cookie = true});
+    account_info_ = identity_test_env()
+                        ->MakeAccountAvailable(
+                            kTestEmail, {.primary_account_consent_level =
+                                             signin::ConsentLevel::kSignin,
+                                         .set_cookie = true})
+                        .GetCoreAccountInfo();
     ASSERT_TRUE(
         identity_manager->HasPrimaryAccount(signin::ConsentLevel::kSignin));
     ASSERT_EQ(identity_manager->GetAccountsWithRefreshTokens().size(), 1u);

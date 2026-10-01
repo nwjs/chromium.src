@@ -30,7 +30,6 @@
 #include "ash/controls/rounded_scroll_bar.h"
 #include "ash/controls/scroll_view_gradient_helper.h"
 #include "ash/public/cpp/metrics_util.h"
-#include "ash/public/cpp/style/color_provider.h"
 #include "ash/resources/vector_icons/vector_icons.h"
 #include "ash/strings/grit/ash_strings.h"
 #include "ash/style/icon_button.h"
@@ -168,6 +167,7 @@ AppListBubbleAppsPage::AppListBubbleAppsPage(
   DCHECK(a11y_announcer);
   DCHECK(folder_controller);
 
+  search_box_->AddObserver(this);
   AppListModelProvider::Get()->AddObserver(this);
 
   SetUseDefaultFillLayout(true);
@@ -647,6 +647,13 @@ void AppListBubbleAppsPage::OnViewVisibilityChanged(views::View* observed_view,
                                                     bool visible) {
   if (starting_view == continue_section_ || starting_view == recent_apps_) {
     UpdateSeparatorVisibility();
+  }
+}
+
+void AppListBubbleAppsPage::OnViewIsDeleting(views::View* observed_view) {
+  if (observed_view == search_box_) {
+    search_box_->RemoveObserver(this);
+    search_box_ = nullptr;
   }
 }
 

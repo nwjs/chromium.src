@@ -6,7 +6,6 @@ package org.chromium.chrome.browser.omnibox.suggestions.action;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 
@@ -16,6 +15,7 @@ import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
+import org.mockito.quality.Strictness;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.chrome.browser.omnibox.R;
@@ -34,7 +34,9 @@ import java.util.List;
 /** Tests for {@link OmniboxPedal}s. */
 @RunWith(BaseRobolectricTestRunner.class)
 public class OmniboxPedalUnitTest {
-    @Rule public final MockitoRule mockitoRule = MockitoJUnit.rule();
+    @Rule
+    public final MockitoRule mMockitoRule = MockitoJUnit.rule().strictness(Strictness.STRICT_STUBS);
+
     @Mock private OmniboxActionDelegate mDelegate;
     private static final List<Integer> sPedalsWithCustomIcons =
             List.of(OmniboxPedalId.PLAY_CHROME_DINO_GAME);
@@ -109,7 +111,7 @@ public class OmniboxPedalUnitTest {
     @Test
     public void executePedal_manageChromeSettings() {
         new OmniboxPedal(0, "hint", "", OmniboxPedalId.MANAGE_CHROME_SETTINGS).execute(mDelegate);
-        verify(mDelegate, times(1)).openSettingsPage(SettingsFragment.MAIN);
+        verify(mDelegate).openSettingsPage(SettingsFragment.MAIN);
         verifyNoMoreInteractions(mDelegate);
     }
 
@@ -123,28 +125,28 @@ public class OmniboxPedalUnitTest {
     @Test
     public void executePedal_managePasswords() {
         new OmniboxPedal(0, "hint", "", OmniboxPedalId.MANAGE_PASSWORDS).execute(mDelegate);
-        verify(mDelegate, times(1)).openPasswordManager();
+        verify(mDelegate).openPasswordManager();
         verifyNoMoreInteractions(mDelegate);
     }
 
     @Test
     public void executePedal_updateCreditCard() {
         new OmniboxPedal(0, "hint", "", OmniboxPedalId.UPDATE_CREDIT_CARD).execute(mDelegate);
-        verify(mDelegate, times(1)).openSettingsPage(SettingsFragment.PAYMENT_METHODS);
+        verify(mDelegate).openSettingsPage(SettingsFragment.PAYMENT_METHODS);
         verifyNoMoreInteractions(mDelegate);
     }
 
     @Test
     public void executePedal_runChromeSafetyCheck() {
         new OmniboxPedal(0, "hint", "", OmniboxPedalId.RUN_CHROME_SAFETY_CHECK).execute(mDelegate);
-        verify(mDelegate, times(1)).openSettingsPage(SettingsFragment.SAFETY_CHECK);
+        verify(mDelegate).openSettingsPage(SettingsFragment.SAFETY_CHECK);
         verifyNoMoreInteractions(mDelegate);
     }
 
     @Test
     public void executePedal_manageSiteSettings() {
         new OmniboxPedal(0, "hint", "", OmniboxPedalId.MANAGE_SITE_SETTINGS).execute(mDelegate);
-        verify(mDelegate, times(1)).openSettingsPage(SettingsFragment.SITE);
+        verify(mDelegate).openSettingsPage(SettingsFragment.SITE);
         verifyNoMoreInteractions(mDelegate);
     }
 
@@ -152,29 +154,28 @@ public class OmniboxPedalUnitTest {
     public void executePedal_manageChromeAccessibility() {
         new OmniboxPedal(0, "hint", "", OmniboxPedalId.MANAGE_CHROME_ACCESSIBILITY)
                 .execute(mDelegate);
-        verify(mDelegate, times(1)).openSettingsPage(SettingsFragment.ACCESSIBILITY);
+        verify(mDelegate).openSettingsPage(SettingsFragment.ACCESSIBILITY);
         verifyNoMoreInteractions(mDelegate);
     }
 
     @Test
     public void executePedal_launchIncognito() {
         new OmniboxPedal(0, "hint", "", OmniboxPedalId.LAUNCH_INCOGNITO).execute(mDelegate);
-        verify(mDelegate, times(1)).openIncognitoTab();
+        verify(mDelegate).openIncognitoTab();
         verifyNoMoreInteractions(mDelegate);
     }
 
     @Test
     public void executePedal_viewChromeHistory() {
         new OmniboxPedal(0, "hint", "", OmniboxPedalId.VIEW_CHROME_HISTORY).execute(mDelegate);
-        verify(mDelegate, times(1))
-                .loadPageInCurrentTab(UrlConstantResolver.getOriginalNativeHistoryUrl());
+        verify(mDelegate).loadPageInCurrentTab(UrlConstantResolver.getOriginalNativeHistoryUrl());
         verifyNoMoreInteractions(mDelegate);
     }
 
     @Test
     public void executePedal_playChromeDinoGame() {
         new OmniboxPedal(0, "hint", "", OmniboxPedalId.PLAY_CHROME_DINO_GAME).execute(mDelegate);
-        verify(mDelegate, times(1)).loadPageInCurrentTab(UrlConstants.CHROME_DINO_URL);
+        verify(mDelegate).loadPageInCurrentTab(UrlConstants.CHROME_DINO_URL);
         verifyNoMoreInteractions(mDelegate);
     }
 }

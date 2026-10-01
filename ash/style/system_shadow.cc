@@ -12,7 +12,7 @@
 #include "ui/aura/window_observer.h"
 #include "ui/color/color_provider.h"
 #include "ui/compositor/layer_nine_patch.h"
-#include "ui/compositor_extra/shadow.h"
+#include "ui/decoration/shadow.h"
 #include "ui/views/view.h"
 #include "ui/views/view_observer.h"
 #include "ui/views/view_shadow.h"
@@ -26,17 +26,11 @@ namespace {
 // SystemShadowImpl:
 
 // An implementation of `SystemShadow`. It is directly based on ui::Shadow.
-class SystemShadowImpl : public SystemShadow, public ui::LayerOwner::Observer {
+class SystemShadowImpl : public SystemShadow {
  public:
-  SystemShadowImpl(SystemShadow::Type type,
-                   const LayerRecreatedCallback& layer_recreated_callback)
-      : layer_recreated_callback_(layer_recreated_callback) {
+  explicit SystemShadowImpl(SystemShadow::Type type) {
     shadow_.Init(SystemShadow::GetElevationFromType(type));
-    shadow_.SetShadowStyle(gfx::ShadowStyle::kChromeOSSystemUI);
-
-    if (layer_recreated_callback) {
-      shadow_observation_.Observe(&shadow_);
-    }
+    shadow_.SetStyle(ui::Shadow::Style::kChromeOSSystemUI);
   }
 
   SystemShadowImpl(const SystemShadowImpl&) = delete;
@@ -44,21 +38,12 @@ class SystemShadowImpl : public SystemShadow, public ui::LayerOwner::Observer {
 
   ~SystemShadowImpl() override = default;
 
-  // ui::LayerOwner::Observer:
-  void OnLayerRecreated(ui::Layer* old_layer) override {
-    layer_recreated_callback_.Run(old_layer, shadow_.layer());
-  }
-
  private:
   // SystemShadow:
   ui::Shadow* shadow() override { return &shadow_; }
   const ui::Shadow* shadow() const override { return &shadow_; }
 
-  LayerRecreatedCallback layer_recreated_callback_;
   ui::Shadow shadow_;
-
-  base::ScopedObservation<ui::LayerOwner, SystemShadowImpl> shadow_observation_{
-      this};
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -71,7 +56,7 @@ class SystemViewShadow : public SystemShadow, public views::ViewObserver {
  public:
   SystemViewShadow(views::View* view, SystemShadow::Type type)
       : view_shadow_(view, SystemShadow::GetElevationFromType(type)) {
-    view_shadow_.shadow()->SetShadowStyle(gfx::ShadowStyle::kChromeOSSystemUI);
+    view_shadow_.shadow()->SetStyle(ui::Shadow::Style::kChromeOSSystemUI);
     view_observation_.Observe(view);
     if (auto* widget = view->GetWidget()) {
       ObserveColorProviderSource(widget);
@@ -111,7 +96,7 @@ class SystemWindowShadow : public SystemShadowImpl,
                            public aura::WindowObserver {
  public:
   SystemWindowShadow(aura::Window* window, SystemShadow::Type type)
-      : SystemShadowImpl(type, LayerRecreatedCallback()) {
+      : SystemShadowImpl(type) {
     auto* window_layer = window->layer();
     auto* shadow_layer = GetLayer();
     window_layer->Add(shadow_layer);
@@ -157,10 +142,8 @@ SystemShadow::~SystemShadow() = default;
 
 // static
 std::unique_ptr<SystemShadow> SystemShadow::CreateShadowOnNinePatchLayer(
-    Type shadow_type,
-    const LayerRecreatedCallback& layer_recreated_callback) {
-  return std::make_unique<SystemShadowImpl>(shadow_type,
-                                            layer_recreated_callback);
+    Type shadow_type) {
+  return std::make_unique<SystemShadowImpl>(shadow_type);
 }
 
 // static
@@ -212,10 +195,6 @@ ui::Layer* SystemShadow::GetLayer() {
   return shadow()->layer();
 }
 
-ui::LayerNinePatch* SystemShadow::GetNinePatchLayer() {
-  return shadow()->shadow_layer();
-}
-
 void SystemShadow::ObserveColorProviderSource(
     ui::ColorProviderSource* color_provider_source) {
   Observe(color_provider_source);
@@ -232,7 +211,7 @@ const gfx::ShadowValues SystemShadow::GetShadowValuesForTesting() const {
 }
 
 void SystemShadow::UpdateShadowColors(const ui::ColorProvider* color_provider) {
-  shadow()->SetElevationToColorsMap(
+  shadow()->SetColorMap(
       StyleUtil::CreateShadowElevationToColorsMap(color_provider));
 }
 

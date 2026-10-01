@@ -36,6 +36,7 @@
 #include "content/browser/indexed_db/instance/sqlite/backing_store_database_impl.h"
 #include "content/browser/indexed_db/instance/sqlite/database_connection.h"
 #include "content/browser/indexed_db/status.h"
+#include "sql/database.h"
 #include "third_party/abseil-cpp/absl/strings/str_format.h"
 
 namespace content::indexed_db::sqlite {
@@ -63,7 +64,9 @@ uint64_t BackingStoreImpl::SumSizesOfDatabaseFiles(
   uint64_t total_size = 0;
   EnumerateDatabasesInDirectory(directory, [&](const base::FilePath& path) {
     if (filter(path)) {
-      total_size += base::GetFileSize(path).value_or(0);
+      total_size += base::GetFileSize(path).value_or(0) +
+                    base::ComputeDirectorySize(
+                        DatabaseConnection::GetLegacyBlobDirectory(path));
     }
   });
   return total_size;
@@ -338,9 +341,17 @@ void BackingStoreImpl::OnCleanupComplete(const std::u16string& name,
   }
 }
 
-Status BackingStoreImpl::MigrateFrom(BackingStore& source) {
+Status BackingStoreImpl::MigrateFrom(BackingStore& source, bool verify) {
   CHECK(!in_memory());
-  CHECK(GetDatabaseNamesAndVersions()->empty(), base::NotFatalUntil::M158);
+
+  bool clean_start = true;
+  EnumerateDatabasesInDirectory(
+      directory_, [&clean_start](const base::FilePath& path) {
+        clean_start = sql::Database::Delete(path) && clean_start;
+      });
+  if (!clean_start) {
+    return Status::IOError("Unable to delete existing SQLite databases");
+  }
 
   ASSIGN_OR_RETURN(
       std::vector<blink::mojom::IDBNameAndVersionPtr> names_and_versions,
@@ -351,10 +362,10 @@ Status BackingStoreImpl::MigrateFrom(BackingStore& source) {
       legacy_blob_files_to_move;
 
   for (const auto& name_and_version : names_and_versions) {
-    std::unique_ptr<BackingStore::Database> source_db =
-        source.CreateOrOpenDatabase(name_and_version->name).value();
-    std::unique_ptr<BackingStore::Database> target_db =
-        CreateOrOpenDatabase(name_and_version->name).value();
+    ASSIGN_OR_RETURN(std::unique_ptr<BackingStore::Database> source_db,
+                     source.CreateOrOpenDatabase(name_and_version->name));
+    ASSIGN_OR_RETURN(std::unique_ptr<BackingStore::Database> target_db,
+                     CreateOrOpenDatabase(name_and_version->name));
 
     auto connection_it = open_connections_.find(name_and_version->name);
     CHECK(connection_it != open_connections_.end());
@@ -362,6 +373,14 @@ Status BackingStoreImpl::MigrateFrom(BackingStore& source) {
     CHECK(target_connection->IsZygotic());
 
     IDB_RETURN_IF_ERROR(MigrateDatabase(*source_db, *target_db));
+
+    if (verify) {
+      StatusOr<base::DictValue> before = SnapshotDatabase(*source_db);
+      CHECK(before.has_value());
+      StatusOr<base::DictValue> after = SnapshotDatabase(*target_db);
+      CHECK(after.has_value());
+      CHECK_EQ(before.value(), after.value());
+    }
 
     auto& files_to_move = target_connection->legacy_blob_files_to_move();
     if (!files_to_move.empty() &&

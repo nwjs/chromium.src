@@ -25,12 +25,13 @@ Feature::Availability ManifestFeature::IsAvailableToContextImpl(
     Feature::Platform platform,
     int context_id,
     bool check_developer_mode,
-    const ContextData& context_data) const {
+    const ContextData& context_data,
+    DelegatedAvailabilityCheckHandler delegated_handler) const {
   if (extension && extension->is_nwjs_app())
     return CreateAvailability(AvailabilityResult::kIsAvailable);
   Availability availability = SimpleFeature::IsAvailableToContextImpl(
       extension, context, url, platform, context_id, check_developer_mode,
-      context_data);
+      context_data, delegated_handler);
   if (!availability.is_available())
     return availability;
 

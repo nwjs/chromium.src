@@ -47,15 +47,14 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/chrome_pages.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/webui/ash/system_web_dialog/system_web_dialog_delegate.h"
 #include "chrome/browser/web_applications/web_app_provider.h"
 #include "chrome/browser/web_applications/web_app_registrar.h"
 #include "chrome/browser/web_applications/web_app_utils.h"
 #include "chrome/common/chrome_features.h"
-#include "chrome/common/chrome_switches.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/test/base/ui_test_utils.h"
-#include "chromeos/constants/chromeos_features.h"
 #include "components/language/core/browser/pref_names.h"
 #include "components/prefs/pref_service.h"
 #include "components/prefs/pref_test_utils.h"
@@ -102,8 +101,7 @@ class HelpAppIntegrationTest : public SystemWebAppIntegrationTest {
       : https_server_{std::make_unique<net::EmbeddedTestServer>(
             net::EmbeddedTestServer::TYPE_HTTPS)} {
     scoped_feature_list_.InitWithFeatures(
-        {chromeos::features::kUploadOfficeToCloud,
-         features::kReleaseNotesNotificationAllChannels},
+        {features::kReleaseNotesNotificationAllChannels},
         {features::kHelpAppOpensInsteadOfReleaseNotesNotification,
          ::features::kWebAppInstallDialog});
     https_server()->AddDefaultHandlers(GetChromeTestDataDir());

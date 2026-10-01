@@ -1,0 +1,20 @@
+# Copyright 2026 The Chromium Authors
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+# To add strict deps support to a new directory:
+# 1) Add the entry to CHECK_INCLUDES_STRICT_ALLOWLIST.
+# 2) Run `gn check <out_dir> --fix`
+# 3) Any targets that are still failing should be marked as temporarily failing
+#    (`gn edit "set check_includes_strict:expr CHECK_INCLUDES_STRICT_KNOWN_FAILURE" $TARGET1 $TARGET2 ...`)
+
+# TODO(crbug.com/555455099): Remove this once we've finished the migration and
+# have no remaining usages.
+CHECK_INCLUDES_STRICT_UNTRIAGED = false
+
+# A list of directories for which strict_deps is enabled.
+CHECK_INCLUDES_STRICT_ALLOWLIST = [
+  # keep-sorted: start
+  "//pdf/*",
+  # keep-sorted: end
+]

@@ -21,6 +21,7 @@
 #include "components/supervised_user/core/browser/supervised_user_pref_store.h"
 #include "components/supervised_user/core/browser/supervised_user_synthetic_field_trial_service_delegate.h"
 #include "components/supervised_user/core/browser/supervised_user_url_filtering_service.h"
+#include "components/supervised_user/core/browser/supervised_user_utils.h"
 #include "components/supervised_user/core/common/supervised_user_constants.h"
 #include "components/supervised_user/test_support/supervised_user_signin_test_utils.h"
 #include "components/supervised_user/test_support/supervised_user_url_filter_test_utils.h"
@@ -114,6 +115,35 @@ AccountInfo GetOrCreatePrimaryAccount(
   return signin::MakePrimaryAccountAvailable(identity_manager, kDefaultEmail,
                                              signin::ConsentLevel::kSignin);
 }
+
+void ConfigureEnvironmentForListFamilyMembersService(
+    const AccountInfo& account,
+    network::TestURLLoaderFactory& test_url_loader_factory,
+    PrefService& pref_service,
+    bool is_subject_to_parental_controls) {
+  constexpr std::string_view kListFamilyMembersUrl =
+      "https://kidsmanagement-pa.googleapis.com/kidsmanagement/v1/families/"
+      "mine/members?alt=proto&allow_empty_family=true";
+
+  kidsmanagement::FamilyRole role = is_subject_to_parental_controls
+                                        ? kidsmanagement::CHILD
+                                        : kidsmanagement::MEMBER;
+
+  // Seed the preference synchronously (prevents race conditions should the
+  // response be handled after tests read family member prefs).
+  pref_service.SetString(prefs::kFamilyLinkUserMemberRole,
+                         FamilyRoleToString(role));
+
+  // Prepare the response.
+  kidsmanagement::ListMembersResponse response;
+  auto* member = response.add_members();
+  member->set_user_id(account.GetGaiaId().ToString());
+  member->set_role(role);
+
+  test_url_loader_factory.AddResponse(kListFamilyMembersUrl,
+                                      response.SerializeAsString());
+}
+
 }  // namespace
 
 FamilyLinkSettingsService* InitializeSettingsServiceForTesting(
@@ -279,11 +309,34 @@ void SupervisedUserTestEnvironment::EnableSupervisedAccount(
   AccountInfo account = GetOrCreatePrimaryAccount(identity_manager);
   UpdateSupervisionStatusForAccount(account, identity_manager,
                                     /*is_subject_to_parental_controls=*/true);
+  UpdateFamilyInfoFetchStatusForAccount(account, identity_manager,
+                                        /*is_family_info_fetched=*/true);
+}
+
+void SupervisedUserTestEnvironment::EnableSupervisedAccount(
+    signin::IdentityManager* identity_manager,
+    network::TestURLLoaderFactory& test_url_loader_factory,
+    PrefService& pref_service) {
+  AccountInfo account = GetOrCreatePrimaryAccount(identity_manager);
+  ConfigureEnvironmentForListFamilyMembersService(
+      account, test_url_loader_factory, pref_service,
+      /*is_subject_to_parental_controls=*/true);
+  EnableSupervisedAccount(identity_manager);
 }
 
 void SupervisedUserTestEnvironment::EnableSupervisedAccount() {
-  EnableSupervisedAccount(identity_test_env_.identity_manager());
+  EnableSupervisedAccount(identity_test_env_.identity_manager(),
+                          test_url_loader_factory_, *pref_service());
   CHECK(IsSubjectToParentalControls(*pref_store_environment_.pref_service()));
+}
+
+void SupervisedUserTestEnvironment::EnableRegularAccount(
+    signin::IdentityManager* identity_manager) {
+  AccountInfo account = GetOrCreatePrimaryAccount(identity_manager);
+  UpdateSupervisionStatusForAccount(account, identity_manager,
+                                    /*is_subject_to_parental_controls=*/false);
+  UpdateFamilyInfoFetchStatusForAccount(account, identity_manager,
+                                        /*is_family_info_fetched=*/false);
 }
 
 void SupervisedUserTestEnvironment::DisableSupervisedAccount() {

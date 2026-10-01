@@ -229,7 +229,6 @@ double GetGeminiResponseReadyInterval();
 base::TimeDelta GetGeminiSessionValidityDuration();
 extern const char kGeminiSessionValidityDuration[];
 
-
 // Feature flag for Actor tools.
 BASE_DECLARE_FEATURE(kActorTools);
 bool IsActorEnabled();
@@ -286,22 +285,29 @@ enum class PageActionMenuIconVariations {
 
 PageActionMenuIconVariations GetPageActionMenuIcon();
 
-// Feature flag for enabling Gemini backend migration.
-BASE_DECLARE_FEATURE(kGeminiBackendMigration);
-bool IsGeminiBackendMigrationEnabled();
-
 // Feature flag for enabling Project Aureus (quota enforcement and usage
 // limits).
 BASE_DECLARE_FEATURE(kGeminiAureus);
 bool IsGeminiAureusEnabled();
 
+// Parameter to enable or disable refreshing Gemini quota when the app enters
+// the foreground.
+inline constexpr char kGeminiAureusForegroundQuotaRefreshParam[] =
+    "foreground_quota_refresh_enabled";
+
+// Returns true if Project Aureus is enabled and refreshing quota on foreground
+// is enabled.
+bool IsGeminiAureusForegroundQuotaRefreshEnabled();
+
 // Feature flag for enabling Gemini actor.
 BASE_DECLARE_FEATURE(kGeminiActor);
 bool IsGeminiActorEnabled();
 
-// Feature flag for enabling rich APC (v2) extraction for Gemini.
-BASE_DECLARE_FEATURE(kGeminiRichAPCExtraction);
-bool IsGeminiRichAPCExtractionEnabled();
+// Parameter to enable or disable backgrounding in Gemini Actor.
+extern const char kGeminiActorBackgroundingParam[];
+
+// Returns true if backgrounding for Gemini Actor is enabled.
+bool IsGeminiActorBackgroundingEnabled();
 
 // Enables the GeminiUnaryMigration feature.
 BASE_DECLARE_FEATURE(kGeminiUnaryMigration);
@@ -321,9 +327,11 @@ BASE_DECLARE_FEATURE(kPageContextIPCOptimization);
 // Returns true if the PageContextIPCOptimization feature is enabled.
 bool IsPageContextIPCOptimizationEnabled();
 
-// Returns true if the actionable optimization is enabled within the IPC
-// optimization.
-bool IsPageContextIPCOptimizationActionableEnabled();
+// Enables the PageContextActionableOptimization feature.
+BASE_DECLARE_FEATURE(kPageContextActionableOptimization);
+
+// Returns true if the PageContextActionableOptimization feature is enabled.
+bool IsPageContextActionableOptimizationEnabled();
 
 // Enables the PageContextPdf feature. This allows PDFs to be used as context
 // for prompts for Gemini only. Other providers would have separate flags.
@@ -350,13 +358,6 @@ BASE_DECLARE_FEATURE(kGeminiScreenContextMigration);
 // Returns true if the GeminiScreenContextMigration feature is enabled.
 bool IsGeminiScreenContextMigrationEnabled();
 
-// Feature flag to control the App Store In-App Events feature. Enables a
-// user to tap the promo within the iOS App Store and invoke the Gemini FRE
-// after navigating to a Gemini related web page through an external action.
-BASE_DECLARE_FEATURE(kAppStoreInAppEvents);
-
-// Returns true if the App Store In-App Events feature is enabled.
-bool IsAppStoreInAppEventsEnabled();
 
 // Feature flag controlling the generalized Gemini entry flow outside of the
 // Page Action Menu.
@@ -406,6 +407,14 @@ extern const char kGeminiContextualSuggestionsCuesTitleAndUrlOnlyParam[];
 // Returns true if category classification should only use Title and URL
 // instead of extracting APC and generating passages.
 bool IsGeminiContextualSuggestionsCuesTitleAndUrlOnlyEnabled();
+
+// Feature parameter for enabling server model execution in Gemini contextual
+// suggestions cues.
+extern const char kGeminiContextualSuggestionsCuesServerModelExecutionParam[];
+
+// Returns true if server model execution is enabled for Gemini contextual
+// suggestions cues.
+bool IsGeminiContextualSuggestionsCuesServerModelExecutionEnabled();
 
 #pragma mark - Debugging Features
 

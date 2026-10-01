@@ -6,7 +6,7 @@
 #define THIRD_PARTY_BLINK_RENDERER_CORE_TESTING_FAKE_LOCAL_FRAME_HOST_H_
 
 #include "base/time/time.h"
-#include "mojo/public/cpp/bindings/associated_receiver_set.h"
+#include "mojo/public/cpp/bindings/associated_receiver.h"
 #include "mojo/public/cpp/bindings/pending_associated_receiver.h"
 #include "net/storage_access_api/status.h"
 #include "third_party/blink/public/common/associated_interfaces/associated_interface_provider.h"
@@ -114,6 +114,7 @@ class FakeLocalFrameHost : public mojom::blink::LocalFrameHost {
       blink::mojom::blink::FaviconUpdateReason reason) override;
   void DownloadURL(mojom::blink::DownloadURLParamsPtr params) override;
   void ShowCaptionSettings() override;
+  void UpdateToVideoAdFrame() override;
   void FocusedElementChanged(bool is_editable_element,
                              bool is_richly_editable_element,
                              const gfx::Rect& bounds_in_frame_widget,
@@ -209,7 +210,8 @@ class FakeLocalFrameHost : public mojom::blink::LocalFrameHost {
                      mojom::blink::DragEventSourceInfoPtr event_info) override;
   void IssueKeepAliveHandle(
       mojo::PendingReceiver<mojom::blink::NavigationStateKeepAliveHandle>
-          receiver) override;
+          receiver,
+      const blink::InitiatorStateToken& initiator_state_token) override;
   void NotifyStorageAccessed(blink::mojom::StorageTypeAccessed storageType,
                              bool blocked) override;
   void RecordWindowProxyUsageMetrics(

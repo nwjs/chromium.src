@@ -155,6 +155,7 @@ class MockAutocompleteProviderClient
   MOCK_METHOD0(GetBuiltinURLs, std::vector<std::u16string>());
   MOCK_METHOD0(GetBuiltinsToProvideAsUserTypes, std::vector<std::u16string>());
   MOCK_CONST_METHOD0(IsOffTheRecord, bool());
+  MOCK_CONST_METHOD0(IsPrimaryOTRProfileWithRegularParent, bool());
   MOCK_CONST_METHOD0(IsIncognitoProfile, bool());
   MOCK_CONST_METHOD0(IsGuestSession, bool());
   MOCK_CONST_METHOD0(SearchSuggestEnabled, bool());
@@ -168,7 +169,6 @@ class MockAutocompleteProviderClient
   MOCK_CONST_METHOD0(IsPagePaywalled, std::optional<bool>());
   MOCK_METHOD(bool, ShouldSendContextualUrlSuggestParam, (), (const));
   MOCK_METHOD(bool, ShouldSendPageTitleSuggestParam, (), (const));
-  MOCK_METHOD(bool, IsOmniboxNextLensSearchChipEnabled, (), (const, override));
   MOCK_METHOD(bool, IsAskGShowChipEnabled, (), (const, override));
   MOCK_METHOD(bool, IsOmniboxNextAimPopupEnabled, (), (const, override));
   MOCK_METHOD(bool, IsWebUiNtpEnabledForDesktopAndroid, (), (const, override));

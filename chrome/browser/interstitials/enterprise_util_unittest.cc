@@ -23,12 +23,14 @@
 #include "components/safe_browsing/content/browser/safe_browsing_navigation_observer_manager.h"
 #include "components/safe_browsing/core/browser/referrer_chain_provider.h"
 #include "components/safe_browsing/core/common/features.h"
+#include "components/sessions/core/session_id.h"
 #include "content/public/browser/service_worker_context.h"
 #include "content/public/browser/storage_partition.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/test/browser_task_environment.h"
 #include "content/public/test/fake_service_worker_context.h"
 #include "content/public/test/test_web_contents_factory.h"
+#include "extensions/buildflags/buildflags.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -193,7 +195,7 @@ TEST_F(InterstitialEnterpriseUtilTest, RouterEventDisabledInIncognitoMode) {
   MaybeTriggerSecurityInterstitialShownEvent(
       web_contents_factory_.CreateWebContents(incognito_profile),
       GURL("https://phishing.com/"), "reason",
-      /*net_error_code=*/0);
+      /*net_error_code=*/0, "");
 }
 
 TEST_F(InterstitialEnterpriseUtilTest,
@@ -232,7 +234,7 @@ TEST_F(InterstitialEnterpriseUtilTest,
   MaybeTriggerSecurityInterstitialShownEvent(
       web_contents_factory_.CreateWebContents(guest_profile),
       GURL("https://phishing.com/"), "reason",
-      /*net_error_code=*/0);
+      /*net_error_code=*/0, "");
   run_loop.Run();
 
   ValidateReferrerChainForInterstitialEvent(event_request);
@@ -274,7 +276,7 @@ TEST_F(InterstitialEnterpriseUtilTest,
   MaybeTriggerSecurityInterstitialProceededEvent(
       web_contents_factory_.CreateWebContents(guest_profile),
       GURL("https://phishing.com/"), "reason",
-      /*net_error_code=*/0);
+      /*net_error_code=*/0, "");
   run_loop.Run();
 
   ValidateReferrerChainForInterstitialEvent(event_request);
@@ -324,7 +326,7 @@ TEST_F(InterstitialEnterpriseUtilTest,
 
   MaybeTriggerUrlFilteringInterstitialEvent(
       web_contents_factory_.CreateWebContents(guest_profile),
-      GURL("https://phishing.com/"), "ENTERPRISE_WARNED_SEEN", response);
+      GURL("https://phishing.com/"), "ENTERPRISE_WARNED_SEEN", response, "");
   run_loop.Run();
 
   ValidateReferrerChainForUrlFilteringEvent(event_request);
@@ -379,8 +381,85 @@ TEST_F(InterstitialEnterpriseUtilTest, ReferrerChainFallsbackToEventUrl) {
 
   MaybeTriggerUrlFilteringInterstitialEvent(
       web_contents_factory_.CreateWebContents(guest_profile),
-      GURL("https://phishing.com/"), "ENTERPRISE_WARNED_SEEN", response);
+      GURL("https://phishing.com/"), "ENTERPRISE_WARNED_SEEN", response, "");
   run_loop.Run();
 
   ValidateReferrerChainForUrlFilteringEvent(event_request);
+}
+
+TEST_F(InterstitialEnterpriseUtilTest,
+       UrlFilteringInterstitialEventWithTabTitle) {
+  Profile* guest_profile =
+      profile_manager_.CreateGuestProfile()->GetPrimaryOTRProfile(
+          /*create_if_needed=*/true);
+  EnableReportingPolicy(guest_profile);
+
+  safe_browsing::RTLookupResponse response;
+  auto* threat_info = response.add_threat_info();
+  threat_info->set_verdict_type(
+      safe_browsing::RTLookupResponse::ThreatInfo::DANGEROUS);
+  auto* matched_url_navigation_rule =
+      threat_info->mutable_matched_url_navigation_rule();
+  matched_url_navigation_rule->set_rule_id("123");
+  matched_url_navigation_rule->set_rule_name("test rule name");
+  matched_url_navigation_rule->set_matched_url_category("test rule category");
+
+  base::RunLoop run_loop;
+  ::chrome::cros::reporting::proto::UploadEventsRequest event_request;
+
+  EXPECT_CALL(*client_, UploadSecurityEvent)
+      .Times(1)
+      .WillOnce(
+          [&](bool include_device_info,
+              ::chrome::cros::reporting::proto::UploadEventsRequest&& request,
+              policy::CloudPolicyClient::ResultCallback callback) {
+            event_request = std::move(request);
+            run_loop.Quit();
+          });
+
+  MaybeTriggerUrlFilteringInterstitialEvent(
+      web_contents_factory_.CreateWebContents(guest_profile),
+      GURL("https://phishing.com/"), "ENTERPRISE_WARNED_SEEN", response,
+      "Test Tab Title");
+  run_loop.Run();
+
+  ASSERT_EQ(1, event_request.events_size());
+  ASSERT_TRUE(
+      event_request.events().Get(0).has_url_filtering_interstitial_event());
+  EXPECT_EQ("Test Tab Title", event_request.events()
+                                  .Get(0)
+                                  .url_filtering_interstitial_event()
+                                  .tab_title());
+}
+
+TEST_F(InterstitialEnterpriseUtilTest,
+       SecurityInterstitialShownEventWithTabTitle) {
+  Profile* guest_profile =
+      profile_manager_.CreateGuestProfile()->GetPrimaryOTRProfile(
+          /*create_if_needed=*/true);
+  EnableReportingPolicy(guest_profile);
+
+  base::RunLoop run_loop;
+  ::chrome::cros::reporting::proto::UploadEventsRequest event_request;
+
+  EXPECT_CALL(*client_, UploadSecurityEvent)
+      .Times(1)
+      .WillOnce(
+          [&](bool include_device_info,
+              ::chrome::cros::reporting::proto::UploadEventsRequest&& request,
+              policy::CloudPolicyClient::ResultCallback callback) {
+            event_request = std::move(request);
+            run_loop.Quit();
+          });
+
+  MaybeTriggerSecurityInterstitialShownEvent(
+      web_contents_factory_.CreateWebContents(guest_profile),
+      GURL("https://phishing.com/"), "reason",
+      /*net_error_code=*/0, "Test Tab Title");
+  run_loop.Run();
+
+  ASSERT_EQ(1, event_request.events_size());
+  ASSERT_TRUE(event_request.events().Get(0).has_interstitial_event());
+  EXPECT_EQ("Test Tab Title",
+            event_request.events().Get(0).interstitial_event().tab_title());
 }

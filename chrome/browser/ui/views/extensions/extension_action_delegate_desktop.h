@@ -75,13 +75,14 @@ class ExtensionActionDelegateDesktop
   void UnregisterCommand() override;
   bool IsShowingPopup() const override;
   void HidePopup() override;
-  gfx::NativeView GetPopupNativeViewForTesting() override;
+  gfx::NativeView GetPopupNativeView() override;
   void TriggerPopup(std::unique_ptr<extensions::ExtensionViewHost> host,
                     PopupShowAction show_action,
                     bool by_user,
                     ShowPopupCallback callback) override;
   void ShowContextMenuAsFallback() override;
   void CloseExtensionsMenuIfOpen() override;
+  content::WebContents* GetActiveWebContents() const override;
 
   // ui::AcceleratorTarget:
   bool AcceleratorPressed(const ui::Accelerator& accelerator) override;

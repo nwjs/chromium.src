@@ -39,7 +39,7 @@
 #include "components/input/timeout_monitor.h"
 #include "components/viz/common/features.h"
 #include "content/browser/bad_message.h"
-#include "content/browser/dom_storage/session_storage_namespace_impl.h"
+#include "content/browser/dom_storage/session_storage_namespace_handle_impl.h"
 #include "content/browser/fenced_frame/fenced_frame.h"
 #include "content/browser/global_privacy_control_util.h"
 #include "content/browser/gpu/compositor_util.h"
@@ -50,6 +50,7 @@
 #include "content/browser/renderer_host/frame_tree.h"
 #include "content/browser/renderer_host/frame_tree_node.h"
 #include "content/browser/renderer_host/navigation_controller_impl.h"
+#include "content/browser/renderer_host/navigation_request.h"
 #include "content/browser/renderer_host/page_delegate.h"
 #include "content/browser/renderer_host/render_frame_host_delegate.h"
 #include "content/browser/renderer_host/render_frame_proxy_host.h"
@@ -537,7 +538,7 @@ bool RenderViewHostImpl::CreateRenderView(
                (!base::FeatureList::IsEnabled(
                     features::kPrerenderMoreCorrectSpeculativeRFHCreation) ||
                 main_rfh->lifecycle_state() ==
-                    RenderFrameHostImpl::LifecycleStateImpl::kSpeculative)) {
+                    RenderFrameHostLifecycleStateImpl::kSpeculative)) {
       // During prerender, the browser may need to create new speculative local
       // main frames. Normally, creating a speculative local main frame is a
       // two step process: the browser first creates a RenderViewHost with a

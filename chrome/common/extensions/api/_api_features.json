@@ -486,6 +486,10 @@
     "contexts": ["privileged_extension"],
     "feature_flag": "ApiProxyOverrideRulesPrivate"
   },
+  "enterprise.webrtc": {
+    "dependencies": ["permission:enterprise.webrtc"],
+    "contexts": ["privileged_extension"]
+  },
   "experimental.devtools.audits": {
     "nocompile": true,
     "dependencies": ["permission:experimental", "manifest:devtools_page"],
@@ -785,22 +789,6 @@
       "chrome://password-manager/*"
     ]
   }],
-  "permissions": {
-    "channel": "stable",
-    "extension_types": [
-      "extension",
-      "legacy_packaged_app",
-      "platform_app",
-      "chromeos_system_extension"
-    ],
-    "contexts": ["privileged_extension"]
-  },
-  "permissions.addHostAccessRequest": {
-    "min_manifest_version": 3
-  },
-  "permissions.removeHostAccessRequest": {
-    "min_manifest_version": 3
-  },
   "platformKeys": {
     "dependencies": ["permission:platformKeys"],
     "contexts": ["privileged_extension"]
@@ -937,6 +925,9 @@
     "platforms": ["chromeos"]
   }],
   "tabs.createSplit": {
+    "feature_flag": "ApiTabsSplitView"
+  },
+  "tabs.unsplit": {
     "feature_flag": "ApiTabsSplitView"
   },
   "tabs.executeScript": {

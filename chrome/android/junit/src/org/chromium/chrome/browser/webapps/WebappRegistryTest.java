@@ -26,6 +26,7 @@ import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.base.test.RobolectricUtil;
 import org.chromium.base.test.util.Feature;
 import org.chromium.chrome.browser.ShortcutHelper;
+import org.chromium.chrome.browser.browserservices.TwaValidator;
 import org.chromium.chrome.browser.browserservices.intents.BrowserServicesIntentDataProvider;
 import org.chromium.chrome.browser.browserservices.intents.ColorProvider;
 import org.chromium.chrome.browser.browserservices.intents.WebApkExtras;
@@ -38,6 +39,7 @@ import org.chromium.chrome.test.util.browser.webapps.WebApkIntentDataProviderBui
 import org.chromium.components.embedder_support.util.Origin;
 import org.chromium.components.sync.protocol.WebApkSpecifics;
 import org.chromium.ui.util.ColorUtils;
+import org.chromium.url.GURL;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -770,6 +772,71 @@ public class WebappRegistryTest {
         Shadows.shadowOf(RuntimeEnvironment.application.getPackageManager())
                 .addPackage(testPackageName);
         assertTrue(WebappRegistry.getInstance().hasAtLeastOneWebApkForOrigin(testOrigin));
+
+        final String exampleUrl = "https://example.com/app/";
+        final String examplePackageName = "org.chromium.webapk.example";
+        BrowserServicesIntentDataProvider exampleWebApk =
+                new WebApkIntentDataProviderBuilder(examplePackageName, exampleUrl).build();
+        registerWebapp(exampleWebApk);
+        Shadows.shadowOf(RuntimeEnvironment.application.getPackageManager())
+                .addPackage(examplePackageName);
+
+        assertTrue(
+                WebappRegistry.getInstance().hasAtLeastOneWebApkForOrigin("https://example.com"));
+        assertTrue(
+                WebappRegistry.getInstance().hasAtLeastOneWebApkForOrigin("https://example.com/"));
+        assertTrue(
+                WebappRegistry.getInstance()
+                        .hasAtLeastOneWebApkForOrigin("https://example.com/other_path"));
+        assertTrue(
+                WebappRegistry.getInstance()
+                        .hasAtLeastOneWebApkForOrigin("https://example.com:443"));
+        assertFalse(
+                WebappRegistry.getInstance().hasAtLeastOneWebApkForOrigin("https://example.co"));
+        assertFalse(
+                WebappRegistry.getInstance()
+                        .hasAtLeastOneWebApkForOrigin("https://example.com.other.domain"));
+        assertFalse(
+                WebappRegistry.getInstance().hasAtLeastOneWebApkForOrigin("http://example.com"));
+        assertFalse(
+                WebappRegistry.getInstance()
+                        .hasAtLeastOneWebApkForOrigin("https://example.com:8080"));
+
+        final String companyUrl = "https://a.company.com/app/";
+        final String companyPackageName = "org.chromium.webapk.company";
+        BrowserServicesIntentDataProvider companyWebApk =
+                new WebApkIntentDataProviderBuilder(companyPackageName, companyUrl).build();
+        registerWebapp(companyWebApk);
+        Shadows.shadowOf(RuntimeEnvironment.application.getPackageManager())
+                .addPackage(companyPackageName);
+
+        assertTrue(
+                WebappRegistry.getInstance().hasAtLeastOneWebApkForOrigin("https://a.company.com"));
+        assertFalse(WebappRegistry.getInstance().hasAtLeastOneWebApkForOrigin("https://a.com"));
+        assertFalse(WebappRegistry.getInstance().hasAtLeastOneWebApkForOrigin("https://a.comp"));
+
+        assertFalse(WebappRegistry.getInstance().hasAtLeastOneWebApkForOrigin((String) null));
+        assertFalse(WebappRegistry.getInstance().hasAtLeastOneWebApkForOrigin((Origin) null));
+        assertFalse(WebappRegistry.getInstance().hasAtLeastOneWebApkForOrigin(""));
+        assertFalse(WebappRegistry.getInstance().hasAtLeastOneWebApkForOrigin("invalid_origin"));
+        assertFalse(WebappRegistry.getInstance().hasAtLeastOneWebApkForOrigin("about:blank"));
+        assertFalse(WebappRegistry.getInstance().hasAtLeastOneWebApkForOrigin("file:///sdcard"));
+
+        assertTrue(
+                WebappRegistry.getInstance()
+                        .hasAtLeastOneWebApkForOrigin(Origin.create("https://example.com")));
+        assertFalse(
+                WebappRegistry.getInstance()
+                        .hasAtLeastOneWebApkForOrigin(Origin.create("https://example.co")));
+
+        // Marking WebAPK as uninstalled should cause hasAtLeastOneWebApkForOrigin to return false.
+        String companyWebappId = companyWebApk.getWebappExtras().id;
+        WebappDataStorage companyStorage =
+                WebappRegistry.getInstance().getWebappDataStorage(companyWebappId);
+        assertNotNull(companyStorage);
+        companyStorage.setWebApkUninstallTimestamp();
+        assertFalse(
+                WebappRegistry.getInstance().hasAtLeastOneWebApkForOrigin("https://a.company.com"));
     }
 
     @Test
@@ -1095,5 +1162,22 @@ public class WebappRegistryTest {
 
         // Clean up
         WebappRegistry.getInstance().unregisterObserver(observer);
+    }
+
+    @Test
+    public void testIsAppInstalledForUrl_handlesGurlAndTwaValidator() {
+        GURL url = new GURL("https://example.com/app/path");
+        assertFalse(WebappRegistry.getInstance().isAppInstalledForUrl(url));
+
+        TwaValidator.setTwaInstalledOverrideForTesting(true);
+        assertTrue(WebappRegistry.getInstance().isAppInstalledForUrl(url));
+
+        // Non-HTTP/invalid URLs should safely return false.
+        assertFalse(
+                WebappRegistry.getInstance().isAppInstalledForUrl(new GURL("chrome://settings")));
+        assertFalse(WebappRegistry.getInstance().isAppInstalledForUrl(new GURL("about:blank")));
+
+        TwaValidator.setTwaInstalledOverrideForTesting(false);
+        assertFalse(WebappRegistry.getInstance().isAppInstalledForUrl(url));
     }
 }

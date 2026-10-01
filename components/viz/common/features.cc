@@ -23,9 +23,6 @@
 #include "media/media_buildflags.h"
 #include "ui/gl/gl_switches.h"
 
-#if BUILDFLAG(IS_ANDROID)
-#include "base/android/device_info.h"
-#endif
 
 #if BUILDFLAG(IS_WIN)
 #include "base/win/windows_version.h"
@@ -39,6 +36,13 @@ namespace features {
 // mean scrolling without a resource, or OffsetTagValues trying to position
 // the UI outside of their valid constraints.
 BASE_FEATURE(kAndroidDumpForBadCompositedUiState,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Enables the use of SurfaceControl underlays/overlays for HDR content on
+// Android. When disabled (default), HDR video is composited directly by
+// SkiaRenderer to prevent tone-mapping mismatches between
+// SurfaceFlinger/RenderEngine and Skia when UI controls are shown/hidden.
+BASE_FEATURE(kAndroidSurfaceControlHdrOverlays,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 #endif  // BUILDFLAG(IS_ANDROID)
@@ -65,6 +69,12 @@ BASE_FEATURE(kUseDrmBlackFullscreenOptimization,
 #if BUILDFLAG(IS_ANDROID)
 BASE_FEATURE(kUseFrameIntervalDeciderAdaptiveFrameRate,
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+// If enabled, FrameIntervalDecider uses ContinuousRangeSettings bounded by the
+// display's max supported refresh rate, instead of passing matched frame
+// intervals through unbounded.
+BASE_FEATURE(kAndroidFrameIntervalContinuousRange,
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // If enabled, `ExternalBeginFrameSourceAndroid::AChoreographerImpl` derives a
 // VSync interval from the frame timelines that the OS provided via the callback

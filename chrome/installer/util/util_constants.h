@@ -131,7 +131,18 @@ enum InstallStatus {
                                       // due to a conflict during upload.
   CONFIGURE_APP_CONTAINER_SANDBOX_SUCCESS = 78,
   CONFIGURE_APP_CONTAINER_SANDBOX_FAILED = 79,
-  MAX_INSTALL_STATUS = 80,  // When adding a new result, bump this and update
+  INSTALL_COMPONENT_SUCCESS = 80,  // Successfully installed component DLL to
+                                   // system dir.
+  INSTALL_COMPONENT_FAILED_INTERNAL = 81,  // Failed to install component DLL
+                                           // due to internal I/O or filesystem
+                                           // errors.
+  INSTALL_COMPONENT_ALREADY_EXISTS = 82,  // Component exists and is up-to-date.
+  INSTALL_COMPONENT_FAILED_SIGNATURE = 83,  // Failed CRX signature, publisher
+                                            // proof, or public key check.
+  INSTALL_COMPONENT_INVALID_INPUT = 84,     // Failed due to invalid input
+                                         // structure, manifest, or unsupported
+                                         // component.
+  MAX_INSTALL_STATUS = 85,  // When adding a new result, bump this and update
                             // the SetupInstallResult enum in enums.xml.
 };
 
@@ -153,6 +164,10 @@ enum InstallerStage {
   FINISHING,                 // Finishing the install.
   NUM_STAGES                 // The number of stages.
 };
+
+// Resource types embedded in mini_installer.
+inline constexpr wchar_t kLZMAResourceType[] = L"B7";
+inline constexpr wchar_t kBinResourceType[] = L"BN";
 
 namespace switches {
 
@@ -239,6 +254,18 @@ inline constexpr char kForceUninstall[] = "force-uninstall";
 // is used.
 inline constexpr char kInstallArchive[] = "install-archive";
 
+// Specify the path to the mini_installer binary containing the Chrome archive
+// resource.
+inline constexpr char kMiniInstallerPath[] = "mini-installer-path";
+
+// Specify the name of the Chrome archive resource within the mini_installer
+// binary.
+inline constexpr char kArchiveResourceName[] = "archive-resource-name";
+
+// Specify the type of the Chrome archive resource within the mini_installer
+// binary.
+inline constexpr char kArchiveResourceType[] = "archive-resource-type";
+
 // Use the given uncompressed chrome.7z archive as the source of files to
 // install.
 inline constexpr char kUncompressedArchive[] = "uncompressed-archive";
@@ -314,6 +341,10 @@ inline constexpr char kShowEula[] = "show-eula";
 // Saves the specified device management token to the registry.
 inline constexpr char kStoreDMToken[] = "store-dmtoken";
 
+// Installs a Chrome component from the specified source path to the
+// system-level Chrome directory.
+inline constexpr char kInstallComponent[] = "install-component";
+
 // Install Chrome to system wise location. The default is per user install.
 inline constexpr char kSystemLevel[] = "system-level";
 
@@ -361,6 +392,7 @@ inline constexpr wchar_t kCmdRotateDeviceTrustKey[] = L"rotate-dtkey";
 inline constexpr wchar_t kCmdStoreDMToken[] = L"store-dmtoken";
 inline constexpr wchar_t kCmdDeleteDMToken[] = L"delete-dmtoken";
 inline constexpr wchar_t kCmdInstallPEH[] = L"install-peh";
+inline constexpr wchar_t kCmdInstallComponent[] = L"install-component";
 
 // LINT.IfChange(kEulaSentinelFile)
 inline constexpr wchar_t kEulaSentinelFile[] = L"EULA Accepted";

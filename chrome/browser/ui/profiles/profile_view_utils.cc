@@ -37,6 +37,7 @@
 #include "net/base/url_util.h"
 #include "ui/base/accelerators/menu_label_accelerator_util.h"
 #include "ui/base/models/image_model.h"
+#include "ui/base/page_transition_types.h"
 #include "ui/base/window_open_disposition.h"
 #include "ui/color/color_provider.h"
 #include "ui/gfx/image/image_skia.h"
@@ -48,6 +49,11 @@
 #else
 #include "chrome/browser/ui/profiles/profile_view_avatar_decoration_specs.h"
 #endif
+
+int GetAvatarRingThickness(int avatar_size) {
+  return avatar_size <= kSmallAvatarThresholdDip ? kAvatarRingThicknessSmallDip
+                                                 : kAvatarRingThicknessDip;
+}
 
 void NavigateToGoogleAccountPage(Profile* profile, const std::string& email) {
   // Create a URL so that the account chooser is shown if the account with
@@ -202,11 +208,13 @@ gfx::ImageSkia AddLinearGradientRingToAvatar(
     const ui::ColorProvider& color_provider,
     int avatar_size,
     int gap_width,
-    int ring_thickness) {
+    std::optional<int> ring_thickness) {
+  const int thickness =
+      ring_thickness.value_or(GetAvatarRingThickness(avatar_size));
   return profiles::AddLinearGradientRingToAvatar(
       avatar_image, color_provider,
       color_provider.GetColor(kAvatarRingGradientStartColorId),
       color_provider.GetColor(kAvatarRingGradientEndColorId),
       kAvatarRingGradientPositions, kAvatarRingGradientP1Normalized,
-      kAvatarRingGradientP2Normalized, avatar_size, gap_width, ring_thickness);
+      kAvatarRingGradientP2Normalized, avatar_size, gap_width, thickness);
 }

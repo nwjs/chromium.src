@@ -277,10 +277,6 @@ struct FormFieldData {
                         // via its id attribute.
     kForName,           // <label> for-attribute that links to an control
                         // via its name attribute.
-    kForShadowHostId,   // <label> for-attribute that links to an control
-                        // (inside a shadow DOM) via its id attribute.
-    kForShadowHostName, // <label> for-attribute that links to an control
-                        // (inside a shadow DOM) via its name attribute.
     kOverlayingLabel,   // Succeeding DOM node overlaying the input.
   };
 
@@ -604,7 +600,7 @@ enum AutofillSuggestionTriggerSource {
   // Suggestions triggered by the GLIC service.
   kGlic = 21,
   // Suggestions triggered by the AtMemory feature (typing "@@").
-  kAtMemoryTriggerString = 22,
+  // kAtMemoryTriggerString = 22 is deprecated
   // Suggestions triggered by the AtMemory feature via context menu.
   kAtMemoryContextMenu = 23,
   // Suggestions triggered by the inactivity timer.
@@ -613,6 +609,8 @@ enum AutofillSuggestionTriggerSource {
   kAtMemoryKeyboardShortcut = 25,
   // Suggestions triggered by the AtMemory double Ctrl press.
   kAtMemoryDoubleCtrl = 26,
+  // Suggestions triggered when a Gmail one-time password becomes available.
+  kGmailOneTimePasswordAvailable = 27,
 };
 // LINT.ThenChange(/tools/metrics/histograms/metadata/autofill/enums.xml:AutofillSuggestionTriggerSource)
 

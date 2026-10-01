@@ -20,10 +20,6 @@
 #include "gpu/vulkan/buildflags.h"
 #include "third_party/abseil-cpp/absl/container/flat_hash_map.h"
 
-namespace viz {
-class VulkanContextProvider;
-}  // namespace viz
-
 #if BUILDFLAG(IS_WIN)
 namespace gfx {
 class D3DSharedFence;
@@ -33,6 +29,7 @@ class D3DSharedFence;
 namespace gpu {
 class DXGISharedHandleManager;
 class SharedImageRepresentationFactoryRef;
+class VulkanContextProvider;
 
 class GPU_GLES2_EXPORT SharedImageManager
     : public base::trace_event::MemoryDumpProvider {
@@ -47,7 +44,7 @@ class GPU_GLES2_EXPORT SharedImageManager
   explicit SharedImageManager(
       bool thread_safe = false,
       bool display_context_on_another_thread = false,
-      viz::VulkanContextProvider* vulkan_context_provider = nullptr,
+      VulkanContextProvider* vulkan_context_provider = nullptr,
       scoped_refptr<base::SingleThreadTaskRunner> io_runner = nullptr);
 
   SharedImageManager(const SharedImageManager&) = delete;
@@ -143,8 +140,7 @@ class GPU_GLES2_EXPORT SharedImageManager
       MemoryTypeTracker* ref);
 #endif
 
-  bool UpdateSharedImage(const Mailbox& mailbox,
-                         std::unique_ptr<gfx::GpuFence> in_fence);
+  bool UpdateSharedImage(const Mailbox& mailbox, gfx::GpuFenceHandle in_fence);
 
 #if BUILDFLAG(IS_WIN)
   void UpdateExternalFence(const Mailbox& mailbox,
@@ -172,7 +168,7 @@ class GPU_GLES2_EXPORT SharedImageManager
 #endif
 
 #if BUILDFLAG(IS_OZONE)
-  viz::VulkanContextProvider* vulkan_context_provider() {
+  VulkanContextProvider* vulkan_context_provider() {
     return vulkan_context_provider_.get();
   }
 #endif
@@ -225,7 +221,7 @@ class GPU_GLES2_EXPORT SharedImageManager
 
 #if BUILDFLAG(IS_OZONE)
   bool supports_overlays_on_ozone_ = false;
-  scoped_refptr<viz::VulkanContextProvider> vulkan_context_provider_;
+  scoped_refptr<VulkanContextProvider> vulkan_context_provider_;
 #endif  // BUILDFLAG(IS_OZONE)
 
   THREAD_CHECKER(thread_checker_);

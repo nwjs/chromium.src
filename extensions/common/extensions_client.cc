@@ -31,9 +31,11 @@ ExtensionsClient* ExtensionsClient::Get() {
 }
 
 void ExtensionsClient::Set(ExtensionsClient* client) {
-  // This can happen in unit tests, where the utility thread runs in-process.
-  if (g_client)
+  if (!client) {
+    g_client = nullptr;
     return;
+  }
+  CHECK(!g_client);
   g_client = client;
   g_client->DoInitialize();
 }
@@ -48,6 +50,9 @@ ExtensionsClient::GetFeatureDelegatedAvailabilityCheckMap() const {
 
 void ExtensionsClient::SetFeatureDelegatedAvailabilityCheckMap(
     Feature::FeatureDelegatedAvailabilityCheckMap map) {
+  for (const auto& [name, handler] : map) {
+    CHECK(handler) << "Null delegated availability check handler for " << name;
+  }
   availability_check_map_ = std::move(map);
 }
 

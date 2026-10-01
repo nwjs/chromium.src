@@ -39,6 +39,7 @@
 #include "components/signin/public/base/signin_switches.h"
 #include "components/signin/public/identity_manager/account_info.h"
 #include "components/signin/public/identity_manager/tribool.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/common/content_features.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/test_navigation_observer.h"
@@ -387,7 +388,7 @@ class SyncConfirmationUIDialogPixelTest
         views::test::AnyWidgetTestPasskey{},
         "SigninViewControllerDelegateViews");
 
-    auto* controller = browser()->GetFeatures().signin_view_controller();
+    auto* controller = SigninViewController::From(browser());
     controller->ShowModalSyncConfirmationDialog(
         sync_param.sync_style == SyncConfirmationStyle::kSigninInterceptModal,
         sync_param.is_sync_promo);
@@ -455,7 +456,7 @@ class SyncConfirmationUITest
   // LoginUIService::Observer:
   void OnSyncConfirmationUIClosed(
       LoginUIService::SyncConfirmationUIClosedResult result) override {
-    browser()->GetFeatures().signin_view_controller()->CloseModalSignin();
+    SigninViewController::From(browser())->CloseModalSignin();
   }
 
   [[nodiscard]] AccountInfo FillAccountInfoWithEscapedHtmlCharacters(
@@ -527,11 +528,9 @@ IN_PROC_BROWSER_TEST_P(SyncConfirmationUITest,
   account_info = FillAccountInfoWithEscapedHtmlCharacters(account_info);
   identity_test_env()->UpdateAccountInfoForAccount(account_info);
 
-  browser()
-      ->GetFeatures()
-      .signin_view_controller()
-      ->ShowModalSyncConfirmationDialog(IsSigninIntercept(),
-                                        /*is_sync_promo=*/true);
+  SigninViewController::From(browser())->ShowModalSyncConfirmationDialog(
+      IsSigninIntercept(),
+      /*is_sync_promo=*/true);
   switch (GetAction()) {
     case SyncConfirmationUIAction::kTurnSyncOn:
       EXPECT_TRUE(

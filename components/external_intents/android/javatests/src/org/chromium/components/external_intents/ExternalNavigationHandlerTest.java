@@ -205,6 +205,7 @@ public class ExternalNavigationHandlerTest {
 
     @Before
     public void setUp() {
+        mDelegate.reset();
         mRealApplicationContext = ContextUtils.getApplicationContext();
         mContext = new TestContext(InstrumentationRegistry.getTargetContext(), mDelegate);
         mModalDialogManager = new FakeModalDialogManager(ModalDialogManager.ModalDialogType.APP);
@@ -2261,6 +2262,31 @@ public class ExternalNavigationHandlerTest {
 
     @Test
     @SmallTest
+    public void testReparentTopLevelNavigationToSamePwaWhenInScope() {
+        mDelegate.add(new IntentActivity(YOUTUBE_MOBILE_URL, YOUTUBE_PACKAGE_NAME));
+        mDelegate.setIsUrlInPwaScope(true);
+
+        mUrlHandler = new ExternalNavigationHandlerForTesting(mDelegate);
+        ExternalNavigationParams params =
+                new ExternalNavigationParams.Builder(
+                                new GURL(SEARCH_RESULT_URL_FOR_TOM_HANKS), false)
+                        .setOpenInNewTab(true)
+                        .setIsMainFrame(true)
+                        .setIsRendererInitiated(true)
+                        .setIsInDesktopWindowingMode(true)
+                        .setIsTabInPWA(true)
+                        .setIsInitialNavigationInFrame(true)
+                        .setRedirectHandler(redirectHandlerForLinkClick())
+                        .build();
+        OverrideUrlLoadingResult result = mUrlHandler.shouldOverrideUrlLoading(params);
+        Assert.assertEquals(
+                OverrideUrlLoadingResultType.OVERRIDE_WITH_REPARENT_TO_SAME_PWA,
+                result.getResultType());
+        Assert.assertNull(mUrlHandler.mStartActivityIntent);
+    }
+
+    @Test
+    @SmallTest
     public void testDoNotReparentTopLevelNavigationWithSpecializedHandler() {
         mDelegate.add(new IntentActivity(YOUTUBE_MOBILE_URL, YOUTUBE_PACKAGE_NAME));
 
@@ -3447,24 +3473,6 @@ public class ExternalNavigationHandlerTest {
 
     @Test
     @SmallTest
-    public void testReportToSafeBrowsing() {
-        // Because this test uses a TestContext, we don't actually send
-        // the intent for real. This does, however, ensure we call
-        // ExternalNavigationHandler.doStartActivity, which triggers the
-        // report to Safe Browsing.
-        mUrlHandler.sendIntentsForReal();
-
-        checkUrl("tel:012345678", redirectHandlerForLinkClick())
-                .expecting(
-                        OverrideUrlLoadingResultType.OVERRIDE_WITH_EXTERNAL_INTENT,
-                        START_OTHER_ACTIVITY);
-
-        Assert.assertEquals(
-                "tel:012345678", mDelegate.intentReportedToSafeBrowsing().getDataString());
-    }
-
-    @Test
-    @SmallTest
     public void testHttpBlockBypassedByMarketCategory() {
         mDelegate.setAllowExternalNavigationForHttpProtocols(false);
 
@@ -3881,11 +3889,6 @@ public class ExternalNavigationHandlerTest {
         public void notifyCctPasswordSavingRecorderOfExternalNavigation() {}
 
         @Override
-        public void reportIntentToSafeBrowsing(Intent intent) {
-            mSafeBrowsingIntent = intent;
-        }
-
-        @Override
         public Intent createIntentToPreventIncognitoAccess(GURL url) {
             return null;
         }
@@ -3913,6 +3916,17 @@ public class ExternalNavigationHandlerTest {
         @Override
         public void setExternalNavigationHelper(ExternalNavigationHelper helper) {}
 
+        private boolean mIsUrlInPwaScope;
+
+        public void setIsUrlInPwaScope(boolean isUrlInPwaScope) {
+            mIsUrlInPwaScope = isUrlInPwaScope;
+        }
+
+        @Override
+        public boolean isUrlInPwaScope(GURL url) {
+            return mIsUrlInPwaScope;
+        }
+
         public void setAllowExternalNavigationForHttpProtocols(boolean value) {
             mAllowExternalNavigationForHttpProtocols = value;
         }
@@ -3924,6 +3938,15 @@ public class ExternalNavigationHandlerTest {
 
         public void reset() {
             startIncognitoIntentCalled = false;
+            mIsUrlInPwaScope = false;
+            reparentTabToSamePwaCalled = false;
+        }
+
+        public boolean reparentTabToSamePwaCalled;
+
+        @Override
+        public void reparentTabToSamePwa() {
+            reparentTabToSamePwaCalled = true;
         }
 
         public void setContext(Context context) {
@@ -4006,10 +4029,6 @@ public class ExternalNavigationHandlerTest {
             mShouldReturnAsActivityResult = returnResult;
         }
 
-        public Intent intentReportedToSafeBrowsing() {
-            return mSafeBrowsingIntent;
-        }
-
         public boolean startIncognitoIntentCalled;
         public boolean maybeSetRequestMetadataCalled;
         public Callback<Boolean> incognitoDialogUserDecisionCallback;
@@ -4033,7 +4052,6 @@ public class ExternalNavigationHandlerTest {
         private boolean mResolvesToMarketApp;
         private boolean mShouldDisableAllExternalIntents;
         private boolean mShouldReturnAsActivityResult;
-        private Intent mSafeBrowsingIntent;
     }
 
     private void checkIntentValidity(Intent intent, String name) {

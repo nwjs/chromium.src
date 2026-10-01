@@ -666,7 +666,7 @@ void TrayBackgroundView::UpdateBackground() {
   if (chromeos::features::IsSystemBlurEnabled()) {
     layer()->SetBackgroundBlur(
         ShelfConfig::Get()->GetShelfControlButtonBlurRadius());
-    layer()->SetBackdropFilterQuality(ColorProvider::kBackgroundBlurQuality);
+    layer()->SetBackdropFilterQuality(StyleUtil::kBackgroundBlurQuality);
   }
 
   layer()->SetClipRect(GetBackgroundBounds());

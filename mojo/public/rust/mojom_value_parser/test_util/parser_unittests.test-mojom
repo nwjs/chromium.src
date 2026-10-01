@@ -295,3 +295,28 @@ struct WithPendingAssociatedTypes {
   pending_associated_receiver<DummyInterface>? rec2;
   pending_associated_remote<DummyInterface>? rem2;
 };
+
+struct RecursiveNode {
+  int32 value;
+  RecursiveNode? next;
+};
+
+struct MutuallyRecursiveA {
+  int32 value;
+  MutuallyRecursiveB? b;
+};
+
+struct MutuallyRecursiveB {
+  int32 value;
+  MutuallyRecursiveA? a;
+};
+
+// Test that a struct named ParsingResult does not collide with mojom_value_parser::ParsingResult.
+struct ParsingResult {
+  int32 value;
+};
+
+// Test that a struct named Predicate does not collide with mojom_value_parser::Predicate.
+struct Predicate {
+  int32 value;
+};

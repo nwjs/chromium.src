@@ -52,8 +52,8 @@
 #include "ui/gl/trace_util.h"
 
 #if BUILDFLAG(ENABLE_VULKAN)
-#include "components/viz/common/gpu/vulkan_context_provider.h"
 #include "gpu/command_buffer/service/shared_image/angle_vulkan_image_backing_factory.h"
+#include "gpu/command_buffer/service/vulkan_context_provider.h"
 #include "gpu/vulkan/vulkan_device_queue.h"
 
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_FUCHSIA) || BUILDFLAG(IS_WIN)
@@ -172,9 +172,6 @@ SharedImageFactory::SharedImageFactory(
       gr_context_type_(context_state_ ? context_state_->gr_context_type()
                                       : GrContextType::kNone),
       gpu_preferences_(gpu_preferences),
-#if BUILDFLAG(IS_MAC)
-      texture_target_for_io_surfaces_(GL_TEXTURE_2D),
-#endif
       workarounds_(workarounds) {
 
   factory_ref_ = base::MakeRefCounted<SharedImageFactoryRef>(this);
@@ -355,11 +352,7 @@ SharedImageFactory::SharedImageFactory(
         std::make_unique<IOSurfaceImageBackingFactory>(
             gr_context_type_, context_state_->GetMaxTextureSize(),
             feature_info.get(), context_state_->progress_reporter(),
-#if BUILDFLAG(IS_MAC)
-            texture_target_for_io_surfaces_
-#else
             GL_TEXTURE_2D
-#endif
         );
     factories_.push_back(std::move(iosurface_backing_factory));
   }
@@ -685,9 +678,8 @@ bool SharedImageFactory::CreateSharedImage(
   return RegisterBacking(std::move(backing), std::move(pool_id));
 }
 
-bool SharedImageFactory::UpdateSharedImage(
-    const Mailbox& mailbox,
-    std::unique_ptr<gfx::GpuFence> in_fence) {
+bool SharedImageFactory::UpdateSharedImage(const Mailbox& mailbox,
+                                           gfx::GpuFenceHandle in_fence) {
   return shared_image_manager_->UpdateSharedImage(mailbox, std::move(in_fence));
 }
 
@@ -897,11 +889,6 @@ gpu::SharedImageCapabilities SharedImageFactory::MakeCapabilities() {
         display_compositor_on_another_thread &&
         !context_state_->is_drdc_enabled();
   }
-
-#if BUILDFLAG(IS_MAC)
-  shared_image_caps.texture_target_for_io_surfaces =
-      texture_target_for_io_surfaces_;
-#endif
 
 #if BUILDFLAG(IS_WIN)
   shared_image_caps.shared_image_d3d = IsD3DSharedImageSupported();

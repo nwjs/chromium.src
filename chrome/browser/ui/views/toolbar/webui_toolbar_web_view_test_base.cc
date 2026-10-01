@@ -6,25 +6,40 @@
 
 #include "base/files/file_util.h"
 #include "base/functional/bind.h"
+#include "base/functional/function_ref.h"
 #include "base/run_loop.h"
 #include "base/strings/stringprintf.h"
+#include "base/test/run_until.h"
 #include "build/build_config.h"
+#include "chrome/browser/browser_process.h"
 #include "chrome/browser/extensions/chrome_test_extension_loader.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/themes/theme_service.h"
 #include "chrome/browser/themes/theme_service_factory.h"
+#include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/interaction/browser_elements.h"
 #include "chrome/browser/ui/toolbar/toolbar_actions_model.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
+#include "chrome/browser/ui/views/toolbar/webui_test_utils.h"
 #include "chrome/browser/ui/views/toolbar/webui_toolbar_web_view.h"
 #include "chrome/browser/ui/webui/webui_toolbar/webui_toolbar_ui.h"
 #include "chrome/common/chrome_features.h"
+#include "components/performance_manager/public/user_tuning/prefs.h"
+#include "components/prefs/pref_service.h"
 #include "content/public/common/content_features.h"
 #include "content/public/test/browser_test_utils.h"
 #include "extensions/common/extension.h"
 #include "extensions/common/extension_features.h"
+#include "ui/base/interaction/element_identifier.h"
+#include "ui/base/interaction/element_tracker.h"
+#include "ui/views/interaction/element_tracker_views.h"
+
+#if BUILDFLAG(IS_CHROMEOS)
+#include "ash/constants/ash_pref_names.h"
+#endif
 
 WebUIToolbarWebViewTestBase::WebUIToolbarWebViewTestBase()
     : WebUIToolbarWebViewTestBase(
@@ -41,6 +56,7 @@ WebUIToolbarWebViewTestBase::~WebUIToolbarWebViewTestBase() = default;
 
 void WebUIToolbarWebViewTestBase::SetUpOnMainThread() {
   InProcessBrowserTest::SetUpOnMainThread();
+  // Force the color mode to light to avoid flakiness.
   ThemeServiceFactory::GetForProfile(browser()->GetProfile())
       ->SetBrowserColorScheme(ThemeService::BrowserColorScheme::kLight);
 }
@@ -72,6 +88,66 @@ content::EvalJsResult WebUIToolbarWebViewTestBase::SetSpacerWidth(int width) {
         return true;
       })();)",
                                                     width));
+}
+
+ui::TrackedElement* WebUIToolbarWebViewTestBase::GetTrackedElement(
+    ui::ElementIdentifier id) {
+  return ui::ElementTracker::GetElementTracker()->GetUniqueElement(
+      id, views::ElementTrackerViews::GetContextForView(GetToolbarView()));
+}
+
+bool WebUIToolbarWebViewTestBase::WaitForTrackedElements(
+    const std::vector<ui::ElementIdentifier>& visible,
+    const std::vector<ui::ElementIdentifier>& hidden) {
+  return base::test::RunUntil([&]() -> bool {
+    for (const auto& id : visible) {
+      if (!GetTrackedElement(id)) {
+        return false;
+      }
+    }
+    for (const auto& id : hidden) {
+      if (GetTrackedElement(id)) {
+        return false;
+      }
+    }
+    return true;
+  });
+}
+
+ui::TrackedElement* WebUIToolbarWebViewTestBase::WaitForTrackedElementVisible(
+    ui::ElementIdentifier id) {
+  EXPECT_TRUE(WaitForTrackedElements({id}));
+  return GetTrackedElement(id);
+}
+
+bool WebUIToolbarWebViewTestBase::WaitForTrackedElementHidden(
+    ui::ElementIdentifier id) {
+  return WaitForTrackedElements({}, {id});
+}
+
+void WebUIToolbarWebViewTestBase::EnableBatterySaverButton(
+    content::WebContents* webui_web_contents) {
+  if (!webui_web_contents) {
+    webui_web_contents = GetWebUIWebContents();
+  }
+#if BUILDFLAG(IS_CHROMEOS)
+  g_browser_process->local_state()->SetBoolean(ash::prefs::kPowerBatterySaver,
+                                               true);
+#else
+  g_browser_process->local_state()->SetInteger(
+      performance_manager::user_tuning::prefs::kBatterySaverModeState,
+      static_cast<int>(performance_manager::user_tuning::prefs::
+                           BatterySaverModeState::kEnabled));
+#endif
+
+  // Verify the button element becomes visible.
+  EXPECT_TRUE(WaitForButtonVisible(webui_web_contents, "#battery-saver"));
+  // Wait for the ElementTracker to be updated.
+  EXPECT_TRUE(base::test::RunUntil([&]() {
+    return ui::ElementTracker::GetElementTracker()->IsElementVisible(
+        kToolbarBatterySaverButtonElementId,
+        BrowserElements::From(browser())->GetContext());
+  }));
 }
 
 WebUIToolbarWebViewTestBase::WebUIToolbarWebViewTestBase(

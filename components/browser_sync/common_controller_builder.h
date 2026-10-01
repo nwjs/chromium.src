@@ -241,9 +241,6 @@ class CommonControllerBuilder {
   std::unique_ptr<syncer::DataTypeController>
   CreateAutofillWalletMetadataDataTypeController(
       syncer::SyncService* sync_service);
-  std::unique_ptr<syncer::DataTypeController>
-  CreateAutofillWalletOfferDataTypeController(
-      syncer::SyncService* sync_service);
 #if !BUILDFLAG(IS_IOS)
   std::unique_ptr<syncer::DataTypeController>
   CreateAutofillWalletUsageDataTypeController(
@@ -315,7 +312,10 @@ class CommonControllerBuilder {
   CreateContextualTaskDataTypeController();
   std::unique_ptr<syncer::DataTypeController>
   CreateNotebookDataTypeController();
-  std::unique_ptr<syncer::DataTypeController> CreateJourneyDataTypeController();
+  std::unique_ptr<syncer::DataTypeController> CreateJourneyDataTypeController(
+      syncer::SyncService* sync_service);
+  std::unique_ptr<syncer::DataTypeController>
+  CreateAutofillEntitySuppressionDataTypeController();
 #if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
   std::unique_ptr<syncer::DataTypeController> CreateSkillDataTypeController(
       syncer::SyncService* sync_service);

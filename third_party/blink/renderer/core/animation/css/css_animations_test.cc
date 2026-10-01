@@ -4,6 +4,10 @@
 
 #include "third_party/blink/renderer/core/animation/css/css_animations.h"
 
+#include <algorithm>
+#include <string>
+#include <vector>
+
 #include "cc/animation/animation.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_timeline_range_offset.h"
@@ -16,10 +20,15 @@
 #include "third_party/blink/renderer/core/animation/document_animations.h"
 #include "third_party/blink/renderer/core/animation/document_timeline.h"
 #include "third_party/blink/renderer/core/animation/element_animations.h"
+#include "third_party/blink/renderer/core/animation/keyframe_effect.h"
+#include "third_party/blink/renderer/core/animation/pending_animations.h"
+#include "third_party/blink/renderer/core/animation/property_handle.h"
 #include "third_party/blink/renderer/core/animation/timeline_trigger.h"
 #include "third_party/blink/renderer/core/css/css_numeric_literal_value.h"
+#include "third_party/blink/renderer/core/css/css_property_equality.h"
 #include "third_party/blink/renderer/core/css/cssom/css_numeric_value.h"
 #include "third_party/blink/renderer/core/css/post_style_update_scope.h"
+#include "third_party/blink/renderer/core/css/properties/computed_style_utils.h"
 #include "third_party/blink/renderer/core/dom/dom_token_list.h"
 #include "third_party/blink/renderer/core/dom/pseudo_element.h"
 #include "third_party/blink/renderer/core/frame/local_dom_window.h"
@@ -28,6 +37,7 @@
 #include "third_party/blink/renderer/core/layout/layout_object_inlines.h"
 #include "third_party/blink/renderer/core/layout/physical_box_fragment.h"
 #include "third_party/blink/renderer/core/page/page_animator.h"
+#include "third_party/blink/renderer/core/style/style_animated_sources.h"
 #include "third_party/blink/renderer/core/testing/core_unit_test_helper.h"
 #include "third_party/blink/renderer/platform/animation/compositor_animation.h"
 #include "third_party/blink/renderer/platform/animation/compositor_animation_delegate.h"
@@ -675,6 +685,69 @@ TEST_P(CSSAnimationsTest, UpdateAnimationFlags_AnimatingElement) {
 
   // ... but the pseudo-element should not.
   EXPECT_FALSE(before->ComputedStyleRef().HasCurrentTransformAnimation());
+}
+
+// Properties stored as pointers must compare by value for transitions. Two
+// resolves of the same declarations give distinct objects.
+TEST_P(CSSAnimationsTest, PointerValuedPropertiesCompareByValue) {
+  SetBodyInnerHTML(R"HTML(
+    <style>
+      div {
+        scrollbar-color: red blue;
+        quotes: "<" ">";
+        marker-start: url(#m);
+        marker-mid: url(#m);
+        marker-end: url(#m);
+        list-style-type: square;
+        view-transition-name: vt;
+        view-transition-class: cls;
+        font-feature-settings: "liga" 0;
+        font-variant-alternates: historical-forms;
+      }
+    </style>
+    <div id="a"></div>
+    <div id="b"></div>
+  )HTML");
+  const ComputedStyle& a = GetElementById("a")->ComputedStyleRef();
+  const ComputedStyle& b = GetElementById("b")->ComputedStyleRef();
+  ASSERT_TRUE(a.ScrollbarColor());
+  EXPECT_NE(a.ScrollbarColor(), b.ScrollbarColor());
+  for (CSSPropertyID id :
+       {CSSPropertyID::kScrollbarColor, CSSPropertyID::kQuotes,
+        CSSPropertyID::kMarkerStart, CSSPropertyID::kMarkerMid,
+        CSSPropertyID::kMarkerEnd, CSSPropertyID::kListStyleType,
+        CSSPropertyID::kViewTransitionName, CSSPropertyID::kViewTransitionClass,
+        CSSPropertyID::kFontFeatureSettings,
+        CSSPropertyID::kFontVariantAlternates}) {
+    EXPECT_TRUE(CSSPropertyEquality::PropertiesEqual(
+        PropertyHandle(CSSProperty::Get(id)), a, b))
+        << CSSProperty::Get(id).GetPropertyNameString();
+  }
+}
+
+// Values that are equal to the initial value must compare equal to it, also
+// when they come from an author declaration.
+TEST_P(CSSAnimationsTest, DeclaredInitialValuesCompareEqualToInitial) {
+  SetBodyInnerHTML(R"HTML(
+    <style>
+      #declared {
+        list-style-type: disc;
+        font: 16px sans-serif;  /* Sets font-feature-settings: normal. */
+      }
+      #initial { font-size: 16px; font-family: sans-serif; }
+    </style>
+    <div id="declared"></div>
+    <div id="initial"></div>
+  )HTML");
+  const ComputedStyle& declared =
+      GetElementById("declared")->ComputedStyleRef();
+  const ComputedStyle& initial = GetElementById("initial")->ComputedStyleRef();
+  for (CSSPropertyID id :
+       {CSSPropertyID::kListStyleType, CSSPropertyID::kFontFeatureSettings}) {
+    EXPECT_TRUE(CSSPropertyEquality::PropertiesEqual(
+        PropertyHandle(CSSProperty::Get(id)), declared, initial))
+        << CSSProperty::Get(id).GetPropertyNameString();
+  }
 }
 
 TEST_P(CSSAnimationsTest, CSSTransitionBlockedByAnimationUseCounter) {
@@ -3147,6 +3220,396 @@ TEST_P(CSSAnimationsTest, CSSTimelineScopeAttachedMultiple_NoCount_One) {
 
   UpdateAllLifecyclePhasesForTest();
   EXPECT_FALSE(IsUseCounted(WebFeature::kCSSTimelineScopeAttachedMultiple));
+}
+
+TEST_P(CSSAnimationsTest, SVGColorAnimationVisitedCurrentColor) {
+  SetBodyInnerHTML(R"HTML(
+    <style>
+      a:link { color: rgb(0, 255, 0); }
+      a:visited { color: rgb(255, 0, 0); }
+
+      @keyframes anim_flood { from, to { flood-color: currentColor; } }
+      @keyframes anim_lighting { from, to { lighting-color: currentColor; } }
+      @keyframes anim_stop { from, to { stop-color: currentColor; } }
+
+      .probe_flood { color: inherit; animation: anim_flood 1s paused; }
+      .probe_lighting { color: inherit; animation: anim_lighting 1s paused; }
+      .probe_stop { color: inherit; animation: anim_stop 1s paused; }
+    </style>
+    <a id="visited" href="">
+      <svg>
+        <filter>
+          <feFlood id="flood_visited" class="probe_flood"></feFlood>
+          <feDiffuseLighting id="lighting_visited" class="probe_lighting">
+            <fePointLight x="0" y="0" z="0"></fePointLight>
+          </feDiffuseLighting>
+        </filter>
+        <linearGradient>
+          <stop id="stop_visited" class="probe_stop"></stop>
+        </linearGradient>
+      </svg>
+    </a>
+    <a id="unvisited" href="http://unvisited.example.com">
+      <svg>
+        <filter>
+          <feFlood id="flood_unvisited" class="probe_flood"></feFlood>
+          <feDiffuseLighting id="lighting_unvisited" class="probe_lighting">
+            <fePointLight x="0" y="0" z="0"></fePointLight>
+          </feDiffuseLighting>
+        </filter>
+        <linearGradient>
+          <stop id="stop_unvisited" class="probe_stop"></stop>
+        </linearGradient>
+      </svg>
+    </a>
+  )HTML");
+
+  UpdateAllLifecyclePhasesForTest();
+
+  auto* window = GetDocument().domWindow();
+  Element* flood_visited =
+      GetDocument().getElementById(AtomicString("flood_visited"));
+  Element* flood_unvisited =
+      GetDocument().getElementById(AtomicString("flood_unvisited"));
+  Element* lighting_visited =
+      GetDocument().getElementById(AtomicString("lighting_visited"));
+  Element* lighting_unvisited =
+      GetDocument().getElementById(AtomicString("lighting_unvisited"));
+  Element* stop_visited =
+      GetDocument().getElementById(AtomicString("stop_visited"));
+  Element* stop_unvisited =
+      GetDocument().getElementById(AtomicString("stop_unvisited"));
+
+  EXPECT_EQ(
+      window->getComputedStyle(flood_unvisited)
+          ->getPropertyValue("flood-color"),
+      window->getComputedStyle(flood_visited)->getPropertyValue("flood-color"));
+  EXPECT_EQ(
+      window->getComputedStyle(flood_visited)->getPropertyValue("flood-color"),
+      "rgb(0, 255, 0)");
+
+  EXPECT_EQ(window->getComputedStyle(lighting_unvisited)
+                ->getPropertyValue("lighting-color"),
+            window->getComputedStyle(lighting_visited)
+                ->getPropertyValue("lighting-color"));
+  EXPECT_EQ(window->getComputedStyle(lighting_visited)
+                ->getPropertyValue("lighting-color"),
+            "rgb(0, 255, 0)");
+
+  EXPECT_EQ(
+      window->getComputedStyle(stop_unvisited)->getPropertyValue("stop-color"),
+      window->getComputedStyle(stop_visited)->getPropertyValue("stop-color"));
+  EXPECT_EQ(
+      window->getComputedStyle(stop_visited)->getPropertyValue("stop-color"),
+      "rgb(0, 255, 0)");
+}
+
+TEST_P(CSSAnimationsTest, SVGColorTransitionVisitedCurrentColor) {
+  SetBodyInnerHTML(R"HTML(
+    <style>
+      a:link { color: rgb(0, 255, 0); }
+      a:visited { color: rgb(255, 0, 0); }
+
+      .probe_flood {
+        color: inherit;
+        flood-color: rgb(0, 0, 255);
+        transition: flood-color 10s steps(2, start);
+      }
+      .probe_lighting {
+        color: inherit;
+        lighting-color: rgb(0, 0, 255);
+        transition: lighting-color 10s steps(2, start);
+      }
+      .probe_stop {
+        color: inherit;
+        stop-color: rgb(0, 0, 255);
+        transition: stop-color 10s steps(2, start);
+      }
+      .transition_active {
+        flood-color: currentColor;
+        lighting-color: currentColor;
+        stop-color: currentColor;
+      }
+    </style>
+    <a id="visited" href="">
+      <svg>
+        <filter>
+          <feFlood class="probe_flood" id="flood_visited"></feFlood>
+          <feDiffuseLighting class="probe_lighting" id="lighting_visited">
+            <fePointLight x="0" y="0" z="0"></fePointLight>
+          </feDiffuseLighting>
+        </filter>
+        <linearGradient>
+          <stop class="probe_stop" id="stop_visited"></stop>
+        </linearGradient>
+      </svg>
+    </a>
+    <a id="unvisited" href="http://unvisited.example.com">
+      <svg>
+        <filter>
+          <feFlood class="probe_flood" id="flood_unvisited"></feFlood>
+          <feDiffuseLighting class="probe_lighting" id="lighting_unvisited">
+            <fePointLight x="0" y="0" z="0"></fePointLight>
+          </feDiffuseLighting>
+        </filter>
+        <linearGradient>
+          <stop class="probe_stop" id="stop_unvisited"></stop>
+        </linearGradient>
+      </svg>
+    </a>
+  )HTML");
+
+  UpdateAllLifecyclePhasesForTest();
+
+  Element* flood_visited =
+      GetDocument().getElementById(AtomicString("flood_visited"));
+  Element* flood_unvisited =
+      GetDocument().getElementById(AtomicString("flood_unvisited"));
+  Element* lighting_visited =
+      GetDocument().getElementById(AtomicString("lighting_visited"));
+  Element* lighting_unvisited =
+      GetDocument().getElementById(AtomicString("lighting_unvisited"));
+  Element* stop_visited =
+      GetDocument().getElementById(AtomicString("stop_visited"));
+  Element* stop_unvisited =
+      GetDocument().getElementById(AtomicString("stop_unvisited"));
+
+  flood_visited->classList().Add(AtomicString("transition_active"));
+  flood_unvisited->classList().Add(AtomicString("transition_active"));
+  lighting_visited->classList().Add(AtomicString("transition_active"));
+  lighting_unvisited->classList().Add(AtomicString("transition_active"));
+  stop_visited->classList().Add(AtomicString("transition_active"));
+  stop_unvisited->classList().Add(AtomicString("transition_active"));
+
+  UpdateAllLifecyclePhasesForTest();
+
+  auto* window = GetDocument().domWindow();
+  EXPECT_EQ(
+      window->getComputedStyle(flood_unvisited)
+          ->getPropertyValue("flood-color"),
+      window->getComputedStyle(flood_visited)->getPropertyValue("flood-color"));
+  EXPECT_EQ(
+      window->getComputedStyle(flood_visited)->getPropertyValue("flood-color"),
+      "rgb(0, 128, 128)");
+
+  EXPECT_EQ(window->getComputedStyle(lighting_unvisited)
+                ->getPropertyValue("lighting-color"),
+            window->getComputedStyle(lighting_visited)
+                ->getPropertyValue("lighting-color"));
+  EXPECT_EQ(window->getComputedStyle(lighting_visited)
+                ->getPropertyValue("lighting-color"),
+            "rgb(0, 128, 128)");
+
+  EXPECT_EQ(
+      window->getComputedStyle(stop_unvisited)->getPropertyValue("stop-color"),
+      window->getComputedStyle(stop_visited)->getPropertyValue("stop-color"));
+  EXPECT_EQ(
+      window->getComputedStyle(stop_visited)->getPropertyValue("stop-color"),
+      "rgb(0, 128, 128)");
+}
+
+class AnimatedSourceTest : public RenderingTest {
+ public:
+  AnimatedSourceTest()
+      : RenderingTest(base::test::TaskEnvironment::TimeSource::MOCK_TIME) {}
+
+  void SetUp() override {
+    RenderingTest::SetUp();
+    GetAnimationClock().ResetTimeForTesting();
+    GetDocument().Timeline().ResetForTesting();
+    // Advance timer to document time.
+    AdvanceClock(
+        base::Seconds(GetDocument().Timeline().ZeroTime().InSecondsF()));
+  }
+
+ protected:
+  // Starts an animation of `property` on `element` and updates style.
+  Animation* Animate(Element* element,
+                     CSSPropertyID property,
+                     const String& from,
+                     const String& to = String()) {
+    auto* effect = animation_test_helpers::CreateSimpleKeyframeEffectForTest(
+        element, property, from, to.IsNull() ? from : to);
+    Animation* animation = GetDocument().Timeline().Play(effect);
+    GetDocument().GetPendingAnimations().Update(nullptr, true);
+    UpdateAllLifecyclePhasesForTest();
+    return animation;
+  }
+
+  // Returns the recorded animation source for `property` on `element`.
+  AnimatedSource SourceFor(Element* element, CSSPropertyID property) {
+    return element->GetComputedStyle()->GetAnimatedSource(property);
+  }
+
+ private:
+  ScopedTrackAnimatedSourcesForTest enable_feature_{true};
+};
+
+// Behavior every property marked tracks_animated_source must satisfy.
+// Properties opted in through css_properties.json5 are picked up automatically
+// without changes to this file: the animated value is taken from the initial
+// style, so no per-property values are needed here.
+class AnimatedSourcePropertyTest
+    : public AnimatedSourceTest,
+      public testing::WithParamInterface<CSSPropertyID> {
+ protected:
+  // An animatable value for GetParam().
+  String Value() const {
+    return ComputedStyleUtils::ComputedPropertyValue(
+               CSSProperty::Get(GetParam()),
+               *ComputedStyle::GetInitialStyleSingleton())
+        ->CssText();
+  }
+};
+
+namespace {
+
+// All properties opted into tracks_animated_source in css_properties.json5.
+std::vector<CSSPropertyID> AnimatedSourceProperties() {
+  std::vector<CSSPropertyID> tracked;
+  for (CSSPropertyID id : CSSPropertyIDList()) {
+    if (GetAnimatedSourceProperty(id).has_value()) {
+      tracked.push_back(id);
+    }
+  }
+  return tracked;
+}
+
+// gtest-safe test suffix for a property, e.g. "transform".
+std::string AnimatedSourcePropertyName(
+    const testing::TestParamInfo<CSSPropertyID>& info) {
+  std::string name = CSSProperty::Get(info.param).GetPropertyName();
+  std::replace(name.begin(), name.end(), '-', '_');
+  return name;
+}
+
+}  // namespace
+
+INSTANTIATE_TEST_SUITE_P(All,
+                         AnimatedSourcePropertyTest,
+                         testing::ValuesIn(AnimatedSourceProperties()),
+                         AnimatedSourcePropertyName);
+
+TEST_P(AnimatedSourcePropertyTest, Lifecycle) {
+  SetBodyInnerHTML("<div id=animator></div>");
+  Element* animator = GetElementById("animator");
+  Animation* animation = Animate(animator, GetParam(), Value());
+  // The animated computed value should be attributed to animator.
+  EXPECT_TRUE(
+      SourceFor(animator, GetParam()).animated_source.IsOwnedBy(*animator));
+
+  // Cancel the animation. Since the static value reapplies, the source
+  // should be cleared.
+  animation->cancel();
+  UpdateAllLifecyclePhasesForTest();
+  EXPECT_FALSE(SourceFor(animator, GetParam()).animated_source.IsValid());
+}
+
+TEST_P(AnimatedSourcePropertyTest, InheritPropagatesSource) {
+  SetBodyInnerHTML("<div id=animator><div id=child></div></div>");
+  Element* animator = GetElementById("animator");
+  Element* child = GetElementById("child");
+  // Give child an explicit 'inherit' so it copies the animated value.
+  child->SetInlineStyleProperty(GetParam(), "inherit");
+  Animate(animator, GetParam(), Value());
+
+  // 'inherit' should carry the source to child whether or not the property
+  // inherits by default.
+  EXPECT_TRUE(
+      SourceFor(child, GetParam()).animated_source.IsOwnedBy(*animator));
+}
+
+TEST_P(AnimatedSourcePropertyTest, StartDelay) {
+  SetBodyInnerHTML("<div id=target></div>");
+  Element* target = GetElementById("target");
+
+  auto* effect = animation_test_helpers::CreateSimpleKeyframeEffectForTest(
+      target, GetParam(), Value(), Value());
+  Timing timing;
+  timing.iteration_duration = ANIMATION_TIME_DELTA_FROM_SECONDS(10);
+  timing.start_delay = Timing::Delay(ANIMATION_TIME_DELTA_FROM_SECONDS(5));
+  effect->UpdateSpecifiedTiming(timing);
+  Animation* animation = GetDocument().Timeline().Play(effect);
+  UpdateAllLifecyclePhasesForTest();
+
+  // During start delay (time = 0), the effect is not yet active, so no source
+  // is recorded.
+  EXPECT_FALSE(SourceFor(target, GetParam()).animated_source.IsValid());
+
+  // Advance time past start delay (to 6s). The effect is now active.
+  animation->setCurrentTime(MakeGarbageCollected<V8CSSNumberish>(6000),
+                            ASSERT_NO_EXCEPTION);
+  UpdateAllLifecyclePhasesForTest();
+
+  EXPECT_TRUE(SourceFor(target, GetParam()).animated_source.IsOwnedBy(*target));
+  EXPECT_FALSE(SourceFor(target, GetParam()).has_untracked_dependencies);
+}
+
+TEST_P(AnimatedSourcePropertyTest, ImportantRuleWinsOverAnimation) {
+  SetBodyInnerHTML("<style>#target { " +
+                   CSSProperty::Get(GetParam()).GetPropertyNameString() + ": " +
+                   Value() + " !important }</style><div id=target></div>");
+  Element* target = GetElementById("target");
+  Animate(target, GetParam(), Value());
+  EXPECT_FALSE(SourceFor(target, GetParam()).animated_source.IsValid());
+}
+
+// Transition coverage uses fixed properties: starting a transition requires
+// two distinct computed values, which cannot be derived generically for an
+// arbitrary property. The transition handling under test does not branch per
+// property, so per-property coverage adds nothing here.
+TEST_F(AnimatedSourceTest, Transitions) {
+  SetBodyInnerHTML(R"HTML(
+    <style>
+      #target { transition: transform 100s; transform: scale(1); }
+      #target.changed { transform: scale(2); }
+    </style>
+    <div id=target></div>
+  )HTML");
+  Element* target = GetElementById("target");
+  // Start the transitions by changing the class.
+  target->setAttribute(html_names::kClassAttr, AtomicString("changed"));
+  UpdateAllLifecyclePhasesForTest();
+
+  AnimatedSource transform_source =
+      SourceFor(target, CSSPropertyID::kTransform);
+  EXPECT_TRUE(transform_source.animated_source.IsOwnedBy(*target));
+  EXPECT_FALSE(transform_source.has_untracked_dependencies);
+}
+
+TEST_F(AnimatedSourceTest, TransitionWinsOverImportant) {
+  SetBodyInnerHTML(R"HTML(
+    <style>
+      #target { transition: opacity 100s; opacity: 1 !important; }
+      #target.changed { opacity: 0 !important; }
+    </style>
+    <div id=target></div>
+  )HTML");
+  Element* target = GetElementById("target");
+  target->setAttribute(html_names::kClassAttr, AtomicString("changed"));
+  UpdateAllLifecyclePhasesForTest();
+  EXPECT_TRUE(SourceFor(target, CSSPropertyID::kOpacity)
+                  .animated_source.IsOwnedBy(*target));
+}
+
+// A rezoomed inherited value goes through ApplyParentValue(): still attributed
+// to the animating ancestor, but no longer an exact copy of its value.
+// This path only exists for properties with affected_by_zoom, so it is not an
+// invariant of every tracked property and stays on transform.
+TEST_F(AnimatedSourceTest, RezoomedInheritHasUntrackedDependencies) {
+  SetBodyInnerHTML(R"HTML(
+    <div id=animator>
+      <div id=child style="transform: inherit; zoom: 2"></div>
+    </div>
+  )HTML");
+  Element* animator = GetElementById("animator");
+  Element* child = GetElementById("child");
+  Animate(animator, CSSPropertyID::kTransform, "translateX(10px)",
+          "translateX(20px)");
+
+  AnimatedSource source = SourceFor(child, CSSPropertyID::kTransform);
+  EXPECT_TRUE(source.animated_source.IsOwnedBy(*animator));
+  EXPECT_TRUE(source.has_untracked_dependencies);
 }
 
 }  // namespace blink

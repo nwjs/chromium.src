@@ -54,6 +54,7 @@ import org.chromium.chrome.browser.tasks.tab_management.TabGridDialogMediator.An
 import org.chromium.chrome.browser.tasks.tab_management.TabListEditorCoordinator.CreationMode;
 import org.chromium.chrome.browser.tasks.tab_management.TabListEditorCoordinator.TabListEditorController;
 import org.chromium.chrome.browser.tasks.tab_management.TabListMediator.TabListItemOnClickListenerProvider;
+import org.chromium.chrome.browser.tasks.tab_management.TabListMediator.TabListLayoutType;
 import org.chromium.chrome.browser.tasks.tab_management.TabProperties.UiType;
 import org.chromium.chrome.browser.tasks.tab_management.TabSwitcherMessageManager.MessageType;
 import org.chromium.chrome.browser.tasks.tab_management.TabUiMetricsHelper.TabGroupColorChangeActionType;
@@ -108,7 +109,6 @@ public class TabGridDialogCoordinator implements TabGridDialogMediator.DialogCon
             ObservableSuppliers.createNullable();
     private final TabContentManager mTabContentManager;
     private final @Nullable SnackbarManager mSnackbarManager;
-    private final @Nullable TabSwitcherResetHandler mTabSwitcherResetHandler;
     private final TabGridDialogView mDialogView;
     private final Callback<@Nullable View> mAttachViewCallback;
 
@@ -125,7 +125,6 @@ public class TabGridDialogCoordinator implements TabGridDialogMediator.DialogCon
             DataSharingTabManager dataSharingTabManager,
             NullableObservableSupplier<TabModel> currentTabModelSupplier,
             TabContentManager tabContentManager,
-            @Nullable TabSwitcherResetHandler resetHandler,
             @Nullable TabListItemOnClickListenerProvider tabListItemOnClickListenerProvider,
             @Nullable AnimationSourceViewProvider animationSourceViewProvider,
             ScrimManager scrimManager,
@@ -145,7 +144,6 @@ public class TabGridDialogCoordinator implements TabGridDialogMediator.DialogCon
             mModalDialogManager = modalDialogManager;
             mCurrentTabModelSupplier = currentTabModelSupplier;
             mTabContentManager = tabContentManager;
-            mTabSwitcherResetHandler = resetHandler;
             mUndoBarThrottle = undoBarThrottle;
             mAttachViewCallback = attachViewCallback;
 
@@ -219,7 +217,6 @@ public class TabGridDialogCoordinator implements TabGridDialogMediator.DialogCon
                             this,
                             mModel,
                             currentTabModelSupplier,
-                            resetHandler,
                             this::getRecyclerViewPosition,
                             animationSourceViewProvider,
                             mSnackbarManager,
@@ -243,10 +240,10 @@ public class TabGridDialogCoordinator implements TabGridDialogMediator.DialogCon
                             mModalDialogManager,
                             currentTabModelSupplier,
                             new TabContentManagerThumbnailProvider(tabContentManager),
-                            /* actionOnRelatedTabs= */ false,
+                            TabListLayoutType.FLAT,
                             dataSharingTabManager,
                             tabListItemOnClickListenerProvider,
-                            mMediator.getTabGridDialogHandler(),
+                            mMediator::updateUngroupBarStatus,
                             TabProperties.TabActionState.CLOSABLE,
                             /* selectionDelegateProvider= */ null,
                             /* priceWelcomeMessageControllerSupplier= */ null,
@@ -364,8 +361,7 @@ public class TabGridDialogCoordinator implements TabGridDialogMediator.DialogCon
                             mCurrentTabModelSupplier,
                             mTabContentManager,
                             mTabListCoordinator::setRecyclerViewPosition,
-                            TabListMode.GRID,
-                            /* displayGroups= */ false,
+                            TabListLayoutType.FLAT,
                             mSnackbarManager,
                             mBottomSheetController,
                             TabProperties.TabActionState.SELECTABLE,
@@ -402,19 +398,6 @@ public class TabGridDialogCoordinator implements TabGridDialogMediator.DialogCon
                                     mTabGroupColorPickerCoordinator
                                             .getSelectedColorSupplier()
                                             .get()));
-
-                    // Only require a refresh of the tab list if accessed from the GTS,
-                    // skip if this is reached from the tab strip as the color will
-                    // refresh upon re-entering the tab switcher.
-                    if (mTabSwitcherResetHandler != null) {
-                        // Refresh the TabSwitcher's tab list to reflect the last
-                        // selected color in the color picker when it is dismissed. This
-                        // call will be invoked for both Grid and List modes on the GTS.
-                        TabModel tabModel = mCurrentTabModelSupplier.get();
-                        assumeNonNull(tabModel);
-                        mTabSwitcherResetHandler.resetWithListOfTabs(
-                                tabModel.getRepresentativeTabList());
-                    }
                 };
 
         List<Integer> colors = TabGroupColorPickerUtils.getTabGroupColorIdList();
@@ -556,7 +539,12 @@ public class TabGridDialogCoordinator implements TabGridDialogMediator.DialogCon
 
     @Override
     public void prepareDialog() {
-        mTabListCoordinator.prepareTabGridView();
+        mTabListCoordinator.prepareTabListView();
+    }
+
+    @Override
+    public void prepareHiding() {
+        mTabListCoordinator.prepareHiding();
     }
 
     @Override

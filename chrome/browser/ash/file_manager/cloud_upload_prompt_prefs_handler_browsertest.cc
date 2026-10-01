@@ -14,11 +14,9 @@
 #include "chrome/browser/policy/profile_policy_connector.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/sync/sync_service_factory.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/webui/ash/cloud_upload/cloud_upload_util.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/testing_profile.h"
-#include "chromeos/constants/chromeos_features.h"
 #include "components/prefs/pref_service.h"
 #include "components/sync/test/test_sync_service.h"
 #include "content/public/test/browser_test.h"
@@ -54,12 +52,7 @@ using ash::cloud_upload::CloudProvider;
 
 class CloudUploadPromptPrefsHandlerTestBase : public InProcessBrowserTest {
  public:
-  CloudUploadPromptPrefsHandlerTestBase() {
-    feature_list_.InitWithFeatures(
-        {chromeos::features::kUploadOfficeToCloud,
-         chromeos::features::kUploadOfficeToCloudSync},
-        {});
-  }
+  CloudUploadPromptPrefsHandlerTestBase() = default;
   ~CloudUploadPromptPrefsHandlerTestBase() override = default;
 
   void SetUpOnMainThread() override {
@@ -80,7 +73,6 @@ class CloudUploadPromptPrefsHandlerTestBase : public InProcessBrowserTest {
   }
 
  private:
-  base::test::ScopedFeatureList feature_list_;
   std::unique_ptr<TestingProfile> profile_;
 };
 

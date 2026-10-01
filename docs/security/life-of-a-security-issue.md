@@ -160,6 +160,11 @@ security team member will assign the issue a [CVE](https://www.cve.org/) number.
 CVE numbers need to point to a publicly accessible artifact, and Chrome uses the
 releases blog (see below) for this purpose.
 
+Chrome sometimes issues CVEs and later reclassifies an issue reported as a
+security vulnerability as a non-security functional issue. Chrome does not
+routinely revoke CVEs in these cases. The status of the issue will reflect
+our most recent security assessment.
+
 ## 11. Publish release & security notes
 
 The Chrome Release team releases an update of Chrome containing the security
@@ -171,7 +176,7 @@ acknowledging the reporter as requested (if they have consented to such).
 
 ## 12. Publicly disclose
 
-Except in rare circumstances where the bug report has been embargoed, 14 weeks
+Except in rare circumstances where the bug report has been embargoed, 30 days
 after the issue is marked *Fixed*, security automation opens the bug for public
 disclosure. At that time, the reporter can consider their obligations under
 coordinated disclosure to be fulfilled.

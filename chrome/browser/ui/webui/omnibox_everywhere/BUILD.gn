@@ -4,24 +4,66 @@
 
 assert(!is_android)
 
+if (is_win || is_mac) {
+  source_set("unit_tests") {
+    testonly = true
+    sources = [
+      "omnibox_everywhere_handler_unittest.cc",
+      "omnibox_everywhere_hotkey_bubble_view_unittest.cc",
+    ]
+    deps = [
+      ":omnibox_everywhere",
+      "//base/test:test_support",
+      "//chrome/app:generated_resources",
+      "//chrome/browser/autocomplete:aim_eligibility_service",
+      "//chrome/browser/bookmarks",
+      "//chrome/browser/contextual_search",
+      "//chrome/browser/ui/omnibox/omnibox_everywhere",
+      "//chrome/browser/ui/webui/searchbox:searchbox_test_utils",
+      "//chrome/test/views",
+      "//components/bookmarks/browser",
+      "//components/bookmarks/test",
+      "//components/omnibox/browser",
+      "//components/prefs",
+      "//components/search_engines",
+      "//content/test:test_support",
+      "//net",
+      "//testing/gmock",
+      "//testing/gtest",
+      "//ui/base",
+      "//ui/display",
+      "//ui/views",
+      "//ui/views:test_support",
+      "//url",
+    ]
+  }
+}
+
 source_set("omnibox_everywhere") {
   sources = [
     "composebox_everywhere_handler.cc",
     "omnibox_everywhere_handler.cc",
+    "omnibox_everywhere_hotkey_bubble_view.cc",
+    "omnibox_everywhere_page_handler.cc",
     "omnibox_everywhere_ui.cc",
   ]
   public = [
     "composebox_everywhere_handler.h",
     "omnibox_everywhere_handler.h",
+    "omnibox_everywhere_hotkey_bubble_view.h",
+    "omnibox_everywhere_page_handler.h",
     "omnibox_everywhere_ui.h",
   ]
   public_deps = [
     "debug:mojo_bindings",
+    "mojom:mojo_bindings",
     "//chrome/browser:browser_public_dependencies",
   ]
   deps = [
     "debug",
     "//base",
+    "//chrome/app:branded_strings",
+    "//chrome/app/theme:chrome_unscaled_resources",
     "//chrome/browser/autocomplete:aim_eligibility_service",
     "//chrome/browser/contextual_search",
     "//chrome/browser/contextual_tasks",
@@ -33,6 +75,8 @@ source_set("omnibox_everywhere") {
     "//chrome/browser/ui/omnibox",
     "//chrome/browser/ui/omnibox/omnibox_everywhere",
     "//chrome/browser/ui/profiles",
+    "//chrome/browser/ui/views/location_bar",
+    "//chrome/browser/ui/views/omnibox",
     "//chrome/browser/ui/views/user_education",
     "//chrome/browser/ui/webui:favicon_source",
     "//chrome/browser/ui/webui:plural_string_handler",
@@ -55,7 +99,9 @@ source_set("omnibox_everywhere") {
     "//components/user_education/webui",
     "//content/public/browser",
     "//ui/base",
+    "//ui/display",
     "//ui/strings:ui_strings",
+    "//ui/views",
     "//ui/webui/resources/cr_components/composebox:mojo_bindings",
     "//ui/webui/resources/cr_components/help_bubble:mojo_bindings",
     "//ui/webui/resources/cr_components/most_visited:mojom",

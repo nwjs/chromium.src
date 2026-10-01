@@ -35,6 +35,8 @@
 #include "chrome/renderer/accessibility/phrase_segmentation/dependency_parser_model.h"
 #include "chrome/renderer/accessibility/read_anything/read_aloud_traversal_utils.h"
 #include "chrome/renderer/accessibility/read_anything/read_anything_app_model.h"
+#include "chrome/renderer/accessibility/read_anything/read_anything_distiller.h"
+#include "chrome/renderer/accessibility/read_anything/read_anything_distiller_factory.h"
 #include "chrome/renderer/accessibility/read_anything/read_anything_node_utils.h"
 #include "components/language/core/common/locale_util.h"
 #include "components/translate/core/common/translate_constants.h"
@@ -171,10 +173,17 @@ ReadAnythingAppController::ReadAnythingAppController(
       base::BindRepeating(&ReadAnythingAppController::OnPdfDebounceFinished,
                           weak_ptr_factory_.GetWeakPtr()));
   renderer_load_triggered_time_ms_ = base::TimeTicks::Now();
-  distiller_ = std::make_unique<AXTreeDistiller>(
-      render_frame,
-      base::BindRepeating(&ReadAnythingAppController::OnAXTreeDistilled,
-                          weak_ptr_factory_.GetWeakPtr()));
+  if (features::IsReadAnythingDistillerRefactorEnabled()) {
+    distiller_factory_ = std::make_unique<ReadAnythingDistillerFactory>(
+        render_frame,
+        base::BindRepeating(&ReadAnythingAppModel::is_screen_ai_service_ready,
+                            base::Unretained(&model_)));
+  } else {
+    distiller_ = std::make_unique<AXTreeDistiller>(
+        render_frame,
+        base::BindRepeating(&ReadAnythingAppController::OnAXTreeDistilled,
+                            weak_ptr_factory_.GetWeakPtr()));
+  }
   // TODO(crbug.com/40915547): Use a global ukm recorder instance instead.
   mojo::Remote<ukm::mojom::UkmRecorderFactory> factory;
   content::RenderThread::Get()->BindHostReceiver(
@@ -191,6 +200,8 @@ ReadAnythingAppController::~ReadAnythingAppController() {
 }
 
 void ReadAnythingAppController::OnDestruct() {
+  distiller_factory_.reset();
+  active_distiller_.reset();
   self_.Clear();
 }
 
@@ -215,8 +226,7 @@ void ReadAnythingAppController::OnNodeWillBeDeleted(ui::AXTree* tree,
     return;
   }
   ui::AXNodeID node_id = CHECK_DEREF(node).id();
-  if (model_.GetCurrentlyVisibleNodes()->contains(node_id)) {
-    displayed_nodes_pending_deletion_.insert(node_id);
+  if (model_.OnNodeWillBeDeleted(node_id)) {
     if (!read_aloud_model_.speech_playing()) {
       ExecuteJavaScript("chrome.readingMode.onNodeWillBeDeleted(" +
                         base::ToString(node_id) + ")");
@@ -228,15 +238,14 @@ void ReadAnythingAppController::OnNodeDeleted(ui::AXTree* tree,
                                               ui::AXNodeID node_id) {
   // Node deletions are ignored for Readability because the Readability panel
   // renders a static HTML snapshot and does not dynamically update its content.
-  if (model_.is_readability_next_distillation_method()) {
+  if (model_.is_readability_next_distillation_method() ||
+      tree->GetAXTreeID() != model_.active_tree_id()) {
     return;
   }
 
-  if (!displayed_nodes_pending_deletion_.contains(node_id)) {
+  if (!model_.OnNodeDeleted(node_id)) {
     return;
   }
-
-  displayed_nodes_pending_deletion_.erase(node_id);
 
   // For Google Docs, we extract text from the "annotated canvas" element
   // nodes, which hold the currently visible text on screen. As the user
@@ -246,7 +255,7 @@ void ReadAnythingAppController::OnNodeDeleted(ui::AXTree* tree,
   // unexpected behavior (e.g., an empty side panel). Therefore, Google Docs
   // require special handling to ensure correct text extraction and avoid
   // these issues.
-  if (!displayed_nodes_pending_deletion_.empty() || IsGoogleDocs()) {
+  if (!model_.displayed_nodes_pending_deletion().empty() || IsGoogleDocs()) {
     return;
   }
 
@@ -782,6 +791,31 @@ void ReadAnythingAppController::OnAXTreeDestroyed(const ui::AXTreeID& tree_id) {
   model_.OnAXTreeDestroyed(tree_id);
 }
 
+void ReadAnythingAppController::UpdateActiveDistiller() {
+  CHECK(distiller_factory_);
+  ReadAnythingAppModel::DistillationMethod method =
+      model_.next_distillation_method();
+  if (active_distiller_ &&
+      active_distiller_->GetDistillationMethod() == method) {
+    return;
+  }
+  // Recreating active_distiller_ destructs the previous instance,
+  // canceling its in-flight operations and dropping pending callbacks.
+  active_distiller_ = distiller_factory_->CreateDistiller(
+      method,
+      base::BindRepeating(&ReadAnythingAppController::OnDistillationComplete,
+                          weak_ptr_factory_.GetWeakPtr()));
+}
+
+void ReadAnythingAppController::ExecuteDistillation(
+    const DistillationRequest& request) {
+  // Ensure the active distiller matches the model's next distillation method
+  // before dispatching the request.
+  UpdateActiveDistiller();
+  CHECK(active_distiller_);
+  active_distiller_->Distill(request);
+}
+
 void ReadAnythingAppController::Distill() {
   if (IsUpdateProcessingPaused()) {
     // When distillation is in progress, the model may have queued up tree
@@ -802,13 +836,6 @@ void ReadAnythingAppController::Distill() {
     waiting_for_tree_id_ = true;
     return;
   }
-  std::unique_ptr<
-      ui::AXTreeSource<const ui::AXNode*, ui::AXTreeData*, ui::AXNodeData>>
-      tree_source(tree->CreateTreeSource());
-  ui::AXTreeSerializer<const ui::AXNode*, std::vector<const ui::AXNode*>,
-                       ui::AXTreeUpdate*, ui::AXTreeData*, ui::AXNodeData>
-      serializer(tree_source.get());
-  ui::AXTreeUpdate snapshot;
   if (!tree->root()) {
     return;
   }
@@ -820,13 +847,29 @@ void ReadAnythingAppController::Distill() {
                         ? read_aloud_model_.default_language_code()
                         : tree_lang);
   }
-  CHECK(serializer.SerializeChanges(tree->root(), &snapshot));
+
   distillation_attempts_++;
   model_.set_screen2x_distiller_running(true);
   SetDistillationState(read_anything::mojom::ReadAnythingDistillationState::
                            kDistillationInProgress);
   VLOG(1) << "Distilling tree with ID: " << tree->GetAXTreeID();
-  distiller_->Distill(*tree, snapshot, model_.GetUkmSourceId());
+
+  if (features::IsReadAnythingDistillerRefactorEnabled()) {
+    DistillationRequest request;
+    request.tree = tree;
+    request.ukm_source_id = model_.GetUkmSourceId();
+    ExecuteDistillation(request);
+  } else {
+    std::unique_ptr<
+        ui::AXTreeSource<const ui::AXNode*, ui::AXTreeData*, ui::AXNodeData>>
+        tree_source(tree->CreateTreeSource());
+    ui::AXTreeSerializer<const ui::AXNode*, std::vector<const ui::AXNode*>,
+                         ui::AXTreeUpdate*, ui::AXTreeData*, ui::AXNodeData>
+        serializer(tree_source.get());
+    ui::AXTreeUpdate snapshot;
+    CHECK(serializer.SerializeChanges(tree->root(), &snapshot));
+    distiller_->Distill(*tree, snapshot, model_.GetUkmSourceId());
+  }
 
   if (!has_logged_distillation_status_ &&
       !distillation_status_logging_delay_timer_.IsRunning()) {
@@ -835,6 +878,19 @@ void ReadAnythingAppController::Distill() {
         base::BindOnce(
             &ReadAnythingAppController::RecordScreen2xDistillationStatus,
             base::Unretained(this), /*just_hidden=*/false));
+  }
+}
+
+void ReadAnythingAppController::OnDistillationComplete(
+    const DistillationResult& result) {
+  CHECK(features::IsReadAnythingDistillerRefactorEnabled());
+  switch (result.type) {
+    case DistillationResult::Type::kAXNodeIds:
+      OnAXTreeDistilled(result.tree_id, result.node_ids);
+      break;
+    case DistillationResult::Type::kHTML:
+      // TODO(b/543987370): Implement readability distiller.
+      break;
   }
 }
 
@@ -866,11 +922,6 @@ void ReadAnythingAppController::OnAXTreeDistilled(
     VLOG(1) << "Distillation terminated because update processing is paused";
     return;
   }
-  // Reset state, including the current side panel selection so we can update
-  // it based on the new main panel selection in PostProcessSelection below.
-  model_.Reset(content_node_ids);
-  read_aloud_model_.ResetReadAloudState();
-
   // Return early if any of the following scenarios occurred while waiting for
   // distillation to complete:
   // 1. tree_id != model_.active_tree_id(): The active tree was changed.
@@ -899,6 +950,11 @@ void ReadAnythingAppController::OnAXTreeDistilled(
     }
     return;
   }
+
+  // Reset state, including the current side panel selection so we can update
+  // it based on the new main panel selection in PostProcessSelection below.
+  model_.Reset(content_node_ids);
+  read_aloud_model_.ResetReadAloudState();
 
   if (!model_.content_node_ids().empty()) {
     // If there are content_node_ids, this means the AXTree was successfully
@@ -1140,7 +1196,9 @@ void ReadAnythingAppController::OnSettingsRestoredFromPrefs(
 
 void ReadAnythingAppController::ScreenAIServiceReady() {
   model_.set_is_screen_ai_service_ready(true);
-  distiller_->ScreenAIServiceReady();
+  if (!features::IsReadAnythingDistillerRefactorEnabled() && distiller_) {
+    distiller_->ScreenAIServiceReady();
+  }
 }
 
 void ReadAnythingAppController::TogglePinState() {
@@ -1312,6 +1370,8 @@ gin::ObjectTemplateBuilder ReadAnythingAppController::GetObjectTemplateBuilder(
       .SetMethod("onFontSizeChanged",
                  &ReadAnythingAppController::OnFontSizeChanged)
       .SetMethod("onFontSizeReset", &ReadAnythingAppController::OnFontSizeReset)
+      .SetMethod("onImagesEnabledToggled",
+                 &ReadAnythingAppController::OnImagesEnabledToggled)
       .SetMethod("onLinksEnabledToggled",
                  &ReadAnythingAppController::OnLinksEnabledToggled)
       .SetMethod("onTranslationRequested",
@@ -2577,6 +2637,8 @@ void ReadAnythingAppController::OnReadingModeHidden(bool tab_active) {
 
 void ReadAnythingAppController::OnReadingModeShown(
     read_anything::mojom::ReadAnythingOpenTrigger open_trigger) {
+  model_.set_will_hide(false);
+
   // TODO (crbug.com/494307454): Add test to verify that duplicate calls of
   // OnReadingModeShown() won't affect Read Aloud's audio playback state (other
   // than the playOnOpen state).

@@ -3,7 +3,9 @@
 # found in the LICENSE file.
 import("//build/config/ui.gni")
 import("//mojo/public/tools/bindings/mojom.gni")
+
 mojom("mojom") {
+  generate_blink = true
   generate_java = true
   sources = [
     "compositing/animation.mojom",
@@ -454,7 +456,6 @@ mojom("mojom") {
         "//services/viz/public/cpp/compositing/compositor_render_pass_mojom_traits.h",
         "//services/viz/public/cpp/compositing/quads_mojom_traits.h",
       ]
-      traits_public_deps = [ "//ui/gl" ]
     },
     {
       types = [
@@ -661,6 +662,7 @@ mojom("mojom") {
 }
 
 mojom("surfaces") {
+  generate_blink = true
   generate_java = true
   sources = [
     "compositing/frame_sink_id.mojom",

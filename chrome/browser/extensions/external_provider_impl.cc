@@ -47,8 +47,10 @@
 #include "chrome/common/extensions/extension_constants.h"
 #include "chrome/common/pref_names.h"
 #include "components/crx_file/id_util.h"
+#include "components/policy/core/common/policy_logger.h"
 #include "components/prefs/pref_service.h"
 #include "content/public/browser/browser_thread.h"
+#include "extensions/browser/extension_prefs.h"
 #include "extensions/browser/extension_registry.h"
 #include "extensions/browser/external_install_info.h"
 #include "extensions/browser/external_provider_interface.h"
@@ -80,7 +82,6 @@
 #include "chromeos/ash/experiences/arc/arc_util.h"
 #include "chromeos/components/kiosk/kiosk_utils.h"
 #include "chromeos/components/mgs/managed_guest_session_utils.h"
-#include "chromeos/constants/chromeos_features.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 #else
 #include "chrome/browser/extensions/preinstalled_extensions.h"
@@ -262,9 +263,30 @@ void ExternalProviderImpl::RetrieveExtensionsFromPrefs(
   InstallStageTracker* install_stage_tracker =
       InstallStageTrackerFactory::GetForBrowserContext(profile_);
 
+  // Restrict this check to enterprise policy download providers (where
+  // crx_location_ is kInvalidLocation and download_location_ is a policy
+  // download location for forced or recommended extensions).
+  bool is_download_policy_provider =
+      crx_location_ == ManifestLocation::kInvalidLocation &&
+      (download_location_ == ManifestLocation::kExternalPolicyDownload ||
+       download_location_ == ManifestLocation::kExternalPrefDownload);
+  ExtensionManagement* extension_management =
+      ExtensionManagementFactory::GetForBrowserContext(profile_);
+  CHECK(extension_management);
+
   // Discover all the extensions this provider has.
   for (auto pref : *prefs_) {
     const std::string& extension_id = pref.first;
+
+    if (is_download_policy_provider &&
+        extension_management->IsExtensionBlockedByLowTrust(extension_id)) {
+      LOG_POLICY(INFO, POLICY_PROCESSING)
+          << "[BlockLowTrustExtension] Skipped update download for policy "
+             "extension "
+          << extension_id
+          << ": Extension is blocked in a low-trust environment.";
+      continue;
+    }
 
 #if BUILDFLAG(IS_CHROMEOS)
     if (extension_id == kCameraAppId) {
@@ -690,10 +712,8 @@ void ExternalProviderImpl::CreateExternalProviders(
       ManifestLocation::kInvalidLocation;
 
 #if BUILDFLAG(IS_CHROMEOS)
-  const bool install_on_lock_screen =
-      chromeos::features::IsLockScreenBadgeAuthEnabled() &&
-      ash::IsLockScreenBrowserContext(profile);
-  if (ash::IsSigninBrowserContext(profile) || install_on_lock_screen) {
+  if (ash::IsSigninBrowserContext(profile) ||
+      ash::IsLockScreenBrowserContext(profile)) {
     // Download extensions/apps installed by policy in the login and lock screen
     // profiles. Extensions (not apps) installed through this path will have
     // type |TYPE_LOGIN_SCREEN_EXTENSION| with limited API capabilities.

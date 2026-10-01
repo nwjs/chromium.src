@@ -18,10 +18,11 @@ extensions_api_schema_files_ = [
   "management.json",
   "metrics_private.json",
   "offscreen.webidl",
+  "permissions.json",
   "power.webidl",
   "proxy.json",
   "runtime.json",
-  "scripting.idl",
+  "scripting.webidl",
   "storage.json",
   "system_cpu.webidl",
   "system_display.webidl",
@@ -62,7 +63,7 @@ if (enable_guest_view) {
   ]
   extensions_types_only_schema_files_ += [
     "extension_options_internal.webidl",
-    "icon_variants.idl",
+    "icon_variants.webidl",
   ]
 }
 
@@ -77,16 +78,16 @@ if (enable_extensions) {
     "cec_private.webidl",
     "clipboard.webidl",
     "feedback_private.webidl",
-    "file_system.idl",
-    "hid.idl",
+    "file_system.webidl",
+    "hid.webidl",
     "mime_handler.webidl",
     "networking_private.webidl",
     "printer_provider_internal.webidl",
     "printer_provider.webidl",
-    "socket.idl",
-    "sockets_tcp_server.idl",
-    "sockets_tcp.idl",
-    "sockets_udp.idl",
+    "socket.webidl",
+    "sockets_tcp_server.webidl",
+    "sockets_tcp.webidl",
+    "sockets_udp.webidl",
     "system_storage.webidl",
   ]
   extensions_types_only_schema_files_ += [
@@ -94,7 +95,7 @@ if (enable_extensions) {
     # as [nocompile] and implemented in JS. As such, we somewhat-misleadingly
     # categorize it as "types_only".
     "automation.webidl",
-    "mime_handler_private.idl",
+    "mime_handler_private.webidl",
     "mojo_private.webidl",
     "scripts_internal.webidl",
   ]

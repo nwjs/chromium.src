@@ -163,7 +163,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Windows.Experimental.Pdh.ProcessV2.{Counter}.{ProcessType}{StartupState}"
-    units="counter value" expires_after="2027-01-03">
+    units="counter value" expires_after="2027-03-07">
   <owner>spvm@chromium.org</owner>
   <owner>catan-team@chromium.org</owner>
   <summary>
@@ -221,6 +221,16 @@ chromium-metrics-reviews@google.com.
   <summary>
     Reported when the user toggles the feature notifications setting in Chrome's
     System settings. Its value represents what the setting was changed to.
+  </summary>
+</histogram>
+
+<histogram name="Windows.FilePathWatcher.ReadDirectoryChangesError"
+    enum="WinGetLastError" expires_after="2027-09-07">
+  <owner>grt@chromium.org</owner>
+  <owner>memmott@chromium.org</owner>
+  <summary>
+    Records the error from an asynchronous or synchronous ReadDirectoryChangesW
+    failure while a FilePathWatcher is active.
   </summary>
 </histogram>
 
@@ -369,6 +379,21 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="Windows.IsolatedBrowser.LaunchResult" enum="Hresult"
+    expires_after="2027-02-28">
+  <owner>wfh@chromium.org</owner>
+  <owner>chrome-platform-security-core@google.com</owner>
+  <summary>
+    Records the HRESULT when an attempt to launch an isolated browser process is
+    made during startup. Recorded on startup in the browser process once metrics
+    reporting has initialized, only if isolation was requested. On launch
+    success, S_OK is recorded by the isolated browser process itself (the
+    launcher stub process terminates without initializing metrics). On launch
+    failure, the failure HRESULT is recorded by the browser process falling back
+    to running unisolated.
+  </summary>
+</histogram>
+
 <histogram name="Windows.IsPinnedToTaskbar" enum="IsPinnedToTaskbarResult"
     expires_after="never">
 <!-- expires-never: Used to assess Chrome usage on Windows -->
@@ -378,6 +403,17 @@ chromium-metrics-reviews@google.com.
   <summary>
     Indicates whether Chrome is pinned to the Windows taskbar for the current
     user. Recorded shortly after startup.
+  </summary>
+</histogram>
+
+<histogram name="Windows.IsPinnedToTaskbar3" enum="IsPinnedToTaskbarResult"
+    expires_after="2027-02-24">
+  <owner>songhaoli@chromium.org</owner>
+  <owner>davidbienvenu@chromium.org</owner>
+  <summary>
+    Indicates whether Chrome (chrome.exe) is pinned to the Windows taskbar for
+    the current user, queried using IPinnedList3. Recorded 45s after startup on
+    a background sequence when the WindowsIsPinnedToTaskbar3 feature is enabled.
   </summary>
 </histogram>
 
@@ -419,6 +455,34 @@ chromium-metrics-reviews@google.com.
     Records whether or not parallel DLL loading is enabled for the browser
     process executable. This is recorded once per browser session, on startup.
   </summary>
+</histogram>
+
+<histogram name="Windows.ParentalControls.FetchResult" enum="BooleanSuccess"
+    expires_after="2027-02-28">
+  <owner>ljjlee@google.com</owner>
+  <owner>chrome-kids-eng@google.com</owner>
+  <summary>
+    Records whether the system was able to successfully determine the Microsoft
+    parental control settings. See
+    https://learn.microsoft.com/en-us/windows/win32/api/wpcapi/nf-wpcapi-iwpcsettings-getrestrictions
+    for details.
+  </summary>
+</histogram>
+
+<histogram name="Windows.ParentalControls.{Setting}" enum="Boolean"
+    expires_after="2027-02-28">
+  <owner>ljjlee@google.com</owner>
+  <owner>chrome-kids-eng@google.com</owner>
+  <summary>
+    Records the status of the Windows Parental Controls {Setting} setting.
+    Recorded once during startup when platform parental controls are initialized
+    or queried, only if the parental control settings were successfully
+    determined.
+  </summary>
+  <token key="Setting">
+    <variant name="LoggingRequired"/>
+    <variant name="WebFiltered"/>
+  </token>
 </histogram>
 
 <histogram name="Windows.ParentProcessNameHash" enum="ProcessNameHash"
@@ -511,7 +575,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Windows.PlatformExperienceHelper.InstallerLaunchStatus.User"
-    enum="UserInstallerLaunchStatus" expires_after="2026-12-27">
+    enum="UserInstallerLaunchStatus" expires_after="2027-02-28">
   <owner>alsan@chromium.org</owner>
   <owner>chrome-desktop-ui-waterloo@google.com</owner>
   <summary>
@@ -647,7 +711,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Windows.Win11HardwareRequirements2.{Type}Check"
-    enum="BooleanEnabled" expires_after="2027-01-03">
+    enum="BooleanEnabled" expires_after="2027-03-07">
   <owner>estalin@chromium.org</owner>
   <owner>davidbienvenu@chromium.org</owner>
   <summary>

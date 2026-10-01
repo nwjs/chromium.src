@@ -7,17 +7,22 @@
 #include <jni.h>
 
 #include <cstdint>
+#include <memory>
 #include <utility>
 #include <vector>
 
 #include "base/android/jni_android.h"
 #include "base/android/jni_array.h"
 #include "base/functional/bind.h"
+#include "base/memory/weak_ptr.h"
+#include "components/facilitated_payments/content/browser/facilitated_payments_api_client_factory.h"
 #include "components/facilitated_payments/core/browser/account_linking_result.h"
 #include "components/facilitated_payments/core/utils/facilitated_payments_utils.h"
 #include "components/signin/public/identity_manager/identity_test_environment.h"
+#include "content/public/browser/web_contents.h"
 #include "content/public/test/test_renderer_host.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "url/gurl.h"
 
 namespace payments::facilitated {
 namespace {
@@ -96,7 +101,8 @@ TEST_F(FacilitatedPaymentsApiClientAndroidTest,
   secure_payload.secure_data.emplace_back(2, "value_2");
 
   apiClient.InvokePurchaseAction(
-      identity_test_environment.MakeAccountAvailable("test@example.test"),
+      identity_test_environment.MakeAccountAvailable("test@example.test")
+          .GetCoreAccountInfo(),
       secure_payload,
       base::BindOnce(&CaptureResultEnum, &was_callback_invoked,
                      &purchase_action_result));
@@ -115,7 +121,8 @@ TEST_F(FacilitatedPaymentsApiClientAndroidTest,
   std::vector<uint8_t> action_token = {'A', 'c', 't', 'i', 'o', 'n'};
 
   apiClient.InvokeInstrumentManager(
-      identity_test_environment.MakeAccountAvailable("test@example.test"),
+      identity_test_environment.MakeAccountAvailable("test@example.test")
+          .GetCoreAccountInfo(),
       action_token,
       base::BindOnce(&CaptureLinkingResult, &was_callback_invoked,
                      &invoke_instrument_manager_result));
@@ -138,6 +145,28 @@ TEST_F(FacilitatedPaymentsApiClientAndroidTest,
   apiClient.OnPurchaseActionResultEnum(
       env, static_cast<int32_t>(PurchaseActionResult::kResultOk));
   apiClient.OnInvokeInstrumentManagerResult(env, nullptr);
+}
+
+TEST_F(
+    FacilitatedPaymentsApiClientAndroidTest,
+    GetFacilitatedPaymentsApiClientCreator_WebContents_CreatesClientAfterNavigation) {
+  NavigateAndCommit(GURL("https://initial.example.test"));
+  FacilitatedPaymentsApiClientCreator creator =
+      GetFacilitatedPaymentsApiClientCreator(web_contents()->GetWeakPtr());
+
+  NavigateAndCommit(GURL("https://merchant.example.test"));
+
+  std::unique_ptr<FacilitatedPaymentsApiClient> api_client = creator.Run();
+  EXPECT_NE(nullptr, api_client);
+}
+
+TEST_F(FacilitatedPaymentsApiClientAndroidTest,
+       GetFacilitatedPaymentsApiClientCreator_NullWebContents_ReturnsNullptr) {
+  FacilitatedPaymentsApiClientCreator creator =
+      GetFacilitatedPaymentsApiClientCreator(
+          base::WeakPtr<content::WebContents>());
+
+  EXPECT_EQ(nullptr, creator.Run());
 }
 
 }  // namespace

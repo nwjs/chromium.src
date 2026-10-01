@@ -93,6 +93,7 @@
 #include "chrome/browser/ui/signin/signin_view_controller.h"
 #include "chrome/browser/ui/startup/first_run_service.h"
 #include "chrome/browser/ui/tab_dialogs.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/profiles/avatar_toolbar_button.h"
 #include "chrome/browser/ui/views/profiles/profile_picker_reauth_provider.h"
@@ -155,6 +156,7 @@
 #include "components/sync/service/sync_service.h"
 #include "components/sync/service/sync_user_settings.h"
 #include "components/sync/test/test_sync_service.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/content_features.h"
 #include "content/public/test/browser_test.h"
@@ -171,6 +173,7 @@
 #include "ui/base/accelerators/accelerator.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/ozone_buildflags.h"
+#include "ui/base/page_transition_types.h"
 #include "ui/events/event_constants.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/widget/widget_delegate.h"
@@ -766,11 +769,13 @@ class ProfilePickerCreationFlowBrowserTest
     // Add an account - simulate a successful Gaia sign-in.
     signin::IdentityManager* identity_manager =
         IdentityManagerFactory::GetForProfile(profile_being_created);
-    CoreAccountInfo core_account_info = signin::MakeAccountAvailable(
-        identity_manager,
-        signin::AccountAvailabilityOptionsBuilder(test_url_loader_factory())
-            .WithAccessPoint(signin_metrics::AccessPoint::kUserManager)
-            .Build(email));
+    CoreAccountInfo core_account_info =
+        signin::MakeAccountAvailable(
+            identity_manager,
+            signin::AccountAvailabilityOptionsBuilder(test_url_loader_factory())
+                .WithAccessPoint(signin_metrics::AccessPoint::kUserManager)
+                .Build(email))
+            .GetCoreAccountInfo();
     EXPECT_TRUE(identity_manager->HasAccountWithRefreshToken(
         core_account_info.account_id));
 
@@ -2388,7 +2393,8 @@ IN_PROC_BROWSER_TEST_F(ProfilePickerCreationFlowBrowserTest,
 
   // Simulate the Dice "ENABLE_SYNC" header parameter, resulting in sync
   // confirmation screen getting displayed.
-  SimulateEnableSyncDiceHeader(web_contents(), account_info);
+  SimulateEnableSyncDiceHeader(web_contents(),
+                               account_info.GetCoreAccountInfo());
   GURL target_url = syncer::IsReplaceSyncPromosWithSignInPromosEnabled()
                         ? GetHistorySyncOptinURL()
                         : GetSyncConfirmationURL();
@@ -2463,7 +2469,8 @@ IN_PROC_BROWSER_TEST_F(ProfilePickerCreationFlowBrowserTest,
 
   // Simulate the Dice "ENABLE_SYNC" header parameter, resulting in sync
   // confirmation screen getting displayed.
-  SimulateEnableSyncDiceHeader(web_contents(), account_info);
+  SimulateEnableSyncDiceHeader(web_contents(),
+                               account_info.GetCoreAccountInfo());
   GURL target_url = syncer::IsReplaceSyncPromosWithSignInPromosEnabled()
                         ? GetHistorySyncOptinURL()
                         : GetSyncConfirmationURL();
@@ -2488,8 +2495,8 @@ IN_PROC_BROWSER_TEST_F(ProfilePickerCreationFlowBrowserTest,
   base::RunLoop().RunUntilIdle();
 
   // Add full account info.
-  AccountInfo full_account_info =
-      FillAccountInfo(account_info, "Joe", kNoHostedDomainFound);
+  AccountInfo full_account_info = FillAccountInfo(
+      account_info.GetCoreAccountInfo(), "Joe", kNoHostedDomainFound);
   signin::UpdateAccountInfoForAccount(identity_manager, full_account_info);
 
   // Check expectations when the profile creation flow is closes.
@@ -2912,8 +2919,7 @@ IN_PROC_BROWSER_TEST_F(ProfilePickerCreationFlowBrowserTest,
   BrowserWindowInterface* const new_browser = waiter.Wait();
   profile_customization_observer.Wait();
   content::WebContents* dialog_web_contents =
-      new_browser->GetFeatures()
-          .signin_view_controller()
+      SigninViewController::From(new_browser)
           ->GetModalDialogWebContentsForTesting();
   EXPECT_EQ(dialog_web_contents->GetLastCommittedURL(),
             kLocalProfileCreationUrl);
@@ -2924,8 +2930,7 @@ IN_PROC_BROWSER_TEST_F(ProfilePickerCreationFlowBrowserTest,
           .GetProfileAttributesWithPath(new_browser->GetProfile()->GetPath());
   ASSERT_TRUE(entry->IsEphemeral());
   EXPECT_FALSE(ProfilePicker::IsOpen());
-  EXPECT_TRUE(
-      new_browser->GetFeatures().signin_view_controller()->ShowsModalDialog());
+  EXPECT_TRUE(SigninViewController::From(new_browser)->ShowsModalDialog());
 
   // Simulate clicking the "Done" button on the profile customization dialog.
   ConfirmLocalProfileCreation(dialog_web_contents);
@@ -2935,8 +2940,7 @@ IN_PROC_BROWSER_TEST_F(ProfilePickerCreationFlowBrowserTest,
   ASSERT_EQ(2u, g_browser_process->profile_manager()
                     ->GetProfileAttributesStorage()
                     .GetNumberOfProfiles());
-  EXPECT_FALSE(
-      new_browser->GetFeatures().signin_view_controller()->ShowsModalDialog());
+  EXPECT_FALSE(SigninViewController::From(new_browser)->ShowsModalDialog());
 }
 
 #if BUILDFLAG(IS_MAC)
@@ -2968,8 +2972,7 @@ IN_PROC_BROWSER_TEST_F(ProfilePickerCreationFlowBrowserTest,
   BrowserWindowInterface* const new_browser = browser_added_waiter.Wait();
   profile_customization_observer.Wait();
   content::WebContents* dialog_web_contents =
-      new_browser->GetFeatures()
-          .signin_view_controller()
+      SigninViewController::From(new_browser)
           ->GetModalDialogWebContentsForTesting();
   EXPECT_EQ(dialog_web_contents->GetLastCommittedURL(),
             kLocalProfileCreationUrl);
@@ -2984,8 +2987,7 @@ IN_PROC_BROWSER_TEST_F(ProfilePickerCreationFlowBrowserTest,
                     .GetNumberOfProfiles());
   ASSERT_TRUE(entry->IsEphemeral());
   EXPECT_FALSE(ProfilePicker::IsOpen());
-  EXPECT_TRUE(
-      new_browser->GetFeatures().signin_view_controller()->ShowsModalDialog());
+  EXPECT_TRUE(SigninViewController::From(new_browser)->ShowsModalDialog());
 
   // Simulate clicking the "Delete profile" button on the profile customization
   // dialog.
@@ -3530,7 +3532,8 @@ IN_PROC_BROWSER_TEST_F(ProfilePickerEnterpriseCreationFlowBrowserTest,
 
   signin::UpdateAccountInfoForAccount(
       identity_manager,
-      /*account_info=*/FillAccountInfo(account_info, "Joe", "acme.com"));
+      /*account_info=*/FillAccountInfo(account_info.GetCoreAccountInfo(), "Joe",
+                                       "acme.com"));
   identity_manager->GetPrimaryAccountMutator()->SetPrimaryAccount(
       account_info.GetAccountId(), signin::ConsentLevel::kSignin,
       signin_metrics::AccessPoint::kUserManager);

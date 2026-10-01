@@ -19,6 +19,8 @@
 #include "components/prefs/pref_service.h"
 #include "third_party/metrics_proto/omnibox_event.pb.h"
 #include "third_party/omnibox_proto/chrome_aim_entry_point.pb.h"
+#include "ui/base/page_transition_types.h"
+#include "ui/base/window_open_disposition.h"
 
 namespace {
 
@@ -71,8 +73,8 @@ class OmniboxPopupComposeboxClient : public ContextualOmniboxClient {
     net::GetValueForKeyInQuery(destination_url, "q", &query_text);
     composebox_handler_->SubmitQuery(
         query_text, disposition,
-        PageClassificationToAimEntryPoint(
-            GetPageClassification(/*is_prefetch=*/false)),
+        GetAimEntryPoint(GetPageClassification(/*is_prefetch=*/false),
+                         composebox_handler_->GetContextualSessionHandle()),
         additional_params, /*is_voice_search=*/false);
   }
 
@@ -123,16 +125,6 @@ OmniboxComposeboxHandler::OmniboxComposeboxHandler(
                                                          this),
           std::move(get_session_callback),
           std::move(clear_session_callback)) {
-  auto* aim_eligibility_service =
-      AimEligibilityServiceFactory::GetForProfile(profile);
-  if (aim_eligibility_service) {
-    aim_eligibility_subscription_ =
-        aim_eligibility_service->RegisterEligibilityChangedCallback(
-            base::BindRepeating(
-                &OmniboxComposeboxHandler::OnAimEligibilityChanged,
-                weak_ptr_factory_.GetWeakPtr()));
-  }
-
   // Set the callback for getting suggest inputs from the session.
   // The session is owned by WebUI controller and accessed via callback.
   // It is safe to use Unretained because omnibox client is owned by `this`.
@@ -175,15 +167,6 @@ void OmniboxComposeboxHandler::OpenLensSearch() {
   if (main_omnibox_controller) {
     main_omnibox_controller->edit_model()->OpenLensSearch();
   }
-}
-
-void OmniboxComposeboxHandler::OnAimEligibilityChanged() {
-  auto* aim_eligibility_service =
-      AimEligibilityServiceFactory::GetForProfile(profile_);
-  if (!aim_eligibility_service) {
-    return;
-  }
-  InitializeInputStateModel();
 }
 
 void OmniboxComposeboxHandler::OnContentSharingPolicyChanged() {

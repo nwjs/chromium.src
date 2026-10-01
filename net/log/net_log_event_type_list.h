@@ -2605,6 +2605,8 @@ EVENT_TYPE(QUIC_SESSION_POOL_ASYNC_DNS_JOB_SLOTS_SWAPPED)
 //                             attempt, if there was one>,
 //     "canceled_ip_endpoint": <IP endpoint of the other connector's canceled
 //                              attempt, if there was one>,
+//     "canceled_attempts": <List of dictionaries containing "attempt_id" and
+//                           "ip_endpoint" for all canceled attempts, if any>,
 //   }
 EVENT_TYPE(QUIC_SESSION_POOL_ASYNC_DNS_JOB_CONNECTOR_SETTLED_JOB)
 
@@ -5454,3 +5456,46 @@ EVENT_TYPE(PROXY_RESOLUTION_DYNAMIC_RULE_APPLIED)
 //      }
 //   }
 EVENT_TYPE(ON_BEFORE_SEND_HEADERS_RESULT)
+
+// ------------------------------------------------------------------------
+// Enterprise Proxy
+// ------------------------------------------------------------------------
+
+// The start/end of a dynamic proxy route configuration refresh across
+// Provisioning Domains, during which network requests waiting on dynamic
+// proxy routes are paused in ConfiguredProxyResolutionService.
+EVENT_TYPE(ENTERPRISE_PROXY_NETWORK_PAUSE)
+
+// This event is logged when an HTTP 407 Proxy Authentication challenge is
+// received by EnterpriseProxyService.
+//   {
+//      "proxy_url": <string>,
+//      "destination_url": <string>,
+//      "auth_scheme": <string>,
+//      "realm": <string>,
+//      "is_proxy": <bool>,
+//   }
+EVENT_TYPE(ENTERPRISE_PROXY_AUTH_CHALLENGE_RECEIVED)
+
+// This event is logged when EnterpriseProxyService resolves an HTTP 407
+// challenge.
+//   {
+//      "decision": <string: "token_acquired", "disguised_error",
+//                   "no_credentials_needed", "sign_in_required", "failed">,
+//      "has_credentials": <bool>,
+//      "failure_reason": <optional string: "unmanaged_user",
+//                         "unsupported_scope", "transient_error",
+//                         "auth_error", "canceled", "service_shutdown",
+//                         "no_primary_account", "invalid_credentials">,
+//   }
+EVENT_TYPE(ENTERPRISE_PROXY_AUTH_CHALLENGE_RESOLVED)
+
+// This event is logged when EnterpriseProxyErrorService stores a disguised
+// proxy error for an error page navigation.
+//   {
+//      "navigation_id": <string>,
+//      "destination_url": <string>,
+//      "proxy_url": <string>,
+//      "error_code": <integer>,
+//   }
+EVENT_TYPE(ENTERPRISE_PROXY_DISGUISED_ERROR_SAVED)

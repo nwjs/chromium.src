@@ -8,7 +8,7 @@
 #include <optional>
 
 #include "build/build_config.h"
-#include "mojo/public/cpp/bindings/associated_receiver_set.h"
+#include "mojo/public/cpp/bindings/associated_receiver.h"
 #include "mojo/public/cpp/bindings/pending_associated_receiver.h"
 #include "net/http/http_connection_info.h"
 #include "services/network/public/mojom/load_timing_info.mojom.h"
@@ -54,6 +54,8 @@ class FakeLocalFrame : public blink::mojom::LocalFrame {
       const std::string& id,
       const std::string& message,
       const std::optional<blink::FrameToken>& child_frame_token) override;
+  void UpdateChildFrameToVideoAd(
+      const blink::FrameToken& child_frame_token) override;
   void SetFrameOwnerProperties(
       blink::mojom::FrameOwnerPropertiesPtr properties) override;
   void NotifyUserActivation(

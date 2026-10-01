@@ -12,8 +12,8 @@ import org.chromium.chrome.R;
 import org.chromium.components.autofill.EditableOption;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -49,7 +49,7 @@ public class SectionInformation {
      */
     public SectionInformation(
             @PaymentRequestUi.DataType int sectionType, @Nullable EditableOption defaultItem) {
-        this(sectionType, 0, defaultItem == null ? null : Arrays.asList(defaultItem));
+        this(sectionType, 0, defaultItem == null ? null : Collections.singletonList(defaultItem));
     }
 
     /**
@@ -206,7 +206,7 @@ public class SectionInformation {
                     mSelectedItem -= mSelectedItem > i ? 1 : 0;
                 }
                 mItems.remove(i);
-                if (mItems.size() == 0) mSelectedItem = INVALID_SELECTION;
+                if (mItems.isEmpty()) mSelectedItem = INVALID_SELECTION;
                 break;
             }
         }

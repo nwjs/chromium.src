@@ -13,6 +13,7 @@
 #include "base/test/scoped_feature_list.h"
 #include "build/build_config.h"
 #include "chrome/browser/autocomplete/aim_eligibility_service_factory.h"
+#include "chrome/browser/bookmarks/bookmark_model_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ui/actions/chrome_action_id.h"
 #include "chrome/browser/ui/browser_commands.h"
@@ -26,6 +27,8 @@
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/test/interaction/interactive_browser_test.h"
 #include "chrome/test/interaction/interactive_browser_window_test.h"
+#include "components/bookmarks/browser/bookmark_model.h"
+#include "components/bookmarks/test/bookmark_test_helpers.h"
 #include "components/omnibox/browser/mock_aim_eligibility_service.h"
 #include "components/omnibox/common/omnibox_features.h"
 #include "content/public/test/browser_test.h"
@@ -40,6 +43,11 @@ namespace {
 
 constexpr char kTestPageUrl[] = "https://foo.bar";
 DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kTabId);
+
+ui::ElementIdentifier GetTargetElementId() {
+  return features::IsWebUILocationBarEnabled() ? kBrowserViewElementId
+                                               : kOmniboxElementId;
+}
 
 std::unique_ptr<KeyedService> BuildMockAimServiceEligibilityServiceInstance(
     content::BrowserContext* context) {
@@ -104,32 +112,31 @@ class AiModePageActionControllerInteractiveUiTest
   }
 
   ui::InteractionSequence::StepBuilder OpenOmniboxPopupByTypingASingleZero() {
-    return ui::test::InteractiveTestApi::SendKeyPress(kOmniboxElementId,
+    return ui::test::InteractiveTestApi::SendKeyPress(GetTargetElementId(),
                                                       ui::VKEY_0);
   }
 
   ui::InteractionSequence::StepBuilder ClosePopupOrBlurOmnibox() {
-    return ui::test::InteractiveTestApi::SendKeyPress(kOmniboxElementId,
+    return ui::test::InteractiveTestApi::SendKeyPress(GetTargetElementId(),
                                                       ui::VKEY_ESCAPE);
   }
 
   InteractiveTestApi::MultiStep CheckChipVisible(bool visible) {
     BrowserWindowInterface* bwi = browser();
-    return visible
-               ? ui::test::InteractiveTestApi::Steps(
-                     PageActionInteractiveTestMixin::
-                         WaitForPageActionChipVisible(kActionAiMode),
-                     Do([bwi]() {
-                       EXPECT_TRUE(
-                           AiModePageActionController::From(bwi)->IsVisible());
-                     }))
-               : ui::test::InteractiveTestApi::Steps(
-                     ui::test::InteractiveTestApi::WaitForHide(
-                         kAiModePageActionIconElementId),
-                     Do([bwi]() {
-                       EXPECT_FALSE(
-                           AiModePageActionController::From(bwi)->IsVisible());
-                     }));
+    if (visible) {
+      return ui::test::InteractiveTestApi::Steps(
+          PageActionInteractiveTestMixin::WaitForPageActionChipVisible(
+              kActionAiMode),
+          Do([bwi]() {
+            EXPECT_TRUE(AiModePageActionController::From(bwi)->IsVisible());
+          }));
+    }
+    return ui::test::InteractiveTestApi::Steps(
+        PageActionInteractiveTestMixin::WaitForPageActionChipNotVisible(
+            kActionAiMode),
+        Do([bwi]() {
+          EXPECT_FALSE(AiModePageActionController::From(bwi)->IsVisible());
+        }));
   }
 
   ui::InteractionSequence::StepBuilder WaitForAimPopup() {
@@ -178,11 +185,10 @@ IN_PROC_BROWSER_TEST_F(AiModePageActionControllerInteractiveUiTest,
 IN_PROC_BROWSER_TEST_F(AiModePageActionControllerInteractiveUiTest,
                        MAYBE_PressingChipWithMouseOpensAiMode) {
   base::HistogramTester histogram_tester;
-  RunTestSequence(
-      OpenTabWithPageUrlAndFocusOmnibox(/*is_ntp=*/true),
-      CheckChipVisible(/*visible=*/true),
-      PressButton(kAiModePageActionIconElementId, InputType::kMouse),
-      WaitForAimPopup());
+  RunTestSequence(OpenTabWithPageUrlAndFocusOmnibox(/*is_ntp=*/true),
+                  CheckChipVisible(/*visible=*/true),
+                  InvokePageAction(kActionAiMode, InputType::kMouse),
+                  WaitForAimPopup());
 
   histogram_tester.ExpectUniqueSample(
       "Omnibox.AimEntrypoint.Activated.ViaKeyboard", false, 1);
@@ -191,11 +197,10 @@ IN_PROC_BROWSER_TEST_F(AiModePageActionControllerInteractiveUiTest,
 IN_PROC_BROWSER_TEST_F(AiModePageActionControllerInteractiveUiTest,
                        PressingChipWithKeyboardOpensAiMode) {
   base::HistogramTester histogram_tester;
-  RunTestSequence(
-      OpenTabWithPageUrlAndFocusOmnibox(/*is_ntp=*/true),
-      CheckChipVisible(/*visible=*/true),
-      PressButton(kAiModePageActionIconElementId, InputType::kKeyboard),
-      WaitForAimPopup());
+  RunTestSequence(OpenTabWithPageUrlAndFocusOmnibox(/*is_ntp=*/true),
+                  CheckChipVisible(/*visible=*/true),
+                  InvokePageAction(kActionAiMode, InputType::kKeyboard),
+                  WaitForAimPopup());
 
   histogram_tester.ExpectUniqueSample(
       "Omnibox.AimEntrypoint.Activated.ViaKeyboard", true, 1);
@@ -237,7 +242,7 @@ IN_PROC_BROWSER_TEST_F(
     VisibleWhileNotEditingOmnibox) {
   RunTestSequence(OpenTabWithPageUrlAndFocusOmnibox(),
                   OpenOmniboxPopupByTypingASingleZero(),
-                  SendKeyPress(kOmniboxElementId, ui::VKEY_BACK),
+                  SendKeyPress(GetTargetElementId(), ui::VKEY_BACK),
                   CheckChipVisible(/*visible=*/true));
 }
 
@@ -260,7 +265,31 @@ IN_PROC_BROWSER_TEST_F(
                   CheckChipVisible(true),
                   // Type a URL.
                   EnterText(kOmniboxElementId, u"https://google.com"),
+                  CheckChipVisible(false),
+                  // Press Escape to close popup.
+                  SendKeyPress(GetTargetElementId(), ui::VKEY_ESCAPE),
                   CheckChipVisible(false));
+}
+
+IN_PROC_BROWSER_TEST_F(
+    AiModePageActionControllerHideEntryPointForUrlInteractiveUiTest,
+    HidesOnSelectedUrlSuggestion) {
+  bookmarks::BookmarkModel* model =
+      BookmarkModelFactory::GetForBrowserContext(browser()->GetProfile());
+  bookmarks::test::WaitForBookmarkModelToLoad(model);
+  model->AddNewURL(model->other_node(), 0, u"example bookmark",
+                   GURL("https://example.com"));
+
+  RunTestSequence(
+      OpenTabWithPageUrlAndFocusOmnibox(/*is_ntp=*/true),
+      CheckChipVisible(true),
+      // Type query matching both search and bookmark.
+      EnterText(kOmniboxElementId, u"example"), CheckChipVisible(true),
+      // Move selection down to the bookmark URL match.
+      SendKeyPress(GetTargetElementId(), ui::VKEY_DOWN),
+      CheckChipVisible(false),
+      // Move selection back up to the search match.
+      SendKeyPress(GetTargetElementId(), ui::VKEY_UP), CheckChipVisible(true));
 }
 
 class AiModePageActionControllerDynamicAiModeButtonInteractiveUiTest
@@ -284,7 +313,31 @@ IN_PROC_BROWSER_TEST_F(
                   CheckChipVisible(true),
                   // Type a URL.
                   EnterText(kOmniboxElementId, u"https://google.com"),
+                  CheckChipVisible(false),
+                  // Press Escape to close popup.
+                  SendKeyPress(GetTargetElementId(), ui::VKEY_ESCAPE),
                   CheckChipVisible(false));
+}
+
+IN_PROC_BROWSER_TEST_F(
+    AiModePageActionControllerDynamicAiModeButtonInteractiveUiTest,
+    HidesOnSelectedUrlSuggestion) {
+  bookmarks::BookmarkModel* model =
+      BookmarkModelFactory::GetForBrowserContext(browser()->GetProfile());
+  bookmarks::test::WaitForBookmarkModelToLoad(model);
+  model->AddNewURL(model->other_node(), 0, u"example bookmark",
+                   GURL("https://example.com"));
+
+  RunTestSequence(
+      OpenTabWithPageUrlAndFocusOmnibox(/*is_ntp=*/true),
+      CheckChipVisible(true),
+      // Type query matching both search and bookmark.
+      EnterText(kOmniboxElementId, u"example"), CheckChipVisible(true),
+      // Move selection down to the bookmark URL match.
+      SendKeyPress(GetTargetElementId(), ui::VKEY_DOWN),
+      CheckChipVisible(false),
+      // Move selection back up to the search match.
+      SendKeyPress(GetTargetElementId(), ui::VKEY_UP), CheckChipVisible(true));
 }
 
 IN_PROC_BROWSER_TEST_F(

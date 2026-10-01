@@ -4,15 +4,21 @@
 
 package org.chromium.chrome.browser.touch_to_fill.autofill;
 
+import static org.chromium.chrome.browser.touch_to_fill.autofill.TouchToFillAutofillProperties.ItemType.FILL_BUTTON;
+import static org.chromium.chrome.browser.touch_to_fill.autofill.TouchToFillAutofillProperties.ItemType.HEADER;
+import static org.chromium.chrome.browser.touch_to_fill.autofill.TouchToFillAutofillProperties.ItemType.TEXT_BUTTON;
+import static org.chromium.chrome.browser.touch_to_fill.autofill.TouchToFillAutofillProperties.SHEET_ITEMS;
+
 import android.content.Context;
 
 import org.chromium.build.annotations.NullMarked;
-import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.touch_to_fill.common.BottomSheetFocusHelper;
+import org.chromium.chrome.browser.touch_to_fill.common.TouchToFillCommonViewBinder;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.ui.modelutil.PropertyKey;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.modelutil.PropertyModelChangeProcessor;
+import org.chromium.ui.modelutil.SimpleRecyclerViewAdapter;
 
 /**
  * Implements the TouchToFillAutofillComponent. It uses a bottom sheet to prompt the user with the
@@ -20,33 +26,52 @@ import org.chromium.ui.modelutil.PropertyModelChangeProcessor;
  */
 @NullMarked
 public class TouchToFillAutofillCoordinator implements TouchToFillAutofillComponent {
-    private final TouchToFillAutofillMediator mMediator = new TouchToFillAutofillMediator();
-    private @Nullable
-            PropertyModelChangeProcessor<PropertyModel, TouchToFillAutofillView, PropertyKey>
+    private final TouchToFillAutofillMediator mMediator;
+    private final PropertyModelChangeProcessor<PropertyModel, TouchToFillAutofillView, PropertyKey>
             mModelChangeProcessor;
-    private @Nullable TouchToFillAutofillView mView;
+    private final TouchToFillAutofillView mView;
 
-    @Override
-    public void initialize(
+    /**
+     * Constructs a new {@link TouchToFillAutofillCoordinator}.
+     *
+     * @param context The {@link Context} for accessing string resources and creating the view.
+     * @param sheetController The {@link BottomSheetController} used to display and manage the
+     *     bottom sheet.
+     * @param delegate The {@link Delegate} handling the interaction callbacks from the view.
+     * @param bottomSheetFocusHelper The {@link BottomSheetFocusHelper} used to manage and restore
+     *     accessibility focus for the bottom sheet.
+     */
+    public TouchToFillAutofillCoordinator(
             Context context,
             BottomSheetController sheetController,
             Delegate delegate,
             BottomSheetFocusHelper bottomSheetFocusHelper) {
-        PropertyModel model =
-                new PropertyModel.Builder(TouchToFillAutofillProperties.ALL_KEYS)
-                        .with(TouchToFillAutofillProperties.DISMISS_HANDLER, mMediator::onDismissed)
-                        .with(
-                                TouchToFillAutofillProperties.ACKNOWLEDGE_HANDLER,
-                                mMediator::onNoticeAcknowledged)
-                        .with(
-                                TouchToFillAutofillProperties.SETTINGS_LINK_HANDLER,
-                                mMediator::onSettingsLinkClicked)
-                        .build();
-        mMediator.initialize(delegate, model, bottomSheetFocusHelper);
+        mMediator = new TouchToFillAutofillMediator(delegate, bottomSheetFocusHelper);
         mView = new TouchToFillAutofillView(context, sheetController);
+
+        setUpSheetItems(mMediator.getModel(), mView);
+
         mModelChangeProcessor =
                 PropertyModelChangeProcessor.create(
-                        model, mView, TouchToFillAutofillViewBinder::bind);
+                        mMediator.getModel(), mView, TouchToFillAutofillViewBinder::bind);
+    }
+
+    static void setUpSheetItems(PropertyModel model, TouchToFillAutofillView view) {
+        SimpleRecyclerViewAdapter adapter = new SimpleRecyclerViewAdapter(model.get(SHEET_ITEMS));
+        adapter.registerType(
+                HEADER,
+                TouchToFillCommonViewBinder::createHeaderItemView,
+                TouchToFillCommonViewBinder::bindHeaderView);
+        adapter.registerType(
+                FILL_BUTTON,
+                TouchToFillCommonViewBinder::createFillButtonView,
+                TouchToFillCommonViewBinder::bindButtonView);
+        adapter.registerType(
+                TEXT_BUTTON,
+                TouchToFillCommonViewBinder::createTextButtonView,
+                TouchToFillCommonViewBinder::bindButtonView);
+
+        view.setSheetItemListAdapter(adapter);
     }
 
     @Override
@@ -62,14 +87,11 @@ public class TouchToFillAutofillCoordinator implements TouchToFillAutofillCompon
     @Override
     public void destroy() {
         hide();
-        if (mModelChangeProcessor != null) {
-            mModelChangeProcessor.destroy();
-            mModelChangeProcessor = null;
-        }
-        if (mView != null) {
-            mView.destroy();
-            mView = null;
-        }
-        mMediator.destroy();
+        mModelChangeProcessor.destroy();
+        mView.destroy();
+    }
+
+    PropertyModel getModelForTesting() {
+        return mMediator.getModel();
     }
 }

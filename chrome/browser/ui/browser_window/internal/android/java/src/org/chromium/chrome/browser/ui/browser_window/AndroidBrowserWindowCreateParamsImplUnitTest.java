@@ -5,13 +5,14 @@
 package org.chromium.chrome.browser.ui.browser_window;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 import android.graphics.Rect;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.robolectric.annotation.Config;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
 import org.chromium.chrome.browser.profiles.Profile;
@@ -20,7 +21,6 @@ import org.chromium.ui.mojom.WindowShowState;
 
 /** Unit tests for {@link AndroidBrowserWindowCreateParamsImpl}. */
 @RunWith(BaseRobolectricTestRunner.class)
-@Config(manifest = Config.NONE)
 public class AndroidBrowserWindowCreateParamsImplUnitTest {
 
     @Test
@@ -57,6 +57,57 @@ public class AndroidBrowserWindowCreateParamsImplUnitTest {
                 params.getInitialBoundsInDp());
         assertEquals(
                 "Initial show state should match.", initialShowState, params.getInitialShowState());
-        assertEquals("WebContents should match.", webContents, params.getWebContents());
+        assertEquals("WebContents should match.", webContents, params.takeWebContents());
+    }
+
+    @Test
+    public void testTakeWebContents() {
+        // Arrange.
+        Profile profile = mock(Profile.class);
+        WebContents webContents = mock(WebContents.class);
+
+        AndroidBrowserWindowCreateParams params =
+                AndroidBrowserWindowCreateParamsImpl.create(
+                        BrowserWindowType.NORMAL,
+                        profile,
+                        0,
+                        0,
+                        100,
+                        100,
+                        WindowShowState.NORMAL,
+                        webContents);
+
+        // Act & Assert.
+        assertEquals(
+                "takeWebContents should return WebContents.",
+                webContents,
+                params.takeWebContents());
+        assertNull("Subsequent takeWebContents should return null.", params.takeWebContents());
+    }
+
+    @Test
+    public void testDestroyWebContents() {
+        // Arrange.
+        Profile profile = mock(Profile.class);
+        WebContents webContents = mock(WebContents.class);
+
+        AndroidBrowserWindowCreateParams params =
+                AndroidBrowserWindowCreateParamsImpl.create(
+                        BrowserWindowType.NORMAL,
+                        profile,
+                        0,
+                        0,
+                        100,
+                        100,
+                        WindowShowState.NORMAL,
+                        webContents);
+
+        // Act.
+        params.destroyWebContents();
+
+        // Assert.
+        verify(webContents).destroy();
+        assertNull(
+                "WebContents should be null after destroyWebContents.", params.takeWebContents());
     }
 }

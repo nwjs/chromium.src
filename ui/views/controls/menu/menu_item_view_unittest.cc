@@ -27,6 +27,7 @@
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/controls/image_view.h"
 #include "ui/views/controls/menu/menu_runner.h"
+#include "ui/views/controls/menu/menu_separator.h"
 #include "ui/views/controls/menu/submenu_view.h"
 #include "ui/views/controls/menu/test_menu_item_view.h"
 #include "ui/views/style/platform_style.h"
@@ -55,6 +56,31 @@ TEST_F(MenuItemViewUnitTest, AddAndRemoveChildren) {
   root_menu.RemoveMenuItem(item);
 
   EXPECT_TRUE(submenu->GetMenuItems().empty());
+}
+
+TEST_F(MenuItemViewUnitTest, AppendMenuItemSeparator) {
+  views::TestMenuItemView root_menu;
+  auto* item1 = root_menu.AppendMenuItem(1, u"Item 1");
+  auto* separator =
+      root_menu.AppendSeparator(ui::MenuSeparatorType::MENU_ITEM_SEPARATOR);
+  separator->SetColorId(ui::kColorMenuBackground);
+  auto* item2 = root_menu.AppendMenuItem(2, u"Item 2");
+
+  ASSERT_NE(separator, nullptr);
+  EXPECT_EQ(separator->GetType(), ui::MenuSeparatorType::MENU_ITEM_SEPARATOR);
+  EXPECT_EQ(separator->GetColorId(), ui::kColorMenuBackground);
+
+  auto* submenu = root_menu.GetSubmenu();
+  ASSERT_NE(submenu, nullptr);
+  EXPECT_EQ(submenu->children().size(), 3u);
+  EXPECT_EQ(submenu->children()[0], item1);
+  EXPECT_EQ(submenu->children()[1], separator);
+  EXPECT_EQ(submenu->children()[2], item2);
+
+  // Separators should not be counted in GetMenuItems().
+  EXPECT_EQ(submenu->GetMenuItems().size(), 2u);
+  EXPECT_EQ(submenu->GetMenuItems()[0], item1);
+  EXPECT_EQ(submenu->GetMenuItems()[1], item2);
 }
 
 namespace {
@@ -587,6 +613,27 @@ TEST_F(MenuItemViewPaintUnitTest, CustomColorAssertionCoverage) {
       PaintInfo::CreateRootPaintInfo(canvas_painter.context(), size));
 }
 
+// Makes sure no internal DCHECK assertions or crashes are triggered when
+// painting a menu containing a MENU_ITEM_SEPARATOR.
+TEST_F(MenuItemViewPaintUnitTest, MenuItemSeparatorAssertionCoverage) {
+  menu_item_view()->AppendMenuItem(1, u"Item 1");
+  auto* separator = menu_item_view()->AppendSeparator(
+      ui::MenuSeparatorType::MENU_ITEM_SEPARATOR);
+  separator->SetColorId(ui::kColorMenuBackground);
+  menu_item_view()->AppendMenuItem(2, u"Item 2");
+
+  menu_runner()->RunMenuAt(widget(), nullptr, gfx::Rect(),
+                           MenuAnchorPosition::kTopLeft,
+                           ui::mojom::MenuSourceType::kKeyboard);
+
+  SkBitmap bitmap;
+  gfx::Size size = menu_item_view()->GetMirroredBounds().size();
+  ui::CanvasPainter canvas_painter(&bitmap, size, 1.f, SK_ColorTRANSPARENT,
+                                   false);
+  menu_item_view()->GetSubmenu()->Paint(
+      PaintInfo::CreateRootPaintInfo(canvas_painter.context(), size));
+}
+
 // Verifies a call to MenuItemView::OnPaint() doesn't trigger a call to
 // MenuItemView::submenu_arrow_image_view_::SchedulePaint(). This is a
 // regression test for https://crbug.com/1245854.
@@ -961,14 +1008,56 @@ TEST_F(MenuItemViewA11yTest, HandlesExpandCollapseActions) {
   // Send an expand action to the menu item.
   ui::AXActionData expand_action_data;
   expand_action_data.action = ax::mojom::Action::kExpand;
-  submenu->HandleAccessibleAction(expand_action_data);
+  EXPECT_TRUE(submenu->HandleAccessibleAction(expand_action_data));
   EXPECT_TRUE(submenu->SubmenuIsShowing());
 
   // Send a collapse action to the menu item.
   ui::AXActionData collapse_action_data;
   collapse_action_data.action = ax::mojom::Action::kCollapse;
-  submenu->HandleAccessibleAction(collapse_action_data);
+  EXPECT_TRUE(submenu->HandleAccessibleAction(collapse_action_data));
   EXPECT_FALSE(submenu->SubmenuIsShowing());
+}
+
+TEST_F(MenuItemViewA11yTest, AccessibleDefaultActionVerbs) {
+  MenuItemView* normal = menu_item_view()->AppendMenuItem(1, u"Normal");
+  MenuItemView* submenu = menu_item_view()->AppendSubMenu(2, u"Submenu");
+  MenuItemView* title = menu_item_view()->AppendTitle(u"Title");
+
+  ui::AXNodeData data;
+  normal->GetViewAccessibility().GetAccessibleNodeData(&data);
+  EXPECT_EQ(data.GetDefaultActionVerb(), ax::mojom::DefaultActionVerb::kSelect);
+
+  data = ui::AXNodeData();
+  submenu->GetViewAccessibility().GetAccessibleNodeData(&data);
+  EXPECT_EQ(data.GetDefaultActionVerb(), ax::mojom::DefaultActionVerb::kOpen);
+
+  data = ui::AXNodeData();
+  title->GetViewAccessibility().GetAccessibleNodeData(&data);
+  EXPECT_EQ(data.GetDefaultActionVerb(), ax::mojom::DefaultActionVerb::kNone);
+
+  normal->SetEnabled(false);
+  data = ui::AXNodeData();
+  normal->GetViewAccessibility().GetAccessibleNodeData(&data);
+  EXPECT_EQ(data.GetDefaultActionVerb(), ax::mojom::DefaultActionVerb::kNone);
+
+  normal->SetEnabled(true);
+  data = ui::AXNodeData();
+  normal->GetViewAccessibility().GetAccessibleNodeData(&data);
+  EXPECT_EQ(data.GetDefaultActionVerb(), ax::mojom::DefaultActionVerb::kSelect);
+}
+
+TEST_F(MenuItemViewA11yTest, DefaultActionOpensSubmenu) {
+  menu_item_view()->AppendMenuItem(1, u"Menu Item");
+  MenuItemView* submenu = menu_item_view()->AppendSubMenu(2, u"SubMenu");
+  menu_runner()->RunMenuAt(widget(), nullptr, gfx::Rect(),
+                           MenuAnchorPosition::kTopLeft,
+                           ui::mojom::MenuSourceType::kKeyboard);
+  ASSERT_FALSE(submenu->SubmenuIsShowing());
+
+  ui::AXActionData action_data;
+  action_data.action = ax::mojom::Action::kDoDefault;
+  EXPECT_TRUE(submenu->HandleAccessibleAction(action_data));
+  EXPECT_TRUE(submenu->SubmenuIsShowing());
 }
 
 TEST_F(MenuItemViewA11yTest, AccessibleSelectedTest) {

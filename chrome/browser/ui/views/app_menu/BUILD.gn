@@ -5,17 +5,26 @@
 assert(is_win || is_mac || is_linux || is_chromeos)
 
 import("//build/config/ui.gni")
+import("//extensions/buildflags/buildflags.gni")
 
 source_set("app_menu") {
   public = [
     "action_app_menu.h",
-    "action_app_menu_footer_view.h",
     "action_app_menu_manager.h",
-    "action_app_menu_zoom_view.h",
+    "app_menu_action_item.h",
+    "app_menu_block_button.h",
+    "app_menu_block_view.h",
+    "app_menu_chip_view.h",
     "app_menu_footer_button.h",
-    "block_menu_entry_button.h",
+    "app_menu_footer_view.h",
+    "app_menu_search_bar_view.h",
+    "app_menu_search_item.h",
+    "app_menu_zoom_view.h",
     "bookmarks_dynamic_menu.h",
+    "profile_dynamic_menu.h",
     "recent_tabs_dynamic_menu.h",
+    "send_tab_to_self_dynamic_menu.h",
+    "tab_group_dynamic_menu.h",
   ]
 
   public_deps = [
@@ -24,9 +33,13 @@ source_set("app_menu") {
     "//chrome/browser/ui/actions:actions_headers",
     "//chrome/browser/ui/browser_window",
     "//chrome/browser/ui/color:color_headers",
+    "//chrome/browser/ui/fuzzy_search",
     "//chrome/browser/ui/tabs:tab_model",
+    "//chrome/browser/ui/tabs/saved_tab_groups",
     "//chrome/browser/ui/views",
     "//components/favicon_base",
+    "//components/send_tab_to_self",
+    "//components/sync_device_info",
     "//components/user_education/common",
     "//components/zoom",
     "//skia",
@@ -40,53 +53,79 @@ source_set("app_menu") {
 source_set("impl") {
   sources = [
     "action_app_menu.cc",
-    "action_app_menu_footer_view.cc",
     "action_app_menu_manager.cc",
-    "action_app_menu_zoom_view.cc",
+    "app_menu_action_item.cc",
+    "app_menu_block_button.cc",
+    "app_menu_block_view.cc",
+    "app_menu_chip_view.cc",
     "app_menu_footer_button.cc",
-    "block_menu_entry_button.cc",
+    "app_menu_footer_view.cc",
+    "app_menu_search_bar_view.cc",
+    "app_menu_search_item.cc",
+    "app_menu_zoom_view.cc",
     "bookmarks_dynamic_menu.cc",
+    "profile_dynamic_menu.cc",
     "recent_tabs_dynamic_menu.cc",
+    "send_tab_to_self_dynamic_menu.cc",
+    "tab_group_dynamic_menu.cc",
   ]
 
   deps = [
     ":app_menu",
     "//base",
     "//build:branding_buildflags",
+    "//chrome/app:branded_strings",
     "//chrome/app:command_ids",
     "//chrome/app:generated_resources",
     "//chrome/app/vector_icons",
+    "//chrome/browser:browser_process",
     "//chrome/browser:command_updater_impl",
     "//chrome/browser:defaults",
     "//chrome/browser:global_features",
+    "//chrome/browser/enterprise/isolated_mode",
     "//chrome/browser/favicon",
     "//chrome/browser/feedback",
     "//chrome/browser/feedback:feedback_impl",
     "//chrome/browser/glic",
     "//chrome/browser/media/router:media_router_feature",
+    "//chrome/browser/prefs",
+    "//chrome/browser/prefs:util",
     "//chrome/browser/profiles:profile",
+    "//chrome/browser/profiles:profile_manager",
     "//chrome/browser/search",
     "//chrome/browser/search_engines",
+    "//chrome/browser/send_tab_to_self",
     "//chrome/browser/sessions",
     "//chrome/browser/sharing_hub",
+    "//chrome/browser/signin",
     "//chrome/browser/sync",
     "//chrome/browser/tab_group_sync:factories",
+    "//chrome/browser/themes",
+    "//chrome/browser/ui:accelerator_table",
     "//chrome/browser/ui:browser_actions",
     "//chrome/browser/ui:browser_element_identifiers",
     "//chrome/browser/ui:browser_live_tab_context",
+    "//chrome/browser/ui:ui_features",
+    "//chrome/browser/ui/actions",
     "//chrome/browser/ui/actions:actions_headers",
     "//chrome/browser/ui/browser_window",
     "//chrome/browser/ui/color:color_headers",
     "//chrome/browser/ui/lens",
+    "//chrome/browser/ui/profiles",
+    "//chrome/browser/ui/send_tab_to_self",
     "//chrome/browser/ui/tabs:tab_group",
+    "//chrome/browser/ui/tabs:tab_strip",
     "//chrome/browser/ui/tabs/saved_tab_groups",
     "//chrome/browser/ui/toolbar/chrome_labs",
     "//chrome/browser/ui/views",
     "//chrome/browser/ui/views/controls",
     "//chrome/browser/ui/views/toolbar",
+    "//chrome/browser/ui/web_applications",
     "//chrome/browser/ui/webui/side_panel/customize_chrome:customize_chrome_ui",
     "//chrome/browser/ui/webui/whats_new",
+    "//chrome/browser/user_education",
     "//components/bookmarks/browser",
+    "//components/bookmarks/common",
     "//components/favicon/core",
     "//components/feature_engagement/public",
     "//components/keyed_service/core",
@@ -97,19 +136,39 @@ source_set("impl") {
     "//components/saved_tab_groups/public",
     "//components/sessions",
     "//components/signin/public/base",
+    "//components/signin/public/identity_manager",
     "//components/strings:components_strings",
     "//components/strings:components_strings_grit",
+    "//components/sync/service",
     "//components/sync_sessions",
     "//components/tab_groups",
     "//components/tabs:public",
     "//components/user_education/common",
     "//components/vector_icons",
+    "//content/public/browser",
+    "//extensions/buildflags",
     "//skia",
     "//ui/actions:actions_headers",
     "//ui/base",
+    "//ui/display",
     "//ui/gfx",
     "//ui/views",
   ]
+
+  if (use_aura) {
+    deps += [ "//ui/aura" ]
+  }
+
+  if (enable_extensions) {
+    deps += [ "//chrome/browser/extensions" ]
+  }
+
+  if (!is_chromeos) {
+    deps += [
+      "//chrome/browser/ui/webui/signin:signin_ui_error",
+      "//chrome/browser/ui/webui/signin:signin_utils",
+    ]
+  }
 }
 
 if (toolkit_views) {
@@ -121,6 +180,10 @@ if (toolkit_views) {
       "action_app_menu_test_base.cc",
       "action_app_menu_test_base.h",
       "action_app_menu_unittest.cc",
+      "app_menu_chip_view_unittest.cc",
+      "app_menu_search_bar_view_unittest.cc",
+      "app_menu_search_item_unittest.cc",
+      "profile_dynamic_menu_unittest.cc",
     ]
 
     deps = [
@@ -128,19 +191,32 @@ if (toolkit_views) {
       ":impl",
       "//base",
       "//base/test:test_support",
+      "//chrome/app:branded_strings",
       "//chrome/app:generated_resources",
       "//chrome/browser",
+      "//chrome/browser/favicon",
+      "//chrome/browser/signin",
+      "//chrome/browser/sync",
       "//chrome/browser/tab_group_sync:factories",
       "//chrome/browser/ui:browser_actions",
       "//chrome/browser/ui:test_support",
+      "//chrome/browser/ui:ui_features",
+      "//chrome/browser/ui/actions",
+      "//chrome/browser/ui/profiles",
       "//chrome/browser/ui/tabs:test_support",
       "//chrome/test:test_support",
+      "//components/enterprise/isolated_mode",
+      "//components/favicon/core/test:test_support",
       "//components/saved_tab_groups/public",
       "//components/saved_tab_groups/test_support",
+      "//components/signin/public/identity_manager",
+      "//components/signin/public/identity_manager:test_support",
+      "//components/sync:test_support",
       "//components/tabs:test_support",
       "//testing/gtest",
       "//ui/actions:actions_headers",
       "//ui/base",
+      "//ui/base:test_support",
       "//ui/views",
     ]
   }

@@ -396,13 +396,6 @@ const CGFloat kGeminiLiveCircleSize = 20.0;
       [[UIIndirectScribbleInteraction alloc] initWithDelegate:self];
   [_locationBarSteadyView addInteraction:scribbleInteraction];
 
-  if (!IsComposeboxIOSEnabled()) {
-    DCHECK(self.editView) << "The edit view must be set at this point";
-
-    [self.view addSubview:self.editView];
-    self.editView.translatesAutoresizingMaskIntoConstraints = NO;
-    AddSameConstraints(self.editView, self.view);
-  }
 
   [self.view addSubview:self.locationBarSteadyView];
   self.locationBarSteadyView.translatesAutoresizingMaskIntoConstraints = NO;
@@ -903,11 +896,6 @@ const CGFloat kGeminiLiveCircleSize = 20.0;
 }
 
 - (void)setTrailingButtonState:(TrailingButtonState)state {
-  if (IsChromeNextIaEnabled() && !IsChromeNextIaShareIconVisible() &&
-      state == kShareButton) {
-    state = kNoButton;
-  }
-
   if (_trailingButtonState == state) {
     return;
   }
@@ -1021,29 +1009,6 @@ const CGFloat kGeminiLiveCircleSize = 20.0;
 - (UIMenu*)contextMenuUIMenu:(NSArray<UIMenuElement*>*)suggestedActions {
   NSMutableArray<UIMenuElement*>* menuElements = [[NSMutableArray alloc] init];
   __weak __typeof__(self) weakSelf = self;
-
-  if (IsChromeNextIaEnabled() && !IsChromeNextIaShareIconVisible() &&
-      self.shareButtonEnabled) {
-    base::UmaHistogramEnumeration("Mobile.ShareThisPage.Shown",
-                                  ShareThisPageLocation::kOmniboxLongPress);
-    UIImage* image = SymbolWithPointSize(SymbolShare, kSymbolImagePointSize);
-
-    UIAction* shareThisPageAction =
-        [UIAction actionWithTitle:l10n_util::GetNSString(
-                                      IDS_IOS_TOOLS_MENU_SHARE_THIS_PAGE)
-                            image:image
-                       identifier:nil
-                          handler:^(UIAction* action) {
-                            [weakSelf shareThisPage];
-                          }];
-
-    UIMenu* divider = [UIMenu menuWithTitle:@""
-                                      image:nil
-                                 identifier:nil
-                                    options:UIMenuOptionsDisplayInline
-                                   children:@[ shareThisPageAction ]];
-    [menuElements addObject:divider];
-  }
 
   UIImage* pasteImage = nil;
   if (IsBottomOmniboxAvailable()) {
@@ -1201,7 +1166,7 @@ const CGFloat kGeminiLiveCircleSize = 20.0;
 
     UIAction* hideAddressBarAction =
         [UIAction actionWithTitle:l10n_util::GetNSString(
-                                      IDS_IOS_OVERFLOW_MENU_HIDE_TOOLBARS)
+                                      IDS_IOS_TOOLBAR_MENU_HIDE_TOOLBAR)
                             image:image
                        identifier:nil
                           handler:^(UIAction* action) {
@@ -1342,12 +1307,6 @@ const CGFloat kGeminiLiveCircleSize = 20.0;
       }));
 }
 
-/// Shows the Share this page sheet.
-- (void)shareThisPage {
-  base::UmaHistogramEnumeration("Mobile.ShareThisPage.Used",
-                                ShareThisPageLocation::kOmniboxLongPress);
-  [self.dispatcher showShareSheetFromShareButton:_locationBarSteadyView];
-}
 
 /// Set the preferred omnibox position to `toolbarType`.
 - (void)moveOmniboxToToolbarType:(ToolbarType)toolbarType {
@@ -1365,6 +1324,7 @@ const CGFloat kGeminiLiveCircleSize = 20.0;
 }
 
 - (void)hideToolbars {
+  RecordAction(UserMetricsAction("Mobile.OmniboxContextMenu.HideToolbar"));
   [self.delegate locationBarHideToolbarTapped];
 }
 

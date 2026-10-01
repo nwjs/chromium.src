@@ -40,6 +40,7 @@
 #include "components/omnibox/browser/document_provider.h"
 #include "components/omnibox/browser/inline_autocompletion_util.h"
 #include "components/omnibox/browser/omnibox_field_trial.h"
+#include "components/omnibox/browser/searchbox_utils.h"
 #include "components/omnibox/common/omnibox_feature_configs.h"
 #include "components/omnibox/common/omnibox_features.h"
 #include "components/search_engines/default_search_manager.h"
@@ -499,7 +500,7 @@ const gfx::VectorIcon& AutocompleteMatch::GetVectorIcon(
   if (suggest_template.has_value() && suggest_template->has_type_icon()) {
     // Update this assertion and the switch below whenever values are added.
     static_assert(omnibox::SuggestTemplateInfo::IconType_MAX ==
-                  omnibox::SuggestTemplateInfo::BOLT);
+                  omnibox::SuggestTemplateInfo::IMAGE_CREATE);
     switch (suggest_template->type_icon()) {
       case omnibox::SuggestTemplateInfo::ICON_TYPE_UNSPECIFIED:
         // When not specified, fall back on regular match icon logic below.
@@ -536,6 +537,7 @@ const gfx::VectorIcon& AutocompleteMatch::GetVectorIcon(
       case omnibox::SuggestTemplateInfo::TAB:
       case omnibox::SuggestTemplateInfo::PHOTO_SPARK:
       case omnibox::SuggestTemplateInfo::BOLT:
+      case omnibox::SuggestTemplateInfo::IMAGE_CREATE:
       default:
         // Out of range value defaults to search loupe.
         return features::IsRoundedIconsEnabled()
@@ -697,41 +699,16 @@ const gfx::VectorIcon& AutocompleteMatch::GetVectorIcon(
 
     case Type::STARTER_PACK:
       if (turl) {
-        switch (turl->GetBuiltinEngineType()) {
-          case KEYWORD_MODE_STARTER_PACK_BOOKMARKS:
-            return features::IsRoundedIconsEnabled()
-                       ? omnibox::kStarFilledIcon
-                       : omnibox::kStarActiveChromeRefreshOldIcon;
-          case KEYWORD_MODE_STARTER_PACK_HISTORY:
-            return features::IsRoundedIconsEnabled()
-                       ? vector_icons::kHistoryIcon
-                       : vector_icons::kHistoryChromeRefreshOldIcon;
-          case KEYWORD_MODE_STARTER_PACK_TABS:
-            return features::IsRoundedIconsEnabled()
-                       ? omnibox::kChromeProductIcon
-                       : omnibox::kProductChromeRefreshOldIcon;
-          case KEYWORD_MODE_STARTER_PACK_GEMINI:
-            return omnibox::kSparkIcon;
-          case KEYWORD_MODE_STARTER_PACK_AI_MODE:
-            return features::IsRoundedIconsEnabled()
-                       ? omnibox::kSearchSparkIcon
-                       : omnibox::kSearchSparkOldIcon;
-          default:
-            break;
-        }
+        return searchbox::GetKeywordVectorIcon(*turl);
       }
       return features::IsRoundedIconsEnabled()
                  ? omnibox::kChromeProductIcon
                  : omnibox::kProductChromeRefreshOldIcon;
 
     case Type::FEATURED_ENTERPRISE_SEARCH:
-#if BUILDFLAG(GOOGLE_CHROME_BRANDING)
-      if (turl && turl->CreatedByEnterpriseSearchAggregatorPolicy()) {
-        return base::FeatureList::IsEnabled(omnibox::kUseAgentspace25Logo)
-                   ? vector_icons::kGoogleAgentspaceMonochromeLogo25Icon
-                   : vector_icons::kGoogleAgentspaceMonochromeLogoIcon;
+      if (turl && turl->featured_by_policy()) {
+        return searchbox::GetKeywordVectorIcon(*turl);
       }
-#endif
       return features::IsRoundedIconsEnabled()
                  ? omnibox::kPublicIcon
                  : omnibox::kPageChromeRefreshOldIcon;
@@ -1351,8 +1328,6 @@ void AutocompleteMatch::GetKeywordUiState(
     KeywordState* keyword_state,
     std::u16string* keyword_out,
     std::u16string* keyword_placeholder_out) const {
-  *keyword_placeholder_out = GetKeywordPlaceholder(
-      GetTemplateURL(template_url_service), is_history_embeddings_enabled);
   if (associated_keyword.empty()) {
     keyword_out->assign(
         IsExplicitlyInvokedKeyword(template_url_service) ? keyword : u"");
@@ -1362,6 +1337,12 @@ void AutocompleteMatch::GetKeywordUiState(
     keyword_out->assign(associated_keyword);
     *keyword_state = KeywordState::kHint;
   }
+  const TemplateURL* turl =
+      keyword_out->empty()
+          ? nullptr
+          : GetTemplateURLWithKeyword(template_url_service, *keyword_out, "");
+  *keyword_placeholder_out =
+      GetKeywordPlaceholder(turl, is_history_embeddings_enabled);
 }
 
 bool AutocompleteMatch::IsExplicitlyInvokedKeyword(

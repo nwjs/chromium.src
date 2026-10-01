@@ -76,6 +76,12 @@ namespace web_cache {
 class WebCacheImpl;
 }
 
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+namespace extensions {
+class ScopedChromeExtensionsClient;
+}
+#endif
+
 class ChromeContentRendererClient
     : public content::ContentRendererClient,
       public service_manager::LocalInterfaceProvider {
@@ -108,6 +114,7 @@ class ChromeContentRendererClient
                                  const GURL& original_url,
                                  const std::string& mime_type) override;
   bool IsDomStorageDisabled() const override;
+  bool AreDedicatedWorkersDisabled() const override;
   v8::Local<v8::Object> GetScriptableObject(
       const blink::WebElement& plugin_element,
       v8::Isolate* isolate) override;
@@ -274,6 +281,9 @@ class ChromeContentRendererClient
       phishing_model_setter_;
 #endif
 
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+  std::unique_ptr<extensions::ScopedChromeExtensionsClient> extensions_client_;
+#endif
   scoped_refptr<blink::ThreadSafeBrowserInterfaceBrokerProxy>
       browser_interface_broker_;
 };

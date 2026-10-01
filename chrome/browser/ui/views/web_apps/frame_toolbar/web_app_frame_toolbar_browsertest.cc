@@ -46,6 +46,7 @@
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/download/download_display.h"
 #include "chrome/browser/ui/omnibox/omnibox_next_features.h"
 #include "chrome/browser/ui/page_action/page_action_icon_type.h"
@@ -111,6 +112,7 @@
 #include "components/webapps/browser/installable/installable_metrics.h"
 #include "components/webapps/common/web_app_id.h"
 #include "components/webapps/services/web_app_origin_association/test/test_web_app_origin_association_fetcher.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/content_features.h"
@@ -286,12 +288,7 @@ content::EvalJsResult EvalFullscreenRequest(
 
 class WebAppFrameToolbarBrowserTest : public web_app::WebAppBrowserTestBase {
  public:
-  WebAppFrameToolbarBrowserTest() {
-    scoped_feature_list_.InitWithFeaturesAndParameters(
-        /*enabled_features=*/
-        {{blink::features::kWebAppMigrationApi, {}}},
-        /*disabled_features=*/{});
-  }
+  WebAppFrameToolbarBrowserTest() = default;
 
   WebAppFrameToolbarTestHelper* helper() {
     return &web_app_frame_toolbar_helper_;
@@ -322,7 +319,6 @@ class WebAppFrameToolbarBrowserTest : public web_app::WebAppBrowserTestBase {
   }
 
  private:
-  base::test::ScopedFeatureList scoped_feature_list_;
   WebAppFrameToolbarTestHelper web_app_frame_toolbar_helper_;
 
   // TODO(https://crbug.com/40804030): Remove this when updated to use MV3.
@@ -2856,12 +2852,26 @@ IN_PROC_BROWSER_TEST_F(
 
   // Defaults to `std::nullopt` -> Returns "fallback".
   CheckCanResize(true, std::nullopt);
+  // Verify resizable boolean evaluation.
+  EXPECT_EQ(content::EvalJs(web_contents,
+                            "window.matchMedia('(resizable)').matches;"),
+            true);
+  EXPECT_EQ(content::EvalJs(web_contents,
+                            "window.matchMedia('not (resizable)').matches;"),
+            false);
 
   // Explicitly set to false -> Returns false.
   EXPECT_EQ(EvalSetResizable(web_contents, /*resizable_passed=*/false,
                              /*resizable_expected=*/false),
             "window.setResizable(false) succeeded.");
   CheckCanResize(false, false);
+  // Verify resizable boolean evaluation.
+  EXPECT_EQ(content::EvalJs(web_contents,
+                            "window.matchMedia('(resizable)').matches;"),
+            false);
+  EXPECT_EQ(content::EvalJs(web_contents,
+                            "window.matchMedia('not (resizable)').matches;"),
+            true);
 
   // Explicitly set to true -> Returns true.
   EXPECT_EQ(EvalSetResizable(web_contents, /*resizable_passed=*/true,

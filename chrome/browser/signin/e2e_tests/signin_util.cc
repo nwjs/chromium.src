@@ -12,8 +12,8 @@
 #include "chrome/browser/signin/e2e_tests/sign_in_test_observer.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/sync/sync_service_factory.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/webui/signin/login_ui_test_utils.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/signin/core/browser/account_reconcilor.h"
@@ -27,6 +27,7 @@
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/test_navigation_observer.h"
 #include "google_apis/gaia/gaia_urls.h"
+#include "ui/base/page_transition_types.h"
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
@@ -57,16 +58,6 @@ SignInFunctions::SignInFunctions(
     const base::RepeatingCallback<bool(int, const GURL&, ui::PageTransition)>
         add_tab_function)
     : browser_(browser), add_tab_function_(add_tab_function) {}
-
-SignInFunctions::SignInFunctions(
-    const base::RepeatingCallback<Browser*()> browser,
-    const base::RepeatingCallback<bool(int, const GURL&, ui::PageTransition)>
-        add_tab_function)
-    : browser_(base::BindRepeating(
-          [](base::RepeatingCallback<Browser*()> cb)
-              -> BrowserWindowInterface* { return cb.Run(); },
-          browser)),
-      add_tab_function_(add_tab_function) {}
 
 SignInFunctions::~SignInFunctions() = default;
 
@@ -209,8 +200,7 @@ void SignInFunctions::SignOut() {
 
   SignInTestObserver clear_observer(
       id_manager, account_reconcilor(browser_.Run()), ConsentLevel::kSignin);
-  auto* signin_view_controller =
-      browser_.Run()->GetFeatures().signin_view_controller();
+  auto* signin_view_controller = SigninViewController::From(browser_.Run());
   signin_view_controller->SignoutOrReauthWithPrompt(
       signin_metrics::AccessPoint::kProfileMenuSignoutConfirmationPrompt,
       signin_metrics::ProfileSignout::kUserClickedSignoutProfileMenu,

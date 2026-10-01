@@ -465,7 +465,7 @@ class PDFiumEngine : public DocumentLoader::Client,
   // testing.
   virtual void DrawText(int page_index,
                         InkTextId id,
-                        base::span<const InkTextInfo> text_info,
+                        base::span<const InkTextLine> text_lines,
                         float ascent,
                         double pdf_zoom,
                         const InkTextBoxAttributes& attributes);
@@ -1446,6 +1446,9 @@ class PDFiumEngine : public DocumentLoader::Client,
 
   // Keeps track of sending `PDF.FirstPaintTime` metric.
   bool first_paint_metric_reported_ = false;
+
+  // Keeps track of firing PDFiumEngineClient::OnFirstContentPainted().
+  bool first_content_paint_reported_ = false;
 
   // Shadow matrix for generating the page shadow bitmap.
   std::unique_ptr<draw_utils::ShadowMatrix> page_shadow_;

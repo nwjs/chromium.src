@@ -18,6 +18,7 @@ import "components/sync/protocol/app_list_specifics.proto";
 import "components/sync/protocol/app_setting_specifics.proto";
 import "components/sync/protocol/app_specifics.proto";
 import "components/sync/protocol/arc_package_specifics.proto";
+import "components/sync/protocol/autofill_entity_suppression_specifics.proto";
 import "components/sync/protocol/autofill_offer_specifics.proto";
 import "components/sync/protocol/autofill_specifics.proto";
 import "components/sync/protocol/autofill_valuable_metadata_specifics.proto";
@@ -69,7 +70,6 @@ import "components/sync/protocol/theme_specifics.proto";
 import "components/sync/protocol/typed_url_specifics.proto";
 import "components/sync/protocol/user_consent_specifics.proto";
 import "components/sync/protocol/user_event_specifics.proto";
-import "components/sync/protocol/web_apk_specifics.proto";
 import "components/sync/protocol/web_app_specifics.proto";
 import "components/sync/protocol/webauthn_credential_specifics.proto";
 import "components/sync/protocol/wifi_configuration_specifics.proto";
@@ -144,7 +144,6 @@ message EntitySpecifics {
     UserConsentSpecifics user_consent = 556014;
     SendTabToSelfSpecifics send_tab_to_self = 601980;
     SecurityEventSpecifics security_event = 600372;
-    WebApkSpecifics web_apk = 1117170;
     WebAppSpecifics web_app = 673225;
     WifiConfigurationSpecifics wifi_configuration = 662827;
     OsPreferenceSpecifics os_preference = 702141;
@@ -181,6 +180,7 @@ message EntitySpecifics {
     EncryptedTabContextItemSpecifics encrypted_tab_context_item = 1661069;
     NotebookSpecifics notebook = 1670544;
     JourneySpecifics journey = 1670131;
+    AutofillEntitySuppressionSpecifics autofill_entity_suppression = 1688594;
     // When adding a new type, follow the docs below and keep this comment as
     // the last entry.
     // https://www.chromium.org/developers/design-documents/sync/integration-checklist/
@@ -196,6 +196,9 @@ message EntitySpecifics {
     EmptySpecifics managed_user_shared_setting = 202026 [deprecated = true];
     EmptySpecifics managed_user_allowlist = 306060 [deprecated = true];
     EmptySpecifics accessibility_annotation = 1588764 [deprecated = true];
+    EmptySpecifics plus_address = 1267844 [deprecated = true];
+    EmptySpecifics plus_address_setting = 1303742 [deprecated = true];
+    EmptySpecifics web_apk = 1117170 [deprecated = true];
     TypedUrlSpecifics typed_url = 40781 [deprecated = true];
   }
   reserved 161496;
@@ -214,10 +217,6 @@ message EntitySpecifics {
   reserved "segmentation";
   reserved 1073150;
   reserved "power_bookmark";
-  reserved 1267844;
-  reserved "plus_address";
-  reserved 1303742;
-  reserved "plus_address_setting";
 }
 
 message EmptySpecifics {}

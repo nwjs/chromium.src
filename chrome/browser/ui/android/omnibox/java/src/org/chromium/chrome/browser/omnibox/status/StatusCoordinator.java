@@ -14,7 +14,6 @@ import android.view.View;
 import android.view.View.OnClickListener;
 
 import androidx.annotation.DrawableRes;
-import androidx.annotation.StringRes;
 import androidx.annotation.VisibleForTesting;
 
 import org.chromium.base.ContextUtils;
@@ -102,7 +101,10 @@ public class StatusCoordinator implements LocationBarDataProvider.Observer {
         mStatusView = statusView;
         mLocationBarDataProvider = locationBarDataProvider;
 
-        mModel = new PropertyModel(StatusProperties.ALL_KEYS);
+        mModel =
+                new PropertyModel.Builder(StatusProperties.ALL_KEYS)
+                        .with(StatusProperties.RESOURCE_PROVIDER, resourceProvider)
+                        .build();
 
         PropertyModelChangeProcessor.create(mModel, mStatusView, new StatusViewBinder());
 
@@ -133,9 +135,10 @@ public class StatusCoordinator implements LocationBarDataProvider.Observer {
                         onPlusButtonClicked);
 
         Resources res = mStatusView.getResources();
+        int statusIconWidth = resourceProvider.getStatusIconSize();
         mMediator.setUrlMinWidth(
                 res.getDimensionPixelSize(R.dimen.location_bar_min_url_width)
-                        + res.getDimensionPixelSize(R.dimen.location_bar_status_icon_width)
+                        + statusIconWidth
                         + res.getDimensionPixelSize(R.dimen.location_bar_start_padding)
                         + res.getDimensionPixelSize(R.dimen.location_bar_end_padding));
 
@@ -187,16 +190,6 @@ public class StatusCoordinator implements LocationBarDataProvider.Observer {
     /** Toggle whether the status icon should be hidden for secure origins. */
     public void setShowStatusIconForSecureOrigins(boolean showStatusIconForSecureOrigins) {
         mMediator.setShowStatusIconForSecureOrigins(showStatusIconForSecureOrigins);
-    }
-
-    /** Set the x translation of the status view. */
-    public void setTranslationX(float translationX) {
-        mMediator.setTranslationX(translationX);
-    }
-
-    /** Set the tooltip text of the status view. */
-    public void setTooltipText(@StringRes int tooltipTextResId) {
-        mMediator.setTooltipText(tooltipTextResId);
     }
 
     /** Set the highlight background of the status view. */
@@ -267,7 +260,7 @@ public class StatusCoordinator implements LocationBarDataProvider.Observer {
     }
 
     /** Returns the view displaying the security icon. */
-    public View getSecurityIconView() {
+    private View getSecurityIconView() {
         return mStatusView.getSecurityView();
     }
 
@@ -281,18 +274,6 @@ public class StatusCoordinator implements LocationBarDataProvider.Observer {
     public boolean isSearchEngineStatusIconVisible() {
         // TODO(crbug.com/40707964): try to hide this method
         return mStatusView.isSearchEngineStatusIconVisible();
-    }
-
-    /** Returns {@code true} if the search engine icon is currently being displayed. */
-    public boolean shouldDisplaySearchEngineIcon() {
-        return mMediator.shouldDisplaySearchEngineIcon();
-    }
-
-    /** Returns the ID of the drawable currently shown in the security icon. */
-    public @DrawableRes int getSecurityIconResourceIdForTesting() {
-        return mModel.get(StatusProperties.STATUS_ICON_RESOURCE) == null
-                ? 0
-                : mModel.get(StatusProperties.STATUS_ICON_RESOURCE).getIconRes();
     }
 
     /**
@@ -328,14 +309,6 @@ public class StatusCoordinator implements LocationBarDataProvider.Observer {
     }
 
     /**
-     * @see View#getMeasuredWidth()
-     */
-    public int getMeasuredWidth() {
-        // TODO(crbug.com/40707964): try to hide this method
-        return mStatusView.getMeasuredWidth();
-    }
-
-    /**
      * Sets the callback to be executed when the status view is hidden due to the Page Info removal
      * feature.
      *
@@ -343,11 +316,6 @@ public class StatusCoordinator implements LocationBarDataProvider.Observer {
      */
     public void setOnStatusViewHiddenForPageInfoRemoval(Runnable runnable) {
         mMediator.setOnStatusViewHiddenForPageInfoRemoval(runnable);
-    }
-
-    @SuppressWarnings("NullAway")
-    public StatusMediator getMediatorForTesting() {
-        return mMediator;
     }
 
     @SuppressWarnings("NullAway")
@@ -364,5 +332,17 @@ public class StatusCoordinator implements LocationBarDataProvider.Observer {
 
     public long getAnimationStartTimeMs() {
         return mStatusView.getAnimationStartTimeMs();
+    }
+
+    /** Returns the ID of the drawable currently shown in the security icon. */
+    public @DrawableRes int getSecurityIconResourceIdForTesting() {
+        return mModel.get(StatusProperties.STATUS_ICON_RESOURCE) == null
+                ? 0
+                : mModel.get(StatusProperties.STATUS_ICON_RESOURCE).getIconRes();
+    }
+
+    @SuppressWarnings("NullAway")
+    public StatusMediator getMediatorForTesting() {
+        return mMediator;
     }
 }

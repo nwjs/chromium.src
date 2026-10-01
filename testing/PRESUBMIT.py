@@ -67,8 +67,36 @@ def _GetTestingEnv(input_api):
   return testing_env
 
 
+def _ShouldRunCommonUnittests(input_api, directories):
+  """Returns True if affected files match directories or this PRESUBMIT.py."""
+  if isinstance(directories, str):
+    directories = [directories]
+  this_presubmit = input_api.os_path.normcase(
+    input_api.os_path.join(input_api.PresubmitLocalPath(), 'PRESUBMIT.py')
+  )
+  # Ensure trailing separator to avoid prefix-matching unrelated directories.
+  prefixes = tuple(
+    input_api.os_path.normcase(
+      input_api.os_path.join(input_api.PresubmitLocalPath(), d, '')
+    )
+    for d in directories
+  )
+  affected_paths = (
+    input_api.os_path.normcase(f.AbsoluteLocalPath())
+    for f in input_api.AffectedFiles()
+  )
+  return any(
+    p.startswith(prefixes) or p == this_presubmit for p in affected_paths
+  )
+
+
 def CheckFlakeSuppressorCommonUnittests(input_api, output_api):
   """Runs unittests in the testing/flake_suppressor_common/ directory."""
+  # Note: flake_suppressor_common depends on unexpected_passes_common.
+  if not _ShouldRunCommonUnittests(
+    input_api, ['flake_suppressor_common', 'unexpected_passes_common']
+  ):
+    return []
   return input_api.canned_checks.RunUnitTestsInDirectory(
     input_api,
     output_api,
@@ -82,6 +110,8 @@ def CheckFlakeSuppressorCommonUnittests(input_api, output_api):
 
 def CheckUnexpectedPassesCommonUnittests(input_api, output_api):
   """Runs unittests in the testing/unexpected_passes_common/ directory."""
+  if not _ShouldRunCommonUnittests(input_api, ['unexpected_passes_common']):
+    return []
   return input_api.canned_checks.RunUnitTestsInDirectory(
     input_api,
     output_api,
@@ -93,8 +123,85 @@ def CheckUnexpectedPassesCommonUnittests(input_api, output_api):
   )
 
 
+def CheckPresubmitUnittests(input_api, output_api):
+  """Runs unittests for testing/PRESUBMIT.py."""
+  return input_api.canned_checks.RunUnitTestsInDirectory(
+    input_api,
+    output_api,
+    input_api.PresubmitLocalPath(),
+    [r'^PRESUBMIT_test\.py$'],
+    env=_GetTestingEnv(input_api),
+  )
+
+
+def _GetPylintFilesToCheck(input_api):
+  """Returns regex patterns identifying Python files to lint.
+
+  If testing/PRESUBMIT.py, any root Python file under testing/, or
+  input_api.no_diffs is set, returns None to lint all Python files under
+  testing/. Otherwise, scopes linting to the affected subdirectories under
+  testing/, or returns [] if no Python files are affected.
+  """
+  if input_api.no_diffs:
+    return None
+
+  local_root = input_api.PresubmitLocalPath()
+  norm_root = input_api.os_path.normcase(input_api.os_path.abspath(local_root))
+  this_presubmit = input_api.os_path.normcase(
+    input_api.os_path.join(norm_root, 'PRESUBMIT.py')
+  )
+
+  affected_subdirs = set()
+  has_root_py = False
+
+  for f in input_api.AffectedFiles():
+    abs_path = f.AbsoluteLocalPath()
+    norm_path = input_api.os_path.normcase(input_api.os_path.abspath(abs_path))
+    if norm_path == this_presubmit:
+      return None
+
+    if not norm_path.endswith('.py'):
+      continue
+
+    try:
+      norm_rel = input_api.os_path.relpath(norm_path, norm_root)
+    except ValueError:
+      continue
+
+    if (
+      norm_rel != '.'
+      and not norm_rel.startswith('..' + input_api.os_path.sep)
+      and norm_rel != '..'
+      and not input_api.os_path.isabs(norm_rel)
+    ):
+      # Extract from original case path to avoid case-sensitive regex failures.
+      original_rel_path = input_api.os_path.relpath(abs_path, local_root)
+      parts = original_rel_path.split(input_api.os_path.sep)
+      if len(parts) > 1:
+        affected_subdirs.add(parts[0])
+      else:
+        has_root_py = True
+
+  if not affected_subdirs and not has_root_py:
+    # No affected Python files in testing/; return empty list to skip.
+    return []
+
+  # If root Python files changed, check everything to ensure module consistency.
+  if has_root_py:
+    return None
+
+  patterns = []
+  for subdir in sorted(affected_subdirs):
+    # Match both POSIX and Windows separators across OS regex engines.
+    patterns.append(r'%s(?:/|\\).*\.py$' % input_api.re.escape(subdir))
+  return patterns
+
+
 def CheckPylint(input_api, output_api):
-  """Runs pylint on all directory content and subdirectories."""
+  """Runs pylint on affected subdirectories or all directory content."""
+  files_to_check = _GetPylintFilesToCheck(input_api)
+  if files_to_check == []:
+    return []
   files_to_skip = input_api.DEFAULT_FILES_TO_SKIP
   chromium_src_path = _GetChromiumSrcPath(input_api)
   pylint_extra_paths = [
@@ -108,6 +215,7 @@ def CheckPylint(input_api, output_api):
   pylint_checks = input_api.canned_checks.GetPylint(
     input_api,
     output_api,
+    files_to_check=files_to_check,
     extra_paths_list=pylint_extra_paths,
     files_to_skip=files_to_skip,
     # TODO(crbug.com/355016915): Remove this directory-specific pylintrc

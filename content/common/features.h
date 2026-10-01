@@ -10,6 +10,7 @@
 #include "base/feature_list.h"
 #include "base/metrics/field_trial_params.h"
 #include "content/common/content_export.h"
+#include "content/public/common/zygote/zygote_buildflags.h"
 
 namespace features {
 
@@ -21,6 +22,7 @@ CONTENT_EXPORT BASE_DECLARE_FEATURE(kAccessibilityExpandEventMetadata);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(
     kAccessibilityExposeNonAtomicTextFieldChildren);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kAllowContentInitiatedDataUrlNavigations);
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kAllowKeyDownInKeyPressListeners);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kAncestorThrottleEvaluateRedirectSource);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kAndroidDesktopStyleScrollbars);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kAndroidDownloadableFontsMatching);
@@ -63,15 +65,16 @@ CONTENT_EXPORT BASE_DECLARE_FEATURE_PARAM(
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kBackForwardCacheTimeToLiveControl);
 BASE_DECLARE_FEATURE(kBeforeUnloadBrowserResponseQueue);
 #if BUILDFLAG(IS_MAC)
-CONTENT_EXPORT BASE_DECLARE_FEATURE(kCachedFirstRectMoreSelectionFallbacks);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kCachedFirstRectAllowRangeOutsideSelection);
-CONTENT_EXPORT BASE_DECLARE_FEATURE(kCachedFirstRectAllowInvalidSelection);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kCancelCompositionWhenWindowLosesFocus);
 #endif  // BUILDFLAG(IS_MAC)
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kCDPScreenshotNewSurface);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kCodeCacheDeletionWithoutFilter);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kCopyFromSurfaceAlwaysCallCallback);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kCriticalClientHint);
+#if BUILDFLAG(USE_ZYGOTE)
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kDeferZygoteHandshake);
+#endif
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kDeviceBoundSessionsDevTools);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kWorkerOrWorkletAgentDoubleReleaseFix);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kServiceWorkerDevToolsWorkerReadyCheck);
@@ -146,6 +149,7 @@ CONTENT_EXPORT BASE_DECLARE_FEATURE(kIsSuitableForUrlInfoEarlyReturnHoldback);
 
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kKeepChildProcessAfterIPCReset);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kKillOnInvalidNavigationHeaders);
+CONTENT_EXPORT BASE_DECLARE_FEATURE(kLimitPopupWidgetHostPosition);
 
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kLocalNetworkAccessForWorkers);
 CONTENT_EXPORT BASE_DECLARE_FEATURE(kLocalNetworkAccessForWorkersWarningOnly);

@@ -512,6 +512,11 @@ enum WebDXFeature {
   kDRAFT_Haptics = 448,
   kLargestContentfulPaint = 449,
   kEventTiming = 450,
+  kSoftNavigations = 451,
+  kInteractionContentfulPaint = 452,
+  kElementTiming = 453,
+  kContainerTiming = 454,
+  kSameSiteCookieInclusionChangedByCrossSiteRedirectNoInitiator = 455,
 
   // Add new features immediately above this line. Don't change assigned
   // numbers of any item, and don't reuse removed slots.

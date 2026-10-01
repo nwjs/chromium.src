@@ -23,7 +23,10 @@ class PageInfoViewFactory {
   PageInfoViewFactory(PageInfo* presenter,
                       ChromePageInfoUiDelegate* ui_delegate,
                       PageInfoNavigationHandler* navigation_handler,
-                      bool allow_extended_site_info);
+                      bool allow_extended_site_info,
+                      base::RepeatingClosure open_extensions_menu_callback =
+                          base::RepeatingClosure());
+  ~PageInfoViewFactory();
 
   // Bubble width constraints.
   static constexpr int kMinBubbleWidth = 320;
@@ -47,6 +50,7 @@ class PageInfoViewFactory {
     VIEW_ID_PAGE_INFO_LINK_OR_BUTTON_RWS_SETTINGS,
     VIEW_ID_PAGE_INFO_COOKIES_BUTTONS_CONTAINER,
     VIEW_ID_PAGE_INFO_LINK_OR_BUTTON_SITE_SETTINGS,
+    VIEW_ID_PAGE_INFO_LINK_OR_BUTTON_SEE_EXTENSIONS,
     VIEW_ID_PAGE_INFO_LINK_OR_BUTTON_SITE_SETTINGS_FILE_SYSTEM,
     VIEW_ID_PAGE_INFO_PERMISSION_SUBPAGE_FILE_SYSTEM_SCROLL_PANEL,
     VIEW_ID_PAGE_INFO_PERMISSION_SUBPAGE_MANAGE_BUTTON,
@@ -107,6 +111,9 @@ class PageInfoViewFactory {
   // Returns the icon for the button / link to Site settings.
   static const ui::ImageModel GetSiteSettingsIcon();
 
+  // Returns the icon for the button / link to Extensions.
+  static const ui::ImageModel GetExtensionIcon();
+
   // Returns the icon for a button which opens an external dialog or page (ex.
   // cookies dialog or site settings page).
   static const ui::ImageModel GetLaunchIcon();
@@ -153,6 +160,7 @@ class PageInfoViewFactory {
   raw_ptr<ChromePageInfoUiDelegate, DanglingUntriaged> ui_delegate_;
   raw_ptr<PageInfoNavigationHandler> navigation_handler_;
   const bool allow_extended_site_info_;
+  base::RepeatingClosure open_extensions_menu_callback_;
 };
 
 #endif  // CHROME_BROWSER_UI_VIEWS_PAGE_INFO_PAGE_INFO_VIEW_FACTORY_H_

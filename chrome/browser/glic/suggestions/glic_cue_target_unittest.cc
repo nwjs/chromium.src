@@ -31,6 +31,7 @@
 #include "components/sync/service/sync_user_settings.h"
 #include "components/sync/test/test_sync_service.h"
 #include "components/tabs/public/mock_tab_interface.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/test/browser_task_environment.h"
 #include "content/public/test/test_renderer_host.h"
@@ -545,6 +546,47 @@ TEST_F(GlicCueTargetAsyncTest, CheckEligibility_CacheMiss_AnnotationArrives) {
 
   // Simulate annotation arriving.
   cue_tab_state_->OnPageContentAnnotated(CreateVisit(url),
+                                         CreateEligibleResult());
+  EXPECT_TRUE(base::test::RunUntil([&]() { return callback_ran; }));
+
+  EXPECT_TRUE(callback_ran);
+  EXPECT_TRUE(eligible);
+}
+
+TEST_F(GlicCueTargetAsyncTest,
+       CheckEligibility_AnnotationUrlDiffersInQueryParams) {
+  const GURL committed_url("https://example.com/pending?query=1");
+  const GURL annotated_url("https://example.com/pending?query=2");
+  content::WebContentsTester::For(web_contents_.get())
+      ->NavigateAndCommit(committed_url);
+
+  bool eligible = false;
+  bool callback_ran = false;
+  target_->CheckEligibility(
+      web_contents_->GetWeakPtr(), contextual_cueing::CueIntrusiveness::kLoud,
+      base::BindOnce(
+          [](bool* out_eligible, bool* out_ran, bool eligible,
+             contextual_cueing::CueTarget::ContentGenerator) {
+            *out_eligible = eligible;
+            *out_ran = true;
+          },
+          &eligible, &callback_ran));
+
+  // Callback should not have fired synchronously.
+  EXPECT_FALSE(callback_ran);
+
+  // An annotation for a different path should not resolve the check.
+  const GURL mismatched_url("https://example.com/other?query=1");
+  cue_tab_state_->OnPageContentAnnotated(CreateVisit(mismatched_url),
+                                         CreateEligibleResult());
+  base::RunLoop run_loop;
+  base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+      FROM_HERE, run_loop.QuitClosure());
+  run_loop.Run();
+  EXPECT_FALSE(callback_ran);
+
+  // Simulate annotation arriving with a URL that differs only in query params.
+  cue_tab_state_->OnPageContentAnnotated(CreateVisit(annotated_url),
                                          CreateEligibleResult());
   EXPECT_TRUE(base::test::RunUntil([&]() { return callback_ran; }));
 

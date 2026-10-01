@@ -15,6 +15,7 @@
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/create_browser_window.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/grit/generated_resources.h"
@@ -27,6 +28,7 @@
 #include "third_party/blink/public/mojom/context_menu/context_menu.mojom.h"
 #include "ui/base/base_window.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/page_transition_types.h"
 #include "ui/base/ui_base_features.h"
 
 namespace glic {
@@ -203,8 +205,8 @@ IN_PROC_BROWSER_TEST_F(GlicContextMenuBrowserTest,
   TemplateURLData data;
   data.SetShortName(u"Google");
   data.SetKeyword(u"google.com");
-  data.SetURL("http://www.google.com/search?q={searchTerms}");
-  data.image_url = "http://www.google.com/searchbyimage/upload";
+  data.SetURL("https://www.google.com/search?q={searchTerms}");
+  data.image_url = "https://www.google.com/searchbyimage/upload";
   TemplateURL* template_url = model->Add(std::make_unique<TemplateURL>(data));
   model->SetUserSelectedDefaultSearchProvider(template_url);
 
@@ -386,7 +388,7 @@ IN_PROC_BROWSER_TEST_F(GlicContextMenuBrowserTest,
   TemplateURLData data;
   data.SetShortName(u"Google");
   data.SetKeyword(u"google.com");
-  data.SetURL("http://www.google.com/search?q={searchTerms}");
+  data.SetURL("https://www.google.com/search?q={searchTerms}");
   TemplateURL* template_url = model->Add(std::make_unique<TemplateURL>(data));
   model->SetUserSelectedDefaultSearchProvider(template_url);
 
@@ -427,7 +429,7 @@ IN_PROC_BROWSER_TEST_F(GlicContextMenuBrowserTest,
   TemplateURLData data;
   data.SetShortName(u"Google");
   data.SetKeyword(u"google.com");
-  data.SetURL("http://www.google.com/search?q={searchTerms}");
+  data.SetURL("https://www.google.com/search?q={searchTerms}");
   TemplateURL* template_url = model->Add(std::make_unique<TemplateURL>(data));
   model->SetUserSelectedDefaultSearchProvider(template_url);
 
@@ -487,7 +489,7 @@ IN_PROC_BROWSER_TEST_F(GlicContextMenuSimplificationBrowserTest,
   TemplateURLData data;
   data.SetShortName(u"Google");
   data.SetKeyword(u"google.com");
-  data.SetURL("http://www.google.com/search?q={searchTerms}");
+  data.SetURL("https://www.google.com/search?q={searchTerms}");
   TemplateURL* template_url = model->Add(std::make_unique<TemplateURL>(data));
   model->SetUserSelectedDefaultSearchProvider(template_url);
 
@@ -565,7 +567,7 @@ IN_PROC_BROWSER_TEST_F(GlicContextMenuStandardBrowserTest,
   TemplateURLData data;
   data.SetShortName(u"Google");
   data.SetKeyword(u"google.com");
-  data.SetURL("http://www.google.com/search?q={searchTerms}");
+  data.SetURL("https://www.google.com/search?q={searchTerms}");
   TemplateURL* template_url = model->Add(std::make_unique<TemplateURL>(data));
   model->SetUserSelectedDefaultSearchProvider(template_url);
 
@@ -606,7 +608,7 @@ IN_PROC_BROWSER_TEST_F(GlicContextMenuStandardBrowserTest,
   TemplateURLData data;
   data.SetShortName(u"Google");
   data.SetKeyword(u"google.com");
-  data.SetURL("http://www.google.com/search?q={searchTerms}");
+  data.SetURL("https://www.google.com/search?q={searchTerms}");
   TemplateURL* template_url = model->Add(std::make_unique<TemplateURL>(data));
   model->SetUserSelectedDefaultSearchProvider(template_url);
 
@@ -775,7 +777,7 @@ IN_PROC_BROWSER_TEST_F(GlicContextMenuBelowSearchBrowserTest,
   TemplateURLData data;
   data.SetShortName(u"Google");
   data.SetKeyword(u"google.com");
-  data.SetURL("http://www.google.com/search?q={searchTerms}");
+  data.SetURL("https://www.google.com/search?q={searchTerms}");
   TemplateURL* template_url = model->Add(std::make_unique<TemplateURL>(data));
   model->SetUserSelectedDefaultSearchProvider(template_url);
 
@@ -816,7 +818,7 @@ IN_PROC_BROWSER_TEST_F(GlicContextMenuBelowSearchBrowserTest,
   TemplateURLData data;
   data.SetShortName(u"Google");
   data.SetKeyword(u"google.com");
-  data.SetURL("http://www.google.com/search?q={searchTerms}");
+  data.SetURL("https://www.google.com/search?q={searchTerms}");
   TemplateURL* template_url = model->Add(std::make_unique<TemplateURL>(data));
   model->SetUserSelectedDefaultSearchProvider(template_url);
 
@@ -858,8 +860,8 @@ IN_PROC_BROWSER_TEST_F(GlicContextMenuBelowSearchBrowserTest,
   TemplateURLData data;
   data.SetShortName(u"Google");
   data.SetKeyword(u"google.com");
-  data.SetURL("http://www.google.com/search?q={searchTerms}");
-  data.image_url = "http://www.google.com/searchbyimage/upload";
+  data.SetURL("https://www.google.com/search?q={searchTerms}");
+  data.image_url = "https://www.google.com/searchbyimage/upload";
   TemplateURL* template_url = model->Add(std::make_unique<TemplateURL>(data));
   model->SetUserSelectedDefaultSearchProvider(template_url);
 

@@ -4,9 +4,14 @@
 
 #include "chrome/browser/contextual_tasks/contextual_tasks_extension_handler.h"
 
+#include "base/metrics/user_metrics.h"
+#include "base/metrics/user_metrics_action.h"
+#include "base/unguessable_token.h"
 #include "build/build_config.h"
 #include "chrome/browser/contextual_search/contextual_search_service_factory.h"
 #include "chrome/browser/contextual_search/contextual_search_web_contents_helper.h"
+#include "chrome/browser/contextual_tasks/contextual_tasks_ui_service.h"
+#include "chrome/browser/contextual_tasks/contextual_tasks_ui_service_factory.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_utils.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_web_contents_user_data.h"
 #include "chrome/browser/profiles/profile.h"
@@ -16,30 +21,50 @@
 #include "chrome/common/webui_url_constants.h"
 #include "components/contextual_search/contextual_search_service.h"
 #include "components/contextual_search/contextual_search_session_handle.h"
+#include "components/contextual_search/contextual_search_types.h"
 #include "components/contextual_search/input_state_model.h"
 #include "components/contextual_tasks/public/features.h"
+#include "components/lens/lens_overlay_dismissal_source.h"
 #include "components/lens/lens_overlay_invocation_source.h"
 #include "components/omnibox/common/input_state.h"
 #include "components/sessions/content/session_tab_helper.h"
+#include "components/sessions/core/session_id.h"
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui.h"
 #include "mojo/public/cpp/base/proto_wrapper.h"
 #include "third_party/lens_server_proto/aim_communication.pb.h"
+#include "third_party/lens_server_proto/search_communication.pb.h"
+#include "ui/base/window_open_disposition.h"
 
 #if !BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/ui/lens/lens_overlay_controller.h"
 #include "chrome/browser/ui/lens/lens_search_controller.h"
+#include "chrome/browser/ui/webui/cr_components/searchbox/contextual_searchbox_handler.h"
 #endif
 
 DOCUMENT_USER_DATA_KEY_IMPL(ContextualTasksExtensionHandler);
 
 ContextualTasksExtensionHandler::ContextualTasksExtensionHandler(
     content::RenderFrameHost* rfh)
-    : content::DocumentUserData<ContextualTasksExtensionHandler>(rfh) {}
+    : content::DocumentUserData<ContextualTasksExtensionHandler>(rfh) {
+  if (auto* browser_context = rfh->GetBrowserContext()) {
+    if (auto* ui_service = contextual_tasks::ContextualTasksUiServiceFactory::
+            GetForBrowserContext(browser_context)) {
+      ui_service_observation_.Observe(ui_service);
+    }
+  }
+}
 
 ContextualTasksExtensionHandler::~ContextualTasksExtensionHandler() = default;
+
+void ContextualTasksExtensionHandler::OnLensOverlayStateChanged(
+    bool is_showing) {
+  if (contextual_tasks_page_) {
+    contextual_tasks_page_->OnLensOverlayStateChanged(is_showing);
+  }
+}
 
 void ContextualTasksExtensionHandler::OnPermissionPromptChanged(
     bool is_showing,
@@ -110,6 +135,26 @@ void ContextualTasksExtensionHandler::OnWebviewMessage(
   if (!contextual_tasks_page_.is_bound()) {
     return;
   }
+  constexpr size_t kMaxWebviewMessageBytes = 1024 * 1024;
+  if (message.size() > kMaxWebviewMessageBytes) {
+    return;
+  }
+
+  // Try parsing SearchToClientMessage first (Search in Chrome protocol).
+  lens::SearchToClientMessage search_to_client_message;
+  if (search_to_client_message.ParseFromArray(message.data(), message.size())) {
+    if (search_to_client_message.has_handshake_response()) {
+      size_t auth_user_index = static_cast<size_t>(std::max(
+          0, search_to_client_message.handshake_response().auth_user_index()));
+      if (auto* session_handle = GetOrCreateContextualSessionHandle()) {
+        session_handle->set_auth_user_index(auth_user_index);
+      }
+      contextual_tasks_page_->OnHandshakeComplete();
+      return;
+    }
+  }
+
+  // Fall back to legacy AimToClientMessage.
   lens::AimToClientMessage aim_to_client_message;
   if (!aim_to_client_message.ParseFromArray(message.data(), message.size())) {
     return;
@@ -117,18 +162,6 @@ void ContextualTasksExtensionHandler::OnWebviewMessage(
 
   if (aim_to_client_message.has_handshake_response()) {
     contextual_tasks_page_->OnHandshakeComplete();
-  } else if (aim_to_client_message.has_hide_input()) {
-    contextual_tasks_page_->HideInput();
-  } else if (aim_to_client_message.has_restore_input()) {
-    contextual_tasks_page_->RestoreInput();
-  } else if (aim_to_client_message.has_enter_basic_mode()) {
-    contextual_tasks_page_->EnterBasicMode();
-  } else if (aim_to_client_message.has_exit_basic_mode()) {
-    contextual_tasks_page_->ExitBasicMode();
-  } else if (aim_to_client_message.has_lock_input()) {
-    contextual_tasks_page_->LockInput();
-  } else if (aim_to_client_message.has_unlock_input()) {
-    contextual_tasks_page_->UnlockInput();
   }
 }
 
@@ -137,10 +170,66 @@ void ContextualTasksExtensionHandler::GetHandshakeMessage(
   std::move(callback).Run(
       mojo_base::ProtoWrapper(contextual_tasks::GetHandshakeMessageProto()));
 }
+
+void ContextualTasksExtensionHandler::GetLensCropPreview(
+    const std::string& data_id,
+    GetLensCropPreviewCallback callback) {
+  auto model = GetOrCreateInputStateModel();
+  if (!model) {
+    std::move(callback).Run(std::nullopt);
+    return;
+  }
+  std::move(callback).Run(model->GetLensCrop(data_id));
+}
+
+void ContextualTasksExtensionHandler::OnLensThumbnailCreated(
+    const std::string& thumbnail_uri) {
+  std::string data_id = base::UnguessableToken::Create().ToString();
+  auto model = GetOrCreateInputStateModel();
+  if (model) {
+    model->SetLensCrop(data_id, thumbnail_uri);
+  }
+}
+
 // composebox::mojom::PageHandler stubs:
 void ContextualTasksExtensionHandler::FocusChanged(bool focused) {}
 void ContextualTasksExtensionHandler::StartPlatformVoiceRecognition() {}
-void ContextualTasksExtensionHandler::HandleLensButtonClick() {}
+void ContextualTasksExtensionHandler::HandleLensButtonClick() {
+#if !BUILDFLAG(IS_ANDROID)
+  base::RecordAction(base::UserMetricsAction(
+      "ContextualTasks.Composebox.UserAction.LensButtonClicked"));
+
+  if (auto* controller = GetLensSearchController()) {
+    controller->SetThumbnailCreatedCallback(base::BindRepeating(
+        &ContextualTasksExtensionHandler::OnLensThumbnailCreated,
+        weak_ptr_factory_.GetWeakPtr()));
+    if (controller->IsShowingUI()) {
+      if (controller->invocation_source() ==
+          lens::LensOverlayInvocationSource::kContextualTasksComposebox) {
+        controller->CloseLensAsync(
+            lens::LensOverlayDismissalSource::
+                kContextualTasksComposeboxLensButtonClick);
+        return;
+      } else {
+        // If the overlay is showing from a different invocation source, clear
+        // the selection and start fresh for a follow-up.
+        if (controller->lens_overlay_controller()) {
+          controller->lens_overlay_controller()->ClearAllSelections();
+        }
+        // Set the invocation source to contextual tasks so that any follow-up
+        // queries are associated with the contextual tasks session via the
+        // query flow router and thumbnails are added appropriately to the
+        // composebox. This will work as if the overlay was opened from the
+        // contextual tasks composebox in the first place.
+        controller->SetInvocationSource(
+            lens::LensOverlayInvocationSource::kContextualTasksComposebox);
+      }
+    }
+    controller->OpenLensOverlay(
+        lens::LensOverlayInvocationSource::kContextualTasksComposebox);
+  }
+#endif
+}
 void ContextualTasksExtensionHandler::HandleFileUpload(bool is_image) {}
 void ContextualTasksExtensionHandler::NavigateUrl(const GURL& url) {}
 void ContextualTasksExtensionHandler::CloseLensOverlayFromWebUI(
@@ -178,6 +267,7 @@ void ContextualTasksExtensionHandler::QueryAutocomplete(
 }
 void ContextualTasksExtensionHandler::StopAutocomplete(bool clear_result) {}
 void ContextualTasksExtensionHandler::OpenAutocompleteMatch(
+    uint32_t result_sequence_id,
     uint8_t line,
     const GURL& url,
     bool are_matches_showing,
@@ -222,7 +312,12 @@ void ContextualTasksExtensionHandler::GetCyclingPlaceholderConfig(
 }
 void ContextualTasksExtensionHandler::GetRecentTabs(
     GetRecentTabsCallback callback) {
-  std::move(callback).Run({});
+  content::WebContents* host_contents =
+      content::WebContents::FromRenderFrameHost(&render_frame_host());
+  auto* browser_window_interface =
+      host_contents ? webui::GetBrowserWindowInterface(host_contents) : nullptr;
+  std::move(callback).Run(
+      ContextualSearchboxHandler::GetRecentTabInfos(browser_window_interface));
 }
 void ContextualTasksExtensionHandler::GetTabPreview(
     int32_t tab_id,
@@ -250,12 +345,17 @@ void ContextualTasksExtensionHandler::NotifySessionAbandoned() {}
 void ContextualTasksExtensionHandler::AddFileContext(
     searchbox::mojom::SelectedFileInfoPtr file_info,
     mojo_base::BigBuffer file_bytes,
-    AddFileContextCallback callback) {}
+    AddFileContextCallback callback) {
+  std::move(callback).Run(base::unexpected(
+      contextual_search::ContextUploadErrorType::kBrowserProcessingError));
+}
 void ContextualTasksExtensionHandler::AddTabContext(
     int32_t tab_id,
     bool delay_upload,
     searchbox::mojom::TabAttachmentSource source,
-    AddTabContextCallback callback) {}
+    AddTabContextCallback callback) {
+  std::move(callback).Run(base::ok(base::UnguessableToken::Create()));
+}
 void ContextualTasksExtensionHandler::DeleteContext(
     const base::UnguessableToken& file_token,
     bool from_automatic_chip) {}
@@ -313,7 +413,9 @@ void ContextualTasksExtensionHandler::GetDriveDisclaimerStatus(
 }
 void ContextualTasksExtensionHandler::OnDriveDisclaimerAccepted() {}
 void ContextualTasksExtensionHandler::OnDriveUploadClicked(
-    OnDriveUploadClickedCallback callback) {}
+    OnDriveUploadClickedCallback callback) {
+  NOTREACHED();
+}
 void ContextualTasksExtensionHandler::OpenProfilePicker() {}
 void ContextualTasksExtensionHandler::ShowScreenshotMenu(
     const gfx::Rect& anchor_rect) {}
@@ -508,5 +610,11 @@ void ContextualTasksExtensionHandler::StartScreenshare(
 
 void ContextualTasksExtensionHandler::CaptureRegionScreenshot(
     CaptureRegionScreenshotCallback callback) {
+  NOTREACHED();
+}
+
+void ContextualTasksExtensionHandler::ShowHotkeyDropdown(
+    const gfx::Rect& anchor_bounds,
+    ShowHotkeyDropdownCallback callback) {
   NOTREACHED();
 }

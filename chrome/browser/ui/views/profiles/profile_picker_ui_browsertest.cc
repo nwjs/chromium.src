@@ -34,6 +34,7 @@
 #include "components/signin/public/base/signin_switches.h"
 #include "components/signin/public/identity_manager/identity_test_utils.h"
 #include "components/supervised_user/test_support/supervised_user_signin_test_utils.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/test_navigation_observer.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -220,9 +221,9 @@ void SetSigninProfileProperties(Profile* profile,
     case ProfileStatus::kSignedInManaged: {
       account_info = signin::MakePrimaryAccountAvailable(
           identity_manager, kManagedEmail, signin::ConsentLevel::kSignin);
-      account_info =
-          FillAccountInfo(account_info, AccountManagementStatus::kManaged,
-                          signin::Tribool::kUnknown);
+      account_info = FillAccountInfo(account_info.GetCoreAccountInfo(),
+                                     AccountManagementStatus::kManaged,
+                                     signin::Tribool::kUnknown);
       signin::UpdateAccountInfoForAccount(identity_manager, account_info);
       break;
     }
@@ -246,9 +247,9 @@ void SetSigninProfileProperties(Profile* profile,
     case ProfileStatus::kSignedInManagedGradientRing: {
       account_info = signin::MakePrimaryAccountAvailable(
           identity_manager, kOtherManagedEmail, signin::ConsentLevel::kSignin);
-      account_info =
-          FillAccountInfo(account_info, AccountManagementStatus::kManaged,
-                          signin::Tribool::kUnknown);
+      account_info = FillAccountInfo(account_info.GetCoreAccountInfo(),
+                                     AccountManagementStatus::kManaged,
+                                     signin::Tribool::kUnknown);
       signin::UpdateAccountInfoForAccount(identity_manager, account_info);
       g_browser_process->profile_manager()
           ->GetProfileAttributesStorage()

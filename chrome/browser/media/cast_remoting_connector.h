@@ -113,6 +113,7 @@ class CastRemotingConnector final : public base::SupportsUserData::Data,
   // have a complete browser (i.e., with a WebContents and RenderFrameHost) to
   // work with.
   friend class CastRemotingConnectorTest;
+  friend class RedirectionConnectorTest;
 
   // Main constructor. |tab_id| refers to any remoted content managed
   // by this instance (i.e., any remoted content from one tab/WebContents).
@@ -144,9 +145,8 @@ class CastRemotingConnector final : public base::SupportsUserData::Data,
                     bool is_initiated_by_source) override;
   void SendMessageToSink(RemotingBridge* bridge,
                          const std::vector<uint8_t>& message) override;
-  void EstimateTransmissionCapacity(
-      media::mojom::Remoter::EstimateTransmissionCapacityCallback callback)
-      override;
+  void OnClientActivated(RemotingBridge* bridge) override;
+  void OnClientDeactivated(RemotingBridge* bridge) override;
 
   // media::mojom::MirrorServiceRemotingSource implementation.
   // media::mojom::RemotingSource implementation.
@@ -186,6 +186,10 @@ class CastRemotingConnector final : public base::SupportsUserData::Data,
 
   // Called when any connection error/lost occurs with the MediaRemoter.
   void OnMirrorServiceStopped();
+
+  // True while a sink is available, i.e. OnSinkAvailable() has been called and
+  // remoting has not stopped since.
+  bool HasSinkMetadata() const;
 
   // Starts observing for changes to the user preference to enable/disable
   // remoting.

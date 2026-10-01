@@ -163,6 +163,10 @@ enum ActionResultCode {
   // inspections for sensitive data.
   kActionBlockedByEnterpriseContentScan = 51,
 
+  // The action or tool targeted a tab, window, or resource belonging to a
+  // different profile than the active task.
+  kActionTargetCrossProfile = 52,
+
   // Please see the comment above about adding new values.
 
   ///////////////////////////////////////////////////////////////////////
@@ -555,6 +559,24 @@ enum ActionResultCode {
 
   // The requested text could not be found or highlighted on the page.
   kFindAndHighlightTextNotFound = 1700,
+
+  ///////////////////////////////////////////////////////////////////////
+  // Codes 1800-1899: Action results for file upload.
+
+  // The file was not authorized in the session allowlist.
+  kFileUploadUnauthorizedFile = 1800,
+
+  // No files were provided for the file upload action.
+  kFileUploadEmptyFileList = 1801,
+
+  ///////////////////////////////////////////////////////////////////////
+  // Codes 1900-1999: Errors for perform search.
+
+  // Template URL service for search was not available.
+  kSearchServiceUnavailable = 1900,
+
+  // Search could not be performed because default search provider was not set.
+  kDefaultSearchProviderNotSet = 1901,
 
   // Please see the comment above about adding new values.
 };

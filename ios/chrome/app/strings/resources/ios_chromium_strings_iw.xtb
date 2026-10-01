@@ -8,12 +8,10 @@
 <translation id="1091252999271033193">‏כלומר, Chromium תמיד יבקש את האתר לנייד.</translation>
 <translation id="1115463765356382667">‏השלמת הפעולות המוצעות הבאות תעזור לך להשתמש ב-Chromium בדרך היעילה ביותר.</translation>
 <translation id="1185134272377778587">‏על Chromium</translation>
-<translation id="119044033865561140">‏אפשר לפתוח את Chromium באופן מיידי כשמשתמשים באייפד</translation>
 <translation id="1229234641991056119">‏אפשר להשתמש בסיסמאות, בהיסטוריה, בסימניות ובכרטיסי האשראי של Safari ב-Chromium</translation>
 <translation id="1257458525759135959">‏כדי לשמור תמונות צריך ללחוץ על 'הגדרות' על מנת לאפשר ל-Chromium להוסיף תמונות לגלריה שלך</translation>
 <translation id="1260702988262336471">‏פתיחת תפריט Chromium</translation>
 <translation id="12739128458173458">‏כדי לשלוח את הכרטיסייה הזו למכשיר אחר, יש להיכנס ל-Chromium בשני המכשירים.</translation>
-<translation id="1279797561821266129">‏גישה מהירה יותר ל-Chromium מתחנת העגינה</translation>
 <translation id="1361748954329991663">‏Chromium אינו מעודכן. אם אין עדכון זמין ב-<ph name="BEGIN_LINK" />App Store<ph name="END_LINK" />, ייתכן שהמכשיר שלך אינו תומך עוד בגרסאות החדשות של Chromium.</translation>
 <translation id="1383876407941801731">חיפוש</translation>
 <translation id="1423007117030725713">‏חיפוש בכרטיסיית Chromium חדשה.</translation>
@@ -32,7 +30,6 @@
 <translation id="1553657876656159572">פיד מותאם אישית שנוצר במיוחד בשבילך. כולל חדשות, ספורט ומזג אוויר.</translation>
 <translation id="1561849081734670621">‏כדי להשבית את האפשרות 'ללא 'ביטול נעילה עם טביעת אצבע'' ב-Chromium, צריך להשבית אותה ב-iPhone.</translation>
 <translation id="1569258826720962327">‏שימוש בפעולות ב-Chromium ב-iOS</translation>
-<translation id="1573441572176948907">‏העברת Chromium ל-Dock</translation>
 <translation id="159029779861043703">‏Chromium שומר על האבטחה של מידע אישי רגיש באמצעות Face ID.</translation>
 <translation id="1591119736686995611">‏תיפתח תצוגת הכרטיסיות ב-Chromium.</translation>
 <translation id="16001233025397167">‏בדיקת האבטחה מגינה עליך מפני פרצות באבטחת מידע, אתרים לא בטוחים וסכנות נוספות. אפשר לקבל התראות לגבי כל בעיה בפרטיות או באבטחה ש-Chromium מזהה.</translation>
@@ -145,6 +142,7 @@
 <translation id="3855938650519180865">‏מה חדש ב-Chromium</translation>
 <translation id="3886689467633467988">‏יש לך אפשרות להיכנס לאתר הזה ול-Chromium כדי שהסימניות, הסיסמאות ונתונים נוספים יופיעו בכל המכשירים שלך.</translation>
 <translation id="3949514465204582407">‏טיפ ל-Chromium: גישה לסיסמאות מכל אפליקציה</translation>
+<translation id="3983298990898629929">‏כדי לפתוח קישורים בלחיצה אחת, צריך להגדיר את Chromium כדפדפן ברירת המחדל</translation>
 <translation id="4005283307739974863">‏פתיחה והפעלה של 'טיימר לדיווח על מצב מסוכן' ב-Chromium.</translation>
 <translation id="4043291146360695975">סיסמאות נשמרות במנהל הסיסמאות במכשיר הזה בלבד.</translation>
 <translation id="4046625794029820944">‏כדי לפתוח דפים ישירות בלי להעתיק ולהדביק כתובות, אפשר להגדיר את Chromium כדפדפן ברירת המחדל.</translation>
@@ -182,7 +180,6 @@
 <translation id="4790638144988730920">‏המשך השימוש בנתוני Chromium בחשבון Google שלך.</translation>
 <translation id="4828317641996116749">‏Chromium לא הצליח לבדוק את כל הסיסמאות. אפשר לנסות שוב מאוחר יותר.</translation>
 <translation id="4856138222358683580">‏פעולות ב-Chromium</translation>
-<translation id="4869706986935301458">‏אפשר לפתוח את Chromium באופן מיידי כשמשתמשים באייפון</translation>
 <translation id="4904452304169763785">‏התראות לגבי כל בעיה בפרטיות או באבטחה ש-Chromium מזהה.</translation>
 <translation id="4962295957157529683">‏יש לסיים את הפעילות בחלון Chromium הפתוח הנוסף.</translation>
 <translation id="4985291216379576555">‏אופליין, Chromium לא יכול לחפש עדכונים</translation>
@@ -277,6 +274,7 @@
 <translation id="6680609900732453726">‏אפשר לשמור על פרטיות הגלישה באמצעות אימות המכשיר כשסוגרים את Chromium</translation>
 <translation id="6696512128741076907">‏כדי לפתוח ברגע קישורים מאפליקציות אחרות ישירות ב-Chromium, כדאי להגדיר אותו כדפדפן ברירת המחדל.</translation>
 <translation id="6752854822223394465">‏הארגון שלך מגדיר את Chromium…</translation>
+<translation id="6777348401413221846">‏סרטון במסך מלא שמסביר איך להגדיר את Chromium כדפדפן ברירת המחדל: פותחים את הגדרות Chromium ב-iOS, לוחצים על Default Browser App ואז על Chromium</translation>
 <translation id="6794054469102824109">‏פתיחת המשחק Chromium Dino.</translation>
 <translation id="6820823224820483452">‏Chromium לא הצליח לבדוק את כל הסיסמאות. אפשר לנסות שוב מחר.</translation>
 <translation id="6830782797004194206">‏כניסה מהירה יותר עם המילוי האוטומטי של Chromium</translation>
@@ -306,8 +304,8 @@
 <translation id="7337881442233988129">Chromium</translation>
 <translation id="7395825497086981028">הסיסמה תישמר במנהל הסיסמאות עבור <ph name="EMAIL" />.</translation>
 <translation id="7434848749522628428">מפתח הגישה יישמר במנהל הסיסמאות בחשבון <ph name="USER_EMAIL" /></translation>
+<translation id="7453822113116681031">‏כדי לפתוח קישורים בלחיצה אחת, צריך להפוך את Chromium לדפדפן ברירת המחדל</translation>
 <translation id="7504829997542308412">‏פתיחת Chromium</translation>
-<translation id="7507535968973352823">‏אפשר למקם את Chromium באזור התחתון כדי לגשת אליו בכל שלב</translation>
 <translation id="7531461704633548377">‏מ-Chromium</translation>
 <translation id="7554983317097061001">‏טיפ ל-Chromium: כדאי להעביר את Chromium ל-Dock</translation>
 <translation id="7576863740961052505">‏ניהול של הגדרות Chromium</translation>
@@ -357,7 +355,6 @@
 <translation id="8730503818204408000">‏פתיחה של הגדרות Chromium כדי להגדיר את Chromium כדפדפן ברירת המחדל.</translation>
 <translation id="8754966941001340678">‏ההמלצה של Chromium היא הגנה משופרת</translation>
 <translation id="8759037115129007407">‏בן המשפחה שלך לא יכול לקבל סיסמאות כרגע. צריך לבקש ממנו לעדכן את Chromium ולסנכרן את הסיסמאות. <ph name="BEGIN_LINK" />מידע נוסף<ph name="END_LINK" /></translation>
-<translation id="8769418653786388149">‏‫Chromium תמיד איתך</translation>
 <translation id="8776843108004031667">‏החשבון הזה וכל הנתונים שלא נשמרו יוסרו מ-Chromium.</translation>
 <translation id="8793333988063379360">‏כאן אפשר למצוא את ההגדרות של Chromium ועוד</translation>
 <translation id="8805148242934787134">‏הגדרת Chromium כדפדפן ברירת המחדל</translation>

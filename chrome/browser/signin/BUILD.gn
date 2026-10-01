@@ -47,6 +47,7 @@ source_set("signin") {
     "//components/signin/core/browser",
     "//ui/base",
     "//ui/base/interaction",
+    "//url",
   ]
 
   if (enable_dice_support) {
@@ -294,6 +295,7 @@ source_set("impl") {
       "//components/signin/public/base",
       "//components/signin/public/identity_manager",
       "//google_apis",
+      "//net",
       "//ui/base",
     ]
     if (!is_android) {
@@ -670,6 +672,7 @@ source_set("unit_tests") {
   if (enable_dice_support) {
     sources += [
       "cross_device_signin_promo_manager_unittest.cc",
+      "dice_intercepted_session_startup_helper_unittest.cc",
       "dice_response_handler_factory_unittest.cc",
       "dice_response_handler_unittest.cc",
       "dice_signed_in_profile_creator_unittest.cc",
@@ -807,6 +810,7 @@ if (!is_android) {
         "//chrome/browser/ui:ui_features",
         "//chrome/browser/ui/hats:test_support",
         "//chrome/browser/ui/signin",
+        "//chrome/browser/ui/views/profiles:dice_web_signin_interception_bubble_view",
         "//chrome/browser/ui/webui/settings",
         "//chrome/browser/ui/webui/signin",
         "//chrome/browser/ui/webui/signin:login_ui_service",
@@ -815,6 +819,7 @@ if (!is_android) {
         "//chrome/browser/web_applications:web_applications_test_support",
         "//chrome/test:test_support",
         "//chrome/test:test_support_ui",
+        "//chrome/test/base:chrome_test_scoped_utils",
         "//chrome/test/user_education",
         "//components/embedder_support:user_agent",
         "//components/signin/core/browser:test_support",

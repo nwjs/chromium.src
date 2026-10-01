@@ -1,0 +1,136 @@
+/* Copyright 2026 The Chromium Authors
+ * Use of this source code is governed by a BSD-style license that can be
+ * found in the LICENSE file. */
+
+/* #css_wrapper_metadata_start
+ * #type=style-lit
+ * #import=//resources/cr_elements/cr_shared_vars.css.js
+ * #scheme=relative
+ * #css_wrapper_metadata_end */
+
+:host {
+  box-sizing: border-box;
+  display: block;
+  height: 100%;
+  width: 100%;
+}
+
+.chat-container {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 64px);
+  margin-block: 0;
+  margin-inline: auto;
+  max-width: 900px;
+}
+
+.chat-header {
+  align-items: center;
+  border-bottom: 1px solid var(--cr-separator-color);
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+}
+
+.chat-header h1 {
+  color: var(--cr-primary-text-color);
+  font-family: 'Google Sans', sans-serif;
+  font-size: 28px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.action-button {
+  --cr-button-height: 32px;
+  font-size: 13px;
+}
+
+.chat-messages {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+  overflow-y: auto;
+  padding-inline-end: 8px;
+}
+
+.message-bubble {
+  border-radius: 16px;
+  font-size: 14px;
+  line-height: 1.4;
+  max-width: 80%;
+  padding-block: 10px;
+  padding-inline: 14px;
+  word-break: break-word;
+}
+
+/* LLM message bubble on the left */
+.message-bubble.assistant {
+  align-self: flex-start;
+  background-color: var(--cr-fallback-color-surface3);
+  border-end-start-radius: 4px;
+  color: var(--cr-primary-text-color);
+}
+
+/* User message bubble on the right */
+.message-bubble.user {
+  align-self: flex-end;
+  background-color: var(--google-blue-600);
+  border-end-end-radius: 4px;
+  color: white;
+}
+
+.message-content {
+  font-family: inherit;
+  white-space: pre-wrap;
+}
+
+.loading-bubble {
+  align-items: center;
+  color: var(--cr-secondary-text-color);
+  display: flex;
+  font-size: 13px;
+  gap: 10px;
+}
+
+.spinner {
+  animation: spin 1s linear infinite;
+  border: 2px solid var(--cr-separator-color);
+  border-radius: 50%;
+  border-top: 2px solid var(--google-blue-600);
+  flex-shrink: 0;
+  height: 16px;
+  width: 16px;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.chat-input-section {
+  align-items: center;
+  border-top: 1px solid var(--cr-separator-color);
+  display: flex;
+  gap: 8px;
+  padding-top: 12px;
+}
+
+#chat-input {
+  --cr-input-border-bottom: none;
+  --cr-input-border-radius: 20px;
+  --cr-input-error-display: none;
+  --cr-input-underline-display: none;
+  flex: 1;
+}
+
+.send-button {
+  --cr-icon-button-fill-color: var(--google-blue-600);
+}

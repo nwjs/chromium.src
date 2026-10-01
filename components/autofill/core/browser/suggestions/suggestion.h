@@ -248,6 +248,10 @@ struct Suggestion {
     AtMemoryPayload& operator=(AtMemoryPayload&&);
     ~AtMemoryPayload();
 
+#if BUILDFLAG(IS_ANDROID)
+    base::android::ScopedJavaLocalRef<jobject> CreateJavaObject() const;
+#endif  // BUILDFLAG(IS_ANDROID)
+
     friend bool operator==(const AtMemoryPayload&,
                            const AtMemoryPayload&) = default;
 
@@ -435,6 +439,7 @@ struct Suggestion {
     kLoyalty,
     kMagic,
     kOfferTag,
+    kOpenInNew,
     kOrder,
     kOrderSpark,
     kPassport,
@@ -693,6 +698,11 @@ struct Suggestion {
   // that they better reflect the information that's going to be filled in the
   // form.
   std::optional<std::u16string> acceptance_a11y_announcement;
+
+  // If specified, this text will be announced by screen readers when this
+  // suggestion is shown. If set on multiple suggestions in the popup, only the
+  // first one is read.
+  std::optional<std::u16string> a11y_announcement;
 
   // When `type` is
   // `SuggestionType::k(Address|CreditCard)FieldByFieldFilling` or

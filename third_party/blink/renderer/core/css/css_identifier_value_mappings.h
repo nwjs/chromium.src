@@ -926,7 +926,6 @@ inline CSSIdentifierValue::CSSIdentifierValue(EFillSizeType fill_size)
     case EFillSizeType::kCover:
       value_id_ = CSSValueID::kCover;
       break;
-    case EFillSizeType::kSizeNone:
     case EFillSizeType::kSizeLength:
     default:
       NOTREACHED();
@@ -1300,6 +1299,12 @@ inline CSSIdentifierValue::CSSIdentifierValue(ItemPosition item_position)
     case ItemPosition::kEnd:
       value_id_ = CSSValueID::kEnd;
       break;
+    case ItemPosition::kFlowStart:
+      value_id_ = CSSValueID::kFlowStart;
+      break;
+    case ItemPosition::kFlowEnd:
+      value_id_ = CSSValueID::kFlowEnd;
+      break;
     case ItemPosition::kSelfStart:
       value_id_ = CSSValueID::kSelfStart;
       break;
@@ -1346,6 +1351,10 @@ inline ItemPosition CSSIdentifierValue::ConvertTo() const {
       return ItemPosition::kStart;
     case CSSValueID::kEnd:
       return ItemPosition::kEnd;
+    case CSSValueID::kFlowStart:
+      return ItemPosition::kFlowStart;
+    case CSSValueID::kFlowEnd:
+      return ItemPosition::kFlowEnd;
     case CSSValueID::kSelfStart:
       return ItemPosition::kSelfStart;
     case CSSValueID::kSelfEnd:
@@ -1386,6 +1395,12 @@ inline CSSIdentifierValue::CSSIdentifierValue(ContentPosition content_position)
     case ContentPosition::kEnd:
       value_id_ = CSSValueID::kEnd;
       break;
+    case ContentPosition::kFlowStart:
+      value_id_ = CSSValueID::kFlowStart;
+      break;
+    case ContentPosition::kFlowEnd:
+      value_id_ = CSSValueID::kFlowEnd;
+      break;
     case ContentPosition::kFlexStart:
       value_id_ = CSSValueID::kFlexStart;
       break;
@@ -1418,6 +1433,10 @@ inline ContentPosition CSSIdentifierValue::ConvertTo() const {
       return ContentPosition::kStart;
     case CSSValueID::kEnd:
       return ContentPosition::kEnd;
+    case CSSValueID::kFlowStart:
+      return ContentPosition::kFlowStart;
+    case CSSValueID::kFlowEnd:
+      return ContentPosition::kFlowEnd;
     case CSSValueID::kFlexStart:
       return ContentPosition::kFlexStart;
     case CSSValueID::kFlexEnd:

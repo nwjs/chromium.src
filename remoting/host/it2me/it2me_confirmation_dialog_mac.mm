@@ -2,22 +2,23 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include <memory>
-
 #include "remoting/host/it2me/it2me_confirmation_dialog.h"
 
 #import <Cocoa/Cocoa.h>
 
+#include <memory>
 #include <utility>
 
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
 #include "base/i18n/message_formatter.h"
 #include "base/location.h"
+#include "base/strings/string_util.h"
 #include "base/strings/sys_string_conversions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/time/time.h"
 #include "base/timer/timer.h"
+#include "remoting/base/email_utils.h"
 #include "remoting/base/string_resources.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/l10n/l10n_util_mac.h"
@@ -130,7 +131,7 @@ It2MeConfirmationDialogFactory::Create() {
                     (remoting::It2MeConfirmationDialog::ResultCallback)callback
                         username:(const std::string&)username {
   if ((self = [super init])) {
-    _username = base::UTF8ToUTF16(username);
+    _username = remoting::FormatEmailForDisplay(username);
     _dialog_action_callback = std::move(callback);
   }
   return self;

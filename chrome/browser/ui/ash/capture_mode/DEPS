@@ -11,7 +11,6 @@ include_rules = [
   # refactor ash codes in //chrome to break these dependencies; see b/332804822.
   # Whenever possible, avoid adding new //chrome dependencies to this list.
   "+chrome/browser/apps/app_service",
-  "+chrome/browser/ash/browser_delegate/browser_delegate.h",
   "+chrome/browser/ash/drive",
   "+chrome/browser/ash/file_manager",
   "+chrome/browser/ash/policy/dlp",
@@ -20,17 +19,15 @@ include_rules = [
   "+chrome/browser/ash/video_conference",
   "+chrome/browser/chromeos/policy/dlp",
   "+chrome/browser/download",
-  "+chrome/browser/lens",
   "+chrome/browser/enterprise/data_controls",
   "+chrome/browser/extensions/extension_browsertest.h",
+  "+chrome/browser/lens",
   "+chrome/browser/platform_util.h",
   "+chrome/browser/policy",
   "+chrome/browser/profiles",
   "+chrome/browser/screen_ai",
-  "+chrome/browser/signin",
   "+chrome/browser/ui/ash/system_web_apps",
   "+chrome/browser/ui/ash/web_view",
-  "+chrome/browser/ui/browser.h",
   "+chrome/browser/ui/browser_window.h",
   "+chrome/browser/ui/browser_window/public/browser_window_interface.h",
   "+chrome/browser/ui/navigator/browser_navigator.h",
@@ -38,14 +35,10 @@ include_rules = [
   "+chrome/browser/ui/views/frame",
   "+chrome/browser/ui/webui/ash/cloud_upload",
   "+chrome/common",
-  "+chrome/test",
-  "+third_party/lens_server_proto",
-  "+components/lens/proto/server",
 ]
 
 specific_include_rules = {
   ".*browsertest\\.cc": [
-    "+chrome/browser/ui/browser_window/public/browser_window_interface.h",
     "+chrome/browser/ui/tabs/tab_strip_model.h",
   ],
 }

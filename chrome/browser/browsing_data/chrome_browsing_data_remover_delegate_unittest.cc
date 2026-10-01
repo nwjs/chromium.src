@@ -178,7 +178,6 @@
 #include "components/strike_database/strike_database.h"
 #include "components/sync/test/test_sync_service.h"
 #include "components/ukm/test_ukm_recorder.h"
-#include "content/public/browser/background_tracing.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/browsing_data_filter_builder.h"
@@ -186,15 +185,16 @@
 #include "content/public/browser/network_service_instance.h"
 #include "content/public/browser/origin_trials_controller_delegate.h"
 #include "content/public/browser/storage_partition.h"
-#include "content/public/browser/tracing_delegate.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/content_features.h"
+#include "content/public/test/background_tracing.h"
 #include "content/public/test/browser_task_environment.h"
 #include "content/public/test/browsing_data_remover_test_util.h"
 #include "content/public/test/mock_download_manager.h"
 #include "content/public/test/test_utils.h"
 #include "content/public/test/test_web_contents_factory.h"
 #include "content/public/test/web_contents_tester.h"
+#include "extensions/buildflags/buildflags.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "net/base/features.h"
 #include "net/base/isolation_info.h"
@@ -221,6 +221,7 @@
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/origin_trials/scoped_test_origin_trial_policy.h"
 #include "third_party/skia/include/core/SkBitmap.h"
+#include "ui/base/page_transition_types.h"
 #include "ui/gfx/favicon_size.h"
 #include "url/gurl.h"
 #include "url/origin.h"
@@ -1098,7 +1099,7 @@ class ChromeBrowsingDataRemoverDelegateTest : public testing::Test {
     content::GetNetworkService();
     task_environment_.RunUntilIdle();
     background_tracing_manager_ =
-        content::CreateBackgroundTracingManager(&tracing_delegate_);
+        content::CreateBackgroundTracingManagerForTesting();
 
     // This needs to be done after the test constructor, so that subclasses
     // that initialize a ScopedFeatureList in their constructors can do so
@@ -1322,7 +1323,6 @@ class ChromeBrowsingDataRemoverDelegateTest : public testing::Test {
   // Cached pointer to BrowsingDataRemover for access to testing methods.
   raw_ptr<content::BrowsingDataRemover> remover_;
 
-  content::TracingDelegate tracing_delegate_;
   std::unique_ptr<tracing::BackgroundTracingManager>
       background_tracing_manager_;
 

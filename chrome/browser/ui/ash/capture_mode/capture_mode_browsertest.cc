@@ -24,7 +24,7 @@
 #include "base/test/bind.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/test_future.h"
-#include "chrome/browser/ash/browser_delegate/browser_delegate.h"
+#include "base/threading/thread_restrictions.h"
 #include "chrome/browser/ash/file_manager/file_manager_test_util.h"
 #include "chrome/browser/ash/system_web_apps/system_web_app_manager.h"
 #include "chrome/browser/ash/video_conference/video_conference_manager_ash.h"
@@ -43,10 +43,11 @@
 #include "chrome/browser/ui/ash/system_web_apps/system_web_app_ui_utils.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
-#include "chrome/common/chrome_features.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
+#include "chromeos/ash/components/browser_delegate/browser_delegate.h"
 #include "components/enterprise/common/proto/synced/dlp_policy_event.pb.h"
 #include "components/policy/policy_constants.h"
 #include "components/prefs/pref_service.h"
@@ -1026,9 +1027,9 @@ class CaptureModePolicyBrowserTest
   CaptureModePolicyBrowserTest()
       : for_video_(GetParam().first), skyvault_enabled_(GetParam().second) {
     if (skyvault_enabled_) {
-      scoped_feature_list_.InitAndEnableFeature(features::kSkyVault);
+      scoped_feature_list_.InitAndEnableFeature(ash::features::kSkyVault);
     } else {
-      scoped_feature_list_.InitAndDisableFeature(features::kSkyVault);
+      scoped_feature_list_.InitAndDisableFeature(ash::features::kSkyVault);
     }
   }
 

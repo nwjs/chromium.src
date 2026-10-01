@@ -582,6 +582,11 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
   sceneState.window.overrideUserInterfaceStyle =
       UIUserInterfaceStyleUnspecified;
 
+  if (incognito && (wasTabGridVisible ||
+                    self.browserLayoutViewController != viewController)) {
+    base::RecordAction(base::UserMetricsAction("MobileIncognitoBrowserShown"));
+  }
+
   // If another browserLayoutViewController is already being presented, swap
   // this one into the container.
   if (self.browserLayoutViewController && !wasTabGridVisible) {
@@ -750,8 +755,19 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
     // See crbug.com/466376004.
     return;
   }
+  // Uses starting browser's active WebState for transition if switching between
+  // incognito/regular as part of transition in case the final grid does not
+  // have any tabs yet, allowing for the animation to still occur.
+  Browser* browserBeingDismissed =
+      (direction == TabGridTransitionDirection::kFromBrowserToTabGrid &&
+       self.browserLayoutViewController)
+          ? (self.browserLayoutViewController.incognito ? self.incognitoBrowser
+                                                        : self.regularBrowser)
+          : browser;
   web::WebState* activeWebState =
-      browser->GetWebStateList()->GetActiveWebState();
+      browserBeingDismissed
+          ? browserBeingDismissed->GetWebStateList()->GetActiveWebState()
+          : nullptr;
   BOOL isRegularBrowserNTP = !isIncognito && activeWebState &&
                              IsUrlNtp(activeWebState->GetVisibleURL());
 
@@ -776,10 +792,16 @@ bool FindNavigatorShouldBePresentedInBrowser(Browser* browser) {
       parentViewController, appContentView, self);
 
   if (animationEnabled) {
+    BOOL isCrossModeTransition =
+        direction == TabGridTransitionDirection::kFromBrowserToTabGrid &&
+        self.browserLayoutViewController &&
+        self.browserLayoutViewController.incognito != isIncognito;
     // Use reduced animation on TabGroup panel to avoid weird animation where
-    // the tab comes from the side.
+    // the tab comes from the side, and on cross-mode transitions where the
+    // source tab cannot morph into a cell of a different grid.
     BOOL isOnTabGroup = _viewController.currentPage == TabGridPageTabGroups;
-    if (isOnTabGroup || UIAccessibilityIsReduceMotionEnabled()) {
+    if (isOnTabGroup || isCrossModeTransition ||
+        UIAccessibilityIsReduceMotionEnabled()) {
       self.transitionHandler = [[TabGridTransitionHandler alloc]
           initWithReducedMotionCommonParams:std::move(params)];
     } else {

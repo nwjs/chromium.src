@@ -23,7 +23,11 @@ ts_library("build_extra_ts") {
   out_dir = out_dir
   in_files = [
     "browser_tests/browser_test_base.ts",
+    "browser_tests/geic_api_browsertest.ts",
     "browser_tests/glic_api_browsertest.ts",
+    "browser_tests/glic_chrome_tools_browsertest.ts",
+    "browser_tests/glic_api_skills_browsertest.ts",
+    "browser_tests/glic_api_zss_browsertest.ts",
     "browser_tests/glic_permission_enforcement_browsertest.ts",
     "browser_tests/glic_actor_task_lifecycle_browsertest.ts",
     "browser_tests/glic_actor_attempt_otp_filling_browsertest.ts",
@@ -102,6 +106,7 @@ copy("test_client_external_files") {
 
 copy("test_client_api_deps") {
   sources = [
+    "$root_gen_dir/chrome/browser/resources/glic/glic_api_tsc/glic_api/geic_api.js",
     "$root_gen_dir/chrome/browser/resources/glic/glic_api_tsc/glic_api/glic_api.js",
     "$root_gen_dir/chrome/browser/resources/glic/glic_api_tsc/glic_api/glic_api_generated.js",
   ]
@@ -126,12 +131,17 @@ if (!is_android) {
       "unit_tests/glic_api_host_test.ts",
       "unit_tests/glic_api_client_test.ts",
       "unit_tests/observable_test.ts",
+      "unit_tests/mojo_logging_test.ts",
+      "unit_tests/overlay_test.ts",
       "unit_tests/post_message_transport_test.ts",
       "unit_tests/test_helpers.ts",
       "unit_tests/webview_test.ts",
     ]
 
     ts_path_mappings = [
+      "chrome://glic/*|" +
+          rebase_path("$root_gen_dir/chrome/browser/resources/glic/tsc/*",
+                      target_gen_dir),
       "chrome://glic/glic.js|" + rebase_path(
               "$root_gen_dir/chrome/browser/resources/glic/tsc/glic.d.ts",
               target_gen_dir),

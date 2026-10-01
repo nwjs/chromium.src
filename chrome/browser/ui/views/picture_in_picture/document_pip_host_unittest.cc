@@ -32,6 +32,7 @@
 #include "third_party/blink/public/mojom/window_features/window_features.mojom.h"
 #include "ui/base/mojom/window_show_state.mojom.h"
 #include "ui/base/page_transition_types.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/display/screen.h"
 #include "ui/views/controls/webview/webview.h"
 #include "ui/views/focus/focus_manager.h"
@@ -672,6 +673,24 @@ TEST_F(DocumentPipHostTest, IsContentsActive_ReturnsTrue) {
   EXPECT_TRUE(host->IsContentsActive(host->GetChildWebContents()));
 }
 
+TEST_F(DocumentPipHostTest, OpenPipWindowFocusesContents) {
+  DocumentPipHost* host = CreateHostAndOpenPipWindow();
+  ASSERT_TRUE(host);
+
+  auto* contents_view = static_cast<DocumentPipWidgetDelegate*>(
+                            host->GetWidget()->widget_delegate())
+                            ->GetDocumentPipContentsView();
+  ASSERT_TRUE(contents_view);
+  if (!host->GetWidget()->IsActive()) {
+    host->OnWidgetActivationChanged(host->GetWidget(), /*active=*/true);
+  }
+  EXPECT_TRUE(contents_view->HasFocus() ||
+              contents_view->Contains(
+                  host->GetWidget()->GetFocusManager()->GetFocusedView()) ||
+              contents_view->Contains(
+                  host->GetWidget()->GetFocusManager()->GetStoredFocusView()));
+}
+
 // GetWindowBoundsInScreen returns the widget bounds when widget exists.
 TEST_F(DocumentPipHostTest, GetWindowBoundsInScreen_ReturnsWidgetBounds) {
   DocumentPipHost* host = CreateHostAndOpenPipWindow();
@@ -865,15 +884,18 @@ TEST_F(DocumentPipHostTest, SetWebContentsBlocked_InactiveWidgetDoesNotFocus) {
   host->GetWidget()->GetFocusManager()->ClearFocus();
   host->GetWidget()->Deactivate();
 
+  views::FocusManager* focus_manager = host->GetWidget()->GetFocusManager();
+  views::View* focused_view_before_unblock = focus_manager->GetFocusedView();
+  views::View* stored_focus_before_unblock =
+      focus_manager->GetStoredFocusView();
+
   host->SetWebContentsBlocked(child, true);
   host->SetWebContentsBlocked(child, false);
 
   if (!host->GetWidget()->IsActive()) {
     EXPECT_FALSE(contents_view->HasFocus());
-    EXPECT_NE(contents_view,
-              host->GetWidget()->GetFocusManager()->GetFocusedView());
-    EXPECT_NE(contents_view,
-              host->GetWidget()->GetFocusManager()->GetStoredFocusView());
+    EXPECT_EQ(focused_view_before_unblock, focus_manager->GetFocusedView());
+    EXPECT_EQ(stored_focus_before_unblock, focus_manager->GetStoredFocusView());
   }
 }
 

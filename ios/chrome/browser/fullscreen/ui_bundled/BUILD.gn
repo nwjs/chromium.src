@@ -29,8 +29,6 @@ source_set("ui_bundled") {
 
 source_set("internal") {
   sources = [
-    "fullscreen_constants.h",
-    "fullscreen_constants.mm",
     "fullscreen_content_adjustment_util.h",
     "fullscreen_content_adjustment_util.mm",
     "fullscreen_controller_impl.h",
@@ -141,7 +139,9 @@ source_set("eg2_tests") {
     "//components/omnibox/browser:pref_names",
     "//components/translate/core/browser:translate_pref_names",
     "//ios/chrome/app/strings",
+    "//ios/chrome/browser/fullscreen/public:metrics",
     "//ios/chrome/browser/fullscreen/ui_bundled/test:eg_test_support+eg2",
+    "//ios/chrome/browser/metrics/model:eg_test_support+eg2",
     "//ios/chrome/browser/popup_menu/public",
     "//ios/chrome/browser/shared/model/prefs:pref_names",
     "//ios/chrome/browser/shared/public/features",

@@ -45,8 +45,7 @@ namespace safe_browsing {
 
 V5UpdateProtocolManager::V5UpdateProtocolManager(
     scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
-    // TODO(crbug.com/362791941): remove v4 references
-    const V4ProtocolConfig& config,
+    const SBProtocolConfig& config,
     V5UpdateCallback update_callback)
     : SBUpdateProtocolManager(std::move(url_loader_factory), config),
       update_callback_(update_callback) {
@@ -176,15 +175,8 @@ void V5UpdateProtocolManager::IssueUpdateRequest(
   resource_request->method = "GET";
   resource_request->load_flags = net::LOAD_DISABLE_CACHE;
   resource_request->credentials_mode = network::mojom::CredentialsMode::kOmit;
-  // The v5 User-Agent header docs state: "While there is no prescribed format
-  // for supplying the client identification in this header, we suggest simply
-  // including the original client ID and client version separated by a space
-  // character or a slash character."
-  // Thus, this uses the same `client_name` and `version` originally used for
-  // v4, here separated with a space character.
-  resource_request->headers.SetHeader(
-      net::HttpRequestHeaders::kUserAgent,
-      base::StrCat({config_.client_name, " ", config_.version}));
+  SBProtocolManagerUtil::SetV5UserAgentHeader(&resource_request->headers,
+                                              config_);
 
   std::unique_ptr<network::SimpleURLLoader> loader =
       network::SimpleURLLoader::Create(std::move(resource_request),
@@ -333,7 +325,6 @@ V5UpdateProtocolManager::ParseUpdateResponse(
     return base::unexpected(V5ParseResult::kMismatchedSizeError);
   }
   std::map<ListIdentifier, V5::HashList> parsed_response;
-  // TODO(crbug.com/362791941): consider non-optional + initialize to max time
   std::optional<base::TimeDelta> overall_minimum_wait_duration;
   for (int i = 0; i < server_response.hash_lists_size(); ++i) {
     V5::HashList& hash_list = *server_response.mutable_hash_lists(i);

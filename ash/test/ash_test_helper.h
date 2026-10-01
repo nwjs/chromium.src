@@ -8,6 +8,7 @@
 #include <stdint.h>
 
 #include <memory>
+#include <optional>
 #include <utility>
 
 #include "ash/public/cpp/test/test_system_tray_client.h"
@@ -17,6 +18,7 @@
 #include "ash/session/test_session_controller_client.h"
 #include "ash/shell_delegate.h"
 #include "ash/system/notification_center/test_notifier_settings_controller.h"
+#include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
 #include "base/test/scoped_command_line.h"
 #include "base/types/pass_key.h"
@@ -57,6 +59,7 @@ class FakeFwupdDownloadClient;
 class SavedDeskTestHelper;
 class TestKeyboardControllerObserver;
 class TestNewWindowDelegate;
+class FakeFaviconServiceProvider;
 class FakeSyncServiceProvider;
 class TestWallpaperControllerClient;
 class AshTestBase;
@@ -72,6 +75,10 @@ class CrosHotspotConfigTestHelper;
 namespace input_method {
 class MockInputMethodManagerImpl;
 }  // namespace input_method
+
+namespace test {
+class UserSessionTestEnvironment;
+}  // namespace test
 
 // A helper class that does common initialization required for Ash. Creates a
 // root window and an ash::Shell instance with a test delegate.
@@ -107,6 +114,13 @@ class AshTestHelper : public aura::test::AuraTestHelper {
 
     // True if a default pinned app shortcut should be added to the Shelf.
     bool add_default_shelf_icon = true;
+
+    // Callback invoked during TearDown() after Ash subsystems are torn down
+    // (Phase 3) and before low-level environment teardown (Phase 4).
+    // Test harnesses can use this to tear down higher-level dependencies
+    // at the same lifecycle point as in production
+    // (BrowserProcessImpl::StartTearDown() before PostDestroyThreads()).
+    base::OnceClosure post_subsystems_teardown_callback;
   };
 
   // Instantiates/destroys an AshTestHelper. This can happen in a
@@ -177,7 +191,9 @@ class AshTestHelper : public aura::test::AuraTestHelper {
 
   bluetooth_config::ScopedBluetoothConfigTestHelper*
   bluetooth_config_test_helper() {
-    return &scoped_bluetooth_config_test_helper_;
+    return scoped_bluetooth_config_test_helper_.has_value()
+               ? &scoped_bluetooth_config_test_helper_.value()
+               : nullptr;
   }
 
   SavedDeskTestHelper* saved_desk_test_helper() {
@@ -220,17 +236,22 @@ class AshTestHelper : public aura::test::AuraTestHelper {
   // instance.
   std::unique_ptr<base::SystemMonitor> system_monitor_;
 
-  std::unique_ptr<base::test::ScopedCommandLine> command_line_ =
-      std::make_unique<base::test::ScopedCommandLine>();
-  std::unique_ptr<system::ScopedFakeStatisticsProvider> statistics_provider_ =
-      std::make_unique<system::ScopedFakeStatisticsProvider>();
+  std::unique_ptr<base::test::ScopedCommandLine> command_line_;
+  std::unique_ptr<system::ScopedFakeStatisticsProvider> statistics_provider_;
+
+  // Set up both UserManager and SessionManager. If UserManager already exists
+  // but SessionManager does not yet, user_session_test_environment_ is not used
+  // but session_manager_ is. This is for the workaround during the migration,
+  // and user_session_test_environment_ should be always used after the
+  // completion.
+  std::unique_ptr<ash::test::UserSessionTestEnvironment>
+      user_session_test_environment_;
+  // TODO(crbug.com/278643115): Remove this after migration.
   std::unique_ptr<session_manager::SessionManager> session_manager_;
+
   std::unique_ptr<TestPrefServiceProvider> prefs_provider_;
-  std::unique_ptr<TestNotifierSettingsController>
-      notifier_settings_controller_ =
-          std::make_unique<TestNotifierSettingsController>();
-  std::unique_ptr<TestSystemTrayClient> system_tray_client_ =
-      std::make_unique<TestSystemTrayClient>();
+  std::unique_ptr<TestNotifierSettingsController> notifier_settings_controller_;
+  std::unique_ptr<TestSystemTrayClient> system_tray_client_;
   std::unique_ptr<AppListTestHelper> app_list_test_helper_;
   std::unique_ptr<BluezDBusManagerInitializer> bluez_dbus_manager_initializer_;
   std::unique_ptr<FlossDBusManagerInitializer> floss_dbus_manager_initializer_;
@@ -244,6 +265,7 @@ class AshTestHelper : public aura::test::AuraTestHelper {
       test_keyboard_controller_observer_;
   std::unique_ptr<AmbientAshTestHelper> ambient_ash_test_helper_;
   std::unique_ptr<TestWallpaperControllerClient> wallpaper_controller_client_;
+  std::unique_ptr<FakeFaviconServiceProvider> favicon_service_provider_;
   std::unique_ptr<FakeSyncServiceProvider> sync_service_provider_;
   std::unique_ptr<SavedDeskTestHelper> saved_desk_test_helper_;
   std::unique_ptr<FakeFwupdDownloadClient> fwupd_download_client_;
@@ -252,14 +274,13 @@ class AshTestHelper : public aura::test::AuraTestHelper {
       quick_pair_browser_delegate_;
   std::unique_ptr<hotspot_config::CrosHotspotConfigTestHelper>
       cros_hotspot_config_test_helper_;
-
-  bluetooth_config::ScopedBluetoothConfigTestHelper
+  std::optional<bluetooth_config::ScopedBluetoothConfigTestHelper>
       scoped_bluetooth_config_test_helper_;
 
   // InputMethodManager is not owned by this class. It is stored in a
   // global that is registered via InputMethodManager::Initialize().
-  raw_ptr<input_method::MockInputMethodManagerImpl, DanglingUntriaged>
-      input_method_manager_ = nullptr;
+  raw_ptr<input_method::MockInputMethodManagerImpl> input_method_manager_ =
+      nullptr;
 
   // True if a fake global `CrasAudioHandler` should be created.
   bool create_global_cras_audio_handler_ = true;
@@ -267,6 +288,10 @@ class AshTestHelper : public aura::test::AuraTestHelper {
   bool create_quick_pair_mediator_ = true;
   // True if a screen instance should be destroyed.
   bool destroy_screen_ = true;
+
+  base::OnceClosure post_subsystems_teardown_callback_;
+
+  bool is_set_up_ = false;
 };
 
 }  // namespace ash

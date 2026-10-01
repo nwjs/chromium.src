@@ -83,6 +83,7 @@ source_set("signin_utils_impl") {
     deps += [ ":signin_ui_error" ]
   }
 }
+
 source_set("signin") {
   sources = [
     "signin_web_dialog_ui.h",
@@ -350,6 +351,7 @@ if (is_win || is_chromeos) {
 
     if (is_chromeos) {
       deps += [
+        "//chrome/browser:global_features",
         "//chrome/browser/ash/account_manager",
         "//chrome/browser/ash/profiles",
         "//chrome/browser/resources/ash/inline_login:resources",
@@ -613,10 +615,8 @@ source_set("test_support_ui") {
     ":login_ui_service",
     ":signin_utils",
     "//base/test:test_support",
-    "//chrome/browser",
     "//chrome/browser/profiles:profile",
     "//chrome/browser/signin:signin_promo",
-    "//chrome/browser/ui",
     "//chrome/browser/ui/browser_window",
     "//chrome/browser/ui/signin",
     "//chrome/test:test_support_ui",
@@ -646,6 +646,7 @@ if (!is_chromeos) {
       "//chrome/browser",
       "//chrome/browser/policy:test_support",
       "//chrome/browser/profiles:profile",
+      "//chrome/browser/profiles/batch_upload",
       "//chrome/browser/signin:signin_browser_test_base",
       "//chrome/browser/ui",
       "//chrome/test:test_support",

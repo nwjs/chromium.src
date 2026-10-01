@@ -5,18 +5,24 @@
 #ifndef CHROME_BROWSER_PASSWORD_MANAGER_ANDROID_ALL_PASSWORDS_BOTTOM_SHEET_CONTROLLER_H_
 #define CHROME_BROWSER_PASSWORD_MANAGER_ANDROID_ALL_PASSWORDS_BOTTOM_SHEET_CONTROLLER_H_
 
+#include <vector>
+
 #include "base/barrier_callback.h"
 #include "base/functional/callback.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
+#include "base/types/expected.h"
 #include "base/types/pass_key.h"
 #include "base/types/strong_alias.h"
 #include "components/autofill/core/common/mojom/autofill_types.mojom-forward.h"
 #include "components/device_reauth/device_authenticator.h"
 #include "components/password_manager/core/browser/password_manager_metrics_util.h"
+#include "components/password_manager/core/browser/password_store/password_store_backend_error.h"
 #include "components/password_manager/core/browser/password_store/password_store_consumer.h"
+#include "components/password_manager/core/browser/password_store/stored_credential.h"
 #include "ui/gfx/native_ui_types.h"
 #include "url/gurl.h"
+#include "url/origin.h"
 
 namespace password_manager {
 class PasswordManagerClient;
@@ -70,7 +76,9 @@ class AllPasswordsBottomSheetController
   // PasswordStoreConsumer:
   void OnGetPasswordStoreResultsOrErrorFrom(
       password_manager::PasswordStoreInterface* store,
-      password_manager::LoginsResultOrError results_or_error) override;
+      base::expected<std::vector<password_manager::StoredCredential>,
+                     password_manager::PasswordStoreBackendError>
+          results_or_error) override;
 
   // Instructs AllPasswordsBottomSheetView to show the credentials to the user.
   void Show();
@@ -90,8 +98,8 @@ class AllPasswordsBottomSheetController
   // consumes |dismissal_callback|.
   void OnDismiss();
 
-  // Returns the last committed URL of the frame from |driver_|.
-  const GURL& GetFrameUrl();
+  // Returns the URL of `frame_origin_`.
+  GURL GetFrameOriginUrl();
 
  private:
   // Called when the biometric re-auth completes. |password| is the password
@@ -142,6 +150,9 @@ class AllPasswordsBottomSheetController
   // password has been reused.
   raw_ptr<safe_browsing::PasswordReuseDetectionManagerClient>
       password_reuse_detection_manager_client_ = nullptr;
+
+  // The origin of the frame at the time this controller was created.
+  url::Origin frame_origin_;
 
   base::WeakPtrFactory<AllPasswordsBottomSheetController> weak_ptr_factory_{
       this};

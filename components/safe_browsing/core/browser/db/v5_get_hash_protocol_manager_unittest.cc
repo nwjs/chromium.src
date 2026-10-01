@@ -21,7 +21,7 @@
 #include "base/test/test_future.h"
 #include "base/time/time.h"
 #include "components/safe_browsing/core/browser/db/sb_protocol_manager_util.h"
-#include "components/safe_browsing/core/browser/db/v4_test_util.h"
+#include "components/safe_browsing/core/browser/db/sb_test_util.h"
 #include "components/safe_browsing/core/browser/db/v5_search_hashes_cache.h"
 #include "components/safe_browsing/core/common/features.h"
 #include "components/safe_browsing/core/common/proto/safebrowsingv5.pb.h"
@@ -46,9 +46,8 @@ class V5GetHashProtocolManagerTest : public ::testing::Test {
   }
 
   std::unique_ptr<V5GetHashProtocolManager> CreateProtocolManager() {
-    // TODO(crbug.com/362791941): Handle v4 references.
     return std::make_unique<V5GetHashProtocolManager>(
-        test_shared_loader_factory_, GetTestV4ProtocolConfig(), cache_.get());
+        test_shared_loader_factory_, GetTestSBProtocolConfig(), cache_.get());
   }
 
   std::string GetExpectedRequestUrl(std::vector<std::string> prefixes) {
@@ -1166,6 +1165,8 @@ TEST_F(V5GetHashProtocolManagerTest, GetFullHashes_AllThreatTypes) {
       {V5::ThreatType::SOCIAL_ENGINEERING,
        SBThreatType::SB_THREAT_TYPE_URL_PHISHING},
       {V5::ThreatType::MALWARE, SBThreatType::SB_THREAT_TYPE_URL_MALWARE},
+      {V5::ThreatType::POTENTIALLY_HARMFUL_APPLICATION,
+       SBThreatType::SB_THREAT_TYPE_URL_MALWARE},
       {V5::ThreatType::UNWANTED_SOFTWARE,
        SBThreatType::SB_THREAT_TYPE_URL_UNWANTED},
       {V5::ThreatType::MALICIOUS_BINARY,
@@ -1483,14 +1484,21 @@ TEST_F(V5GetHashProtocolManagerTest, GetFullHashes_RelevanceFiltering) {
        {SBThreatType::SB_THREAT_TYPE_URL_MALWARE},
        SBThreatType::SB_THREAT_TYPE_SAFE},
 
-      // 3. Potentially Harmful Application (PHA) -> Ignored (Not supported for
-      // local DB).
+      // 3. Potentially Harmful Application (PHA) -> Mapped to URL_MALWARE for
+      // local DB (used on iOS).
       {{V5::ThreatType::POTENTIALLY_HARMFUL_APPLICATION},
        {{}},
        {SBThreatType::SB_THREAT_TYPE_URL_MALWARE},
+       SBThreatType::SB_THREAT_TYPE_URL_MALWARE},
+
+      // 4. Potentially Harmful Application (PHA) with CANARY -> Ignored (PHA
+      // only supports enforcement).
+      {{V5::ThreatType::POTENTIALLY_HARMFUL_APPLICATION},
+       {{V5::ThreatAttribute::CANARY}},
+       {SBThreatType::SB_THREAT_TYPE_URL_MALWARE},
        SBThreatType::SB_THREAT_TYPE_SAFE},
 
-      // 4. SOCIAL_ENGINEERING with CANARY -> Allowed if SUSPICIOUS_SITE
+      // 5. SOCIAL_ENGINEERING with CANARY -> Allowed if SUSPICIOUS_SITE
       // requested. Never allowed on iOS.
       {{V5::ThreatType::SOCIAL_ENGINEERING},
        {{V5::ThreatAttribute::CANARY}},
@@ -1502,7 +1510,7 @@ TEST_F(V5GetHashProtocolManagerTest, GetFullHashes_RelevanceFiltering) {
 #endif
       },
 
-      // 5. SOCIAL_ENGINEERING with CANARY -> Ignored if only PHISHING
+      // 6. SOCIAL_ENGINEERING with CANARY -> Ignored if only PHISHING
       // requested.
       {{V5::ThreatType::SOCIAL_ENGINEERING},
        {{V5::ThreatAttribute::CANARY}},

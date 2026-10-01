@@ -27,7 +27,6 @@ inline constexpr char kAppStoreRatingPolicyEnabled[] =
 // Boolean that is true when Suggest support is enabled.
 inline constexpr char kArticlesForYouEnabled[] = "suggestions.articles_enabled";
 
-
 // Boolean that is true when Browser Lockdown Mode is enabled.
 inline constexpr char kBrowserLockdownModeEnabled[] =
     "ios.browser_lockdown_mode_enabled";
@@ -506,6 +505,9 @@ inline constexpr char kLevelUpHighestLevel[] = "level_up.highest_level";
 // Whether the Level Up feature UI is enabled.
 inline constexpr char kLevelUpUIEnabled[] = "level_up.ui_enabled";
 
+// Whether the user opted in to the Level Up feature.
+inline constexpr char kLevelUpOptIn[] = "level_up.opt_in";
+
 // Stats tracked in the Level Up feature.
 inline constexpr char kLevelUpTabsDeclutteredStat[] =
     "level_up.tabs_decluttered_stat";
@@ -869,12 +871,6 @@ inline constexpr char kLastGeminiContextualChipDisplayedTimestamp[] =
 
 // A string specifying the active conversation ID.
 inline constexpr char kGeminiConversationId[] = "ios.gemini.conversation_id";
-
-// A time object storing the first browser startup with a managed primary
-// identity in the personal profile after multi-profile becomes supported. Used
-// to trigger forced migration after some grace period.
-inline constexpr char kWaitingForMultiProfileForcedMigrationTimestamp[] =
-    "ios.waiting_for_multi_profile_forced_migration_timestamp";
 
 // A time object storing when the sign-in promo should be displayed again.
 // The value is set on the first cold start to make sure sign-in promo is not

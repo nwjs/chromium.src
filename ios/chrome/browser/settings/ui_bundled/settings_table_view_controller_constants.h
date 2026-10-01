@@ -48,6 +48,7 @@ typedef NS_ENUM(NSInteger, SettingsItemType) {
   SettingsItemTypeLanguageSettings,
   SettingsItemTypeContentSettings,
   SettingsItemTypeSitePermissions,
+  SettingsItemTypeSiteSettings,
   SettingsItemTypeDownloadsSettings,
   SettingsItemTypeSafariDataImport,
   SettingsItemTypeBandwidth,
@@ -200,6 +201,9 @@ extern NSString* const kSettingsClearBrowsingDataCellId;
 
 // The accessibility identifier of the Handoff cell.
 extern NSString* const kSettingsHandoffCellId;
+
+// The accessibility identifier of the Universal Opt Out cell.
+extern NSString* const kSettingsUniversalOptOutCellId;
 
 // The accessibility identifier of the Cookies cell.
 extern NSString* const kSettingsCookiesCellId;

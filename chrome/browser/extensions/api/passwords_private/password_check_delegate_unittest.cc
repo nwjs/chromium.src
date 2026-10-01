@@ -65,6 +65,7 @@
 #include "extensions/browser/test_event_router.h"
 #include "extensions/browser/test_event_router_observer.h"
 #include "net/base/net_errors.h"
+#include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "services/network/test/test_shared_url_loader_factory.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -1050,7 +1051,7 @@ TEST_F(PasswordCheckDelegateTest, OnCredentialDoneUpdatesProgress) {
   EXPECT_EQ(events::PASSWORDS_PRIVATE_ON_PASSWORD_CHECK_STATUS_CHANGED,
             event_iter->second->histogram_value);
   auto status =
-      PasswordCheckStatus::FromValue(event_iter->second->event_args.front());
+      PasswordCheckStatus::FromValue(event_iter->second->args().front());
   EXPECT_EQ(api::passwords_private::PasswordCheckState::kRunning,
             status->state);
   EXPECT_EQ(0, *status->already_processed);
@@ -1059,8 +1060,7 @@ TEST_F(PasswordCheckDelegateTest, OnCredentialDoneUpdatesProgress) {
   static_cast<BulkLeakCheckDelegateInterface*>(service())->OnFinishedCredential(
       LeakCheckCredential(kUsername1, kPassword1), IsLeaked(false));
 
-  status =
-      PasswordCheckStatus::FromValue(event_iter->second->event_args.front());
+  status = PasswordCheckStatus::FromValue(event_iter->second->args().front());
   EXPECT_EQ(api::passwords_private::PasswordCheckState::kRunning,
             status->state);
   EXPECT_EQ(2, *status->already_processed);
@@ -1069,8 +1069,7 @@ TEST_F(PasswordCheckDelegateTest, OnCredentialDoneUpdatesProgress) {
   static_cast<BulkLeakCheckDelegateInterface*>(service())->OnFinishedCredential(
       LeakCheckCredential(kUsername2, kPassword2), IsLeaked(false));
 
-  status =
-      PasswordCheckStatus::FromValue(event_iter->second->event_args.front());
+  status = PasswordCheckStatus::FromValue(event_iter->second->args().front());
   EXPECT_EQ(api::passwords_private::PasswordCheckState::kRunning,
             status->state);
   EXPECT_EQ(4, *status->already_processed);

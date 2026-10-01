@@ -9,6 +9,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -38,6 +39,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.annotation.Config;
+import org.robolectric.shadows.ShadowLooper;
 
 import org.chromium.base.ActivityState;
 import org.chromium.base.ApplicationStatus;
@@ -75,9 +77,16 @@ public class SettingsHostFragmentTest {
 
     /** Subclass SettingsHostFragment to mock initial fragment instantiation. */
     public static class TestSettingsHostFragment extends SettingsHostFragment {
+        private @Nullable Intent mCapturedIntent;
+
         @Override
         protected Fragment createInitialFragment(@Nullable Intent intent) {
+            mCapturedIntent = intent;
             return new FirstFakeSettingsFragment();
+        }
+
+        public @Nullable Intent getCapturedIntent() {
+            return mCapturedIntent;
         }
     }
 
@@ -115,7 +124,7 @@ public class SettingsHostFragmentTest {
     }
 
     @Test
-    @DisableFeatures(ChromeFeatureList.SETTINGS_IN_TAB)
+    @DisableFeatures({ChromeFeatureList.SETTINGS_IN_TAB, ChromeFeatureList.SETTINGS_IN_TAB_DESKTOP})
     public void testConstructor_SettingsInTabDisabled_ThrowsAssertionError() {
         Assume.assumeTrue(BuildConfig.ENABLE_ASSERTS);
         assertThrows(AssertionError.class, SettingsHostFragment::new);
@@ -200,6 +209,38 @@ public class SettingsHostFragmentTest {
         assertTrue(
                 "Initial fragment should be MultiColumnSettings",
                 initial instanceof MultiColumnSettings);
+    }
+
+    @Test
+    public void testOnViewCreated_usesLastIntentIfPresent() {
+        Intent lastIntent = new Intent();
+        lastIntent.putExtra("test_extra", "value");
+        SettingsIntentUtil.setLastIntentForTesting(lastIntent);
+
+        var fragment = new TestSettingsHostFragment();
+        mActivity
+                .getSupportFragmentManager()
+                .beginTransaction()
+                .add(android.R.id.content, fragment, SettingsHostFragment.SETTINGS_NATIVE_PAGE_TAG)
+                .commitNow();
+
+        assertSame(lastIntent, fragment.getCapturedIntent());
+        // The intent is consumed, so a settings tab opened later won't reuse it.
+        assertNull(SettingsIntentUtil.takeLastIntent());
+    }
+
+    @Test
+    public void testOnViewCreated_noLastIntent_fallsBackToActivityIntent() {
+        SettingsIntentUtil.setLastIntentForTesting(null);
+
+        var fragment = new TestSettingsHostFragment();
+        mActivity
+                .getSupportFragmentManager()
+                .beginTransaction()
+                .add(android.R.id.content, fragment, SettingsHostFragment.SETTINGS_NATIVE_PAGE_TAG)
+                .commitNow();
+
+        assertSame(mActivity.getIntent(), fragment.getCapturedIntent());
     }
 
     @Test
@@ -486,6 +527,149 @@ public class SettingsHostFragmentTest {
         mSettingsHostFragment.finishCurrentSettings(active);
         multiColumnSettings.getChildFragmentManager().executePendingTransactions();
         assertTrue(mSettingsHostFragment.getMainFragment() instanceof FirstFakeSettingsFragment);
+    }
+
+    /**
+     * Tests that finishing a detail settings fragment in single-column mode closes the sliding pane
+     * and removes the detail fragment, returning to the MainSettings page.
+     */
+    @Test
+    @Config(qualifiers = "w320dp")
+    public void testFinishCurrentSettings_MultiColumnSettings_SingleColumnMode() {
+        DeviceInfo.setIsDesktopForTesting(true);
+        mSettingsHostFragment = new TestSingleColumnMultiColumnSettingsHostFragment();
+        mActivity
+                .getSupportFragmentManager()
+                .beginTransaction()
+                .add(
+                        android.R.id.content,
+                        mSettingsHostFragment,
+                        SettingsHostFragment.SETTINGS_NATIVE_PAGE_TAG)
+                .commitNow();
+
+        MultiColumnSettings multiColumnSettings =
+                (MultiColumnSettings) mSettingsHostFragment.getActiveFragment();
+        assertNotNull(multiColumnSettings);
+
+        SecondFakeSettingsFragment detailFragment = new SecondFakeSettingsFragment();
+        multiColumnSettings.showDetailFragment(
+                detailFragment, /* addToBackStack= */ false, /* tag= */ null);
+        multiColumnSettings.getChildFragmentManager().executePendingTransactions();
+        assertNotNull(
+                multiColumnSettings
+                        .getChildFragmentManager()
+                        .findFragmentById(R.id.preferences_detail));
+
+        mSettingsHostFragment.finishCurrentSettings(detailFragment);
+        multiColumnSettings.getChildFragmentManager().executePendingTransactions();
+
+        assertNull(
+                "Detail fragment should be removed in single column mode",
+                multiColumnSettings
+                        .getChildFragmentManager()
+                        .findFragmentById(R.id.preferences_detail));
+    }
+
+    /**
+     * Tests that popping a child detail settings fragment in single-column mode retains the base
+     * detail fragment in the detail pane rather than removing it and closing the sliding pane.
+     */
+    @Test
+    @Config(qualifiers = "w320dp")
+    public void testPopBackStack_MultiColumnSettings_SingleColumnMode_RetainsBaseDetailFragment() {
+        DeviceInfo.setIsDesktopForTesting(true);
+        mSettingsHostFragment = new TestSingleColumnMultiColumnSettingsHostFragment();
+        mActivity
+                .getSupportFragmentManager()
+                .beginTransaction()
+                .add(
+                        android.R.id.content,
+                        mSettingsHostFragment,
+                        SettingsHostFragment.SETTINGS_NATIVE_PAGE_TAG)
+                .commitNow();
+
+        MultiColumnSettings multiColumnSettings =
+                (MultiColumnSettings) mSettingsHostFragment.getActiveFragment();
+        assertNotNull(multiColumnSettings);
+
+        SecondFakeSettingsFragment baseDetailFragment = new SecondFakeSettingsFragment();
+        multiColumnSettings.showDetailFragment(
+                baseDetailFragment, /* addToBackStack= */ false, /* tag= */ null);
+        multiColumnSettings.getChildFragmentManager().executePendingTransactions();
+        assertEquals(
+                baseDetailFragment,
+                multiColumnSettings
+                        .getChildFragmentManager()
+                        .findFragmentById(R.id.preferences_detail));
+
+        // Open child subpage with addToBackStack = true (e.g. going from Safety Check to Safe
+        // Browsing).
+        FirstFakeSettingsFragment childDetailFragment = new FirstFakeSettingsFragment();
+        multiColumnSettings.showDetailFragment(
+                childDetailFragment, /* addToBackStack= */ true, /* tag= */ null);
+        multiColumnSettings.getChildFragmentManager().executePendingTransactions();
+        assertEquals(
+                childDetailFragment,
+                multiColumnSettings
+                        .getChildFragmentManager()
+                        .findFragmentById(R.id.preferences_detail));
+
+        // Pop the back stack (e.g. user navigated back from child detail fragment).
+        multiColumnSettings.popBackStack();
+        multiColumnSettings.getChildFragmentManager().executePendingTransactions();
+        ShadowLooper.idleMainLooper();
+
+        assertEquals(
+                "Base detail fragment should be retained when popping child detail fragment",
+                baseDetailFragment,
+                multiColumnSettings
+                        .getChildFragmentManager()
+                        .findFragmentById(R.id.preferences_detail));
+        assertTrue(
+                "Sliding pane should remain open after popping child detail fragment",
+                multiColumnSettings.getSlidingPaneLayout().isOpen());
+
+        // Finish base detail fragment to return to root settings.
+        mSettingsHostFragment.finishCurrentSettings(baseDetailFragment);
+        multiColumnSettings.getChildFragmentManager().executePendingTransactions();
+        ShadowLooper.idleMainLooper();
+
+        assertNull(
+                "Detail fragment should be removed when returning to root",
+                multiColumnSettings
+                        .getChildFragmentManager()
+                        .findFragmentById(R.id.preferences_detail));
+    }
+
+    /**
+     * Tests that SettingsHostFragment.get(Fragment) correctly resolves the host fragment from any
+     * child fragment within the settings hierarchy.
+     */
+    @Test
+    public void testGet_FromFragment() {
+        mSettingsHostFragment = new TestMultiColumnSettingsHostFragment();
+        mActivity
+                .getSupportFragmentManager()
+                .beginTransaction()
+                .add(
+                        android.R.id.content,
+                        mSettingsHostFragment,
+                        SettingsHostFragment.SETTINGS_NATIVE_PAGE_TAG)
+                .commitNow();
+
+        MultiColumnSettings multiColumnSettings =
+                (MultiColumnSettings) mSettingsHostFragment.getActiveFragment();
+        assertNotNull(multiColumnSettings);
+
+        SecondFakeSettingsFragment detailFragment = new SecondFakeSettingsFragment();
+        multiColumnSettings.showDetailFragment(
+                detailFragment, /* addToBackStack= */ false, /* tag= */ null);
+        multiColumnSettings.getChildFragmentManager().executePendingTransactions();
+
+        assertEquals(mSettingsHostFragment, SettingsHostFragment.get(detailFragment));
+        assertEquals(mSettingsHostFragment, SettingsHostFragment.get(multiColumnSettings));
+        assertNull(SettingsHostFragment.get(new SecondFakeSettingsFragment()));
+        assertNull(SettingsHostFragment.get((Fragment) null));
     }
 
     @Test

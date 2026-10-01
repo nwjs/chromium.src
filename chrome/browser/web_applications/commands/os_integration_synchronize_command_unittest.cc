@@ -11,6 +11,7 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/test_future.h"
+#include "base/threading/thread_restrictions.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/web_applications/os_integration/os_integration_manager.h"
 #include "chrome/browser/web_applications/os_integration/os_integration_sub_manager.h"
@@ -186,8 +187,6 @@ class OsIntegrationSynchronizeCommandTest : public WebAppTest {
  private:
   std::unique_ptr<OsIntegrationTestOverrideImpl::BlockingRegistration>
       test_override_;
-  base::test::ScopedFeatureList scoped_feature_list_{
-      blink::features::kWebAppMigrationApi};
 };
 
 TEST_F(OsIntegrationSynchronizeCommandTest, ProtocolHandlers) {

@@ -21,7 +21,6 @@
 #include "base/time/time.h"
 #include "chrome/browser/ui/omnibox/omnibox_view.h"
 #include "components/contextual_tasks/public/query_contextualizer.h"
-#include "components/omnibox/browser/autocomplete_controller.h"
 #include "components/omnibox/browser/autocomplete_enums.h"
 #include "components/omnibox/browser/autocomplete_input.h"
 #include "components/omnibox/browser/autocomplete_match.h"
@@ -36,10 +35,12 @@
 #include "ui/gfx/native_ui_types.h"
 #include "url/gurl.h"
 
+class AutocompleteController;
 class OmniboxController;
 class OmniboxPopupView;
-class TemplateURL;
 class Profile;
+class TemplateURL;
+
 namespace contextual_search {
 class ContextualSearchSessionHandle;
 }
@@ -292,11 +293,15 @@ class OmniboxEditModel {
   // `via_keyboard` is set to `true` if the selection was opened due to a
   // keyboard event and is set to `false` if the selection was opened due
   // to a mouse / gesture event.
+  // `snapshot`, if non-null, supplies the specific autocomplete snapshot
+  // (matches and input) to use rather than using the live
+  // `autocomplete_controller()->result()` and input.
   void OpenSelection(
       OmniboxPopupSelection selection,
       base::TimeTicks timestamp = base::TimeTicks(),
       WindowOpenDisposition disposition = WindowOpenDisposition::CURRENT_TAB,
-      bool via_keyboard = false);
+      bool via_keyboard = false,
+      const searchbox::AutocompleteSnapshot* snapshot = nullptr);
   void OpenSelection(OmniboxPopupSelection selection, bool via_keyboard);
 
   // A simplified version of `OpenSelection()` that opens the model's current
@@ -678,7 +683,8 @@ class OmniboxEditModel {
                  WindowOpenDisposition disposition,
                  const GURL& alternate_nav_url,
                  const std::u16string& pasted_text,
-                 base::TimeTicks match_selection_timestamp = base::TimeTicks());
+                 base::TimeTicks match_selection_timestamp = base::TimeTicks(),
+                 const searchbox::AutocompleteSnapshot* snapshot = nullptr);
 
   void OnDefaultSearchExtensionDialogDone(
       OmniboxPopupSelection selection,

@@ -546,6 +546,13 @@ void LocalFrameMojoHandler::SendInterventionReport(
   }
 }
 
+void LocalFrameMojoHandler::UpdateChildFrameToVideoAd(
+    const FrameToken& child_frame_token) {
+  if (auto* child_frame = Frame::ResolveFrame(child_frame_token)) {
+    To<HTMLFrameOwnerElement>(child_frame->Owner())->UpdateToVideoAd();
+  }
+}
+
 void LocalFrameMojoHandler::SetFrameOwnerProperties(
     mojom::blink::FrameOwnerPropertiesPtr properties) {
   GetDocument()->WillChangeFrameOwnerProperties(
@@ -981,7 +988,7 @@ void LocalFrameMojoHandler::JavaScriptExecuteRequestInIsolatedWorld(
           ? mojom::blink::WantResultOption::kWantResultDateAndRegExpAllowed
           : mojom::blink::WantResultOption::kNoResult,
       mojom::blink::PromiseResultOption::kDoNotWait,
-      /*is_injected_extension_script=*/false);
+      /*script_injector_id=*/String());
 }
 
 void LocalFrameMojoHandler::InvokeScriptToolForInspector(
@@ -1458,7 +1465,7 @@ void LocalFrameMojoHandler::AddResourceTimingEntryForFailedSubframeNavigation(
     return;
   }
 
-  ResourceResponse response;
+  ResourceResponse response(initial_url);
   response.SetAlpnNegotiatedProtocol(AtomicString(alpn_negotiated_protocol));
   response.SetConnectionInfo(connection_info);
   response.SetConnectionReused(load_timing_info->socket_reused);

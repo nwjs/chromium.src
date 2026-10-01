@@ -246,6 +246,7 @@ try_.builder(
         "ci/linux-bfcache-rel",
     ],
     gn_args = "ci/linux-bfcache-rel",
+    contact_team_email = "chrome-linux-engprod@google.com",
     siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
 )
 
@@ -274,6 +275,7 @@ try_.builder(
             "skip_generate_fuzzer_owners",
         ],
     ),
+    contact_team_email = "chrome-fuzzing-core@google.com",
 )
 
 try_.builder(
@@ -323,6 +325,7 @@ try_.builder(
             "x64",
         ],
     ),
+    contact_team_email = "chrome-linux-engprod@google.com",
     siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
 )
 
@@ -337,6 +340,7 @@ try_.builder(
             "release_try_builder",
         ],
     ),
+    contact_team_email = "chrome-linux-engprod@google.com",
     siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
 )
 
@@ -346,6 +350,7 @@ try_.builder(
         "ci/linux-gcc-rel",
     ],
     gn_args = "ci/linux-gcc-rel",
+    contact_team_email = "build@chromium.org",
 )
 
 try_.builder(
@@ -410,6 +415,7 @@ try_.builder(
         ],
     ),
     builderless = not settings.is_main,
+    contact_team_email = "chrome-fuzzing-core@google.com",
     cq_settings = try_.cq_settings(
         on_default_cq = True,
     ),
@@ -463,6 +469,7 @@ try_.orchestrator_builder(
         ],
     ),
     compilator = "linux-rel-compilator",
+    contact_team_email = "chrome-linux-engprod@google.com",
     coverage_test_types = ["unit", "overall"],
     # TODO(crbug.com/40241638): Use orchestrator pool once overloaded test pools
     # are addressed
@@ -514,6 +521,10 @@ try_.builder(
     gn_args = "try/linux-rel",
     contact_team_email = "chrome-build-team@google.com",
     cq_settings = try_.cq_settings(
+        # Changes to linux-rel's testing specs would normally have to pass on
+        # this bot. But this bot isn't stable enough for such CLs to land
+        # safely.
+        add_default_filters = False,
         location_filters = [
             "build/conifg/siso/.+",
         ],
@@ -693,6 +704,7 @@ try_.builder(
             "x64",
         ],
     ),
+    contact_team_email = "chrome-browser-infra-team@google.com",
     siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
 )
 
@@ -712,6 +724,7 @@ try_.orchestrator_builder(
         ],
     ),
     compilator = "linux_chromium_asan_rel_ng-compilator",
+    contact_team_email = "chrome-sanitizer-builder-owners@google.com",
     # TODO (crbug.com/1372179): Use orchestrator pool once overloaded test pools
     # are addressed
     # use_orchestrator_pool = True,
@@ -725,6 +738,8 @@ try_.orchestrator_builder(
         "chromium.enable_cleandead": 100,
         # go/rts-project-proposal
         "chromium_rts.filter_file_analysis": 100,
+        # crbug.com/40280175
+        "chromium_checkout.expand_submodules": 100,
     },
     main_list_view = "try",
 )
@@ -749,6 +764,7 @@ try_.builder(
     ssd = True,
     check_for_flakiness = False,
     check_for_flakiness_with_resultdb = False,
+    contact_team_email = "chrome-sanitizer-builder-owners@google.com",
     cq_settings = try_.cq_settings(
         location_filters = [
             # Diectories that have caused breakages in the past due to the
@@ -785,6 +801,7 @@ try_.builder(
     # is reduced.
     cores = 16,
     ssd = True,
+    contact_team_email = "chrome-sanitizer-builder-owners@google.com",
     # TODO(crbug.com/40728894): Remove this timeout once we figure out the
     # regression in compiler or toolchain.
     execution_timeout = 7 * time.hour,
@@ -800,6 +817,7 @@ try_.builder(
     gn_args = "ci/Linux ChromiumOS MSan Builder",
     cores = 16,
     ssd = True,
+    contact_team_email = "chrome-sanitizer-builder-owners@google.com",
     execution_timeout = 6 * time.hour,
     siso_remote_jobs = siso.remote_jobs.HIGH_JOBS_FOR_CQ,
 )
@@ -864,6 +882,7 @@ try_.builder(
             path = "linux_debug",
         ),
     ],
+    contact_team_email = "chrome-linux-engprod@google.com",
     cq_settings = try_.cq_settings(
         on_default_cq = True,
     ),
@@ -872,6 +891,8 @@ try_.builder(
         "chromium.enable_cleandead": 100,
         # go/rts-project-proposal
         "chromium_rts.filter_file_analysis": 100,
+        # crbug.com/40280175
+        "chromium_checkout.expand_submodules": 100,
     },
     main_list_view = "try",
     siso_remote_jobs = siso.remote_jobs.HIGH_JOBS_FOR_CQ,
@@ -896,6 +917,7 @@ try_.builder(
             "x64",
         ],
     ),
+    contact_team_email = "chrome-linux-engprod@google.com",
     siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
 )
 
@@ -921,6 +943,7 @@ try_.builder(
             path = "linux_debug",
         ),
     ],
+    contact_team_email = "chrome-linux-engprod@google.com",
     cq_settings = try_.cq_settings(
         location_filters = [
             "build/.*check_gn_headers.*",
@@ -942,6 +965,7 @@ try_.builder(
     gn_args = "ci/Linux MSan Builder",
     cores = 16,
     ssd = True,
+    contact_team_email = "chrome-sanitizer-builder-owners@google.com",
     execution_timeout = 8 * time.hour,
     siso_remote_jobs = siso.remote_jobs.HIGH_JOBS_FOR_CQ,
 )
@@ -964,6 +988,7 @@ try_.orchestrator_builder(
     check_for_flakiness = False,
     check_for_flakiness_with_resultdb = False,
     compilator = "linux_chromium_tsan_rel_ng-compilator",
+    contact_team_email = "chrome-sanitizer-builder-owners@google.com",
     # TODO (crbug.com/1372179): Use orchestrator pool once overloaded test pools
     # are addressed
     # use_orchestrator_pool = True,
@@ -977,6 +1002,8 @@ try_.orchestrator_builder(
         "chromium.enable_cleandead": 100,
         # go/rts-project-proposal
         "chromium_rts.filter_file_analysis": 100,
+        # crbug.com/40280175
+        "chromium_checkout.expand_submodules": 100,
     },
     main_list_view = "try",
 )
@@ -1026,6 +1053,13 @@ try_.builder(
     ssd = True,
     execution_timeout = 5 * time.hour,
     notifies = ["chrome-rust-toolchain"],
+    properties = {
+        "$build/chromium_toolchain": {
+            "toolchain": "CLANG",
+            "trusted_build_instance_pool": "high-cpu",
+            "config_path": "build/lexan/configs/tbi/linux-patched-fix-strict-deps.textproto",
+        },
+    },
 )
 
 try_.builder(
@@ -1083,6 +1117,7 @@ try_.builder(
     gn_args = gn_args.config(
         configs = ["ci/Network Service Linux", "release_try_builder"],
     ),
+    contact_team_email = "chrome-linux-engprod@google.com",
     siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
 )
 

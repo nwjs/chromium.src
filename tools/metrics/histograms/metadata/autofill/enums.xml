@@ -318,6 +318,19 @@ Called by update_autofill_enums.py.-->
 
 <!-- LINT.ThenChange(/components/autofill/core/browser/integrators/autofill_ai/metrics/personal_context_metrics.h:PersonalContextCacheReadinessOnFirstInteraction) -->
 
+<!-- LINT.IfChange(AutofillAiPersonalContextPrefetchEntityValidationResult) -->
+
+<enum name="AutofillAiPersonalContextPrefetchEntityValidationResult">
+  <int value="0" label="Valid"/>
+  <int value="1" label="Failed: Import constraints not met"/>
+  <int value="2" label="Failed: TTL expired"/>
+  <int value="3" label="Failed: Missing date attribute for TTL"/>
+  <int value="4" label="Failed: Malformed date string"/>
+  <int value="5" label="Failed: Unsupported entity type"/>
+</enum>
+
+<!-- LINT.ThenChange(/components/autofill/core/browser/integrators/autofill_ai/metrics/personal_context_metrics.h:PersonalContextPrefetchEntityValidationResult) -->
+
 <!-- LINT.IfChange(AutofillAiPersonalContextPrefetchTriggerResult) -->
 
 <enum name="AutofillAiPersonalContextPrefetchTriggerResult">
@@ -683,7 +696,7 @@ Called by update_autofill_enums.py.-->
 <!-- LINT.ThenChange(//components/autofill/core/browser/integrators/at_memory/at_memory_query_service.h:SpiiRetrievalFailureReason) -->
 
 <enum name="AutofillAtMemoryTriggerSource">
-  <int value="0" label="Typed trigger"/>
+  <int value="0" label="(Obsolete) Typed trigger"/>
   <int value="1" label="Context menu"/>
   <int value="2" label="Keyboard shortcut"/>
   <int value="3" label="Double Ctrl"/>
@@ -3053,6 +3066,16 @@ Called by update_autofill_enums.py.-->
   <int value="1" label="Suggestion Selected"/>
 </enum>
 
+<!-- LINT.IfChange(AutofillKeyboardAccessoryInteraction) -->
+
+<enum name="AutofillKeyboardAccessoryInteraction">
+  <int value="0" label="The keyboard accessory was shown"/>
+  <int value="1" label="A suggestion was selected"/>
+  <int value="2" label="A suggestion was accepted"/>
+</enum>
+
+<!-- LINT.ThenChange(//components/autofill/core/browser/metrics/autofill_metrics.h:AutofillKeyboardAccessoryInteraction) -->
+
 <enum name="AutofillLoyaltyCardAffiliationCategoryFillingReadiness">
   <int value="0" label="No loyalty cards available"/>
   <int value="1" label="Only affiliated loyalty cards available"/>
@@ -3186,15 +3209,6 @@ Called by update_autofill_enums.py.-->
              response"/>
 </enum>
 
-<enum name="AutofillPasswordFormType">
-  <int value="0" label="No password form"/>
-  <int value="1" label="Login form"/>
-  <int value="2" label="Signup form"/>
-  <int value="3" label="Change password form"/>
-  <int value="4" label="Reset password form"/>
-  <int value="5" label="Single username form"/>
-</enum>
-
 <enum name="AutofillPaymentMethodsActionEnum">
   <int value="0" label="Added with nickname"/>
   <int value="1" label="Added without nickname"/>
@@ -3207,13 +3221,6 @@ Called by update_autofill_enums.py.-->
   <int value="0" label="None: No phone number in import"/>
   <int value="1" label="Valid: Phone number was imported"/>
   <int value="2" label="Invalid: Phone number was removed before the import"/>
-</enum>
-
-<enum name="AutofillPlusAddressDelegateSuggestionContext">
-  <int value="0" label="Autofill profile filling on email field"/>
-  <int value="1" label="Autofill profile filling on non-email field"/>
-  <int value="2" label="Autocomplete"/>
-  <int value="3" label="Manual fallback"/>
 </enum>
 
 <enum name="AutofillPopupInteraction">
@@ -4127,15 +4134,6 @@ Called by update_autofill_enums.py.-->
   <int value="1" label="POST"/>
 </enum>
 
-<enum name="AutofillQueryResult">
-  <int value="0" label="Sent"/>
-  <int value="1" label="Received"/>
-  <int value="2" label="Parsed"/>
-  <int value="3" label="Response matches local"/>
-  <int value="4" label="Response improves local (nonempty)"/>
-  <int value="5" label="Response improves local (empty)"/>
-</enum>
-
 <enum name="AutofillRationalizationQualityMetric">
   <int value="0" label="Good Rationalization"/>
   <int value="1" label="Ok Rationalization"/>
@@ -4176,6 +4174,7 @@ Called by update_autofill_enums.py.-->
   <int value="1" label="Not shown, max strikes reached"/>
   <int value="2" label="Not shown, required delay has not passed"/>
   <int value="3" label="Not shown, CVC missing for possible card update"/>
+  <int value="4" label="Not shown, CVC missing for UnionPay upload"/>
 </enum>
 
 <!-- TODO(crbug.com/430588721): Clean up use of AutofillSavePaymentMethodPromptResultEnum once refactored save card metrics have rolled out. -->
@@ -4200,6 +4199,12 @@ Called by update_autofill_enums.py.-->
   <int value="2" label="Some other item selected"/>
 </enum>
 
+<enum name="AutofillScanCreditCardPromptEntryPoint">
+  <int value="0" label="Keyboard accessory"/>
+  <int value="1" label="Bottom sheet"/>
+  <int value="2" label="Settings page"/>
+</enum>
+
 <enum name="AutofillScanCreditCardResult">
   <int value="0" label="Unknown result"/>
   <int value="1"
@@ -4218,6 +4223,12 @@ Called by update_autofill_enums.py.-->
   <int value="5" label="Credit card scanner was started but cancelled"/>
   <int value="6"
       label="Credit card scanner option was shown to the user but not used"/>
+</enum>
+
+<enum name="AutofillScanCreditCardScreenType">
+  <int value="0" label="Unknown"/>
+  <int value="1" label="OCR"/>
+  <int value="2" label="NFC"/>
 </enum>
 
 <enum name="AutofillServerCardUnmaskResult">
@@ -4343,14 +4354,6 @@ Called by update_autofill_enums.py.-->
   <int value="7"
       label="(Error) Capitalization only and Capitalization and diacritic
              only and empty to non-empty update"/>
-</enum>
-
-<enum name="AutofillSingleEntryRemovalMethod">
-  <int value="0" label="Keyboard shift + delete pressed"/>
-  <int value="1" label="Delete button clicked"/>
-  <int value="2"
-      label="Keyboard accessory suggestion long pressed and deletion dialog
-             confirmed"/>
 </enum>
 
 <!-- LINT.IfChange(FieldPredictionOverlapXml) -->
@@ -4538,11 +4541,12 @@ Called by update_autofill_enums.py.-->
   <int value="19" label="(Obsolete) Plus address update in browser process"/>
   <int value="20" label="Proactive password recovery"/>
   <int value="21" label="Glic"/>
-  <int value="22" label="AtMemory trigger string"/>
+  <int value="22" label="(Obsolete) AtMemory trigger string"/>
   <int value="23" label="AtMemory context menu"/>
   <int value="24" label="AtMemory inactivity nudge"/>
   <int value="25" label="AtMemory keyboard shortcut"/>
   <int value="26" label="AtMemory double Ctrl"/>
+  <int value="27" label="Gmail One-Time Password Available"/>
 </enum>
 
 <!-- LINT.ThenChange(/components/autofill/core/common/mojom/autofill_types.mojom:AutofillSuggestionTriggerSource) -->
@@ -5723,6 +5727,38 @@ Called by update_autofill_enums.py.-->
   <int value="1" label="Phishing"/>
   <int value="2" label="Not Phishing"/>
 </enum>
+
+<!-- LINT.IfChange(OneTimeTokensTickleArrival) -->
+
+<enum name="OneTimeTokensTickleArrival">
+  <summary>
+    The arrival order and timing of push notifications (tickles) relative to OTP
+    form detection on a web page.
+  </summary>
+  <int value="0" label="After OTP field detection"/>
+  <int value="1" label="Before OTP field detection (pre-arrival)"/>
+  <int value="2" label="Without OTP field detection (orphan/expired in cache)"/>
+  <int value="3" label="Expired on arrival (from push service)"/>
+</enum>
+
+<!-- LINT.ThenChange(//components/one_time_tokens/core/browser/one_time_token_service_constants.h:TickleArrival) -->
+
+<!-- LINT.IfChange(OneTimeTokensTickleFormOutcome) -->
+
+<enum name="OneTimeTokensTickleFormOutcome">
+  <summary>
+    The outcome of an OTP web form relative to push notification delivery and
+    user interaction.
+  </summary>
+  <int value="0"
+      label="Tickle before user interaction (active and unedited field)"/>
+  <int value="1"
+      label="Tickle after user interaction (typed, pasted, submitted, or
+             navigated)"/>
+  <int value="2" label="No tickle received (3 minutes elapsed)"/>
+</enum>
+
+<!-- LINT.ThenChange(//components/one_time_tokens/core/browser/one_time_token_service_constants.h:TickleFormOutcome) -->
 
 <!-- LINT.IfChange(OtpFillingSafeBrowsingCheckResult) -->
 

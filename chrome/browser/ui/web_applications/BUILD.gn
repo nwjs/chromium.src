@@ -122,6 +122,7 @@ source_set("impl") {
       "//chrome/browser/ui/tabs:tabs_public",
       "//chrome/browser/ui/user_education",
       "//chrome/browser/ui/views/web_apps:progress_delay",
+      "//chrome/browser/ui/views/web_apps:web_app_install_flow_dialog_delegate",
       "//chrome/browser/web_applications",
       "//chrome/browser/web_applications/mojom:mojom_web_apps_enum",
       "//chrome/common:chrome_features",
@@ -171,7 +172,6 @@ source_set("impl") {
       ":launch_utils",
       "//chrome/browser:browser_process",
       "//chrome/browser/app_mode",
-      "//chrome/browser/apps:icon_standardizer",
       "//chrome/browser/apps/app_service",
       "//chrome/browser/apps/link_capturing",
       "//chrome/browser/engagement",
@@ -181,6 +181,7 @@ source_set("impl") {
       "//chrome/browser/permissions",
       "//chrome/browser/policy:policy_util",
       "//chrome/browser/ui:browser_init_state",
+      "//chrome/browser/ui:browser_window_theme_observer",
       "//chrome/browser/ui:ui_features",
       "//chrome/browser/ui/extensions",
       "//chrome/browser/ui/profiles",
@@ -205,13 +206,13 @@ source_set("impl") {
       deps += [
         "//chrome/browser/ash/app_list",
         "//chrome/browser/ash/apps",
-        "//chrome/browser/ash/browser_delegate",
         "//chrome/browser/ash/file_manager",
         "//chrome/browser/ash/system_web_apps",
         "//chrome/browser/chromeos/app_mode",
         "//chrome/browser/ui/ash/shelf",
         "//chrome/browser/ui/ash/system_web_apps",
         "//chromeos/ash/components/browser_context_helper",
+        "//chromeos/ash/components/browser_delegate",
         "//chromeos/ash/components/nonclosable_app_ui",
         "//chromeos/ash/experiences/settings_ui",
         "//chromeos/ash/experiences/system_web_apps/types",
@@ -254,6 +255,7 @@ source_set("browser_tests") {
   sources = [
     "app_browser_controller_browsertest.cc",
     "app_browser_document_picture_in_picture_browsertest.cc",
+    "pwa_install_page_action_browsertest.cc",
     "pwa_mixed_content_browsertest.cc",
     "status_bar_browsertest.cc",
     "web_app_browsertest.cc",
@@ -287,8 +289,10 @@ source_set("browser_tests") {
     "//chrome/browser/apps/link_capturing",
     "//chrome/browser/apps/link_capturing:test_support",
     "//chrome/browser/banners",
+    "//chrome/browser/banners:test_support",
     "//chrome/browser/browsing_data:constants",
     "//chrome/browser/devtools",
+    "//chrome/browser/file_system_access",
     "//chrome/browser/metrics/structured:test_support",
     "//chrome/browser/permissions",
     "//chrome/browser/picture_in_picture",
@@ -303,12 +307,13 @@ source_set("browser_tests") {
     "//chrome/browser/ui/browser_web_contents_delegate",
     "//chrome/browser/ui/page_info",
     "//chrome/browser/ui/startup",
+    "//chrome/browser/ui/web_applications/test:test_support_ui",
     "//chrome/browser/ui/window_metadata",
     "//chrome/browser/ui/window_sizer",
     "//chrome/browser/web_applications:prevent_close_test_support",
     "//chrome/browser/web_applications:web_applications_test_support",
-    "//chrome/test:test_support",
     "//chrome/test:test_support_ui",
+    "//chrome/test/base:web_feature_histogram_tester",
     "//components/embedder_support",
     "//components/metrics/structured:structured_events",
     "//components/metrics/structured:test_support",
@@ -331,7 +336,8 @@ source_set("browser_tests") {
 
     deps += [
       "//chrome/browser/ash/app_list",
-      "//chrome/browser/ash/browser_delegate",
+      "//chrome/browser/ash/app_list/arc",
+      "//chrome/browser/ash/arc:arc_util",
       "//chrome/browser/ash/file_manager",
       "//chrome/browser/ash/file_manager:test_support",
       "//chrome/browser/ash/system_web_apps/test_support",
@@ -339,6 +345,9 @@ source_set("browser_tests") {
       "//chrome/browser/ui/ash/system_web_apps",
       "//chrome/browser/ui/extensions",
       "//chromeos/ash/components/browser_context_helper",
+      "//chromeos/ash/components/browser_delegate",
+      "//chromeos/ash/experiences/arc:arc_test_support",
+      "//chromeos/ash/experiences/arc:notification_test_support",
       "//chromeos/constants",
       "//components/session_manager/core",
       "//components/user_manager",
@@ -384,6 +393,7 @@ source_set("app_service_browser_tests") {
     "//chrome/browser/badging:test_support",
     "//chrome/browser/browsing_data:constants",
     "//chrome/browser/ui/web_applications/diagnostics:app_service_browser_tests",
+    "//chrome/browser/ui/web_applications/test:test_support_ui",
     "//chrome/browser/web_applications",
     "//chrome/browser/web_applications:web_applications_test_support",
     "//chrome/test:test_support",
@@ -406,4 +416,59 @@ source_set("app_service_browser_tests") {
       "//chrome/browser/sharesheet",
     ]
   }
+}
+
+source_set("test_support") {
+  testonly = true
+
+  sources = [
+    "web_app_browsertest_base.cc",
+    "web_app_browsertest_base.h",
+  ]
+
+  public_deps = [
+    "//base",
+    "//chrome/browser/web_applications",
+    "//chrome/browser/web_applications:web_applications_test_support",
+    "//chrome/test/base:mixin_based_in_process_browser_test",
+    "//chrome/test/base:ui_test_utils",
+    "//components/webapps/common",
+    "//content/test:test_support",
+    "//net:test_support",
+    "//url",
+  ]
+
+  deps = [
+    "//chrome/browser/banners:test_support",
+    "//chrome/browser/preloading:test_support",
+    "//chrome/browser/ui/browser_window:create_browser_window",
+  ]
+
+  if (is_chromeos) {
+    deps += [ "//chrome/browser/ui/ash:test_support" ]
+  }
+}
+
+source_set("interactive_ui_tests") {
+  testonly = true
+
+  sources = [ "web_app_interactive_uitest.cc" ]
+
+  defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
+
+  deps = [
+    ":test_support",
+    "//base",
+    "//base/test:test_support",
+    "//chrome/browser/ui",
+    "//chrome/browser/ui/browser_window",
+    "//chrome/browser/ui/find_bar",
+    "//chrome/browser/ui/tabs:tab_strip",
+    "//chrome/test/base:interactive_test_utils",
+    "//chrome/test/base:ui_test_utils",
+    "//components/find_in_page",
+    "//content/test:test_support",
+    "//testing/gtest",
+    "//ui/display:test_support",
+  ]
 }

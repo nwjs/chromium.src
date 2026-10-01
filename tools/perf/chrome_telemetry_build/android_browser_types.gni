@@ -12,13 +12,8 @@ telemetry_android_browser_target_suffixes = [
   "_android_chrome",
   "_android_webview",
   "_android_webview_bundle",
-  "_android_trichrome_chrome_bundle",
+  "_android_chrome_bundle",
 ]
-
-if (defined(android_app_secondary_abi)) {
-  telemetry_android_browser_target_suffixes +=
-      [ "_android_trichrome_chrome_64_32_bundle" ]
-}
 
 if (enable_chrome_android_internal) {
   import("//clank/telemetry_browser_types.gni")

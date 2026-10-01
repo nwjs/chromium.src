@@ -217,8 +217,12 @@ ProtoEnum::BackForwardCacheNotRestoredReason NotRestoredReasonToTraceEnum(
     case Reason::kRfhHadStickyUserActivationBeforeNavigationChanged:
       return ProtoEnum::
           RFH_HAD_STICKY_USER_ACTIVATION_BEFORE_NAVIGATION_CHANGED;
-    case Reason::kRfhUpdateIsAdFrame:
-      return ProtoEnum::RFH_UPDATE_IS_AD_FRAME;
+    case Reason::kRfhUpdateAdFrameStatus:
+      return ProtoEnum::RFH_UPDATE_AD_FRAME_STATUS;
+    case Reason::kRfhDidChangeName:
+      return ProtoEnum::RFH_DID_CHANGE_NAME;
+    case Reason::kRfhDidChangeOpener:
+      return ProtoEnum::RFH_DID_CHANGE_OPENER;
   }
   NOTREACHED();
 }
@@ -491,8 +495,12 @@ std::string BackForwardCacheCanStoreDocumentResult::NotRestoredReasonToString(
       return "Rfh: EnforceInsecureRequestPolicy";
     case Reason::kRfhHadStickyUserActivationBeforeNavigationChanged:
       return "Rfh: HadStickyUserActivationBeforeNavigationChanged";
-    case Reason::kRfhUpdateIsAdFrame:
-      return "Rfh: UpdateIsAdFrame";
+    case Reason::kRfhUpdateAdFrameStatus:
+      return "Rfh: UpdateAdFrameStatus";
+    case Reason::kRfhDidChangeName:
+      return "Rfh: DidChangeName";
+    case Reason::kRfhDidChangeOpener:
+      return "Rfh: DidChangeOpener";
   }
 }
 
@@ -623,7 +631,9 @@ BackForwardCacheCanStoreDocumentResult::NotRestoredReasonToReportString(
     case Reason::kRfhEnforceInsecureNavigationsSet:
     case Reason::kRfhEnforceInsecureRequestPolicy:
     case Reason::kRfhHadStickyUserActivationBeforeNavigationChanged:
-    case Reason::kRfhUpdateIsAdFrame:
+    case Reason::kRfhUpdateAdFrameStatus:
+    case Reason::kRfhDidChangeName:
+    case Reason::kRfhDidChangeOpener:
     case Reason::kUnknown:
       return "masked";
   }
@@ -633,10 +643,13 @@ void BackForwardCacheCanStoreDocumentResult::No(
     BackForwardCacheMetrics::NotRestoredReason reason) {
   // Either |NoDueToFeatures()| or |NoDueToDisableForRenderFrameHostCalled|
   // should be called instead.
-  DCHECK_NE(reason,
-            BackForwardCacheMetrics::NotRestoredReason::kBlocklistedFeatures);
-  DCHECK_NE(reason, BackForwardCacheMetrics::NotRestoredReason::
-                        kDisableForRenderFrameHostCalled);
+  CHECK_NE(reason,
+           BackForwardCacheMetrics::NotRestoredReason::kBlocklistedFeatures,
+           base::NotFatalUntil::M159);
+  CHECK_NE(reason,
+           BackForwardCacheMetrics::NotRestoredReason::
+               kDisableForRenderFrameHostCalled,
+           base::NotFatalUntil::M159);
 
   AddNotRestoredReason(reason);
 }
@@ -675,7 +688,7 @@ void BackForwardCacheCanStoreDocumentResult::
         const BackForwardCacheCanStoreDocumentResult::DisabledReasonsMap&
             reasons) {
   // This should only be called with non-empty reasons.
-  DCHECK(reasons.size());
+  CHECK(reasons.size(), base::NotFatalUntil::M159);
   for (const auto& reason : reasons) {
     disabled_reasons_.insert(reason);
     // This will be a no-op after the first time but it's written like this to

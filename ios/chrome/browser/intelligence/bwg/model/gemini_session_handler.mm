@@ -10,6 +10,8 @@
 #import "components/feature_engagement/public/event_constants.h"
 #import "components/feature_engagement/public/tracker.h"
 #import "components/prefs/pref_service.h"
+#import "ios/chrome/browser/default_browser/model/features.h"
+#import "ios/chrome/browser/default_browser/model/utils.h"
 #import "ios/chrome/browser/intelligence/bwg/metrics/gemini_metrics.h"
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_session_delegate.h"
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_tab_helper.h"
@@ -138,6 +140,9 @@ IOSGeminiSessionCancellationReason HistogramEnumFromGeminiCancelType(
   BOOL _waitingForResponse;
   // Track prompts per session.
   int _totalPromptsInSession;
+  // The refill date of the last logged Nano Banana quota exhaustion to avoid
+  // duplicate logging.
+  NSDate* _lastLoggedNanoBananaQuotaRefillDate;
 }
 
 - (instancetype)initWithWebStateList:(WebStateList*)webStateList
@@ -263,6 +268,8 @@ IOSGeminiSessionCancellationReason HistogramEnumFromGeminiCancelType(
   }
   // Track all responses for conversation engagement.
   RecordGeminiResponseReceived(isImageGenerated);
+
+  [self recordNanoBananaQuotaMetricIfReached];
 }
 
 - (void)didTapGeminiSettingsButton {
@@ -357,6 +364,7 @@ IOSGeminiSessionCancellationReason HistogramEnumFromGeminiCancelType(
                           sessionID:(NSString*)sessionID
                      conversationID:(NSString*)conversationID {
   RecordGeminiSessionCancellation(HistogramEnumFromGeminiCancelType(reason));
+  [self.geminiViewStateDelegate responseCancelledWithReason:reason];
 }
 
 // Called when the user taps on the photo, gallery, CreateImageSelected or
@@ -510,6 +518,40 @@ IOSGeminiSessionCancellationReason HistogramEnumFromGeminiCancelType(
   // Record prompt counts for the session.
   RecordSessionPromptCount(_totalPromptsInSession);
   RecordSessionFirstPrompt(_hasSubmittedFirstPrompt);
+
+  if (_tracker && IsIOSDefaultBrowserContextualPromoEnabled()) {
+    LogDefaultBrowserPromoOpportunityForGemini(_tracker);
+  }
+}
+
+// Records the quota reached metric if Nano Banana quota has been exhausted,
+// deduplicated by the quota refill date.
+- (void)recordNanoBananaQuotaMetricIfReached {
+  // Quota metrics are only tracked when Gemini Aureus is enabled.
+  if (!IsGeminiAureusEnabled()) {
+    return;
+  }
+
+  // If Nano Banana is not disabled by quota, reset the tracked refill date so
+  // any future quota exhaustion can be logged.
+  if (!ios::provider::IsFeatureModeDisabledByQuota(
+          ios::provider::GeminiFeatureMode::kNanoBanana)) {
+    _lastLoggedNanoBananaQuotaRefillDate = nil;
+    return;
+  }
+
+  NSDate* refillDate = ios::provider::GetRefillDateForFeatureMode(
+      ios::provider::GeminiFeatureMode::kNanoBanana);
+  // Avoid logging the quota reached metric multiple times for the same quota
+  // refill window.
+  if (_lastLoggedNanoBananaQuotaRefillDate &&
+      [_lastLoggedNanoBananaQuotaRefillDate isEqualToDate:refillDate]) {
+    return;
+  }
+
+  // Update the recorded refill date and log the quota reached metric.
+  _lastLoggedNanoBananaQuotaRefillDate = refillDate;
+  RecordGeminiQuotaReached();
 }
 
 @end

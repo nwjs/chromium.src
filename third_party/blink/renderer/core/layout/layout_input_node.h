@@ -30,14 +30,28 @@ struct PhysicalSize;
 // The input to the min/max inline size calculation algorithm for child nodes.
 // Child nodes within the same formatting context need to know which floats are
 // beside them.
-struct MinMaxSizesFloatInput {
-  explicit MinMaxSizesFloatInput() = default;
+struct MinMaxSizesInput {
   LayoutUnit float_left_inline_size;
   LayoutUnit float_right_inline_size;
 
   // Available inline size. This is referred only when shrink-to-fit mode is
   // enabled.
   LayoutUnit constrained_inline_size = LayoutUnit::Max();
+
+  static MinMaxSizesInput Unconstrained() { return MinMaxSizesInput(); }
+  // TODO(crbug.com/537526308): Determine correct constrained_inline_size to
+  // pass.
+  static MinMaxSizesInput UnconstrainedUntriaged() {
+    return MinMaxSizesInput();
+  }
+  static MinMaxSizesInput Constrained(LayoutUnit inline_size) {
+    MinMaxSizesInput input;
+    input.constrained_inline_size = inline_size;
+    return input;
+  }
+
+ private:
+  MinMaxSizesInput() = default;
 };
 
 // Represents the input to a layout algorithm for a given node. The layout

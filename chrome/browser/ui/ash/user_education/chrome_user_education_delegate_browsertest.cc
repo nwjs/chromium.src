@@ -19,7 +19,7 @@
 #include "chrome/browser/ash/app_list/app_list_syncable_service_factory.h"
 #include "chrome/browser/ash/system_web_apps/test_support/system_web_app_browsertest_base.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
 #include "chrome/browser/user_education/user_education_service.h"
@@ -173,7 +173,7 @@ IN_PROC_BROWSER_TEST_F(ChromeUserEducationDelegateBrowserTest,
                                std::move(tutorial_description));
 
   // Verify the tutorial is not running.
-  user_education::TutorialService& tutorial_service =
+  user_education::TutorialService* tutorial_service =
       UserEducationServiceFactory::GetForBrowserContext(profile())
           ->tutorial_service();
   EXPECT_FALSE(delegate()->IsRunningTutorial(account_id()));
@@ -186,7 +186,7 @@ IN_PROC_BROWSER_TEST_F(ChromeUserEducationDelegateBrowserTest,
       aborted_callback.Get());
 
   // Confirm the tutorial is running.
-  EXPECT_TRUE(tutorial_service.IsRunningTutorial());
+  EXPECT_TRUE(tutorial_service->IsRunningTutorial());
 
   // Verify the running tutorial's ID.
   EXPECT_TRUE(
@@ -219,10 +219,10 @@ IN_PROC_BROWSER_TEST_F(ChromeUserEducationDelegateBrowserTest,
                                std::move(tutorial_description));
 
   // Verify the tutorial is not running.
-  user_education::TutorialService& tutorial_service =
+  user_education::TutorialService* tutorial_service =
       UserEducationServiceFactory::GetForBrowserContext(profile())
           ->tutorial_service();
-  EXPECT_FALSE(tutorial_service.IsRunningTutorial(kTestTutorialIdString));
+  EXPECT_FALSE(tutorial_service->IsRunningTutorial(kTestTutorialIdString));
 
   // Attempt to start the tutorial.
   delegate()->StartTutorial(account_id(), ash::TutorialId::kTest1,
@@ -231,17 +231,17 @@ IN_PROC_BROWSER_TEST_F(ChromeUserEducationDelegateBrowserTest,
                             /*aborted_callback=*/base::DoNothing());
 
   // Confirm the tutorial is running.
-  EXPECT_TRUE(tutorial_service.IsRunningTutorial(kTestTutorialIdString));
+  EXPECT_TRUE(tutorial_service->IsRunningTutorial(kTestTutorialIdString));
 
   // Abort the tutorial with the incorrect id, and expect the tutorial to still
   // be running.
   delegate()->AbortTutorial(account_id(), ash::TutorialId::kTest2);
-  EXPECT_TRUE(tutorial_service.IsRunningTutorial(kTestTutorialIdString));
+  EXPECT_TRUE(tutorial_service->IsRunningTutorial(kTestTutorialIdString));
 
   // Abort the tutorial with the correct id, and expect no tutorial to be
   // running.
   delegate()->AbortTutorial(account_id(), ash::TutorialId::kTest1);
-  EXPECT_FALSE(tutorial_service.IsRunningTutorial());
+  EXPECT_FALSE(tutorial_service->IsRunningTutorial());
 }
 
 namespace {

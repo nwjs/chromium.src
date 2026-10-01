@@ -16,6 +16,7 @@
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/metrics/histogram_functions.h"
+#include "base/process/process.h"
 #include "base/rand_util.h"
 #include "base/time/time.h"
 #include "base/timer/elapsed_timer.h"
@@ -388,11 +389,19 @@ void CompositorView::SetDrawPaused(JNIEnv* env, bool paused) {
   compositor_->SetDrawPaused(paused);
 }
 
+void CompositorView::BrowserChildProcessLaunchedAndConnected(
+    const content::ChildProcessData& data,
+    const base::Process& process) {
+  DVLOG(1) << "Child process launched (type=" << data.process_type
+           << ", id=" << data.GetChildProcessId() << ", pid=" << process.Pid()
+           << ")";
+}
+
 void CompositorView::BrowserChildProcessKilled(
     const content::ChildProcessData& data,
     const content::ChildProcessTerminationInfo& info) {
-  LOG(WARNING) << "Child process died (type=" << data.process_type
-               << ") pid=" << data.GetProcess().Pid() << ")";
+  DVLOG(1) << "Child process died (type=" << data.process_type
+           << ", id=" << data.GetChildProcessId() << ")";
 
   // On Android R surface control layers leak if GPU process crashes, so we need
   // to re-create surface to get rid of them.

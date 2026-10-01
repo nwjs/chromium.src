@@ -24,7 +24,7 @@
   align-items: center;
   display: flex;
   flex-direction: row;
-  gap: 12px;
+  gap: 4px;
   /* Keeps buttons right-aligned even when contextual entrypoint is omitted. */
   margin-inline-start: auto;
 }
@@ -34,15 +34,16 @@
   border-radius: 50%;
   display: flex;
   flex-shrink: 0;
-  height: 36px;
+  height: 32px;
   justify-content: center;
   position: relative;
-  width: 36px;
+  width: 32px;
   z-index: 100;
 }
 
 .searchbox-icon-button-container:hover,
-.searchbox-icon-button-container.menu-open {
+.searchbox-icon-button-container.menu-open,
+.searchbox-icon-button-container.help-bubble-open {
   background-color: var(--color-new-tab-page-realbox-next-icon-hover);
 }
 
@@ -50,14 +51,14 @@
   .searchbox-icon-button-container {
     background-color: ButtonText;
   }
-  .searchbox-icon-button-container:focus-within {
+  .searchbox-icon-button-container:not(.help-bubble-open):focus-within {
     outline: 2px solid Highlight;
     outline-offset: 2px;
   }
 }
 
-:host-context(.focus-outline-visible)
-    .searchbox-icon-button-container:focus-within {
+.searchbox-icon-button-container:not(.help-bubble-open):has(:focus-visible),
+.searchbox-icon-button-container:not(.help-bubble-open)[has-virtual-focus] {
   box-shadow: 0 0 0 2px var(--cr-focus-outline-color);
 }
 
@@ -76,7 +77,7 @@
   z-index: 100;
   -webkit-mask-position: center;
   -webkit-mask-repeat: no-repeat;
-  -webkit-mask-size: 21px 21px;
+  -webkit-mask-size: 18px 18px;
 }
 
 #voiceSearchButton {
@@ -88,15 +89,15 @@
 }
 
 :host {
-  --omnibox-everywhere-top-actions-top: 12px;
+  --omnibox-everywhere-top-actions-top: 16px;
 }
 
 #profileIcon {
-  height: 36px;
+  height: 28px;
+  inset-inline-end: 16px;
   pointer-events: none;
   position: absolute;
-  right: 16px;
-  top: var(--omnibox-everywhere-top-actions-top, 12px);
+  top: var(--omnibox-everywhere-top-actions-top, 16px);
   width: auto;
   z-index: 100;
 }
@@ -184,3 +185,29 @@ help-bubble {
   width: 340px;
 }
 
+#context,
+#contextEntrypoint {
+  --button-height: 32px;
+  position: relative;
+  /* Stack above #bottomControls (z-index: 1000) and suggestion dropdowns. */
+  z-index: var(--cr-composebox-context-menu-z-index, 1001);
+}
+
+#context::part(context-menu-entrypoint-icon),
+#contextEntrypoint::part(context-menu-entrypoint-icon),
+#context::part(entrypoint-button),
+#contextEntrypoint::part(entrypoint-button) {
+  --cr-composebox-entrypoint-background-color: var(
+      --color-omnibox-composebox-context-entrypoint-background,
+      var(--color-sys-state-hover-on-subtle, rgba(0, 0, 0, 0.06)));
+  --cr-composebox-entrypoint-border-radius: 100px;
+  --cr-composebox-entrypoint-height: 32px;
+  --cr-composebox-entrypoint-width: 40px;
+  --cr-icon-button-icon-size: 20px;
+}
+
+:host([is-context-menu-open]) #context::part(entrypoint-button),
+:host([is-context-menu-open]) #contextEntrypoint::part(entrypoint-button) {
+  --cr-hover-background-color: var(--cr-icon-button-hover-background-color);
+  background-color: var(--cr-icon-button-hover-background-color);
+}

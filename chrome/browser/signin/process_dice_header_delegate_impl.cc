@@ -34,6 +34,7 @@
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/web_contents.h"
 #include "google_apis/gaia/core_account_id.h"
+#include "ui/base/page_transition_types.h"
 #include "url/gurl.h"
 
 namespace {
@@ -290,7 +291,8 @@ void ProcessDiceHeaderDelegateImpl::AttemptChromeSignin(
   if (should_auto_sign_in && !has_primary_account) {
     // Sign-in the user in the browser if user can sign. If not, we fail
     // silently as the signin attempt was not an explicit user action.
-    AttemptSettingPrimaryAccount(account_info, /*show_signin_error=*/false);
+    AttemptSettingPrimaryAccount(account_info.GetCoreAccountInfo(),
+                                 /*show_signin_error=*/false);
   }
   // TODO(crbug.com/425645725): Once this metric is removed, the whole function
   // can be simplified. See example at:

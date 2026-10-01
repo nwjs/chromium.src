@@ -124,6 +124,18 @@ chromium-metrics-reviews@google.com.
 
 <!-- LINT.ThenChange(//ios/chrome/browser/fullscreen/ui_bundled/fullscreen_metrics.h:FullscreenModeTransitionTrigger) -->
 
+<!-- LINT.IfChange(GeminiAppSwitcherAccountStatus) -->
+
+<enum name="GeminiAppSwitcherAccountStatus">
+  <int value="0" label="Matching"/>
+  <int value="1" label="Mismatched"/>
+  <int value="2" label="External App Only Signed In"/>
+  <int value="3" label="Client App Only Signed In"/>
+  <int value="4" label="Both Signed Out"/>
+</enum>
+
+<!-- LINT.ThenChange(//ios/chrome/browser/intelligence/bwg/metrics/gemini_metrics.h:GeminiAppSwitcherAccountStatus) -->
+
 <!-- LINT.IfChange(GeminiViewState) -->
 
 <enum name="GeminiViewState">
@@ -1432,6 +1444,22 @@ chromium-metrics-reviews@google.com.
   <int value="11" label="Microsoft Excel OpenXML"/>
 </enum>
 
+<!--
+  Represents actions triggered or customized in the iOS overflow menu.
+  Entries should not be renumbered and numeric values should never be reused.
+
+
+  Note: Prior to M155, values between 4 and 27 were recorded with discrepancies
+  due to a mismatch between ActionType (which lacked explicit values and skipped
+  Follow = 4, and had ReaderMode placed at 8 instead of 19) and this enum:
+  - Values 4..7 (Bookmark, ReadingList, ClearBrowsingData, Translate) were
+    recorded with an offset of -1.
+  - ReaderMode was recorded at 8 instead of 19.
+  - Values 20..27 (AskGemini, Identity, CustomizeHomePage, DefaultBrowser)
+    were shifted by -1 due to deprecated actions missing from ActionType.
+  From M155 onwards, ActionType is explicitly synchronized with these values.
+-->
+
 <!-- LINT.IfChange(IOSOverflowMenuAction) -->
 
 <enum name="IOSOverflowMenuAction">
@@ -1456,9 +1484,9 @@ chromium-metrics-reviews@google.com.
   <int value="18" label="SetTabReminder"/>
   <int value="19" label="ReaderMode"/>
   <int value="20" label="AskGemini"/>
-  <int value="21" label="HideToolbars"/>
+  <int value="21" label="Obsolete in M154 - HideToolbars"/>
   <int value="22" label="Obsolete in M150 - TabGroup"/>
-  <int value="23" label="ShareThisPage"/>
+  <int value="23" label="Obsolete in M155 - ShareThisPage"/>
   <int value="24" label="Obsolete in M152 - Signin"/>
   <int value="25" label="Identity"/>
   <int value="26" label="CustomizeHomePage"/>
@@ -2348,6 +2376,7 @@ chromium-metrics-reviews@google.com.
   <int value="4" label="The suggestion provider's type was incorrect"/>
   <int value="5"
       label="Bottom Sheet couldn't be presented for various reasons"/>
+  <int value="6" label="Dismissed due to page navigation or tab change"/>
 </enum>
 
 <!-- LINT.IfChange(PictureInPictureAppRestoration) -->

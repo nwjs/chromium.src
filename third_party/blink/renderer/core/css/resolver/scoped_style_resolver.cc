@@ -117,12 +117,9 @@ void ScopedStyleResolver::AppendActiveStyleSheets(
     const ActiveStyleSheetVector& active_sheets) {
   for (const ActiveStyleSheet& active_sheet :
        base::span(active_sheets).subspan(index)) {
-    CSSStyleSheet* sheet = active_sheet.first;
-    media_query_result_flags_.Add(sheet->GetMediaQueryResultFlags());
     if (!active_sheet.second) {
       continue;
     }
-
     RuleSet& rule_set = *active_sheet.second;
     if (!active_style_sheets_.empty() &&
         active_style_sheets_.back().second == active_sheet.second) {
@@ -149,7 +146,6 @@ void ScopedStyleResolver::AppendActiveStyleSheets(
       AddFontFeatureValuesRules(rule_set);
       AddRuleSetToRuleSetGroupList(&rule_set, rule_set_groups_);
     }
-    AddImplicitScopeTriggers(*sheet, rule_set);
   }
 }
 
@@ -157,8 +153,6 @@ void ScopedStyleResolver::CollectFeaturesTo(
     RuleFeatureSet& features,
     HeapHashSet<Member<const StyleSheetContents>>&
         visited_shared_style_sheet_contents) const {
-  features.MutableMediaQueryResultFlags().Add(media_query_result_flags_);
-
   for (const auto& [sheet, rule_set] : active_style_sheets_) {
     DCHECK(sheet->ownerNode() || sheet->IsConstructed());
     StyleSheetContents* contents = sheet->Contents();
@@ -173,7 +167,6 @@ void ScopedStyleResolver::ResetStyle() {
   RemoveImplicitScopeTriggers();
   active_style_sheets_.clear();
   rule_set_groups_.clear();
-  media_query_result_flags_.Clear();
   keyframes_rule_map_.clear();
   position_try_rule_map_.clear();
   font_feature_values_storage_map_.clear();
@@ -537,6 +530,17 @@ void ScopedStyleResolver::QuietlySwapActiveStyleSheets(
   // CascadeLayerSeeker will not be able to figure out the layer
   // order during rule collection.
   RebuildCascadeLayerMap(active_style_sheets_);
+}
+
+void ScopedStyleResolver::AddImplicitScopeTriggers(
+    unsigned start_index,
+    const ActiveStyleSheetVector& active_sheets) {
+  for (const ActiveStyleSheet& active_sheet :
+       base::span(active_sheets).subspan(start_index)) {
+    if (active_sheet.second) {
+      AddImplicitScopeTriggers(*active_sheet.first, *active_sheet.second);
+    }
+  }
 }
 
 void ScopedStyleResolver::Trace(Visitor* visitor) const {

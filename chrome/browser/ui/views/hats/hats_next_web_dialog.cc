@@ -44,6 +44,8 @@
 #include "ui/base/metadata/metadata_header_macros.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/mojom/dialog_button.mojom.h"
+#include "ui/base/page_transition_types.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/views/bubble/bubble_dialog_delegate_view.h"
 #include "ui/views/controls/webview/web_dialog_view.h"
 #include "ui/views/controls/webview/webview.h"
@@ -121,14 +123,15 @@ class HatsNextWebDialog::HatsWebView : public views::WebView {
       WindowOpenDisposition disposition,
       const blink::mojom::WindowFeatures& window_features,
       const content::StoragePartitionConfig& partition_config,
-      content::SessionStorageNamespace* session_storage_namespace) override {
+      content::SessionStorageNamespaceHandle* session_storage_namespace)
+      override {
     // The HaTS Next WebDialog runs with a non-primary OTR profile. This profile
     // cannot open new browser windows, so they are instead opened in the
     // regular browser that initiated the HaTS survey.
     content::OpenURLParams params =
-        content::OpenURLParams(target_url, content::Referrer(),
-                               WindowOpenDisposition::NEW_FOREGROUND_TAB,
-                               ui::PAGE_TRANSITION_LINK, false);
+        content::OpenURLParams::CreateBrowserInitiated(
+            target_url, WindowOpenDisposition::NEW_FOREGROUND_TAB,
+            ui::PAGE_TRANSITION_LINK);
 
     // For the case where we are showing a survey in an undocked DevTools
     // window, we open the URL in the browser of the inspected page.

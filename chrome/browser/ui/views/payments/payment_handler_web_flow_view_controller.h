@@ -5,21 +5,47 @@
 #ifndef CHROME_BROWSER_UI_VIEWS_PAYMENTS_PAYMENT_HANDLER_WEB_FLOW_VIEW_CONTROLLER_H_
 #define CHROME_BROWSER_UI_VIEWS_PAYMENTS_PAYMENT_HANDLER_WEB_FLOW_VIEW_CONTROLLER_H_
 
-#include "base/memory/weak_ptr.h"
+#include <memory>
+#include <optional>
+#include <string>
+
 #include "base/memory/raw_ptr.h"
+#include "base/memory/weak_ptr.h"
+#include "base/scoped_observation.h"
+#include "base/time/time.h"
+#include "base/timer/timer.h"
+#include "chrome/browser/media/webrtc/media_stream_capture_indicator.h"
+#include "chrome/browser/ui/toolbar/chrome_location_bar_model_delegate.h"
+#include "chrome/browser/ui/views/bubble/webui_bubble_reopen_suppressor.h"
+#include "chrome/browser/ui/views/location_bar/icon_label_bubble_view.h"
+#include "chrome/browser/ui/views/location_bar/location_icon_view.h"
 #include "chrome/browser/ui/views/payments/payment_handler_modal_dialog_manager_delegate.h"
 #include "chrome/browser/ui/views/payments/payment_request_sheet_controller.h"
+#include "chrome/browser/ui/views/permissions/chip/permission_chip_interface.h"
 #include "components/payments/content/payment_request_display_manager.h"
+#include "components/permissions/permission_request_manager.h"
 #include "content/public/browser/web_contents_delegate.h"
 #include "content/public/browser/web_contents_observer.h"
+#include "third_party/skia/include/core/SkColor.h"
+#include "ui/base/interaction/element_identifier.h"
+#include "ui/base/models/image_model.h"
 #include "ui/base/window_open_disposition.h"
 #include "ui/views/controls/webview/unhandled_keyboard_event_handler.h"
+#include "ui/views/view_tracker.h"
+#include "ui/views/widget/widget.h"
 #include "url/gurl.h"
 
+class LocationBarModel;
+class PermissionDashboardView;
+class PermissionPromptChipModel;
 class Profile;
 
 namespace blink {
 class WebInputEvent;
+}
+
+namespace permissions {
+class PermissionIndicatorsTabData;
 }
 
 namespace views {
@@ -40,14 +66,48 @@ class PaymentRequestState;
 class PaymentHandlerWebFlowViewController
     : public PaymentRequestSheetController,
       public content::WebContentsDelegate,
-      public content::WebContentsObserver {
+      public content::WebContentsObserver,
+      public ChromeLocationBarModelDelegate,
+      public IconLabelBubbleView::Delegate,
+      public LocationIconView::Delegate,
+      public MediaStreamCaptureIndicator::Observer,
+      public PermissionChipInterface::Observer,
+      public permissions::PermissionRequestManager::Observer {
  public:
+  DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kAppIconElementId);
+  DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kCameraIndicatorChipElementId);
+  DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kPermissionRequestChipElementId);
+
+  // Semantic activity type represented by the permission indicator chip.
+  enum class IndicatorType {
+    // No indicator is showing. Paired with `IndicatorDisplayPhase::kHidden`.
+    kNone,
+    // Active media capture (camera stream is running).
+    kInUse,
+    // Media access was denied or dismissed.
+    kBlocked,
+  };
+
+  // Display and animation lifecycle phase of the indicator chip.
+  enum class IndicatorDisplayPhase {
+    // Chip is hidden; LocationIconView is restored.
+    kHidden,
+    // AnimateExpand transition in progress.
+    kExpanding,
+    // Fully expanded pill with message text.
+    kExpanded,
+    // AnimateCollapse transition in progress.
+    kCollapsing,
+    // Collapsed circular icon.
+    kCompact,
+  };
   // This ctor forwards its first 3 args to PaymentRequestSheetController's
   // ctor.
   // |payment_request_web_contents| is the page that initiated the
   // PaymentRequest. It is used in two ways:
   // - Its web developer console is used to print error messages.
-  // - Its WebContentModalDialogHost is lent to the payment handler for the
+  // - When kPaymentHandlerModalDialogHost is disabled, its
+  //   WebContentsModalDialogHost is lent to the payment handler for the
   //   display of modal dialogs initiated from the payment handler's web
   //   content.
   // |profile| is the browser context used to create the new payment handler
@@ -67,9 +127,11 @@ class PaymentHandlerWebFlowViewController
   static PaymentHandlerWebFlowViewController* FromWebContents(
       content::WebContents* web_contents);
 
-  views::View* GetLocationIconView();
+  views::View* GetPageInfoIconView();
 
  private:
+  friend class PaymentHandlerWebFlowViewTestApi;
+
   class RoundedCornerViewClipper;
 
   // PaymentRequestSheetController:
@@ -82,10 +144,15 @@ class PaymentHandlerWebFlowViewController
   bool GetSheetId(DialogViewID* sheet_id) override;
   bool DisplayDynamicBorderForHiddenContents() override;
   bool CanContentViewBeScrollable() override;
+  void Stop() override;
   base::WeakPtr<PaymentRequestSheetController> GetWeakPtr() override;
 
   // content::WebContentsDelegate:
   void VisibleSecurityStateChanged(content::WebContents* source) override;
+  content::WebContents* OpenURLFromTab(
+      content::WebContents* source,
+      const content::OpenURLParams& params,
+      base::OnceCallback<void(content::NavigationHandle&)> callback) override;
   content::WebContents* AddNewContents(
       content::WebContents* source,
       std::unique_ptr<content::WebContents> new_contents,
@@ -114,11 +181,88 @@ class PaymentHandlerWebFlowViewController
   void DidStopLoading() override;
   void DidChangeThemeColor() override;
 
+  // ChromeLocationBarModelDelegate:
+  content::WebContents* GetActiveWebContents() const override;
+
+  // IconLabelBubbleView::Delegate:
+  SkColor GetIconLabelBubbleSurroundingForegroundColor() const override;
+  SkColor GetIconLabelBubbleBackgroundColor() const override;
+
+  // LocationIconView::Delegate:
+  content::WebContents* GetWebContents() override;
+  bool IsEditingOrEmpty() const override;
+  SkColor GetSecurityChipColor(
+      security_state::SecurityLevel security_level) const override;
+  bool ShowPageInfoDialog() override;
+  const LocationBarModel* GetLocationBarModel() const override;
+  ui::ImageModel GetLocationIcon(
+      LocationIconView::Delegate::IconFetchedCallback on_icon_fetched) override;
+
+  // MediaStreamCaptureIndicator::Observer:
+  void OnIsCapturingVideoChanged(content::WebContents* contents,
+                                 bool is_capturing_video) override;
+
+  // PermissionChipInterface::Observer:
+  void OnExpandAnimationEnded() override;
+  void OnCollapseAnimationEnded() override;
+  void OnMousePressed() override;
+
+  // permissions::PermissionRequestManager::Observer:
+  void OnPromptAdded() override;
+  void OnPromptRemoved() override;
+  void OnRequestsFinalized() override;
+  void OnRequestDecided(permissions::PermissionAction action) override;
+  void OnPermissionRequestManagerDestructed() override;
+
+  void CollapseIndicatorChip();
+  bool CollapseActiveIndicatorIfNeeded();
+  void HideIndicatorChip();
+  void ShowBlockedCameraIndicator();
+  void ShowInUseCameraIndicator();
+  void HideInUseCameraIndicator();
+  void OnIndicatorChipPressed(bool is_pointer_interaction);
+  void AnimateExpandRequestChip();
+  void ResetRequestChip();
+  void OnRequestChipPressed();
+  void OnPageInfoBubbleClosed(views::Widget::ClosedReason closed_reason,
+                              bool reload_prompt);
   void AbortPayment();
+  static void OnMediaAccessResponse(
+      base::WeakPtr<PaymentHandlerWebFlowViewController> controller,
+      content::MediaResponseCallback original_callback,
+      const blink::mojom::StreamDevicesSet& stream_devices_set,
+      blink::mojom::MediaStreamRequestResult result,
+      std::unique_ptr<content::MediaStreamUI> ui);
   void SetHeaderColorsAndOriginLabelText();
 
+  LocationIconView* location_icon_view();
+  PermissionDashboardView* permission_dashboard_view();
   raw_ptr<Profile> profile_;
   GURL target_;
+  std::unique_ptr<LocationBarModel> location_bar_model_;
+  views::ViewTracker location_icon_view_tracker_;
+  views::ViewTracker permission_dashboard_view_tracker_;
+  views::ViewTracker page_info_view_tracker_;
+  WebUIBubbleReopenSuppressor page_info_bubble_suppressor_;
+  base::ScopedObservation<MediaStreamCaptureIndicator,
+                          MediaStreamCaptureIndicator::Observer>
+      indicator_observation_{this};
+  base::ScopedObservation<PermissionChipInterface,
+                          PermissionChipInterface::Observer>
+      chip_observation_{this};
+  base::ScopedObservation<permissions::PermissionRequestManager,
+                          permissions::PermissionRequestManager::Observer>
+      permission_request_manager_observation_{this};
+  IndicatorType indicator_type_ = IndicatorType::kNone;
+  IndicatorDisplayPhase indicator_phase_ = IndicatorDisplayPhase::kHidden;
+  base::TimeTicks media_indicator_show_start_time_;
+  base::TimeTicks media_capture_stop_time_;
+  base::OneShotTimer indicator_chip_collapse_timer_;
+  base::OneShotTimer indicator_dismiss_timer_;
+  base::OneShotTimer delay_prompt_timer_;
+  std::unique_ptr<PermissionPromptChipModel> chip_model_;
+  std::unique_ptr<permissions::PermissionIndicatorsTabData>
+      permission_indicators_tab_data_;
   base::WeakPtr<PaymentHandlerProgressBar> progress_bar_;
   base::WeakPtr<PaymentHandlerOriginLabel> origin_label_;
   base::WeakPtr<PaymentHandlerCloseButton> close_button_;

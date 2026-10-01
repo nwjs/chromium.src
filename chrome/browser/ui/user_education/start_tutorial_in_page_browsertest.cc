@@ -11,6 +11,7 @@
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
 #include "chrome/browser/user_education/user_education_service.h"
 #include "chrome/browser/user_education/user_education_service_factory.h"
@@ -107,8 +108,9 @@ IN_PROC_BROWSER_TEST_F(StartTutorialInPageBrowserTest,
   UNCALLED_MOCK_CALLBACK(TutorialService::AbortedCallback, aborted);
 
   TutorialService& tutorial_service =
-      UserEducationServiceFactory::GetForBrowserContext(browser()->GetProfile())
-          ->tutorial_service();
+      *UserEducationServiceFactory::GetForBrowserContext(
+           browser()->GetProfile())
+           ->tutorial_service();
 
   base::WeakPtr<StartTutorialInPage> handle;
   base::RunLoop run_loop;
@@ -148,8 +150,9 @@ IN_PROC_BROWSER_TEST_F(StartTutorialInPageBrowserTest, StartTutorialInNewTab) {
   UNCALLED_MOCK_CALLBACK(TutorialService::AbortedCallback, aborted);
 
   TutorialService& tutorial_service =
-      UserEducationServiceFactory::GetForBrowserContext(browser()->GetProfile())
-          ->tutorial_service();
+      *UserEducationServiceFactory::GetForBrowserContext(
+           browser()->GetProfile())
+           ->tutorial_service();
 
   base::WeakPtr<StartTutorialInPage> handle;
   base::RunLoop run_loop;
@@ -193,8 +196,9 @@ IN_PROC_BROWSER_TEST_F(StartTutorialInPageBrowserTest,
   UNCALLED_MOCK_CALLBACK(TutorialService::AbortedCallback, aborted);
 
   TutorialService& tutorial_service =
-      UserEducationServiceFactory::GetForBrowserContext(browser()->GetProfile())
-          ->tutorial_service();
+      *UserEducationServiceFactory::GetForBrowserContext(
+           browser()->GetProfile())
+           ->tutorial_service();
 
   base::WeakPtr<StartTutorialInPage> handle;
   base::RunLoop run_loop;

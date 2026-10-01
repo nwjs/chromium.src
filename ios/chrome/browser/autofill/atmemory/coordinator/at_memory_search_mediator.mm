@@ -14,17 +14,23 @@
 #import "base/metrics/histogram_functions.h"
 #import "base/strings/sys_string_conversions.h"
 #import "components/autofill/core/browser/at_memory/at_memory_manager.h"
-#import "components/autofill/core/browser/integrators/at_memory/at_memory_query_service.h"
+#import "components/autofill/core/browser/autofill_trigger_source.h"
+#import "components/autofill/core/browser/foundations/browser_autofill_manager.h"
 #import "components/autofill/core/browser/integrators/at_memory/memory_data_type.h"
-#import "components/autofill/core/browser/integrators/at_memory/memory_search_result.h"
 #import "components/autofill/core/browser/metrics/autofill_metrics.h"
+#import "components/autofill/core/browser/suggestions/suggestion.h"
+#import "components/autofill/core/browser/suggestions/suggestion_type.h"
+#import "components/autofill/core/common/unique_ids.h"
 #import "components/personal_context/first_run/personal_context_first_run_service.h"
+#import "components/ukm/ios/ukm_url_recorder.h"
 #import "ios/chrome/browser/autofill/atmemory/public/at_memory_commands.h"
 #import "ios/chrome/browser/autofill/atmemory/public/at_memory_fill_commands.h"
 #import "ios/chrome/browser/autofill/atmemory/public/at_memory_search_result_commands.h"
 #import "ios/chrome/browser/autofill/atmemory/ui/at_memory_search_consumer.h"
 #import "ios/chrome/browser/autofill/atmemory/ui/at_memory_search_item.h"
 #import "ios/web/public/web_state.h"
+#import "services/metrics/public/cpp/ukm_source_id.h"
+#import "url/origin.h"
 
 namespace {
 
@@ -32,20 +38,26 @@ namespace {
 constexpr std::string_view kNoticeInteractionsHistogram =
     "PersonalContext.AtMemory.NoticeInteractions";
 
+// TODO(crbug.com/556290278): Fix placeholder once the focused field ID is
+// plumbed.
+autofill::FieldGlobalId GetPlaceholderFieldId() {
+  return {autofill::LocalFrameToken(), autofill::FieldRendererId(1)};
+}
+
 }  // namespace
 
 @implementation AtMemorySearchMediator {
   // Manager for AtMemory operations.
   raw_ptr<autofill::AtMemoryManager> _atMemoryManager;
-  // Service for executing AtMemory queries.
-  raw_ptr<autofill::AtMemoryQueryService> _atMemoryQueryService;
+  // Manager for Browser Autofill operations.
+  raw_ptr<autofill::BrowserAutofillManager> _autofillManager;
   // The WebState for the active tab.
   base::WeakPtr<web::WebState> _webState;
   // Service for managing the first-run notice state.
   raw_ptr<personal_context::PersonalContextFirstRunService> _firstRunService;
 
-  // Results from the AtMemory query service.
-  std::optional<autofill::MemorySearchResults> _searchResults;
+  // Suggestions returned by AtMemoryManager.
+  std::vector<autofill::Suggestion> _suggestions;
 
   // Tells if the notice is visible.
   BOOL _noticeIsVisible;
@@ -57,23 +69,61 @@ constexpr std::string_view kNoticeInteractionsHistogram =
 
 - (instancetype)
     initWithAtMemoryManager:(autofill::AtMemoryManager*)atMemoryManager
-       atMemoryQueryService:
-           (autofill::AtMemoryQueryService*)atMemoryQueryService
+            autofillManager:(autofill::BrowserAutofillManager*)autofillManager
                    webState:(web::WebState*)webState
             firstRunService:(personal_context::PersonalContextFirstRunService*)
                                 firstRunService {
   self = [super init];
   if (self) {
+    CHECK(atMemoryManager);
+    CHECK(autofillManager);
     _atMemoryManager = atMemoryManager;
-    _atMemoryQueryService = atMemoryQueryService;
+    _autofillManager = autofillManager;
     _webState = webState ? webState->GetWeakPtr() : nullptr;
     _firstRunService = firstRunService;
 
     _noticeIsVisible =
         _firstRunService &&
         _firstRunService->ShouldShowPersonalContextAtMemoryNotice();
+
+    // Force reset any existing popup state from the main autofill popup,
+    // so that our new updateCallback is correctly registered.
+    _atMemoryManager->OnPopupHidden();
+
+    ukm::SourceId ukmSourceId =
+        webState ? ukm::GetSourceIdForWebStateDocument(webState)
+                 : ukm::kInvalidSourceId;
+
+    __weak __typeof(self) weakSelf = self;
+    auto updateCallback = base::BindRepeating(
+        ^(std::vector<autofill::Suggestion> suggestions,
+          autofill::AutofillSuggestionTriggerSource triggerSource) {
+          [weakSelf onAtMemorySuggestionsReceived:suggestions];
+        });
+
+    url::Origin origin =
+        webState ? url::Origin::Create(webState->GetLastCommittedURL())
+                 : url::Origin();
+    _atMemoryManager->GetStateForField(GetPlaceholderFieldId(), origin);
+
+    // TODO(crbug.com/527392582): Update trigger source once a dedicated
+    // manual fallback / accessory trigger source is introduced.
+    _atMemoryManager->OnPopupShown(
+        /*bam=*/*autofillManager,
+        /*form_id=*/autofill::FormGlobalId(),
+        /*field_id=*/GetPlaceholderFieldId(),
+        /*trigger_source=*/
+        autofill::AutofillSuggestionTriggerSource::kAtMemoryContextMenu,
+        /*metadata=*/{},
+        /*update_callback=*/std::move(updateCallback),
+        /*ukm_source_id=*/ukmSourceId);
+    _atMemoryManager->OnFilterChanged(u"");
   }
   return self;
+}
+
+- (void)dealloc {
+  [self disconnect];
 }
 
 - (void)disconnect {
@@ -83,11 +133,14 @@ constexpr std::string_view kNoticeInteractionsHistogram =
         kNoticeInteractionsHistogram,
         autofill::AutofillMetrics::PopupNoticeInteractions::kDismissed);
   }
+  if (_atMemoryManager) {
+    _atMemoryManager->OnPopupHidden();
+  }
   _atMemoryManager = nullptr;
-  _atMemoryQueryService = nullptr;
+  _autofillManager = nullptr;
   _webState = nullptr;
   _firstRunService = nullptr;
-  _searchResults.reset();
+  _suggestions.clear();
   _atMemoryHandler = nil;
   _searchResultHandler = nil;
 }
@@ -108,25 +161,20 @@ constexpr std::string_view kNoticeInteractionsHistogram =
         kNoticeInteractionsHistogram,
         autofill::AutofillMetrics::PopupNoticeInteractions::kShown);
   }
+
+  if (!_suggestions.empty()) {
+    [self pushSuggestionsToConsumer];
+  }
 }
 
 #pragma mark - AtMemorySearchMutator
 
 - (void)startSearchWithQuery:(NSString*)query {
-  if (!_atMemoryQueryService || !_webState) {
+  if (!_atMemoryManager) {
     return;
   }
 
-  // Request AtMemory search results from the AtMemory query service for the
-  // given `query`.
-  __weak __typeof(self) weakSelf = self;
-  auto callback = base::BindRepeating(^(autofill::MemorySearchResults results) {
-    [weakSelf handleAtMemorySearchResults:results];
-  });
-
-  _atMemoryQueryService->Query(base::SysNSStringToUTF16(query),
-                               _webState->GetVisibleURL(),
-                               _webState->GetTitle(), callback);
+  _atMemoryManager->OnSearchSubmitted(base::SysNSStringToUTF16(query));
 }
 
 - (void)acknowledgePrivacyNotice {
@@ -149,58 +197,93 @@ constexpr std::string_view kNoticeInteractionsHistogram =
 }
 
 - (void)didSelectSearchResultItem:(AtMemorySearchItem*)item {
-  [self.fillHandler fillWithContent:item.title];
-  [self.atMemoryHandler dismissAtMemory];
+  if (!item || item.index < 0 ||
+      static_cast<size_t>(item.index) >= _suggestions.size()) {
+    [self.atMemoryHandler dismissAtMemory];
+    return;
+  }
+
+  [self.fillHandler fillWithSuggestion:_suggestions[item.index]];
 }
 
 - (void)openGranularFillForSearchResultAtIndex:(NSInteger)index {
-  if (!_searchResults.has_value()) {
+  if (index < 0 || static_cast<size_t>(index) >= _suggestions.size()) {
     return;
   }
-  [self.searchResultHandler
-      showAtMemoryGranularFillWithResult:_searchResults->entries[index]];
+
+  const autofill::Suggestion& suggestion = _suggestions[index];
+  if (suggestion.type != autofill::SuggestionType::kAtMemorySearchResult) {
+    return;
+  }
+
+  [self.searchResultHandler showAtMemoryGranularFill:suggestion];
 }
 
 #pragma mark - Private
 
-// Handles the `results` returned by the AtMemory query service. If the results
-// are empty, the error type is provided to the consumer.
-- (void)handleAtMemorySearchResults:
-    (const autofill::MemorySearchResults&)results {
-  _searchResults = results;
-  switch (results.status) {
-    case autofill::MemorySearchStatus::kNoConnectionFailure:
-      [self.consumer setErrorType:AtMemoryErrorType::kNoConnectionError];
-      return;
-    case autofill::MemorySearchStatus::kUnsupportedQuery:
-      [self.consumer setErrorType:AtMemoryErrorType::kUnsupportedQueryError];
-      return;
-    case autofill::MemorySearchStatus::kFinalResponseSuccess:
-    case autofill::MemorySearchStatus::kPartialResponseSuccess:
-      if (results.entries.empty()) {
-        [self.consumer setErrorType:AtMemoryErrorType::kNoDataError];
-      } else {
-        [self pushResultsToConsumer:results];
-      }
-      return;
-    case autofill::MemorySearchStatus::kInferenceFailure:
-    case autofill::MemorySearchStatus::kInternalFailure:
-      [self.consumer setErrorType:AtMemoryErrorType::kNoDataError];
-      return;
-  }
-  NOTREACHED();
+// Handles suggestions returned by the AtMemoryManager.
+- (void)onAtMemorySuggestionsReceived:
+    (const std::vector<autofill::Suggestion>&)suggestions {
+  _suggestions = suggestions;
+  [self pushSuggestionsToConsumer];
 }
 
-// Converts memory search results to items and sends them to the consumer.
-- (void)pushResultsToConsumer:(const autofill::MemorySearchResults&)results {
-  NSMutableArray<AtMemorySearchItem*>* searchItems = [NSMutableArray array];
-  NSInteger index = 0;
-  for (const autofill::MemorySearchResult& entry : results.entries) {
-    [searchItems addObject:[[AtMemorySearchItem alloc]
-                               initWithMemorySearchResult:entry
-                                                    index:index++]];
+// Pushes current suggestions to the consumer.
+- (void)pushSuggestionsToConsumer {
+  NSMutableArray<AtMemorySearchItem*>* searchItems =
+      [[NSMutableArray alloc] init];
+  NSMutableArray<AtMemorySearchItem*>* recentFillItems =
+      [[NSMutableArray alloc] init];
+
+  bool isRecentFills = false;
+  for (size_t i = 0; i < _suggestions.size(); ++i) {
+    const auto& suggestion = _suggestions[i];
+    switch (suggestion.type) {
+      case autofill::SuggestionType::kTitle:
+        isRecentFills = true;
+        break;
+      case autofill::SuggestionType::kAtMemoryNoConnection:
+        [self.consumer setErrorType:AtMemoryErrorType::kNoConnectionError];
+        return;
+      case autofill::SuggestionType::kAtMemoryGenericError:
+        [self.consumer setErrorType:AtMemoryErrorType::kNoDataError];
+        return;
+      case autofill::SuggestionType::kAtMemoryFetching:
+        [self.consumer setFetchingSubtitle:base::SysUTF16ToNSString(
+                                               suggestion.main_text.value)];
+        return;
+      case autofill::SuggestionType::kAtMemorySearchResult: {
+        if (!std::holds_alternative<autofill::Suggestion::AtMemoryPayload>(
+                suggestion.payload)) {
+          // The backend uses kAtMemorySearchResult without a payload for the
+          // "No Data" state.
+          [self.consumer setErrorType:AtMemoryErrorType::kNoDataError];
+          return;
+        }
+
+        AtMemorySearchItem* item =
+            [[AtMemorySearchItem alloc] initWithSuggestion:suggestion index:i];
+        if (isRecentFills) {
+          [recentFillItems addObject:item];
+        } else {
+          [searchItems addObject:item];
+        }
+        break;
+      }
+      default:
+        break;
+    }
   }
-  [self.consumer setSearchResults:searchItems];
+
+  if (recentFillItems.count > 0) {
+    [self.consumer setRecentFills:recentFillItems];
+  } else if (searchItems.count > 0) {
+    [self.consumer setSearchResults:searchItems];
+  } else if (_atMemoryManager && _atMemoryManager->IsSearching()) {
+    [self.consumer setErrorType:AtMemoryErrorType::kNoDataError];
+  } else {
+    [self.consumer setRecentFills:@[]];
+  }
 }
 
 @end

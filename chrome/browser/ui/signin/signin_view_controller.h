@@ -24,6 +24,7 @@
 #include "components/sync/base/data_type.h"
 #include "third_party/abseil-cpp/absl/container/flat_hash_map.h"
 #include "ui/base/interaction/element_identifier.h"
+#include "ui/base/unowned_user_data/scoped_unowned_user_data.h"
 #include "ui/views/widget/widget.h"
 #include "url/gurl.h"
 
@@ -35,10 +36,10 @@
 #error This file should only be included on desktop.
 #endif
 
+class AccountInfo;
 class BrowserWindowInterface;
 class Profile;
 class TabStripModel;
-struct AccountInfo;
 struct CoreAccountId;
 
 namespace content {
@@ -66,6 +67,11 @@ class NewTabWebContentsObserver;
 // Chrome OS has its own sign-in flow and doesn't use DICE.
 class SigninViewController {
  public:
+  DECLARE_USER_DATA(SigninViewController);
+
+  // Returns the controller for `browser`, or null if it does not have one.
+  static SigninViewController* From(BrowserWindowInterface* browser);
+
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(
       kSignoutConfirmationDialogViewElementId);
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kHistorySyncOptinViewId);
@@ -162,7 +168,8 @@ class SigninViewController {
   // Shows the cross-device sign-in QR code bubble. The bubble is anchored to
   // the profile menu button if available, or centered on the browser window
   // otherwise.
-  void ShowCrossDeviceSigninQrBubble(base::OnceClosure closing_callback);
+  void ShowCrossDeviceSigninQrBubble(GURL qr_code_url,
+                                     base::OnceClosure closing_callback);
 #endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 
   // Shows the modal sync confirmation dialog as a browser-modal dialog on top
@@ -240,6 +247,8 @@ class SigninViewController {
   SigninModalDialog* GetModalDialogForTesting();
 
  private:
+  ui::ScopedUnownedUserData<SigninViewController> scoped_unowned_user_data_;
+
   friend class ChromeSignoutConfirmationPromptPixelTest;
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)

@@ -16,8 +16,14 @@ VIEWS_EXPORT BASE_DECLARE_FEATURE(kAllowWindowCaptureExclusionInRemoteSessions);
 VIEWS_EXPORT BASE_DECLARE_FEATURE(kApplyInitialUrlToWebContents);
 VIEWS_EXPORT BASE_DECLARE_FEATURE(kEnableInputProtection);
 VIEWS_EXPORT BASE_DECLARE_FEATURE(kEnableTouchDragCursorSync);
+#if BUILDFLAG(IS_WIN)
+VIEWS_EXPORT BASE_DECLARE_FEATURE(kHandleMissingWmDestroy);
+#endif
 VIEWS_EXPORT BASE_DECLARE_FEATURE(kKeyboardAccessibleTooltipInViews);
 VIEWS_EXPORT BASE_DECLARE_FEATURE(kNativeViewHostManagesLayers);
+#if BUILDFLAG(IS_MAC)
+VIEWS_EXPORT BASE_DECLARE_FEATURE(kNotifyCompositorOfWindowVisibilityOnMacOs);
+#endif
 
 }  // namespace views::features
 

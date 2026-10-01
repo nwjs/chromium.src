@@ -197,6 +197,13 @@ inline constexpr char kReadingModeGDocsHelperExtensionId[] =
     "cjlaeehoipngghikfjogbdkpbdgebppb";
 // The path to the the helper extension for Reading Mode to work on Google Docs.
 inline constexpr char kReadingModeGDocsHelperExtensionPath[] = "accessibility";
+
+// The directory name of the AIM Eligibility component extension, relative to
+// DIR_COMPONENT_USER, when updated via component updater, or DIR_RESOURCES,
+// when bundled.
+inline constexpr base::FilePath::CharType kAimEligibilityExtensionDirName[] =
+    FILE_PATH_LITERAL("aim_eligibility_extension");
+
 // The name of the manifest file for the extension that enables Reading Mode to
 // work on Google Docs.
 inline constexpr base::FilePath::CharType

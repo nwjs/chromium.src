@@ -10,6 +10,7 @@
 #include "base/strings/string_view_util.h"
 #include "base/test/gmock_callback_support.h"
 #include "base/test/mock_callback.h"
+#include "base/test/task_environment.h"
 #include "base/test/test_proto_loader.h"
 #include "base/token.h"
 #include "content/browser/tracing/background_tracing_manager_impl.h"
@@ -23,6 +24,7 @@
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "services/tracing/public/cpp/background_tracing/background_tracing_manager.h"
 #include "services/tracing/public/cpp/background_tracing/trace_upload_list.h"
+#include "services/tracing/public/cpp/trace_startup_config.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
@@ -90,7 +92,7 @@ class MockTracingDelegate : public TracingDelegate {
  public:
   MOCK_METHOD(bool,
               IsRecordingAllowed,
-              (bool, base::TimeTicks),
+              (IsLocalScenario, base::TimeTicks),
               (const, override));
   MOCK_METHOD(bool, ShouldSaveUnuploadedTrace, (), (const, override));
 #if BUILDFLAG(IS_WIN)
@@ -136,22 +138,33 @@ class TracesInternalsHandlerTest : public testing::Test {
   ~TracesInternalsHandlerTest() override = default;
 
   void SetUp() override {
+    auto mock_tracing_delegate =
+        std::make_unique<testing::NiceMock<MockTracingDelegate>>();
+    mock_tracing_delegate_ = mock_tracing_delegate.get();
     background_tracing_manager_ =
-        std::make_unique<BackgroundTracingManagerImpl>(&mock_tracing_delegate_);
+        std::make_unique<BackgroundTracingManagerImpl>(
+            std::move(mock_tracing_delegate));
     // Expect the Database to be opened before executing each test.
     EXPECT_CALL(fake_trace_upload_list_, OpenDatabaseIfExists());
     handler_ = std::make_unique<TracesInternalsHandlerForTesting>(
         mojo::PendingReceiver<traces_internals::mojom::PageHandler>(),
         mock_page_.BindAndGetRemote(), fake_trace_upload_list_,
-        *background_tracing_manager_, &mock_tracing_delegate_);
+        *background_tracing_manager_, mock_tracing_delegate_);
+  }
+
+  void TearDown() override {
+    handler_.reset();
+    mock_tracing_delegate_ = nullptr;
+    background_tracing_manager_.reset();
   }
 
  protected:
+  tracing::TraceStartupConfig startup_config_;
   BrowserTaskEnvironment task_environment_;
   std::unique_ptr<BackgroundTracingManagerImpl> background_tracing_manager_;
+  raw_ptr<MockTracingDelegate> mock_tracing_delegate_ = nullptr;
   testing::StrictMock<FakeTraceUploadList> fake_trace_upload_list_;
   testing::NiceMock<MockTracePage> mock_page_;
-  testing::NiceMock<MockTracingDelegate> mock_tracing_delegate_;
   std::unique_ptr<TracesInternalsHandler> handler_;
 };
 
@@ -430,23 +443,43 @@ TEST_F(TracesInternalsHandlerTest, GetTrackEventCategories) {
 // Tests that TracesInternalsHandler delegates GetSystemTracingState to the
 // TracingDelegate.
 TEST_F(TracesInternalsHandlerTest, GetSystemTracingState) {
-  EXPECT_CALL(mock_tracing_delegate_, GetSystemTracingState(testing::_));
+  EXPECT_CALL(*mock_tracing_delegate_, GetSystemTracingState(testing::_));
   handler_->GetSystemTracingState({});
 }
 
 // Tests that TracesInternalsHandler delegates EnableSystemTracing to the
 // TracingDelegate.
 TEST_F(TracesInternalsHandlerTest, EnableSystemTracing) {
-  EXPECT_CALL(mock_tracing_delegate_, EnableSystemTracing(testing::_));
+  EXPECT_CALL(*mock_tracing_delegate_, EnableSystemTracing(testing::_));
   handler_->EnableSystemTracing({});
 }
 
 // Tests that TracesInternalsHandler delegates DisableSystemTracing to the
 // TracingDelegate.
 TEST_F(TracesInternalsHandlerTest, DisableSystemTracing) {
-  EXPECT_CALL(mock_tracing_delegate_, DisableSystemTracing(testing::_));
+  EXPECT_CALL(*mock_tracing_delegate_, DisableSystemTracing(testing::_));
   handler_->DisableSystemTracing({});
 }
 #endif  // BUILDFLAG(IS_WIN)
+
+TEST(BackgroundTracingManagerImplEarlyStartupTest,
+     InitializeFieldScenariosWithoutBrowserThread) {
+  tracing::TraceStartupConfig startup_config;
+  base::test::TaskEnvironment task_environment;
+  auto mock_tracing_delegate =
+      std::make_unique<testing::NiceMock<MockTracingDelegate>>();
+  BackgroundTracingManagerImpl manager(std::move(mock_tracing_delegate));
+
+  perfetto::protos::gen::ChromeFieldTracingConfig config;
+  auto* scenario = config.add_scenarios();
+  scenario->set_scenario_name("TestScenario");
+  auto* trace_config = scenario->mutable_trace_config();
+  auto* buffer = trace_config->add_buffers();
+  buffer->set_size_kb(1024);
+
+  EXPECT_TRUE(manager.InitializeFieldScenarios(
+      config, tracing::BackgroundTracingManager::NO_DATA_FILTERING,
+      /*force_upload=*/false, /*upload_limit_kb=*/0));
+}
 
 }  // namespace content

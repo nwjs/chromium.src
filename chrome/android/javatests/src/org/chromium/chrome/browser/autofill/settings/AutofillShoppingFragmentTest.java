@@ -26,6 +26,10 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import android.text.TextUtils;
+import android.view.View;
+import android.widget.TextView;
+
 import androidx.preference.Preference;
 import androidx.preference.PreferenceGroup;
 import androidx.test.espresso.intent.Intents;
@@ -34,6 +38,7 @@ import androidx.test.filters.SmallTest;
 
 import org.hamcrest.Matchers;
 import org.junit.After;
+import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -52,7 +57,6 @@ import org.chromium.base.test.util.Criteria;
 import org.chromium.base.test.util.CriteriaHelper;
 import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
-import org.chromium.base.test.util.Restriction;
 import org.chromium.base.test.util.UserActionTester;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.autofill.autofill_ai.EntityDataManager;
@@ -65,6 +69,7 @@ import org.chromium.chrome.browser.feedback.HelpAndFeedbackLauncherFactory;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.flags.ChromeSwitches;
 import org.chromium.chrome.browser.preferences.Pref;
+import org.chromium.chrome.browser.settings.SettingsInTab;
 import org.chromium.chrome.browser.settings.SettingsNavigationFactory;
 import org.chromium.chrome.browser.settings.SettingsTestRule;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
@@ -77,7 +82,6 @@ import org.chromium.components.browser_ui.settings.ChromeSwitchPreference;
 import org.chromium.components.browser_ui.settings.SettingsNavigation;
 import org.chromium.components.browser_ui.settings.search.SettingsIndexData;
 import org.chromium.components.user_prefs.UserPrefs;
-import org.chromium.ui.base.DeviceFormFactor;
 import org.chromium.ui.test.util.MockitoHelper;
 
 import java.util.Arrays;
@@ -136,8 +140,10 @@ public class AutofillShoppingFragmentTest {
 
     @Test
     @SmallTest
-    @Restriction(DeviceFormFactor.PHONE) // Tablets and desktops don't have a help button or menu.
     public void testHelpMenuTriggersAutofillHelp() {
+        // Settings in a tab doesn't have a help button or menu.
+        Assume.assumeTrue(!SettingsInTab.isEnabled());
+
         mSettingsTestRule.startSettingsActivity();
 
         onView(withId(R.id.menu_id_targeted_help)).perform(click());
@@ -311,6 +317,47 @@ public class AutofillShoppingFragmentTest {
                             "Add shipment button should NOT exist in category",
                             addShipment,
                             Matchers.nullValue());
+                });
+    }
+
+    @Test
+    @MediumTest
+    public void testAutofillAiEntities_summaryIsSingleLine() {
+        EntityType orderType = TestUtils.getOrderEntityType();
+        EntityInstanceWithLabels entity =
+                new EntityInstanceWithLabels(
+                        "guid1",
+                        orderType,
+                        /* entityInstanceLabel= */ "Order",
+                        /* entityInstanceSubLabel= */ "Store",
+                        /* storedInWallet= */ false,
+                        /* walletEntityUrl= */ null);
+        LinkedHashMap<EntityType, List<EntityInstanceWithLabels>> instancesMap =
+                new LinkedHashMap<>();
+        instancesMap.put(orderType, Arrays.asList(entity));
+        when(mEntityDataManager.getInstancesToList()).thenReturn(instancesMap);
+
+        mSettingsTestRule.startSettingsActivity();
+
+        CriteriaHelper.pollUiThread(
+                () -> {
+                    AutofillShoppingFragment fragment = mSettingsTestRule.getFragment();
+                    View entityRow = fragment.getListView().getChildAt(2);
+                    Criteria.checkThat(
+                            "Entity row should exist", entityRow, Matchers.notNullValue());
+                    TextView summaryView = entityRow.findViewById(android.R.id.summary);
+                    Criteria.checkThat(
+                            "Order summary TextView should exist",
+                            summaryView,
+                            Matchers.notNullValue());
+                    Criteria.checkThat(
+                            "Order summary should be single line",
+                            summaryView.isSingleLine(),
+                            Matchers.is(true));
+                    Criteria.checkThat(
+                            "Order summary should have tail ellipsis",
+                            summaryView.getEllipsize(),
+                            Matchers.is(TextUtils.TruncateAt.END));
                 });
     }
 

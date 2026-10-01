@@ -72,7 +72,6 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/ui/ash/system_web_apps/system_web_app_ui_utils.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/web_applications/test/web_app_browsertest_util.h"
 #include "chrome/browser/ui/web_applications/web_app_launch_process.h"
@@ -93,7 +92,6 @@
 #include "chrome/test/base/ui_test_utils.h"
 #include "chromeos/ash/components/drivefs/mojom/drivefs.mojom.h"
 #include "chromeos/ash/components/file_manager/app_id.h"
-#include "chromeos/constants/chromeos_features.h"
 #include "components/services/app_service/public/cpp/app_instance_waiter.h"
 #include "components/services/app_service/public/cpp/app_launch_params.h"
 #include "components/services/app_service/public/cpp/app_types.h"
@@ -694,6 +692,11 @@ const FileSystemURL CreateOfficeFileSourceURL(Profile* profile,
 #if BUILDFLAG(GOOGLE_CHROME_BRANDING)
 // Test that the Fallback dialog can be shown when Quick Office is installed.
 IN_PROC_BROWSER_TEST_P(FileTasksBrowserTest, FallbackSucceedsWithQuickOffice) {
+  // TODO(crbug.com/558941696): Fix and re-enable for guest profile.
+  if (profile_type() == TestProfileType::kGuest) {
+    GTEST_SKIP() << "Disabled for guest profile: crbug.com/558941696";
+  }
+
   if (profile_type() == TestProfileType::kIncognito) {
     GTEST_SKIP()
         << "There is no AppServiceProxy for incognito profiles as they are "
@@ -719,6 +722,11 @@ IN_PROC_BROWSER_TEST_P(FileTasksBrowserTest, FallbackSucceedsWithQuickOffice) {
 }
 
 IN_PROC_BROWSER_TEST_P(FileTasksBrowserTest, FallbackFailsNoQuickOffice) {
+  // TODO(crbug.com/558941696): Fix and re-enable for guest profile.
+  if (profile_type() == TestProfileType::kGuest) {
+    GTEST_SKIP() << "Disabled for guest profile: crbug.com/558941696";
+  }
+
   if (profile_type() == TestProfileType::kIncognito) {
     GTEST_SKIP()
         << "There is no AppServiceProxy, which is required to check "
@@ -832,8 +840,7 @@ IN_PROC_BROWSER_TEST_P(FileTasksPolicyBrowserTest, TasksMarkedAsBlocked) {
 }
 
 // |InProcessBrowserTest| which allows a fake user to login. Login a non-managed
-// to ensure |IsEligibleAndEnabledUploadOfficeToCloud| returns the result of
-// |IsUploadOfficeToCloudEnabled|.
+// to ensure |IsEligibleAndEnabledUploadOfficeToCloud| returns true.
 class TestAccountBrowserTest : public MixinBasedInProcessBrowserTest {
  public:
   explicit TestAccountBrowserTest(TestAccountType test_account_type) {
@@ -880,10 +887,7 @@ class TestAccountBrowserTest : public MixinBasedInProcessBrowserTest {
 
 class NonManagedAccount : public TestAccountBrowserTest {
  public:
-  NonManagedAccount() : TestAccountBrowserTest(kNonManaged) {
-    feature_list_.InitAndEnableFeature(
-        chromeos::features::kUploadOfficeToCloud);
-  }
+  NonManagedAccount() : TestAccountBrowserTest(kNonManaged) {}
 
   void SetUpOnMainThread() override {
     TestAccountBrowserTest::SetUpOnMainThread();
@@ -906,12 +910,11 @@ class NonManagedAccount : public TestAccountBrowserTest {
   }
 
  private:
-  base::test::ScopedFeatureList feature_list_;
   apps::AppServiceTest app_service_test_;
 };
 
 // Tests that IsEligibleAndEnabledUploadOfficeToCloud() returns true when a
-// non-managed user is logged in and |kUploadOfficeToCloud| is enabled.
+// non-managed user is logged in.
 IN_PROC_BROWSER_TEST_F(NonManagedAccount,
                        IsEligibleAndEnabledUploadOfficeToCloud) {
   ASSERT_TRUE(chromeos::IsEligibleAndEnabledUploadOfficeToCloud(
@@ -921,13 +924,7 @@ IN_PROC_BROWSER_TEST_F(NonManagedAccount,
 class WithEnterpriseFlag : public TestAccountBrowserTest {
  public:
   explicit WithEnterpriseFlag(bool is_managed)
-      : TestAccountBrowserTest(is_managed ? kEnterprise : kNonManaged) {
-    feature_list_.InitWithFeatures({chromeos::features::kUploadOfficeToCloud},
-                                   {});
-  }
-
- private:
-  base::test::ScopedFeatureList feature_list_;
+      : TestAccountBrowserTest(is_managed ? kEnterprise : kNonManaged) {}
 };
 
 class NonManagedAccountWithEnterpriseFlag : public WithEnterpriseFlag {
@@ -937,7 +934,7 @@ class NonManagedAccountWithEnterpriseFlag : public WithEnterpriseFlag {
 };
 
 // Tests that IsEligibleAndEnabledUploadOfficeToCloud() returns true when a
-// non-managed user is logged in and |kUploadOfficeToCloud| is enabled.
+// non-managed user is logged in.
 IN_PROC_BROWSER_TEST_F(NonManagedAccountWithEnterpriseFlag,
                        IsEligibleAndEnabledUploadOfficeToCloud) {
   ASSERT_TRUE(chromeos::IsEligibleAndEnabledUploadOfficeToCloud(
@@ -1031,8 +1028,7 @@ INSTANTIATE_TEST_SUITE_P(
         testing::Bool()));
 
 // Test that the office PWA file handler is hidden from the available file
-// handlers when opening an office file and the |kUploadOfficeToCloud| flag is
-// enabled.
+// handlers when opening an office file.
 IN_PROC_BROWSER_TEST_F(NonManagedAccount, OfficePwaHandlerHidden) {
   struct FakeOfficeFileType {
     std::string file_extension;
@@ -1074,17 +1070,11 @@ IN_PROC_BROWSER_TEST_F(NonManagedAccount, OfficePwaHandlerHidden) {
 
 class EnterpriseAccount : public TestAccountBrowserTest {
  public:
-  EnterpriseAccount() : TestAccountBrowserTest(kEnterprise) {
-    feature_list_.InitAndEnableFeature(
-        chromeos::features::kUploadOfficeToCloud);
-  }
-
- private:
-  base::test::ScopedFeatureList feature_list_;
+  EnterpriseAccount() : TestAccountBrowserTest(kEnterprise) {}
 };
 
 // Tests that IsEligibleAndEnabledUploadOfficeToCloud() returns true when an
-// enterprise user is logged in and |kUploadOfficeToCloud| is enabled.
+// enterprise user is logged in.
 IN_PROC_BROWSER_TEST_F(EnterpriseAccount,
                        IsEligibleAndEnabledUploadOfficeToCloud) {
   ASSERT_TRUE(chromeos::IsEligibleAndEnabledUploadOfficeToCloud(
@@ -1093,17 +1083,11 @@ IN_PROC_BROWSER_TEST_F(EnterpriseAccount,
 
 class EnterpriseAccountWithEnterpriseFlag : public TestAccountBrowserTest {
  public:
-  EnterpriseAccountWithEnterpriseFlag() : TestAccountBrowserTest(kEnterprise) {
-    feature_list_.InitWithFeatures({chromeos::features::kUploadOfficeToCloud},
-                                   {});
-  }
-
- private:
-  base::test::ScopedFeatureList feature_list_;
+  EnterpriseAccountWithEnterpriseFlag() : TestAccountBrowserTest(kEnterprise) {}
 };
 
 // Tests that IsEligibleAndEnabledUploadOfficeToCloud() returns true when an
-// enterprise user is logged in and |kUploadOfficeToCloud| is enabled.
+// enterprise user is logged in.
 IN_PROC_BROWSER_TEST_F(EnterpriseAccountWithEnterpriseFlag,
                        IsEligibleAndEnabledUploadOfficeToCloud) {
   ASSERT_TRUE(chromeos::IsEligibleAndEnabledUploadOfficeToCloud(
@@ -1112,17 +1096,11 @@ IN_PROC_BROWSER_TEST_F(EnterpriseAccountWithEnterpriseFlag,
 
 class ChildAccount : public TestAccountBrowserTest {
  public:
-  ChildAccount() : TestAccountBrowserTest(kChild) {
-    feature_list_.InitAndEnableFeature(
-        chromeos::features::kUploadOfficeToCloud);
-  }
-
- private:
-  base::test::ScopedFeatureList feature_list_;
+  ChildAccount() : TestAccountBrowserTest(kChild) {}
 };
 
 // Tests that IsEligibleAndEnabledUploadOfficeToCloud() returns false when a
-// child user is logged in and |kUploadOfficeToCloud| is enabled.
+// child user is logged in.
 IN_PROC_BROWSER_TEST_F(ChildAccount, IsEligibleAndEnabledUploadOfficeToCloud) {
   ASSERT_FALSE(chromeos::IsEligibleAndEnabledUploadOfficeToCloud(
       browser()->GetProfile()));
@@ -1130,37 +1108,12 @@ IN_PROC_BROWSER_TEST_F(ChildAccount, IsEligibleAndEnabledUploadOfficeToCloud) {
 
 class ChildAccountWithEnterpriseFlag : public TestAccountBrowserTest {
  public:
-  ChildAccountWithEnterpriseFlag() : TestAccountBrowserTest(kChild) {
-    feature_list_.InitWithFeatures({chromeos::features::kUploadOfficeToCloud},
-                                   {});
-  }
-
- private:
-  base::test::ScopedFeatureList feature_list_;
+  ChildAccountWithEnterpriseFlag() : TestAccountBrowserTest(kChild) {}
 };
 
 // Tests that IsEligibleAndEnabledUploadOfficeToCloud() returns false when a
-// child user is logged in and |kUploadOfficeToCloud| is enabled.
+// child user is logged in.
 IN_PROC_BROWSER_TEST_F(ChildAccountWithEnterpriseFlag,
-                       IsEligibleAndEnabledUploadOfficeToCloud) {
-  ASSERT_FALSE(chromeos::IsEligibleAndEnabledUploadOfficeToCloud(
-      browser()->GetProfile()));
-}
-
-class NonManagedAccountNoFlag : public TestAccountBrowserTest {
- public:
-  NonManagedAccountNoFlag() : TestAccountBrowserTest(kNonManaged) {
-    feature_list_.InitAndDisableFeature(
-        chromeos::features::kUploadOfficeToCloud);
-  }
-
- private:
-  base::test::ScopedFeatureList feature_list_;
-};
-
-// Tests that IsEligibleAndEnabledUploadOfficeToCloud() returns false when a
-// non-managed user is logged in but |kUploadOfficeToCloud| is disabled.
-IN_PROC_BROWSER_TEST_F(NonManagedAccountNoFlag,
                        IsEligibleAndEnabledUploadOfficeToCloud) {
   ASSERT_FALSE(chromeos::IsEligibleAndEnabledUploadOfficeToCloud(
       browser()->GetProfile()));
@@ -1169,20 +1122,14 @@ IN_PROC_BROWSER_TEST_F(NonManagedAccountNoFlag,
 // |InProcessBrowserTest| which allows a user to login to Guest mode.
 class GuestMode : public MixinBasedInProcessBrowserTest {
  public:
-  GuestMode() {
-    feature_list_.InitAndEnableFeature(
-        chromeos::features::kUploadOfficeToCloud);
-  }
+  GuestMode() = default;
 
  protected:
   ash::GuestSessionMixin guest_session_{&mixin_host_};
-
- private:
-  base::test::ScopedFeatureList feature_list_;
 };
 
-// Tests that IsEligibleAndEnabledUploadOfficeToCloud() returns false when
-// |kUploadOfficeToCloud| is enabled but the user is in Guest mode.
+// Tests that IsEligibleAndEnabledUploadOfficeToCloud() returns false when the
+// user is in Guest mode.
 IN_PROC_BROWSER_TEST_F(GuestMode, IsEligibleAndEnabledUploadOfficeToCloud) {
   ASSERT_FALSE(chromeos::IsEligibleAndEnabledUploadOfficeToCloud(
       browser()->GetProfile()));
@@ -1195,8 +1142,6 @@ IN_PROC_BROWSER_TEST_F(GuestMode, IsEligibleAndEnabledUploadOfficeToCloud) {
 class DriveTest : public TestAccountBrowserTest {
  public:
   DriveTest() : TestAccountBrowserTest(kNonManaged) {
-    feature_list_.InitAndEnableFeature(
-        chromeos::features::kUploadOfficeToCloud);
     EXPECT_TRUE(temp_dir_.CreateUniqueTempDir());
     drive_mount_point_ = temp_dir_.GetPath();
     // Path of test file relative to the DriveFs mount point.
@@ -1690,8 +1635,6 @@ class OneDriveTest : public TestAccountBrowserTest,
                      public NotificationDisplayService::Observer {
  public:
   OneDriveTest() : TestAccountBrowserTest(kNonManaged) {
-    feature_list_.InitAndEnableFeature(
-        chromeos::features::kUploadOfficeToCloud);
     // Relative paths for files on ODFS and Android OneDrive.
     relative_test_path_1_ = base::FilePath(test_docx_file_name_1_);
     relative_test_path_2_ = base::FilePath(test_pptx_file_name_2_);
@@ -2959,9 +2902,7 @@ IN_PROC_BROWSER_TEST_F(OneDriveTest, FileNotInOneDriveOpensSetUpDialog) {
 class OfficeDriveHatsSurvey : public DriveTest {
  public:
   OfficeDriveHatsSurvey() {
-    feature_list_.InitWithFeatures({chromeos::features::kUploadOfficeToCloud,
-                                    ash::features::kHappinessTrackingOffice},
-                                   {});
+    feature_list_.InitAndEnableFeature(ash::features::kHappinessTrackingOffice);
   }
 
  private:
@@ -3009,9 +2950,7 @@ IN_PROC_BROWSER_TEST_F(OfficeDriveHatsSurvey, OpenInDrive) {
 class OfficeMS365HatsSurvey : public OneDriveTest {
  public:
   OfficeMS365HatsSurvey() {
-    feature_list_.InitWithFeatures({chromeos::features::kUploadOfficeToCloud,
-                                    ash::features::kHappinessTrackingOffice},
-                                   {});
+    feature_list_.InitAndEnableFeature(ash::features::kHappinessTrackingOffice);
   }
 
  private:
@@ -3080,12 +3019,10 @@ IN_PROC_BROWSER_TEST_F(OfficeMS365HatsSurvey, FallbackQuickOffice) {
             ash::cloud_upload::HatsOfficeLaunchingApp::kQuickOffice);
 }
 
-class OfficeQuickOfficeHatsSurveyClippyOn : public InProcessBrowserTest {
+class OfficeQuickOfficeHatsSurvey : public InProcessBrowserTest {
  public:
-  OfficeQuickOfficeHatsSurveyClippyOn() {
-    feature_list_.InitWithFeatures({chromeos::features::kUploadOfficeToCloud,
-                                    ash::features::kHappinessTrackingOffice},
-                                   {});
+  OfficeQuickOfficeHatsSurvey() {
+    feature_list_.InitAndEnableFeature(ash::features::kHappinessTrackingOffice);
   }
 
  private:
@@ -3093,8 +3030,8 @@ class OfficeQuickOfficeHatsSurveyClippyOn : public InProcessBrowserTest {
 };
 
 // Test that the right HaTS survey gets triggered when an Office file gets
-// opened in QuickOffice and the Clippy flag is enabled.
-IN_PROC_BROWSER_TEST_F(OfficeQuickOfficeHatsSurveyClippyOn, OpenInQuickOffice) {
+// opened in QuickOffice.
+IN_PROC_BROWSER_TEST_F(OfficeQuickOfficeHatsSurvey, OpenInQuickOffice) {
   storage::FileSystemURL test_url;
   std::vector<FileSystemURL> file_url{test_url};
   base::test::TestFuture<std::string, ash::cloud_upload::HatsOfficeLaunchingApp>
@@ -3109,37 +3046,6 @@ IN_PROC_BROWSER_TEST_F(OfficeQuickOfficeHatsSurveyClippyOn, OpenInQuickOffice) {
   ASSERT_EQ(app_id, std::string());
   ASSERT_EQ(launching_app,
             ash::cloud_upload::HatsOfficeLaunchingApp::kQuickOffice);
-}
-
-class OfficeQuickOfficeHatsSurveyClippyOff : public InProcessBrowserTest {
- public:
-  OfficeQuickOfficeHatsSurveyClippyOff() {
-    feature_list_.InitWithFeatures({ash::features::kHappinessTrackingOffice},
-                                   {chromeos::features::kUploadOfficeToCloud});
-  }
-
- private:
-  base::test::ScopedFeatureList feature_list_;
-};
-
-// Test that the right HaTS survey gets triggered when an Office file gets
-// opened in QuickOffice and the Clippy flag is disabled.
-IN_PROC_BROWSER_TEST_F(OfficeQuickOfficeHatsSurveyClippyOff,
-                       OpenInQuickOffice) {
-  storage::FileSystemURL test_url;
-  std::vector<FileSystemURL> file_url{test_url};
-  base::test::TestFuture<std::string, ash::cloud_upload::HatsOfficeLaunchingApp>
-      hats_survey_executed_future;
-  ash::cloud_upload::HatsOfficeTrigger::Get().SetShowSurveyCallbackForTesting(
-      hats_survey_executed_future.GetCallback());
-
-  file_manager::file_tasks::LaunchQuickOffice(browser()->GetProfile(),
-                                              file_url);
-
-  const auto [app_id, launching_app] = hats_survey_executed_future.Get();
-  ASSERT_EQ(app_id, std::string());
-  ASSERT_EQ(launching_app,
-            ash::cloud_upload::HatsOfficeLaunchingApp::kQuickOfficeClippyOff);
 }
 #endif  // BUILDFLAG(GOOGLE_CHROME_BRANDING)
 

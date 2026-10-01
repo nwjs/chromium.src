@@ -76,12 +76,22 @@ constexpr int kDefaultHeadingLevel = 2;
 // to a combination of its font size and other styling, instead of just size.
 constexpr int kLargestStyledHeadingLevel = 3;
 
+// The largest heading level allowed (corresponds to <h1>).
+constexpr int kLargestHeadingLevel = 1;
+
 // The smallest heading level allowed (corresponds to <h6>).
 constexpr int kSmallestHeadingLevel = 6;
 
 // Font weight for semi-bold text. Used to determine if the run could be a
 // heading.
 constexpr int kSemiBoldWeight = 600;
+
+// Returns whether `heading_level` is in bounds, i.e. whether it corresponds to
+// one of <h1> through <h6>.
+bool IsValidHeadingLevel(int heading_level) {
+  return heading_level >= kLargestHeadingLevel &&
+         heading_level <= kSmallestHeadingLevel;
+}
 
 // Helper to determine whether two vertical spans overlap enough to be on the
 // same line.
@@ -260,11 +270,12 @@ void ComputeFontSizes(std::vector<float> font_sizes,
   }
 
   std::ranges::sort(font_sizes);
-  *out_median_font_size = font_sizes[font_sizes.size() / 2];
-  if (*out_median_font_size <= kMinimumFontSize) {
+  float median = font_sizes[font_sizes.size() / 2];
+  if (median <= kMinimumFontSize) {
     return;
   }
 
+  *out_median_font_size = median;
   *out_heading_font_size_threshold =
       *out_median_font_size * kHeadingFontSizeRatio;
 
@@ -523,6 +534,7 @@ HeadingClassifier GetHeadingClassifier(
 }
 
 void PromoteNodeToHeading(ui::AXNodeData* block_node, int heading_level) {
+  CHECK(IsValidHeadingLevel(heading_level));
   block_node->role = ax::mojom::Role::kHeading;
   block_node->AddIntAttribute(ax::mojom::IntAttribute::kHierarchicalLevel,
                               heading_level);
@@ -644,8 +656,6 @@ void PdfAccessibilityTreeBuilderHeuristic::BuildPageTree() {
   std::optional<chrome_pdf::AccessibilityTextStyleInfo> current_style;
   HeadingClassifier current_heading_classifier = HeadingClassifier::kNone;
   LineHelper line_helper(builder_->text_runs());
-  bool pdf_forms_enabled =
-      base::FeatureList::IsEnabled(chrome_pdf::features::kAccessiblePDFForm);
 #if BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
   bool ocr_block = false;
   bool has_ocr_text = false;
@@ -731,29 +741,6 @@ void PdfAccessibilityTreeBuilderHeuristic::BuildPageTree() {
       AddHighlightToParaNode(
           (builder_->highlights())[current_highlight_index_++], block_node,
           &previous_on_line_node, &text_run_index);
-    } else if (IsObjectInTextRun(builder_->text_fields(),
-                                 current_text_field_index_, text_run_index) &&
-               pdf_forms_enabled) {
-      BuildStaticNode(&static_text_node, &static_text, &current_style);
-      AddTextFieldToParaNode(
-          (builder_->text_fields())[current_text_field_index_++], block_node,
-          &text_run_index);
-      continue;
-    } else if (IsObjectInTextRun(builder_->buttons(), current_button_index_,
-                                 text_run_index) &&
-               pdf_forms_enabled) {
-      BuildStaticNode(&static_text_node, &static_text, &current_style);
-      AddButtonToParaNode((builder_->buttons())[current_button_index_++],
-                          block_node, &text_run_index);
-      continue;
-    } else if (IsObjectInTextRun(builder_->choice_fields(),
-                                 current_choice_field_index_, text_run_index) &&
-               pdf_forms_enabled) {
-      BuildStaticNode(&static_text_node, &static_text, &current_style);
-      AddChoiceFieldToParaNode(
-          (builder_->choice_fields())[current_choice_field_index_++],
-          block_node, &text_run_index);
-      continue;
     } else {
       chrome_pdf::PageCharacterIndex page_char_index = {
           builder_->page_index(),
@@ -873,7 +860,7 @@ ui::AXNodeData* PdfAccessibilityTreeBuilderHeuristic::CreateBlockLevelNode(
     if (features::IsPdfAccessibilityHeuristicEnhancementsEnabled()) {
       int heuristic_heading_level = GetHeadingLevelFromSize(
           page_properties.heading_font_size_mapping, font_size);
-      if (heuristic_heading_level >= 1 && heuristic_heading_level <= 6) {
+      if (IsValidHeadingLevel(heuristic_heading_level)) {
         heading_level = heuristic_heading_level;
       }
     }
@@ -889,8 +876,12 @@ ui::AXNodeData* PdfAccessibilityTreeBuilderHeuristic::CreateBlockLevelNode(
         current_run, next_run, current_run_chars, page_properties);
 
     if (classifier != HeadingClassifier::kNone) {
-      int heading_level = GetHeadingLevelFromSize(
+      int heading_level = kLargestStyledHeadingLevel;
+      int heuristic_heading_level = GetHeadingLevelFromSize(
           page_properties.heading_font_size_mapping, font_size);
+      if (IsValidHeadingLevel(heuristic_heading_level)) {
+        heading_level = heuristic_heading_level;
+      }
       PromoteNodeToHeading(block_node, heading_level);
       *out_heading_classifier = classifier;
     }
@@ -1051,40 +1042,6 @@ void PdfAccessibilityTreeBuilderHeuristic::AddHighlightToParaNode(
   }
 }
 
-void PdfAccessibilityTreeBuilderHeuristic::AddTextFieldToParaNode(
-    const chrome_pdf::AccessibilityTextFieldInfo& text_field,
-    ui::AXNodeData* para_node,
-    size_t* text_run_index) {
-  // If the `text_run_index` is less than or equal to the text_field's text
-  // run index, then push the text_field ahead of the current text run.
-  ui::AXNodeData* text_field_node = builder_->CreateTextFieldNode(text_field);
-  para_node->child_ids.push_back(text_field_node->id);
-  --(*text_run_index);
-}
-
-void PdfAccessibilityTreeBuilderHeuristic::AddButtonToParaNode(
-    const chrome_pdf::AccessibilityButtonInfo& button,
-    ui::AXNodeData* para_node,
-    size_t* text_run_index) {
-  // If the `text_run_index` is less than or equal to the button's text
-  // run index, then push the button ahead of the current text run.
-  ui::AXNodeData* button_node = builder_->CreateButtonNode(button);
-  para_node->child_ids.push_back(button_node->id);
-  --(*text_run_index);
-}
-
-void PdfAccessibilityTreeBuilderHeuristic::AddChoiceFieldToParaNode(
-    const chrome_pdf::AccessibilityChoiceFieldInfo& choice_field,
-    ui::AXNodeData* para_node,
-    size_t* text_run_index) {
-  // If the `text_run_index` is less than or equal to the choice_field's text
-  // run index, then push the choice_field ahead of the current text run.
-  ui::AXNodeData* choice_field_node =
-      builder_->CreateChoiceFieldNode(choice_field);
-  para_node->child_ids.push_back(choice_field_node->id);
-  --(*text_run_index);
-}
-
 void PdfAccessibilityTreeBuilderHeuristic::AddRemainingAnnotations(
     ui::AXNodeData* para_node
 #if BUILDFLAG(ENABLE_SCREEN_AI_SERVICE)
@@ -1092,13 +1049,10 @@ void PdfAccessibilityTreeBuilderHeuristic::AddRemainingAnnotations(
     bool ocr_applied
 #endif
 ) {
-  // If we don't have additional links, images or form fields to insert in the
-  // tree, then return.
+  // If we don't have additional links or images to insert in the tree, then
+  // return.
   if (current_link_index_ >= builder_->links().size() &&
-      current_image_index_ >= builder_->images().size() &&
-      current_text_field_index_ >= builder_->text_fields().size() &&
-      current_button_index_ >= builder_->buttons().size() &&
-      current_choice_field_index_ >= builder_->choice_fields().size()) {
+      current_image_index_ >= builder_->images().size()) {
     return;
   }
 
@@ -1128,35 +1082,6 @@ void PdfAccessibilityTreeBuilderHeuristic::AddRemainingAnnotations(
           (builder_->images())[i];
       ui::AXNodeData* image_node = builder_->CreateImageNode(image_info);
       para_node->child_ids.push_back(image_node->id);
-    }
-  }
-
-  if (base::FeatureList::IsEnabled(chrome_pdf::features::kAccessiblePDFForm)) {
-    // Push all the text fields not anchored to any text run to the last
-    // paragraph.
-    for (size_t i = current_text_field_index_;
-         i < builder_->text_fields().size(); i++) {
-      ui::AXNodeData* text_field_node =
-          builder_->CreateTextFieldNode((builder_->text_fields())[i]);
-      para_node->child_ids.push_back(text_field_node->id);
-    }
-
-    // Push all the buttons not anchored to any text run to the last
-    // paragraph.
-    for (size_t i = current_button_index_; i < builder_->buttons().size();
-         i++) {
-      ui::AXNodeData* button_node =
-          builder_->CreateButtonNode((builder_->buttons())[i]);
-      para_node->child_ids.push_back(button_node->id);
-    }
-
-    // Push all the choice fields not anchored to any text run to the last
-    // paragraph.
-    for (size_t i = current_choice_field_index_;
-         i < builder_->choice_fields().size(); i++) {
-      ui::AXNodeData* choice_field_node =
-          builder_->CreateChoiceFieldNode((builder_->choice_fields())[i]);
-      para_node->child_ids.push_back(choice_field_node->id);
     }
   }
 }

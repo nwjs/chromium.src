@@ -73,6 +73,8 @@
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/user_education/interactive_feature_promo_test.h"
 #include "chrome/test/user_education/interactive_feature_promo_test_common.h"
+#include "components/enterprise/isolated_mode/isolated_mode_features.h"
+#include "components/enterprise/isolated_mode/prefs.h"
 #include "components/feature_engagement/public/feature_constants.h"
 #include "components/keep_alive_registry/keep_alive_types.h"
 #include "components/keep_alive_registry/scoped_keep_alive.h"
@@ -82,6 +84,7 @@
 #include "components/policy/core/common/management/scoped_management_service_override_for_testing.h"
 #include "components/policy/core/common/mock_configuration_policy_provider.h"
 #include "components/prefs/scoped_user_pref_update.h"
+#include "components/profile_metrics/browser_profile_type.h"
 #include "components/signin/public/base/consent_level.h"
 #include "components/signin/public/base/signin_metrics.h"
 #include "components/signin/public/base/signin_pref_names.h"
@@ -268,7 +271,7 @@ class MockSigninUiDelegate : public signin_ui_util::SigninUiDelegate {
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
   MOCK_METHOD(void,
               ShowCrossDeviceSigninQrBubble,
-              (BrowserWindowInterface*, base::OnceClosure),
+              (BrowserWindowInterface*, GURL, base::OnceClosure),
               (override));
 #endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 };
@@ -359,6 +362,18 @@ class AvatarToolbarButtonInterfaceBaseBrowserTest {
     delay_resets_.push_back(
         AvatarToolbarButtonInterface::
             CreateScopedInfiniteDelayOverrideForTesting(delay_type));
+  }
+
+  void SetInfiniteDelayForCrossWindowAnimationReplay() {
+    delay_resets_.push_back(
+        signin_ui_util::
+            CreateInfiniteOverrideDelayForCrossWindowAnimationReplayForTesting());
+  }
+
+  void SetZeroDelayForCrossWindowAnimationReplay() {
+    delay_resets_.push_back(
+        signin_ui_util::
+            CreateZeroOverrideDelayForCrossWindowAnimationReplayForTesting());
   }
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
@@ -454,7 +469,8 @@ class AvatarToolbarButtonInterfaceBaseBrowserTest {
 
     signin::UpdateAccountInfoForAccount(GetIdentityManager(), account_info);
 
-    GetTestSyncService()->SetSignedIn(consent_level, account_info);
+    GetTestSyncService()->SetSignedIn(consent_level,
+                                      account_info.GetCoreAccountInfo());
     SetHistoryAndTabsSyncingPreference(/*enable_sync=*/false);
 
     return account_info;
@@ -557,9 +573,7 @@ class AvatarToolbarButtonInterfaceBaseBrowserTest {
     }
     // Make sure the cross window animation replay is not triggered. This is
     // needed to clear the animation in all windows.
-    delay_resets_.push_back(
-        signin_ui_util::
-            CreateZeroOverrideDelayForCrossWindowAnimationReplayForTesting());
+    SetZeroDelayForCrossWindowAnimationReplay();
 
     // Clears the sync optin promo if it is enabled. This is a no-op if the
     // promo is disabled. When `syncer::kReplaceSyncPromosWithSignInPromos` is
@@ -658,9 +672,7 @@ class AvatarToolbarButtonInterfaceBaseBrowserTest {
               .WaitForText(std::u16string()));
     // Make sure the cross window animation replay is not triggered. This is
     // needed to clear the animation in all windows.
-    delay_resets_.push_back(
-        signin_ui_util::
-            CreateZeroOverrideDelayForCrossWindowAnimationReplayForTesting());
+    SetZeroDelayForCrossWindowAnimationReplay();
     return account_info;
   }
 
@@ -873,7 +885,7 @@ class AvatarToolbarButtonInterfaceBaseBrowserTest {
     mock_batch_upload_delegate_ = mock_batch_upload_delegate.get();
 
     batch_upload_test_helper_.SetupBatchUploadTestingFactoryInProfile(
-        Profile::FromBrowserContext(context), /*identity_manager=*/nullptr,
+        Profile::FromBrowserContext(context),
         std::move(mock_batch_upload_delegate));
 #endif
   }
@@ -942,6 +954,39 @@ class AvatarToolbarButtonBrowserTest
 IN_PROC_BROWSER_TEST_P(AvatarToolbarButtonBrowserTest, IncognitoWindowCount) {
   Profile* profile = browser()->GetProfile();
   BrowserWindowInterface* browser1 = CreateIncognitoBrowser(profile);
+  AvatarToolbarButtonTestAccessor avatar_accessor1(browser1);
+  EXPECT_TRUE(avatar_accessor1.GetEnabled());
+  EXPECT_TRUE(avatar_accessor1.GetVisible());
+  EXPECT_FALSE(GetWindowCountInAvatarButtonText(browser1).has_value());
+
+  BrowserWindowInterface* browser2 = CreateIncognitoBrowser(profile);
+  EXPECT_EQ(std::optional<int>(2),
+            GetWindowCountInAvatarButtonText(browser1,
+                                             /*wait_for_number=*/true));
+  EXPECT_EQ(std::optional<int>(2),
+            GetWindowCountInAvatarButtonText(browser2,
+                                             /*wait_for_number=*/true));
+
+  CloseBrowserSynchronously(browser2);
+  EXPECT_FALSE(GetWindowCountInAvatarButtonText(browser1).has_value());
+}
+
+class AvatarToolbarButtonEnterpriseIsolatedBrowserTest
+    : public AvatarToolbarButtonBrowserTest {
+ public:
+  void SetUpCommandLine(base::CommandLine* command_line) override {
+    AvatarToolbarButtonBrowserTest::SetUpCommandLine(command_line);
+    command_line->AppendSwitch(
+        enterprise_isolated_mode::switches::
+            kForceEnterpriseIsolatedModeReplacesIncognito);
+  }
+};
+
+IN_PROC_BROWSER_TEST_P(AvatarToolbarButtonEnterpriseIsolatedBrowserTest,
+                       EnterpriseIsolatedWindowCount) {
+  Profile* profile = browser()->GetProfile();
+  BrowserWindowInterface* browser1 = CreateIncognitoBrowser(profile);
+  ASSERT_TRUE(browser1->GetProfile()->IsEnterpriseIsolatedModeProfile());
   AvatarToolbarButtonTestAccessor avatar_accessor1(browser1);
   EXPECT_TRUE(avatar_accessor1.GetEnabled());
   EXPECT_TRUE(avatar_accessor1.GetVisible());
@@ -1035,6 +1080,17 @@ IN_PROC_BROWSER_TEST_P(AvatarToolbarButtonBrowserTest, IncognitoBrowser) {
       CreateIncognitoBrowser(browser()->GetProfile());
   AvatarToolbarButtonTestAccessor avatar_accessor1(browser1);
   // Incognito browsers always show an enabled avatar button.
+  EXPECT_TRUE(avatar_accessor1.GetVisible());
+  EXPECT_TRUE(avatar_accessor1.GetEnabled());
+}
+
+IN_PROC_BROWSER_TEST_P(AvatarToolbarButtonEnterpriseIsolatedBrowserTest,
+                       EnterpriseIsolatedBrowser) {
+  BrowserWindowInterface* browser1 =
+      CreateIncognitoBrowser(browser()->GetProfile());
+  ASSERT_TRUE(browser1->GetProfile()->IsEnterpriseIsolatedModeProfile());
+  AvatarToolbarButtonTestAccessor avatar_accessor1(browser1);
+  // Enterprise isolated browsers always show an enabled avatar button.
   EXPECT_TRUE(avatar_accessor1.GetVisible());
   EXPECT_TRUE(avatar_accessor1.GetEnabled());
 }
@@ -1194,6 +1250,10 @@ TEST_WITH_SIGNED_IN_FROM_PRE(
     OpenNewBrowserWhileNameIsShown) {
   ASSERT_TRUE(
       GetIdentityManager()->HasPrimaryAccount(signin::ConsentLevel::kSignin));
+
+  // Ensure the cross-window animation replay delay does not expire if the test
+  // execution or setup takes longer than the default 5 seconds.
+  SetInfiniteDelayForCrossWindowAnimationReplay();
 
   AvatarToolbarButtonTestAccessor avatar_accessor(browser());
   EXPECT_EQ(avatar_accessor.GetText(),
@@ -4493,6 +4553,9 @@ TEST_WITH_SIGNED_IN_FROM_PRE(
 #endif  // !BUILDFLAG(IS_CHROMEOS)
 
 INSTANTIATE_TEST_SUITE_P(All, AvatarToolbarButtonBrowserTest, testing::Bool());
+INSTANTIATE_TEST_SUITE_P(All,
+                         AvatarToolbarButtonEnterpriseIsolatedBrowserTest,
+                         testing::Bool());
 INSTANTIATE_TEST_SUITE_P(All,
                          AvatarToolbarButtonWithSyncBrowserTest,
                          testing::Bool());

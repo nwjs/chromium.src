@@ -39,6 +39,7 @@
 #include "components/viz/common/frame_sinks/copy_output_result.h"
 #include "content/browser/browser_context_impl.h"
 #include "content/browser/browser_url_handler_impl.h"
+#include "content/browser/renderer_host/initiator_navigation_state_impl.h"
 #include "content/browser/renderer_host/navigation_request.h"
 #include "content/browser/renderer_host/navigation_state_keep_alive.h"
 #include "content/browser/renderer_host/render_frame_host_impl.h"
@@ -60,6 +61,7 @@
 #include "content/public/browser/network_service_util.h"
 #include "content/public/browser/page_navigator.h"
 #include "content/public/browser/render_frame_host.h"
+#include "content/public/browser/site_isolation_policy.h"
 #include "content/public/browser/storage_partition_config.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/content_client.h"
@@ -212,9 +214,9 @@ class RenderFrameHostFactoryForHistoryBackInterceptor
       const blink::LocalFrameToken& frame_token,
       const blink::DocumentToken& document_token,
       base::UnguessableToken devtools_frame_token,
-      const base::UnguessableToken& initiator_state_token,
+      const blink::InitiatorStateToken& initiator_state_token,
       bool renderer_initiated_creation,
-      RenderFrameHostImpl::LifecycleStateImpl lifecycle_state,
+      RenderFrameHostLifecycleStateImpl lifecycle_state,
       scoped_refptr<BrowsingContextState> browsing_context_state) override {
     return base::WrapUnique(new RenderFrameHostImplForHistoryBackInterceptor(
         site_instance, std::move(render_view_host), delegate, frame_tree,
@@ -4091,14 +4093,14 @@ IN_PROC_BROWSER_TEST_F(NavigationBrowserTest,
     })
   )"));
 
-  RenderFrameHost* openee_rfh =
+  RenderFrameHostImpl* openee_rfh = static_cast<RenderFrameHostImpl*>(
       static_cast<WebContentsImpl*>(openee_shell->web_contents())
-          ->GetPrimaryMainFrame();
+          ->GetPrimaryMainFrame());
   // Issue a KeepAlive for the navigation state so that the PolicyContainerHost
   // will still exist after the initiator RenderFrameHost is gone.
   mojo::PendingRemote<blink::mojom::NavigationStateKeepAliveHandle> keep_alive;
-  static_cast<RenderFrameHostImpl*>(openee_rfh)
-      ->IssueKeepAliveHandle(keep_alive.InitWithNewPipeAndPassReceiver());
+  openee_rfh->IssueKeepAliveHandle(keep_alive.InitWithNewPipeAndPassReceiver(),
+                                   openee_rfh->current_initiator_state_token());
 
   auto initiator_global_token = openee_rfh->GetGlobalFrameToken();
   base::RunLoop loop;
@@ -4573,13 +4575,6 @@ IN_PROC_BROWSER_TEST_F(NavigationBrowserTest,
 
   TestNavigationObserver observer(shell()->web_contents());
   EXPECT_EQ(expected_str, EvalJs(shell(), js_str).ExtractString());
-
-  // Expect at this point that a NavigationStateKeepAlive has been created for
-  // the form submission.
-  NavigationStateKeepAlive* keep_alive =
-      BrowserContextImpl::From(current_frame_host()->GetBrowserContext())
-          ->GetNavigationStateKeepAlive(current_frame_host()->GetFrameToken());
-  ASSERT_TRUE(keep_alive);
 
   // Disable ref counts on the process, which resets all ref counts to 0. This
   // seems to happen in practice in https://crbug.com/348150830 when a
@@ -7056,7 +7051,7 @@ IN_PROC_BROWSER_TEST_F(CommitNavigationRaceBrowserTest,
   CommitNavigationPauser commit_pauser(speculative_render_frame_host.get());
   commit_pauser.WaitForCommitAndPause();
 
-  ASSERT_EQ(RenderFrameHostImpl::LifecycleStateImpl::kPendingCommit,
+  ASSERT_EQ(RenderFrameHostLifecycleStateImpl::kPendingCommit,
             speculative_render_frame_host->lifecycle_state());
 
   // Terminate the renderer process while `speculative_render_frame_host` is in
@@ -7241,7 +7236,7 @@ IN_PROC_BROWSER_TEST_F(NavigationBrowserTest,
                                         ->render_manager()
                                         ->speculative_frame_host();
             ASSERT_TRUE(speculative_rfh);
-            EXPECT_EQ(RenderFrameHostImpl::LifecycleStateImpl::kPendingCommit,
+            EXPECT_EQ(RenderFrameHostLifecycleStateImpl::kPendingCommit,
                       speculative_rfh->lifecycle_state());
 
             // But it should not have any pending cross-document navigation
@@ -9900,15 +9895,6 @@ IN_PROC_BROWSER_TEST_F(HstsUpgradeBrowserTest, UpgradeTopLevelOnly) {
   // The http://b.com iframe should not have been upgraded.
   EXPECT_EQ(url_of_hsts_frame_http,
             sub_frame->current_frame_host()->GetLastCommittedURL());
-
-  // Fenced Frames are treated as top-level frames in many cases, but not for
-  // HSTS upgrades. Requests for fenced frames should not be upgraded.
-  content::RenderFrameHost* fenced_frame =
-      fenced_frame_test_helper().CreateFencedFrame(
-          main_frame()->current_frame_host(), url_of_hsts_frame_http);
-
-  ASSERT_TRUE(fenced_frame);
-  EXPECT_EQ(url_of_hsts_frame_http, fenced_frame->GetLastCommittedURL());
 }
 
 IN_PROC_BROWSER_TEST_F(NavigationBrowserTest,
@@ -10093,7 +10079,7 @@ IN_PROC_BROWSER_TEST_F(NavigationBrowserTest,
                     .content_security_policies.size());
 
   // Go back to site B in the iframe, which will be blocked by CSP and result in
-  // an error page in site A's process.
+  // an error page in either site A's process or an isolated error page process.
   {
     TestNavigationObserver back_observer(web_contents, 1);
     ASSERT_TRUE(ExecJs(root, "history.back();"));
@@ -10101,12 +10087,25 @@ IN_PROC_BROWSER_TEST_F(NavigationBrowserTest,
     EXPECT_FALSE(back_observer.last_navigation_succeeded());
     EXPECT_EQ(net::ERR_BLOCKED_BY_CSP, back_observer.last_net_error_code());
   }
-  EXPECT_EQ(process_a, child->current_frame_host()->GetProcess()->GetID());
+  ChildProcessId error_page_process =
+      child->current_frame_host()->GetProcess()->GetID();
+  if (SiteIsolationPolicy::IsErrorPageIsolationEnabled(
+          /*in_main_frame=*/false)) {
+    EXPECT_NE(process_a, error_page_process);
+    EXPECT_NE(process_b, error_page_process);
+    EXPECT_TRUE(child->current_frame_host()
+                    ->GetSiteInstance()
+                    ->GetSiteInfo()
+                    .is_error_page());
+  } else {
+    EXPECT_EQ(process_a, error_page_process);
+  }
   // The error page's URL is the original target (b.com).
   EXPECT_EQ(b_post_target, child->current_url());
 
-  // Ensure that the failed navigation did not grant site A's process access to
-  // the file that was uploaded to site B.
+  // Ensure that the failed navigation did not grant the error page's process or
+  // site A's process access to the file that was uploaded to site B.
+  EXPECT_FALSE(policy->CanReadFile(error_page_process, file_path));
   EXPECT_FALSE(policy->CanReadFile(process_a, file_path));
 }
 
@@ -10390,6 +10389,76 @@ IN_PROC_BROWSER_TEST_F(NavigationBrowserTest,
   EXPECT_EQ(frame_entry->redirect_chain().size(), 2u);
   EXPECT_EQ(frame_entry->redirect_chain()[0], GURL(url::kAboutBlankURL));
   EXPECT_EQ(frame_entry->redirect_chain()[1], target_url);
+}
+
+// Checks that the InitiatorNavigationState for a navigation is properly updated
+// and inherited when the policies change in the renderer process.
+IN_PROC_BROWSER_TEST_F(NavigationBrowserTest, InitiatorNavigationStateUpdate) {
+  // Navigate to a page with two cross-site iframes.
+  GURL url = embedded_test_server()->GetURL(
+      "a.com", "/cross_site_iframe_factory.html?a(b,c)");
+  ASSERT_TRUE(NavigateToURL(shell(), url));
+
+  FrameTreeNode* root = main_frame();
+  ASSERT_EQ(2U, root->child_count());
+  FrameTreeNode* iframe1 = root->child_at(0);
+  FrameTreeNode* iframe2 = root->child_at(1);
+
+  // Now, the top level frame will navigate the two cross-origin iframes to
+  // about:blank while changing its referrer policy in the middle of triggering
+  // the two navigations.
+  FrameTestNavigationManager manager1(iframe1->frame_tree_node_id(),
+                                      web_contents(), GURL("about:blank"));
+  FrameTestNavigationManager manager2(iframe2->frame_tree_node_id(),
+                                      web_contents(), GURL("about:blank"));
+
+  ASSERT_TRUE(ExecJs(web_contents(), R"(
+    window.frames[0].location = 'about:blank';
+    var meta = document.createElement('meta');
+    meta.name = 'referrer';
+    meta.content = 'no-referrer';
+    document.head.appendChild(meta);
+    window.frames[1].location = 'about:blank';
+  )"));
+
+  ASSERT_TRUE(manager1.WaitForFirstYieldAfterDidStartNavigation());
+  ASSERT_TRUE(manager2.WaitForFirstYieldAfterDidStartNavigation());
+
+  scoped_refptr<InitiatorNavigationStateImpl> initiator_state_1(
+      static_cast<InitiatorNavigationStateImpl*>(
+          manager1.GetNavigationHandle()->GetInitiatorNavigationState().get()));
+  ASSERT_TRUE(initiator_state_1);
+
+  scoped_refptr<InitiatorNavigationStateImpl> initiator_state_2(
+      static_cast<InitiatorNavigationStateImpl*>(
+          manager2.GetNavigationHandle()->GetInitiatorNavigationState().get()));
+  ASSERT_TRUE(initiator_state_2);
+
+  // The two navigations should have different InitiatorNavigationStates because
+  // the PolicyContainerPolicies were modified in between the navigation starts.
+  EXPECT_NE(initiator_state_1.get(), initiator_state_2.get());
+  EXPECT_NE(initiator_state_1->policy_container_policies().referrer_policy,
+            initiator_state_2->policy_container_policies().referrer_policy);
+  EXPECT_EQ(initiator_state_1->policy_container_policies().referrer_policy,
+            network::mojom::ReferrerPolicy::kDefault);
+  EXPECT_EQ(initiator_state_2->policy_container_policies().referrer_policy,
+            network::mojom::ReferrerPolicy::kNever);
+
+  EXPECT_TRUE(manager1.WaitForNavigationFinished());
+  EXPECT_TRUE(manager2.WaitForNavigationFinished());
+
+  EXPECT_TRUE(manager1.was_committed());
+  EXPECT_TRUE(manager2.was_committed());
+
+  // The correct policies should be inherited by each iframe upon commit.
+  EXPECT_EQ(network::mojom::ReferrerPolicy::kDefault,
+            iframe1->current_frame_host()
+                ->policy_container_host()
+                ->referrer_policy());
+  EXPECT_EQ(network::mojom::ReferrerPolicy::kNever,
+            iframe2->current_frame_host()
+                ->policy_container_host()
+                ->referrer_policy());
 }
 
 }  // namespace content

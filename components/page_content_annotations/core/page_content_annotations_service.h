@@ -74,8 +74,11 @@ struct HistoryVisit {
   HistoryVisit();
   HistoryVisit(base::Time nav_entry_timestamp, GURL url);
   explicit HistoryVisit(history::VisitID visit_id);
-  ~HistoryVisit();
+
   HistoryVisit(const HistoryVisit&);
+  HistoryVisit(HistoryVisit&&);
+
+  ~HistoryVisit();
 
   base::Time nav_entry_timestamp;
   GURL url;
@@ -207,7 +210,8 @@ class PageContentAnnotationsService
   // Invoked when related searches have been extracted for |visit|, to store
   // the related searches in History Service.
   void OnRelatedSearchesExtracted(
-      const HistoryVisit& visit,
+      base::Time navigation_timestamp,
+      const GURL& navigation_url,
       continuous_search::SearchResultExtractorClientStatus status,
       continuous_search::mojom::CategoryResultsPtr results);
 
@@ -239,7 +243,7 @@ class PageContentAnnotationsService
  private:
   // Callback invoked when a single |visit| has been annotated.
   void OnPageContentAnnotated(
-      const HistoryVisit& visit,
+      HistoryVisit visit,
       const std::optional<history::VisitContentModelAnnotations>&
           content_annotations);
 
@@ -296,14 +300,15 @@ class PageContentAnnotationsService
   friend class PageContentAnnotationsWebContentsObserver;
   friend class PageContentAnnotationsServiceBrowserTest;
   // Virtualized for testing.
-  virtual void Annotate(const HistoryVisit& visit);
+  virtual void Annotate(HistoryVisit visit);
 
   // Annotates the provided `visit` in the history DB with the given list of
   // `related_searches`.
   //
   // Virtualized for testing.
   virtual void AddRelatedSearchesForVisit(
-      const HistoryVisit& visit,
+      base::Time navigation_timestamp,
+      const GURL& navigation_url,
       const std::vector<std::string>& related_searches);
 
   // Persist |page_entities_metadata| for |visit| in |history_service_|.
@@ -328,13 +333,14 @@ class PageContentAnnotationsService
   // |history_service| once the visits to the given URL have returned. The
   // |annotation_type| of data to be stored in History Service is passed along
   // for metrics purposes.
-  void QueryURL(const HistoryVisit& visit,
+  void QueryURL(base::Time navigation_timestamp,
+                const GURL& navigation_url,
                 PersistAnnotationsCallback callback,
                 PageContentAnnotationsType annotation_type);
   // Callback invoked when |history_service| has returned results for the visits
   // to a URL. In turn invokes |callback| to write the bound content annotations
   // to |history_service|.
-  void OnURLQueried(const HistoryVisit& visit,
+  void OnURLQueried(base::Time navigation_timestamp,
                     PersistAnnotationsCallback callback,
                     PageContentAnnotationsType annotation_type,
                     history::QueryURLAndVisitsResult url_result);

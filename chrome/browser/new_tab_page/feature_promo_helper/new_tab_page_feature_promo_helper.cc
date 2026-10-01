@@ -194,9 +194,7 @@ bool NewTabPageFeaturePromoHelper::IsSigninModalDialogOpen(
       GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(web_contents);
   // `browser` might be NULL if the new tab is immediately dragged out of the
   // window.
-  return browser ? browser->GetFeatures()
-                       .signin_view_controller()
-                       ->ShowsModalDialog()
+  return browser ? SigninViewController::From(browser)->ShowsModalDialog()
                  : false;
 #else
   return false;
@@ -207,9 +205,9 @@ void NewTabPageFeaturePromoHelper::MaybeTriggerAutomaticCustomizeChromePromo(
     content::WebContents* web_contents) {
 #if !BUILDFLAG(IS_ANDROID)
   auto* browser_interface = webui::GetBrowserWindowInterface(web_contents);
-  if (!browser_interface ||
-      browser_interface->GetFeatures().side_panel_ui()->IsSidePanelEntryShowing(
-          SidePanelEntryKey(SidePanelEntryId::kCustomizeChrome))) {
+  if (!browser_interface || SidePanelUI::From(browser_interface)
+                                ->IsSidePanelEntryShowing(SidePanelEntryKey(
+                                    SidePanelEntryId::kCustomizeChrome))) {
     return;
   }
 

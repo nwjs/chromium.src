@@ -17,6 +17,7 @@
 #include "third_party/blink/renderer/core/events/mouse_event.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
 #include "third_party/blink/renderer/core/frame/local_frame.h"
+#include "third_party/blink/renderer/core/frame/web_feature.h"
 #include "third_party/blink/renderer/core/html/forms/html_field_set_element.h"
 #include "third_party/blink/renderer/core/html/forms/html_option_element.h"
 #include "third_party/blink/renderer/core/html/forms/option_list.h"
@@ -27,12 +28,15 @@
 #include "third_party/blink/renderer/core/input/event_handler.h"
 #include "third_party/blink/renderer/core/input/keyboard_event_manager.h"
 #include "third_party/blink/renderer/core/keywords.h"
+#include "third_party/blink/renderer/platform/instrumentation/use_counter.h"
 #include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 
 namespace blink {
 
 HTMLMenuItemElement::HTMLMenuItemElement(Document& document)
-    : HTMLElement(html_names::kMenuitemTag, document), is_checked_(false) {}
+    : HTMLElement(html_names::kMenuitemTag, document), is_checked_(false) {
+  UseCounter::Count(document, WebFeature::kHTMLMenuItemElement);
+}
 
 HTMLMenuItemElement::~HTMLMenuItemElement() = default;
 
@@ -242,9 +246,7 @@ void HTMLMenuItemElement::ActivateMenuItem() {
   if (HTMLMenuListElement* submenu = GetInvokedSubmenu()) {
     DCHECK(!IsCheckable());
 
-    if (!submenu->popoverOpen()) {
-      submenu->InvokePopover(*this);
-    }
+    submenu->InvokePopover(*this, PopoverInvokedVia::kCommand);
 
     bool handling_keyboard_event = false;
     if (LocalFrame* frame = GetDocument().GetFrame()) {
@@ -405,9 +407,7 @@ void HTMLMenuItemElement::HandleMenuKeyboardEvents(Event& event) {
       // arrow right should open the invoked menulist and focus its first
       // menuitem.
       if (auto* invoked_menulist = GetInvokedSubmenu()) {
-        if (!invoked_menulist->popoverOpen()) {
-          invoked_menulist->InvokePopover(*this);
-        }
+        invoked_menulist->InvokePopover(*this, PopoverInvokedVia::kCommand);
         MenuItemList invoked_menuitems = invoked_menulist->ItemList();
         if (auto* first = invoked_menuitems.NextFocusableElement(
                 *invoked_menuitems.begin(), /*inclusive=*/true)) {
@@ -528,9 +528,7 @@ void HTMLMenuItemElement::HandleMenuKeyboardEvents(Event& event) {
       // If this invokes a menulist and is in a menubar, then arrow down/up
       // should open the menulist and go to first/last menuitem in it.
       if (auto* invoked_menulist = GetInvokedSubmenu()) {
-        if (!invoked_menulist->popoverOpen()) {
-          invoked_menulist->InvokePopover(*this);
-        }
+        invoked_menulist->InvokePopover(*this, PopoverInvokedVia::kCommand);
         if (key == keywords::kArrowDown) {
           if (invoked_menulist->FocusFirstItem()) {
             event.SetDefaultHandled();
@@ -644,6 +642,16 @@ void HTMLMenuItemElement::ResetAncestorElementCache() {
 
 Node::InsertionNotificationRequest HTMLMenuItemElement::InsertedInto(
     ContainerNode& insertion_point) {
+  if (insertion_point.HasTagName(html_names::kMenuTag)) {
+    // Count things that look like the old HTML context menu markup.
+    // (Chromium's implementation required only an ancestor-descendant
+    // relationship but Gecko's required a parent-child relationship, so it
+    // seems likely that most such content used parent-child.  It doesn't seem
+    // worth the cost of a tree walk to make this measurement slightly more
+    // accurate.)
+    UseCounter::Count(GetDocument(), WebFeature::kHTMLMenuItemInMenu);
+  }
+
   auto return_value = HTMLElement::InsertedInto(insertion_point);
 
   // Run various ancestor/state resets.

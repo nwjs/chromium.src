@@ -44,6 +44,7 @@ namespace actor {
 class AggregatedJournalFileSerializer;
 namespace ui {
 class ActorUiStateManagerInterface;
+class UiEventDispatcher;
 }
 
 class EnterprisePolicyChecker;
@@ -68,11 +69,6 @@ class ActorKeyedService : public KeyedService,
   // Convenience method, may return nullptr.
   static ActorKeyedService* Get(content::BrowserContext* context);
 
-  // TODO(crbug.com/428014205): Create a mock ActorKeyedService for testing so
-  // we can remove this function.
-  void SetActorUiStateManagerForTesting(
-      std::unique_ptr<ui::ActorUiStateManagerInterface> ausm);
-
   const std::map<TaskId, const ActorTask*> GetActiveTasks() const;
 
   size_t GetActiveTasksCount() const;
@@ -85,16 +81,18 @@ class ActorKeyedService : public KeyedService,
 
   // Starts a new task with an execution engine and returns the new task's id.
   // `options`, when provided, contains information used to initialize the task.
-  // The provided `policy_checker` must be non-null and it must outlive the
-  // ActorTask.
+  // The provided `policy_checker` and `ui_state_manager` must be non-null and
+  // must outlive the ActorTask.
   TaskId CreateTask(const TaskSourceInfo& source_info,
                     const EnterprisePolicyChecker* policy_checker);
-  TaskId CreateTaskWithOptions(const TaskSourceInfo& source_info,
-                               const EnterprisePolicyChecker* policy_checker,
-                               webui::mojom::TaskOptionsPtr options,
-                               base::WeakPtr<ActorTaskDelegate> delegate,
-                               std::optional<glic::mojom::InvocationSource>
-                                   initial_invocation_source = std::nullopt);
+  TaskId CreateTaskWithOptions(
+      const TaskSourceInfo& source_info,
+      const EnterprisePolicyChecker* policy_checker,
+      webui::mojom::TaskOptionsPtr options,
+      base::WeakPtr<ActorTaskDelegate> delegate,
+      actor::ui::ActorUiStateManagerInterface* ui_state_manager,
+      std::optional<glic::mojom::InvocationSource> initial_invocation_source =
+          std::nullopt);
   TaskId CreateTaskForTesting(
       std::unique_ptr<actor::ui::UiEventDispatcher> ui_event_dispatcher,
       const TaskSourceInfo& source_info,
@@ -127,11 +125,6 @@ class ActorKeyedService : public KeyedService,
 
   // The associated ActorUiStateManager for the associated profile.
   ui::ActorUiStateManagerInterface* GetActorUiStateManager();
-
-  // Sets/clears pending actuation indicator on a tab prior to an ActorTask
-  // starting.
-  void SetTabPendingActuation(tabs::TabHandle tab_handle);
-  bool ClearTabPendingActuation(tabs::TabHandle tab_handle);
 
   // Returns true if there is a task that is actively (i.e. not paused) acting
   // in the given `tab`.
@@ -260,6 +253,7 @@ class ActorKeyedService : public KeyedService,
       const EnterprisePolicyChecker* policy_checker,
       webui::mojom::TaskOptionsPtr options,
       base::WeakPtr<ActorTaskDelegate> delegate,
+      actor::ui::ActorUiStateManagerInterface* ui_state_manager,
       std::optional<glic::mojom::InvocationSource> initial_invocation_source);
 
   // The callback used for ExecutorEngine::Act.

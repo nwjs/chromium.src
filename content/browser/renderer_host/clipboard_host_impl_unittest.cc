@@ -29,6 +29,7 @@
 #include "content/public/test/test_content_browser_client.h"
 #include "content/public/test/test_renderer_host.h"
 #include "content/public/test/test_utils.h"
+#include "mojo/public/cpp/bindings/receiver.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "mojo/public/cpp/system/message_pipe.h"
 #include "skia/ext/skia_utils_base.h"
@@ -179,7 +180,7 @@ TEST_F(ClipboardHostImplTest, WriteFromInactiveDocumentIsIgnored) {
 
   static_cast<RenderFrameHostImpl*>(web_contents()->GetPrimaryMainFrame())
       ->SetLifecycleState(
-          RenderFrameHostImpl::LifecycleStateImpl::kInBackForwardCache);
+          RenderFrameHostLifecycleStateImpl::kInBackForwardCache);
   ASSERT_FALSE(web_contents()->GetPrimaryMainFrame()->IsActive());
 
   mojo_clipboard()->WriteText(u"from-inactive-document");
@@ -200,7 +201,7 @@ TEST_F(ClipboardHostImplTest, ReadFromInactiveDocumentIsIgnored) {
 
   static_cast<RenderFrameHostImpl*>(web_contents()->GetPrimaryMainFrame())
       ->SetLifecycleState(
-          RenderFrameHostImpl::LifecycleStateImpl::kInBackForwardCache);
+          RenderFrameHostLifecycleStateImpl::kInBackForwardCache);
   ASSERT_FALSE(web_contents()->GetPrimaryMainFrame()->IsActive());
 
   std::u16string result = u"non-empty";
@@ -279,6 +280,52 @@ TEST_F(ClipboardHostImplTest, GetSequenceNumber) {
   EXPECT_NE(id3, id4);
 }
 
+TEST_F(ClipboardHostImplTest,
+       ClipboardSequenceNumberDoesNotRequirePasteAuthorization) {
+  ClipboardPasteAllowedBrowserClient browser_client;
+  ScopedContentBrowserClientSetting browser_client_setting(&browser_client);
+
+  browser_client.set_is_clipboard_paste_allowed(false);
+
+  absl::uint128 sequence_number;
+  mojo_clipboard()->GetSequenceNumber(ui::ClipboardBuffer::kCopyPaste,
+                                      &sequence_number);
+  EXPECT_NE(absl::uint128(), sequence_number);
+}
+
+TEST_F(ClipboardHostImplTest,
+       ClipboardFormatMetadataRequiresPasteAuthorization) {
+  ClipboardPasteAllowedBrowserClient browser_client;
+  ScopedContentBrowserClientSetting browser_client_setting(&browser_client);
+
+  {
+    ui::ScopedClipboardWriter writer(ui::ClipboardBuffer::kCopyPaste);
+    writer.WriteText(u"clipboard-text");
+  }
+
+  browser_client.set_is_clipboard_paste_allowed(false);
+
+  std::vector<std::u16string> types = {u"non-empty"};
+  mojo_clipboard()->ReadAvailableTypes(ui::ClipboardBuffer::kCopyPaste, &types);
+  EXPECT_TRUE(types.empty());
+
+  bool format_available = true;
+  mojo_clipboard()->IsFormatAvailable(blink::mojom::ClipboardFormat::kPlaintext,
+                                      ui::ClipboardBuffer::kCopyPaste,
+                                      &format_available);
+  EXPECT_FALSE(format_available);
+
+  browser_client.set_is_clipboard_paste_allowed(true);
+
+  mojo_clipboard()->ReadAvailableTypes(ui::ClipboardBuffer::kCopyPaste, &types);
+  EXPECT_TRUE(std::ranges::contains(types, u"text/plain"));
+
+  mojo_clipboard()->IsFormatAvailable(blink::mojom::ClipboardFormat::kPlaintext,
+                                      ui::ClipboardBuffer::kCopyPaste,
+                                      &format_available);
+  EXPECT_TRUE(format_available);
+}
+
 class ClipboardHostImplWriteTest : public RenderViewHostTestHarness {
  protected:
   ClipboardHostImplWriteTest()
@@ -294,6 +341,9 @@ class ClipboardHostImplWriteTest : public RenderViewHostTestHarness {
   }
 
   void TearDown() override {
+    // Close the pipe before destroying what it is bound to, otherwise a message
+    // still in flight dispatches into freed memory when the loop is pumped.
+    receiver_.reset();
     fake_clipboard_host_impl_ = nullptr;
     RenderViewHostTestHarness::TearDown();
   }
@@ -306,11 +356,13 @@ class ClipboardHostImplWriteTest : public RenderViewHostTestHarness {
   // created pointer.
   ClipboardHostImpl* clipboard_host_impl() {
     if (!fake_clipboard_host_impl_) {
-      fake_clipboard_host_impl_ =
-          new ClipboardHostImpl(*web_contents()->GetPrimaryMainFrame(),
-                                remote_.BindNewPipeAndPassReceiver());
+      fake_clipboard_host_impl_ = std::make_unique<ClipboardHostImpl>(
+          *web_contents()->GetPrimaryMainFrame());
+      receiver_ = std::make_unique<mojo::Receiver<blink::mojom::ClipboardHost>>(
+          fake_clipboard_host_impl_.get(),
+          remote_.BindNewPipeAndPassReceiver());
     }
-    return fake_clipboard_host_impl_;
+    return fake_clipboard_host_impl_.get();
   }
 
   mojo::Remote<blink::mojom::ClipboardHost>& mojo_clipboard() {
@@ -337,9 +389,8 @@ class ClipboardHostImplWriteTest : public RenderViewHostTestHarness {
 
  private:
   mojo::Remote<blink::mojom::ClipboardHost> remote_;
-  // `ClipboardHostImpl` is a `DocumentService` and manages its own
-  // lifetime.
-  raw_ptr<ClipboardHostImpl> fake_clipboard_host_impl_;
+  std::unique_ptr<ClipboardHostImpl> fake_clipboard_host_impl_;
+  std::unique_ptr<mojo::Receiver<blink::mojom::ClipboardHost>> receiver_;
 };
 
 TEST_F(ClipboardHostImplWriteTest, NoSourceWithoutDataWrite) {
@@ -375,11 +426,11 @@ TEST_F(ClipboardHostImplWriteTest, MainFrameURL) {
                      "grandchild"));
 
   mojo::Remote<blink::mojom::ClipboardHost> remote_grandchild;
-  // `ClipboardHostImpl` is a `DocumentService` and manages its own
-  // lifetime.
-  raw_ptr<ClipboardHostImpl> fake_clipboard_host_impl_grandchild =
-      new ClipboardHostImpl(*grandchild_rfh,
-                            remote_grandchild.BindNewPipeAndPassReceiver());
+  auto fake_clipboard_host_impl_grandchild =
+      std::make_unique<ClipboardHostImpl>(*grandchild_rfh);
+  mojo::Receiver<blink::mojom::ClipboardHost> receiver_grandchild(
+      fake_clipboard_host_impl_grandchild.get(),
+      remote_grandchild.BindNewPipeAndPassReceiver());
 
   bool is_policy_callback_called = false;
   ClipboardHostImpl::ClipboardPasteData clipboard_paste_data;
@@ -643,10 +694,8 @@ class ClipboardHostImplAsyncWriteTest : public RenderViewHostTestHarness {
  protected:
   class AsyncWriteClipboardHostImpl : public ClipboardHostImpl {
    public:
-    AsyncWriteClipboardHostImpl(
-        RenderFrameHost& render_frame_host,
-        mojo::PendingReceiver<blink::mojom::ClipboardHost> receiver)
-        : ClipboardHostImpl(render_frame_host, std::move(receiver)) {}
+    explicit AsyncWriteClipboardHostImpl(RenderFrameHost& render_frame_host)
+        : ClipboardHostImpl(render_frame_host) {}
 
     void OnCopyAllowedResult(
         const ui::ClipboardFormatType& data_type,
@@ -721,12 +770,16 @@ class ClipboardHostImplAsyncWriteTest : public RenderViewHostTestHarness {
     RenderViewHostTestHarness::SetUp();
     SetContents(CreateTestWebContents());
     NavigateAndCommit(GURL("https://google.com/"));
-    fake_clipboard_host_impl_ =
-        new AsyncWriteClipboardHostImpl(*web_contents()->GetPrimaryMainFrame(),
-                                        remote_.BindNewPipeAndPassReceiver());
+    fake_clipboard_host_impl_ = std::make_unique<AsyncWriteClipboardHostImpl>(
+        *web_contents()->GetPrimaryMainFrame());
+    receiver_ = std::make_unique<mojo::Receiver<blink::mojom::ClipboardHost>>(
+        fake_clipboard_host_impl_.get(), remote_.BindNewPipeAndPassReceiver());
   }
 
   void TearDown() override {
+    // Close the pipe before destroying what it is bound to, otherwise a message
+    // still in flight dispatches into freed memory when the loop is pumped.
+    receiver_.reset();
     fake_clipboard_host_impl_ = nullptr;
     RenderViewHostTestHarness::TearDown();
   }
@@ -738,14 +791,13 @@ class ClipboardHostImplAsyncWriteTest : public RenderViewHostTestHarness {
   mojo::Remote<blink::mojom::ClipboardHost>& remote() { return remote_; }
 
   AsyncWriteClipboardHostImpl* async_write_clipboard_host_impl() {
-    return fake_clipboard_host_impl_;
+    return fake_clipboard_host_impl_.get();
   }
 
  private:
   mojo::Remote<blink::mojom::ClipboardHost> remote_;
-  // `ClipboardHostImpl` is a `DocumentService` and manages its own
-  // lifetime.
-  raw_ptr<AsyncWriteClipboardHostImpl> fake_clipboard_host_impl_;
+  std::unique_ptr<AsyncWriteClipboardHostImpl> fake_clipboard_host_impl_;
+  std::unique_ptr<mojo::Receiver<blink::mojom::ClipboardHost>> receiver_;
 };
 
 TEST_F(ClipboardHostImplAsyncWriteTest, WriteText) {
@@ -1123,6 +1175,9 @@ class ClipboardHostImplChangeTest : public RenderViewHostTestHarness {
   }
 
   void TearDown() override {
+    // Close the pipe before destroying what it is bound to, otherwise a message
+    // still in flight dispatches into freed memory when the loop is pumped.
+    receiver_.reset();
     fake_clipboard_host_impl_ = nullptr;
     RenderViewHostTestHarness::TearDown();
   }
@@ -1135,20 +1190,21 @@ class ClipboardHostImplChangeTest : public RenderViewHostTestHarness {
   // created pointer.
   ClipboardHostImpl* clipboard_host_impl() {
     if (!fake_clipboard_host_impl_) {
-      fake_clipboard_host_impl_ =
-          new ClipboardHostImpl(*web_contents()->GetPrimaryMainFrame(),
-                                remote_.BindNewPipeAndPassReceiver());
+      fake_clipboard_host_impl_ = std::make_unique<ClipboardHostImpl>(
+          *web_contents()->GetPrimaryMainFrame());
+      receiver_ = std::make_unique<mojo::Receiver<blink::mojom::ClipboardHost>>(
+          fake_clipboard_host_impl_.get(),
+          remote_.BindNewPipeAndPassReceiver());
     }
-    return fake_clipboard_host_impl_;
+    return fake_clipboard_host_impl_.get();
   }
 
  protected:
   mojo::Remote<blink::mojom::ClipboardHost> remote_;
 
  private:
-  // `ClipboardHostImpl` is a `DocumentService` and manages its own
-  // lifetime.
-  raw_ptr<ClipboardHostImpl> fake_clipboard_host_impl_;
+  std::unique_ptr<ClipboardHostImpl> fake_clipboard_host_impl_;
+  std::unique_ptr<mojo::Receiver<blink::mojom::ClipboardHost>> receiver_;
 };
 
 class MockClipboardListener : public blink::mojom::ClipboardListener {
@@ -1242,7 +1298,7 @@ TEST_F(ClipboardHostImplChangeTest, NoNotificationToInactiveDocument) {
 
   static_cast<RenderFrameHostImpl*>(web_contents()->GetPrimaryMainFrame())
       ->SetLifecycleState(
-          RenderFrameHostImpl::LifecycleStateImpl::kInBackForwardCache);
+          RenderFrameHostLifecycleStateImpl::kInBackForwardCache);
   ASSERT_FALSE(web_contents()->GetPrimaryMainFrame()->IsActive());
 
   ui::ClipboardMonitor::GetInstance()->NotifyClipboardDataChanged();
@@ -1271,7 +1327,7 @@ TEST_F(ClipboardHostImplChangeTest,
   // The document goes away before the clipboard read completes.
   static_cast<RenderFrameHostImpl*>(web_contents()->GetPrimaryMainFrame())
       ->SetLifecycleState(
-          RenderFrameHostImpl::LifecycleStateImpl::kInBackForwardCache);
+          RenderFrameHostLifecycleStateImpl::kInBackForwardCache);
   deferred_clipboard_ptr->CompleteReadAvailableTypes({u"text/plain"});
   // Drain the listener pipe so that an unwanted OnClipboardDataChanged() would
   // actually be delivered, and therefore caught by the Times(0) expectation.
@@ -1426,10 +1482,10 @@ TEST_F(ClipboardHostImplTest, ReadUnsanitizedCustomFormat_WithUserActivation) {
 
 // ContentBrowserClient that lets a paste pass the renderer permission gate but
 // blocks it at the data controls / DLP policy layer (full deny).
-class FilesPolicyDenyBrowserClient : public TestContentBrowserClient {
+class PolicyDenyBrowserClient : public TestContentBrowserClient {
  public:
-  FilesPolicyDenyBrowserClient() = default;
-  ~FilesPolicyDenyBrowserClient() override = default;
+  PolicyDenyBrowserClient() = default;
+  ~PolicyDenyBrowserClient() override = default;
 
   bool IsClipboardPasteAllowed(
       content::RenderFrameHost* render_frame_host) override {
@@ -1452,7 +1508,7 @@ class FilesPolicyDenyBrowserClient : public TestContentBrowserClient {
 // read capability. Because granting now happens only for the policy-allowed
 // subset (after the policy decision), a full deny grants nothing.
 TEST_F(ClipboardHostImplTest, ReadFiles_PolicyDeny_GrantsNoFileAccess) {
-  FilesPolicyDenyBrowserClient browser_client;
+  PolicyDenyBrowserClient browser_client;
   ScopedContentBrowserClientSetting browser_client_setting(&browser_client);
 
   // Seed the clipboard with a file. A real (absolute) path is used so the
@@ -1483,6 +1539,105 @@ TEST_F(ClipboardHostImplTest, ReadFiles_PolicyDeny_GrantsNoFileAccess) {
   EXPECT_TRUE(result->files.empty());
   EXPECT_FALSE(result->file_system_id);
   EXPECT_FALSE(policy->CanReadFile(child_id, blocked_file));
+}
+
+// Custom TestClipboard that returns configured HTML markup, source URL, and
+// fragment start/end offsets from ReadHTML().
+class CustomFragmentTestClipboard : public ui::TestClipboard {
+ public:
+  CustomFragmentTestClipboard(std::u16string markup,
+                              GURL src_url,
+                              uint32_t fragment_start,
+                              uint32_t fragment_end)
+      : markup_(std::move(markup)),
+        src_url_(std::move(src_url)),
+        fragment_start_(fragment_start),
+        fragment_end_(fragment_end) {}
+  ~CustomFragmentTestClipboard() override = default;
+
+  void ReadHTML(ui::ClipboardBuffer buffer,
+                const std::optional<ui::DataTransferEndpoint>& data_dst,
+                ReadHtmlCallback callback) const override {
+    std::move(callback).Run(markup_, src_url_, fragment_start_, fragment_end_);
+  }
+
+ private:
+  std::u16string markup_;
+  GURL src_url_;
+  uint32_t fragment_start_;
+  uint32_t fragment_end_;
+};
+
+// When policies block an HTML paste, ReadHtml() must clear all data (markup,
+// source URL, and fragment start/end) so that no information is leaked to the
+// renderer.
+TEST_F(ClipboardHostImplTest, ReadHtml_PolicyDeny_ClearsAllData) {
+  PolicyDenyBrowserClient browser_client;
+  ScopedContentBrowserClientSetting browser_client_setting(&browser_client);
+
+  const GURL kUrl("https://example.com");
+  const std::u16string kHtml = u"<html>foo</html>";
+  {
+    ui::ScopedClipboardWriter writer(ui::ClipboardBuffer::kCopyPaste);
+    writer.WriteHTML(kHtml, kUrl.spec());
+  }
+
+  std::u16string markup;
+  GURL url;
+  uint32_t start = 123;
+  uint32_t end = 456;
+  mojo_clipboard()->ReadHtml(ui::ClipboardBuffer::kCopyPaste, &markup, &url,
+                             &start, &end);
+
+  EXPECT_TRUE(markup.empty());
+  EXPECT_TRUE(url.is_empty());
+  EXPECT_EQ(0u, start);
+  EXPECT_EQ(0u, end);
+}
+
+// This test verifies that non-zero fragment start and end offsets returned by
+// the clipboard are cleared to 0 when pasting is blocked by policy.
+TEST_F(ClipboardHostImplTest,
+       ReadHtml_PolicyDeny_ClearsNonZeroFragmentOffsets) {
+  ui::Clipboard::DestroyClipboardForCurrentThread();
+  ui::Clipboard::SetClipboardForCurrentThread(
+      std::make_unique<CustomFragmentTestClipboard>(
+          u"<html>foo</html>", GURL("https://example.com"),
+          /*fragment_start=*/10, /*fragment_end=*/20));
+  base::ScopedClosureRunner cleanup(
+      base::BindLambdaForTesting([this]() { DeleteAndRecreateClipboard(); }));
+
+  // When policy allows, the non-zero fragment offsets and metadata are passed
+  // through.
+  {
+    std::u16string markup;
+    GURL url;
+    uint32_t start = 0;
+    uint32_t end = 0;
+    mojo_clipboard()->ReadHtml(ui::ClipboardBuffer::kCopyPaste, &markup, &url,
+                               &start, &end);
+    EXPECT_EQ(u"<html>foo</html>", markup);
+    EXPECT_EQ(GURL("https://example.com"), url);
+    EXPECT_EQ(10u, start);
+    EXPECT_EQ(20u, end);
+  }
+
+  // When policy denies, all data including fragment offsets must be cleared.
+  {
+    PolicyDenyBrowserClient browser_client;
+    ScopedContentBrowserClientSetting browser_client_setting(&browser_client);
+
+    std::u16string markup;
+    GURL url;
+    uint32_t start = 123;
+    uint32_t end = 456;
+    mojo_clipboard()->ReadHtml(ui::ClipboardBuffer::kCopyPaste, &markup, &url,
+                               &start, &end);
+    EXPECT_TRUE(markup.empty());
+    EXPECT_TRUE(url.is_empty());
+    EXPECT_EQ(0u, start);
+    EXPECT_EQ(0u, end);
+  }
 }
 
 // ContentBrowserClient that lets a paste pass the renderer permission gate but

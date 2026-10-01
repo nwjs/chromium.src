@@ -13,7 +13,9 @@
 #include "android_webview/browser/aw_render_process_gone_delegate.h"
 #include "android_webview/common/aw_descriptors.h"
 #include "android_webview/common/aw_features.h"
+#include "base/android/jni_android.h"
 #include "base/android/scoped_java_ref.h"
+#include "base/android/sys_utils.h"
 #include "base/logging.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/strings/stringprintf.h"
@@ -29,6 +31,9 @@
 #include "content/public/browser/render_widget_host_iterator.h"
 #include "content/public/browser/web_contents.h"
 
+// Must come after all headers that specialize FromJniType() / ToJniType().
+#include "android_webview/browser_jni_headers/AwMinidumpUploader_jni.h"
+
 using base::android::ScopedJavaGlobalRef;
 using content::BrowserThread;
 
@@ -37,21 +42,18 @@ namespace android_webview {
 namespace {
 
 constexpr char kRenderProcessGoneHistogramName[] =
-    "Android.WebView.OnRenderProcessGoneResult2";
+    "Android.WebView.OnRenderProcessGoneResult3";
 
 // These values are persisted to logs. Entries should not be renumbered and
 // numeric values should never be reused.
 enum class RenderProcessGoneResult {
   kJavaException = 0,
-  // kCrashNotHandled = 1,  // Deprecated
-  // kKillNotHandled = 2,   // Deprecated
-  // kAllWebViewsHandled = 3, // Deprecated: use kCrashHandled/kKillHandled
-  kCrashHandled = 4,
-  kKillHandled = 5,
-  kCrashNotHandledVisible = 6,
-  kCrashNotHandledBackground = 7,
-  kKillNotHandledVisible = 8,
-  kKillNotHandledBackground = 9,
+  kCrashHandled = 1,
+  kKillHandled = 2,
+  kCrashNotHandledForeground = 3,
+  kCrashNotHandledBackground = 4,
+  kKillNotHandledForeground = 5,
+  kKillNotHandledBackground = 6,
   kMaxValue = kKillNotHandledBackground,
 };
 
@@ -97,14 +99,14 @@ void OnRenderProcessGone(
         base::CurrentUIThread::Get()->Abort();
         return;
       case AwRenderProcessGoneDelegate::RenderProcessGoneResult::kUnhandled: {
-        const bool is_app_visible_to_user =
-            AwBrowserProcess::IsAppVisibleToUser();
+        const bool is_app_in_background =
+            base::android::IsProcessInBackground();
         if (crashed) {
           base::UmaHistogramEnumeration(
               kRenderProcessGoneHistogramName,
-              is_app_visible_to_user
-                  ? RenderProcessGoneResult::kCrashNotHandledVisible
-                  : RenderProcessGoneResult::kCrashNotHandledBackground);
+              is_app_in_background
+                  ? RenderProcessGoneResult::kCrashNotHandledBackground
+                  : RenderProcessGoneResult::kCrashNotHandledForeground);
           std::string message = base::StringPrintf(
               "Render process (%d)'s crash wasn't handled by all associated  "
               "webviews, triggering application crash.",
@@ -113,9 +115,9 @@ void OnRenderProcessGone(
         } else {
           base::UmaHistogramEnumeration(
               kRenderProcessGoneHistogramName,
-              is_app_visible_to_user
-                  ? RenderProcessGoneResult::kKillNotHandledVisible
-                  : RenderProcessGoneResult::kKillNotHandledBackground);
+              is_app_in_background
+                  ? RenderProcessGoneResult::kKillNotHandledBackground
+                  : RenderProcessGoneResult::kKillNotHandledForeground);
           // The render process was most likely killed for OOM or switching
           // WebView provider, to make WebView backward compatible, kills the
           // browser process instead of triggering crash.
@@ -143,7 +145,8 @@ void OnRenderProcessGone(
 
   // By this point we have moved the minidump to the crash directory, so it can
   // now be copied and uploaded.
-  AwBrowserProcess::TriggerMinidumpUploading();
+  Java_AwMinidumpUploader_triggerMinidumpUploading(
+      base::android::AttachCurrentThread());
 }
 
 }  // namespace

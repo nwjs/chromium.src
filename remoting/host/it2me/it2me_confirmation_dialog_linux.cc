@@ -19,6 +19,7 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/time/time.h"
 #include "base/timer/timer.h"
+#include "remoting/base/email_utils.h"
 #include "remoting/base/string_resources.h"
 #include "ui/base/glib/scoped_gsignal.h"
 #include "ui/base/l10n/l10n_util.h"
@@ -89,8 +90,8 @@ void It2MeConfirmationDialogLinux::Hide() {
   dialog_timer_.Stop();
 
   if (confirmation_window_) {
-    gtk_widget_destroy(confirmation_window_);
-    confirmation_window_ = nullptr;
+    signal_.Reset();
+    gtk_widget_destroy(confirmation_window_.ExtractAsDangling());
   }
 }
 
@@ -126,7 +127,7 @@ void It2MeConfirmationDialogLinux::CreateWindow(
       base::i18n::MessageFormatter::FormatWithNumberedArgs(
           l10n_util::GetStringUTF16(
               IDS_SHARE_CONFIRM_DIALOG_MESSAGE_WITH_USERNAME),
-          remote_user_email);
+          FormatEmailForDisplay(remote_user_email));
   GtkWidget* text_label = gtk_label_new(base::UTF16ToUTF8(dialog_text).c_str());
   gtk_label_set_line_wrap(GTK_LABEL(text_label), true);
 #if GTK_CHECK_VERSION(3, 90, 0)

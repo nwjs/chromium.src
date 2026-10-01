@@ -99,11 +99,13 @@
 #include "components/prefs/pref_service.h"
 #include "components/safe_browsing/core/browser/realtime/fake_url_lookup_service.h"
 #include "components/search/ntp_features.h"
+#include "components/sessions/core/session_id.h"
 #include "components/split_tabs/split_tab_visual_data.h"
 #include "components/tabs/public/split_tab_collection.h"
 #include "components/vector_icons/vector_icons.h"
 #include "content/public/browser/desktop_capture_pip_utils.h"
 #include "content/public/browser/invalidate_type.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "content/public/common/drop_data.h"
@@ -131,6 +133,7 @@
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/models/dialog_model.h"
 #include "ui/base/ozone_buildflags.h"
+#include "ui/base/page_transition_types.h"
 #include "ui/base/ui_base_features.h"
 #include "ui/events/base_event_utils.h"
 #include "ui/events/event.h"
@@ -700,6 +703,9 @@ IN_PROC_BROWSER_TEST_F(BrowserViewTest, FindBarBoundingBoxNoLocationBar) {
 
 // Browser widget must be visible for ui::ElementIdentifiers to resolve.
 IN_PROC_BROWSER_TEST_F(BrowserViewTest, RotatePaneFocusFromView) {
+  if (features::IsWebUILocationBarEnabled()) {
+    GTEST_SKIP() << "Not applicable when WebUILocationBar is enabled.";
+  }
   BrowserView* browser_view = BrowserView::GetBrowserViewForBrowser(browser());
   browser_view->GetWidget()->Activate();
   // Native NSWindow widget activation events are not reliably dispatched on
@@ -760,7 +766,7 @@ IN_PROC_BROWSER_TEST_F(BrowserViewTest,
   BrowserWindowCreateParams params =
       BrowserWindowCreateParams::CreateForPictureInPicture(
           "PipApp", /*trusted_source=*/true, browser()->GetProfile(),
-          /*user_gesture=*/true);
+          /*from_user_gesture=*/true);
   BrowserWindowInterface* pip_browser = CreateBrowserWindow(std::move(params));
   pip_browser->GetWindow()->Show();
   BrowserView* pip_browser_view =
@@ -1732,9 +1738,7 @@ IN_PROC_BROWSER_TEST_F(BrowserViewTest, ScrimForTabModalInSplitView) {
       active_contents_container_view()->contents_scrim_view()->GetVisible());
 }
 
-// TODO(crbug.com/543094230): Test is flaky.
-// Tests that GetAccessibleTabLabel correctly labels each tab in a split.
-IN_PROC_BROWSER_TEST_F(BrowserViewTest, DISABLED_AccessibleTabLabel) {
+IN_PROC_BROWSER_TEST_F(BrowserViewTest, AccessibleTabLabel) {
   auto* controller = WindowMetadataController::From(browser());
 
   // Create a pinned split.
@@ -2260,4 +2264,76 @@ IN_PROC_BROWSER_TEST_F(BrowserViewDeferLayoutTest, DeferLayoutWhileInvisible) {
   EXPECT_FALSE(browser_view2->is_layout_deferred_for_testing());
 
   widget2->CloseNow();
+}
+
+IN_PROC_BROWSER_TEST_F(BrowserViewDeferLayoutTest,
+                       NoDeferLayoutOnSizeChangeWhileInvisible) {
+  BrowserWindowInterface* browser2 = CreateBrowserWindow(
+      BrowserWindowCreateParams(browser()->GetProfile(),
+                                /*from_user_gesture=*/true));
+  BrowserView* browser_view2 = BrowserView::GetBrowserViewForBrowser(browser2);
+  views::Widget* widget2 = browser_view2->GetWidget();
+  ASSERT_FALSE(widget2->IsVisible());
+
+  // Trigger initial layout pass.
+  widget2->LayoutRootViewIfNecessary();
+
+  chrome::AddTabAt(browser2, GURL("about:blank"), -1, true);
+  widget2->LayoutRootViewIfNecessary();
+  EXPECT_FALSE(browser_view2->GetContentsSize().IsEmpty());
+
+  // Subsequent layout without size change is deferred.
+  browser_view2->InvalidateLayout();
+  widget2->LayoutRootViewIfNecessary();
+  EXPECT_TRUE(browser_view2->is_layout_deferred_for_testing());
+
+  // Changing the widget's size while invisible must not defer layout, so child
+  // views are updated with the new size. Shrink the widget bounds to avoid
+  // hitting display work area limits on smaller test screens (e.g. Windows VMs
+  // or ChromeOS).
+  const gfx::Size original_client_size = browser_view2->size();
+  const gfx::Size original_contents_size = browser_view2->GetContentsSize();
+  gfx::Rect bounds = widget2->GetWindowBoundsInScreen();
+  bounds.set_width(bounds.width() - 100);
+  bounds.set_height(bounds.height() - 100);
+  widget2->SetBounds(bounds);
+  widget2->LayoutRootViewIfNecessary();
+  EXPECT_EQ(browser_view2->size().width(), original_client_size.width() - 100);
+  EXPECT_EQ(browser_view2->size().height(),
+            original_client_size.height() - 100);
+  EXPECT_EQ(browser_view2->GetContentsSize().width(),
+            original_contents_size.width() - 100);
+  EXPECT_EQ(browser_view2->GetContentsSize().height(),
+            original_contents_size.height() - 100);
+
+  // Subsequent layout without size change should be deferred again.
+  browser_view2->InvalidateLayout();
+  widget2->LayoutRootViewIfNecessary();
+  EXPECT_TRUE(browser_view2->is_layout_deferred_for_testing());
+
+  widget2->CloseNow();
+}
+
+IN_PROC_BROWSER_TEST_F(BrowserViewDeferLayoutTest,
+                       NoDeferLayoutForNonNormalWindow) {
+  BrowserWindowCreateParams params(BrowserWindowInterface::TYPE_POPUP,
+                                   browser()->GetProfile(),
+                                   /*user_gesture=*/true);
+  BrowserWindowInterface* popup = CreateBrowserWindow(std::move(params));
+  BrowserView* popup_view = BrowserView::GetBrowserViewForBrowser(popup);
+  views::Widget* popup_widget = popup_view->GetWidget();
+  ASSERT_FALSE(popup_widget->IsVisible());
+
+  // Non-normal windows should have startup layout deferral disabled.
+  EXPECT_TRUE(popup_view->is_startup_layout_disabled_for_testing());
+
+  popup_widget->LayoutRootViewIfNecessary();
+  EXPECT_FALSE(popup_view->is_layout_deferred_for_testing());
+
+  chrome::AddTabAt(popup, GURL("about:blank"), -1, true);
+  popup_view->InvalidateLayout();
+  popup_widget->LayoutRootViewIfNecessary();
+  EXPECT_FALSE(popup_view->is_layout_deferred_for_testing());
+
+  popup_widget->CloseNow();
 }

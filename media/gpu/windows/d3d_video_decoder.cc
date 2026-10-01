@@ -31,15 +31,12 @@
 #include "media/base/video_decoder_config.h"
 #include "media/base/video_frame.h"
 #include "media/base/video_util.h"
-#include "media/gpu/windows/d3d_av1_accelerator.h"
-#if BUILDFLAG(ENABLE_HEVC_PARSER_AND_HW_DECODER)
-#include "media/gpu/windows/d3d_h265_accelerator.h"
-#endif  // BUILDFLAG(ENABLE_HEVC_PARSER_AND_HW_DECODER)
-#include "media/gpu/windows/d3d11_picture_buffer.h"
 #include "media/gpu/windows/d3d11_status.h"
 #include "media/gpu/windows/d3d11_video_device_format_support.h"
-#include "media/gpu/windows/d3d11_video_frame_mailbox_release_helper.h"
 #include "media/gpu/windows/d3d12_video_decoder_wrapper.h"
+#include "media/gpu/windows/d3d_av1_accelerator.h"
+#include "media/gpu/windows/d3d_picture_buffer.h"
+#include "media/gpu/windows/d3d_video_frame_mailbox_release_helper.h"
 #include "media/gpu/windows/supported_profile_helpers.h"
 #include "media/media_buildflags.h"
 #include "ui/gfx/color_space.h"
@@ -47,6 +44,10 @@
 #include "ui/gfx/hdr_metadata.h"
 #include "ui/gl/gl_angle_util_win.h"
 #include "ui/gl/gl_switches.h"
+
+#if BUILDFLAG(ENABLE_HEVC_PARSER_AND_HW_DECODER)
+#include "media/gpu/windows/d3d_h265_accelerator.h"
+#endif  // BUILDFLAG(ENABLE_HEVC_PARSER_AND_HW_DECODER)
 
 namespace media {
 
@@ -133,7 +134,7 @@ D3DVideoDecoder::D3DVideoDecoder(
     SupportedConfigs supported_configs)
     : media_log_(std::move(media_log)),
       mailbox_release_helper_(
-          base::MakeRefCounted<D3D11VideoFrameMailboxReleaseHelper>(
+          base::MakeRefCounted<D3DVideoFrameMailboxReleaseHelper>(
               media_log_->Clone(),
               get_helper_cb)),
       gpu_task_runner_(std::move(gpu_task_runner)),
@@ -230,7 +231,7 @@ bool D3DVideoDecoder::RecreateDecoderWrapper() {
              : 8);
   }
 
-  auto decoder_configurator = D3D11DecoderConfigurator::Create(
+  auto decoder_configurator = D3DDecoderConfigurator::Create(
       gpu_preferences_, gpu_workarounds_, config_, bit_depth, chroma_sampling_,
       media_log_.get(), use_shared_handle_, device_);
   if (!decoder_configurator) {
@@ -238,7 +239,7 @@ bool D3DVideoDecoder::RecreateDecoderWrapper() {
     return false;
   }
 
-  if (!decoder_configurator->SupportsDevice(video_device_)) {
+  if (!decoder_configurator->SupportsD3D11Device(video_device_)) {
     NotifyError(D3D11StatusCode::kDecoderUnsupportedCodec);
     return false;
   }
@@ -276,7 +277,7 @@ bool D3DVideoDecoder::RecreateDecoderWrapper() {
 
 std::unique_ptr<D3DVideoDecoderWrapper>
 D3DVideoDecoder::CreateD3DVideoDecoderWrapper(
-    D3D11DecoderConfigurator* decoder_configurator,
+    D3DDecoderConfigurator* decoder_configurator,
     uint8_t bit_depth) {
   CHECK(decoder_configurator);
   std::unique_ptr<D3DVideoDecoderWrapper> video_decoder_wrapper;
@@ -460,7 +461,7 @@ void D3DVideoDecoder::Initialize(const VideoDecoderConfig& config,
   } else {
     gpu_task_runner_->PostTask(
         FROM_HERE,
-        base::BindOnce(&D3D11VideoFrameMailboxReleaseHelper::Initialize,
+        base::BindOnce(&D3DVideoFrameMailboxReleaseHelper::Initialize,
                        mailbox_release_helper_,
                        base::BindPostTaskToCurrentDefault(
                            std::move(mailbox_helper_init_cb))));
@@ -468,7 +469,7 @@ void D3DVideoDecoder::Initialize(const VideoDecoderConfig& config,
 }
 
 void D3DVideoDecoder::ReceivePictureBufferFromClient(
-    scoped_refptr<D3D11PictureBuffer> buffer) {
+    scoped_refptr<D3DPictureBuffer> buffer) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   TRACE_EVENT0("gpu", "D3DVideoDecoder::ReceivePictureBufferFromClient");
 
@@ -482,7 +483,7 @@ void D3DVideoDecoder::ReceivePictureBufferFromClient(
 }
 
 void D3DVideoDecoder::PictureBufferGPUResourceInitDone(
-    scoped_refptr<D3D11PictureBuffer> buffer) {
+    scoped_refptr<D3DPictureBuffer> buffer) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   TRACE_EVENT0("gpu", "D3DVideoDecoder::PictureBufferGPUResourceInitDone");
 
@@ -500,7 +501,7 @@ void D3DVideoDecoder::PictureBufferGPUResourceInitDone(
 
 void D3DVideoDecoder::OnGpuInitComplete(
     bool success,
-    D3D11VideoFrameMailboxReleaseHelper::ReleaseMailboxCB release_mailbox_cb) {
+    D3DVideoFrameMailboxReleaseHelper::ReleaseMailboxCB release_mailbox_cb) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   TRACE_EVENT0("gpu", "D3DVideoDecoder::OnGpuInitComplete");
 
@@ -783,7 +784,7 @@ int D3DVideoDecoder::GetMaxDecodeRequests() const {
 void D3DVideoDecoder::CreatePictureBuffers() {
   // TODO(liberato): When we run off the gpu main thread, this call will need
   // to signal success / failure asynchronously.  We'll need to transition into
-  // a "waiting for pictures" state, since D3D11PictureBuffer will post the gpu
+  // a "waiting for pictures" state, since D3DPictureBuffer will post the gpu
   // thread work.
   TRACE_EVENT0("gpu", "D3DVideoDecoder::CreatePictureBuffers");
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
@@ -824,7 +825,7 @@ void D3DVideoDecoder::CreatePictureBuffers() {
   for (size_t i = 0; i < pic_buffers_required; i++) {
     // Create an input texture / texture array if we haven't already.
     if (!in_texture) {
-      auto result = decoder_configurator_->CreateOutputTexture(
+      auto result = decoder_configurator_->CreateD3D11OutputTexture(
           device_, size,
           use_single_video_decoder_texture_ ? 1 : pic_buffers_required,
           texture_selector_->DoesDecoderOutputUseSharedHandle());
@@ -845,11 +846,11 @@ void D3DVideoDecoder::CreatePictureBuffers() {
     }
 
     const size_t array_slice = use_single_video_decoder_texture_ ? 0 : i;
-    picture_buffers_.push_back(base::MakeRefCounted<D3D11PictureBuffer>(
+    picture_buffers_.push_back(base::MakeRefCounted<D3DPictureBuffer>(
         decoder_task_runner_, in_texture, array_slice, std::move(tex_wrapper),
         /*level=*/i));
 
-    base::OnceCallback<void(scoped_refptr<media::D3D11PictureBuffer>)>
+    base::OnceCallback<void(scoped_refptr<media::D3DPictureBuffer>)>
         picture_buffer_gpu_resource_init_done_cb = base::DoNothing();
 
     // WebGPU requires interop on the picture buffer to achieve zero copy.
@@ -885,7 +886,7 @@ void D3DVideoDecoder::CreatePictureBuffers() {
   }
 }
 
-D3D11PictureBuffer* D3DVideoDecoder::GetPicture() {
+D3DPictureBuffer* D3DVideoDecoder::GetPicture() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
   for (auto& buffer : picture_buffers_) {
@@ -898,7 +899,7 @@ D3D11PictureBuffer* D3DVideoDecoder::GetPicture() {
   return nullptr;
 }
 
-void D3DVideoDecoder::UpdateTimestamp(D3D11PictureBuffer* picture_buffer) {
+void D3DVideoDecoder::UpdateTimestamp(D3DPictureBuffer* picture_buffer) {
   // A picture is being reused with a different timestamp; since we've already
   // generated a VideoFrame from the previous picture buffer, we can just stamp
   // the new timestamp directly onto the buffer.
@@ -906,7 +907,7 @@ void D3DVideoDecoder::UpdateTimestamp(D3D11PictureBuffer* picture_buffer) {
 }
 
 bool D3DVideoDecoder::OutputResult(const CodecPicture* picture,
-                                   D3D11PictureBuffer* picture_buffer) {
+                                   D3DPictureBuffer* picture_buffer) {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   DCHECK(texture_selector_);
   TRACE_EVENT0("gpu", "D3DVideoDecoder::OutputResult");
@@ -953,14 +954,11 @@ bool D3DVideoDecoder::OutputResult(const CodecPicture* picture,
   auto wait_complete_cb = base::BindPostTaskToCurrentDefault(
       base::BindOnce(&D3DVideoDecoder::ReceivePictureBufferFromClient,
                      weak_factory_.GetWeakPtr(),
-                     scoped_refptr<D3D11PictureBuffer>(picture_buffer)));
+                     scoped_refptr<D3DPictureBuffer>(picture_buffer)));
   frame->SetReleaseMailboxCB(
       base::BindOnce(release_mailbox_cb_, std::move(wait_complete_cb)));
   frame->metadata().power_efficient = true;
 
-  // If the output texture is in RGB pixel format, then the color space needs to
-  // be updated using the color space of the output texture.
-  frame->set_color_space(shared_image->color_space());
   if (shared_image->color_space().IsHDR()) {
     // Some streams may have varying metadata, so bitstream metadata should be
     // preferred over metadata provide by the configuration.

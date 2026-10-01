@@ -48,7 +48,7 @@
 #include "components/policy/core/common/policy_service_impl.h"
 #include "components/policy/core/common/policy_types.h"
 #include "components/policy/policy_constants.h"
-#include "components/session_manager/test/test_user_session_manager.h"
+#include "components/session_manager/test/user_session_test_environment.h"
 #include "components/user_manager/fake_user_manager.h"
 #include "components/user_manager/scoped_user_manager.h"
 #include "components/user_manager/user.h"
@@ -59,6 +59,7 @@
 #include "net/cert/x509_util_nss.h"
 #include "net/test/cert_test_util.h"
 #include "net/test/test_data_directory.h"
+#include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "services/network/public/cpp/weak_wrapper_shared_url_loader_factory.h"
 #include "services/network/test/test_url_loader_factory.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -305,8 +306,8 @@ class NetworkConfigurationUpdaterAshTest : public testing::Test {
     TestingBrowserProcess::GetGlobal()->SetSharedURLLoaderFactory(
         test_url_loader_factory_.GetSafeWeakWrapper());
 
-    test_user_session_manager_ =
-        std::make_unique<ash::test::TestUserSessionManager>(
+    user_session_test_environment_ =
+        std::make_unique<ash::test::UserSessionTestEnvironment>(
             TestingBrowserProcess::GetGlobal()->local_state());
     user_session_manager_ = std::make_unique<ash::UserSessionManager>(
         TestingBrowserProcess::GetGlobal()->local_state(),
@@ -323,13 +324,13 @@ class NetworkConfigurationUpdaterAshTest : public testing::Test {
 
     const AccountId account_id =
         AccountId::FromUserEmailGaiaId(kFakeUserEmail, GaiaId("12345"));
-    fake_user_ = test_user_session_manager_->AddRegularUser(account_id);
+    fake_user_ = user_session_test_environment_->AddRegularUser(account_id);
     ASSERT_TRUE(fake_user_);
 
     // Simulate log-in.
     user_session_manager_->set_start_session_type_for_testing(
         ash::UserSessionManager::StartSessionType::kPrimary);
-    test_user_session_manager_->LogIn(account_id);
+    user_session_test_environment_->LogIn(account_id);
 
     profile_ = std::make_unique<TestingProfile>();
 
@@ -380,7 +381,7 @@ class NetworkConfigurationUpdaterAshTest : public testing::Test {
     profile_.reset();
     fake_user_ = nullptr;
     user_session_manager_.reset();
-    test_user_session_manager_.reset();
+    user_session_test_environment_.reset();
 
     TestingBrowserProcess::GetGlobal()->SetSharedURLLoaderFactory(nullptr);
   }
@@ -459,8 +460,9 @@ class NetworkConfigurationUpdaterAshTest : public testing::Test {
   ash::ScopedTestingCrosSettings scoped_testing_cros_settings_;
   ash::system::ScopedFakeStatisticsProvider fake_statistics_provider_;
 
-  // NOTE: TestUserSessionManager is not a UserSessionManager.
-  std::unique_ptr<ash::test::TestUserSessionManager> test_user_session_manager_;
+  // NOTE: UserSessionTestEnvironment is not a UserSessionManager.
+  std::unique_ptr<ash::test::UserSessionTestEnvironment>
+      user_session_test_environment_;
   std::unique_ptr<ash::UserSessionManager> user_session_manager_;
 
   // Ownership of client_certificate_importer_owned_ is passed to the

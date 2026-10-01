@@ -44,6 +44,7 @@
 #include "partition_alloc/partition_alloc_allocation_data.h"
 #include "partition_alloc/partition_alloc_base/compiler_specific.h"
 #include "partition_alloc/partition_alloc_base/component_export.h"
+#include "partition_alloc/partition_alloc_base/cxx_wrapper/optional.h"
 #include "partition_alloc/partition_alloc_base/thread_annotations.h"
 #include "partition_alloc/partition_alloc_config.h"
 #include "partition_alloc/partition_alloc_constants.h"
@@ -53,6 +54,7 @@
 #include "partition_alloc/reservation_offset_table.h"
 #include "partition_alloc/scheduler_loop_quarantine.h"
 #include "partition_alloc/slot_address_and_size.h"
+#include "partition_alloc/slot_start.h"
 #include "partition_alloc/thread_cache.h"
 
 // When a memory tool is replacing malloc to keep aligned behaviour working we
@@ -202,6 +204,20 @@ class alignas(internal::kPartitionCachelineSize)
   using SuperPageExtentEntry = internal::PartitionSuperPageExtentEntry;
   using DirectMapExtent = internal::PartitionDirectMapExtent;
 
+  struct RawAllocResult {
+    SlotAddressAndSize slot_and_size = {};
+    size_t usable_size = 0;
+    bool is_already_zeroed = false;
+    bool can_store_raw_size = false;
+  };
+
+  struct AllocInternalResult {
+    void* object = nullptr;
+    // Optional: if the memory tool override or the allocation
+    // hook takes control, there's nothing here.
+    std::optional<RawAllocResult> raw_alloc_result = std::nullopt;
+  };
+
   enum class BucketDistribution : uint8_t { kNeutral, kDenser };
 
   // Root settings_ accessed on fast paths.
@@ -272,8 +288,11 @@ class alignas(internal::kPartitionCachelineSize)
   alignas(internal::kPartitionCachelineSize) internal::Lock lock_;
 
   // Add last bucket as sentinel.
-  Bucket buckets_[BucketIndexLookup::kNumBuckets] = {};
-  Bucket sentinel_bucket_{};
+  std::array<Bucket, BucketIndexLookup::kNumBuckets + 1> buckets_ = {};
+  static constexpr size_t kSentinelBucketIndex = BucketIndexLookup::kNumBuckets;
+  PA_ALWAYS_INLINE const Bucket& SentinelBucket() const {
+    return buckets_[PartitionRoot::kSentinelBucketIndex];
+  }
 
   // All fields below this comment are not accessed on the fast path.
   bool initialized_ = false;
@@ -574,17 +593,26 @@ class alignas(internal::kPartitionCachelineSize)
       SlotAddressAndSize slot_and_size);
 #endif  // PA_BUILDFLAG(ENABLE_BACKUP_REF_PTR_SUPPORT)
 
+  // Since this is primarily used internally, it does not check for
+  // Checked Span's "smuggled requested size" (4 bytes), returning the
+  // _entire_ usable size of the slot. This is fine for
+  // 1. accounting purposes or
+  // 2. zapping (i.e. the allocation is dead and / or dangling), and
+  //    further Checked Spans pointing at this are bogus anyway.
+  //
+  // Prefer the override with `BucketSizeDetails` if one is available:
+  // this can avoid touching the `SlotSpanMetadata`, improving
+  // performance.
   PA_ALWAYS_INLINE size_t
   GetSlotUsableSize(const SlotSpanMetadata* slot_span) const;
-
-  // This function attempts to compute the slot_span's usable size without
-  // touching `slot_span`, but if it fails it will fall back on
-  // GetSlotUsableSize(slot_span).
   PA_ALWAYS_INLINE size_t
   GetSlotUsableSize(const internal::BucketSizeDetails& size_details,
                     SlotSpanMetadata* slot_span) const;
 
-  PA_NOINLINE static size_t GetUsableSize(const void* ptr);
+  // Note: this static method is the most friendly to external callers.
+  // It always defaults to checking for Checked Span's "smuggled
+  // requested size" (4 bytes) and subtracting if necessary.
+  PA_NOINLINE static size_t GetExternalUsableSize(const void* ptr);
 
   PA_ALWAYS_INLINE PageAccessibilityConfiguration
   GetPageAccessibility(bool request_tagging) const;
@@ -814,18 +842,6 @@ class alignas(internal::kPartitionCachelineSize)
   PA_ALWAYS_INLINE static bool FreeProlog(void* object,
                                           const PartitionRoot* root);
 
-  // |buckets_| has `BucketIndexLookup::kNumBuckets` elements, but we
-  // sometimes access it at index `BucketIndexLookup::kNumBuckets`, which is
-  // occupied by the sentinel bucket. The correct layout is enforced by a
-  // static_assert() in partition_root.cc, so this is fine. However, UBSAN is
-  // correctly pointing out that there is an out-of-bounds access, so disable it
-  // for these accesses.
-  //
-  // See crbug.com/1150772 for an instance of Clusterfuzz / UBSAN detecting
-  // this.
-  PA_NO_SANITIZE("undefined")
-  PA_ALWAYS_INLINE const Bucket& bucket_at(size_t i) const;
-
   // Returns whether a |bucket| from |this| root is direct-mapped. This function
   // does not touch |bucket|, contrary to  PartitionBucket::is_direct_mapped().
   //
@@ -848,37 +864,29 @@ class alignas(internal::kPartitionCachelineSize)
   // alignment, otherwise a sub-optimal allocation strategy is used to
   // guarantee the higher-order alignment.
   template <AllocFlags flags>
-  PA_ALWAYS_INLINE PA_MALLOC_FN void* AllocInternal(size_t requested_size,
-                                                    size_t alignment,
-                                                    const char* type_name);
+  PA_ALWAYS_INLINE AllocInternalResult AllocInternal(size_t requested_size,
+                                                     size_t alignment,
+                                                     const char* type_name);
 
   // Same as |AllocInternal()|, but don't handle allocation hooks.
   template <AllocFlags flags = AllocFlags::kNone>
-  PA_ALWAYS_INLINE PA_MALLOC_FN void* AllocInternalNoHooks(
-      size_t requested_size,
-      size_t slot_span_alignment);
+  PA_ALWAYS_INLINE AllocInternalResult
+  AllocInternalNoHooks(size_t requested_size, size_t slot_span_alignment);
   // Allocates a memory slot, without initializing extras.
   //
   // - |flags| are as in Alloc().
   // - |raw_size| accommodates for extras on top of Alloc()'s
   //   |requested_size|.
-  // - |usable_size|, |slot_size| and |is_already_zeroed| are output only.
+  // - |usable_size|, |slot_and_size| and |is_already_zeroed| are returned in
+  //   |RawAllocResult|.
   //   Note, |usable_size| is guaranteed to be no smaller than Alloc()'s
-  //   |requested_size|, and no larger than |slot_size|.
+  //   |requested_size|, and no larger than |slot_and_size.size|.
   template <AllocFlags flags>
-  PA_ALWAYS_INLINE UntaggedSlotStart RawAlloc(Bucket* bucket,
-                                              size_t raw_size,
-                                              size_t slot_span_alignment,
-                                              size_t* usable_size,
-                                              size_t* slot_size,
-                                              bool* is_already_zeroed);
+  PA_ALWAYS_INLINE std::optional<RawAllocResult>
+  RawAlloc(Bucket* bucket, size_t raw_size, size_t slot_span_alignment);
   template <AllocFlags flags>
-  PA_ALWAYS_INLINE UntaggedSlotStart AllocFromBucket(Bucket* bucket,
-                                                     size_t raw_size,
-                                                     size_t slot_span_alignment,
-                                                     size_t* usable_size,
-                                                     size_t* slot_size,
-                                                     bool* is_already_zeroed)
+  PA_ALWAYS_INLINE std::optional<RawAllocResult>
+  AllocFromBucket(Bucket* bucket, size_t raw_size, size_t slot_span_alignment)
       PA_EXCLUSIVE_LOCKS_REQUIRED(internal::PartitionRootLock(this));
 
   // We use this to make MEMORY_TOOL_REPLACES_ALLOCATOR behave the same for max

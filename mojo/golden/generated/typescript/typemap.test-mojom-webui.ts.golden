@@ -42,7 +42,8 @@ export interface IFaceWithTypemapInterface {
         out: number, }>;
 }
 
-export class IFaceWithTypemapRemote implements IFaceWithTypemapInterface {
+export class IFaceWithTypemapRemote implements IFaceWithTypemapInterface,
+    mojo.internal.interfaceSupport.InterfaceRemote<IFaceWithTypemapPendingReceiver> {
   private proxy: mojo.internal.interfaceSupport.InterfaceRemoteBase<IFaceWithTypemapPendingReceiver>;
   $: mojo.internal.interfaceSupport.InterfaceRemoteBaseWrapper<IFaceWithTypemapPendingReceiver>;
   onConnectionError: mojo.internal.interfaceSupport.ConnectionErrorEventRouter;
@@ -77,7 +78,9 @@ export class IFaceWithTypemapRemote implements IFaceWithTypemapInterface {
  * mojom interface. Must be constructed over an object which implements that
  * interface.
  */
-export class IFaceWithTypemapReceiver {
+export class IFaceWithTypemapReceiver implements
+    mojo.internal.interfaceSupport.InterfaceReceiver<
+        IFaceWithTypemapRemote, IFaceWithTypemapPendingReceiver> {
   private helper_internal_: mojo.internal.interfaceSupport.InterfaceReceiverHelperInternal<
     IFaceWithTypemapRemote, IFaceWithTypemapPendingReceiver>;
 
@@ -128,7 +131,9 @@ export class IFaceWithTypemap {
  * on this object for each message defined in the mojom interface, and each
  * receiver can have any number of listeners added to it.
  */
-export class IFaceWithTypemapCallbackRouter {
+export class IFaceWithTypemapCallbackRouter implements
+    mojo.internal.interfaceSupport.InterfaceCallbackRouter<
+        IFaceWithTypemapRemote, IFaceWithTypemapPendingReceiver> {
   private helper_internal_: mojo.internal.interfaceSupport.InterfaceReceiverHelperInternal<
     IFaceWithTypemapRemote, IFaceWithTypemapPendingReceiver>;
   $: mojo.internal.interfaceSupport.InterfaceReceiverHelper<
@@ -181,7 +186,7 @@ export const IFaceWithTypemap_Echo_ResponseParamsSpec: { $: mojo.internal.MojomT
 
 
 
-export interface TypemappedMojoType {
+export declare interface TypemappedMojoType {
   field: number;
   optional: (number | null);
   optionalContainer: Array<(boolean | null)>;
@@ -253,7 +258,7 @@ mojo.internal.TypemappedStruct<number, TypemappedMojoType> (
 
 
 
-export interface IFaceWithTypemap_Echo_ParamsMojoType {
+export declare interface IFaceWithTypemap_Echo_ParamsMojoType {
   param: number;
 }
 
@@ -280,7 +285,7 @@ mojo.internal.Struct<IFaceWithTypemap_Echo_ParamsMojoType>(
 
 
 
-export interface IFaceWithTypemap_Echo_ResponseParamsMojoType {
+export declare interface IFaceWithTypemap_Echo_ResponseParamsMojoType {
   out: number;
 }
 

@@ -10,7 +10,7 @@
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/color/color_provider.h"
-#include "ui/compositor_extra/shadow.h"
+#include "ui/decoration/shadow.h"
 #include "ui/gfx/color_utils.h"
 #include "ui/views/view_shadow.h"
 
@@ -33,7 +33,7 @@ void ShadowFrameView::SetShadowVisible(bool visible) {
   if (visible) {
     view_shadow_ = std::make_unique<views::ViewShadow>(this, shadow_elevation_);
     view_shadow_->SetRoundedCornerRadius(corner_radius_);
-    view_shadow_->shadow()->shadow_layer()->SetOpacity(shadow_opacity_);
+    view_shadow_->shadow()->layer()->SetOpacity(shadow_opacity_);
     UpdateShadowColors();
   } else {
     view_shadow_.reset();
@@ -50,7 +50,7 @@ void ShadowFrameView::SetShadowOpacity(double opacity) {
   shadow_opacity_ = opacity;
 
   if (view_shadow_) {
-    view_shadow_->shadow()->shadow_layer()->SetOpacity(opacity);
+    view_shadow_->shadow()->layer()->SetOpacity(opacity);
     SchedulePaint();
   }
 }
@@ -82,22 +82,18 @@ void ShadowFrameView::UpdateShadowColors() {
   }
   was_dark_ = is_dark;
 
-  const std::pair<SkColor, SkColor> shadow_colors =
-      is_dark
-          ? std::make_pair(
-                SkColorSetARGB(base::ClampRound(255.0 * shadow_alpha_.dark_key),
-                               0, 0, 0),
-                SkColorSetARGB(
-                    base::ClampRound(255.0 * shadow_alpha_.dark_ambient), 0, 0,
-                    0))
-          : std::make_pair(
-                SkColorSetARGB(
-                    base::ClampRound(255.0 * shadow_alpha_.light_key), 0, 0, 0),
-                SkColorSetARGB(
-                    base::ClampRound(255.0 * shadow_alpha_.light_ambient), 0, 0,
-                    0));
+  auto make_shadow_color = [](double alpha) {
+    return SkColorSetARGB(base::ClampRound(255.0 * alpha), 0, 0, 0);
+  };
+
+  const ui::Shadow::ElevationColors shadow_colors{
+      .key_color = make_shadow_color(is_dark ? shadow_alpha_.dark_key
+                                             : shadow_alpha_.light_key),
+      .ambient_color = make_shadow_color(
+          is_dark ? shadow_alpha_.dark_ambient : shadow_alpha_.light_ambient)};
+
   const ui::Shadow::ElevationToColorsMap map{
       {shadow_elevation_, shadow_colors}};
-  view_shadow_->shadow()->SetElevationToColorsMap(map);
+  view_shadow_->shadow()->SetColorMap(map);
   SchedulePaint();
 }

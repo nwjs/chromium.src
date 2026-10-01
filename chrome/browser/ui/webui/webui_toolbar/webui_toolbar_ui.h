@@ -115,6 +115,7 @@ class WebUIToolbarUI : public TopChromeWebUIController,
   virtual void OnNavigationControlsStateChanged(
       const toolbar_ui_api::mojom::NavigationControlsState& state);
   void OnFocusRequested(toolbar_ui_api::mojom::FocusRequestTarget target);
+  void ShowSplitTabsContextMenu();
 
   // The |depdency_provider| is expected to outlive this class.
   void Init(DependencyProvider* dependency_provider);
@@ -147,6 +148,11 @@ class WebUIToolbarUI : public TopChromeWebUIController,
       mojo::PendingReceiver<help_bubble::mojom::HelpBubbleHandler> handler)
       override;
 
+  void FinishCreateHelpBubbleHandler(
+      mojo::PendingRemote<help_bubble::mojom::HelpBubbleClient> client,
+      mojo::PendingReceiver<help_bubble::mojom::HelpBubbleHandler> handler,
+      base::WeakPtr<ui::TrackedElementHandler> tracked_element_handler);
+
   // searchbox::mojom::PageHandlerFactory:
   void CreatePageHandler(
       mojo::PendingRemote<searchbox::mojom::Page> page,
@@ -159,6 +165,10 @@ class WebUIToolbarUI : public TopChromeWebUIController,
   // elements tracked by ui/webui/tracked_element. Used for anchoring secondary
   // UIs.
   static const std::vector<ui::ElementIdentifier> GetKnownElementIdentifiers();
+
+  bool has_been_initialized_for_testing() const {
+    return toolbar_ui_service_ != nullptr;
+  }
 
  private:
   FRIEND_TEST_ALL_PREFIXES(WebUIToolbarUITest,
@@ -223,6 +233,13 @@ class WebUIToolbarUI : public TopChromeWebUIController,
 
   mojo::Receiver<searchbox::mojom::PageHandlerFactory>
       searchbox_page_factory_receiver_{this};
+
+  // These two are used if searchbox CreatePageHandler is called before Init();
+  mojo::PendingRemote<searchbox::mojom::Page> delayed_searchbox_page_;
+  mojo::PendingReceiver<searchbox::mojom::PageHandler>
+      delayed_searchbox_receiver_;
+
+  base::WeakPtrFactory<WebUIToolbarUI> weak_ptr_factory_{this};
 
   /////////////////////////////////////////////////////////////////////////////
 

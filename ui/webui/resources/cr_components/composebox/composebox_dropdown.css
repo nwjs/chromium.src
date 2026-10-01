@@ -9,16 +9,75 @@
  * #include=cr-icons-lit
  * #css_wrapper_metadata_end */
 
-:host{
+:host {
   display: flex;
   flex-direction: column;
-  padding-inline-end: 16px;
+  min-height: 0;
 }
 
 :host([hidden]) {
   display: none;
 }
 
-cr-composebox-match[hidden] {
+/* Direct grid items must be hidden to collapse empty cells in CSS Grid. */
+[part='match-wrapper']:has(cr-composebox-match[hidden]) {
   display: none;
+}
+
+.matches.vertical {
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 2px;
+  padding-inline-end: 16px;
+}
+
+.matches.grid {
+  box-sizing: border-box;
+  display: grid;
+  gap: var(--cr-composebox-grid-row-gap, 16px)
+      var(--cr-composebox-grid-column-gap, 8px);
+  grid-template-columns: repeat(
+      auto-fill,
+      minmax(
+          min(100%, var(--cr-composebox-grid-min-item-width, 110px)),
+          var(--cr-composebox-grid-max-item-width, 136px)));
+  justify-content: start;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding-block-end: var(--cr-composebox-grid-padding-bottom, 6px);
+  padding-block-start: 16px;
+  padding-inline: 16px;
+  scroll-padding-block-end: 16px;
+  scroll-padding-block-start: 16px;
+}
+
+.matches.grid::-webkit-scrollbar {
+  width: 7px;
+}
+
+.matches.grid::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.matches.grid::-webkit-scrollbar-thumb {
+  background: #7f7f7f;
+  border-radius: 100px;
+}
+
+.matches.grid [part='match-wrapper'] {
+  width: 100%;
+}
+
+.header {
+  align-items: center;
+  box-sizing: border-box;
+  color: var(--cr-composebox-header-color, #1f1f1f);
+  display: flex;
+  flex-shrink: 0;
+  font-size: var(--cr-composebox-header-font-size, 14px);
+  font-weight: var(--cr-composebox-header-font-weight, 500);
+  line-height: var(--cr-composebox-header-line-height, 20px);
+  margin-block: 0;
+  padding-inline: var(--cr-composebox-header-padding-inline, 16px);
 }

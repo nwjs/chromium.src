@@ -114,6 +114,11 @@ std::optional<GURL> BuildInstallerDownloadUrl(bool is_metrics_enabled) {
              : std::nullopt;
 }
 
+bool IsInfoBarMigrated() {
+  return infobars::IsInfoBarMigrated(
+      infobars::InfoBarDelegate::INSTALLER_DOWNLOADER_INFOBAR_DELEGATE);
+}
+
 }  // namespace
 
 InstallerDownloaderController::InstallerDownloaderController(
@@ -151,8 +156,7 @@ InstallerDownloaderController::InstallerDownloaderController(
 }
 
 void InstallerDownloaderController::RegisterInfoBar() {
-  if (!infobars::IsInfoBarMigrated(
-          infobars::InfoBarDelegate::INSTALLER_DOWNLOADER_INFOBAR_DELEGATE)) {
+  if (!IsInfoBarMigrated()) {
     return;
   }
 
@@ -173,10 +177,13 @@ void InstallerDownloaderController::RegisterInfoBar() {
                        ? omnibox::kChromeProductIcon
                        : vector_icons::kProductRefreshIcon)
           .SetScope(infobars::InfoBarScope::kGlobal)
-          // The infobar should not be shown on guest profiles.
+          // The infobar should not be shown on guest profiles and non normal
+          // browser type.
           .SetBrowserFilter(
               base::BindRepeating([](BrowserWindowInterface* browser) {
-                return !browser->GetProfile()->IsGuestSession();
+                return browser->GetType() ==
+                           BrowserWindowInterface::TYPE_NORMAL &&
+                       !browser->GetProfile()->IsGuestSession();
               }))
           .SetExpireOnNavigation(false)
           // InstallerDownloaderController is registered as a global feature and
@@ -207,8 +214,7 @@ void InstallerDownloaderController::RegisterBrowserWindowEvents() {
           &InstallerDownloaderController::OnActiveBrowserWindowChanged,
           base::Unretained(this)));
 
-  if (!infobars::IsInfoBarMigrated(
-          infobars::InfoBarDelegate::INSTALLER_DOWNLOADER_INFOBAR_DELEGATE)) {
+  if (!IsInfoBarMigrated()) {
     removed_window_subscription_ =
         window_tracker_.RegisterRemovedWindowCallback(base::BindRepeating(
             &InstallerDownloaderController::OnRemovedBrowserWindow,
@@ -244,8 +250,7 @@ void InstallerDownloaderController::OnActiveBrowserWindowChanged(
     return;
   }
 
-  if (infobars::IsInfoBarMigrated(
-          infobars::InfoBarDelegate::INSTALLER_DOWNLOADER_INFOBAR_DELEGATE)) {
+  if (IsInfoBarMigrated()) {
     MaybeShowInfoBar();
     return;
   }
@@ -289,7 +294,13 @@ void InstallerDownloaderController::MaybeShowInfoBar() {
     return;
   }
 
-  if (!should_show_infobar_for_profile_callback_.Run()) {
+  if (IsInfoBarMigrated()) {
+    // Every window mirrors the same logical infobar, so once it is up there is
+    // nothing left for a subsequent trigger to do.
+    if (infobar_shown_) {
+      return;
+    }
+  } else if (!should_show_infobar_for_profile_callback_.Run()) {
     return;
   }
 
@@ -309,8 +320,7 @@ void InstallerDownloaderController::OnEligibilityReady(
     return;
   }
 
-  if (infobars::IsInfoBarMigrated(
-          infobars::InfoBarDelegate::INSTALLER_DOWNLOADER_INFOBAR_DELEGATE)) {
+  if (IsInfoBarMigrated()) {
     if (infobar_shown_) {
       return;
     }

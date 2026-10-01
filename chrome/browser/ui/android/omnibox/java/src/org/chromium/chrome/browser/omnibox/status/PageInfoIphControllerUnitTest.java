@@ -22,6 +22,7 @@ import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
+import org.mockito.quality.Strictness;
 
 import org.chromium.base.ContextUtils;
 import org.chromium.base.test.BaseRobolectricTestRunner;
@@ -37,10 +38,11 @@ import org.chromium.components.feature_engagement.Tracker;
 @RunWith(BaseRobolectricTestRunner.class)
 public class PageInfoIphControllerUnitTest {
     private static final Rect STATUS_INSETS = new Rect(0, 0, 0, 0);
-    private static final int IPH_RES_ID = R.string.accessibility_omnibox_btn_refine;
     private static final int TIMEOUT = 12345;
 
-    @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
+    @Rule
+    public final MockitoRule mMockitoRule = MockitoJUnit.rule().strictness(Strictness.STRICT_STUBS);
+
     @Mock private UserEducationHelper mHelper;
     @Mock private Profile mProfile;
     @Mock private Tracker mTracker;
@@ -73,22 +75,6 @@ public class PageInfoIphControllerUnitTest {
         assertEquals(STATUS_INSETS, cmd.insetRect);
         assertTrue(cmd.dismissOnTouch);
         assertEquals(TIMEOUT, cmd.autoDismissTimeout);
-        assertNull(cmd.anchorRect);
-        assertEquals(mView, cmd.anchorView);
-    }
-
-    @Test
-    public void showStoreIconIph() {
-        mController.showStoreIconIph(TIMEOUT, IPH_RES_ID);
-        verify(mHelper).requestShowIph(mIphCmdCaptor.capture());
-        var cmd = mIphCmdCaptor.getValue();
-        cmd.fetchFromResources();
-
-        assertEquals(TIMEOUT, cmd.autoDismissTimeout);
-        assertEquals(IPH_RES_ID, cmd.stringId);
-        assertEquals(FeatureConstants.PAGE_INFO_STORE_INFO_FEATURE, cmd.featureName);
-        assertEquals(STATUS_INSETS, cmd.insetRect);
-        assertTrue(cmd.dismissOnTouch);
         assertNull(cmd.anchorRect);
         assertEquals(mView, cmd.anchorView);
     }

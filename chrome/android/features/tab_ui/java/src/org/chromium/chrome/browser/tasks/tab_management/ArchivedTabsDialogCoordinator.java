@@ -22,6 +22,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
 
+import androidx.annotation.StringRes;
 import androidx.annotation.VisibleForTesting;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -50,7 +51,6 @@ import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabArchiveSettings;
 import org.chromium.chrome.browser.tab_ui.OnTabSelectingListener;
 import org.chromium.chrome.browser.tab_ui.TabContentManager;
-import org.chromium.chrome.browser.tab_ui.TabListMode;
 import org.chromium.chrome.browser.tab_ui.TabSwitcherUtils;
 import org.chromium.chrome.browser.tabmodel.TabClosureParams;
 import org.chromium.chrome.browser.tabmodel.TabCreator;
@@ -63,6 +63,7 @@ import org.chromium.chrome.browser.tasks.tab_management.TabListEditorCoordinator
 import org.chromium.chrome.browser.tasks.tab_management.TabListEditorCoordinator.NavigationProvider;
 import org.chromium.chrome.browser.tasks.tab_management.TabListEditorCoordinator.TabListEditorController;
 import org.chromium.chrome.browser.tasks.tab_management.TabListMediator.TabListItemOnClickListenerProvider;
+import org.chromium.chrome.browser.tasks.tab_management.TabListMediator.TabListLayoutType;
 import org.chromium.chrome.browser.tasks.tab_management.TabProperties.TabActionState;
 import org.chromium.chrome.browser.tasks.tab_management.TabProperties.UiType;
 import org.chromium.chrome.browser.tasks.tab_management.TabSwitcherMessageManager.MessageType;
@@ -418,7 +419,6 @@ public class ArchivedTabsDialogCoordinator implements SnackbarManager.SnackbarMa
     private final TabModel mArchivedTabModel;
     private final BrowserControlsStateProvider mBrowserControlsStateProvider;
     private final TabContentManager mTabContentManager;
-    private final @TabListMode int mMode;
     private final ViewGroup mRootView;
     private final SnackbarManager mSnackbarManager;
     private final TabCreator mRegularTabCreator;
@@ -452,10 +452,9 @@ public class ArchivedTabsDialogCoordinator implements SnackbarManager.SnackbarMa
     /**
      * @param activity The android activity.
      * @param archivedTabModelOrchestrator The TabModelOrchestrator for archived tabs.
-     * @param browserControlsStateProvider Used as a dependency to TabListEditorCoordiantor.
-     * @param tabContentManager Used as a dependency to TabListEditorCoordiantor.
-     * @param mode Used as a dependency to TabListEditorCoordiantor.
-     * @param rootView Used as a dependency to TabListEditorCoordiantor.
+     * @param browserControlsStateProvider Used as a dependency to TabListEditorCoordinator.
+     * @param tabContentManager Used as a dependency to TabListEditorCoordinator.
+     * @param rootView Used as a dependency to TabListEditorCoordinator.
      * @param snackbarManager Manages snackbars shown in the app.
      * @param regularTabCreator Handles the creation of regular tabs.
      * @param backPressManager Manages the different back press handlers throughout the app.
@@ -473,7 +472,6 @@ public class ArchivedTabsDialogCoordinator implements SnackbarManager.SnackbarMa
             ArchivedTabModelOrchestrator archivedTabModelOrchestrator,
             BrowserControlsStateProvider browserControlsStateProvider,
             TabContentManager tabContentManager,
-            @TabListMode int mode,
             ViewGroup rootView,
             ViewGroup tabSwitcherView,
             SnackbarManager snackbarManager,
@@ -490,7 +488,6 @@ public class ArchivedTabsDialogCoordinator implements SnackbarManager.SnackbarMa
         mActivity = activity;
         mBrowserControlsStateProvider = browserControlsStateProvider;
         mTabContentManager = tabContentManager;
-        mMode = mode;
         mRootView = rootView;
         mSnackbarManager = snackbarManager;
         mRegularTabCreator = regularTabCreator;
@@ -825,8 +822,7 @@ public class ArchivedTabsDialogCoordinator implements SnackbarManager.SnackbarMa
                         mTabContentManager,
                         /* clientTabListRecyclerViewPositionSetter= */ CallbackUtils
                                 .emptyCallback(),
-                        mMode,
-                        /* displayGroups= */ true,
+                        TabListLayoutType.GROUPED,
                         mSnackbarManager,
                         /* bottomSheetController= */ null,
                         TabProperties.TabActionState.CLOSABLE,
@@ -879,12 +875,12 @@ public class ArchivedTabsDialogCoordinator implements SnackbarManager.SnackbarMa
                                 R.plurals.archive_dialog_close_all_inactive_tabs_confirmation_title,
                                 tabCount,
                                 tabCount);
+        @StringRes
+        int descResId = R.string.archive_dialog_close_all_inactive_tabs_confirmation_description;
         mActionConfirmationDialog.show(
                 new ConfirmationDialogParams.Builder(mActivity)
                         .withTitle(title)
-                        .withDescription(
-                                R.string
-                                        .archive_dialog_close_all_inactive_tabs_confirmation_description)
+                        .withDescription(descResId)
                         .withPositiveButton(
                                 R.string.archive_dialog_close_all_inactive_tabs_confirmation)
                         .withNegativeButton(R.string.cancel)

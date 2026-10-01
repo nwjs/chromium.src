@@ -155,6 +155,7 @@
 #include "content/public/test/url_loader_interceptor.h"
 #include "crypto/hash.h"
 #include "extensions/browser/event_router.h"
+#include "extensions/buildflags/buildflags.h"
 #include "google_apis/gaia/gaia_id.h"
 #include "mojo/public/cpp/bindings/associated_remote.h"
 #include "mojo/public/cpp/bindings/receiver.h"
@@ -202,6 +203,8 @@
 #include "third_party/blink/public/common/web_preferences/web_preferences.h"
 #include "third_party/blink/public/mojom/window_features/window_features.mojom.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/page_transition_types.h"
+#include "ui/base/window_open_disposition.h"
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
 #include "chrome/browser/extensions/chrome_test_extension_loader.h"
@@ -211,7 +214,7 @@
 #include "extensions/test/test_extension_dir.h"
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 
-#if BUILDFLAG(USE_NSS_CERTS)
+#if BUILDFLAG(USE_NSS_CLIENT_CERTS)
 #include "chrome/browser/net/nss_service.h"
 #include "chrome/browser/net/nss_service_factory.h"
 #include "crypto/scoped_test_nss_db.h"
@@ -1210,7 +1213,7 @@ IN_PROC_BROWSER_TEST_F(SSLUITest, MarkDataAsNonSecure) {
             chrome_security_state::GetSecurityLevel(contents));
 }
 
-#if BUILDFLAG(USE_NSS_CERTS)
+#if BUILDFLAG(USE_NSS_CLIENT_CERTS)
 class SSLUITestWithClientCert : public SSLUITestBase {
  public:
   SSLUITestWithClientCert() : cert_db_(nullptr) {}
@@ -1300,7 +1303,7 @@ IN_PROC_BROWSER_TEST_F(SSLUITestWithClientCert, DISABLED_TestWSSClientCert) {
   const std::u16string result = watcher.WaitAndGetTitle();
   EXPECT_TRUE(base::EqualsCaseInsensitiveASCII(result, "pass"));
 }
-#endif  // BUILDFLAG(USE_NSS_CERTS)
+#endif  // BUILDFLAG(USE_NSS_CLIENT_CERTS)
 
 // A stub ClientCertStore that returns a FakeClientCertIdentity.
 class ClientCertStoreStub : public net::ClientCertStore {
@@ -4279,9 +4282,9 @@ IN_PROC_BROWSER_TEST_F(SSLNetworkTimeBrowserTest,
   EXPECT_TRUE(contents->IsLoading());
   content::TestNavigationObserver observer(contents, 1);
   browser()->OpenURL(
-      content::OpenURLParams(https_server_.GetURL("/"), content::Referrer(),
-                             WindowOpenDisposition::CURRENT_TAB,
-                             ui::PAGE_TRANSITION_TYPED, false),
+      content::OpenURLParams::CreateBrowserInitiated(
+          https_server_.GetURL("/"), WindowOpenDisposition::CURRENT_TAB,
+          ui::PAGE_TRANSITION_TYPED),
       /*navigation_handle_callback=*/{});
   observer.Wait();
 
@@ -4753,9 +4756,9 @@ IN_PROC_BROWSER_TEST_F(CommonNameMismatchBrowserTest,
   EXPECT_TRUE(contents->IsLoading());
   content::TestNavigationObserver observer(contents, 1);
   browser()->OpenURL(
-      content::OpenURLParams(GURL("https://google.com"), content::Referrer(),
-                             WindowOpenDisposition::CURRENT_TAB,
-                             ui::PAGE_TRANSITION_TYPED, false),
+      content::OpenURLParams::CreateBrowserInitiated(
+          GURL("https://google.com"), WindowOpenDisposition::CURRENT_TAB,
+          ui::PAGE_TRANSITION_TYPED),
       /*navigation_handle_callback=*/{});
   observer.Wait();
 

@@ -58,6 +58,7 @@
 #import "ios/chrome/browser/shared/public/commands/activity_service_commands.h"
 #import "ios/chrome/browser/shared/public/commands/activity_service_share_url_command.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
+#import "ios/chrome/browser/shared/public/commands/country_code_picker_commands.h"
 #import "ios/chrome/browser/shared/public/commands/enhanced_calendar_commands.h"
 #import "ios/chrome/browser/shared/public/commands/gemini_commands.h"
 #import "ios/chrome/browser/shared/public/commands/lens_commands.h"
@@ -219,7 +220,7 @@ NSString* const kAlertAccessibilityIdentifier = @"AlertAccessibilityIdentifier";
   const bool isOffTheRecord = self.browser->GetProfile()->IsOffTheRecord();
 
   const GURL& lastCommittedURL = webState->GetLastCommittedURL();
-  web::Referrer referrer(lastCommittedURL, web::ReferrerPolicyDefault);
+  web::Referrer referrer(lastCommittedURL, params.referrer_policy);
 
   NSMutableArray<UIMenuElement*>* menuElements = [[NSMutableArray alloc] init];
   NSString* menuTitle = nil;
@@ -281,17 +282,22 @@ NSString* const kAlertAccessibilityIdentifier = @"AlertAccessibilityIdentifier";
   // This check skips every internal context menu entry. This may need to be
   // changed to only affect entity detection entries.
   if (IsEntitySelectionAllowedForURL(webState)) {
+    CommandDispatcher* dispatcher = self.browser->GetCommandDispatcher();
+    ContextMenuHandlers* contextMenuHandlers =
+        [[ContextMenuHandlers alloc] init];
+    contextMenuHandlers.miniMapHandler =
+        HandlerForProtocol(dispatcher, MiniMapCommands);
+    contextMenuHandlers.unitConversionHandler =
+        HandlerForProtocol(dispatcher, UnitConversionCommands);
+    contextMenuHandlers.enhancedCalendarHandler =
+        HandlerForProtocol(dispatcher, EnhancedCalendarCommands);
+    contextMenuHandlers.countryCodeHandler =
+        HandlerForProtocol(dispatcher, CountryCodePickerCommands);
     // Insert any provided menu items. Do after Link and/or Image to allow
     // inserting at beginning or adding to end.
     ElementsToAddToContextMenu* result =
         ios::provider::GetContextMenuElementsToAdd(
-            webState, params, self.baseViewController,
-            HandlerForProtocol(self.browser->GetCommandDispatcher(),
-                               MiniMapCommands),
-            HandlerForProtocol(self.browser->GetCommandDispatcher(),
-                               UnitConversionCommands),
-            HandlerForProtocol(self.browser->GetCommandDispatcher(),
-                               EnhancedCalendarCommands));
+            webState, params, self.baseViewController, contextMenuHandlers);
     if (result && result.elements) {
       [menuElements addObjectsFromArray:result.elements];
       menuTitle = result.title;
@@ -355,6 +361,7 @@ NSString* const kAlertAccessibilityIdentifier = @"AlertAccessibilityIdentifier";
       [[ImagePreviewViewController alloc]
           initWithSrcURL:net::NSURLWithGURL(params.src_url)
                 webState:webState
+          referrerPolicy:params.referrer_policy
                  frameID:base::SysUTF8ToNSString(params.frame_id)
              frameOrigin:params.frame_security_origin];
   [previewViewController loadPreview];
@@ -585,11 +592,12 @@ NSString* const kAlertAccessibilityIdentifier = @"AlertAccessibilityIdentifier";
   // - Profile-level (`IsProfileEligibleForGemini`): Checks account-wide
   //   eligibility such as enterprise policies, workspace restrictions, and
   //   login state.
-  BOOL canShowGeminiElement =
+  // - Quota exhaustion: Disables the element while keeping it visible with a
+  //   refill reset subtitle.
+  gemini::GeminiAvailabilityResult geminiAvailability =
       gemini::IsGeminiAvailable(gemini::EntryPoint::ImageContextMenu,
-                                self.browser->GetProfile(), webState)
-          .enabled;
-  if (canShowGeminiElement) {
+                                self.browser->GetProfile(), webState);
+  if (geminiAvailability.visible) {
     RecordImageRemixContextMenuEntryPointShown();
 
     ProceduralBlock geminiElementCallback = ^{
@@ -597,8 +605,18 @@ NSString* const kAlertAccessibilityIdentifier = @"AlertAccessibilityIdentifier";
                               referrer:referrer
                                 params:params];
     };
-    geminiElement = [actionFactory
+    UIAction* geminiAction = [actionFactory
         actionToOpenImageInGeminiWithBlock:geminiElementCallback];
+    if (!geminiAvailability.enabled) {
+      geminiAction.attributes = UIMenuElementAttributesDisabled;
+      // Add a quota specific subtitle when the entry point is disabled due to
+      // quota exhaustion.
+      if (geminiAvailability.disabled_reason ==
+          gemini::EntryPointDisabledReason::kQuotaExhausted) {
+        geminiAction.subtitle = geminiAvailability.disabled_reason_subtitle;
+      }
+    }
+    geminiElement = geminiAction;
     [imageMenuElements addObject:geminiElement];
   }
 

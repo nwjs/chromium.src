@@ -24,16 +24,15 @@ enum class AtMemoryErrorType {
 // Sets the `AtMemoryErrorType`.
 - (void)setErrorType:(AtMemoryErrorType)errorType;
 
-// TODO(crbug.com/541237598): Will be implemented in a separate CL.
-// Sets the progress indicator while fetching results from Gemini.
-- (void)setFetchingSubtitle;
+// Sets the progress indicator subtitle while fetching results from Gemini.
+- (void)setFetchingSubtitle:(NSString*)subtitle;
 
 // Sets whether the informational notice is visible.
 - (void)setNoticeVisible:(BOOL)noticeVisible;
 
-// TODO(crbug.com/540877897): Will be implemented once the backend is ready.
-// Sets the previously filled results on the same page.
-- (void)setRecentFills;
+// Sets the previously filled results on the same page to display in the
+// initial empty search state.
+- (void)setRecentFills:(NSArray<AtMemorySearchItem*>*)recentFills;
 
 // Sets search results to display in the UI.
 - (void)setSearchResults:(NSArray<AtMemorySearchItem*>*)searchResults;

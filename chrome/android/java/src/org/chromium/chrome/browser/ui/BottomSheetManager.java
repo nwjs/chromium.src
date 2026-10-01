@@ -28,6 +28,7 @@ import org.chromium.chrome.browser.tab.TabObserver;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetContent;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetObserver;
+import org.chromium.components.browser_ui.bottomsheet.BottomSheetUtils;
 import org.chromium.components.browser_ui.bottomsheet.ExpandedSheetHelper;
 import org.chromium.components.browser_ui.bottomsheet.ManagedBottomSheetController;
 import org.chromium.content_public.browser.SelectionPopupController;
@@ -276,7 +277,7 @@ class BottomSheetManager implements BottomSheetObserver, DestroyObserver {
         BottomSheetContent content = mSheetController.getCurrentSheetContent();
         // Content with a custom scrim lifecycle should not obscure the tab. The feature
         // is responsible for adding itself to the list of obscuring views when applicable.
-        if (content != null && content.hasCustomScrimLifecycle()) {
+        if (BottomSheetUtils.isSheetNonModal(content)) {
             mContentHasCustomScrimLifecycle = true;
             return;
         }

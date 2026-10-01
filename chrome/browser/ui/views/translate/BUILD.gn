@@ -83,7 +83,6 @@ source_set("test_support") {
   deps = [
     ":translate",
     "//base",
-    "//chrome/browser/ui",
     "//chrome/browser/ui/browser_window",
     "//chrome/browser/ui/translate",
     "//chrome/browser/ui/translate:test_support",
@@ -149,6 +148,7 @@ source_set("browser_tests") {
     "//components/translate/core/common",
     "//content/public/browser",
     "//content/test:test_support",
+    "//pdf:buildflags",
     "//ui/base",
     "//ui/views:test_support",
   ]
@@ -185,6 +185,7 @@ source_set("interactive_ui_tests") {
     "//components/translate/core/common",
     "//content/public/browser",
     "//content/test:test_support",
+    "//pdf:buildflags",
     "//testing/gmock",
     "//ui/accessibility",
     "//ui/base",

@@ -5,6 +5,7 @@
 import {html} from '//resources/lit/v3_0/lit.rollup.js';
 
 import type {OmniboxEverywhereAppElement} from './app.js';
+import {FreChinMode} from './fre_chin.js';
 
 export function getHtml(this: OmniboxEverywhereAppElement) {
   return html`<!--_html_template_start_-->
@@ -12,6 +13,8 @@ export function getHtml(this: OmniboxEverywhereAppElement) {
   ${
       this.isComposeboxMode_ ? html`
     <omnibox-everywhere-composebox id="composebox" searchbox-next-enabled
+        ?is-active="${this.isActive_}"
+        .isPendingScreenshot="${this.isPendingScreenshot_}"
         searchbox-layout-mode="${this.searchboxLayoutMode_}"
         .state="${this.composeboxState_}"
         .clearAllInputsWhenSubmittingQuery="${true}"
@@ -28,6 +31,7 @@ export function getHtml(this: OmniboxEverywhereAppElement) {
   ` :
                                html`
     <omnibox-everywhere-omnibox id="searchbox"
+        ?is-active="${this.isActive_}"
         @open-composebox="${this.onOpenComposebox_}"
         @open-voice-search="${this.onOpenVoiceSearch_}"
         .inVoiceSearchMode="${this.showVoiceSearchOverlay_}"
@@ -35,21 +39,44 @@ export function getHtml(this: OmniboxEverywhereAppElement) {
                                    this.contextManagementInComposeboxEnabled_}">
     </omnibox-everywhere-omnibox>
   `}
-  ${
-      this.mostVisitedEnabled_ &&
-      !this.showFreModal_ ? html`
-    <div id="mostVisitedContainer" ?hidden="${!this.hasMostVisitedTiles_}">
-      <cr-most-visited id="mostVisited" single-row non-editable hide-title
-          max-tiles="7"></cr-most-visited>
+  ${this.mostVisitedEnabled_ ? html`
+    <div id="mostVisitedContainer" ?hidden="${this.isMostVisitedHidden_()}">
+      <cr-most-visited id="mostVisited" single-row non-editable
+          ?hide-title="${this.hideTitle_}" max-tiles="${this.smallLoomnibox_ ? 5 : 7}"></cr-most-visited>
     </div>
   ` : ''}
   ${
-      this.showFreModal_ ? html`
+      this.isFreIntroModal_() ? html`
     <fre-modal
-        @close="${this.onFreClose_}"
-        @accept-hotkey="${this.onFreAcceptHotkey_}"
-        @open-settings="${this.onFreOpenSettings_}">
+        ?small-loomnibox="${this.smallLoomnibox_}"
+        @close="${this.onFreClose_}">
     </fre-modal>
+  ` : ''}
+  ${
+      this.isFreShortcutSetupChin_() ? html`
+    <fre-chin
+        id="freShortcutSetupChin"
+        ?small-loomnibox="${this.smallLoomnibox_}"
+        .mode="${FreChinMode.SHORTCUT_SETUP}"
+        .hotkeyTokens="${this.hotkeyTokens_}"
+        .dropdownOpen="${this.isHotkeyDropdownOpen_}"
+        @show-hotkey-dropdown="${this.onFreShowHotkeyDropdown_}"
+        @open-settings="${this.onFreOpenSettings_}"
+        @close="${this.onFreClose_}">
+    </fre-chin>
+  ` : ''}
+  ${
+      this.isFreShortcutReminderChin_() ? html`
+    <fre-chin
+        id="freShortcutReminderChin"
+        ?small-loomnibox="${this.smallLoomnibox_}"
+        .mode="${FreChinMode.SHORTCUT_REMINDER}"
+        .hotkeyTokens="${this.hotkeyTokens_}"
+        .dropdownOpen="${this.isHotkeyDropdownOpen_}"
+        @show-hotkey-dropdown="${this.onFreShowHotkeyDropdown_}"
+        @open-settings="${this.onFreOpenSettings_}"
+        @close="${this.onFreClose_}">
+    </fre-chin>
   ` : ''}
 </div>
 <div id="dialogAnchor"></div>

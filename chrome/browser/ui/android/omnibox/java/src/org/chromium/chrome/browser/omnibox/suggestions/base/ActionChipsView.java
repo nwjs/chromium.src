@@ -72,8 +72,8 @@ public class ActionChipsView extends RecyclerView {
     }
 
     /**
-     * Proxy calls to super.onKeyDown; call exposed for testing purposes. There is no way to detect
-     * calls to super using robolectric.
+     * Proxies calls to super.onKeyDown; call exposed for testing purposes. There is no way to
+     * detect calls to super using robolectric.
      */
     @CheckDiscard("Should be inlined except for testing")
     @VisibleForTesting
@@ -86,10 +86,6 @@ public class ActionChipsView extends RecyclerView {
         mSelectionController.reset();
     }
 
-    void setSelectionControllerForTesting(RecyclerViewSelectionController controller) {
-        mSelectionController = controller;
-    }
-
     public void setLeadInSpacing(int spacing) {
         if (getItemDecorationCount() > 0) {
             assert getItemDecorationCount() == 1 : "Expected at most 1 decoration";
@@ -100,5 +96,9 @@ public class ActionChipsView extends RecyclerView {
                 new SpacingRecyclerViewItemDecoration(
                         spacing,
                         getResources().getDimensionPixelSize(R.dimen.omnibox_action_chip_spacing)));
+    }
+
+    void setSelectionControllerForTesting(RecyclerViewSelectionController controller) {
+        mSelectionController = controller;
     }
 }

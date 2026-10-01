@@ -34,7 +34,7 @@ static_library("time_limits") {
   public_deps = [
     "//base",
     "//chrome/browser:browser_public_dependencies",
-    "//chrome/browser/ash/browser_delegate",
+    "//chromeos/ash/components/browser_delegate",
     "//chromeos/ash/components/dbus/system_clock",
     "//chromeos/ash/components/settings",
     "//components/policy/proto",
@@ -48,7 +48,6 @@ static_library("time_limits") {
     "//chrome/browser/ash/app_list/arc",
     "//chrome/browser/ash/child_accounts/constants",
     "//chrome/browser/profiles:profile",
-    "//chrome/browser/ui/browser_window",
     "//chrome/browser/web_applications",
     "//chrome/common",
     "//chromeos/ash/components/browser_context_helper",

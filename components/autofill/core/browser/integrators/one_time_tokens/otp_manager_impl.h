@@ -23,11 +23,13 @@
 #include "components/one_time_tokens/core/browser/one_time_token_retrieval_error.h"
 #include "components/one_time_tokens/core/browser/one_time_token_service.h"
 #include "components/one_time_tokens/core/browser/util/expiring_subscription.h"
+#include "url/gurl.h"
 #include "url/origin.h"
 
 namespace autofill {
 
 class BrowserAutofillManager;
+class FormFieldData;
 class FormStructure;
 class LogBuffer;
 
@@ -50,6 +52,17 @@ LogBuffer& operator<<(LogBuffer& buffer,
 // One instance per frame, owned by the BrowserAutofillManager.
 class OtpManagerImpl : public OtpManager, public AutofillManager::Observer {
  public:
+  // The duration for which `OtpManagerImpl` will wait for an incoming OTP
+  // coming from an SMS message.
+  static constexpr base::TimeDelta kSmsOtpSubscriptionDuration =
+      base::Minutes(1);
+
+  // The duration for which `OtpManagerImpl` will wait for a notification
+  // about an incoming OTP in the user's Gmail inbox. The actual OTP fetch
+  // will happen as part of a `gmail_otp_retriever_` call.
+  static constexpr base::TimeDelta kGmailOtpTickleSubscriptionDuration =
+      base::Minutes(5);
+
   friend class OtpManagerImplTestApi;
 
   OtpManagerImpl(BrowserAutofillManager& owner,
@@ -62,7 +75,7 @@ class OtpManagerImpl : public OtpManager, public AutofillManager::Observer {
   // Returns any cached OTPs (if they exist) and renews a subscription so that
   // incoming OTPs can be reported.
   void GetOtpSuggestions(const FormStructure& form,
-                         const url::Origin& origin,
+                         const FormFieldData& field,
                          GetOtpSuggestionsCallback callback) override;
 
   // AutofillManager::Observer:
@@ -87,6 +100,9 @@ class OtpManagerImpl : public OtpManager, public AutofillManager::Observer {
   // discovered in this process are reported to `OnOneTimeTokenReceived`.
   void GetRecentOtpsAndRenewSubscription();
 
+  // Called when an incoming OTP tickle push notification arrives.
+  void OnTickleReceived(one_time_tokens::OneTimeTokenSource source);
+
   // TODO(crbug.com/415273270): Update UI (dropdown or keyboard accessory) when
   // a new token is received.
   void OnOneTimeTokenReceived(
@@ -103,24 +119,36 @@ class OtpManagerImpl : public OtpManager, public AutofillManager::Observer {
   // context, e.g., because the page called the WebOTP API.
   bool IsOtpDeliveryBlocked();
 
+  // Checks whether an OTP field was detected in the document.
+  bool IsOtpFieldDetected() const;
+
+  // Checks whether a field which was detected as an OTP, already contains
+  // some user input. We will not fill the value in such case.
+  bool AnyOtpFieldContainsTypedInput() const;
+
+  // Checks whether the user has opted into the GMail OTP filling.
+  // The consent is stored in prefs::IsAutofillGmailOtpFillingEnabled.
+  bool UserOptedIntoGmailOtpFilling() const;
+
   // The owning BrowserAutofillManager.
   raw_ref<BrowserAutofillManager> owner_;
 
   // May be nullptr on platforms that don't support SMS OTP fetching.
-  raw_ptr<one_time_tokens::OneTimeTokenService> one_time_token_services_ =
+  raw_ptr<one_time_tokens::OneTimeTokenService> one_time_token_service_ =
       nullptr;
 
-  // Subscription to a `OneTimetokenService`.
-  one_time_tokens::ExpiringSubscription subscription_;
+  // Subscriptions to a `OneTimeTokenService`.
+  one_time_tokens::ExpiringSubscription sms_otp_subscription_;
+  one_time_tokens::ExpiringSubscription gmail_otp_tickle_subscription_;
 
-  // Subscription to log events of `one_time_token_services_`.
+  // Subscription to log events of `one_time_token_service_`.
   base::CallbackListSubscription log_subscription_;
 
   // Only the last call from the UI to generate suggestions is retained as such
   // a callback corresponds to the desire to show an autofill dropdown. A new
   // call to `GetOtpSuggestions()` invalidates the previous call.
   GetOtpSuggestionsCallback last_pending_get_suggestions_callback_;
-  url::Origin last_pending_field_origin_;
+  LocalFrameToken last_pending_frame_token_;
 
   // The time when the phish guard check was started.
   base::TimeTicks phish_guard_check_start_time_;

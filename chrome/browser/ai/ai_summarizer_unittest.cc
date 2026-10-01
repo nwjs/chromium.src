@@ -155,6 +155,8 @@ class AISummarizerTest : public AITestUtils::AITestBase {
 
     auto& input_config = *config.mutable_input_config();
     input_config.set_request_base_name(SummarizeRequest().GetTypeName());
+    input_config.set_max_execute_tokens(
+        blink::mojom::kWritingAssistanceMaxInputTokenSize);
 
     *input_config.add_execute_substitutions() = FieldSubstitution(
         "%s", ProtoField({SummarizeRequest::kArticleFieldNumber}));
@@ -484,6 +486,46 @@ TEST_F(AISummarizerTest, ContextWindowUsesContextLimit) {
   ASSERT_TRUE(result.has_value());
   EXPECT_EQ(client.context_window(),
             blink::mojom::kWritingAssistanceMaxInputTokenSize);
+}
+
+TEST_F(AISummarizerTest, CustomInputContextLimit) {
+  constexpr uint32_t kCustomMaxTokens = 5000;
+  SetModelInputContextLimit(kCustomMaxTokens);
+
+  TestCreateSummarizerClient client;
+  GetAIManagerRemote()->CreateSummarizer(client.BindNewPipeAndPassRemote(),
+                                         GetDefaultOptions(),
+                                         /*monitor=*/mojo::NullRemote());
+  CreateSummarizerResult result = client.result().Take();
+  ASSERT_TRUE(result.has_value());
+  EXPECT_EQ(client.context_window(), kCustomMaxTokens);
+
+  SetSizeInTokens(kCustomMaxTokens + 1);
+
+  TestCreateSummarizerClient create_client;
+  auto options = GetDefaultOptions();
+  options->shared_context = kSharedContextString;
+  GetAIManagerRemote()->CreateSummarizer(
+      create_client.BindNewPipeAndPassRemote(), std::move(options),
+      /*monitor=*/mojo::NullRemote());
+  CreateSummarizerResult create_result = create_client.result().Take();
+  EXPECT_FALSE(create_result.has_value());
+  EXPECT_EQ(create_result.error().error,
+            blink::mojom::AIManagerCreateClientError::kInitialInputTooLarge);
+  EXPECT_EQ(create_result.error().quota_error_info->requested,
+            kCustomMaxTokens + 1);
+  EXPECT_EQ(create_result.error().quota_error_info->quota, kCustomMaxTokens);
+
+  mojo::Remote<blink::mojom::AISummarizer> summarizer_remote(
+      std::move(result.value()));
+  AITestUtils::TestStreamingResponder responder;
+  summarizer_remote->Summarize(kInputString, kContextString,
+                               responder.BindRemote());
+  EXPECT_FALSE(responder.WaitForCompletion());
+  EXPECT_EQ(responder.error_status(),
+            blink::mojom::ModelStreamingResponseStatus::kErrorInputTooLarge);
+  ASSERT_EQ(responder.quota_error_info().requested, kCustomMaxTokens + 1);
+  ASSERT_EQ(responder.quota_error_info().quota, kCustomMaxTokens);
 }
 
 TEST_F(AISummarizerTest, SummarizeMultipleResponse) {
@@ -824,6 +866,58 @@ TEST_F(AISummarizerTest, NoMetadata) {
               ElementsAreArray({"Result text"}));
 }
 
+TEST_F(AISummarizerTest, SpeculativeDecodingGreedySamplingDefault) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(
+      on_device_model::features::kOnDeviceModelSpeculativeDecoding);
+
+  mojo::Remote<blink::mojom::AISummarizer> summarizer_remote =
+      GetAISummarizerRemote(GetDefaultOptions());
+
+  std::vector<std::string> responses =
+      Summarize(*summarizer_remote, kInputString, kContextString);
+  // FakeService only appends a "TopK: ..." chunk when sampling parameters
+  // differ from greedy sampling (top_k=1, temperature=0.0). The absence of
+  // "TopK:" indicates that greedy sampling was configured.
+  EXPECT_THAT(responses,
+              testing::Not(testing::Contains(testing::HasSubstr("TopK:"))));
+}
+
+TEST_F(AISummarizerTest, SpeculativeDecodingGreedySamplingCapability) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(
+      on_device_model::features::kOnDeviceModelSpeculativeDecoding);
+
+  auto options = GetDefaultOptions();
+  options->preference = blink::mojom::PerformancePreference::kCapability;
+  mojo::Remote<blink::mojom::AISummarizer> summarizer_remote =
+      GetAISummarizerRemote(std::move(options));
+
+  std::vector<std::string> responses =
+      Summarize(*summarizer_remote, kInputString, kContextString);
+  // FakeService only appends a "TopK: ..." chunk when sampling parameters
+  // differ from greedy sampling (top_k=1, temperature=0.0). The absence of
+  // "TopK:" indicates that greedy sampling was configured.
+  EXPECT_THAT(responses,
+              testing::Not(testing::Contains(testing::HasSubstr("TopK:"))));
+}
+
+TEST_F(AISummarizerTest, SpeculativeDecodingDisabledUsesDefaultSampling) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndDisableFeature(
+      on_device_model::features::kOnDeviceModelSpeculativeDecoding);
+
+  mojo::Remote<blink::mojom::AISummarizer> summarizer_remote =
+      GetAISummarizerRemote(GetDefaultOptions());
+
+  std::vector<std::string> responses =
+      Summarize(*summarizer_remote, kInputString, kContextString);
+  // When speculative decoding is disabled, default sampling parameters are used
+  // (which differ from greedy sampling), so FakeService emits a "TopK: ..."
+  // chunk.
+  EXPECT_THAT(responses, testing::Contains(testing::HasSubstr("TopK:")));
+}
+
 class AISummarizerWithFeatureConfigTest : public AISummarizerTest {
  public:
   void SetupBroker() override {
@@ -842,6 +936,11 @@ class AISummarizerWithFeatureConfigTest : public AISummarizerTest {
     // FakeOnDeviceModel to emit dummy cache weight response chunks.
     constexpr uint32_t kDefaultMaxTokens = 8096;
     proto::SolutionConfig default_solution = CreateSolution();
+
+    proto::SolutionConfig speed_solution = default_solution;
+    speed_solution.mutable_feature()
+        ->mutable_input_config()
+        ->set_max_execute_tokens(blink::mojom::kTinyModelMaxInputTokenSize);
 
     fake_broker_ = std::make_unique<optimization_guide::FakeManifestBroker>();
     optimization_guide::ScenarioBuilder(fake_broker_->component_state())
@@ -869,7 +968,7 @@ class AISummarizerWithFeatureConfigTest : public AISummarizerTest {
         .AddSafetyModel("safety")
         .AddSafeSolution("summarizer_api", "base", "safety", default_solution)
         .AddSafeSolution("summarizer_small_expert_model", "small_expert_base",
-                         "safety", default_solution)
+                         "safety", speed_solution)
         .AddSafeSolution("summarizer_gemma4", "gemma4_base", "safety",
                          default_solution)
         .SetFeatureConfig("summarizer_api",

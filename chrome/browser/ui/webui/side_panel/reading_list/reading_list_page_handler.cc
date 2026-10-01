@@ -42,6 +42,7 @@
 #include "content/public/browser/web_ui.h"
 #include "ui/base/l10n/time_format.h"
 #include "ui/base/mojom/window_open_disposition.mojom.h"
+#include "ui/base/page_transition_types.h"
 #include "ui/base/window_open_disposition.h"
 #include "ui/base/window_open_disposition_utils.h"
 #include "ui/menus/simple_menu_model.h"
@@ -95,25 +96,28 @@ class ReadLaterItemContextMenu : public ui::SimpleMenuModel,
   void ExecuteCommand(int command_id, int event_flags) override {
     switch (command_id) {
       case IDC_CONTENT_CONTEXT_OPENLINKNEWTAB: {
-        content::OpenURLParams params(url_, content::Referrer(),
-                                      WindowOpenDisposition::NEW_BACKGROUND_TAB,
-                                      ui::PAGE_TRANSITION_AUTO_BOOKMARK, false);
+        content::OpenURLParams params =
+            content::OpenURLParams::CreateBrowserInitiated(
+                url_, WindowOpenDisposition::NEW_BACKGROUND_TAB,
+                ui::PAGE_TRANSITION_AUTO_BOOKMARK);
         browser_->OpenURL(params, /*navigation_handle_callback=*/{});
         break;
       }
 
       case IDC_CONTENT_CONTEXT_OPENLINKNEWWINDOW: {
-        content::OpenURLParams params(url_, content::Referrer(),
-                                      WindowOpenDisposition::NEW_WINDOW,
-                                      ui::PAGE_TRANSITION_AUTO_BOOKMARK, false);
+        content::OpenURLParams params =
+            content::OpenURLParams::CreateBrowserInitiated(
+                url_, WindowOpenDisposition::NEW_WINDOW,
+                ui::PAGE_TRANSITION_AUTO_BOOKMARK);
         browser_->OpenURL(params, /*navigation_handle_callback=*/{});
         break;
       }
 
       case IDC_CONTENT_CONTEXT_OPENLINKOFFTHERECORD: {
-        content::OpenURLParams params(url_, content::Referrer(),
-                                      WindowOpenDisposition::OFF_THE_RECORD,
-                                      ui::PAGE_TRANSITION_AUTO_BOOKMARK, false);
+        content::OpenURLParams params =
+            content::OpenURLParams::CreateBrowserInitiated(
+                url_, WindowOpenDisposition::OFF_THE_RECORD,
+                ui::PAGE_TRANSITION_AUTO_BOOKMARK);
         browser_->OpenURL(params, /*navigation_handle_callback=*/{});
         break;
       }
@@ -193,8 +197,9 @@ void ReadingListPageHandler::OpenURL(
       click_modifiers->ctrl_key, click_modifiers->meta_key,
       click_modifiers->shift_key);
 
-  content::OpenURLParams params(url, content::Referrer(), open_location,
-                                ui::PAGE_TRANSITION_AUTO_BOOKMARK, false);
+  content::OpenURLParams params =
+      content::OpenURLParams::CreateBrowserInitiated(
+          url, open_location, ui::PAGE_TRANSITION_AUTO_BOOKMARK);
 
   auto* browser_window_interface =
       webui::GetBrowserWindowInterface(web_contents());

@@ -30,6 +30,7 @@
 #include "extensions/common/extension_id.h"
 #include "extensions/common/manifest.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/page_transition_types.h"
 #include "ui/base/window_open_disposition.h"
 
 static_assert(BUILDFLAG(ENABLE_EXTENSIONS_CORE));
@@ -219,10 +220,10 @@ void ControlledHomeDialogController::OnBubbleClosed(CloseAction action) {
       if (!g_should_ignore_learn_more_for_testing && web_contents_) {
         GURL learn_more_url(chrome::kExtensionControlledSettingLearnMoreURL);
         CHECK(learn_more_url.is_valid());
-        content::OpenURLParams params(learn_more_url, content::Referrer(),
-                                      WindowOpenDisposition::NEW_FOREGROUND_TAB,
-                                      ui::PAGE_TRANSITION_LINK,
-                                      /*is_renderer_initiated=*/false);
+        content::OpenURLParams params =
+            content::OpenURLParams::CreateBrowserInitiated(
+                learn_more_url, WindowOpenDisposition::NEW_FOREGROUND_TAB,
+                ui::PAGE_TRANSITION_LINK);
         web_contents_->OpenURL(params, {});
       }
       break;

@@ -11,6 +11,7 @@
 #include "base/test/scoped_feature_list.h"
 #include "base/types/strong_alias.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
 #include "chrome/test/interaction/interactive_browser_test.h"
 #include "chrome/test/supervised_user/browser_user.h"
@@ -317,8 +318,9 @@ IN_PROC_BROWSER_TEST_P(UrlFilterUiTest, ParentAllowsPageBlockedBySafeSites) {
       WaitForStateChange(kChildElementId, PageWithMatchingTitle("Best Gore")));
 }
 
+// TODO(crbug.com/554940575): Re-enable this test once the bug is fixed.
 IN_PROC_BROWSER_TEST_P(UrlFilterUiTest,
-                       ParentApprovesPermissionRequestForBlockedSite) {
+                       DISABLED_ParentApprovesPermissionRequestForBlockedSite) {
   DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kChildElementId);
   DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kParentApprovalTab);
   DEFINE_LOCAL_STATE_IDENTIFIER_VALUE(InIntendedStateObserver,

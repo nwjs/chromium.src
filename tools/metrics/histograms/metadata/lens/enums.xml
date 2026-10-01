@@ -39,6 +39,37 @@ chromium-metrics-reviews@google.com.
 
 <!-- LINT.ThenChange(//components/lens/lens_composebox_user_action.h:LensComposeboxUserAction) -->
 
+<!-- LINT.IfChange(ContextUploadTerminalStatus) -->
+
+<enum name="ContextUploadTerminalStatus">
+  <summary>
+    The terminal status of a contextual search file upload request in the
+    composebox.
+  </summary>
+  <int value="0" label="Success"/>
+  <int value="1" label="HTTP Error"/>
+  <int value="2" label="Never Issued"/>
+  <int value="3" label="Response After FileInfo Destroyed"/>
+  <int value="4" label="Pending Chunker Retry"/>
+  <int value="5" label="In-Flight At Teardown"/>
+  <int value="6" label="Cancelled"/>
+</enum>
+
+<!-- LINT.ThenChange(//components/contextual_search/internal/composebox_query_controller.h:ContextUploadTerminalStatus) -->
+
+<!-- LINT.IfChange(LensComposeboxClusterInfoStatus) -->
+
+<enum name="LensComposeboxClusterInfoStatus">
+  <summary>Status of the Composebox ClusterInfo fetch request.</summary>
+  <int value="0" label="Success"/>
+  <int value="1" label="HTTP Error"/>
+  <int value="2" label="Proto Parse Error"/>
+  <int value="3" label="Backgrounded"/>
+  <int value="4" label="Max Retries Reached"/>
+</enum>
+
+<!-- LINT.ThenChange(//components/contextual_search/internal/composebox_query_controller.h:LensComposeboxClusterInfoStatus) -->
+
 <!-- LINT.IfChange(LensContextualTasksQueryEligibility) -->
 
 <enum name="LensContextualTasksQueryEligibility">
@@ -53,6 +84,23 @@ chromium-metrics-reviews@google.com.
 </enum>
 
 <!-- LINT.ThenChange(//components/lens/lens_overlay_metrics.h:LensContextualTasksQueryEligibility) -->
+
+<!-- LINT.IfChange(LensIdentityDelegationFetchStatus) -->
+
+<enum name="LensIdentityDelegationFetchStatus">
+  <summary>
+    The result status of attempting to fetch identity delegation headers for
+    Lens/Composebox requests.
+  </summary>
+  <int value="0" label="Success"/>
+  <int value="1" label="Signed Out"/>
+  <int value="2" label="Account Error"/>
+  <int value="3" label="No SAPISID Cookie"/>
+  <int value="4" label="Hash Failed"/>
+  <int value="5" label="No Cookie Manager"/>
+</enum>
+
+<!-- LINT.ThenChange(//components/lens/lens_identity_delegation_helper.h:LensIdentityDelegationFetchStatus) -->
 
 <!-- LINT.IfChange(LensOverlayContextMenuOption) -->
 

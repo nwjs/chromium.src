@@ -38,7 +38,6 @@ Disa funksione mund të mos ofrohen dhe ndryshimet në preferenca nuk do të ruh
 <translation id="1333654552732143316">Nis Chrome</translation>
 <translation id="1341711321000856656">Mund ta ndërrosh për të parë fjalëkalimet nga një profil tjetër i Chrome</translation>
 <translation id="1343830902827845050">Identifikohu në Chrome</translation>
-<translation id="1356661055722410047">E re! Mund të përkthesh tekstet dhe imazhet në ekranin tënd</translation>
 <translation id="1361351916482714918">Shfleto në mënyrë më inteligjente me "Lenten e Google"</translation>
 <translation id="1363996462118479832">ChromeOS nuk mund t'i sinkronizonte të dhënat e tua për shkak të një gabimi gjatë identifikimit.</translation>
 <translation id="137466361146087520">Google Chrome Beta</translation>
@@ -76,7 +75,6 @@ Disa funksione mund të mos ofrohen dhe ndryshimet në preferenca nuk do të ruh
 <translation id="1640672724030957280">Po shkarkohet...</translation>
 <translation id="1651617469580841801">Kur përdor "Lenten e Google", titulli i faqes, URL-ja dhe përmbajtja, duke përfshirë skedarët PDF, dërgohen te Google. <ph name="LEARN_MORE" /></translation>
 <translation id="1662146548738125461">Rreth Chrome OS Flex</translation>
-<translation id="1664094661346151467">Kërko dhe bëj pyetje nga kudo, edhe nëse Chrome është minimizuar</translation>
 <translation id="1674870198290878346">Hape lidhjen në një drit&amp;are të fshehtë të Chrome</translation>
 <translation id="1682634494516646069">Google Chrome nuk mund të lexojë dhe shkruajë në direktorinë e tij të të dhënave:
 
@@ -100,6 +98,7 @@ Disa funksione mund të mos ofrohen dhe ndryshimet në preferenca nuk do të ruh
 <translation id="1873233029667955273">Google Chrome nuk është shfletuesi i parazgjedhur</translation>
 <translation id="1874309113135274312">Google Chrome Beta (mDNS-In)</translation>
 <translation id="1877026089748256423">Chrome nuk është i përditësuar</translation>
+<translation id="1877067026701708502"><ph name="EXISTING_USER" /> është identifikuar tashmë. Për ta mbajtur shfletimin tënd të ndarë, identifikohu në Chrome në profilin tënd si <ph name="USER_EMAIL_ADDRESS" />. Do të marrësh gjithashtu shtesat etj. në të gjitha pajisjet e tua.</translation>
 <translation id="1880677175115548835">Përzgjidh tekstin</translation>
 <translation id="1896602904211344018">Merr aplikacionin e Chrome</translation>
 <translation id="1919130412786645364">Lejo identifikimin në Chrome</translation>
@@ -232,6 +231,7 @@ Nëse kjo faqe nuk funksionon siç pritet, provo të lejosh optimizimin.</transl
 <translation id="3112458742631356345">Chrome e bllokoi këtë shkarkim sepse skedari nuk është shkarkuar zakonisht dhe mund të jetë i rrezikshëm</translation>
 <translation id="3119573284443908657">Chrome e bllokoi këtë shkarkim sepse skedari i arkivit përfshin skedarë të tjerë që mund të fshehin softuer keqdashës</translation>
 <translation id="3124332159330678621">Personalizo Chrome për t'i dhënë një pamje të re shfletuesit tënd</translation>
+<translation id="3125851611828811913">Kërko dhe bëj pyetje nga kudo, edhe nëse Chrome është minimizuar. Lejon që Chrome të ekzekutohet në sfond.</translation>
 <translation id="3130333203120345554">Kërkim i ri</translation>
 <translation id="3135560418014806498">Shto profilin e Chrome</translation>
 <translation id="3137969841538672700">Zvarrit për të kërkuar</translation>
@@ -388,6 +388,7 @@ Nëse kjo faqe nuk funksionon siç pritet, provo të lejosh optimizimin.</transl
 <translation id="4793679854893018356">Mëso se si të mban të sigurt Chrome</translation>
 <translation id="4799870290441980300">Aktivizon veçori shtesë për të ofruar mbrojtjet më të forta të Chrome</translation>
 <translation id="4828579605166583682">Google Chrome po përpiqet të zëvendësojë fjalëkalimet ekzistuese. Shkruaj fjalëkalimin tënd të Windows për ta lejuar këtë.</translation>
+<translation id="4836321460899997044">Profili i Chrome</translation>
 <translation id="4842397268809523050">Chrome OS Flex nuk mund t'i sinkronizonte të dhënat e tua sepse "Sinkronizimi" nuk ofrohet për domenin tënd.</translation>
 <translation id="4851866215237571846"><ph name="EXISTING_USER" /> është i identifikuar tashmë. Për ta mbajtur shfletimin tënd të ndarë, identifikohu në Chrome në profilin tënd si <ph name="USER_EMAIL_ADDRESS" />.</translation>
 <translation id="4855026984605187434">Për të ndarë ekranin, lejo regjistrimin e ekranit për Chrome te "Cilësimet e sistemit"</translation>
@@ -505,6 +506,7 @@ Google Chrome nuk është në gjendje të rikuperojë cilësimet e tua.</transla
 <translation id="6014316319780893079">Me <ph name="BEGIN_LINK" />veglat nga Chrome<ph name="END_LINK" />, mund të shfletosh në mënyrë të sigurt dhe të qëndrosh në kontroll</translation>
 <translation id="6018578474045062808">Provo "Lenten e Google" me Chrome në telefonin tënd</translation>
 <translation id="6022659036123304283">Bëje Chrome shfletuesin tënd</translation>
+<translation id="6024930613143833266">Kërko me Chrome nga kudo</translation>
 <translation id="6025087594896450715">Google Chrome do të riniset pas <ph name="REMAINING_TIME" /></translation>
 <translation id="6040143037577758943">Mbyll</translation>
 <translation id="604424701295382420">U gozhdua! Mund të qasesh sërish te "Lentja e Google" nga butoni i ri në shiritin e veglave</translation>
@@ -549,6 +551,7 @@ Google Chrome nuk është në gjendje të rikuperojë cilësimet e tua.</transla
 <translation id="6334815226785304306">Bëje Google Chrome shfletuesin e parazgjedhur dhe gozhdoje te shiriti i veglave</translation>
 <translation id="63540178978900677">Chrome nuk është më shfletuesi yt i parazgjedhur. Të bëhet Chrome shfletuesi i parazgjedhur?</translation>
 <translation id="6360449101159168105">Kur kjo skedë ishte joaktive, memoria u lirua që Chrome të vazhdojë të jetë i shpejtë. Mund të zgjedhësh që ta përjashtosh gjithmonë këtë sajt nga caktimi si joaktiv.</translation>
+<translation id="6362984640667950211"><ph name="EXISTING_USER" /> është identifikuar tashmë. Për ta mbajtur shfletimin tënd të ndarë, identifikohu në Chrome në profilin tënd si <ph name="USER_EMAIL_ADDRESS" />. Do të marrësh gjithashtu listën tënde të leximit etj. në të gjitha pajisjet e tua.</translation>
 <translation id="6388799252195623474">më ndihmo me këtë</translation>
 <translation id="6412673304250309937">Kontrollon URL-të kundrejt një liste sajtesh të pasigurta të ruajtur në Chrome. Nëse një sajt përpiqet të vjedhë fjalëkalimin tënd, ose kur shkarkon një skedar të dëmshëm, Chrome mund t'i dërgojë po ashtu "Shfletimit të sigurt" URL-të, duke përfshirë pjesë të përmbajtjes së faqes.</translation>
 <translation id="6417690341895039567">{COUNT,plural, =1{Organizata jote e mbyll automatikisht Chrome kur ai nuk përdoret për 1 minutë. Të dhënat e shfletimit do të fshihen. Kjo mund të përfshijë historikun, plotësimin automatik dhe shkarkimet.}other{Organizata jote e mbyll automatikisht Chrome kur ai nuk përdoret për # minuta. Të dhënat e shfletimit do të fshihen. Kjo mund të përfshijë historikun, plotësimin automatik dhe shkarkimet.}}</translation>
@@ -557,6 +560,7 @@ Google Chrome nuk është në gjendje të rikuperojë cilësimet e tua.</transla
 <translation id="6434035853014503219">Faleminderit që zgjodhe Chrome si shfletuesin tënd të parazgjedhur!</translation>
 <translation id="6438015621983209660">Zgjero "Shfletimin e sigurt të përmirësuar" me Chrome në telefonin tënd</translation>
 <translation id="6442774133615368941">Bli, përkthe dhe identifiko ato që shikon me kamerën tënde në aplikacionin e Chrome për iOS</translation>
+<translation id="6446105560007692480">për të kërkuar me Chrome ose për të personalizuar te <ph name="BEGIN_LINK" />Cilësimet<ph name="END_LINK" /></translation>
 <translation id="6448835208126432197">Për të zgjedhur një pjesë të ekranit në Gemini në Chrome, përdor shkurtoren e tastierës.</translation>
 <translation id="6473905796280459355">Shko te faqja "Rreth Chrome"</translation>
 <translation id="6481963882741794338">Lidh Chrome dhe shërbimet e tjera të Google për personalizimin dhe qëllime të tjera</translation>
@@ -578,6 +582,7 @@ Google Chrome nuk është në gjendje të rikuperojë cilësimet e tua.</transla
 <translation id="6612152958212564387">Nuk po dërgon statistika të përdorimit dhe raporte të ndërprerjeve aksidentale te Google. <ph name="BEGIN_LINK" />Menaxho<ph name="END_LINK" /></translation>
 <translation id="6613949864921837107">Mbaji fjalëkalimet, faqeshënuesit dhe historikun të sinkronizuar në mënyrë të përsosur në pajisje duke caktuar Chrome si shfletuesin tënd të parazgjedhur.</translation>
 <translation id="6631524303639368205">Vazhdo aty ku e ke lënë: Chrome i restauroi skedat e tua nga sesioni yt i fundit. Mund ta çaktivizosh këtë te</translation>
+<translation id="6632012506031284914">për të kërkuar me Chrome.</translation>
 <translation id="6632473616050862500">Chrome OS Flex mundësohet nga<ph name="BEGIN_LINK_CROS_OSS" />softuerë shtesë me burim të hapur<ph name="END_LINK_CROS_OSS" />.</translation>
 <translation id="6634299872736643004">Ndryshimet në këtë cilësim do të zbatohen pasi Chrome të riniset.</translation>
 <translation id="6660596345553328257">Do të identifikohesh në Chrome?</translation>
@@ -594,6 +599,7 @@ Google Chrome nuk është në gjendje të rikuperojë cilësimet e tua.</transla
 <translation id="6750954913813541382">Për të rregulluar gabimet drejtshkrimore, Chrome e dërgon tekstin që shkruan në shfletues te Google</translation>
 <translation id="6760235774835597023">Shpejton sajtet me motorin V8 të Chrome, por e bën Chrome disi më pak rezistent ndaj sulmeve. Ky cilësim është aktiv.</translation>
 <translation id="677276454032249905">Dëshiron të dalësh nga Chrome gjithsesi?</translation>
+<translation id="6777654166489463890">Pyet për përmbajtjet jashtë Chrome, si p.sh. një aplikacion ose skedar tjetër që ke hapur</translation>
 <translation id="6794858689789885890">Fshi gjithmonë të dhënat e sajteve nga pajisja jote kur të mbyllësh Chrome</translation>
 <translation id="6800285125190089494">Identifikohu më shpejt në sajte duke përdorur fjalëkalimet e ruajtura për Chrome në iOS</translation>
 <translation id="6831043979455480757">Përkthe</translation>
@@ -646,6 +652,7 @@ Google Chrome nuk është në gjendje të rikuperojë cilësimet e tua.</transla
 <translation id="7285990705317078173">Shkarko Chrome në telefon për të monitoruar çmimet dhe për të marrë sinjalizime kur ka rënie çmimi në ndonjë sajt</translation>
 <translation id="7288567540154601580">Skedat dhe shtesat</translation>
 <translation id="7296210096911315575">Informacione të rëndësishme për përdorimin dhe sigurinë</translation>
+<translation id="7299899569525778554">Kërko nga desktopi</translation>
 <translation id="7302361266603927550">Disa nga të dhënat e tua të Chrome nuk janë ruajtur ende në "Llogarinë tënde të Google". Provo të presësh për disa minuta para se të dalësh nga ajo. Nëse del tani, këto të dhëna do të fshihen.</translation>
 <translation id="7306401458628386911">Fillo të shfletosh menjëherë: Chrome tani mund të niset kur të niset Windows.</translation>
 <translation id="7308322188646931570">Chrome ka nevojë për qasje te hapësira ruajtëse për të shkarkuar skedarë</translation>
@@ -709,6 +716,7 @@ Google Chrome nuk është në gjendje të rikuperojë cilësimet e tua.</transla
 <translation id="7845233973568007926">Faleminderit që e instalove. Duhet të rinisësh kompjuterin përpara se të përdorësh <ph name="BUNDLE_NAME" />.</translation>
 <translation id="7847170235260850604">Nis Chrome kur të niset Windows</translation>
 <translation id="7849037457735762883">Vazhdo aty ku e ke lënë: Chrome mund t'i restaurojë skedat e tua sa herë që e rinis. Për ta aktivizuar këtë, shko te</translation>
+<translation id="7868731902994556427"><ph name="EXISTING_USER" /> është identifikuar tashmë. Për ta mbajtur shfletimin tënd të ndarë, identifikohu në Chrome në profilin tënd si <ph name="USER_EMAIL_ADDRESS" />. Do të marrësh gjithashtu shtesat e tua etj. nga <ph name="DEVICE" />.</translation>
 <translation id="7869620795354551924">Për të përdorur fjalëkalimet e ruajtura, ndiq kodin QR, shkarko Chrome për iOS dhe identifikohu në "Llogarinë tënde të Google"</translation>
 <translation id="7872446069773932638">Po shkarkohet... Kanë mbetur edhe <ph name="SECONDS" /> sekonda</translation>
 <translation id="7886087451482920026">Zgjidh tekstin me "Lenten e Google"</translation>
@@ -793,7 +801,6 @@ Faqeshënuesit e rinj nuk mund të ruhen në llogarinë tënde derisa të fshish
 <translation id="8575047640889685742">Përdor <ph name="BEGIN_LINK" />frazën tënde të kalimit<ph name="END_LINK" /> për të enkriptuar të gjitha të dhënat e Chrome në "Llogarinë tënde të Google". Mënyrat e pagesës dhe adresat nga Google Pay nuk do të enkriptohen. Historiku i shfletimit nga Chrome nuk do të sinkronizohet.</translation>
 <translation id="8590782867495422699">Rihap "Modalitetin e IA-së" të "Kërko në Google"</translation>
 <translation id="8598779894319572882">Nga butoni "Modaliteti i IA-së i 'Kërko në Google'" në shiritin e veglave, mund të rihapësh "Modalitetin e IA-së të 'Kërko në Google'" për të bërë pyetje ndërkohë që shfleton</translation>
-<translation id="8601359445272098721">E re! Mund të përkthesh tekstet dhe imazhet në ekranin tënd duke zgjedhur butonin "përkthe ekranin"</translation>
 <translation id="8614913330719544658">Google Chrome nuk përgjigjet. Dëshiron ta hapësh sërish tani?</translation>
 <translation id="8623450603356630491">Identifikohu në Chrome në telefonin tënd</translation>
 <translation id="8624541899164515475">Cilësimet, hapet në një skedë të re.</translation>
@@ -805,6 +812,7 @@ Faqeshënuesit e rinj nuk mund të ruhen në llogarinë tënde derisa të fshish
 <translation id="8679801911857917785">Kontrollon gjithashtu se cila faqe shfaqet kur fillon Chrome.</translation>
 <translation id="8712637175834984815">E kuptova</translation>
 <translation id="8712767363896337380">Pothuajse u përditësua! Nis Chrome sërish për të përfunduar përditësimin.</translation>
+<translation id="8717554232729236539"><ph name="EXISTING_USER" /> është identifikuar tashmë. Për ta mbajtur shfletimin tënd të ndarë, identifikohu në Chrome në profilin tënd si <ph name="USER_EMAIL_ADDRESS" />. Do të marrësh gjithashtu listën tënde të leximit etj. nga <ph name="DEVICE" />.</translation>
 <translation id="8718062187489036808">Dil nga Chrome</translation>
 <translation id="873133009373065397">Google Chrome nuk mund të përcaktojë ose të vendosë shfletuesin e parazgjedhur</translation>
 <translation id="8747073452963259673">këndi poshtë majtas i zonës së kërkimit: majtas <ph name="LEFT" />%, poshtë <ph name="BOTTOM" />%</translation>

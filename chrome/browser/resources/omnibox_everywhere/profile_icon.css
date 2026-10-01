@@ -9,21 +9,30 @@
 
 :host {
   display: inline-block;
+  inset-inline-end: 16px;
   pointer-events: auto;
   position: absolute;
-  right: 16px;
-  top: var(--omnibox-everywhere-top-actions-top, 12px);
+  top: var(--omnibox-everywhere-top-actions-top, 16px);
   z-index: 100;
 }
 
 #profileContainer {
   align-items: center;
+  background: transparent;
+  border: none;
+  border-radius: 50%;
   box-sizing: border-box;
   display: flex;
-  height: 36px;
+  height: 28px;
   justify-content: center;
+  outline: none;
+  padding: 0;
   pointer-events: auto;
-  width: 36px;
+  width: 28px;
+}
+
+#profileContainer:focus-visible {
+  box-shadow: 0 0 0 2px var(--cr-focus-outline-color);
 }
 
 #profileContainer.clickable {
@@ -33,10 +42,10 @@
 
 #profileIcon {
   border-radius: 50%;
-  height: 36px;
+  height: 20px;
   object-fit: cover;
   pointer-events: none;
-  width: 36px;
+  width: 20px;
   -webkit-user-drag: none;
 }
 
@@ -45,7 +54,7 @@
   border-radius: 20px;
   gap: 4px;
   height: 28px;
-  margin-top: 4px;
+  margin-top: 0;
   padding-inline-end: 4px;
   padding-inline-start: 4px;
   width: auto;
@@ -159,7 +168,7 @@
   cursor: pointer;
   display: flex;
   padding: 10px 14px;
-  text-align: left;
+  text-align: start;
   transition: background-color 150ms ease;
   width: 100%;
 }

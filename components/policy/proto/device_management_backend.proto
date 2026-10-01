@@ -665,7 +665,6 @@ message PolicyFetchRequest {
   optional int64 timestamp = 2;
 
   // Tell server what kind of security signature is required.
-  // TODO(b/147782972): Move to toplevel in sync with Chrome OS client code.
   enum SignatureType {
     NONE = 0;
     SHA1_RSA = 1;
@@ -3097,6 +3096,11 @@ message DeviceStateKeyUpdateRequest {
   // key as the output, possibly by running the identifiers through a
   // cryptographic hash function such as SHA-256.
   repeated bytes server_backed_state_keys = 1;
+
+  // The discrete time quantum index (time in 2^23-second units since Unix
+  // epoch) corresponding to the active (first) state key in
+  // server_backed_state_keys.
+  optional int64 current_time_quantum_index = 2;
 }
 
 // Server to client message carrying the device state response. Because the
@@ -5539,7 +5543,8 @@ message SigninExperiencePolicies {
   optional ProfileSeparationSettings profile_separation_settings = 2;
 
   // Value for the `ProfileSeparationDataMigrationSettings` policy.
-  optional ProfileSeparationDataMigrationSettings profile_separation_data_migration_settings = 3;
+  optional ProfileSeparationDataMigrationSettings
+      profile_separation_data_migration_settings = 3;
 
   // Value for the `BrowserThemeColor` policy.
   optional string browser_theme_color = 4;

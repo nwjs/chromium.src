@@ -25,11 +25,9 @@ WebNNCompilerServiceImpl::WebNNCompilerServiceImpl(
     mojo::PendingReceiver<mojom::WebNNCompilerService> receiver)
     // The switch is already parsed and validated in PreSandboxInit() so it is
     // guaranteed to be valid.
-    : target_device_(
-          EpDeviceInfo::FromSwitchValue(
-              base::CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
-                  switches::kWebNNCompilerEpDeviceInfo))
-              .value()),
+    : target_device_(EpDeviceInfo::FromSwitchValue(
+          base::CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
+              switches::kWebNNCompilerEpDeviceInfo))),
       receiver_(this, std::move(receiver)) {
   compiler_contexts_.set_disconnect_handler(base::BindRepeating(
       &WebNNCompilerServiceImpl::OnCompilerContextDisconnected,
@@ -37,7 +35,7 @@ WebNNCompilerServiceImpl::WebNNCompilerServiceImpl(
 
   // Start the idle timer immediately as a safety net. Currently the process
   // is only launched when a context is requested (lazy launch in
-  // GpuProcessHost::RequestWebNNCompilerContext), so CreateCompilerContext()
+  // WebNNBrowserHostImpl::RequestCompilerContext), so CreateCompilerContext()
   // will cancel this timer almost immediately. But if the launch path ever
   // changes, this ensures the process won't linger indefinitely.
   idle_timer_.Start(FROM_HERE, kIdleTimeout,
@@ -58,10 +56,17 @@ void WebNNCompilerServiceImpl::CreateCompilerContext(
   // WebNNCompilerContext instances should be created based on the context
   // options. Currently the compiler service is only used by the ORT backend, so
   // here create CompilerContextImplOrt directly.
-  compiler_contexts_.Add(std::make_unique<ort::CompilerContextImplOrt>(
-                             target_device_, std::move(context_options),
-                             context_properties, std::move(model_loader)),
-                         std::move(receiver));
+  auto compiler_context = std::make_unique<ort::CompilerContextImplOrt>(
+      *this, target_device_, std::move(context_options), context_properties,
+      std::move(model_loader));
+  ort::CompilerContextImplOrt* compiler_context_ptr = compiler_context.get();
+  mojo::ReceiverId receiver_id =
+      compiler_contexts_.Add(std::move(compiler_context), std::move(receiver));
+
+  // Bind the context's lifetime to the ModelLoader pipe.
+  compiler_context_ptr->SetId(receiver_id,
+                              base::PassKey<WebNNCompilerServiceImpl>());
+
   std::move(callback).Run(true);
 }
 
@@ -71,6 +76,15 @@ void WebNNCompilerServiceImpl::OnCompilerContextDisconnected() {
                       base::BindOnce(&WebNNCompilerServiceImpl::OnIdleTimeout,
                                      base::Unretained(this)));
   }
+}
+
+void WebNNCompilerServiceImpl::RemoveCompilerContext(
+    mojo::ReceiverId receiver_id,
+    base::PassKey<ort::CompilerContextImplOrt> /*pass_key*/) {
+  compiler_contexts_.Remove(receiver_id);
+  // Explicit removal does not run the receiver set's disconnect handler, so
+  // give idle shutdown a chance to start here too.
+  OnCompilerContextDisconnected();
 }
 
 void WebNNCompilerServiceImpl::OnIdleTimeout() {

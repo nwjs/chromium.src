@@ -517,9 +517,6 @@ AccessibilityPrivateIsFeatureEnabledFunction::Run() {
       enabled = ::features::
           IsExperimentalAccessibilityDictationContextCheckingEnabled();
       break;
-    case accessibility_private::AccessibilityFeature::kCaptionsOnBrailleDisplay:
-      enabled = ::features::IsAccessibilityCaptionsOnBrailleDisplayEnabled();
-      break;
     case accessibility_private::AccessibilityFeature::
         kGoogleTtsAutomaticReconnect:
       enabled = ::features::IsAccessibilityGoogleTtsAutomaticReconnectEnabled();
@@ -896,10 +893,6 @@ AccessibilityPrivateSetChromeVoxFocusFunction::Run() {
   std::optional<accessibility_private::SetChromeVoxFocus::Params> params(
       accessibility_private::SetChromeVoxFocus::Params::Create(args()));
   EXTENSION_FUNCTION_VALIDATE(params);
-
-  if (!features::IsAccessibilityMagnifierFollowsChromeVoxEnabled()) {
-    return RespondNow(NoArguments());
-  }
 
   if (!ash::AccessibilityController::Get()->fullscreen_magnifier().enabled() &&
       !ash::AccessibilityController::Get()->docked_magnifier().enabled()) {

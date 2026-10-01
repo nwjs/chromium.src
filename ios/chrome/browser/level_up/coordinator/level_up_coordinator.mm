@@ -6,13 +6,16 @@
 
 #import "components/prefs/pref_service.h"
 #import "components/signin/public/base/signin_metrics.h"
+#import "components/strings/grit/components_strings.h"
 #import "ios/chrome/browser/level_up/coordinator/level_up_mediator.h"
 #import "ios/chrome/browser/level_up/model/level_up_service.h"
 #import "ios/chrome/browser/level_up/model/level_up_service_factory.h"
 #import "ios/chrome/browser/level_up/model/task_info.h"
 #import "ios/chrome/browser/level_up/ui/level_up_all_tasks_view_controller.h"
+#import "ios/chrome/browser/level_up/ui/level_up_promo_view_controller.h"
 #import "ios/chrome/browser/level_up/ui/level_up_view_controller.h"
 #import "ios/chrome/browser/shared/model/browser/browser.h"
+#import "ios/chrome/browser/shared/model/prefs/pref_names.h"
 #import "ios/chrome/browser/shared/model/profile/profile_ios.h"
 #import "ios/chrome/browser/shared/public/commands/command_dispatcher.h"
 #import "ios/chrome/browser/shared/public/commands/level_up_commands.h"
@@ -21,13 +24,38 @@
 #import "ios/chrome/browser/shared/public/commands/snackbar_commands.h"
 #import "ios/chrome/browser/shared/public/snackbar/snackbar_message.h"
 #import "ios/chrome/browser/shared/public/snackbar/snackbar_message_action.h"
+#import "ios/chrome/browser/shared/ui/symbols/symbols.h"
 #import "ios/chrome/browser/signin/model/authentication_service.h"
 #import "ios/chrome/browser/signin/model/authentication_service_factory.h"
 #import "ios/chrome/browser/signin/model/identity_manager_factory.h"
+#import "ios/chrome/common/ui/button_stack/button_stack_configuration.h"
+#import "ios/chrome/common/ui/colors/semantic_color_names.h"
+#import "ios/chrome/common/ui/confirmation_alert/confirmation_alert_action_handler.h"
+#import "ios/chrome/common/ui/confirmation_alert/confirmation_alert_view_controller.h"
+#import "ios/chrome/common/ui/promo_style/promo_style_view_controller_delegate.h"
+#import "ios/chrome/common/ui/util/chrome_button.h"
 #import "ios/chrome/grit/ios_strings.h"
 #import "ui/base/l10n/l10n_util.h"
 
 namespace {
+
+// Spacing before icon in opt out confirmation sheet.
+constexpr CGFloat kOptOutSheetSpacingAboveIcon = 24;
+
+// Spacing between content in opt out confirmation sheet.
+constexpr CGFloat kOptOutSheetContentSpacing = 16;
+
+// Corner radius for the icon container in opt out confirmation sheet.
+constexpr CGFloat kOptOutSheetIconContainerCornerRadius = 12;
+
+// Point size for the icon symbol image in opt out confirmation sheet.
+constexpr CGFloat kOptOutSheetIconPointSize = 24;
+
+// Width and height of the icon container in opt out confirmation sheet.
+constexpr CGFloat kOptOutSheetIconContainerSize = 56;
+
+// Maximum height detent ratio for the opt out confirmation sheet.
+constexpr double kOptOutSheetMaxDetentRatio = 0.75;
 
 void RunPendingAction(TaskInfo::NavigationAction pending_action,
                       base::WeakPtr<Browser> weak_browser) {
@@ -39,83 +67,62 @@ void RunPendingAction(TaskInfo::NavigationAction pending_action,
 
 }  // namespace
 
-@interface LevelUpCoordinator () <LevelUpAllTasksViewControllerDelegate,
+@interface LevelUpCoordinator () <ConfirmationAlertActionHandler,
+                                  LevelUpAllTasksViewControllerDelegate,
                                   LevelUpMediatorDelegate,
-                                  LevelUpViewControllerDelegate>
+                                  LevelUpViewControllerDelegate,
+                                  PromoStyleViewControllerDelegate,
+                                  UIAdaptivePresentationControllerDelegate>
 
 @property(nonatomic, strong) LevelUpMediator* mediator;
-@property(nonatomic, strong) LevelUpViewController* viewController;
+@property(nonatomic, strong) UIViewController* viewController;
 @property(nonatomic, strong) UINavigationController* navigationController;
 
 @end
 
 @implementation LevelUpCoordinator {
   TaskInfo::NavigationAction _pendingNavigationAction;
+  ConfirmationAlertViewController* _optOutConfirmationViewController;
+  raw_ptr<PrefService> _prefService;
+  raw_ptr<AuthenticationService> _authService;
 }
 
 - (void)start {
   [super start];
-
-  AuthenticationService* authService =
+  _authService =
       AuthenticationServiceFactory::GetForProfile(self.browser->GetProfile());
-  if (!authService->HasPrimaryIdentity()) {
+  if (!_authService->HasPrimaryIdentity()) {
     [self showSignedOutSnackbarAndDismiss];
     return;
   }
+  _prefService = self.browser->GetProfile()->GetPrefs();
+  // Display level up promo if user has not opted in.
+  if (!_prefService->GetBoolean(prefs::kLevelUpOptIn)) {
+    [self showLevelUpPromo];
+    return;
+  }
 
-  self.viewController = [[LevelUpViewController alloc] init];
-  self.viewController.handler =
-      HandlerForProtocol(self.browser->GetCommandDispatcher(), LevelUpCommands);
-  [self.viewController setDelegate:self];
-
-  signin::IdentityManager* identityManager =
-      IdentityManagerFactory::GetForProfile(self.browser->GetProfile());
-  LevelUpService* levelUpService =
-      LevelUpServiceFactory::GetForProfile(self.browser->GetProfile());
-  PrefService* prefService = self.browser->GetProfile()->GetPrefs();
-  self.mediator =
-      [[LevelUpMediator alloc] initWithAuthenticationService:authService
-                                             identityManager:identityManager
-                                              levelUpService:levelUpService
-                                                 prefService:prefService];
-
-  self.mediator.delegate = self;
-  self.mediator.profileConsumer = self.viewController;
-  self.mediator.consumer = self.viewController;
-
-  self.navigationController = [[UINavigationController alloc]
-      initWithRootViewController:self.viewController];
-  [self.navigationController
-      setModalPresentationStyle:UIModalPresentationPageSheet];
-
-  UISheetPresentationController* sheetPresentationController =
-      self.navigationController.sheetPresentationController;
-  sheetPresentationController.detents =
-      @[ [UISheetPresentationControllerDetent largeDetent] ];
-
-  [self.baseViewController presentViewController:self.navigationController
-                                        animated:YES
-                                      completion:nil];
+  [self showLevelUp];
 }
 
 - (void)stop {
+  if (_optOutConfirmationViewController) {
+    [_optOutConfirmationViewController dismissViewControllerAnimated:NO
+                                                          completion:nil];
+    _optOutConfirmationViewController = nil;
+  }
+
   TaskInfo::NavigationAction pendingAction = _pendingNavigationAction;
   base::WeakPtr<Browser> weakBrowser =
       self.browser ? self.browser->AsWeakPtr() : nullptr;
-
-  [self.navigationController.presentingViewController
-      dismissViewControllerAnimated:YES
-                         completion:^{
-                           RunPendingAction(pendingAction, weakBrowser);
-                         }];
-  self.viewController = nil;
+  [self stopLevelUpNavigationController:^{
+    RunPendingAction(pendingAction, weakBrowser);
+  }];
   self.mediator.delegate = nil;
   self.mediator.profileConsumer = nil;
   self.mediator.consumer = nil;
   [self.mediator disconnect];
   self.mediator = nil;
-  self.navigationController = nil;
-
   [super stop];
 }
 
@@ -134,12 +141,106 @@ void RunPendingAction(TaskInfo::NavigationAction pending_action,
 }
 
 - (void)didTapTurnOffLevelUp:(LevelUpViewController*)controller {
-  [self.mediator turnOffLevelUp];
+  ButtonStackConfiguration* config = [[ButtonStackConfiguration alloc] init];
+  config.primaryActionString =
+      l10n_util::GetNSString(IDS_IOS_LEVEL_UP_TURN_OFF_LEVEL_UP);
+  config.primaryButtonStyle = ChromeButtonStylePrimaryDestructive;
+  config.secondaryActionString = l10n_util::GetNSString(IDS_CANCEL);
+
+  ConfirmationAlertViewController* confirmationAlert =
+      [[ConfirmationAlertViewController alloc] initWithConfiguration:config];
+  confirmationAlert.titleString =
+      l10n_util::GetNSString(IDS_IOS_LEVEL_UP_TURN_OFF_LEVEL_UP);
+  confirmationAlert.subtitleString =
+      l10n_util::GetNSString(IDS_IOS_LEVEL_UP_TURN_OFF_CONFIRMATION_SUBTITLE);
+  confirmationAlert.actionHandler = self;
+  confirmationAlert.topAlignedLayout = YES;
+  confirmationAlert.customSpacingBeforeImage = kOptOutSheetSpacingAboveIcon;
+  confirmationAlert.customSpacing = kOptOutSheetContentSpacing;
+  confirmationAlert.addsContentViewBottomInset = NO;
+
+  // Use a full-width wrapper view so the icon container is centered
+  // horizontally without being stretched by the stack view's fill alignment.
+  UIView* iconWrapper = [[UIView alloc] init];
+  iconWrapper.translatesAutoresizingMaskIntoConstraints = NO;
+
+  UIView* iconContainer = [[UIView alloc] init];
+  iconContainer.translatesAutoresizingMaskIntoConstraints = NO;
+  iconContainer.backgroundColor = [UIColor colorNamed:kRed100Color];
+  iconContainer.layer.cornerRadius = kOptOutSheetIconContainerCornerRadius;
+
+  UIImageView* iconImageView = [[UIImageView alloc]
+      initWithImage:SymbolTemplateWithPointSize(SymbolArrowshapeUp,
+                                                kOptOutSheetIconPointSize)];
+  iconImageView.translatesAutoresizingMaskIntoConstraints = NO;
+  iconImageView.tintColor = [UIColor colorNamed:kRed500Color];
+  [iconContainer addSubview:iconImageView];
+  [iconWrapper addSubview:iconContainer];
+
+  [NSLayoutConstraint activateConstraints:@[
+    [iconContainer.widthAnchor
+        constraintEqualToConstant:kOptOutSheetIconContainerSize],
+    [iconContainer.heightAnchor
+        constraintEqualToConstant:kOptOutSheetIconContainerSize],
+    [iconContainer.topAnchor constraintEqualToAnchor:iconWrapper.topAnchor],
+    [iconContainer.bottomAnchor
+        constraintEqualToAnchor:iconWrapper.bottomAnchor],
+    [iconContainer.centerXAnchor
+        constraintEqualToAnchor:iconWrapper.centerXAnchor],
+
+    [iconImageView.centerXAnchor
+        constraintEqualToAnchor:iconContainer.centerXAnchor],
+    [iconImageView.centerYAnchor
+        constraintEqualToAnchor:iconContainer.centerYAnchor],
+  ]];
+
+  confirmationAlert.aboveTitleView = iconWrapper;
+  confirmationAlert.modalPresentationStyle = UIModalPresentationPageSheet;
+
+  UISheetPresentationController* sheet =
+      confirmationAlert.sheetPresentationController;
+  sheet.prefersGrabberVisible = NO;
+
+  __weak ConfirmationAlertViewController* weakAlert = confirmationAlert;
+
+  auto preferredHeightForSheetContent = ^CGFloat(
+      id<UISheetPresentationControllerDetentResolutionContext> context) {
+    CGFloat height = [weakAlert preferredHeightForContent];
+    // Make sure detent is not too large, but also make
+    // sure it looks like a sheet, not a full screen card.
+    return MIN(height, kOptOutSheetMaxDetentRatio * context.maximumDetentValue);
+  };
+  sheet.detents = @[ [UISheetPresentationControllerDetent
+      customDetentWithIdentifier:nil
+                        resolver:preferredHeightForSheetContent] ];
+
+  _optOutConfirmationViewController = confirmationAlert;
+  [self.navigationController presentViewController:confirmationAlert
+                                          animated:YES
+                                        completion:nil];
 }
 
 - (void)levelUpViewController:(LevelUpViewController*)controller
                    didTapTask:(LevelUpTask*)task {
   [self didTapTask:task];
+}
+
+#pragma mark - ConfirmationAlertActionHandler
+
+- (void)confirmationAlertPrimaryAction {
+  __weak __typeof(self) weakSelf = self;
+  [_optOutConfirmationViewController
+      dismissViewControllerAnimated:YES
+                         completion:^{
+                           [weakSelf.mediator turnOffLevelUp];
+                         }];
+  _optOutConfirmationViewController = nil;
+}
+
+- (void)confirmationAlertSecondaryAction {
+  [_optOutConfirmationViewController dismissViewControllerAnimated:YES
+                                                        completion:nil];
+  _optOutConfirmationViewController = nil;
 }
 
 #pragma mark - LevelUpMediatorDelegate
@@ -154,6 +255,34 @@ void RunPendingAction(TaskInfo::NavigationAction pending_action,
 - (void)levelUpAllTasksViewController:(LevelUpAllTasksViewController*)controller
                            didTapTask:(LevelUpTask*)task {
   [self didTapTask:task];
+}
+
+#pragma mark - UIAdaptivePresentationControllerDelegate
+
+- (void)presentationControllerDidDismiss:
+    (UIPresentationController*)presentationController {
+  [HandlerForProtocol(self.browser->GetCommandDispatcher(), LevelUpCommands)
+      dismissLevelUp];
+}
+
+#pragma mark - PromoStyleViewControllerDelegate
+
+- (void)didTapPrimaryActionButton {
+  _prefService->SetBoolean(prefs::kLevelUpOptIn, true);
+  __weak __typeof(self) weakSelf = self;
+  [self stopLevelUpNavigationController:^{
+    [weakSelf showLevelUp];
+  }];
+}
+
+- (void)didTapSecondaryActionButton {
+  [self didTapDismissButton];
+}
+
+- (void)didTapDismissButton {
+  id<LevelUpCommands> handler =
+      HandlerForProtocol(self.browser->GetCommandDispatcher(), LevelUpCommands);
+  [handler dismissLevelUp];
 }
 
 #pragma mark - Private
@@ -203,6 +332,66 @@ void RunPendingAction(TaskInfo::NavigationAction pending_action,
   id<LevelUpCommands> handler =
       HandlerForProtocol(self.browser->GetCommandDispatcher(), LevelUpCommands);
   [handler dismissLevelUp];
+}
+
+// Displays the viewController in the navigationController.
+- (void)presentViewController:(UIViewController*)viewController
+    withModalPresentationStyle:(UIModalPresentationStyle)presentationStyle {
+  self.viewController = viewController;
+  self.navigationController = [[UINavigationController alloc]
+      initWithRootViewController:self.viewController];
+  self.navigationController.modalPresentationStyle = presentationStyle;
+  self.navigationController.presentationController.delegate = self;
+
+  [self.baseViewController presentViewController:self.navigationController
+                                        animated:YES
+                                      completion:nil];
+}
+
+// Displays the Level Up main UIpage.
+- (void)showLevelUp {
+  LevelUpViewController* viewController = [[LevelUpViewController alloc] init];
+  viewController.handler =
+      HandlerForProtocol(self.browser->GetCommandDispatcher(), LevelUpCommands);
+  viewController.delegate = self;
+
+  signin::IdentityManager* identityManager =
+      IdentityManagerFactory::GetForProfile(self.browser->GetProfile());
+  LevelUpService* levelUpService =
+      LevelUpServiceFactory::GetForProfile(self.browser->GetProfile());
+
+  self.mediator =
+      [[LevelUpMediator alloc] initWithAuthenticationService:_authService
+                                             identityManager:identityManager
+                                              levelUpService:levelUpService
+                                                 prefService:_prefService];
+
+  self.mediator.delegate = self;
+  self.mediator.profileConsumer = viewController;
+  self.mediator.consumer = viewController;
+
+  [self presentViewController:viewController
+      withModalPresentationStyle:UIModalPresentationPageSheet];
+}
+
+// Displays the Level Up Promo Screen.
+- (void)showLevelUpPromo {
+  LevelUpPromoViewController* promoViewController =
+      [[LevelUpPromoViewController alloc] init];
+  promoViewController.delegate = self;
+  [self presentViewController:promoViewController
+      withModalPresentationStyle:UIModalPresentationFormSheet];
+}
+
+// Dismisses and cleans up the navigation controller.
+- (void)stopLevelUpNavigationController:(void (^)())completion {
+  self.navigationController.presentationController.delegate = nil;
+  [(id)self.viewController setDelegate:nil];
+  [self.navigationController.presentingViewController
+      dismissViewControllerAnimated:YES
+                         completion:completion];
+  self.navigationController = nil;
+  self.viewController = nil;
 }
 
 @end

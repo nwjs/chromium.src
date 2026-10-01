@@ -48,6 +48,12 @@ export class VoiceLanguageModel {
   private currentVoice_: SpeechSynthesisVoice|null = null;
   private currentLanguage_: string = '';
 
+  // In-flight language download requested by single-selection UI.
+  private pendingTargetLanguage_: string|null = null;
+
+  // Set of languages with in-flight voice pack info requests.
+  private pendingLanguageRequests_: Set<string> = new Set();
+
   getWaitingForNewEngine(): boolean {
     return this.waitingForNewEngine_;
   }
@@ -146,5 +152,33 @@ export class VoiceLanguageModel {
 
   setCurrentLanguage(language: string): void {
     this.currentLanguage_ = language;
+  }
+
+  getPendingTargetLanguage(): string|null {
+    return this.pendingTargetLanguage_;
+  }
+
+  setPendingTargetLanguage(lang: string|null): void {
+    this.pendingTargetLanguage_ = lang;
+  }
+
+  getPendingLanguageRequests(): Set<string> {
+    return this.pendingLanguageRequests_;
+  }
+
+  addPendingLanguageRequest(lang: string): void {
+    this.pendingLanguageRequests_.add(lang);
+  }
+
+  removePendingLanguageRequest(lang: string): void {
+    this.pendingLanguageRequests_.delete(lang);
+  }
+
+  hasPendingLanguageRequest(lang: string): boolean {
+    return this.pendingLanguageRequests_.has(lang);
+  }
+
+  clearPendingLanguageRequests(): void {
+    this.pendingLanguageRequests_.clear();
   }
 }

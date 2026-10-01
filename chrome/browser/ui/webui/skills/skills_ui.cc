@@ -39,6 +39,7 @@
 #include "content/public/browser/web_ui_data_source.h"
 #include "google_apis/gaia/gaia_auth_util.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/page_transition_types.h"
 #include "ui/webui/webui_util.h"
 #include "url/gurl.h"
 
@@ -93,7 +94,6 @@ void AddSkillsV1Resources(content::WebUIDataSource* source, Profile* profile) {
   content::URLDataSource::Add(profile,
                               std::make_unique<SanitizedImageSource>(profile));
   static constexpr webui::LocalizedString kStrings[] = {
-      {"cancel", IDS_CANCEL},
       {"edit", IDS_EDIT2},
       {"menu", IDS_MENU},
       {"save", IDS_SAVE},
@@ -192,7 +192,9 @@ SkillsUI::SkillsUI(content::WebUI* web_ui)
   // Shared strings for Skills V1/V2.
   // TODO(b/521780336): Remove search results strings once we migrate to v2.
   static constexpr webui::LocalizedString kStrings[] = {
+      {"cancel", IDS_CANCEL},
       {"goToSettings", IDS_SKILLS_GO_TO_SETTINGS},
+      {"signInToChrome", IDS_SKILLS_SIGN_IN_TO_CHROME},
       {"skillsTitle", IDS_SKILL_PAGE_TITLE},
       {"errorPageTitle", IDS_SKILLS_ERROR_PAGE_TITLE},
       {"noSearchResultsTitle", IDS_SKILLS_NO_SEARCH_RESULT_TITLE},

@@ -16,6 +16,7 @@
 #include "base/containers/span.h"
 #include "base/i18n/bcp47_extensions.h"
 #include "base/i18n/internal/bcp47_parser.h"
+#include "base/i18n/internal/bcp47_subtags_reader.h"
 #include "base/i18n/internal/immutable_string.h"
 
 namespace base {
@@ -97,10 +98,8 @@ class COMPONENT_EXPORT(LANGUAGE_TAG) LanguageTag {
   // Notice that this does not necessarily represent the language itself as some
   // of them need their region, script and variant to be properly represented.
   constexpr std::string_view language_subtag() const LIFETIME_BOUND {
-    std::string_view tag = tag_string();
-    size_t hyphen_pos = tag.find('-');
-    return hyphen_pos == std::string_view::npos ? tag
-                                                : tag.substr(0, hyphen_pos);
+    return i18n_internal::SubtagsReader(tag_string())
+        .Read(i18n_internal::SubtagsReader::Type::kLanguage);
   }
   // Creates a new `LanguageTag` containing only the language subtag.
   LanguageTag WithLanguageSubtagOnly() const;
@@ -112,9 +111,9 @@ class COMPONENT_EXPORT(LANGUAGE_TAG) LanguageTag {
   // - "sr-Latn" -> "Latn"
   // - "zh-Hans" -> "Hans"
   constexpr std::string_view script_subtag() const LIFETIME_BOUND {
-    return i18n_internal::ParseBcp47Tag(tag_string())
-        .value_or(i18n_internal::ParsedBcp47Tag())
-        .script;
+    return i18n_internal::SubtagsReader(tag_string())
+        .Seek(i18n_internal::SubtagsReader::Type::kScript)
+        .Read(i18n_internal::SubtagsReader::Type::kScript);
   }
   // Returns the region subtag in the language tag if present.
   // Examples:
@@ -123,9 +122,9 @@ class COMPONENT_EXPORT(LANGUAGE_TAG) LanguageTag {
   // - "en" -> ""
   // - "sr-Latn" -> ""
   constexpr std::string_view region_subtag() const LIFETIME_BOUND {
-    return i18n_internal::ParseBcp47Tag(tag_string())
-        .value_or(i18n_internal::ParsedBcp47Tag())
-        .region;
+    return i18n_internal::SubtagsReader(tag_string())
+        .Seek(i18n_internal::SubtagsReader::Type::kRegion)
+        .Read(i18n_internal::SubtagsReader::Type::kRegion);
   }
 
   // Returns the variant subtags in the language tag if present.
@@ -135,9 +134,9 @@ class COMPONENT_EXPORT(LANGUAGE_TAG) LanguageTag {
   // - "sl-IT-rozaj-biske" -> ["biske", "rozaj"]
   constexpr std::vector<std::string_view> variant_subtags() const
       LIFETIME_BOUND {
-    return i18n_internal::ParseBcp47Tag(tag_string())
-        .value_or(i18n_internal::ParsedBcp47Tag())
-        .variants;
+    return i18n_internal::SubtagsReader(tag_string())
+        .Seek(i18n_internal::SubtagsReader::Type::kVariant)
+        .ReadSubtags(i18n_internal::SubtagsReader::Type::kVariant);
   }
 
   // Returns the parent language tag of this language tag by stripping the most
@@ -185,12 +184,13 @@ class COMPONENT_EXPORT(LANGUAGE_TAG) LanguageTag {
     requires(extid != 'u' && extid != 'x')
   std::optional<Extension> GetExtension(
       bcp47_extensions::Traits<extid> traits) const {
-    std::string_view extension = GetExtensionStringInternal(extid);
-    if (extension.empty()) {
+    std::vector<std::string_view> extension_subtags =
+        GetExtensionSubtagsInternal(extid);
+    if (extension_subtags.empty()) {
       return std::nullopt;
     }
 
-    return traits.Factory(base::PassKey<LanguageTag>(), extension);
+    return traits.Factory(base::PassKey<LanguageTag>(), extension_subtags);
   }
 
   // Returns a new `LanguageTag` with the given `extension` set (language tags
@@ -231,7 +231,7 @@ class COMPONENT_EXPORT(LANGUAGE_TAG) LanguageTag {
   // dependencies.
   LanguageTag();
 
-  std::string_view GetExtensionStringInternal(char key) const;
+  std::vector<std::string_view> GetExtensionSubtagsInternal(char key) const;
   LanguageTag WithExtensionStringInternal(char key,
                                           std::string_view subtags) const;
 
@@ -241,11 +241,7 @@ class COMPONENT_EXPORT(LANGUAGE_TAG) LanguageTag {
   // Constexpr Constructor that expects the span of string-views and constructs
   // tha ImmutableString on its own.
   constexpr explicit LanguageTag(base::span<const std::string_view> parts)
-      : tag_(std::is_constant_evaluated()
-                 ? i18n_internal::ImmutableString(
-                       i18n_internal::ImmutableString::ForceStackString{},
-                       parts)
-                 : i18n_internal::ImmutableString(parts)) {}
+      : tag_(i18n_internal::ImmutableString(parts)) {}
 
   // The BCP47 language tag, e.g. "pt-BR".
   // Supports language, script, region, variants and extensions.
@@ -293,9 +289,13 @@ consteval LanguageTag GetKnownLanguageTag(std::string_view tag) {
 
   std::optional<i18n_internal::ParsedBcp47Tag> parsed =
       i18n_internal::ParseBcp47Tag(tag);
-  // Check if the input `tag` is a well-formed bcp47 tag and its subtags are
-  // known.
-  if (!parsed || !i18n_internal::AreSubtagsKnown(*parsed)) {
+  // Check if the input `tag` is a well-formed bcp47 tag
+  if (!parsed) {
+    void ERROR_TagIsMalformed();
+    ERROR_TagIsMalformed();
+  }
+  // Check that the subtags are known.
+  if (!i18n_internal::AreSubtagsKnown(*parsed)) {
     void ERROR_TagIsUnknown();
     ERROR_TagIsUnknown();
   }

@@ -7,7 +7,7 @@ import {assertNotReachedCase} from '//resources/js/assert.js';
 import {loadTimeData} from '//resources/js/load_time_data.js';
 import type {FuseboxAction, SuggestInventory} from '//resources/mojo/components/omnibox/browser/fusebox_action.mojom-webui.js';
 import {TabAttachmentSource} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
-import type {DriveUploadError, SearchContextAttachment, TabInfo} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
+import type {DriveUploadError, SearchContextAttachment, SelectedFileInfo, TabInfo} from '//resources/mojo/components/omnibox/browser/searchbox.mojom-webui.js';
 import type {UnguessableToken} from '//resources/mojo/mojo/public/mojom/base/unguessable_token.mojom-webui.js';
 import type {Url} from '//resources/mojo/url/mojom/url.mojom-webui.js';
 
@@ -134,6 +134,11 @@ export class ComposeboxFile {
   thumbnailUrl?: string|null;
   iconUrl?: Url|null;
   origin?: TabUploadOrigin;
+  // True if this is a placeholder ("ghost") entry created from an upload
+  // status update for a token the frontend does not know about yet. Its
+  // metadata, including `inputType`, is not yet known and must not be relied
+  // on until the entry is replaced by a fully hydrated one.
+  isGhost?: boolean;
 
   constructor(
       uuid: UnguessableToken, name: string, type: string, inputType: InputType,
@@ -153,6 +158,7 @@ export class ComposeboxFile {
     this.thumbnailUrl = options?.thumbnailUrl ?? null;
     this.iconUrl = options?.iconUrl ?? null;
     this.origin = options?.origin;
+    this.isGhost = options?.isGhost ?? false;
   }
 
   static createFromFile(
@@ -394,7 +400,13 @@ export interface TabUpload {
   origin: TabUploadOrigin;
 }
 
-export type ContextualUpload = TabUpload|FileUpload|DriveUpload;
+export interface BrowserFileUpload {
+  token: UnguessableToken;
+  fileInfo: SelectedFileInfo;
+}
+
+export type ContextualUpload =
+    TabUpload|FileUpload|DriveUpload|BrowserFileUpload;
 
 // Represents an embedder-agnostic request to execute a FuseboxAction in a
 // Composebox instance

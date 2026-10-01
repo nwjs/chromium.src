@@ -93,6 +93,10 @@ class ContextHubPageHandler : public browser::context_hub::mojom::PageHandler,
   void GetAllMemoryBankTags(GetAllMemoryBankTagsCallback callback) override;
   void GetAllMemoryBankCollections(
       GetAllMemoryBankCollectionsCallback callback) override;
+  void UpdateMemoryBankEntryAnnotations(
+      int64_t id,
+      browser::context_hub::mojom::MemoryBankEntryAnnotationsPtr annotations,
+      UpdateMemoryBankEntryAnnotationsCallback callback) override;
   void GetTabs(GetTabsCallback callback) override;
   void RetrieveAndGroupTabs(const std::string& user_command,
                             RetrieveAndGroupTabsCallback callback) override;
@@ -106,6 +110,10 @@ class ContextHubPageHandler : public browser::context_hub::mojom::PageHandler,
   void AskGeminiWithContext(const std::string& user_command,
                             const std::vector<int64_t>& memory_bank_entry_ids,
                             AskGeminiWithContextCallback callback) override;
+  void GetMemoryBankChatHistory(
+      GetMemoryBankChatHistoryCallback callback) override;
+  void ClearMemoryBankChatHistory(
+      ClearMemoryBankChatHistoryCallback callback) override;
   void ConfirmAllTabGroups(ConfirmAllTabGroupsCallback callback) override;
   void GetConfirmedTabGroups(GetConfirmedTabGroupsCallback callback) override;
   void RemoveConfirmedTabGroup(
@@ -115,6 +123,8 @@ class ContextHubPageHandler : public browser::context_hub::mojom::PageHandler,
                               CloseConfirmedTabGroupCallback callback) override;
   void RemoveAllConfirmedTabGroups(
       RemoveAllConfirmedTabGroupsCallback callback) override;
+  void ExecuteSmartSearch(const std::string& query,
+                          ExecuteSmartSearchCallback callback) override;
 
  private:
   mojo::Remote<browser::context_hub::mojom::Page> page_;

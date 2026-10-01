@@ -155,13 +155,13 @@ BASE_FEATURE_PARAM(int,
                    kThrottleRepeatedNoDamageFramesThreshold1,
                    &kThrottleRepeatedNoDamageFrames,
                    "repeated_no_damage_frame_throttling_threshold1",
-                   90);
+                   360);
 
 BASE_FEATURE_PARAM(int,
                    kThrottleRepeatedNoDamageFramesThreshold2,
                    &kThrottleRepeatedNoDamageFrames,
                    "repeated_no_damage_frame_throttling_threshold2",
-                   90);
+                   60);
 
 BASE_FEATURE_PARAM(int,
                    kThrottleRepeatedNoDamageFramesIntervalFactor1,
@@ -189,11 +189,11 @@ BASE_FEATURE(kThrottleMainFrameTo60HzWebView,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kThrottleMainFrameTo60HzDesktopAndroid,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 #endif
 
 BASE_FEATURE(kHighFramerateRequestFromClient,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 void SetIsEligibleForThrottleMainFrameTo60Hz(bool is_eligible) {
   s_is_eligible_for_throttle_main_frame_to_60hz.store(

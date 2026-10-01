@@ -221,63 +221,25 @@ To auto-format and lint files:
 
 ### Starting WebDriver BiDi Server
 
-First, build the target:
+ChromeDriver is used as the WebDriver BiDi server.
+
+First, build the targets:
 
 ```sh
-autoninja -C ../../out/Default third_party/chromium-bidi:default
+autoninja -C ../../out/Default third_party/chromium-bidi:default chrome/test/chromedriver:chromedriver_server
 ```
 
 Run the server:
 
 ```sh
-./tools/node.py tools/run-bidi-server.mjs --gen-dir ../../out/Default/gen/third_party/chromium-bidi
+./tools/run_bidi_server.py --gen-dir ../../out/Default/gen/third_party/chromium-bidi
 ```
 
 By default, the server runs on port `8080`. Use the `PORT=` environment variable or `--port=` argument to run it on another port:
 
 ```sh
-PORT=8081 ./tools/node.py tools/run-bidi-server.mjs --gen-dir ../../out/Default/gen/third_party/chromium-bidi
-./tools/node.py tools/run-bidi-server.mjs --gen-dir ../../out/Default/gen/third_party/chromium-bidi --port=8081
-```
-
-Use the `DEBUG` environment variable to see debug info:
-
-```sh
-DEBUG=* ./tools/node.py tools/run-bidi-server.mjs --gen-dir ../../out/Default/gen/third_party/chromium-bidi
-```
-
-Use the `DEBUG_DEPTH` (default: `10`) environment variable to see debug deeply nested objects:
-
-```sh
-DEBUG_DEPTH=100 DEBUG=* ./tools/node.py tools/run-bidi-server.mjs --gen-dir ../../out/Default/gen/third_party/chromium-bidi
-```
-
-Use the `CHANNEL=...` environment variable with one of the following values to run
-the specific Chrome channel: `stable`, `beta`, `canary`, `dev`, `local`. Default is
-`local`. The `local` channel means the pinned in `.browser` Chrome version will be
-downloaded if it is not yet in cache. Otherwise, the requested Chrome version should
-be installed.
-
-```sh
-CHANNEL=dev ./tools/node.py tools/run-bidi-server.mjs --gen-dir ../../out/Default/gen/third_party/chromium-bidi
-```
-
-Use the CLI argument `--verbose` to have CDP events printed to the console. Note: you have to enable debugging output `bidi:mapper:debug:*` as well.
-
-```sh
-DEBUG=bidi:mapper:debug:* ./tools/node.py tools/run-bidi-server.mjs --gen-dir ../../out/Default/gen/third_party/chromium-bidi --verbose
-```
-
-or
-
-```sh
-DEBUG=* ./tools/node.py tools/run-bidi-server.mjs --gen-dir ../../out/Default/gen/third_party/chromium-bidi --verbose
-```
-
-To run the browser in headful mode:
-
-```sh
-./tools/node.py tools/run-bidi-server.mjs --gen-dir ../../out/Default/gen/third_party/chromium-bidi --port=8081 --headless=false
+PORT=8081 ./tools/run_bidi_server.py --gen-dir ../../out/Default/gen/third_party/chromium-bidi
+./tools/run_bidi_server.py --gen-dir ../../out/Default/gen/third_party/chromium-bidi --port=8081
 ```
 
 ## Running
@@ -315,13 +277,13 @@ Filter unit tests by file path:
 ../../out/Default/bin/run_webdriver_bidi_unittests -- --test-path-pattern="<path_pattern>"
 ```
 
-Filter unit tests using ResultDB / Chromium test filter (`--test-filter` / `--isolated-script-test-filter`):
+Filter unit tests using ResultDB / Chromium test filter (`--test-filter` / `--isolated-script-test-filter` / `--gtest_filter`):
 
 ```sh
 ../../out/Default/bin/run_webdriver_bidi_unittests --test-filter=':chromium-bidi!mocha:src/utils/:assert.test.ts#assert:should not throw an error when the predicate is truthy'
 ```
 
-Multiple tests can be separated with `::`:
+Multiple tests can be separated with `::` or `:`:
 
 ```sh
 ../../out/Default/bin/run_webdriver_bidi_unittests --test-filter=':chromium-bidi!mocha:src/utils/:assert.test.ts#assert:should not throw an error when the predicate is truthy:::chromium-bidi!mocha:src/utils/:DefaultMap.test.ts#DefaultMap:sets and gets properly'
@@ -365,13 +327,13 @@ Run all E2E tests:
 ../../out/Default/bin/run_webdriver_bidi_e2e_tests
 ```
 
-Filter E2E tests using ResultDB / Chromium test filter (`--test-filter` / `--isolated-script-test-filter`):
+Filter E2E tests using ResultDB / Chromium test filter (`--test-filter` / `--isolated-script-test-filter` / `--gtest_filter`):
 
 ```sh
 ../../out/Default/bin/run_webdriver_bidi_e2e_tests --test-filter=':chromium-bidi!pytest:tests/bluetooth/:test_characteristic_emulation.py#test_bluetooth_add_same_characteristic_uuid_twice'
 ```
 
-Legacy pytest node IDs and multiple `::`-separated test IDs are also supported:
+Legacy pytest node IDs, wildcards (`*`), and multiple `::` or `:` separated test IDs are also supported:
 
 ```sh
 ../../out/Default/bin/run_webdriver_bidi_e2e_tests --isolated-script-test-filter='tests/bluetooth/test_characteristic_emulation.py::test_bluetooth_add_same_characteristic_uuid_twice::tests/browser/test_create_user_context.py::test_browser_create_user_context_proxy[True]'
@@ -409,12 +371,6 @@ Run a specific test using the `-k` filter:
 ../../out/Default/bin/run_webdriver_bidi_e2e_tests -- -k <TestName>
 ```
 
-Use `CHROMEDRIVER` environment variable to run tests in `chromedriver` instead of NodeJS runner:
-
-```shell
-CHROMEDRIVER=true ../../out/Default/bin/run_webdriver_bidi_e2e_tests
-```
-
 Use the `PORT` environment variable to connect to another port:
 
 ```sh
@@ -448,7 +404,7 @@ sometimes it is useful to run the http server outside the test
 case, for example for manual debugging. This can be done by running:
 
 ```sh
-vpython3 -vpython-spec .vpython3 tools/run_local_http_server.py
+vpython3 tools/run_local_http_server.py
 ```
 
 ### Examples
@@ -483,12 +439,10 @@ The architecture is described in the
 [WebDriver BiDi in Chrome Context implementation plan](https://docs.google.com/document/d/1VfQ9tv0wPSnb5TI-MOobjoQ5CXLnJJx9F_PxOMQc8kY)
 .
 
-There are 2 main modules:
+There are 2 main components:
 
-1. backend WS server in `src`. It runs webSocket server, and for each ws connection
-   runs an instance of browser with BiDi Mapper.
-2. front-end BiDi Mapper in `src/bidiMapper`. Gets BiDi commands from the backend,
-   and map them to CDP commands.
+1. ChromeDriver (C++ server), which hosts the WebDriver BiDi WebSocket and HTTP endpoints and manages browser instances.
+2. Front-end BiDi Mapper in `src/bidiMapper` (bundled into `mapperTab.js`). It runs inside the browser, receives BiDi commands from ChromeDriver, and translates them to CDP commands.
 
 ## Contributing
 
@@ -520,7 +474,7 @@ new command, add it to `_processCommand`, write and call the module processor fo
    ```
 4. Upload the filtered `node_modules` to Google Cloud Storage and update `DEPS`:
    ```sh
-   ./tools/update_node_modules.mjs --force
+   ./tools/update_node_modules.py --force
    ```
 5. Upload a CL with `package.json`, `package-lock.json`, `DEPS`, and any updated `README.chromium` / `licenses/` via `git cl upload` and submit for review.
 
@@ -569,8 +523,8 @@ TODO(crbug.com/549520316): Automate the sync process.
 
 Run the following steps from the `third_party/chromium-bidi` directory:
 
-1. (Optional) If you want to add a new specification, add it to the `tools/update-bidi-types.sh` script.
-2. Run the `tools/update-bidi-types.sh` script.
+1. (Optional) If you want to add a new specification, add it to the `tools/update_bidi_types.py` script.
+2. Run the `tools/update_bidi_types.py` script.
 3. Build the project (`autoninja -C ../../out/Default third_party/chromium-bidi:default`). If a new WebDriver BiDi command was added, compilation will fail with `Switch is not exhaustive. Cases not matched ...`.
 4. Add the new BiDi command to `CommandProcessor.#processCommand` in `src/bidiMapper/CommandProcessor.ts`. For now, just have it throw an UnknownErrorException.
 

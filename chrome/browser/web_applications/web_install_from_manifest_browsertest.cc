@@ -25,7 +25,6 @@
 #include "base/threading/thread_restrictions.h"
 #include "base/time/time.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/tabs/tab_enums.h"
@@ -80,6 +79,7 @@
 #include "third_party/blink/public/common/features_generated.h"
 #include "third_party/blink/public/mojom/use_counter/metrics/webdx_feature.mojom.h"
 #include "ui/base/models/image_model.h"
+#include "ui/base/page_transition_types.h"
 #include "ui/gfx/codec/png_codec.h"
 #include "ui/gfx/image/image_unittest_util.h"
 #include "ui/views/bubble/bubble_dialog_delegate_view.h"
@@ -481,6 +481,34 @@ IN_PROC_BROWSER_TEST_F(WebInstallFromManifestBrowserTest,
       static_cast<int>(WebInstallServiceResult::kSuccess));
   EXPECT_EQ(ukm::GetSourceIdType(entries[1]->source_id),
             ukm::SourceIdType::APP_ID);
+}
+
+IN_PROC_BROWSER_TEST_F(WebInstallFromManifestBrowserTest,
+                       RelativeManifest_Succeeds) {
+  NavigateToValidUrl();
+  SetPermissionResponse(/*permission_granted=*/true);
+  base::AutoReset<web_app::InstallDialogTestResponse> auto_accept_pwa =
+      web_app::SetPwaInstallationAutoRespondForTesting(
+          web_app::InstallDialogTestResponse::kAcceptAndLaunch);
+
+  permissions::PermissionRequestObserver observer(web_contents());
+  ASSERT_TRUE(content::ExecJs(
+      web_contents(),
+      content::JsReplace("navigator.install({manifest: $1})"
+                         ".then(result => { webInstallResult = result; })"
+                         ".catch(error => { webInstallError = error; });",
+                         kValidManifestWithId)));
+  observer.Wait();
+
+  EXPECT_TRUE(observer.request_shown());
+  EXPECT_TRUE(ResultExists());
+  EXPECT_FALSE(ErrorExists());
+
+  const GURL manifest_id = embedded_https_test_server().GetURL("/some_id");
+  const webapps::AppId app_id =
+      GenerateAppIdFromManifestId(webapps::ManifestId(manifest_id));
+  EXPECT_TRUE(provider().registrar_unsafe().AppMatches(
+      app_id, WebAppFilter::LaunchableFromInstallApi()));
 }
 
 // When the user denies the Web Install permission prompt, the install is

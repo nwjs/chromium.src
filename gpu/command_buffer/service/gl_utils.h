@@ -21,6 +21,7 @@
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/rrect_f.h"
 #include "ui/gfx/geometry/transform.h"
+#include "ui/gfx/geometry/vector2d.h"
 #include "ui/gfx/overlay_transform.h"
 #include "ui/gl/gl_bindings.h"
 
@@ -117,6 +118,8 @@ bool ValidContextLostReason(GLenum reason);
 error::ContextLostReason GetContextLostReasonFromResetStatus(
     GLenum reset_status);
 
+GPU_GLES2_EXPORT gfx::Vector2d GetCompressedTexBlockDimensions(GLenum format);
+
 bool GetCompressedTexSizeInBytes(const char* function_name,
                                  GLsizei width,
                                  GLsizei height,
@@ -180,6 +183,18 @@ bool IsCompressedTextureFormat(GLenum internal_format);
 Texture* CreateGLES2TextureWithLightRef(GLuint service_id, GLenum target);
 
 }  // namespace gles2
+
+// Drains all GL errors from `gl_api` and returns the first error encountered,
+// or GL_NO_ERROR if there were no errors.
+inline GLenum DrainGLErrors(gl::GLApi* gl_api) {
+  GLenum error = gl_api->glGetErrorFn();
+  GLenum first_error = error;
+  while (error != GL_NO_ERROR) {
+    error = gl_api->glGetErrorFn();
+  }
+  return first_error;
+}
+
 }  // namespace gpu
 
 #endif  // GPU_COMMAND_BUFFER_SERVICE_GL_UTILS_H_

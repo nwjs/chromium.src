@@ -51,6 +51,7 @@ chromium-metrics-reviews@google.com.
   <variant name="GetOsMicrophonePermissionStatus"/>
   <variant name="GetSkill"/>
   <variant name="GetUserProfileInfo"/>
+  <variant name="GetZeroStateSuggestionsAndSubscribe"/>
   <variant name="GetZeroStateSuggestionsForFocusedTab"/>
   <variant name="InterruptActorTask"/>
   <variant name="JournalClear"/>
@@ -77,6 +78,7 @@ chromium-metrics-reviews@google.com.
   <variant name="OnSessionTerminated"/>
   <variant name="OnTurnCompleted"/>
   <variant name="OnUserInputSubmitted"/>
+  <variant name="OpenContactInfoSettingsPage"/>
   <variant name="OpenGlicSettingsPage"/>
   <variant name="OpenOsPermissionSettingsMenu"/>
   <variant name="OpenPasswordManagerSettingsPage"/>
@@ -123,7 +125,7 @@ chromium-metrics-reviews@google.com.
   <variant name="WebClientInitialized"/>
 </variants>
 
-<!-- LINT.ThenChange(//chrome/browser/resources/glic/glic_api_impl/request_types.ts:ApiRequestType) -->
+<!-- LINT.ThenChange(//chrome/browser/glic/public/glic_api_metrics.h:GlicHostApiRequestId) -->
 
 <variants name="AttachedTabCount">
   <variant name="0" summary="0 tabs attached"/>
@@ -168,6 +170,7 @@ chromium-metrics-reviews@google.com.
   <variant name="ExperimentalTriggering"/>
   <variant name="Fre"/>
   <variant name="HandoffButton"/>
+  <variant name="HistoryPageChatLinkout"/>
   <variant name="IndigoPageAction"/>
   <variant name="Iph"/>
   <variant name="NavigationCapture"/>
@@ -199,7 +202,7 @@ chromium-metrics-reviews@google.com.
   <variant name="ZeroStateAutoSummarize"/>
 </variants>
 
-<!-- LINT.ThenChange(//chrome/browser/glic/host/glic.mojom:InvocationSource) -->
+<!-- LINT.ThenChange(//chrome/common/glic_enums.mojom:InvocationSource) -->
 
 <variants name="MemoryTriggerEvent">
   <variant name="CriticalPressure"
@@ -284,6 +287,38 @@ chromium-metrics-reviews@google.com.
     Records the final computed enterprise policy state for Glic actuation.
     Emitted on every evaluation. Filter by &quot;Client Count&quot; to
     deduplicate.
+  </summary>
+</histogram>
+
+<histogram name="Glic.Actor.TaskIdMatchesCurrent" enum="BooleanMatched"
+    expires_after="2027-03-01">
+  <owner>mfoltz@chromium.org</owner>
+  <owner>dewittj@chromium.org</owner>
+  <summary>
+    Records whether the task ID provided with a Glic actor API call matches the
+    task ID currently known to Glic. Emitted on every invocation of a Glic API
+    method that takes a task ID (e.g. PerformActions, CancelActions,
+    StopActorTask).
+  </summary>
+</histogram>
+
+<histogram name="Glic.Actor.TaskIdMismatch.Method"
+    enum="GlicActorTaskIdMismatchMethod" expires_after="2027-03-01">
+  <owner>mfoltz@chromium.org</owner>
+  <owner>dewittj@chromium.org</owner>
+  <summary>
+    Records which Glic API call had a task ID mismatch. See
+    Glic.Actor.TaskIdMatchesCurrent for details.
+  </summary>
+</histogram>
+
+<histogram name="Glic.Actor.TaskIdMismatch.Reason"
+    enum="GlicActorTaskIdMismatchReason" expires_after="2027-03-01">
+  <owner>mfoltz@chromium.org</owner>
+  <owner>dewittj@chromium.org</owner>
+  <summary>
+    Records the reason why a Glic API call had a task ID mismatch. See
+    Glic.Actor.TaskIdMatchesCurrent for details.
   </summary>
 </histogram>
 
@@ -460,7 +495,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Glic.ChromeClient.MultiProfileSyntheticTrialConflictDetected"
-    enum="BooleanEnabled" expires_after="2027-01-03">
+    enum="BooleanEnabled" expires_after="2027-03-07">
   <owner>birnie@google.com</owner>
   <owner>carlosk@chromium.org</owner>
   <summary>
@@ -497,7 +532,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Glic.Contents.LoadCompleteTime" units="ms"
-    expires_after="2027-01-03">
+    expires_after="2027-03-07">
   <owner>acondor@google.com</owner>
   <owner>harringtond@google.com</owner>
   <summary>
@@ -507,7 +542,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Glic.Contents.NavigationCommitTime" units="ms"
-    expires_after="2027-01-03">
+    expires_after="2027-03-07">
   <owner>acondor@google.com</owner>
   <owner>harringtond@google.com</owner>
   <summary>
@@ -681,6 +716,21 @@ chromium-metrics-reviews@google.com.
   </token>
 </histogram>
 
+<histogram name="Glic.EntryPoint.SendSelectedTextSucceeded" enum="Boolean"
+    expires_after="2027-05-30">
+  <owner>alexiswu@google.com</owner>
+  <owner>ssid@google.com</owner>
+  <summary>
+    Recorded on Android when the user taps the 'Ask Gemini' item in the text
+    selection menu and Chrome attempts to send the selected text to Glic.
+    Records true if Glic was successfully invoked with the selected text, and
+    false if the target tab or the Glic service was unavailable, or if Glic
+    could not be opened. Pairs with Glic.EntryPoint.Click.{TabContext}
+    (WebContentsContextMenu bucket) to form a click to successful-send funnel
+    for the text selection entry point.
+  </summary>
+</histogram>
+
 <histogram name="Glic.EntryPoint.Status" enum="GlicEntryPointStatus"
     expires_after="2027-01-31">
   <owner>sanaakbani@google.com</owner>
@@ -692,6 +742,20 @@ chromium-metrics-reviews@google.com.
     Three-Dot. The entry points are only shown if a profile is eligible to use
     glic. The Three-Dot menu entry is always shown but the Tabstrip and OS
     entrypoints can be removed based on user configuration.
+  </summary>
+</histogram>
+
+<histogram name="Glic.ExperimentalTriggering.FirstFCMMessageLatency" units="ms"
+    expires_after="2027-08-01">
+  <owner>qinmin@chromium.org</owner>
+  <owner>nyquist@chromium.org</owner>
+  <summary>
+    Records the approximate time elapsed from when the server sent the first
+    experimental triggering sharing message (either an OptIn request or a
+    trigger actuation request) for a given conversation context to when Chrome
+    received it. Because client and server clocks are not synchronized, this
+    duration is an approximation; any negative values resulting from clock skew
+    are recorded as 0.
   </summary>
 </histogram>
 
@@ -937,7 +1001,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Glic.FreToFirstQueryTime" units="ms"
-    expires_after="2027-01-03">
+    expires_after="2027-03-07">
   <owner>birnie@google.com</owner>
   <owner>cuianthony@google.com</owner>
   <summary>
@@ -949,7 +1013,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Glic.FreToFirstQueryTimeMax24H" units="ms"
-    expires_after="2027-01-03">
+    expires_after="2027-03-07">
   <owner>birnie@google.com</owner>
   <owner>cuianthony@google.com</owner>
   <summary>
@@ -1059,7 +1123,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Glic.Instance.AutoOpenedPanel.FirstAction.{Source}"
-    enum="GlicDaisyChainFirstAction" expires_after="2026-12-31">
+    enum="GlicDaisyChainFirstAction" expires_after="2027-03-07">
   <owner>birnie@google.com</owner>
   <owner>basiaz@google.com</owner>
   <summary>
@@ -1255,7 +1319,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Glic.Instance.InputSubmitted.SelectionCount" units="areas"
-    expires_after="2027-01-03">
+    expires_after="2027-03-07">
   <owner>dtapuska@google.com</owner>
   <owner>liuwilliam@google.com</owner>
   <owner>naai-xfn@google.com</owner>
@@ -1364,7 +1428,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Glic.Instance.Session.Duration" units="ms"
-    expires_after="2026-12-27">
+    expires_after="2027-02-28">
   <owner>birnie@google.com</owner>
   <owner>carlosk@chromium.org</owner>
   <summary>
@@ -1379,7 +1443,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Glic.Instance.Session.EndReason"
-    enum="GlicMultiInstanceSessionEndReason" expires_after="2026-12-27">
+    enum="GlicMultiInstanceSessionEndReason" expires_after="2027-02-28">
   <owner>birnie@google.com</owner>
   <owner>carlosk@chromium.org</owner>
   <summary>
@@ -1401,7 +1465,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Glic.Instance.Session.InputModesUsed"
-    enum="GlicInputModesUsed" expires_after="2026-12-27">
+    enum="GlicInputModesUsed" expires_after="2027-02-28">
   <owner>birnie@google.com</owner>
   <owner>perrier@chromium.org</owner>
   <summary>
@@ -1432,7 +1496,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Glic.Instance.Session.ToggleCount" units="count"
-    expires_after="2026-12-27">
+    expires_after="2027-02-28">
   <owner>birnie@google.com</owner>
   <owner>perrier@google.com</owner>
   <summary>
@@ -1442,7 +1506,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Glic.Instance.Session.TotalActiveDuration" units="ms"
-    expires_after="2026-12-27">
+    expires_after="2027-02-28">
   <owner>birnie@google.com</owner>
   <owner>perrier@google.com</owner>
   <summary>
@@ -1453,7 +1517,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Glic.Instance.Session.TotalHiddenDuration" units="ms"
-    expires_after="2026-12-27">
+    expires_after="2027-02-28">
   <owner>birnie@google.com</owner>
   <owner>perrier@google.com</owner>
   <summary>
@@ -1475,7 +1539,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Glic.Instance.Session.TotalVisibleDuration" units="ms"
-    expires_after="2026-12-27">
+    expires_after="2027-02-28">
   <owner>birnie@google.com</owner>
   <owner>perrier@google.com</owner>
   <summary>
@@ -1486,7 +1550,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Glic.Instance.Session.TurnCount" units="count"
-    expires_after="2026-12-27">
+    expires_after="2027-02-28">
   <owner>birnie@google.com</owner>
   <owner>carlosk@chromium.org</owner>
   <summary>
@@ -1518,7 +1582,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Glic.Instance.SessionCount" units="count"
-    expires_after="2026-12-27">
+    expires_after="2027-02-28">
   <owner>birnie@google.com</owner>
   <owner>carlosk@chromium.org</owner>
   <summary>
@@ -1585,7 +1649,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Glic.Instance.TimeBetweenSessions.{Range}" units="ms"
-    expires_after="2027-01-03">
+    expires_after="2027-03-07">
   <owner>birnie@google.com</owner>
   <owner>perrier@chromium.org</owner>
   <summary>
@@ -1638,7 +1702,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Glic.Instance.TotalActiveDuration" units="ms"
-    expires_after="2027-01-03">
+    expires_after="2027-03-07">
   <owner>birnie@google.com</owner>
   <owner>perrier@google.com</owner>
   <summary>
@@ -1735,7 +1799,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Glic.Instance.WebUiLoadTime.{Visibility}" units="ms"
-    expires_after="2027-01-03">
+    expires_after="2027-03-07">
   <owner>birnie@google.com</owner>
   <owner>perrier@google.com</owner>
   <summary>
@@ -1859,7 +1923,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Glic.InvocationSource.{InvocationSource}.SidePanelFirstOpenDuration.{PromptStatus}"
-    units="ms" expires_after="2026-12-06">
+    units="ms" expires_after="2027-02-28">
   <owner>sanaakbani@google.com</owner>
   <owner>basiaz@google.com</owner>
   <summary>
@@ -1879,7 +1943,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Glic.InvocationSource.{InvocationSource}.SidePanelFirstOpenPromptCount"
-    units="prompts" expires_after="2026-12-06">
+    units="prompts" expires_after="2027-02-28">
   <owner>sanaakbani@google.com</owner>
   <owner>basiaz@google.com</owner>
   <summary>
@@ -1892,7 +1956,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Glic.InvocationSource.{InvocationSource}.WebUiLoadTime.{Visibility}"
-    units="ms" expires_after="2027-01-03">
+    units="ms" expires_after="2027-03-07">
   <owner>birnie@google.com</owner>
   <owner>perrier@google.com</owner>
   <summary>
@@ -1935,6 +1999,28 @@ chromium-metrics-reviews@google.com.
     Records the invocation source when a Glic invocation begins. Recorded each
     time GlicInstanceCoordinatorImpl::InvokeInternal is called.
   </summary>
+</histogram>
+
+<histogram name="Glic.Invoke.TimeoutStage" enum="GlicInvokeTimeoutStage"
+    expires_after="2027-06-01">
+  <owner>csharrison@chromium.org</owner>
+  <owner>glic-dev@google.com</owner>
+  <summary>
+    Records the active task type when a Glic invocation times out. Recorded when
+    the invocation handler times out before completing.
+  </summary>
+</histogram>
+
+<histogram name="Glic.Invoke.TimeoutStage.{InvocationSource}"
+    enum="GlicInvokeTimeoutStage" expires_after="2027-06-01">
+  <owner>csharrison@chromium.org</owner>
+  <owner>glic-dev@google.com</owner>
+  <summary>
+    Records the active task type when a Glic invocation times out, sliced by the
+    invocation source. Recorded when the invocation handler times out before
+    completing.
+  </summary>
+  <token key="InvocationSource" variants="GlicInvocationSource"/>
 </histogram>
 
 <histogram name="Glic.InvokeResult" enum="GlicInvokeResult"
@@ -1980,6 +2066,17 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="Glic.Media.SharedContextLength" units="bytes"
+    expires_after="2027-01-03">
+  <owner>ahmedmoussa@google.com</owner>
+  <owner>chrome-bluefin@google.com</owner>
+  <summary>
+    Records the total media context length (in bytes) when it is shared with
+    glic for inclusion in the page context. Only recorded when a transcript
+    actually exists.
+  </summary>
+</histogram>
+
 <histogram name="Glic.Media.TimestampRangeCount" units="count"
     expires_after="2027-02-07">
   <owner>liberato@chromium.org</owner>
@@ -1993,7 +2090,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Glic.Media.TotalContextLength" units="bytes"
-    expires_after="2027-01-03">
+    expires_after="2027-03-07">
   <owner>liberato@chromium.org</owner>
   <owner>chrome-bluefin@google.com</owner>
   <summary>
@@ -2099,7 +2196,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Glic.Onboarding.WebUiLoadTime.{Visibility}" units="ms"
-    expires_after="2026-12-31">
+    expires_after="2027-03-07">
   <owner>sanaakbani@google.com</owner>
   <owner>basiaz@google.com</owner>
   <summary>
@@ -2168,7 +2265,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Glic.PageContextFetcher.GetScreenshot" units="ms"
-    expires_after="2027-01-03">
+    expires_after="2027-03-07">
   <owner>carlosk@chromium.org</owner>
   <owner>harringtond@chromium.org</owner>
   <owner>erikchen@chromium.org</owner>
@@ -2266,7 +2363,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Glic.PageContextFetcher.Total" units="ms"
-    expires_after="2027-01-03">
+    expires_after="2027-03-07">
   <owner>carlosk@chromium.org</owner>
   <owner>harringtond@chromium.org</owner>
   <owner>erikchen@chromium.org</owner>
@@ -2356,7 +2453,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Glic.PanelWebUiState.Error" enum="PanelWebUiStateErrorReason"
-    expires_after="2026-12-27">
+    expires_after="2027-02-28">
   <owner>birnie@google.com</owner>
   <owner>perrier@google.com</owner>
   <summary>
@@ -2373,7 +2470,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Glic.PanelWebUiState.FinishState3" enum="WebUiState"
-    expires_after="2026-12-27">
+    expires_after="2027-02-28">
   <owner>birnie@google.com</owner>
   <owner>perrier@google.com</owner>
   <summary>
@@ -2383,7 +2480,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Glic.Paste.AttemptedFormat.{CopySource}"
-    enum="GlicPasteFormat" expires_after="2027-01-01">
+    enum="GlicPasteFormat" expires_after="2027-03-07">
   <owner>birnie@google.com</owner>
   <owner>chrome-glic@google.com</owner>
   <summary>
@@ -2397,7 +2494,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Glic.Paste.FailedEligibilityReason.{CopySource}"
-    enum="GlicPasteFailedEligibilityReason" expires_after="2027-01-01">
+    enum="GlicPasteFailedEligibilityReason" expires_after="2027-03-07">
   <owner>birnie@google.com</owner>
   <owner>chrome-glic@google.com</owner>
   <summary>
@@ -2491,7 +2588,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Glic.PrivateApi.PromptRetrievalResult"
-    enum="GlicPrivateApiStatusCodeHistogramValue" expires_after="2026-12-31">
+    enum="GlicPrivateApiStatusCodeHistogramValue" expires_after="2027-03-07">
   <owner>dtrainor@chromium.org</owner>
   <owner>nyquist@chromium.org</owner>
   <owner>glic@google.com</owner>
@@ -2779,7 +2876,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Glic.Selection.Action.{FreState}" enum="GlicSelectionAction"
-    expires_after="2026-12-31">
+    expires_after="2027-03-07">
   <owner>gklassen@chromium.org</owner>
   <owner>vollick@chromium.org</owner>
   <summary>
@@ -2840,7 +2937,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Glic.Selection.WidgetClicked.SelectionLength.{FreState}"
-    units="characters" expires_after="2026-12-31">
+    units="characters" expires_after="2027-03-07">
   <owner>gklassen@chromium.org</owner>
   <owner>vollick@chromium.org</owner>
   <summary>
@@ -2854,7 +2951,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Glic.Selection.WidgetClicked.SelectionWordCount.{FreState}"
-    units="words" expires_after="2026-12-31">
+    units="words" expires_after="2027-03-07">
   <owner>wusirui@google.com</owner>
   <owner>naai-xfn@google.com</owner>
   <summary>
@@ -2868,7 +2965,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Glic.Selection.WidgetShown.SelectionLength.{FreState}"
-    units="characters" expires_after="2026-12-31">
+    units="characters" expires_after="2027-03-07">
   <owner>wusirui@google.com</owner>
   <owner>naai-xfn@google.com</owner>
   <summary>
@@ -3034,7 +3131,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Glic.Sharing.TabPinnedForSharing"
-    enum="GlicTabPinnedForSharingResult" expires_after="2027-01-03">
+    enum="GlicTabPinnedForSharingResult" expires_after="2027-03-07">
   <owner>wry@chromium.org</owner>
   <owner>carlosk@chromium.org</owner>
   <summary>

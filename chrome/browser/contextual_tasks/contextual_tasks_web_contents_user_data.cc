@@ -40,6 +40,58 @@ void ContextualTasksWebContentsUserData::set_input_state_model(
   }
 }
 
+namespace {
+
+struct IdentityState {
+  bool is_signed_in = false;
+  bool browser_identity_matches_aim_identity = false;
+};
+
+IdentityState GetIdentityState(content::WebContents* web_contents) {
+  if (!web_contents) {
+    return {};
+  }
+  Profile* profile =
+      Profile::FromBrowserContext(web_contents->GetBrowserContext());
+  auto* ui_service = profile
+                         ? contextual_tasks::ContextualTasksUiServiceFactory::
+                               GetForBrowserContext(profile)
+                         : nullptr;
+  GURL url = web_contents->GetLastCommittedURL();
+  IdentityState state;
+  if (ui_service) {
+    state.is_signed_in = ui_service->IsSignedInToBrowserWithValidCredentials();
+    state.browser_identity_matches_aim_identity =
+        state.is_signed_in && ui_service->IsUrlForPrimaryAccount(url);
+  } else if (profile && omnibox::kComposeboxDriveIdentityFallback.Get()) {
+    if (auto* identity_manager =
+            IdentityManagerFactory::GetForProfile(profile)) {
+      if (contextual_tasks::IsSignedInToBrowserWithValidCredentials(
+              identity_manager)) {
+        state.is_signed_in = true;
+        state.browser_identity_matches_aim_identity =
+            contextual_tasks::IsUrlForPrimaryAccount(identity_manager, url);
+      }
+    }
+  }
+  return state;
+}
+
+}  // namespace
+
+// static
+void ContextualTasksWebContentsUserData::UpdateInputStateModelIdentity(
+    content::WebContents* web_contents,
+    contextual_search::InputStateModel* input_state_model) {
+  if (!web_contents || !input_state_model) {
+    return;
+  }
+  IdentityState identity_state = GetIdentityState(web_contents);
+  input_state_model->SetIdentityState(
+      identity_state.is_signed_in,
+      identity_state.browser_identity_matches_aim_identity);
+}
+
 base::WeakPtr<contextual_search::InputStateModel>
 ContextualTasksWebContentsUserData::GetOrCreateInputStateModel(
     contextual_search::ContextualSearchSessionHandle& session_handle) {
@@ -56,52 +108,27 @@ ContextualTasksWebContentsUserData::GetOrCreateInputStateModel(
   const omnibox::SearchboxConfig* config =
       service ? service->GetSearchboxConfig() : nullptr;
 
+  IdentityState identity_state = GetIdentityState(web_contents);
+
   auto it = input_state_models_.find(session_handle.session_id());
   if (it != input_state_models_.end()) {
-    // If the cached model was initialized without a valid searchbox config
-    // (e.g. during initial session startup before eligibility service response
-    // arrived), but a non-empty searchbox configuration has since become
-    // available, invalidate the stale cached model so a new model with active
-    // tools can be built.
-    if (!it->second->has_valid_config() && config &&
-        (config->has_rule_set() || !config->tool_configs().empty() ||
-         !config->model_configs().empty())) {
-      input_state_models_.erase(it);
-    } else {
-      last_active_model_ = it->second->AsWeakPtr();
-      return last_active_model_;
+    it->second->SetIdentityState(
+        identity_state.is_signed_in,
+        identity_state.browser_identity_matches_aim_identity);
+    if (config) {
+      it->second->UpdateConfig(*config);
     }
+    last_active_model_ = it->second->AsWeakPtr();
+    return last_active_model_;
   }
 
-  auto* ui_service = profile
-                         ? contextual_tasks::ContextualTasksUiServiceFactory::
-                               GetForBrowserContext(profile)
-                         : nullptr;
   GURL url = web_contents->GetLastCommittedURL();
-  bool is_signed_in = false;
-  bool browser_identity_matches_aim_identity = false;
-  if (ui_service) {
-    is_signed_in = ui_service->IsSignedInToBrowserWithValidCredentials();
-    browser_identity_matches_aim_identity =
-        is_signed_in && ui_service->IsUrlForPrimaryAccount(url);
-  } else if (profile &&
-             omnibox::kComposeboxDriveIdentityFallback.Get()) {
-    if (auto* identity_manager =
-            IdentityManagerFactory::GetForProfile(profile)) {
-      if (contextual_tasks::IsSignedInToBrowserWithValidCredentials(
-              identity_manager)) {
-        is_signed_in = true;
-        browser_identity_matches_aim_identity =
-            contextual_tasks::IsUrlForPrimaryAccount(identity_manager, url);
-      }
-    }
-  }
-
   bool is_off_the_record = profile->IsOffTheRecord();
 
   auto model = std::make_unique<contextual_search::InputStateModel>(
       session_handle, config ? *config : omnibox::SearchboxConfig(), url,
-      is_off_the_record, is_signed_in, browser_identity_matches_aim_identity);
+      is_off_the_record, identity_state.is_signed_in,
+      identity_state.browser_identity_matches_aim_identity);
 
   last_active_model_ = model->AsWeakPtr();
   input_state_models_[session_handle.session_id()] = std::move(model);

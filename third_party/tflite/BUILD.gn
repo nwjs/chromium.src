@@ -282,6 +282,13 @@ if (!use_litert_tflite) {
     }
   }
 
+  config("tflite_coreml_flags") {
+    cflags_objcc = [
+      "-fobjc-exceptions",
+      "-U__EXCEPTIONS",
+    ]
+  }
+
   static_library("tflite_builtin_op_resolver_internals") {
     _configs = configs
     configs = []
@@ -990,10 +997,10 @@ if (!use_litert_tflite) {
         "src/tensorflow/lite/delegates/coreml/coreml_executor.h",
         "src/tensorflow/lite/delegates/coreml/coreml_executor.mm",
       ]
-      configs_to_remove = [ "//build/config/compiler:enable_arc" ]
       configs_to_add = [
         ":tflite_config",
         ":tflite_flags",
+        ":tflite_coreml_flags",
         "//third_party/eigen3:eigen_includes",
       ]
       public_deps = [
@@ -1255,6 +1262,10 @@ if (!use_litert_tflite) {
       "//third_party/neon_2_sse",
       "//third_party/gemmlowp",
     ]
+    if (build_with_internal_optimization_guide) {
+      public_deps_for_standalone +=
+          [ "//third_party/litert:serialization_schema_litert" ]
+    }
   }
 }
 

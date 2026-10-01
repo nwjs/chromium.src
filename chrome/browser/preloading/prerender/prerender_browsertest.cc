@@ -46,6 +46,8 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/mojom/use_counter/metrics/web_feature.mojom.h"
+#include "ui/base/page_transition_types.h"
+#include "ui/base/window_open_disposition.h"
 
 #if BUILDFLAG(IS_ANDROID)
 #include "base/android/android_info.h"
@@ -192,7 +194,8 @@ void PrerenderBrowserTest::TestPrerenderAndActivateInNewTab(
 
 // An end-to-end test of prerendering in a new tab and activating.
 // Disabled on Android due to failures: https://crbug.com/355255740.
-#if BUILDFLAG(IS_ANDROID)
+// TODO(crbug.com/556255865): Flaky on Mac.
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_MAC)
 #define MAYBE_PrerenderAndActivate_InNewTab \
   DISABLED_PrerenderAndActivate_InNewTab
 #else
@@ -204,7 +207,8 @@ IN_PROC_BROWSER_TEST_F(PrerenderBrowserTest,
 }
 
 // Disabled on Android due to failures: https://crbug.com/355255740.
-#if BUILDFLAG(IS_ANDROID)
+// TODO(crbug.com/556255865): Flaky on Mac.
+#if BUILDFLAG(IS_ANDROID) || BUILDFLAG(IS_MAC)
 #define MAYBE_PrerenderAndActivate_InNewTab_Noopener \
   DISABLED_PrerenderAndActivate_InNewTab_Noopener
 #else
@@ -751,10 +755,9 @@ class PrerenderNewTabPageBrowserTest
 
   void SimulateNewTabNavigation(const GURL& url) {
     GetActiveWebContents()->OpenURL(
-        content::OpenURLParams(
-            url, content::Referrer(), WindowOpenDisposition::CURRENT_TAB,
-            ui::PageTransitionFromInt(ui::PAGE_TRANSITION_AUTO_BOOKMARK),
-            /*is_renderer_initiated=*/false),
+        content::OpenURLParams::CreateBrowserInitiated(
+            url, WindowOpenDisposition::CURRENT_TAB,
+            ui::PageTransitionFromInt(ui::PAGE_TRANSITION_AUTO_BOOKMARK)),
         base::BindRepeating(&AttachNewTabPageNavigationHandleUserData));
   }
 
@@ -1039,11 +1042,10 @@ class PrerenderPrewarmDefaultSearchEngineTest
   content::WebContents* CreateNewTab() {
     content::WebContents* original_web_contents = GetActiveWebContents();
     original_web_contents->OpenURL(
-        content::OpenURLParams(
-            GURL(url::kAboutBlankURL), content::Referrer(),
+        content::OpenURLParams::CreateBrowserInitiated(
+            GURL(url::kAboutBlankURL),
             WindowOpenDisposition::NEW_FOREGROUND_TAB,
-            ui::PageTransitionFromInt(ui::PAGE_TRANSITION_AUTO_BOOKMARK),
-            /*is_renderer_initiated=*/false),
+            ui::PageTransitionFromInt(ui::PAGE_TRANSITION_AUTO_BOOKMARK)),
         base::BindRepeating(&AttachNewTabPageNavigationHandleUserData));
     content::WebContents* new_web_contents = GetActiveWebContents();
     EXPECT_TRUE(new_web_contents);

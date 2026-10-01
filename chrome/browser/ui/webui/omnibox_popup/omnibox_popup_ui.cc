@@ -151,8 +151,6 @@ OmniboxPopupUI::OmniboxPopupUI(content::WebUI* web_ui)
                      omnibox::kWebUIOmniboxDynamicColorScheme.Get());
   source->AddBoolean("searchboxDynamicAnimation",
                      omnibox::kWebUIOmniboxDynamicAnimation.Get());
-  source->AddBoolean("omniboxShowContextButtonSuggestionLabel",
-                     omnibox::kContextButtonShowSuggestionLabel.Get());
   source->AddBoolean(
       "omniboxPopupDebugEnabled",
       base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxPopupDebug));
@@ -201,19 +199,18 @@ OmniboxPopupUI::OmniboxPopupUI(content::WebUI* web_ui)
                      omnibox::kShowContextMenuTabPreviews.Get());
   source->AddBoolean("composeboxShowImageSuggest",
                      omnibox::kShowComposeboxImageSuggestions.Get());
-  // The popup chip UI entrypoint is shared between the Omnibox Simplification
-  // experiment (kShowLensSearchChip) and the AskG experiment (kAskGShowChip).
-  // TODO(crbug.com/498556249): Consolidate once the Simplification experiment
-  // concludes.
+  source->AddBoolean("composeboxRichImageSuggestionsEnabled",
+                     base::FeatureList::IsEnabled(
+                         omnibox::kComposeboxRichImageSuggestionsOmnibox));
+  // The popup chip UI entrypoint is enabled by the AskG experiment
+  // (kAskGShowChip).
   source->AddBoolean(
       "composeboxShowChip",
-      omnibox::IsAimPopupEnabled(profile_) &&
-          (omnibox::kShowLensSearchChip.Get() ||
-           omnibox::kAskGShowChip.Get()));
+      omnibox::IsAimPopupEnabled(profile_) && omnibox::kAskGShowChip.Get());
   source->AddBoolean("composeboxShowCurrentTabChip",
-                     omnibox::kAskGCurrentTabChip.Get());
-  source->AddBoolean("composeboxShowLensIcon",
-                     omnibox::kAskGLensIcon.Get());
+                     omnibox::kAskGCurrentTabChip.Get() &&
+                         omnibox::AreContextualTasksEligible(profile_));
+  source->AddBoolean("composeboxShowLensIcon", omnibox::kAskGLensIcon.Get());
   source->AddBoolean("askGComposeboxLensChipEnabled",
                      omnibox::kAskGComposeboxLensChip.Get());
   source->AddBoolean("askGBlockAutoTabZeroStateSuggestions",
@@ -244,6 +241,14 @@ OmniboxPopupUI::OmniboxPopupUI(content::WebUI* web_ui)
       base::FeatureList::IsEnabled(omnibox::kContextManagementInComposebox) &&
           base::FeatureList::IsEnabled(omnibox::kContextManagementInOmnibox) &&
           base::FeatureList::IsEnabled(omnibox::kTabFaviconChipsToCoins));
+  source->AddBoolean("composeboxContextMenuTooltipsEnabled",
+                     omnibox::IsContextMenuTooltipsInComposeboxEnabled());
+  source->AddBoolean("composeboxPersistentAimButton",
+                     base::FeatureList::IsEnabled(
+                         omnibox::kComposeboxPersistentAimButtonOmnibox));
+  source->AddBoolean("composeboxPersistentAimButtonWithX",
+                     base::FeatureList::IsEnabled(
+                         omnibox::kComposeboxPersistentAimButtonWithX));
   auto searchbox_layout_mode = AddContextButtonVariantToSearchboxLayoutMode(
       omnibox::kWebUIOmniboxAimPopupAddContextButtonVariantParam.Get());
   source->AddString("searchboxLayoutMode", searchbox_layout_mode);

@@ -26,11 +26,11 @@ bool ShouldAutofillOnEmptyValues(
     case AutofillSuggestionTriggerSource::kContentEditableClicked:
     case AutofillSuggestionTriggerSource::kPasswordManagerProcessedFocusedField:
     case AutofillSuggestionTriggerSource::kProactivePasswordRecovery:
+    case AutofillSuggestionTriggerSource::kGmailOneTimePasswordAvailable:
     case AutofillSuggestionTriggerSource::kGlic:
     case AutofillSuggestionTriggerSource::kAtMemoryContextMenu:
     case AutofillSuggestionTriggerSource::kAtMemoryDoubleCtrl:
     case AutofillSuggestionTriggerSource::kAtMemoryKeyboardShortcut:
-    case AutofillSuggestionTriggerSource::kAtMemoryTriggerString:
       return true;
     case AutofillSuggestionTriggerSource::kTextFieldValueChanged:
     case AutofillSuggestionTriggerSource::kAtMemoryInactivityNudge:
@@ -55,7 +55,6 @@ bool ShouldAutofillOnLongValues(
     case AutofillSuggestionTriggerSource::kAtMemoryContextMenu:
     case AutofillSuggestionTriggerSource::kAtMemoryDoubleCtrl:
     case AutofillSuggestionTriggerSource::kAtMemoryKeyboardShortcut:
-    case AutofillSuggestionTriggerSource::kAtMemoryTriggerString:
       return true;
     case AutofillSuggestionTriggerSource::kFormControlElementClicked:
     case AutofillSuggestionTriggerSource::kManualFallbackPasswords:
@@ -65,6 +64,7 @@ bool ShouldAutofillOnLongValues(
     case AutofillSuggestionTriggerSource::kTextFieldDidReceiveKeyDown:
     case AutofillSuggestionTriggerSource::kPasswordManagerProcessedFocusedField:
     case AutofillSuggestionTriggerSource::kProactivePasswordRecovery:
+    case AutofillSuggestionTriggerSource::kGmailOneTimePasswordAvailable:
     case AutofillSuggestionTriggerSource::kGlic:
       return false;
     case AutofillSuggestionTriggerSource::kPasswordManager:
@@ -89,12 +89,12 @@ bool RequiresCaretAtEnd(AutofillSuggestionTriggerSource trigger_source) {
     case AutofillSuggestionTriggerSource::kComposeDelayedProactiveNudge:
     case AutofillSuggestionTriggerSource::kPasswordManagerProcessedFocusedField:
     case AutofillSuggestionTriggerSource::kProactivePasswordRecovery:
+    case AutofillSuggestionTriggerSource::kGmailOneTimePasswordAvailable:
     case AutofillSuggestionTriggerSource::kGlic:
     case AutofillSuggestionTriggerSource::kAtMemoryContextMenu:
     case AutofillSuggestionTriggerSource::kAtMemoryDoubleCtrl:
     case AutofillSuggestionTriggerSource::kAtMemoryInactivityNudge:
     case AutofillSuggestionTriggerSource::kAtMemoryKeyboardShortcut:
-    case AutofillSuggestionTriggerSource::kAtMemoryTriggerString:
       return false;
     // `kPasswordManager` and `kiOS` are not used in the renderer code. As such,
     // suggestion properties don't apply to them.
@@ -128,7 +128,7 @@ bool ShouldShowFullSuggestionListForPasswordManager(
     case AutofillSuggestionTriggerSource::kAtMemoryDoubleCtrl:
     case AutofillSuggestionTriggerSource::kAtMemoryInactivityNudge:
     case AutofillSuggestionTriggerSource::kAtMemoryKeyboardShortcut:
-    case AutofillSuggestionTriggerSource::kAtMemoryTriggerString:
+    case AutofillSuggestionTriggerSource::kGmailOneTimePasswordAvailable:
       return false;
     case AutofillSuggestionTriggerSource::kProactivePasswordRecovery:
     case AutofillSuggestionTriggerSource::kGlic:

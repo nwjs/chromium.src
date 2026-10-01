@@ -303,6 +303,7 @@ source_set("ntp_internal") {
     "//ios/chrome/browser/bubble/ui_bundled",
     "//ios/chrome/browser/content_suggestions/coordinator",
     "//ios/chrome/browser/content_suggestions/magic_stack/public:constants",
+    "//ios/chrome/browser/content_suggestions/magic_stack/public:utils",
     "//ios/chrome/browser/content_suggestions/magic_stack/ui",
     "//ios/chrome/browser/content_suggestions/magic_stack/ui:cells",
     "//ios/chrome/browser/content_suggestions/model:metrics_recorder",
@@ -406,6 +407,7 @@ source_set("unit_tests") {
     "new_tab_page_mediator_unittest.mm",
     "new_tab_page_redesign_view_controller_unittest.mm",
     "new_tab_page_trait_unittest.mm",
+    "new_tab_page_utils_unittest.mm",
   ]
   deps = [
     ":component_factory",
@@ -414,6 +416,7 @@ source_set("unit_tests") {
     ":ntp_internal",
     ":theme",
     ":ui_bundled",
+    ":utils",
     "//base",
     "//base/test:test_support",
     "//components/commerce/core:shopping_service_test_support",
@@ -439,6 +442,7 @@ source_set("unit_tests") {
     "//ios/chrome/browser/browser_view/public",
     "//ios/chrome/browser/commerce/model:shopping_service",
     "//ios/chrome/browser/content_suggestions/coordinator",
+    "//ios/chrome/browser/content_suggestions/magic_stack/ui",
     "//ios/chrome/browser/content_suggestions/magic_stack/ui:cells",
     "//ios/chrome/browser/content_suggestions/most_visited_tiles/ui",
     "//ios/chrome/browser/content_suggestions/public:ntp_home_constants",
@@ -479,6 +483,9 @@ source_set("unit_tests") {
     "//ios/chrome/browser/shared/model/web_state_list",
     "//ios/chrome/browser/shared/public/commands",
     "//ios/chrome/browser/shared/public/features",
+    "//ios/chrome/browser/shared/ui/elements",
+    "//ios/chrome/browser/shared/ui/util",
+    "//ios/chrome/browser/shared/ui/util:util_swift",
     "//ios/chrome/browser/signin/model",
     "//ios/chrome/browser/signin/model:authentication_service",
     "//ios/chrome/browser/signin/model:authentication_service_factory",
@@ -568,12 +575,15 @@ source_set("utils") {
     "new_tab_page_utils.mm",
   ]
   deps = [
+    ":constants",
     ":feature_flags",
     ":theme",
     "//components/lens:lens_url_utils",
     "//components/search_engines",
+    "//ios/chrome/browser/content_suggestions/most_visited_tiles/ui",
     "//ios/chrome/browser/first_run/public:utils",
     "//ios/chrome/common/ui/colors",
+    "//ios/chrome/common/ui/util",
     "//third_party/omnibox_proto",
   ]
   public_deps = [ "//base" ]

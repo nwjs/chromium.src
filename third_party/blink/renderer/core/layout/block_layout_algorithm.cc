@@ -286,10 +286,12 @@ LayoutUnit WebkitTextAlignAndJustifySelfOffset(
     case ItemPosition::kRight:
       return is_rtl ? LayoutUnit() : FreeSpace();
     case ItemPosition::kFlexStart:
+    case ItemPosition::kFlowStart:
     case ItemPosition::kStart:
       return LayoutUnit();
-    case ItemPosition::kFlexEnd:
     case ItemPosition::kEnd:
+    case ItemPosition::kFlexEnd:
+    case ItemPosition::kFlowEnd:
       return FreeSpace();
     case ItemPosition::kSelfStart:
       return self_start_end_converter().InlineStart();
@@ -407,7 +409,7 @@ void BlockLayoutAlgorithm::SetBoxType(PhysicalFragment::BoxType type) {
 }
 
 MinMaxSizesResult BlockLayoutAlgorithm::ComputeMinMaxSizes(
-    const MinMaxSizesFloatInput& float_input) {
+    const MinMaxSizesInput& input) {
   if (auto result =
           CalculateMinMaxSizesIgnoringChildren(node_, BorderScrollbarPadding()))
     return *result;
@@ -416,8 +418,8 @@ MinMaxSizesResult BlockLayoutAlgorithm::ComputeMinMaxSizes(
   bool depends_on_block_constraints = false;
 
   const TextDirection direction = Style().Direction();
-  LayoutUnit float_left_inline_size = float_input.float_left_inline_size;
-  LayoutUnit float_right_inline_size = float_input.float_right_inline_size;
+  LayoutUnit float_left_inline_size = input.float_left_inline_size;
+  LayoutUnit float_right_inline_size = input.float_right_inline_size;
 
   for (LayoutInputNode child = Node().FirstChild(); child;
        child = child.NextSibling()) {
@@ -458,10 +460,11 @@ MinMaxSizesResult BlockLayoutAlgorithm::ComputeMinMaxSizes(
         float_right_inline_size = LayoutUnit();
     }
 
-    MinMaxSizesFloatInput child_float_input;
+    MinMaxSizesInput child_input =
+        MinMaxSizesInput::Constrained(input.constrained_inline_size);
     if (child.IsInline() || child.IsAnonymousBlockFlow()) {
-      child_float_input.float_left_inline_size = float_left_inline_size;
-      child_float_input.float_right_inline_size = float_right_inline_size;
+      child_input.float_left_inline_size = float_left_inline_size;
+      child_input.float_right_inline_size = float_right_inline_size;
     }
 
     MinMaxConstraintSpaceBuilder builder(GetConstraintSpace(), Style(), child,
@@ -480,15 +483,6 @@ MinMaxSizesResult BlockLayoutAlgorithm::ComputeMinMaxSizes(
 
     MinMaxSizesResult child_result;
     if (child.IsInline()) {
-      if (child.Style().IsInShrinkToFitSubtree() &&
-          GetConstraintSpace().AvailableSize().inline_size != kIndefiniteSize) {
-        // TODO(crbgu.com/537526308): Constrain the size with a call to
-        // ComputeMinMaxInlineSizes to support `max-width`, etc.
-        child_float_input.constrained_inline_size =
-            (GetConstraintSpace().AvailableSize().inline_size -
-             BorderScrollbarPadding().InlineSum())
-                .ClampNegativeToZero();
-      }
       // From |BlockLayoutAlgorithm| perspective, we can handle |InlineNode|
       // almost the same as |BlockNode|, because an |InlineNode| includes
       // all inline nodes following |child| and their descendants, and produces
@@ -496,10 +490,10 @@ MinMaxSizesResult BlockLayoutAlgorithm::ComputeMinMaxSizes(
       // |NextSibling| returns the next block sibling, or nullptr, skipping all
       // following inline siblings and descendants.
       child_result = To<InlineNode>(child).ComputeMinMaxSizes(
-          Style().GetWritingMode(), space, child_float_input);
+          Style().GetWritingMode(), space, child_input);
     } else {
       child_result = ComputeMinAndMaxContentContribution(
-          Style(), To<BlockNode>(child), space, child_float_input);
+          Style(), To<BlockNode>(child), space, child_input);
     }
     DCHECK_LE(child_result.sizes.min_size, child_result.sizes.max_size)
         << child.ToString();
@@ -872,7 +866,7 @@ inline const LayoutResult* BlockLayoutAlgorithm::Layout(
 
   PreviousInflowPosition previous_inflow_position = {
       LayoutUnit(), constraint_space.GetMarginStrut(),
-      is_resuming_ ? LayoutUnit() : ComputeInitialBlockStartAnnotationSpace(),
+      ComputeInitialBlockStartAnnotationSpace(),
       /* previous_sibling_block_end_annotation_space */ LayoutUnit(),
       /* self_collapsing_child_had_clearance */ false};
 
@@ -1436,9 +1430,12 @@ const LayoutResult* BlockLayoutAlgorithm::FinishLayout(
     const LayoutUnit annotation_space_start_offset =
         content_end_offset -
         previous_inflow_position->block_end_annotation_space;
-    const LayoutUnit container_end_offset = border_box_size.block_size -
-                                            Borders().block_end -
-                                            Scrollbar().block_end;
+    LayoutUnit container_end_offset = border_box_size.block_size -
+                                      Borders().block_end -
+                                      Scrollbar().block_end;
+    if (RuntimeEnabledFeatures::AnnotationSpaceForMultiColEnabled()) {
+      container_end_offset -= previously_consumed_block_size;
+    }
     const LayoutUnit available_space = std::max(
         LayoutUnit(), container_end_offset - annotation_space_start_offset);
     container_builder_.SetBlockEndAnnotationSpace(available_space);
@@ -1800,7 +1797,7 @@ void BlockLayoutAlgorithm::HandleFloat(
       child, child_break_token, ChildAvailableSize(),
       PercentageSizeForChild(child), origin_bfc_offset, constraint_space,
       Style(), FragmentainerCapacityForChildren(),
-      FragmentainerOffsetForChildren(), line_clamp_data_.ShouldHideForPaint());
+      FragmentainerOffsetForChildren(), line_clamp_data_.data.FloatState());
 
   if (!container_builder_.BfcBlockOffset()) {
     container_builder_.AddAdjoiningObjectTypes(
@@ -3639,7 +3636,8 @@ ConstraintSpace BlockLayoutAlgorithm::CreateConstraintSpaceForChild(
          container_builder_.ShouldTextBoxTrimNodeEnd()));
     if (RuntimeEnabledFeatures::AnnotationSpaceOnStartEnabled() &&
         GetConstraintSpace().ContainsAnnotations() &&
-        !GetConstraintSpace().IsInsideBalancedColumns() &&
+        (RuntimeEnabledFeatures::AnnotationSpaceForMultiColEnabled() ||
+         !GetConstraintSpace().IsInsideBalancedColumns()) &&
         previous_sibling_block_end_annotation_space > LayoutUnit()) {
       builder.SetPreviousSiblingBlockEndAnnotationSpace(
           previous_sibling_block_end_annotation_space);
@@ -4149,20 +4147,24 @@ LogicalOffset BlockLayoutAlgorithm::AdjustSliderThumbInlineOffset(
 
 LayoutUnit BlockLayoutAlgorithm::ComputeInitialBlockStartAnnotationSpace()
     const {
+  if (is_resuming_) {
+    return LayoutUnit();
+  }
   LayoutUnit padding_start = container_builder_.Padding().block_start;
+  const ConstraintSpace& space = GetConstraintSpace();
   // Allow ruby annotations to overflow to the block-start margin if the
   // container has no block-start border.
   if (RuntimeEnabledFeatures::AnnotationSpaceOnStartEnabled() &&
-      GetConstraintSpace().ContainsAnnotations() &&
-      !GetConstraintSpace().IsNewFormattingContext() &&
-      !GetConstraintSpace().IsInsideBalancedColumns() &&
+      space.ContainsAnnotations() && !space.IsNewFormattingContext() &&
+      (RuntimeEnabledFeatures::AnnotationSpaceForMultiColEnabled() ||
+       !space.IsInsideBalancedColumns()) &&
       Borders().block_start == 0) {
-    MarginStrut margin_strut = GetConstraintSpace().GetMarginStrut();
-    margin_strut.Append(
-        ComputeMarginsForSelf(GetConstraintSpace(), Style()).block_start,
-        Style().HasMarginBlockStartQuirk());
-    return margin_strut.Sum() + padding_start +
-           GetConstraintSpace().PreviousSiblingBlockEndAnnotationSpace();
+    MarginStrut margin_strut = space.GetMarginStrut();
+    margin_strut.Append(ComputeMarginsForSelf(space, Style()).block_start,
+                        Style().HasMarginBlockStartQuirk());
+    LayoutUnit annotation_space = margin_strut.Sum() + padding_start;
+    annotation_space += space.PreviousSiblingBlockEndAnnotationSpace();
+    return std::max(padding_start, annotation_space);
   }
   return padding_start;
 }

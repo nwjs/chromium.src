@@ -28,6 +28,7 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/enterprise/browser_management/management_service_factory.h"
 #include "chrome/browser/enterprise/util/managed_browser_utils.h"
+#include "chrome/browser/profiles/batch_upload/batch_upload_service_factory.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_attributes_entry.h"
 #include "chrome/browser/profiles/profile_attributes_storage.h"
@@ -373,14 +374,6 @@ class EnterpriseIsolatedStateProvider : public PrivateBaseStateProvider {
       : PrivateBaseStateProvider(profile, state_observer) {}
 
   ~EnterpriseIsolatedStateProvider() override = default;
-
-  // StateProvider:
-  std::optional<base::RepeatingCallback<void(bool)>> GetButtonActionOverride()
-      override {
-    // TODO(b/548967433): Implement once IsolatedModeMenuView lands in follow-up
-    // CL.
-    return base::DoNothing();
-  }
 
   std::u16string GetText() const override {
     return l10n_util::GetPluralStringFUTF16(
@@ -1176,6 +1169,7 @@ class PromoStateProviderCoordinator
         promo_manager_(
             identity_manager_,
             AccountPreviewDataServiceFactory::GetForProfile(&profile),
+            BatchUploadServiceFactory::GetForProfile(&profile),
             profile.GetPrefs()) {}
 
   void Trigger() {
@@ -1220,7 +1214,8 @@ class PromoStateProviderCoordinator
         base::BindOnce(&PromoStateProviderCoordinator::OnPromoTypeResult,
                        base::Unretained(this)));
     signin::ComputeProfileMenuAvatarButtonPromoInfo(
-        profile_.get(), promo_request_cancelable_callback_.callback());
+        profile_.get(), promo_request_cancelable_callback_.callback(),
+        /*allow_batch_upload_promos=*/true);
   }
 
   void OnPromoTypeResult(signin::ProfileMenuAvatarButtonPromoInfo promo_info) {
@@ -1290,7 +1285,8 @@ class PromoStateProviderCoordinator
         &PromoStateProviderCoordinator::MaybeCollapsePromoAfterValidation,
         base::Unretained(this)));
     signin::ComputeProfileMenuAvatarButtonPromoInfo(
-        profile_.get(), promo_validation_cancelable_callback_.callback());
+        profile_.get(), promo_validation_cancelable_callback_.callback(),
+        /*allow_batch_upload_promos=*/true);
   }
 
   // Callback to the validation promo calculation.

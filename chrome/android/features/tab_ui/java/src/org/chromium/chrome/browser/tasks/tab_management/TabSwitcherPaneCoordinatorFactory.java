@@ -199,6 +199,7 @@ public class TabSwitcherPaneCoordinatorFactory {
                 mTabContentManager,
                 mBrowserControlsStateProvider,
                 mScrimManager,
+                mSnackbarManager,
                 mModalDialogManager,
                 mBottomSheetController,
                 mDataSharingTabManager,
@@ -240,8 +241,7 @@ public class TabSwitcherPaneCoordinatorFactory {
         // initialization is an async process; when tab state restoration completes
         // TabModelObserver#restoreCompleted() is called which is listened for in
         // TabSwitcherPaneMediator to properly refresh the list in the event the contents changed.
-        Callback<TabModel> observer =
-                new Callback<TabModel>() {
+        Callback<TabModel> observer = new Callback<>() {
                     @Override
                     public void onResult(TabModel unused) {
                         assert !mTabModelSelector.getModels().isEmpty();
@@ -266,7 +266,6 @@ public class TabSwitcherPaneCoordinatorFactory {
                             mModalDialogManager,
                             mBrowserControlsStateProvider,
                             mTabContentManager,
-                            mMode,
                             mActivity.findViewById(R.id.coordinator),
                             mTabCreatorManager.getTabCreator(/* incognito= */ false),
                             mBackPressManager,
@@ -277,8 +276,7 @@ public class TabSwitcherPaneCoordinatorFactory {
                             mLayoutStateProviderSupplier);
             if (mLifecycleDispatcher.isNativeInitializationFinished()) {
                 mMessageManager.initWithNative(
-                        assumeNonNull(mProfileProviderSupplier.get()).getOriginalProfile(),
-                        getTabListMode());
+                        assumeNonNull(mProfileProviderSupplier.get()).getOriginalProfile());
             } else {
                 mLifecycleDispatcher.register(
                         new NativeInitObserver() {
@@ -287,8 +285,7 @@ public class TabSwitcherPaneCoordinatorFactory {
                                 if (mMessageManager != null) {
                                     mMessageManager.initWithNative(
                                             assumeNonNull(mProfileProviderSupplier.get())
-                                                    .getOriginalProfile(),
-                                            getTabListMode());
+                                                    .getOriginalProfile());
                                 }
                                 mLifecycleDispatcher.unregister(this);
                             }

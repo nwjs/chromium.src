@@ -38,6 +38,7 @@
 #include "content/public/browser/storage_partition_config.h"
 #include "content/public/test/browser_test.h"
 #include "crypto/scoped_fake_unexportable_key_provider.h"
+#include "crypto/sign.h"
 #include "google_apis/gaia/bound_oauth_token.pb.h"
 #include "google_apis/gaia/gaia_urls.h"
 #include "net/base/features.h"
@@ -62,8 +63,8 @@ using ::testing::UnorderedElementsAre;
 using ::testing::Values;
 using ::unexportable_keys::UnexportableSigningKeyId;
 
-constexpr crypto::SignatureVerifier::SignatureAlgorithm
-    kAcceptableAlgorithms[] = {crypto::SignatureVerifier::ECDSA_SHA256};
+constexpr crypto::sign::SignatureKind kAcceptableAlgorithms[] = {
+    crypto::sign::ECDSA_SHA256};
 constexpr unexportable_keys::BackgroundTaskPriority kTaskPriority =
     unexportable_keys::BackgroundTaskPriority::kUserBlocking;
 
@@ -327,7 +328,7 @@ IN_PROC_BROWSER_TEST_F(BoundSessionOAuthMultiloginPrototypeTest,
           .Build(email_1));
   ASSERT_EQ(
       identity_manager().GetPrimaryAccountInfo(signin::ConsentLevel::kSignin),
-      account_info_1);
+      account_info_1.GetCoreAccountInfo());
   ASSERT_TRUE(identity_manager().HasAccountWithBoundRefreshToken(
       account_info_1.GetAccountId()));
 
@@ -604,7 +605,7 @@ IN_PROC_BROWSER_TEST_P(BoundSessionOAuthMultiloginPrototypeNewSessionTest,
           .Build(email));
   ASSERT_EQ(
       identity_manager().GetPrimaryAccountInfo(signin::ConsentLevel::kSignin),
-      account_info);
+      account_info.GetCoreAccountInfo());
   ASSERT_TRUE(identity_manager().HasAccountWithBoundRefreshToken(
       account_info.GetAccountId()));
 
@@ -852,7 +853,7 @@ IN_PROC_BROWSER_TEST_P(BoundSessionOAuthMultiloginPersistentErrorTest,
           .Build(email_1));
   ASSERT_EQ(
       identity_manager().GetPrimaryAccountInfo(signin::ConsentLevel::kSignin),
-      account_info_1);
+      account_info_1.GetCoreAccountInfo());
   ASSERT_TRUE(identity_manager().HasAccountWithBoundRefreshToken(
       account_info_1.GetAccountId()));
 
@@ -936,7 +937,7 @@ IN_PROC_BROWSER_TEST_P(BoundSessionOAuthMultiloginPersistentErrorTest,
           .Build(email_1));
   ASSERT_EQ(
       identity_manager().GetPrimaryAccountInfo(signin::ConsentLevel::kSignin),
-      account_info_1);
+      account_info_1.GetCoreAccountInfo());
   ASSERT_TRUE(identity_manager().HasAccountWithBoundRefreshToken(
       account_info_1.GetAccountId()));
 
@@ -1258,7 +1259,7 @@ IN_PROC_BROWSER_TEST_F(BoundSessionOAuthMultiloginStandardTest,
           .Build(email_1));
   ASSERT_EQ(
       identity_manager().GetPrimaryAccountInfo(signin::ConsentLevel::kSignin),
-      account_info_1);
+      account_info_1.GetCoreAccountInfo());
   ASSERT_TRUE(identity_manager().HasAccountWithBoundRefreshToken(
       account_info_1.GetAccountId()));
 

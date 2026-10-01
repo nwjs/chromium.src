@@ -4,13 +4,17 @@
 
 #include "chrome/browser/ui/views/payments/payment_handler_web_flow_view_controller.h"
 
+#include <algorithm>
 #include <memory>
 #include <utility>
 
 #include "base/check_op.h"
 #include "base/feature_list.h"
+#include "base/functional/bind.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_util.h"
+#include "base/time/time.h"
 #include "chrome/browser/devtools/devtools_window.h"
 #include "chrome/browser/media/webrtc/media_capture_devices_dispatcher.h"
 #include "chrome/browser/permissions/one_time_permissions_tracker_helper.h"
@@ -20,39 +24,100 @@
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/profile_browser_collection.h"
+#include "chrome/browser/ui/color/chrome_color_id.h"
+#include "chrome/browser/ui/layout_constants.h"
+#include "chrome/browser/ui/views/bubble/webui_bubble_reopen_suppressor.h"
+#include "chrome/browser/ui/views/chrome_typography.h"
+#include "chrome/browser/ui/views/location_bar/location_icon_view.h"
+#include "chrome/browser/ui/views/page_info/page_info_bubble_specification.h"
+#include "chrome/browser/ui/views/page_info/page_info_bubble_view.h"
 #include "chrome/browser/ui/views/payments/payment_handler_header_view_util.h"
 #include "chrome/browser/ui/views/payments/payment_request_dialog_view.h"
 #include "chrome/browser/ui/views/payments/payment_request_views_util.h"
+#include "chrome/browser/ui/views/permissions/chip/permission_chip_constants.h"
+#include "chrome/browser/ui/views/permissions/chip/permission_chip_theme.h"
+#include "chrome/browser/ui/views/permissions/chip/permission_chip_view.h"
+#include "chrome/browser/ui/views/permissions/chip/permission_dashboard_view.h"
+#include "chrome/browser/ui/views/permissions/chip/permission_prompt_chip_model.h"
+#include "chrome/grit/generated_resources.h"
+#include "components/omnibox/browser/location_bar_model_impl.h"
 #include "components/payments/content/payment_handler_navigation_throttle.h"
 #include "components/payments/content/ssl_validity_checker.h"
 #include "components/payments/core/features.h"
 #include "components/payments/core/native_error_strings.h"
 #include "components/payments/core/url_util.h"
+#include "components/permissions/permission_indicators_tab_data.h"
+#include "components/permissions/permission_recovery_success_rate_tracker.h"
 #include "components/permissions/permission_request_manager.h"
+#include "components/permissions/request_type.h"
+#include "components/security_state/core/security_state.h"
+#include "components/strings/grit/components_strings.h"
+#include "components/tabs/public/tab_interface.h"
 #include "components/url_formatter/elide_url.h"
+#include "components/vector_icons/vector_icons.h"
 #include "components/web_modal/web_contents_modal_dialog_manager.h"
+#include "content/public/browser/media_stream_request.h"
 #include "content/public/browser/navigation_controller.h"
+#include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_process_host.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_user_data.h"
+#include "content/public/common/content_constants.h"
 #include "third_party/blink/public/mojom/mediastream/media_stream.mojom.h"
 #include "third_party/skia/include/core/SkBitmap.h"
+#include "ui/base/l10n/l10n_util.h"
+#include "ui/base/models/image_model.h"
+#include "ui/base/window_open_disposition.h"
+#include "ui/color/color_provider.h"
+#include "ui/gfx/animation/animation.h"
+#include "ui/gfx/color_palette.h"
 #include "ui/gfx/image/image_skia.h"
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/background.h"
 #include "ui/views/border.h"
+#include "ui/views/bubble/bubble_dialog_delegate_view.h"
 #include "ui/views/controls/highlight_path_generator.h"
 #include "ui/views/controls/webview/webview.h"
+#include "ui/views/layout/box_layout_view.h"
 #include "ui/views/layout/fill_layout.h"
 #include "ui/views/view.h"
 #include "ui/views/view_class_properties.h"
+#include "ui/views/view_observer.h"
 #include "url/origin.h"
 #include "url/url_constants.h"
 
 namespace payments {
+
+DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(PaymentHandlerWebFlowViewController,
+                                      kAppIconElementId);
+DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(PaymentHandlerWebFlowViewController,
+                                      kCameraIndicatorChipElementId);
+DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(PaymentHandlerWebFlowViewController,
+                                      kPermissionRequestChipElementId);
+
 namespace {
+
+// Matches Omnibox indicator collapse delay, blocked media indicator dismiss
+// delay, and media indicator hold duration in PageSpecificContentSettings.
+constexpr base::TimeDelta kIndicatorCollapseDelay = base::Seconds(4);
+constexpr base::TimeDelta kBlockedMediaIndicatorDismissDelay = base::Seconds(4);
+constexpr base::TimeDelta kMediaIndicatorMinimumShowDuration = base::Seconds(4);
+// TODO(crbug.com/561676445): This mirrors kMediaIndicatorHoldAfterUseDuration
+// in the Omnibox's PageSpecificContentSettings. Revisit why the Omnibox holds
+// the indicator for an extra second after capture stops, on top of the 4s
+// minimum measured from when it appeared.
+constexpr base::TimeDelta kMediaIndicatorMinimumHideDuration = base::Seconds(1);
+constexpr base::TimeDelta kIndicatorCollapseAnimationDuration =
+    base::Milliseconds(250);
+// Matches Omnibox indicator expand animation duration in
+// PermissionDashboardController and LocationBarView.
+constexpr base::TimeDelta kIndicatorExpandAnimationDuration =
+    base::Milliseconds(350);
+// Matches Omnibox prompt expand animation duration in ChipController.
+constexpr base::TimeDelta kPromptExpandAnimationDuration =
+    base::Milliseconds(350);
 
 // WebContentsUserData key for retrieving PaymentHandlerWebFlowViewController
 // from the payment handler's WebContents. Attached in FillContentView.
@@ -149,9 +214,12 @@ PaymentHandlerWebFlowViewController::PaymentHandlerWebFlowViewController(
     : PaymentRequestSheetController(spec, state, dialog),
       profile_(profile),
       target_(target),
+      location_bar_model_(
+          std::make_unique<LocationBarModelImpl>(this,
+                                                 content::kMaxURLDisplayChars)),
       first_navigation_complete_callback_(
           std::move(first_navigation_complete_callback)),
-      dialog_manager_delegate_(payment_request_web_contents) {}
+      dialog_manager_delegate_(dialog.get(), payment_request_web_contents) {}
 
 PaymentHandlerWebFlowViewController::~PaymentHandlerWebFlowViewController() {
   if (web_contents()) {
@@ -179,8 +247,17 @@ PaymentHandlerWebFlowViewController::FromWebContents(
   return wrapper ? wrapper->controller() : nullptr;
 }
 
-views::View* PaymentHandlerWebFlowViewController::GetLocationIconView() {
-  return nullptr;
+views::View* PaymentHandlerWebFlowViewController::GetPageInfoIconView() {
+  if (permission_dashboard_view() &&
+      permission_dashboard_view()->GetVisible()) {
+    if (permission_dashboard_view()->GetRequestChip()->GetVisible()) {
+      return permission_dashboard_view()->GetRequestChip();
+    }
+    if (permission_dashboard_view()->GetIndicatorChip()->GetVisible()) {
+      return permission_dashboard_view()->GetIndicatorChip();
+    }
+  }
+  return location_icon_view();
 }
 
 std::u16string PaymentHandlerWebFlowViewController::GetSheetTitle() {
@@ -247,8 +324,22 @@ void PaymentHandlerWebFlowViewController::FillContentView(
   // TODO(crbug.com/539998580): Restrict non-camera permission requests in
   // Payment Handler windows via Permissions-Policy enforcement.
   if (base::FeatureList::IsEnabled(features::kPaymentHandlerCameraAccessUx)) {
+    indicator_observation_.Reset();
+    if (scoped_refptr<MediaStreamCaptureIndicator> indicator =
+            MediaCaptureDevicesDispatcher::GetInstance()
+                ->GetMediaStreamCaptureIndicator()) {
+      indicator_observation_.Observe(indicator.get());
+    }
     OneTimePermissionsTrackerHelper::CreateForWebContents(web_contents());
     permissions::PermissionRequestManager::CreateForWebContents(web_contents());
+    permissions::PermissionRecoverySuccessRateTracker::CreateForWebContents(
+        web_contents());
+    permission_indicators_tab_data_ =
+        std::make_unique<permissions::PermissionIndicatorsTabData>(
+            web_contents());
+    permission_request_manager_observation_.Reset();
+    permission_request_manager_observation_.Observe(
+        permissions::PermissionRequestManager::FromWebContents(web_contents()));
   } else if (base::FeatureList::IsEnabled(
                  features::kPaymentHandlerCameraAccess)) {
     OneTimePermissionsTrackerHelper::CreateForWebContents(web_contents());
@@ -298,8 +389,33 @@ void PaymentHandlerWebFlowViewController::PopulateSheetHeaderView(
           : url::Origin::Create(target_),
       url_formatter::SchemeDisplay::OMIT_CRYPTOGRAPHIC);
 
+  std::unique_ptr<views::BoxLayoutView> icon_view;
+  if (base::FeatureList::IsEnabled(features::kPaymentHandlerCameraAccessUx)) {
+    icon_view = std::make_unique<views::BoxLayoutView>();
+    icon_view->SetOrientation(views::BoxLayout::Orientation::kHorizontal);
+    icon_view->SetMainAxisAlignment(
+        views::BoxLayout::MainAxisAlignment::kStart);
+    icon_view->SetCrossAxisAlignment(
+        views::BoxLayout::CrossAxisAlignment::kCenter);
+
+    LocationIconView* icon =
+        icon_view->AddChildView(CreatePaymentHandlerLocationIconView(
+            /*icon_label_bubble_delegate=*/this,
+            /*location_icon_delegate=*/this));
+    location_icon_view_tracker_.SetView(icon);
+
+    PermissionDashboardView* dashboard =
+        icon_view->AddChildView(CreatePaymentHandlerPermissionDashboardView());
+    chip_observation_.Reset();
+    chip_observation_.Observe(dashboard->GetIndicatorChip());
+    dashboard->GetIndicatorChip()->SetPressedCallback(base::BindRepeating(
+        &PaymentHandlerWebFlowViewController::OnIndicatorChipPressed,
+        weak_ptr_factory_.GetWeakPtr()));
+    permission_dashboard_view_tracker_.SetView(dashboard);
+  }
+
   PaymentHandlerHeaderViews header_views = PopulatePaymentHandlerHeaderView(
-      container, icon_bitmap, origin_text,
+      container, std::move(icon_view), icon_bitmap, origin_text,
       base::BindRepeating(&PaymentRequestSheetController::CloseButtonPressed,
                           GetWeakPtr()));
   origin_label_ = header_views.origin_label;
@@ -329,6 +445,18 @@ bool PaymentHandlerWebFlowViewController::CanContentViewBeScrollable() {
   return false;
 }
 
+void PaymentHandlerWebFlowViewController::Stop() {
+  chip_model_.reset();
+  delay_prompt_timer_.Stop();
+  indicator_chip_collapse_timer_.Stop();
+  indicator_dismiss_timer_.Stop();
+  chip_observation_.Reset();
+  indicator_phase_ = IndicatorDisplayPhase::kHidden;
+  indicator_type_ = IndicatorType::kNone;
+  page_info_bubble_suppressor_.Close();
+  PaymentRequestSheetController::Stop();
+}
+
 base::WeakPtr<PaymentRequestSheetController>
 PaymentHandlerWebFlowViewController::GetWeakPtr() {
   return weak_ptr_factory_.GetWeakPtr();
@@ -341,7 +469,26 @@ void PaymentHandlerWebFlowViewController::VisibleSecurityStateChanged(
     AbortPayment();
   } else {
     SetHeaderColorsAndOriginLabelText();
+    if (location_icon_view()) {
+      location_icon_view()->Update(/*suppress_animations=*/false);
+    }
   }
+}
+
+content::WebContents* PaymentHandlerWebFlowViewController::OpenURLFromTab(
+    content::WebContents* source,
+    const content::OpenURLParams& params,
+    base::OnceCallback<void(content::NavigationHandle&)> callback) {
+  // Reject CURRENT_TAB to maintain existing behavior for internal navigations.
+  // OpenURLFromTab is implemented so that external links (e.g. PageInfo "Learn
+  // more") are routed to the parent tab.
+  if (params.disposition == WindowOpenDisposition::CURRENT_TAB) {
+    return nullptr;
+  }
+  if (!state() || !state()->GetWebContents()) {
+    return nullptr;
+  }
+  return state()->GetWebContents()->OpenURL(params, std::move(callback));
 }
 
 content::WebContents* PaymentHandlerWebFlowViewController::AddNewContents(
@@ -399,14 +546,22 @@ void PaymentHandlerWebFlowViewController::RequestMediaAccessPermission(
       !(base::FeatureList::IsEnabled(features::kPaymentHandlerCameraAccess) ||
         base::FeatureList::IsEnabled(
             features::kPaymentHandlerCameraAccessUx))) {
+    base::UmaHistogramBoolean("PaymentRequest.Camera.AccessRequested", false);
     std::move(callback).Run(
         blink::mojom::StreamDevicesSet(),
         blink::mojom::MediaStreamRequestResult::NOT_SUPPORTED,
         /*ui=*/nullptr);
     return;
   }
+
+  base::UmaHistogramBoolean("PaymentRequest.Camera.AccessRequested", true);
+
   MediaCaptureDevicesDispatcher::GetInstance()->ProcessMediaAccessRequest(
-      web_contents, request, std::move(callback), /*extension=*/nullptr);
+      web_contents, request,
+      base::BindOnce(
+          &PaymentHandlerWebFlowViewController::OnMediaAccessResponse,
+          weak_ptr_factory_.GetWeakPtr(), std::move(callback)),
+      /*extension=*/nullptr);
 }
 
 bool PaymentHandlerWebFlowViewController::CheckMediaAccessPermission(
@@ -449,6 +604,10 @@ void PaymentHandlerWebFlowViewController::DidFinishNavigation(
     return;
   }
 
+  if (navigation_handle->HasCommitted()) {
+    HideIndicatorChip();
+  }
+
   if (first_navigation_complete_callback_) {
     std::move(first_navigation_complete_callback_)
         .Run(true,
@@ -460,6 +619,9 @@ void PaymentHandlerWebFlowViewController::DidFinishNavigation(
   }
 
   SetHeaderColorsAndOriginLabelText();
+  if (location_icon_view()) {
+    location_icon_view()->Update(/*suppress_animations=*/false);
+  }
 }
 
 void PaymentHandlerWebFlowViewController::LoadProgressChanged(double progress) {
@@ -497,6 +659,26 @@ void PaymentHandlerWebFlowViewController::AbortPayment() {
       errors::kPaymentHandlerInsecureNavigation);
 }
 
+void PaymentHandlerWebFlowViewController::OnMediaAccessResponse(
+    base::WeakPtr<PaymentHandlerWebFlowViewController> controller,
+    content::MediaResponseCallback original_callback,
+    const blink::mojom::StreamDevicesSet& stream_devices_set,
+    blink::mojom::MediaStreamRequestResult result,
+    std::unique_ptr<content::MediaStreamUI> ui) {
+  base::UmaHistogramEnumeration("PaymentRequest.Camera.RequestOutcome", result);
+
+  if (controller &&
+      (result == blink::mojom::MediaStreamRequestResult::PERMISSION_DENIED ||
+       result == blink::mojom::MediaStreamRequestResult::
+                     PERMISSION_DENIED_BY_CONTROLLER ||
+       result ==
+           blink::mojom::MediaStreamRequestResult::PERMISSION_DISMISSED)) {
+    controller->ShowBlockedCameraIndicator();
+  }
+
+  std::move(original_callback).Run(stream_devices_set, result, std::move(ui));
+}
+
 void PaymentHandlerWebFlowViewController::SetHeaderColorsAndOriginLabelText() {
   std::optional<SkColor> theme_color;
   if (web_contents()) {
@@ -505,6 +687,12 @@ void PaymentHandlerWebFlowViewController::SetHeaderColorsAndOriginLabelText() {
 
   SetHeaderColors(header_view(), origin_label_.get(), progress_bar_.get(),
                   close_button_.get(), theme_color);
+
+  if (permission_dashboard_view() && header_view() &&
+      header_view()->GetWidget()) {
+    permission_dashboard_view()->SetDividerBackgroundColor(
+        GetEffectiveHeaderBackgroundColor(header_view(), theme_color));
+  }
 
   if (origin_label_) {
     origin_label_->SetText(url_formatter::FormatOriginForSecurityDisplay(
@@ -523,6 +711,535 @@ void PaymentHandlerWebFlowViewController::DidChangeThemeColor() {
       dialog()->OnPaymentHandlerThemeColorSet();
     }
   }
+}
+
+content::WebContents*
+PaymentHandlerWebFlowViewController::GetActiveWebContents() const {
+  return web_contents();
+}
+
+SkColor PaymentHandlerWebFlowViewController::
+    GetIconLabelBubbleSurroundingForegroundColor() const {
+  // TODO(crbug.com/549701781): The payment dialog header supports custom HTML
+  // head theme colors, while this icon view currently ignores them in favor of
+  // default Chrome theme colors.
+  return header_view()->GetColorProvider()->GetColor(kColorOmniboxText);
+}
+
+SkColor PaymentHandlerWebFlowViewController::GetIconLabelBubbleBackgroundColor()
+    const {
+  // TODO(crbug.com/549701781): The payment dialog header supports custom HTML
+  // head theme colors, while this icon view currently ignores them in favor of
+  // default Chrome theme colors.
+  return header_view()->GetColorProvider()->GetColor(
+      ui::kColorDialogBackground);
+}
+
+content::WebContents* PaymentHandlerWebFlowViewController::GetWebContents() {
+  return web_contents();
+}
+
+bool PaymentHandlerWebFlowViewController::IsEditingOrEmpty() const {
+  return false;
+}
+
+SkColor PaymentHandlerWebFlowViewController::GetSecurityChipColor(
+    security_state::SecurityLevel security_level) const {
+  ui::ColorId id = kColorOmniboxText;
+  if (security_level == security_state::DANGEROUS) {
+    id = kColorOmniboxSecurityChipDangerous;
+  }
+  return header_view()->GetColorProvider()->GetColor(id);
+}
+
+LocationIconView* PaymentHandlerWebFlowViewController::location_icon_view() {
+  return views::AsViewClass<LocationIconView>(
+      location_icon_view_tracker_.view());
+}
+
+PermissionDashboardView*
+PaymentHandlerWebFlowViewController::permission_dashboard_view() {
+  return views::AsViewClass<PermissionDashboardView>(
+      permission_dashboard_view_tracker_.view());
+}
+
+void PaymentHandlerWebFlowViewController::OnIsCapturingVideoChanged(
+    content::WebContents* contents,
+    bool is_capturing_video) {
+  if (contents != web_contents() || !permission_dashboard_view()) {
+    return;
+  }
+
+  if (is_capturing_video) {
+    ShowInUseCameraIndicator();
+  } else {
+    media_capture_stop_time_ = base::TimeTicks::Now();
+    HideInUseCameraIndicator();
+  }
+}
+
+void PaymentHandlerWebFlowViewController::ShowInUseCameraIndicator() {
+  indicator_dismiss_timer_.Stop();
+
+  PermissionChipView* const indicator_chip =
+      permission_dashboard_view()->GetIndicatorChip();
+  if (indicator_type_ == IndicatorType::kInUse &&
+      indicator_chip->GetVisible()) {
+    return;
+  }
+
+  indicator_chip_collapse_timer_.Stop();
+  media_indicator_show_start_time_ = base::TimeTicks::Now();
+  indicator_type_ = IndicatorType::kInUse;
+  indicator_chip->SetVisible(true);
+  indicator_chip->SetTheme(PermissionChipTheme::kInUseActivityIndicator);
+  indicator_chip->SetChipIcon(vector_icons::kVideocamIcon);
+  indicator_chip->SetTooltipText(l10n_util::GetStringUTF16(IDS_CAMERA_IN_USE));
+  indicator_chip->SetMessage(l10n_util::GetStringUTF16(IDS_CAMERA_IN_USE));
+  indicator_chip->ResetAnimation(
+      PermissionChipInterface::AnimationState::kCollapsed);
+  permission_dashboard_view()->SetVisible(true);
+  permission_dashboard_view()->UpdateDividerViewVisibility();
+  if (location_icon_view()) {
+    location_icon_view()->SetVisible(false);
+  }
+
+  if (permission_indicators_tab_data_ &&
+      permission_indicators_tab_data_->IsVerboseIndicatorAllowed(
+          permissions::PermissionIndicatorsTabData::IndicatorsType::
+              kMediaStream)) {
+    indicator_phase_ = IndicatorDisplayPhase::kExpanding;
+    indicator_chip->AnimateExpand(gfx::Animation::RichAnimationDuration(
+        kIndicatorExpandAnimationDuration));
+  } else {
+    indicator_phase_ = IndicatorDisplayPhase::kCompact;
+  }
+}
+
+void PaymentHandlerWebFlowViewController::HideInUseCameraIndicator() {
+  if (indicator_type_ != IndicatorType::kInUse) {
+    return;
+  }
+
+  // Avoid starting indicator_dismiss_timer_ while Page Info is open so the
+  // bubble's anchor view (GetIndicatorChip()) does not disappear while the
+  // user interacts with it. HideIndicatorChip() will be called once the bubble
+  // closes in OnPageInfoBubbleClosed().
+  if (page_info_view_tracker_.view()) {
+    return;
+  }
+
+  switch (indicator_phase_) {
+    case IndicatorDisplayPhase::kHidden:
+    case IndicatorDisplayPhase::kExpanding:
+    case IndicatorDisplayPhase::kExpanded:
+    case IndicatorDisplayPhase::kCollapsing:
+      // While animated transitions or verbose display are in progress, let
+      // them finish. The dismiss timer will start in
+      // OnCollapseAnimationEnded().
+      return;
+    case IndicatorDisplayPhase::kCompact:
+      break;
+  }
+
+  // We have stopped capturing video, but continue to show the chip to ensure
+  // the user was aware of the video capture even if it was brief.
+  const base::TimeTicks now = base::TimeTicks::Now();
+  const base::TimeDelta remaining_delay = std::max(
+      {base::TimeDelta(),
+       kMediaIndicatorMinimumShowDuration -
+           (now - media_indicator_show_start_time_),
+       kMediaIndicatorMinimumHideDuration - (now - media_capture_stop_time_)});
+
+  if (remaining_delay.is_positive()) {
+    indicator_dismiss_timer_.Start(
+        FROM_HERE, remaining_delay,
+        base::BindOnce(&PaymentHandlerWebFlowViewController::HideIndicatorChip,
+                       weak_ptr_factory_.GetWeakPtr()));
+  } else {
+    HideIndicatorChip();
+  }
+}
+
+void PaymentHandlerWebFlowViewController::OnExpandAnimationEnded() {
+  if (permission_dashboard_view() &&
+      permission_dashboard_view()->GetIndicatorChip()->GetVisible() &&
+      !indicator_chip_collapse_timer_.IsRunning()) {
+    indicator_phase_ = IndicatorDisplayPhase::kExpanded;
+
+    // Avoid starting collapse timer while Page Info is open so verbose chip
+    // does not change width during interaction. CollapseIndicatorChip() will
+    // be called when the bubble closes in OnPageInfoBubbleClosed().
+    if (page_info_view_tracker_.view()) {
+      return;
+    }
+
+    indicator_chip_collapse_timer_.Start(
+        FROM_HERE, kIndicatorCollapseDelay,
+        base::BindOnce(
+            &PaymentHandlerWebFlowViewController::CollapseIndicatorChip,
+            weak_ptr_factory_.GetWeakPtr()));
+  }
+}
+
+void PaymentHandlerWebFlowViewController::OnCollapseAnimationEnded() {
+  if (!permission_dashboard_view() ||
+      !permission_dashboard_view()->GetIndicatorChip()->GetVisible()) {
+    return;
+  }
+
+  indicator_phase_ = IndicatorDisplayPhase::kCompact;
+
+  if (permission_indicators_tab_data_) {
+    permission_indicators_tab_data_->SetVerboseIndicatorDisplayed(
+        permissions::PermissionIndicatorsTabData::IndicatorsType::kMediaStream);
+  }
+
+  // Avoid starting indicator_dismiss_timer_ while Page Info is open so the
+  // bubble's anchor view (GetIndicatorChip()) does not disappear while the
+  // user interacts with it. HideIndicatorChip() will be called once the bubble
+  // closes in OnPageInfoBubbleClosed().
+  if (page_info_view_tracker_.view()) {
+    return;
+  }
+
+  if (indicator_type_ == IndicatorType::kBlocked) {
+    indicator_dismiss_timer_.Start(
+        FROM_HERE, kBlockedMediaIndicatorDismissDelay,
+        base::BindOnce(&PaymentHandlerWebFlowViewController::HideIndicatorChip,
+                       weak_ptr_factory_.GetWeakPtr()));
+  } else if (indicator_type_ == IndicatorType::kInUse) {
+    const bool is_capturing =
+        indicator_observation_.IsObserving() &&
+        indicator_observation_.GetSource()->IsCapturingVideo(web_contents());
+    if (!is_capturing) {
+      HideInUseCameraIndicator();
+    }
+  }
+}
+
+void PaymentHandlerWebFlowViewController::OnMousePressed() {
+  page_info_bubble_suppressor_.OnMousePressed();
+}
+
+void PaymentHandlerWebFlowViewController::OnPromptAdded() {
+  auto* manager =
+      permissions::PermissionRequestManager::FromWebContents(web_contents());
+  if (!manager || manager->Requests().empty() || !permission_dashboard_view()) {
+    return;
+  }
+
+  if (CollapseActiveIndicatorIfNeeded()) {
+    delay_prompt_timer_.Start(
+        FROM_HERE, kIndicatorCollapseAnimationDuration,
+        base::BindOnce(&PaymentHandlerWebFlowViewController::OnPromptAdded,
+                       weak_ptr_factory_.GetWeakPtr()));
+    return;
+  }
+
+  chip_model_ =
+      std::make_unique<PermissionPromptChipModel>(manager->GetWeakPtr());
+
+  PermissionChipView* const request_chip =
+      permission_dashboard_view()->GetRequestChip();
+  request_chip->SetChipIcon(chip_model_->GetIcon());
+  request_chip->SetTheme(chip_model_->GetChipTheme());
+  request_chip->SetMessage(chip_model_->GetChipText());
+  request_chip->SetUserDecision(chip_model_->GetUserDecision());
+  request_chip->SetBlockedIconShowing(chip_model_->ShouldDisplayBlockedIcon());
+  request_chip->SetCallback(base::BindRepeating(
+      &PaymentHandlerWebFlowViewController::OnRequestChipPressed,
+      weak_ptr_factory_.GetWeakPtr()));
+  request_chip->SetVisible(true);
+
+  if (location_icon_view()) {
+    location_icon_view()->SetVisible(false);
+  }
+
+  permission_dashboard_view()->SetVisible(true);
+  permission_dashboard_view()->UpdateDividerViewVisibility();
+
+  if (chip_model_->IsExpandAnimationAllowed()) {
+    AnimateExpandRequestChip();
+  }
+
+  if (!chip_model_->ShouldBubbleStartOpen()) {
+    request_chip->AnnounceText(chip_model_->GetAccessibilityChipText());
+  }
+}
+
+void PaymentHandlerWebFlowViewController::OnPromptRemoved() {
+  ResetRequestChip();
+}
+
+void PaymentHandlerWebFlowViewController::OnRequestsFinalized() {
+  ResetRequestChip();
+}
+
+void PaymentHandlerWebFlowViewController::OnRequestDecided(
+    permissions::PermissionAction action) {
+  base::UmaHistogramEnumeration("PaymentRequest.Camera.PromptAction", action,
+                                permissions::PermissionAction::NUM);
+
+  if (!chip_model_ || !permission_dashboard_view()) {
+    return;
+  }
+
+  // In parity with the Omnibox, camera permission skips confirmation chips
+  // so the activity indicator can take over on capture (or the LocationIconView
+  // is restored on non-grant).
+  ResetRequestChip();
+}
+
+void PaymentHandlerWebFlowViewController::
+    OnPermissionRequestManagerDestructed() {
+  permission_request_manager_observation_.Reset();
+}
+
+void PaymentHandlerWebFlowViewController::CollapseIndicatorChip() {
+  if (permission_dashboard_view() &&
+      !permission_dashboard_view()->GetIndicatorChip()->IsAnimating() &&
+      indicator_phase_ == IndicatorDisplayPhase::kExpanded) {
+    indicator_phase_ = IndicatorDisplayPhase::kCollapsing;
+    permission_dashboard_view()->GetIndicatorChip()->AnimateCollapse(
+        gfx::Animation::RichAnimationDuration(
+            kIndicatorCollapseAnimationDuration));
+  }
+}
+
+bool PaymentHandlerWebFlowViewController::CollapseActiveIndicatorIfNeeded() {
+  switch (indicator_phase_) {
+    case IndicatorDisplayPhase::kExpanding:
+    case IndicatorDisplayPhase::kExpanded:
+      indicator_chip_collapse_timer_.Stop();
+      if (permission_dashboard_view()) {
+        indicator_phase_ = IndicatorDisplayPhase::kCollapsing;
+        permission_dashboard_view()->GetIndicatorChip()->AnimateCollapse(
+            gfx::Animation::RichAnimationDuration(
+                kIndicatorCollapseAnimationDuration));
+      }
+      return true;
+    case IndicatorDisplayPhase::kCollapsing:
+      return true;
+    case IndicatorDisplayPhase::kHidden:
+    case IndicatorDisplayPhase::kCompact:
+      return false;
+  }
+}
+
+void PaymentHandlerWebFlowViewController::HideIndicatorChip() {
+  indicator_chip_collapse_timer_.Stop();
+  indicator_dismiss_timer_.Stop();
+  indicator_type_ = IndicatorType::kNone;
+  indicator_phase_ = IndicatorDisplayPhase::kHidden;
+
+  if (!permission_dashboard_view()) {
+    return;
+  }
+  PermissionChipView* indicator_chip =
+      permission_dashboard_view()->GetIndicatorChip();
+  indicator_chip->ResetAnimation(
+      PermissionChipInterface::AnimationState::kCollapsed);
+  indicator_chip->SetVisible(false);
+  permission_dashboard_view()->UpdateDividerViewVisibility();
+  if (!permission_dashboard_view()->GetRequestChip()->GetVisible()) {
+    permission_dashboard_view()->SetVisible(false);
+    if (location_icon_view()) {
+      location_icon_view()->SetVisible(true);
+    }
+  }
+}
+
+void PaymentHandlerWebFlowViewController::ShowBlockedCameraIndicator() {
+  if (!permission_dashboard_view()) {
+    return;
+  }
+
+  if (indicator_type_ == IndicatorType::kBlocked) {
+    if (indicator_chip_collapse_timer_.IsRunning()) {
+      indicator_chip_collapse_timer_.Reset();
+    } else if (indicator_dismiss_timer_.IsRunning()) {
+      indicator_dismiss_timer_.Reset();
+    }
+    return;
+  }
+
+  indicator_chip_collapse_timer_.Stop();
+  indicator_dismiss_timer_.Stop();
+  indicator_type_ = IndicatorType::kBlocked;
+
+  if (location_icon_view()) {
+    location_icon_view()->SetVisible(false);
+  }
+  permission_dashboard_view()->SetVisible(true);
+
+  PermissionChipView* const indicator_chip =
+      permission_dashboard_view()->GetIndicatorChip();
+  indicator_chip->SetChipIcon(
+      permissions::GetBlockedIconId(permissions::RequestType::kCameraStream));
+  indicator_chip->SetTheme(PermissionChipTheme::kBlockedActivityIndicator);
+  indicator_chip->SetMessage(l10n_util::GetStringUTF16(IDS_CAMERA_NOT_ALLOWED));
+  indicator_chip->SetTooltipText(l10n_util::GetStringUTF16(IDS_CAMERA_BLOCKED));
+  indicator_chip->ResetAnimation(
+      PermissionChipInterface::AnimationState::kCollapsed);
+  indicator_chip->SetVisible(true);
+  permission_dashboard_view()->UpdateDividerViewVisibility();
+
+  indicator_chip->AnnounceAlert(
+      l10n_util::GetStringUTF16(IDS_CAMERA_NOT_ALLOWED));
+
+  const bool is_verbose =
+      permission_indicators_tab_data_ &&
+      permission_indicators_tab_data_->IsVerboseIndicatorAllowed(
+          permissions::PermissionIndicatorsTabData::IndicatorsType::
+              kMediaStream);
+  if (is_verbose) {
+    indicator_phase_ = IndicatorDisplayPhase::kExpanding;
+    indicator_chip->AnimateExpand(gfx::Animation::RichAnimationDuration(
+        kIndicatorExpandAnimationDuration));
+  } else {
+    indicator_phase_ = IndicatorDisplayPhase::kCompact;
+    indicator_dismiss_timer_.Start(
+        FROM_HERE, kBlockedMediaIndicatorDismissDelay,
+        base::BindOnce(&PaymentHandlerWebFlowViewController::HideIndicatorChip,
+                       weak_ptr_factory_.GetWeakPtr()));
+  }
+}
+
+void PaymentHandlerWebFlowViewController::OnIndicatorChipPressed(
+    bool is_pointer_interaction) {
+  if (page_info_bubble_suppressor_.IsShowing()) {
+    page_info_bubble_suppressor_.Close(
+        views::Widget::ClosedReason::kUnspecified);
+    return;
+  }
+
+  if (page_info_bubble_suppressor_.ShouldSuppressBubbleShow(
+          is_pointer_interaction)) {
+    return;
+  }
+
+  ShowPageInfoDialog();
+}
+
+void PaymentHandlerWebFlowViewController::AnimateExpandRequestChip() {
+  if (!permission_dashboard_view()) {
+    return;
+  }
+  PermissionChipView* const request_chip =
+      permission_dashboard_view()->GetRequestChip();
+  if (request_chip->GetVisible()) {
+    request_chip->ResetAnimation(
+        PermissionChipInterface::AnimationState::kCollapsed);
+    request_chip->AnimateExpand(
+        gfx::Animation::RichAnimationDuration(kPromptExpandAnimationDuration));
+  }
+}
+
+void PaymentHandlerWebFlowViewController::ResetRequestChip() {
+  delay_prompt_timer_.Stop();
+  chip_model_.reset();
+  if (!permission_dashboard_view()) {
+    return;
+  }
+  permission_dashboard_view()->GetRequestChip()->ResetAnimation(
+      PermissionChipInterface::AnimationState::kCollapsed);
+  permission_dashboard_view()->GetRequestChip()->SetVisible(false);
+  permission_dashboard_view()->UpdateDividerViewVisibility();
+  if (!permission_dashboard_view()->GetIndicatorChip()->GetVisible()) {
+    permission_dashboard_view()->SetVisible(false);
+    if (location_icon_view()) {
+      location_icon_view()->SetVisible(true);
+    }
+  }
+}
+
+void PaymentHandlerWebFlowViewController::OnRequestChipPressed() {
+  if (auto* manager = permissions::PermissionRequestManager::FromWebContents(
+          web_contents())) {
+    if (manager->GetCurrentPrompt()) {
+      manager->Dismiss(std::monostate());
+    } else if (manager->CanRestorePrompt()) {
+      manager->RestorePrompt();
+    }
+  }
+}
+
+bool PaymentHandlerWebFlowViewController::ShowPageInfoDialog() {
+  content::WebContents* contents = GetWebContents();
+  if (!contents) {
+    return false;
+  }
+
+  views::View* const anchor_view = GetPageInfoIconView();
+  CHECK(anchor_view);
+
+  indicator_chip_collapse_timer_.Stop();
+  indicator_dismiss_timer_.Stop();
+
+  content::WebContents* parent_tab_contents = state()->GetWebContents();
+  std::unique_ptr<PageInfoBubbleSpecification> specification =
+      PageInfoBubbleSpecification::Builder(
+          views::BubbleAnchor(anchor_view),
+          dialog()->GetWidget()->GetNativeWindow(), contents,
+          contents->GetLastCommittedURL())
+          .AddGetBrowserCallback(base::BindRepeating(
+              [](content::WebContents* parent_contents,
+                 content::WebContents*) -> BrowserWindowInterface* {
+                return tabs::TabInterface::GetFromContents(parent_contents)
+                    ->GetBrowserWindowInterface();
+              },
+              parent_tab_contents))
+          .AddPageInfoClosingCallback(base::BindOnce(
+              &PaymentHandlerWebFlowViewController::OnPageInfoBubbleClosed,
+              weak_ptr_factory_.GetWeakPtr()))
+          .HideExtendedSiteInfo()
+          .Build();
+
+  views::BubbleDialogDelegateView* const bubble =
+      PageInfoBubbleView::CreatePageInfoBubble(std::move(specification));
+  page_info_view_tracker_.SetView(bubble);
+  bubble->SetHighlightedElement(
+      anchor_view->GetProperty(views::kElementIdentifierKey));
+  bubble->GetWidget()->Show();
+  page_info_bubble_suppressor_.Observe(bubble->GetWidget());
+  return true;
+}
+
+void PaymentHandlerWebFlowViewController::OnPageInfoBubbleClosed(
+    views::Widget::ClosedReason closed_reason,
+    bool reload_prompt) {
+  page_info_view_tracker_.SetView(nullptr);
+  if (LocationIconView* icon = location_icon_view()) {
+    icon->MaybeAnimateIcon(/*open=*/false);
+  }
+  if (indicator_type_ == IndicatorType::kBlocked) {
+    HideIndicatorChip();
+  } else if (indicator_type_ == IndicatorType::kInUse) {
+    if (indicator_phase_ == IndicatorDisplayPhase::kExpanded) {
+      CollapseIndicatorChip();
+    } else {
+      const bool is_capturing =
+          indicator_observation_.IsObserving() &&
+          indicator_observation_.GetSource()->IsCapturingVideo(web_contents());
+      if (!is_capturing) {
+        HideInUseCameraIndicator();
+      }
+    }
+  }
+}
+
+const LocationBarModel*
+PaymentHandlerWebFlowViewController::GetLocationBarModel() const {
+  return location_bar_model_.get();
+}
+
+ui::ImageModel PaymentHandlerWebFlowViewController::GetLocationIcon(
+    LocationIconView::Delegate::IconFetchedCallback on_icon_fetched) {
+  return ui::ImageModel::FromVectorIcon(
+      location_bar_model_->GetVectorIcon(),
+      GetSecurityChipColor(location_bar_model_->GetSecurityLevel()),
+      GetLayoutConstant(LayoutConstant::kLocationBarIconSize));
 }
 
 void PaymentHandlerWebFlowViewController::DidGetUserInteraction(

@@ -51,8 +51,12 @@ class MojoUkmRecorder;
 
 class AXTreeDistiller;
 class DependencyParserModel;
-class ReadAnythingAppControllerTest;
+struct DistillationRequest;
+struct DistillationResult;
 class ReadAnythingAppControllerReadabilityTest;
+class ReadAnythingAppControllerTest;
+class ReadAnythingDistiller;
+class ReadAnythingDistillerFactory;
 
 ///////////////////////////////////////////////////////////////////////////////
 // ReadAnythingAppController
@@ -409,6 +413,9 @@ class ReadAnythingAppController
   void OnAXTreeDistilled(const ui::AXTreeID& tree_id,
                          const std::vector<ui::AXNodeID>& content_node_ids);
 
+  // Called when distillation completes from the active ReadAnythingDistiller.
+  void OnDistillationComplete(const DistillationResult& result);
+
   // Inits the AXPosition with a starting node.
   // TODO(crbug.com/40927698): We should be able to use AXPosition in a way
   // where this isn't needed.
@@ -446,6 +453,17 @@ class ReadAnythingAppController
   const std::string& GetDefaultLanguageCodeForSpeech() const;
 
   void Distill();
+
+  // Ensures that `active_distiller_` is configured for the next distillation
+  // method indicated by `model_.next_distillation_method()`. If a different
+  // distiller is currently active, replacing it cancels any in-flight
+  // operations from the previous distiller before instantiating the new one.
+  void UpdateActiveDistiller();
+
+  // Initiates distillation by ensuring the active distiller matches the
+  // model's next distillation method and dispatching the `request`.
+  void ExecuteDistillation(const DistillationRequest& request);
+
   void DrawSelection();
   void DrawEmptyState();
 
@@ -569,6 +587,8 @@ class ReadAnythingAppController
 
   bool IsHidden() const;
 
+  // TODO(crbug.com/554114724): Remove `distiller_` once the
+  // ReadAnythingDistiller refactoring is complete and enabled by default.
   std::unique_ptr<AXTreeDistiller> distiller_;
   mojo::Remote<read_anything::mojom::UntrustedPageHandlerFactory>
       page_handler_factory_;
@@ -579,10 +599,6 @@ class ReadAnythingAppController
 
   // Model that holds Read Aloud state for this controller.
   ReadAloudAppModel read_aloud_model_;
-
-  // Set of nodes that will be deleted that are also displayed. A draw will
-  // occur when the set becomes empty.
-  std::set<ui::AXNodeID> displayed_nodes_pending_deletion_;
 
   bool waiting_for_tree_id_ = false;
 
@@ -604,6 +620,14 @@ class ReadAnythingAppController
   base::ScopedObservation<ReadAnythingAppModel,
                           ReadAnythingAppModel::ModelObserver>
       model_observer_{this};
+
+  // Factory used to instantiate concrete `ReadAnythingDistiller` engines based
+  // on the requested distillation method.
+  std::unique_ptr<ReadAnythingDistillerFactory> distiller_factory_;
+
+  // The active distillation engine instance (e.g. Screen2x or Readability).
+  // Dynamically instantiated and updated via `UpdateActiveDistiller()`.
+  std::unique_ptr<ReadAnythingDistiller> active_distiller_;
 
   // Observers of AXTrees, which are added / removed  as the `model_` changes
   // state.

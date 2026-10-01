@@ -7,6 +7,7 @@
 
 #include <set>
 
+#include "base/gtest_prod_util.h"
 #include "base/memory/raw_ref.h"
 #include "base/memory/weak_ptr.h"
 #include "chrome/browser/glic/common/local_hotkey_manager.h"
@@ -16,6 +17,7 @@
 #include "chrome/browser/glic/host/host.h"
 #include "chrome/browser/glic/public/glic_side_panel_coordinator.h"
 #include "chrome/browser/glic/service/glic_ui_embedder.h"
+#include "chrome/browser/pwc/privileged_web_contents.h"
 #include "chrome/browser/ui/browser_window/public/browser_collection_observer.h"
 #include "components/embedder_support/android/delegate/web_contents_delegate_android.h"
 #include "content/public/browser/keyboard_event_processing_result.h"
@@ -54,9 +56,11 @@ class PanelFocusDependentHotkeyManager;
 class GlicSidePanelUi
     : public GlicUiEmbedder,
       public Host::EmbedderDelegate,
+      public Host::Observer,
       public LocalHotkeyManager::Panel,
       public BrowserCollectionObserver,
-      public web_contents_delegate_android::WebContentsDelegateAndroid {
+      public web_contents_delegate_android::WebContentsDelegateAndroid,
+      public pwc::PrivilegedWebContents::EmbedderDelegate {
  public:
   GlicSidePanelUi(Profile* profile,
                   base::WeakPtr<tabs::TabInterface> tab,
@@ -92,7 +96,12 @@ class GlicSidePanelUi
   void OnReload() override;
   void OnMicrophoneStatusChanged(mojom::MicrophoneStatus status) override {}
 
-  // web_contents_delegate_android::WebContentsDelegateAndroid:
+  // Host::Observer:
+  void ActiveWebContentsChanged(content::WebContents* new_contents) override;
+
+  // web_contents_delegate_android::WebContentsDelegateAndroid and
+  // pwc::PrivilegedWebContents::EmbedderDelegate:
+  void ContentsZoomChange(bool zoom_in) override;
   content::KeyboardEventProcessingResult PreHandleKeyboardEvent(
       content::WebContents* source,
       const input::NativeWebKeyboardEvent& event) override;
@@ -111,11 +120,6 @@ class GlicSidePanelUi
   void RunFileChooser(content::RenderFrameHost* render_frame_host,
                       scoped_refptr<content::FileSelectListener> listener,
                       const blink::mojom::FileChooserParams& params) override;
-  void PrintCrossProcessSubframe(
-      content::WebContents* web_contents,
-      const gfx::Rect& rect,
-      int document_cookie,
-      content::RenderFrameHost* subframe_host) const override;
 
   // BrowserCollectionObserver
   void OnBrowserActivated(BrowserWindowInterface* browser) override;
@@ -139,7 +143,47 @@ class GlicSidePanelUi
   }
 
  private:
+  FRIEND_TEST_ALL_PREFIXES(GlicSidePanelUiAndroidTest,
+                           MicPermissionDialogDenied);
+  FRIEND_TEST_ALL_PREFIXES(GlicSidePanelUiAndroidTest,
+                           MicPermissionDialogAcceptedWithDeadWebContents);
+  FRIEND_TEST_ALL_PREFIXES(GlicSidePanelUiAndroidTest,
+                           DeactivationSuppressedDuringPermissionRequest);
+
   GlicSidePanelCoordinator* GetGlicSidePanelCoordinator() const;
+
+  // Called with the user's answer to Chrome's microphone pre-prompt. Continues
+  // to the OS permission flow when `allowed`, otherwise fails the request.
+  void OnMicPermissionDialogResult(
+      base::WeakPtr<content::WebContents> web_contents,
+      const content::MediaStreamRequest& request,
+      content::MediaResponseCallback callback,
+      bool allowed);
+
+  // Forwards `request` to MediaCaptureDevicesDispatcher, which triggers the OS
+  // permission prompt if needed.
+  void RequestSystemMediaAccessPermission(
+      content::WebContents* web_contents,
+      const content::MediaStreamRequest& request,
+      content::MediaResponseCallback callback);
+
+  // Handles the outcome of the OS permission flow, showing a snackbar if
+  // microphone access ended up denied.
+  void OnMediaAccessPermissionResult(
+      base::WeakPtr<content::WebContents> web_contents,
+      blink::mojom::MediaStreamType audio_type,
+      content::MediaResponseCallback callback,
+      const blink::mojom::StreamDevicesSet& stream_devices_set,
+      blink::mojom::MediaStreamRequestResult result,
+      std::unique_ptr<content::MediaStreamUI> ui);
+
+  // Fails `callback` with `result` without consulting the OS.
+  void RejectMediaAccessRequest(content::MediaResponseCallback callback,
+                                blink::mojom::MediaStreamRequestResult result);
+
+  // Notifies the delegate if the embedder window is no longer active. Used to
+  // catch up on deactivations suppressed during a permission prompt.
+  void SyncEmbedderWindowActivation();
 
   base::CallbackListSubscription panel_visibility_subscription_;
   base::ScopedObservation<GlobalBrowserCollection, BrowserCollectionObserver>
@@ -155,6 +199,13 @@ class GlicSidePanelUi
   raw_ptr<Profile> profile_;
 
   std::unique_ptr<GlicScreenshotCapturer> screenshot_capturer_;
+
+  // True while a microphone/camera permission prompt is in front of the
+  // window. Deactivation notifications are suppressed during this time so the
+  // panel is not treated as backgrounded by the prompt itself.
+  bool is_requesting_media_permission_ = false;
+
+  base::ScopedObservation<Host, Host::Observer> host_observation_{this};
 
   base::WeakPtrFactory<GlicSidePanelUi> weak_ptr_factory_{this};
 };

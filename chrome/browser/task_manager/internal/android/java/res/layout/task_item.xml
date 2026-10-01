@@ -8,6 +8,8 @@ found in the LICENSE file.
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
+    android:layout_marginBottom="@dimen/task_item_margin_bottom"
+    android:background="@color/dialog_selected_item_bg_color_list"
     android:orientation="horizontal"
     android:padding="16dp">
 
@@ -23,30 +25,35 @@ found in the LICENSE file.
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="1"
+        android:paddingStart="@dimen/task_item_column_padding"
     />
     <TextView
         android:id="@+id/cpu"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="1"
+        android:paddingStart="@dimen/task_item_column_padding"
     />
     <TextView
         android:id="@+id/network_usage"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="1"
+        android:paddingStart="@dimen/task_item_column_padding"
     />
     <TextView
         android:id="@+id/process_id"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="1"
+        android:paddingStart="@dimen/task_item_column_padding"
     />
     <TextView
         android:id="@+id/gpu_memory_id"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="1"
+        android:paddingStart="@dimen/task_item_column_padding"
     />
 
 </LinearLayout>

@@ -203,6 +203,8 @@ void GestureListenerManager::OnInputEvent(const RenderWidgetHost& widget,
   }
 
   if (event_type == blink::mojom::EventType::kGestureFlingStart) {
+    // TODO(crbug.com/557416936): CHECK-exclusion: Convert to a CHECK once we
+    // are confident it won't be triggered.
     DCHECK(!is_in_a_fling_);
     is_in_a_fling_ = true;
   } else if (event_type == blink::mojom::EventType::kGestureFlingCancel ||

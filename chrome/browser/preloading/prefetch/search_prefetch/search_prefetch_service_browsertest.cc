@@ -42,6 +42,7 @@
 #include "chrome/browser/ui/omnibox/omnibox_controller.h"
 #include "chrome/browser/ui/omnibox/omnibox_edit_model.h"
 #include "chrome/browser/ui/omnibox/omnibox_view.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/test/base/in_process_browser_test.h"
@@ -77,6 +78,8 @@
 #include "content/public/test/test_navigation_observer.h"
 #include "content/public/test/url_loader_interceptor.h"
 #include "extensions/buildflags/buildflags.h"
+#include "ui/base/page_transition_types.h"
+#include "ui/base/window_open_disposition.h"
 #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 #include "chrome/browser/extensions/chrome_test_extension_loader.h"
 #include "extensions/browser/background_script_executor.h"
@@ -91,7 +94,6 @@
 #include "services/device/public/cpp/test/scoped_geolocation_overrider.h"
 #include "services/metrics/public/cpp/ukm_builders.h"
 #include "services/metrics/public/cpp/ukm_recorder.h"
-#include "services/network/public/cpp/network_quality_tracker.h"
 #include "services/network/public/mojom/clear_data_filter.mojom.h"
 #include "services/network/public/mojom/network_context.mojom.h"
 #include "services/network/public/mojom/network_service.mojom.h"
@@ -465,7 +467,6 @@ class SearchPrefetchServiceEnabledBrowserTest
          {{"max_attempts_per_caching_duration", "3"},
           {"cache_size", "1"},
           {"device_memory_threshold_MB", "0"}}},
-        {kSuppressesSearchPrefetchOnSlowNetwork, {}},
         {features::kPreloadingRespectUserAgentOverride, {}},
         {features::kRespectUserAgentOverrideInSearchPrefetch, {}}};
     feature_list_.InitWithFeaturesAndParameters(enabled_features, {});
@@ -502,10 +503,6 @@ class SearchPrefetchServiceEnabledBrowserTest
   const content::test::PreloadingAttemptUkmEntryBuilder&
   attempt_entry_builder() {
     return *attempt_entry_builder_;
-  }
-
-  network::NetworkQualityTracker& GetNetworkQualityTracker() const {
-    return *g_browser_process->network_quality_tracker();
   }
 
  private:
@@ -1088,62 +1085,6 @@ IN_PROC_BROWSER_TEST_F(SearchPrefetchServiceEnabledBrowserTest,
       SearchPrefetchEligibilityReason::kThrottled, 1);
   EXPECT_FALSE(prefetch_status.has_value());
   content::SetBrowserClientForTesting(old_client);
-}
-
-IN_PROC_BROWSER_TEST_F(SearchPrefetchServiceEnabledBrowserTest, SlowNetwork) {
-  base::HistogramTester histogram_tester;
-  auto* search_prefetch_service =
-      SearchPrefetchServiceFactory::GetForProfile(browser()->GetProfile());
-  EXPECT_NE(nullptr, search_prefetch_service);
-
-  std::string search_terms = "prefetch_content";
-
-  GURL prefetch_url = GetSearchServerQueryURL(search_terms);
-
-  base::TimeDelta http_rtt = GetNetworkQualityTracker().GetHttpRTT();
-  int32_t downstream_throughput_kbps =
-      GetNetworkQualityTracker().GetDownstreamThroughputKbps();
-
-  // Emulate slow network.
-  GetNetworkQualityTracker().ReportRTTsAndThroughputForTesting(
-      base::Seconds(1), downstream_throughput_kbps);
-  EXPECT_FALSE(search_prefetch_service->MaybePrefetchURL(prefetch_url,
-                                                         GetWebContents()));
-
-  histogram_tester.ExpectUniqueSample(
-      "Omnibox.SearchPrefetch.PrefetchEligibilityReason2.SuggestionPrefetch",
-      SearchPrefetchEligibilityReason::kSlowNetwork, 1);
-
-  // Navigate to flush the metrics.
-  ASSERT_TRUE(content::NavigateToURL(GetWebContents(), prefetch_url));
-  {
-    ukm::SourceId ukm_source_id =
-        GetWebContents()->GetPrimaryMainFrame()->GetPageUkmSourceId();
-    auto attempt_ukm_entries = test_ukm_recorder()->GetEntries(
-        Preloading_Attempt::kEntryName,
-        content::test::kPreloadingAttemptUkmMetrics);
-    EXPECT_EQ(attempt_ukm_entries.size(), 1u);
-
-    // Check that we set the eligibility reason to kSlowNetwork when
-    // the network is slow.
-    std::vector<UkmEntry> expected_attempt_entries = {
-        attempt_entry_builder().BuildEntry(
-            ukm_source_id, content::PreloadingType::kPrefetch,
-            content::PreloadingEligibility::kSlowNetwork,
-            content::PreloadingHoldbackStatus::kUnspecified,
-            content::PreloadingTriggeringOutcome::kUnspecified,
-            content::PreloadingFailureReason::kUnspecified,
-            /*accurate=*/true),
-    };
-    EXPECT_THAT(attempt_ukm_entries,
-                testing::UnorderedElementsAreArray(expected_attempt_entries))
-        << content::test::ActualVsExpectedUkmEntriesToString(
-               attempt_ukm_entries, expected_attempt_entries);
-  }
-
-  // Reset to the original values.
-  GetNetworkQualityTracker().ReportRTTsAndThroughputForTesting(
-      http_rtt, downstream_throughput_kbps);
 }
 
 class HeaderObserverContentBrowserClient : public ChromeContentBrowserClient {
@@ -3028,12 +2969,10 @@ IN_PROC_BROWSER_TEST_F(SearchPrefetchServiceEnabledBrowserTest,
   // Link click.
   content::TestNavigationManager navigation_manager(GetWebContents(),
                                                     search_url);
-  GetWebContents()->OpenURL(
-      content::OpenURLParams(search_url, content::Referrer(),
-                             WindowOpenDisposition::CURRENT_TAB,
-                             ui::PAGE_TRANSITION_LINK,
-                             /*is_renderer_initiated=*/false),
-      /*navigation_handle_callback=*/{});
+  GetWebContents()->OpenURL(content::OpenURLParams::CreateBrowserInitiated(
+                                search_url, WindowOpenDisposition::CURRENT_TAB,
+                                ui::PAGE_TRANSITION_LINK),
+                            /*navigation_handle_callback=*/{});
   ASSERT_TRUE(navigation_manager.WaitForNavigationFinished());
 
   EXPECT_EQ(2u, search_server_request_count());
@@ -3117,11 +3056,10 @@ IN_PROC_BROWSER_TEST_F(SearchPrefetchServiceEnabledBrowserTest, NoServePost) {
   // Post request.
   content::TestNavigationManager navigation_manager(GetWebContents(),
                                                     search_url);
-  content::OpenURLParams params(search_url, content::Referrer(),
-                                WindowOpenDisposition::CURRENT_TAB,
-                                ui::PAGE_TRANSITION_TYPED,
-
-                                /*is_renderer_initiated=*/false);
+  content::OpenURLParams params =
+      content::OpenURLParams::CreateBrowserInitiated(
+          search_url, WindowOpenDisposition::CURRENT_TAB,
+          ui::PAGE_TRANSITION_TYPED);
   std::string post_data = "test=body";
   params.post_data = network::ResourceRequestBody::CreateFromCopyOfBytes(
       base::as_byte_span(post_data));

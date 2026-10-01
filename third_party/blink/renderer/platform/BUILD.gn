@@ -434,7 +434,6 @@ component("platform") {
     "audio/media_multi_channel_resampler.h",
     "audio/panner.cc",
     "audio/panner.h",
-    "audio/pffft/fft_frame_pffft.cc",
     "audio/push_pull_fifo.cc",
     "audio/push_pull_fifo.h",
     "audio/reverb.cc",
@@ -713,6 +712,8 @@ component("platform") {
     "fonts/generic_font_family_settings.cc",
     "fonts/generic_font_family_settings.h",
     "fonts/glyph_metrics_map.h",
+    "fonts/ift/ift_patcher.cc",
+    "fonts/ift/ift_patcher.h",
     "fonts/opentype/color_table_lookup.cc",
     "fonts/opentype/color_table_lookup.h",
     "fonts/opentype/font_format_check.cc",
@@ -1061,10 +1062,8 @@ component("platform") {
     "graphics/gpu/webgpu_mailbox_buffer.h",
     "graphics/gpu/webgpu_mailbox_texture.cc",
     "graphics/gpu/webgpu_mailbox_texture.h",
-    "graphics/gpu/webgpu_shared_image_wrapper.cc",
-    "graphics/gpu/webgpu_shared_image_wrapper.h",
-    "graphics/gpu/webgpu_shared_image_wrapper_cache.cc",
-    "graphics/gpu/webgpu_shared_image_wrapper_cache.h",
+    "graphics/gpu/webgpu_shared_image_cache.cc",
+    "graphics/gpu/webgpu_shared_image_cache.h",
     "graphics/gpu/webgpu_swap_buffer_provider.cc",
     "graphics/gpu/webgpu_swap_buffer_provider.h",
     "graphics/gpu/webgpu_texture_alpha_clearer.cc",
@@ -1565,6 +1564,8 @@ component("platform") {
     "text/writing_mode_utils.h",
     "theme/web_theme_engine_conversions.cc",
     "theme/web_theme_engine_conversions.h",
+    "theme/web_theme_engine_default.cc",
+    "theme/web_theme_engine_default.h",
     "theme/web_theme_engine_helper.cc",
     "theme/web_theme_engine_helper.h",
     "timer.cc",
@@ -1722,7 +1723,6 @@ component("platform") {
 
   if (is_mac) {
     sources += [
-      "audio/mac/fft_frame_mac.cc",
       "audio/mac/vector_math_mac.h",
       "fonts/mac/attributed_string_type_converter.h",
       "fonts/mac/attributed_string_type_converter.mm",
@@ -1793,6 +1793,7 @@ component("platform") {
     ":blink_platform_public_deps",
     ":platform_export",
     "//build/rust/crubit",
+    "//components/language_detection/core",
     "//gpu/command_buffer/client:raster_interface",
     "//media/capture:capture_lib",
     "//mojo/public/cpp/base",
@@ -1810,7 +1811,6 @@ component("platform") {
     "//third_party/blink/renderer/platform/scheduler",
     "//third_party/dawn/include/dawn:cpp_headers",
     "//third_party/fdlibm",
-    "//third_party/pffft",
     "//ui/base",
     "//ui/base:ui_data_pack",
     "//ui/base/cursor",
@@ -1821,6 +1821,7 @@ component("platform") {
   deps = [
     ":rustfft_ffi",
     "fonts:font_format_bindings",
+    "fonts:ift_patcher_bindings",
     "//base:base_static",
     "//base/allocator:buildflags",
     "//build:chromecast_buildflags",
@@ -1830,7 +1831,6 @@ component("platform") {
     "//components/language_detection/content/common",
     "//components/language_detection/content/common:common_blink",
     "//components/language_detection/content/renderer",
-    "//components/language_detection/core",
     "//components/paint_preview/common",
     "//components/search_engines:search_engine_utils",
     "//components/translate/core/language_detection",
@@ -1900,11 +1900,6 @@ component("platform") {
     sources += [
       "theme/web_theme_engine_android.cc",
       "theme/web_theme_engine_android.h",
-    ]
-  } else {
-    sources += [
-      "theme/web_theme_engine_default.cc",
-      "theme/web_theme_engine_default.h",
     ]
   }
 
@@ -1989,11 +1984,6 @@ component("platform") {
   if (current_cpu == "arm64" || current_cpu == "arm64e" ||
       current_cpu == "arm") {
     sources += [ "audio/cpu/arm/delay_neon.cc" ]
-  }
-
-  if (!is_mac) {
-    include_dirs += [ "//third_party/pffft/src" ]
-    deps += [ "//third_party/pffft" ]
   }
 
   if (rtc_use_h265) {
@@ -2250,6 +2240,7 @@ source_set("blink_platform_unittests_sources") {
     "fonts/font_test.cc",
     "fonts/font_test_utilities.cc",
     "fonts/generic_font_family_settings_test.cc",
+    "fonts/ift/ift_patcher_test.cc",
     "fonts/opentype/color_table_lookup_test.cc",
     "fonts/opentype/font_format_check_test.cc",
     "fonts/opentype/font_settings_test.cc",
@@ -2318,7 +2309,7 @@ source_set("blink_platform_unittests_sources") {
     "graphics/gpu/webgl_image_conversion_test.cc",
     "graphics/gpu/webgpu_native_test_support.cc",
     "graphics/gpu/webgpu_native_test_support.h",
-    "graphics/gpu/webgpu_shared_image_wrapper_cache_test.cc",
+    "graphics/gpu/webgpu_shared_image_cache_test.cc",
     "graphics/graphics_context_test.cc",
     "graphics/paint/cull_rect_test.cc",
     "graphics/paint/display_item_raster_invalidator_test.cc",
@@ -2790,7 +2781,7 @@ source_set("blink_image_decoder_fuzzer_test_support") {
   ]
   deps = [ ":platform" ]
   if (enable_jxl_decoder) {
-    deps += [ "//third_party/rust/jxl/v0_6/wrapper:jxl_rs" ]
+    deps += [ "//third_party/rust/jxl/v0_7/wrapper:jxl_rs" ]
   }
 }
 
@@ -2909,7 +2900,7 @@ if (enable_jxl_decoder) {
     deps = [
       ":blink_image_decoder_fuzzer_test_support",
       ":platform",
-      "//third_party/rust/jxl/v0_6/wrapper:jxl_rs",
+      "//third_party/rust/jxl/v0_7/wrapper:jxl_rs",
     ]
     seed_corpuses =
         [ "//third_party/blink/web_tests/external/wpt/jpegxl/resources" ]
@@ -2970,17 +2961,6 @@ blink_fuzzer_test("blink_jpeg_decoder_fuzzer") {
 
 blink_fuzzer_test("blink_bmp_decoder_fuzzer") {
   sources = [ "image-decoders/bmp/bmp_image_decoder_fuzzer.cc" ]
-  deps = [
-    ":blink_image_decoder_fuzzer_test_support",
-    ":platform",
-  ]
-  seed_corpuses = [ "//third_party/blink/web_tests/images/bmp-suite/good" ]
-
-  additional_configs = [ "//third_party/blink/renderer:inside_blink" ]
-}
-
-blink_fuzzer_test("blink_bmp_rust_decoder_fuzzer") {
-  sources = [ "image-decoders/bmp/bmp_rust_image_decoder_fuzzer.cc" ]
   deps = [
     ":blink_image_decoder_fuzzer_test_support",
     ":platform",
@@ -3063,10 +3043,12 @@ blink_fuzzer_test("blink_storage_key_fuzzer") {
 # Fuzzer template for blink::TextCodec.
 template("blink_text_codec_fuzzer") {
   forward_variables_from(invoker, "*")
+
   config(target_name + "_config") {
     defines = [ "$target_name" ]
   }
   name = target_name
+
   blink_fuzzer_test("blink_text_codec_" + name + "_fuzzer") {
     sources = [ "text_codec_fuzzer.cc" ]
     deps = [ ":platform" ]

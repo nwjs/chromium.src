@@ -45,6 +45,7 @@ try_.builder(
         "ci/chromeos-amd64-generic-asan-rel",
     ],
     gn_args = "ci/chromeos-amd64-generic-asan-rel",
+    contact_team_email = "chrome-sanitizer-builder-owners@google.com",
 )
 
 try_.builder(
@@ -55,6 +56,7 @@ try_.builder(
     # TODO(crbug.com/40605913): Enable DCHECKS on the two amd64-generic bots
     # when the PFQ has it enabled.
     gn_args = "ci/chromeos-amd64-generic-cfi-thin-lto-rel",
+    contact_team_email = "chromeos-chrome-build@google.com",
 )
 
 try_.builder(
@@ -68,6 +70,7 @@ try_.builder(
             "ci/chromeos-amd64-generic-dbg",
         ],
     ),
+    contact_team_email = "chromeos-chrome-build@google.com",
     cq_settings = try_.cq_settings(
         location_filters = [
             "content/gpu/.+",
@@ -101,6 +104,7 @@ try_.builder(
         "ci/chromeos-arm-generic-dbg",
     ],
     gn_args = "ci/chromeos-arm-generic-dbg",
+    contact_team_email = "chromeos-chrome-build@google.com",
 )
 
 try_.builder(
@@ -113,6 +117,7 @@ try_.builder(
             "dcheck_always_on",
         ],
     ),
+    contact_team_email = "chromeos-chrome-build@google.com",
     experiments = {
         # crbug/940930
         "chromium.enable_cleandead": 100,
@@ -131,6 +136,7 @@ try_.builder(
         ],
     ),
     builderless = not settings.is_main,
+    contact_team_email = "chromeos-chrome-build@google.com",
     cq_settings = try_.cq_settings(
         on_default_cq = True,
     ),
@@ -139,6 +145,8 @@ try_.builder(
         "chromium.enable_cleandead": 100,
         # go/rts-project-proposal
         "chromium_rts.filter_file_analysis": 100,
+        # crbug.com/40280175
+        "chromium_checkout.expand_submodules": 100,
     },
     main_list_view = "try",
     siso_remote_jobs = siso.remote_jobs.HIGH_JOBS_FOR_CQ,
@@ -178,6 +186,7 @@ try_.builder(
         ],
     ),
     builderless = not settings.is_main,
+    contact_team_email = "chromeos-chrome-build@google.com",
     cq_settings = try_.cq_settings(
         on_default_cq = True,
     ),
@@ -208,6 +217,7 @@ try_.orchestrator_builder(
         ],
     ),
     compilator = "linux-chromeos-rel-compilator",
+    contact_team_email = "chromeos-chrome-build@google.com",
     coverage_test_types = ["unit", "overall"],
     # TODO(crbug.com/40241638): Use orchestrator pool once overloaded test pools
     # are addressed
@@ -222,6 +232,8 @@ try_.orchestrator_builder(
         "chromium.enable_cleandead": 100,
         # go/rts-project-proposal
         "chromium_rts.filter_file_analysis": 100,
+        # crbug.com/40280175
+        "chromium_checkout.expand_submodules": 100,
     },
     main_list_view = "try",
     use_clang_coverage = True,
@@ -248,6 +260,7 @@ try_.builder(
         ],
     ),
     ssd = 1,
+    contact_team_email = "chromeos-chrome-build@google.com",
 )
 
 try_.builder(
@@ -279,6 +292,7 @@ try_.builder(
             "release_try_builder",
         ],
     ),
+    contact_team_email = "core-devices-eng@google.com",
     cq_settings = try_.cq_settings(
         location_filters = [
             "chromeos/ash/components/chromebox_for_meetings/.+",

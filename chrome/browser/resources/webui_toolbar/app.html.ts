@@ -59,7 +59,8 @@ ${this.isBackForwardButtonEnabled_ ? html`
   ` : ''}
   ${this.isBatterySaverButtonEnabled_ ? html`
     <battery-saver-button id="battery-saver"
-        .hidden="${!this.navigationControlsState_.batterySaverButtonVisible}">
+        .state="${this.navigationControlsState_.batterySaverControlState}"
+        .hidden="${!this.navigationControlsState_.batterySaverControlState.shouldBeShown}">
     </battery-saver-button>
   ` : ''}
   ${this.isPerformanceInterventionButtonEnabled_ ? html`
@@ -71,6 +72,14 @@ ${this.isBackForwardButtonEnabled_ ? html`
             .shouldBeShown}">
     </performance-intervention-button>
   ` : ''}
+  <if expr="is_win or is_macosx or is_linux">
+  ${this.isMediaButtonEnabled_ ? html`
+    <media-button id="media"
+        .state="${this.navigationControlsState_.mediaControlState}"
+        .hidden="${!this.navigationControlsState_.mediaControlState.shouldBeShown}">
+    </media-button>
+  ` : ''}
+  </if>
   ${this.isAvatarButtonEnabled_ ? html`
     <avatar-button id="avatar"
         .state="${this.navigationControlsState_.avatarControlState}">
@@ -78,7 +87,8 @@ ${this.isBackForwardButtonEnabled_ ? html`
   ` : ''}
   ${this.webUIToolbarFullyEnabled_ ? html`
     <overflow-button id="overflow" hidden
-        .getOverflowedMenuItems="${() => this.getOverflowedMenuItems()}">
+        .getOverflowedMenuItems="${() => this.getOverflowedMenuItems()}"
+        .state="${this.navigationControlsState_.overflowButtonControlState}">
     </overflow-button>
   ` : ''}
   ${this.isAppMenuButtonEnabled_ ? html`

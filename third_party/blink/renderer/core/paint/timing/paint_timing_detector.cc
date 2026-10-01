@@ -162,7 +162,7 @@ PaintTimingDetector& PaintTimingDetector::From(Document& document) {
 }
 
 // static
-bool PaintTimingDetector::NotifyBackgroundImagePaint(
+void PaintTimingDetector::NotifyBackgroundImagePaint(
     Node& node,
     const Image& image,
     const StyleImage& style_image,
@@ -170,7 +170,7 @@ bool PaintTimingDetector::NotifyBackgroundImagePaint(
     const gfx::Rect& image_border) {
   LayoutObject* object = node.GetLayoutObject();
   if (!object) {
-    return false;
+    return;
   }
 
   auto& paint_timing = PaintTiming::From(object->GetDocument());
@@ -178,21 +178,21 @@ bool PaintTimingDetector::NotifyBackgroundImagePaint(
       node, style_image, current_paint_chunk_properties, image_border);
 
   if (!IsBackgroundImageContentful(*object, image)) {
-    return false;
+    return;
   }
 
   ImageResourceContent* cached_image = style_image.CachedImage();
   DCHECK(cached_image);
   // TODO(yoav): |image| and |cached_image.GetImage()| are not the same here in
   // the case of SVGs. Figure out why and if we can remove this footgun.
-  return paint_timing.GetPaintTimingDetector()
+  paint_timing.GetPaintTimingDetector()
       .GetImagePaintTimingDetector()
       .RecordImage(*object, image.Size(), *cached_image,
                    current_paint_chunk_properties, &style_image, image_border);
 }
 
 // static
-bool PaintTimingDetector::NotifyImagePaint(
+void PaintTimingDetector::NotifyImagePaint(
     const LayoutObject& object,
     const gfx::Size& intrinsic_size,
     const MediaTiming& media_timing,
@@ -203,7 +203,7 @@ bool PaintTimingDetector::NotifyImagePaint(
       object, media_timing, current_paint_chunk_properties, image_border);
 
   if (IgnorePaintTimingScope::ShouldIgnore()) {
-    return false;
+    return;
   }
 
   Node* image_node = object.GetNode();
@@ -214,7 +214,7 @@ bool PaintTimingDetector::NotifyImagePaint(
     ReportImagePixelInaccuracy(element);
   }
 
-  return paint_timing.GetPaintTimingDetector()
+  paint_timing.GetPaintTimingDetector()
       .GetImagePaintTimingDetector()
       .RecordImage(object, intrinsic_size, media_timing,
                    current_paint_chunk_properties, nullptr, image_border);
@@ -227,20 +227,13 @@ void PaintTimingDetector::NotifyFirstVideoFrame(
     const MediaTiming& media_timing,
     const PropertyTreeStateOrAlias& current_paint_chunk_properties,
     const gfx::Rect& image_border) {
-  if (NotifyImagePaint(object, intrinsic_size, media_timing,
-                       current_paint_chunk_properties, image_border)) {
-    // crbug.com/434659231: Recording this as an LCP candidate and setting the
-    // presentation time (without ReportFirstFrameTimeAsRenderTime) depends on
-    // the next main frame, which we request here. This is flag-guarded for hard
-    // LCP, since it might move metrics; for soft navs, do this unconditionally
-    // since this is still experimental and we want accurate behavior for origin
-    // trial along with attributing video src changes (crbug.com/434215966).
-    if (RuntimeEnabledFeatures::RequestMainFrameAfterFirstVideoFrameEnabled() ||
-        !PaintTiming::From(object.GetDocument())
-             .GetLargestContentfulPaintManager()) {
-      object.GetFrameView()->ScheduleAnimation();
-    }
-  }
+  NotifyImagePaint(object, intrinsic_size, media_timing,
+                   current_paint_chunk_properties, image_border);
+  // crbug.com/434659231: Paint timing callbacks happen as part of paint, and
+  // since the first video frame notification happens outside of paint, this
+  // `media_timing` will not be considered until the next frame. Request a
+  // frame now to prevent delays in timing.
+  object.GetFrameView()->ScheduleAnimation();
 }
 
 // static

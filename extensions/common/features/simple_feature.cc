@@ -358,8 +358,10 @@ Feature::Availability SimpleFeature::IsAvailableToContextForBind(
     const Feature* feature) {
   CHECK(feature);
   CHECK(context_data);
-  return feature->IsAvailableToContextImpl(extension, context, url, platform,
-                                           context_id, true, *context_data);
+  return feature->IsAvailableToContextImpl(
+      extension, context, url, platform, context_id,
+      /*check_developer_mode=*/true, *context_data,
+      /*delegated_handler=*/nullptr);
 }
 
 Feature::Availability SimpleFeature::IsAvailableToContextImpl(
@@ -369,7 +371,8 @@ Feature::Availability SimpleFeature::IsAvailableToContextImpl(
     Platform platform,
     int context_id,
     bool check_developer_mode,
-    const ContextData& context_data) const {
+    const ContextData& context_data,
+    DelegatedAvailabilityCheckHandler delegated_handler) const {
   Availability environment_availability = GetEnvironmentAvailability(
       platform, GetCurrentChannel(), GetCurrentFeatureSessionType(), context_id,
       check_developer_mode);
@@ -377,13 +380,14 @@ Feature::Availability SimpleFeature::IsAvailableToContextImpl(
     return environment_availability;
 
   if (RequiresDelegatedAvailabilityCheck()) {
+    const DelegatedAvailabilityCheckHandler handler =
+        ResolveDelegatedAvailabilityCheckHandler(delegated_handler);
     Feature::Availability delegated_availibility =
-        HasDelegatedAvailabilityCheckHandler()
-            ? RunDelegatedAvailabilityCheck(extension, context, url, platform,
-                                            context_id, check_developer_mode,
-                                            context_data)
-            : CreateAvailability(
-                  AvailabilityResult::kMissingDelegatedAvailabilityCheck);
+        handler ? RunDelegatedAvailabilityCheck(
+                      extension, context, url, platform, context_id,
+                      check_developer_mode, context_data, handler)
+                : CreateAvailability(
+                      AvailabilityResult::kMissingDelegatedAvailabilityCheck);
 
     if (!delegated_availibility.is_available()) {
       return delegated_availibility;
@@ -656,17 +660,6 @@ bool SimpleFeature::RequiresDelegatedAvailabilityCheck() const {
   return simple_feature_config_->requires_delegated_availability_check;
 }
 
-bool SimpleFeature::HasDelegatedAvailabilityCheckHandler() const {
-  return !delegated_availability_check_handler_.is_null();
-}
-
-void SimpleFeature::SetDelegatedAvailabilityCheckHandler(
-    DelegatedAvailabilityCheckHandler handler) {
-  DCHECK(RequiresDelegatedAvailabilityCheck());
-  DCHECK(!HasDelegatedAvailabilityCheckHandler());
-  delegated_availability_check_handler_ = handler;
-}
-
 Feature::Availability SimpleFeature::CheckDependencies(
     const base::RepeatingCallback<Availability(const Feature*)>& checker)
     const {
@@ -727,13 +720,10 @@ Feature::Availability SimpleFeature::GetEnvironmentAvailability(
   if (required_channel && *required_channel < GetCurrentChannel()) {
     // If the user has the kEnableExperimentalExtensionApis commandline flag
     // appended, we ignore channel restrictions.
-    if (!ignore_channel_) {
-      ignore_channel_ =
-          command_line->HasSwitch(switches::kEnableExperimentalExtensionApis);
-    }
-    if (!(*ignore_channel_))
+    if (!command_line->HasSwitch(switches::kEnableExperimentalExtensionApis)) {
       return CreateAvailability(AvailabilityResult::kUnsupportedChannel,
                                 *required_channel);
+    }
   }
 
   const StaticCString required_switch = command_line_switch_data();
@@ -879,12 +869,12 @@ Feature::Availability SimpleFeature::RunDelegatedAvailabilityCheck(
     Platform platform,
     int context_id,
     bool check_developer_mode,
-    const ContextData& context_data) const {
-  DCHECK(RequiresDelegatedAvailabilityCheck());
-  DCHECK(HasDelegatedAvailabilityCheckHandler());
-  if (!delegated_availability_check_handler_.Run(
-          std::string(name()), extension, context, url, platform, context_id,
-          check_developer_mode, context_data)) {
+    const ContextData& context_data,
+    DelegatedAvailabilityCheckHandler delegated_handler) const {
+  CHECK(RequiresDelegatedAvailabilityCheck());
+  CHECK(delegated_handler);
+  if (!delegated_handler(name(), extension, context, url, platform, context_id,
+                         check_developer_mode, context_data)) {
     return CreateAvailability(
         AvailabilityResult::kFailedDelegatedAvailabilityCheck);
   }

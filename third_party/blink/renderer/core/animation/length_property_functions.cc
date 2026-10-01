@@ -278,6 +278,12 @@ bool LengthPropertyFunctions::GetLength(const CSSProperty& property,
       result = style.StrokeDashOffset();
       success = true;
       break;
+    case CSSPropertyID::kTextDecorationThickness:
+      if (!style.GetTextDecorationThickness().IsFromFont()) {
+        result = style.GetTextDecorationThickness().Thickness();
+        success = true;
+      }
+      break;
     case CSSPropertyID::kTextIndent:
       result = style.TextIndent();
       success = true;
@@ -490,6 +496,30 @@ bool LengthPropertyFunctions::SetLength(const CSSProperty& property,
       return true;
     case CSSPropertyID::kBottom:
       builder.SetBottom(value);
+      return true;
+    case CSSPropertyID::kColumnRuleInsetCapEnd:
+      builder.SetColumnRuleInsetCapEnd(value);
+      return true;
+    case CSSPropertyID::kRowRuleInsetCapEnd:
+      builder.SetRowRuleInsetCapEnd(value);
+      return true;
+    case CSSPropertyID::kColumnRuleInsetCapStart:
+      builder.SetColumnRuleInsetCapStart(value);
+      return true;
+    case CSSPropertyID::kRowRuleInsetCapStart:
+      builder.SetRowRuleInsetCapStart(value);
+      return true;
+    case CSSPropertyID::kColumnRuleInsetJunctionEnd:
+      builder.SetColumnRuleInsetJunctionEnd(value);
+      return true;
+    case CSSPropertyID::kRowRuleInsetJunctionEnd:
+      builder.SetRowRuleInsetJunctionEnd(value);
+      return true;
+    case CSSPropertyID::kColumnRuleInsetJunctionStart:
+      builder.SetColumnRuleInsetJunctionStart(value);
+      return true;
+    case CSSPropertyID::kRowRuleInsetJunctionStart:
+      builder.SetRowRuleInsetJunctionStart(value);
       return true;
     case CSSPropertyID::kCx:
       builder.SetCx(value);

@@ -1449,8 +1449,10 @@ interface ContactsManager
 interface ContainerQueryList : EventTarget
     attribute @@toStringTag
     getter matches
+    getter onchange
     getter query
     method constructor
+    setter onchange
 interface ContentIndex
     attribute @@toStringTag
     method add
@@ -2654,6 +2656,10 @@ interface Element : Node
 interface ElementBehavior
     attribute @@toStringTag
     method constructor
+interface ElementGeometryUpdateEvent : Event
+    attribute @@toStringTag
+    getter elements
+    method constructor
 interface ElementImage
     attribute @@toStringTag
     getter height
@@ -3756,6 +3762,7 @@ interface HTMLCanvasElement : HTMLElement
     attribute @@toStringTag
     getter height
     getter layoutSubtree
+    getter onelementgeometryupdate
     getter onpaint
     getter width
     method captureElementImage
@@ -3772,6 +3779,7 @@ interface HTMLCanvasElement : HTMLElement
     method updateElementGeometry
     setter height
     setter layoutSubtree
+    setter onelementgeometryupdate
     setter onpaint
     setter width
 interface HTMLCollection
@@ -7879,6 +7887,7 @@ interface RTCRtpSender
     getter transform
     getter transport
     method constructor
+    method createEncodedSource
     method createEncodedStreams
     method getParameters
     method getStats
@@ -9831,15 +9840,21 @@ interface Subscriber
     method error
     method next
 interface SubtleCrypto
+    static method supports
     attribute @@toStringTag
     method constructor
+    method decapsulateBits
+    method decapsulateKey
     method decrypt
     method deriveBits
     method deriveKey
     method digest
+    method encapsulateBits
+    method encapsulateKey
     method encrypt
     method exportKey
     method generateKey
+    method getPublicKey
     method importKey
     method sign
     method unwrapKey
@@ -10152,11 +10167,9 @@ interface TrustedHTML
     method constructor
     method toJSON
     method toString
-interface TrustedParserOptions
+interface TrustedHTMLParserOptions
     attribute @@toStringTag
-    getter runScripts
     method constructor
-    method sanitizer
 interface TrustedScript
     static method fromLiteral
     attribute @@toStringTag
@@ -11156,6 +11169,7 @@ interface WebGL2RenderingContext
     method drawElementsInstanced
     method drawRangeElements
     method drawingBufferStorage
+    method drawingBufferToneMapping
     method enable
     method enableVertexAttribArray
     method endQuery
@@ -11690,6 +11704,7 @@ interface WebGLRenderingContext
     method drawArrays
     method drawElements
     method drawingBufferStorage
+    method drawingBufferToneMapping
     method enable
     method enableVertexAttribArray
     method finish
@@ -11917,6 +11932,7 @@ interface WebSocketStream
     method close
     method constructor
 interface WebTransport
+    static getter supportsReliableOnly
     attribute @@toStringTag
     getter anticipatedConcurrentIncomingBidirectionalStreams
     getter anticipatedConcurrentIncomingUnidirectionalStreams
@@ -11928,6 +11944,7 @@ interface WebTransport
     getter incomingUnidirectionalStreams
     getter protocol
     getter ready
+    getter reliability
     getter responseHeaders
     method close
     method constructor

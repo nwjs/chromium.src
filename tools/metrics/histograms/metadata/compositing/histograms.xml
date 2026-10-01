@@ -112,7 +112,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Compositing.BeginMainFrame.MainResult"
-    enum="BeginMainFrameMainResult" expires_after="2027-01-03">
+    enum="BeginMainFrameMainResult" expires_after="2027-03-07">
   <owner>lizeb@chromium.org</owner>
   <owner>jonross@chromium.org</owner>
   <summary>
@@ -122,7 +122,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Compositing.BeginMainFrame.TimeUs" units="microseconds"
-    expires_after="2027-01-03">
+    expires_after="2027-03-07">
   <owner>lizeb@chromium.org</owner>
   <owner>jonross@chromium.org</owner>
   <improvement direction="LOWER_IS_BETTER"/>
@@ -134,7 +134,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Compositing.BeginMainFrame.TimeUs.NoUpdate"
-    units="microseconds" expires_after="2027-01-03">
+    units="microseconds" expires_after="2027-03-07">
   <owner>lizeb@chromium.org</owner>
   <owner>jonross@chromium.org</owner>
   <improvement direction="LOWER_IS_BETTER"/>
@@ -187,31 +187,6 @@ chromium-metrics-reviews@google.com.
     when the buffer recreates buffers that were previously destroyed. For a
     single BufferQueue this should be once per frame at worst.
   </summary>
-</histogram>
-
-<histogram name="Compositing.DecodeLCPCandidateImage.{DecodeMethod}"
-    enum="Boolean" expires_after="2027-02-07">
-  <owner>mmocny@chromium.org</owner>
-  <owner>paint-dev@chromium.org</owner>
-  <summary>
-    Reports whether an image decode was for an image that might be used as the
-    Largest Contentful Image, and then whether a missing tile at raster time
-    includes such an image. The goal is to get an approximate idea of how many
-    LCP candidate images miss their frame deadline, and hence how often we may
-    report LCP too soon.
-
-    Recorded on every {DecodeMethod}
-
-    Note: this metric was expired from 2023-01-31 to 2023-12-20.
-  </summary>
-  <token key="DecodeMethod">
-    <variant name="Hardware" summary="hardware image decode task completion."/>
-    <variant name="MissedDeadline"
-        summary="call to PrepareTiles() in which there was a missing tile.
-                 True if any missing tile contains an LCP candidate decode
-                 that has not completed."/>
-    <variant name="Software" summary="software image decode task completion."/>
-  </token>
 </histogram>
 
 <histogram name="Compositing.DirectRenderer.DrawnRectAssignmentType"
@@ -286,7 +261,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Compositing.DirectRenderer.PartialSwap.TotalDamage" units="%"
-    expires_after="2027-01-03">
+    expires_after="2027-03-07">
   <owner>vasilyt@chromium.org</owner>
   <owner>jonross@chromium.org</owner>
   <owner>chrome-gpu-metric-alerts@chromium.org</owner>
@@ -301,7 +276,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Compositing.DirectRenderer.RenderPassDrawnRectMatch"
-    enum="Boolean" expires_after="2027-01-03">
+    enum="Boolean" expires_after="2027-03-07">
   <owner>jonross@chromium.org</owner>
   <owner>chrome-gpu-metric-alerts@chromium.org</owner>
   <summary>
@@ -327,7 +302,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Compositing.Display.Draw.AverageOverdraw2" units="units"
-    expires_after="2026-12-27">
+    expires_after="2027-02-28">
   <owner>zoraiznaeem@chromium.org</owner>
   <owner>chrome-gpu-metric-alerts@chromium.org</owner>
   <summary>
@@ -559,7 +534,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Compositing.Renderer.CALayerResult" enum="CALayerResult"
-    expires_after="2026-12-27">
+    expires_after="2027-02-28">
   <owner>ccameron@chromium.org</owner>
   <owner>chrome-gpu-metric-alerts@chromium.org</owner>
   <summary>
@@ -728,7 +703,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Compositing.TileManager.LimitWhenNotEnoughMemory.{ProcessType}"
-    units="MB" expires_after="2027-01-03">
+    units="MB" expires_after="2027-03-07">
   <owner>lizeb@chromium.org</owner>
   <owner>chrome-gpu-memory@google.com</owner>
   <summary>
@@ -753,7 +728,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Compositing.TileManager.RasterTasksDuration"
-    units="microseconds" expires_after="2026-12-27">
+    units="microseconds" expires_after="2027-02-28">
   <owner>lizeb@chromium.org</owner>
   <owner>chrome-gpu-metric-alerts@chromium.org</owner>
   <improvement direction="LOWER_IS_BETTER"/>
@@ -934,7 +909,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Graphics.Smoothness.CheckerboardingNeedRaster4.AllSequences"
-    units="%" expires_after="2027-01-03">
+    units="%" expires_after="2027-03-07">
   <owner>wangxianzhu@chromium.org</owner>
   <owner>chrome-gpu-metric-alerts@chromium.org</owner>
   <summary>
@@ -1006,7 +981,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Graphics.Smoothness.Checkerboarding{Version}.{Sequence}"
-    units="%" expires_after="2027-01-03">
+    units="%" expires_after="2027-03-07">
   <owner>jonross@chromium.org</owner>
   <owner>chrome-gpu-metric-alerts@chromium.org</owner>
   <summary>
@@ -1030,7 +1005,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Graphics.Smoothness.Checkerboarding{Version}.{Thread}{Sequence}"
-    units="%" expires_after="2027-01-03">
+    units="%" expires_after="2027-03-07">
   <owner>jonross@chromium.org</owner>
   <owner>chrome-gpu-metric-alerts@chromium.org</owner>
   <summary>
@@ -1163,7 +1138,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Graphics.Smoothness.PercentDroppedFrames3.{Sequence}"
-    units="%" expires_after="2027-01-03">
+    units="%" expires_after="2027-03-07">
   <owner>jonross@chromium.org</owner>
   <owner>chrome-gpu-metric-alerts@chromium.org</owner>
   <improvement direction="LOWER_IS_BETTER"/>
@@ -1220,7 +1195,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Graphics.Smoothness.PercentDroppedFrames3.{Thread}{Sequence}"
-    units="%" expires_after="2027-01-03">
+    units="%" expires_after="2027-03-07">
   <owner>jonross@chromium.org</owner>
   <owner>chrome-gpu-metric-alerts@chromium.org</owner>
   <improvement direction="LOWER_IS_BETTER"/>
@@ -1250,7 +1225,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Graphics.Smoothness.PercentDroppedFrames4.AllSequences"
-    units="%" expires_after="2027-01-03">
+    units="%" expires_after="2027-03-07">
   <owner>jonross@chromium.org</owner>
   <owner>gaiko@chromium.org</owner>
   <owner>chrome-gpu-metric-alerts@chromium.org</owner>

@@ -4,6 +4,7 @@
 
 #include "base/functional/callback_helpers.h"
 #include "base/test/metrics/histogram_tester.h"
+#include "base/test/run_until.h"
 #include "build/build_config.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/profiles/profile_manager.h"
@@ -19,6 +20,7 @@
 #include "chrome/browser/ui/views/profiles/profile_menu_view.h"
 #include "chrome/browser/ui/views/profiles/profile_menu_view_base.h"
 #include "chrome/browser/ui/views/toolbar/avatar_toolbar_button_interface.h"
+#include "chrome/browser/ui/views/toolbar/webui_test_utils.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/interactive_test_utils.h"
 #include "components/signin/public/identity_manager/account_info.h"
@@ -37,10 +39,14 @@ class ProfileBubbleInteractiveUiTest : public InProcessBrowserTest {
  public:
   // Returns dummy parameters for the interception bubble.
   WebSigninInterceptor::Delegate::BubbleParameters GetTestBubbleParameters() {
-    AccountInfo account;
-    account.account_id = CoreAccountId::FromGaiaId(GaiaId("ID1"));
-    AccountInfo primary_account;
-    primary_account.account_id = CoreAccountId::FromGaiaId(GaiaId("ID2"));
+    AccountInfo account =
+        AccountInfo::Builder(GaiaId("ID1"), "email1@example.com")
+            .SetAccountId(CoreAccountId::FromGaiaId(GaiaId("ID1")))
+            .Build();
+    AccountInfo primary_account =
+        AccountInfo::Builder(GaiaId("ID2"), "email2@example.com")
+            .SetAccountId(CoreAccountId::FromGaiaId(GaiaId("ID2")))
+            .Build();
     return WebSigninInterceptor::Delegate::BubbleParameters(
         WebSigninInterceptor::SigninInterceptionType::kMultiUser, account,
         primary_account);
@@ -122,6 +128,11 @@ class ProfileMenuInteractiveUiTest : public ProfileBubbleInteractiveUiTest {
     ProfileBubbleInteractiveUiTest::SetUp();
   }
 
+  void SetUpOnMainThread() override {
+    ProfileBubbleInteractiveUiTest::SetUpOnMainThread();
+    WaitForInitialWebUIToolbar(browser());
+  }
+
   ProfileMenuViewBase* profile_menu_view() {
     auto* coordinator = ProfileMenuCoordinator::From(browser());
     return coordinator ? coordinator->GetProfileMenuViewBaseForTesting()
@@ -146,7 +157,8 @@ IN_PROC_BROWSER_TEST_F(ProfileMenuInteractiveUiTest, OtherProfileFocus) {
 #endif
   ASSERT_TRUE(ui_test_utils::SendKeyPressSync(
       browser(), ui::VKEY_M, control, /*shift=*/true, /*alt=*/false, command));
-  ASSERT_TRUE(profile_menu_view());
+  ASSERT_TRUE(
+      base::test::RunUntil([&]() { return profile_menu_view() != nullptr; }));
 
   // This test doesn't care about performing the actual menu actions, only
   // about the histogram recorded.

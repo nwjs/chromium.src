@@ -4,6 +4,9 @@
 
 #include "chrome/browser/infobars/infobar_features.h"
 
+#include "base/metrics/field_trial_params.h"
+#include "components/infobars/core/infobar_delegate.h"
+
 namespace infobars {
 
 BASE_FEATURE(kCentralizedInfoBarFramework, base::FEATURE_DISABLED_BY_DEFAULT);
@@ -19,12 +22,22 @@ BASE_FEATURE_PARAM(bool,
                    false);
 
 BASE_FEATURE_PARAM(bool,
+                   kMigratedBadFlags,
+                   &kCentralizedInfoBarFramework,
+                   false);
+
+BASE_FEATURE_PARAM(bool,
                    kMigratedCollectedCookies,
                    &kCentralizedInfoBarFramework,
                    false);
 
 BASE_FEATURE_PARAM(bool,
                    kMigratedDefaultBrowser,
+                   &kCentralizedInfoBarFramework,
+                   false);
+
+BASE_FEATURE_PARAM(bool,
+                   kMigratedDevToolsConfirm,
                    &kCentralizedInfoBarFramework,
                    false);
 
@@ -40,6 +53,11 @@ BASE_FEATURE_PARAM(bool,
 
 BASE_FEATURE_PARAM(bool,
                    kMigratedInstallerDownloader,
+                   &kCentralizedInfoBarFramework,
+                   false);
+
+BASE_FEATURE_PARAM(bool,
+                   kMigratedKeystonePromotion,
                    &kCentralizedInfoBarFramework,
                    false);
 
@@ -104,21 +122,32 @@ BASE_FEATURE_PARAM(bool,
                    &kCentralizedInfoBarFramework,
                    false);
 
+BASE_FEATURE_PARAM(bool,
+                   kMigratedWebAuthFlow,
+                   &kCentralizedInfoBarFramework,
+                   false);
+
 const base::FeatureParam<bool>* GetInfoBarMigrationParam(
     InfoBarDelegate::InfoBarIdentifier infobar_id) {
   switch (infobar_id) {
     case InfoBarDelegate::AUTOMATION_INFOBAR_DELEGATE:
       return &kMigratedAutomation;
+    case InfoBarDelegate::BAD_FLAGS_INFOBAR_DELEGATE:
+      return &kMigratedBadFlags;
     case InfoBarDelegate::COLLECTED_COOKIES_INFOBAR_DELEGATE:
       return &kMigratedCollectedCookies;
     case InfoBarDelegate::DEFAULT_BROWSER_INFOBAR_DELEGATE:
       return &kMigratedDefaultBrowser;
+    case InfoBarDelegate::DEV_TOOLS_INFOBAR_DELEGATE:
+      return &kMigratedDevToolsConfirm;
     case InfoBarDelegate::DEV_TOOLS_SHARED_PROCESS_DELEGATE:
       return &kMigratedDevToolsSharedProcess;
     case InfoBarDelegate::GOOGLE_API_KEYS_INFOBAR_DELEGATE:
       return &kMigratedGoogleApiKeys;
     case InfoBarDelegate::INSTALLER_DOWNLOADER_INFOBAR_DELEGATE:
       return &kMigratedInstallerDownloader;
+    case InfoBarDelegate::KEYSTONE_PROMOTION_INFOBAR_DELEGATE_MAC:
+      return &kMigratedKeystonePromotion;
     case InfoBarDelegate::KNOWN_INTERCEPTION_DISCLOSURE_INFOBAR_DELEGATE:
       return &kMigratedKnownInterceptionDisclosure;
     case InfoBarDelegate::ENABLE_LINK_CAPTURING_INFOBAR_DELEGATE:
@@ -145,6 +174,8 @@ const base::FeatureParam<bool>* GetInfoBarMigrationParam(
       return &kMigratedSessionRestore;
     case InfoBarDelegate::INSTALLATION_ERROR_INFOBAR_DELEGATE:
       return &kMigratedInstallationError;
+    case InfoBarDelegate::EXTENSIONS_WEB_AUTH_FLOW_INFOBAR_DELEGATE:
+      return &kMigratedWebAuthFlow;
     default:
       return nullptr;
   }

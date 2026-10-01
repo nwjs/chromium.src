@@ -4,10 +4,15 @@
 
 #include "chrome/browser/ui/omnibox/omnibox_everywhere/omnibox_everywhere_controller.h"
 
+#include <utility>
+
 #include "base/check.h"
+#include "base/command_line.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
+#include "base/metrics/histogram_functions.h"
+#include "base/task/single_thread_task_runner.h"
 #include "build/build_config.h"
 #include "chrome/browser/background/omnibox_everywhere/omnibox_everywhere_background_mode_manager.h"
 #include "chrome/browser/browser_process.h"
@@ -22,6 +27,7 @@
 #include "chrome/browser/ui/omnibox/omnibox_everywhere_service_factory.h"
 #include "chrome/browser/ui/omnibox/omnibox_next_features.h"
 #include "chrome/browser/ui/profiles/profile_picker.h"
+#include "chrome/common/chrome_switches.h"
 #include "components/keep_alive_registry/keep_alive_types.h"
 #include "components/keep_alive_registry/scoped_keep_alive.h"
 #include "components/prefs/pref_service.h"
@@ -30,13 +36,6 @@
 #include "ui/events/event_constants.h"
 #include "ui/events/keycodes/keyboard_codes.h"
 #include "ui/views/widget/widget.h"
-
-#if BUILDFLAG(IS_WIN)
-#include "base/task/single_thread_task_runner.h"
-#include "base/task/task_traits.h"
-#include "base/task/thread_pool.h"
-#include "chrome/browser/ui/omnibox/omnibox_everywhere/omnibox_everywhere_shortcut_win.h"
-#endif
 
 namespace omnibox_everywhere {
 
@@ -49,16 +48,11 @@ OmniboxEverywhereController::OmniboxEverywhereController(
           std::make_unique<OmniboxEverywhereBackgroundModeManager>(
               base::BindRepeating(
                   &OmniboxEverywhereController::OnStatusIconClicked,
-                  base::Unretained(this)))),
+                  base::Unretained(this)),
+              base::BindRepeating(&OmniboxEverywhereController::Close,
+                                  base::Unretained(this)))),
       listener_(listener ? listener
-                         : ui::GlobalAcceleratorListener::GetInstance())
-#if BUILDFLAG(IS_WIN)
-      ,
-      shortcut_helper_(base::ThreadPool::CreateCOMSTATaskRunner(
-          {base::MayBlock(), base::TaskPriority::USER_VISIBLE,
-           base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN}))
-#endif
-{
+                         : ui::GlobalAcceleratorListener::GetInstance()) {
   CHECK(base::FeatureList::IsEnabled(omnibox::kOmniboxEverywhere));
   if (g_browser_process && g_browser_process->local_state()) {
     enabled_pref_member_.Init(
@@ -79,13 +73,6 @@ OmniboxEverywhereController::OmniboxEverywhereController(
   }
   UpdateHotkeyRegistration();
 
-#if BUILDFLAG(IS_WIN)
-  // TODO(crbug.com/532193825): Move icon creation to First Run Experience
-  // (FRE).
-  shortcut_helper_.AsyncCall(base::IgnoreResult(
-      &OmniboxEverywhereShortcutHelperWin::EnsureIconPersisted));
-#endif
-
   if (g_browser_process && g_browser_process->profile_manager()) {
     profile_manager_observation_.Observe(g_browser_process->profile_manager());
     for (auto* profile :
@@ -93,6 +80,13 @@ OmniboxEverywhereController::OmniboxEverywhereController(
       OnProfileAdded(profile);
     }
   }
+
+#if BUILDFLAG(IS_WIN)
+  if (base::CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kNoStartupWindow)) {
+    MaybeLoadPersistedTargetProfile();
+  }
+#endif
 
   if (GlobalBrowserCollection::GetInstance()) {
     browser_collection_observation_.Observe(
@@ -159,25 +153,23 @@ bool OmniboxEverywhereController::IsProfileEligible(Profile* profile) const {
          OmniboxEverywhereServiceFactory::GetForProfile(profile);
 }
 
-bool OmniboxEverywhereController::InvokeForProfilePath(
+bool OmniboxEverywhereController::LoadProfileAsync(
     const base::FilePath& profile_path,
-    InvocationSource source,
-    gfx::NativeWindow context) {
+    base::OnceCallback<void(Profile*)> on_loaded) {
   if (!g_browser_process || !g_browser_process->profile_manager()) {
     return false;
   }
 
   ProfileManager* profile_manager = g_browser_process->profile_manager();
-  Profile* persisted_profile = profile_manager->GetProfileByPath(profile_path);
-
-  // If the profile persisted in local pref is already loaded, check
-  // eligibility.
-  if (persisted_profile) {
-    if (IsProfileEligible(persisted_profile)) {
-      OnInvoke(source, persisted_profile, context);
-      return true;
+  if (Profile* profile = profile_manager->GetProfileByPath(profile_path)) {
+    if (!IsProfileEligible(profile)) {
+      return false;
     }
-    return false;
+    if (on_loaded) {
+      base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+          FROM_HERE, base::BindOnce(std::move(on_loaded), profile));
+    }
+    return true;
   }
 
   // Check whether `profile_path` points to a valid Profile on disk.
@@ -188,34 +180,50 @@ bool OmniboxEverywhereController::InvokeForProfilePath(
     return false;
   }
 
-  // Hold a browser keep-alive while we asynchronously load the persisted
-  // profile and attempt to invoke the UI.
+  // Hold a browser keep-alive while we asynchronously load the profile.
   auto keep_alive = std::make_unique<ScopedKeepAlive>(
       KeepAliveOrigin::OMNIBOX_EVERYWHERE_STARTUP,
       KeepAliveRestartOption::DISABLED);
-
-  views::Widget* widget =
-      context ? views::Widget::GetWidgetForNativeWindow(context) : nullptr;
-  base::WeakPtr<views::Widget> context_widget =
-      widget ? widget->GetWeakPtr() : nullptr;
 
   profile_manager->CreateProfileAsync(
       profile_path,
       base::BindOnce(
           [](base::WeakPtr<OmniboxEverywhereController> controller,
              std::unique_ptr<ScopedKeepAlive> /*keep_alive*/,
+             base::OnceCallback<void(Profile*)> on_loaded, Profile* profile) {
+            if (controller && profile &&
+                controller->IsProfileEligible(profile) && on_loaded) {
+              std::move(on_loaded).Run(profile);
+            }
+          },
+          weak_factory_.GetWeakPtr(), std::move(keep_alive),
+          std::move(on_loaded)));
+  return true;
+}
+
+bool OmniboxEverywhereController::InvokeForProfilePath(
+    const base::FilePath& profile_path,
+    InvocationSource source,
+    gfx::NativeWindow context) {
+  views::Widget* widget =
+      context ? views::Widget::GetWidgetForNativeWindow(context) : nullptr;
+  base::WeakPtr<views::Widget> context_widget =
+      widget ? widget->GetWeakPtr() : nullptr;
+
+  return LoadProfileAsync(
+      profile_path,
+      base::BindOnce(
+          [](base::WeakPtr<OmniboxEverywhereController> controller,
              base::WeakPtr<views::Widget> context_widget,
              InvocationSource source, Profile* profile) {
-            if (controller && controller->IsProfileEligible(profile)) {
+            if (controller) {
               gfx::NativeWindow safe_context =
                   context_widget ? context_widget->GetNativeWindow()
                                  : gfx::NativeWindow();
               controller->OnInvoke(source, profile, safe_context);
             }
           },
-          weak_factory_.GetWeakPtr(), std::move(keep_alive), context_widget,
-          source));
-  return true;
+          weak_factory_.GetWeakPtr(), context_widget, source));
 }
 
 bool OmniboxEverywhereController::InvokeForStartup(InvocationSource source,
@@ -275,6 +283,39 @@ bool OmniboxEverywhereController::IsEnabled() const {
 
 bool OmniboxEverywhereController::IsHotkeyEnabled() const {
   return !hotkey_pref_member_.prefs() || hotkey_pref_member_.GetValue();
+}
+
+void OmniboxEverywhereController::MaybeLoadPersistedTargetProfile() {
+  if (!IsEnabled() || target_profile_) {
+    return;
+  }
+
+  if (!g_browser_process || !g_browser_process->local_state() ||
+      !g_browser_process->local_state()->GetBoolean(
+          prefs::kOmniboxEverywhereBackgroundMode)) {
+    return;
+  }
+
+  base::FilePath profile_path = GetPersistedTargetProfilePath();
+  if (!profile_path.empty()) {
+    if (LoadProfileAsync(
+            profile_path,
+            base::BindOnce(&OmniboxEverywhereController::OnProfileAdded,
+                           weak_factory_.GetWeakPtr()))) {
+      return;
+    }
+  }
+
+  if (g_browser_process && g_browser_process->profile_manager()) {
+    base::FilePath last_used_path =
+        g_browser_process->profile_manager()->GetLastUsedProfileDir();
+    if (!last_used_path.empty() && last_used_path != profile_path) {
+      LoadProfileAsync(
+          last_used_path,
+          base::BindOnce(&OmniboxEverywhereController::SetTargetProfile,
+                         weak_factory_.GetWeakPtr()));
+    }
+  }
 }
 
 void OmniboxEverywhereController::UpdateHotkeyRegistration() {
@@ -337,6 +378,24 @@ void OmniboxEverywhereController::OnInvoke(InvocationSource source,
     }
   }
 
+  // If Chrome's default desktop media picker is open, invoking cancels the
+  // picker and restores the widget (preventing persistent mode from getting
+  // trapped if another window occludes the picker). Invocations while the
+  // native OS screen picker or region selection overlay owns the screen
+  // continue to be ignored.
+  if (ui_manager_->IsScreenshareCaptureInProgress()) {
+    if (!ui_manager_->CancelChromeDefaultPicker(profile)) {
+      return;
+    }
+
+    base::UmaHistogramEnumeration("OmniboxEverywhere.InvocationSource", source);
+    if (ui_manager_->profile() != profile) {
+      SetTargetProfile(profile);
+      ui_manager_->ShowForProfile(profile, context);
+    }
+    return;
+  }
+
   SetTargetProfile(profile);
   switch (source) {
     case InvocationSource::kGlobalHotkey:
@@ -355,6 +414,23 @@ void OmniboxEverywhereController::OnInvoke(InvocationSource source,
     case InvocationSource::kCommandLine:
       break;
   }
+
+  // Enable background mode/launch on startup the first time this is invoked.
+  if (g_browser_process && g_browser_process->local_state()) {
+    PrefService* local_state = g_browser_process->local_state();
+    const PrefService::Preference* bg_mode_pref =
+        local_state->FindPreference(prefs::kOmniboxEverywhereBackgroundMode);
+    if (bg_mode_pref && bg_mode_pref->IsDefaultValue()) {
+      local_state->SetBoolean(prefs::kOmniboxEverywhereBackgroundMode, true);
+    }
+    const PrefService::Preference* launch_on_startup_pref =
+        local_state->FindPreference(prefs::kOmniboxEverywhereLaunchOnStartup);
+    if (launch_on_startup_pref && launch_on_startup_pref->IsDefaultValue()) {
+      local_state->SetBoolean(prefs::kOmniboxEverywhereLaunchOnStartup, true);
+    }
+  }
+
+  base::UmaHistogramEnumeration("OmniboxEverywhere.InvocationSource", source);
 
   ui_manager_->ShowForProfile(profile, context);
 }
@@ -437,24 +513,6 @@ void OmniboxEverywhereController::OnKeyPressed(
 void OmniboxEverywhereController::ExecuteCommand(
     const std::string& accelerator_group_id,
     const std::string& command_id) {}
-
-void OmniboxEverywhereController::CreateStartMenuShortcut(
-    base::OnceCallback<void(bool)> callback) {
-#if BUILDFLAG(IS_WIN)
-  if (callback) {
-    shortcut_helper_
-        .AsyncCall(&OmniboxEverywhereShortcutHelperWin::CreateStartMenuShortcut)
-        .Then(std::move(callback));
-  } else {
-    shortcut_helper_.AsyncCall(base::IgnoreResult(
-        &OmniboxEverywhereShortcutHelperWin::CreateStartMenuShortcut));
-  }
-#else
-  if (callback) {
-    std::move(callback).Run(false);
-  }
-#endif
-}
 
 void OmniboxEverywhereController::OfferPinToTaskbar(
     base::OnceCallback<void(bool)> callback) {

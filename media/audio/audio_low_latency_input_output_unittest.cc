@@ -50,7 +50,7 @@ static constexpr size_t kMaxDelayMeasurements = 1000;
 // Example: \src\build\Debug\audio_delay_values_ms.txt.
 // See comments for the WASAPIAudioInputOutputFullDuplex test for more details
 // about the file format.
-static const char kDelayValuesFileName[] = "audio_delay_values_ms.txt";
+constexpr char kDelayValuesFileName[] = "audio_delay_values_ms.txt";
 
 // Contains delay values which are reported during the full-duplex test.
 // Total delay = |buffer_delay_ms| + |input_delay_ms| + |output_delay_ms|.
@@ -255,7 +255,7 @@ class FullDuplexAudioSinkSource
 
 class AudioInputStreamTraits {
  public:
-  typedef AudioInputStream StreamType;
+  using StreamType = AudioInputStream;
 
   static AudioParameters GetDefaultAudioStreamParameters(
       AudioManager* audio_manager) {
@@ -273,7 +273,7 @@ class AudioInputStreamTraits {
 
 class AudioOutputStreamTraits {
  public:
-  typedef AudioOutputStream StreamType;
+  using StreamType = AudioOutputStream;
 
   static AudioParameters GetDefaultAudioStreamParameters(
       AudioManager* audio_manager) {
@@ -296,7 +296,7 @@ class AudioOutputStreamTraits {
 template <typename StreamTraits>
 class StreamWrapper {
  public:
-  typedef typename StreamTraits::StreamType StreamType;
+  using StreamType = typename StreamTraits::StreamType;
 
   explicit StreamWrapper(AudioManager* audio_manager)
       : audio_manager_(audio_manager),
@@ -349,8 +349,8 @@ class StreamWrapper {
   int samples_per_packet_;
 };
 
-typedef StreamWrapper<AudioInputStreamTraits> AudioInputStreamWrapper;
-typedef StreamWrapper<AudioOutputStreamTraits> AudioOutputStreamWrapper;
+using AudioInputStreamWrapper = StreamWrapper<AudioInputStreamTraits>;
+using AudioOutputStreamWrapper = StreamWrapper<AudioOutputStreamTraits>;
 
 // This test is intended for manual tests and should only be enabled
 // when it is required to make a real-time test of audio in full duplex and

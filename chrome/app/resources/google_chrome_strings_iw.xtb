@@ -36,7 +36,6 @@
 <translation id="1333654552732143316">‏התחל את Chrome</translation>
 <translation id="1341711321000856656">‏אפשר לעבור כדי לראות סיסמאות מפרופיל Chrome אחר</translation>
 <translation id="1343830902827845050">‏כניסה ל-Chrome</translation>
-<translation id="1356661055722410047">חדש! אפשר לתרגם טקסט ותמונות במסך</translation>
 <translation id="1361351916482714918">‏הגלישה חכמה יותר עם Google Lens</translation>
 <translation id="1363996462118479832">‏לא בוצע סנכרון של הנתונים ב-ChromeOS בגלל שגיאה בתהליך הכניסה.</translation>
 <translation id="137466361146087520">‏גרסת הבטא של Google Chrome</translation>
@@ -74,7 +73,6 @@
 <translation id="1640672724030957280">מוריד...</translation>
 <translation id="1651617469580841801">‏כשמשתמשים ב-Google Lens, כותרת הדף, כתובת ה-URL והתוכן, כולל קובצי PDF, נשלחים אל Google. <ph name="LEARN_MORE" /></translation>
 <translation id="1662146548738125461">‏מידע על ChromeOS Flex</translation>
-<translation id="1664094661346151467">‏הקלדת חיפושים ושאלות מכל מקום במכשיר, גם אם Chrome ממוזער</translation>
 <translation id="1674870198290878346">‏פתיחת הקישור בחלון &amp;אנונימי של Chrome</translation>
 <translation id="1682634494516646069">‏Google Chrome אינו יכול לקרוא ולכתוב בספריית הנתונים שלו: <ph name="USER_DATA_DIRECTORY" /></translation>
 <translation id="1688214853608504530">‏כשמקלידים טקסט בסרגל הכתובות או בתיבת החיפוש, Chrome שולח את הטקסט הזה לכלי החיפוש, הבינה המלאכותית והסוכנים של הארגון כדי לקבל הצעות.</translation>
@@ -96,6 +94,7 @@
 <translation id="1873233029667955273">‏Google Chrome‏ אינו דפדפן ברירת המחדל שלך</translation>
 <translation id="1874309113135274312">‏גרסת הביטא של Google Chrome‏ (mDNS-In)</translation>
 <translation id="1877026089748256423">‏Chrome אינו מעודכן</translation>
+<translation id="1877067026701708502">‏החשבון של <ph name="EXISTING_USER" /> כבר מחובר. כדי לשמור על סביבת גלישה נפרדת, אפשר להיכנס ל-Chrome בפרופיל נפרד בתור <ph name="USER_EMAIL_ADDRESS" />. אפשר לקבל גם את התוספים ופריטים נוספים בכל המכשירים.</translation>
 <translation id="1880677175115548835">בחירת טקסט</translation>
 <translation id="1896602904211344018">‏הורדת אפליקציית Chrome</translation>
 <translation id="1919130412786645364">‏התרת כניסה אל Chrome</translation>
@@ -228,6 +227,7 @@
 <translation id="3112458742631356345">‏Chrome חסם את ההורדה הזאת כי לרוב לא מתבצעת הורדה של קבצים כאלה ויכול להיות שהקובץ מסוכן</translation>
 <translation id="3119573284443908657">‏‫Chrome חסם את ההורדה הזו כי קובץ הארכיון כולל קבצים אחרים שעלולים להסתיר תוכנות זדוניות</translation>
 <translation id="3124332159330678621">‏מתאימים אישית את Chrome כדי לשנות את מראה הדפדפן</translation>
+<translation id="3125851611828811913">‏הקלדת חיפושים ושאלות מכל מקום במכשיר, גם אם Chrome ממוזער ההגדרה מאפשרת ל-Chrome לפעול ברקע.</translation>
 <translation id="3130333203120345554">חיפוש חדש</translation>
 <translation id="3135560418014806498">‏הוספת פרופיל Chrome</translation>
 <translation id="3137969841538672700">צריך לגרור כדי לחפש</translation>
@@ -385,6 +385,7 @@
 <translation id="4793679854893018356">‏איך מערכת Chromium שומרת על האבטחה שלך</translation>
 <translation id="4799870290441980300">‏מפעילה תכונות נוספות שמספקות את ההגנות החזקות ביותר של Chrome</translation>
 <translation id="4828579605166583682">‏Google Chrome מנסה להחליף סיסמאות קיימות. כדי לאפשר זאת, יש להזין את הסיסמה שלך ל-Windows.</translation>
+<translation id="4836321460899997044">‏פרופיל Chrome</translation>
 <translation id="4842397268809523050">‏לא ניתן היה לסנכרן את הנתונים שלך ב-ChromeOS Flex כי הסנכרון לא זמין בדומיין שלך.</translation>
 <translation id="4851866215237571846">‏כבר בוצעה כניסה לחשבון על ידי <ph name="EXISTING_USER" />.  כדי להפריד בין פעילויות הגלישה, עליך להיכנס ל-Chrome בפרופיל שלך עם האימייל <ph name="USER_EMAIL_ADDRESS" />.</translation>
 <translation id="4855026984605187434">‏כדי לשתף את המסך, צריך לאפשר הקלטת מסך ב-Chrome בקטע "הגדרות המערכת"</translation>
@@ -498,6 +499,7 @@
 <translation id="6014316319780893079">‏בעזרת <ph name="BEGIN_LINK" />הכלים של Chrome<ph name="END_LINK" /> אפשר לגלוש בבטחה ובשליטה</translation>
 <translation id="6018578474045062808">‏רוצה לנסות את Google Lens ב-Chrome בטלפון?</translation>
 <translation id="6022659036123304283">‏אפשר להתאים אישית את Chrome בדרך שנוחה לך</translation>
+<translation id="6024930613143833266">‏חיפוש באמצעות Chrome מכל מקום</translation>
 <translation id="6025087594896450715">‏Google Chrome יופעל מחדש בעוד <ph name="REMAINING_TIME" /></translation>
 <translation id="6040143037577758943">סגירה</translation>
 <translation id="604424701295382420">‏התכונה הוצמדה. מעכשיו אפשר לגשת אל Google Lens דרך הכפתור החדש בסרגל הכלים</translation>
@@ -542,6 +544,7 @@
 <translation id="6334815226785304306">‏הגדרת Google Chrome כדפדפן ברירת המחדל והצמדה שלו לסרגל המשימות</translation>
 <translation id="63540178978900677">‏‫Chrome לא מוגדר יותר כדפדפן ברירת המחדל. אני רוצה ש-Chrome יהיה דפדפן ברירת המחדל</translation>
 <translation id="6360449101159168105">‏בזמן שהכרטיסייה הזו לא הייתה פעילה, התפנה זיכרון כדי ש-Chrome ימשיך לפעול במהירות. ניתן לבחור להחריג תמיד את האתר הזה כדי שיישאר במצב פעיל.</translation>
+<translation id="6362984640667950211">‏החשבון של <ph name="EXISTING_USER" /> כבר מחובר. כדי לשמור על סביבת גלישה נפרדת, אפשר להיכנס ל-Chrome בפרופיל נפרד בתור <ph name="USER_EMAIL_ADDRESS" />. אפשר לקבל גם את רשימת הקריאה ופריטים נוספים בכל המכשירים.</translation>
 <translation id="6388799252195623474">אני רוצה עזרה בנושא הזה</translation>
 <translation id="6412673304250309937">‏המערכת בודקת כתובות URL ששמורות ב-Chrome ומכילות רשימות של אתרים לא בטוחים. אם אתר מסוים מנסה לגנוב סיסמה או אם המערכת מזהה הורדה של קובץ מזיק, Chrome עשוי גם לשלוח כתובות URL לבדיקה באמצעות 'גלישה בטוחה'. הנתונים שנשלחים לבדיקה כוללים ביטים מהתוכן של הדף.</translation>
 <translation id="6417690341895039567">{COUNT,plural, =1{‏לפי הגדרת הארגון, Chrome נסגר אוטומטית כשלא משתמשים בו במשך דקה. נתוני הגלישה נמחקים. בין הנתונים שיימחקו: היסטוריה, מילוי אוטומטי והורדות.}one{‏לפי הגדרת הארגון, Chrome נסגר אוטומטית כשלא משתמשים בו במשך # דקות. נתוני הגלישה נמחקים. בין הנתונים שיימחקו: היסטוריה, מילוי אוטומטי והורדות.}two{‏לפי הגדרת הארגון, Chrome נסגר אוטומטית כשלא משתמשים בו במשך # דקות. נתוני הגלישה נמחקים. בין הנתונים שיימחקו: היסטוריה, מילוי אוטומטי והורדות.}other{‏לפי הגדרת הארגון, Chrome נסגר אוטומטית כשלא משתמשים בו במשך # דקות. נתוני הגלישה נמחקים. בין הנתונים שיימחקו: היסטוריה, מילוי אוטומטי והורדות.}}</translation>
@@ -550,6 +553,7 @@
 <translation id="6434035853014503219">‏תודה שבחרת ב-Chrome כדפדפן ברירת המחדל שלך!</translation>
 <translation id="6438015621983209660">‏רוצה להרחיב את הגרסה המשופרת של גלישה בטוחה ב-Chrome בטלפון?</translation>
 <translation id="6442774133615368941">‏אפשר לקנות, לתרגם ולזהות דברים שרואים במצלמה באפליקציית Chrome ל-iOS</translation>
+<translation id="6446105560007692480">‏כדי לחפש באמצעות Chrome או להתאים אישית ב<ph name="BEGIN_LINK" />הגדרות<ph name="END_LINK" /></translation>
 <translation id="6448835208126432197">‏שימוש במקש קיצור כדי לבחור חלק מהמסך ב-Gemini ב-Chrome.</translation>
 <translation id="6473905796280459355">‏מעבר לדף 'מידע על Chrome'</translation>
 <translation id="6481963882741794338">‏אפשר לקשר את Chrome לשירותי Google אחרים לצורך התאמה אישית ולמטרות אחרות</translation>
@@ -571,6 +575,7 @@
 <translation id="6612152958212564387">‏נתוני השימוש ודוחות הקריסה שלך לא נשלחים ל-Google. <ph name="BEGIN_LINK" />ניהול<ph name="END_LINK" /></translation>
 <translation id="6613949864921837107">‏רוצה סנכרון מושלם של הסיסמאות, הסימניות וההיסטוריה שלך בין מכשירים? כדאי להגדיר את Chrome כדפדפן ברירת המחדל.</translation>
 <translation id="6631524303639368205">‏אפשר להמשיך מהמקום שבו הפסקת: Chrome שחזר את הכרטיסיות מהסשן האחרון שלך. כדי להשבית את האפשרות הזאת, צריך לעבור אל</translation>
+<translation id="6632012506031284914">‏כדי לחפש באמצעות Chrome.</translation>
 <translation id="6632473616050862500">‏השימוש ב-ChromeOS Flex מתאפשר בזכות <ph name="BEGIN_LINK_CROS_OSS" />תוכנת קוד פתוח<ph name="END_LINK_CROS_OSS" /> נוספת.</translation>
 <translation id="6634299872736643004">‏השינויים בהגדרה הזו ייכנסו לתוקף לאחר הפעלה מחדש של Chrome.</translation>
 <translation id="6660596345553328257">‏להיכנס אל Chrome?</translation>
@@ -587,6 +592,7 @@
 <translation id="6750954913813541382">‏כדי לתקן שגיאות כתיב, הטקסט שהוקלד על ידך בדפדפן נשלח אל Google על ידי Chrome</translation>
 <translation id="6760235774835597023">‏אפשר להאיץ ביצועים של אתרים באמצעות מנוע V8 של Chrome, אבל Chrome יהיה קצת פחות עמיד בפני מתקפות. ההגדרה הזו פועלת.</translation>
 <translation id="677276454032249905">‏לסגור את Chrome בכל זאת?</translation>
+<translation id="6777654166489463890">‏אפשר לשאול על תוכן מחוץ ל-Chrome, כמו אפליקציה אחרת או קובץ שפתוח</translation>
 <translation id="6794858689789885890">‏מחיקת נתונים מאתרים מהמכשיר בכל פעם שסוגרים את Chrome</translation>
 <translation id="6800285125190089494">‏רוצה להיכנס מהר יותר לאתרים? כדאי להשתמש בסיסמאות שמורות ב-Chrome ב-iOS</translation>
 <translation id="6831043979455480757">תרגום</translation>
@@ -639,6 +645,7 @@
 <translation id="7285990705317078173">‏כדי לעקוב אחרי מחירים ולקבל התראות על ירידות במחיר באתר מסוים, כדאי להוריד את Chrome לטלפון שלך</translation>
 <translation id="7288567540154601580">כרטיסיות ותוספים</translation>
 <translation id="7296210096911315575">מידע חשוב על בטיחות ועל אופן השימוש</translation>
+<translation id="7299899569525778554">חיפוש מהמחשב</translation>
 <translation id="7302361266603927550">‏חלק מהנתונים ב-Chrome עדיין לא נשמרו בחשבון Google. כדאי לחכות כמה דקות לפני היציאה מהחשבון. אם תתבצע יציאה מהחשבון, הנתונים האלה יימחקו.</translation>
 <translation id="7306401458628386911">‏רוצה לגלוש מיד? עכשיו אפשר להגדיר את Chrome להתחיל לפעול יחד עם Windows.</translation>
 <translation id="7308322188646931570">‏Chrome זקוק לגישה לאחסון כדי להוריד קבצים</translation>
@@ -702,6 +709,7 @@
 <translation id="7845233973568007926">תודה שהתקנת. עליך להפעיל מחדש את המחשב לפני השימוש ב-<ph name="BUNDLE_NAME" />.</translation>
 <translation id="7847170235260850604">‏הפעלת Chrome יחד עם Windows</translation>
 <translation id="7849037457735762883">‏רוצה להמשיך מהמקום שבו הפסקת? Chrome יכול לשחזר את הכרטיסיות שלך בכל הפעלה מחדש. כדי להפעיל את האפשרות הזו, צריך לעבור אל</translation>
+<translation id="7868731902994556427">‏החשבון של <ph name="EXISTING_USER" /> כבר מחובר. כדי לשמור על סביבת גלישה נפרדת, אפשר להיכנס ל-Chrome בפרופיל נפרד בתור <ph name="USER_EMAIL_ADDRESS" />. אפשר לקבל גם את התוספים ופריטים נוספים ממכשיר <ph name="DEVICE" />.</translation>
 <translation id="7869620795354551924">‏כדי להשתמש בסיסמאות השמורות, צריך לסרוק את קוד ה-QR, להוריד את Chrome ל-iOS ולהיכנס לחשבון Google</translation>
 <translation id="7872446069773932638">מתבצעת הורדה… יש עוד <ph name="SECONDS" /> שנ'</translation>
 <translation id="7886087451482920026">‏בחירה של טקסט באמצעות Google Lens</translation>
@@ -788,7 +796,6 @@
 <translation id="8575047640889685742">‏שימוש ב<ph name="BEGIN_LINK" />ביטוי סיסמה משלך<ph name="END_LINK" /> כדי להצפין את כל נתוני Chrome בחשבון Google. אמצעי תשלום וכתובות שנשמרו ב-Google Pay לא יוצפנו. היסטוריית הגלישה ב-Chrome לא תסונכרן.</translation>
 <translation id="8590782867495422699">‏פתיחה מחדש של מצב AI בחיפוש Google</translation>
 <translation id="8598779894319572882">‏כדי לשאול שאלות תוך כדי גלישה, אפשר ללחוץ על הכפתור מצב AI בחיפוש Google שבסרגל הכלים ולפתוח את החלונית מחדש</translation>
-<translation id="8601359445272098721">חדש! אפשר לתרגם טקסט ותמונות במסך באמצעות לחיצה על הכפתור "תרגום המסך"</translation>
 <translation id="8614913330719544658">‏Google Chrome אינו מגיב. להפעיל מחדש עכשיו?</translation>
 <translation id="8623450603356630491">‏כניסה ל-Chrome בטלפון</translation>
 <translation id="8624541899164515475">הגדרות, ייפתחו בכרטיסייה חדשה.</translation>
@@ -800,6 +807,7 @@
 <translation id="8679801911857917785">‏הגדרה זו גם קובעת איזה דף מוצג כשמפעילים את Chrome.</translation>
 <translation id="8712637175834984815">הבנתי</translation>
 <translation id="8712767363896337380">‏העדכון כמעט הושלם. כדי להשלים את העדכון, עליך להפעיל את Chrome מחדש.</translation>
+<translation id="8717554232729236539">‏החשבון של <ph name="EXISTING_USER" /> כבר מחובר. כדי לשמור על סביבת גלישה נפרדת, אפשר להיכנס ל-Chrome בפרופיל נפרד בתור <ph name="USER_EMAIL_ADDRESS" />. אפשר לקבל גם את רשימת הקריאה ופריטים נוספים ממכשיר <ph name="DEVICE" />.</translation>
 <translation id="8718062187489036808">‏צא מ-Chrome:</translation>
 <translation id="873133009373065397">‏Google Chrome אינו יכול לקבוע או להגדיר את דפדפן ברירת המחדל</translation>
 <translation id="8747073452963259673">‏הפינה השמאלית התחתונה של אזור החיפוש: ‎<ph name="LEFT" />%‎ משמאל, ‎<ph name="BOTTOM" />%‎ מלמטה</translation>

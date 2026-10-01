@@ -11,11 +11,14 @@
 #include <string>
 
 #include "base/callback_list.h"
+#include "base/containers/flat_map.h"
 #include "base/feature_list.h"
 #include "base/gtest_prod_util.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
+#include "base/time/time.h"
+#include "base/timer/timer.h"
 #include "base/unguessable_token.h"
 #include "build/build_config.h"
 #include "build/buildflag.h"
@@ -44,15 +47,12 @@
 #include "third_party/omnibox_proto/tool_mode.pb.h"
 #include "ui/webui/resources/cr_components/composebox/composebox.mojom.h"
 
-namespace content {
-class NavigationHandle;
-}
-
 #if !BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/ui/views/drive_picker_host/drive_picker_result_handler.mojom.h"
 #include "components/contextual_search/footprints/public/drive_disclaimer_controller.h"
 #endif
 
+class BrowserWindowInterface;
 class Profile;
 class ContextualSearchboxTabFaviconHelper;
 class DrivePickerHostController;
@@ -61,6 +61,10 @@ class OmniboxPopupDeactivationBlocker;
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
 class ComposeboxDriveSignInPromoController;
 #endif
+
+namespace content {
+class NavigationHandle;
+}
 
 namespace contextual_tasks {
 class ActiveTaskContextProvider;
@@ -140,16 +144,9 @@ class ContextualSearchboxHandler
 #endif
 {
  public:
-  using ScreenshareDelegate =
-      ContextualSearchboxScreenshareController::Delegate;
-  using RegionCaptureSource = ScreenshareDelegate::RegionCaptureSource;
-
-  ScreenshareDelegate* screenshare_delegate() const;
-  void set_screenshare_delegate(ScreenshareDelegate* screenshare_delegate);
-
   using RecontextualizeTabCallback = base::OnceCallback<void(bool)>;
 
-  explicit ContextualSearchboxHandler(
+  ContextualSearchboxHandler(
       mojo::PendingReceiver<searchbox::mojom::PageHandler>
           pending_searchbox_handler,
       mojo::PendingRemote<searchbox::mojom::Page> pending_page,
@@ -157,7 +154,8 @@ class ContextualSearchboxHandler
       content::WebContents* web_contents,
       std::unique_ptr<OmniboxClient> client,
       GetSessionHandleCallback get_session_callback,
-      ScreenshareDelegate* screenshare_delegate = nullptr);
+      ContextualSearchboxScreenshareController::Delegate* screenshare_delegate =
+          nullptr);
 
   ~ContextualSearchboxHandler() override;
 
@@ -189,12 +187,21 @@ class ContextualSearchboxHandler
                    bool meta_key,
                    bool shift_key,
                    bool is_voice_search) override;
+
+  // Returns recent tabs from the tab list associated with
+  // `browser_window_interface` sorted by recency. If `max_tab_suggestions` > 0,
+  // the result is capped to that number of tabs.
+  static std::vector<searchbox::mojom::TabInfoPtr> GetRecentTabInfos(
+      BrowserWindowInterface* browser_window_interface,
+      int max_tab_suggestions = -1);
+
   void GetRecentTabs(GetRecentTabsCallback callback) override;
   void GetTabPreview(int32_t tab_id, GetTabPreviewCallback callback) override;
   void WaitForTabFaviconLoad(int32_t tab_id,
                              WaitForTabFaviconLoadCallback callback) override;
   void GetInputState(GetInputStateCallback callback) override;
-  void OpenAutocompleteMatch(uint8_t line,
+  void OpenAutocompleteMatch(uint32_t result_sequence_id,
+                             uint8_t line,
                              const GURL& url,
                              bool are_matches_showing,
                              uint8_t mouse_button,
@@ -210,6 +217,7 @@ class ContextualSearchboxHandler
   void CaptureRegionScreenshot(
       CaptureRegionScreenshotCallback callback) override;
   void ShowScreenshotMenu(const gfx::Rect& anchor_rect) override;
+  bool CancelChromeDefaultPicker();
 
   // ContextualSearchboxScreenshareController::Host:
   void UploadScreenshot(
@@ -316,6 +324,12 @@ class ContextualSearchboxHandler
     return context_input_data_;
   }
 
+  // Returns the contextual session session handle, or nullptr if none exists.
+  // This function also resets the context controller that is being observed for
+  // file upload status updates if different from the one that's current.
+  contextual_search::ContextualSearchSessionHandle*
+  GetContextualSessionHandle();
+
   std::vector<base::UnguessableToken> GetUploadedContextTokens();
 
   contextual_search::InputStateModel* input_state_model() {
@@ -324,6 +338,7 @@ class ContextualSearchboxHandler
 
   // Resets `input_state_model_`.
   void ResetInputStateModel();
+  void OnAimEligibilityChanged();
   void SetActiveToolMode(omnibox::ToolMode tool, bool is_set_by_aim) override;
   void RecordToolSelectionAction(omnibox::ToolMode tool) override;
   void SetActiveModelMode(omnibox::ModelMode model,
@@ -335,6 +350,9 @@ class ContextualSearchboxHandler
       const contextual_search::InputState& state) {
     OnInputStateChanged(state);
   }
+
+  void set_screenshare_delegate_for_testing(
+      ContextualSearchboxScreenshareController::Delegate* screenshare_delegate);
 
 #if !BUILDFLAG(IS_ANDROID)
   bool ShouldOpenInLensSidePanelForTesting(
@@ -427,12 +445,6 @@ class ContextualSearchboxHandler
   // none exists.
   std::optional<lens::proto::LensOverlaySuggestInputs> GetSuggestInputs();
 
-  // Returns the contextual session session handle, or nullptr if none exists.
-  // This function also resets the context controller that is being observed for
-  // file upload status updates if different from the one that's current.
-  contextual_search::ContextualSearchSessionHandle*
-  GetContextualSessionHandle();
-
   // Records metrics for when a tab is added to the composebox.
   void RecordTabAddedMetric(tabs::TabInterface* const tab,
                             bool is_tab_suggestion_chip);
@@ -473,6 +485,25 @@ class ContextualSearchboxHandler
       bool delay_upload,
       const base::UnguessableToken& context_token,
       std::unique_ptr<lens::ContextualInputData> page_content_data);
+
+  struct TabContextFetch {
+    base::OneShotTimer timer;
+    int32_t tab_id = 0;
+    base::WeakPtr<contextual_search::ContextualSearchSessionHandle> session;
+    AddTabContextCallback add_tab_context_callback;
+  };
+
+  std::unique_ptr<TabContextFetch> TakeTabContextFetch(
+      const base::UnguessableToken& context_token);
+  void OnTabContextFetchTimeout(const base::UnguessableToken& context_token);
+  void CancelTabContextFetch(const base::UnguessableToken& context_token);
+  void CancelAllTabContextFetches();
+  void ReleaseTabContextFetchResources(
+      const base::UnguessableToken& context_token,
+      const TabContextFetch& fetch);
+  void ReportTabContextFetchFailure(
+      const base::UnguessableToken& context_token);
+  void RemoveSelectedTabState(const base::UnguessableToken& context_token);
 
   // Helper function that handles the caching of the tab context. Once it's
   // successfully cached, we notify the page that the file is uploaded.
@@ -523,10 +554,16 @@ class ContextualSearchboxHandler
   // Callback to get the contextual session handle from WebUI controller.
   GetSessionHandleCallback get_session_callback_;
 
+  base::flat_map<base::UnguessableToken, std::unique_ptr<TabContextFetch>>
+      pending_tab_context_fetches_;
+
+  base::TimeDelta tab_context_fetch_timeout_ = base::Seconds(60);
+
   base::ScopedObservation<TabListInterface, TabListInterfaceObserver>
       tab_list_observation_{this};
 
   std::unique_ptr<ContextualSearchboxTabFaviconHelper> tab_favicon_helper_;
+  base::CallbackListSubscription aim_eligibility_subscription_;
 
  protected:
   std::optional<bool> smart_tab_sharing_active_for_thread_;

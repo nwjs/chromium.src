@@ -7,7 +7,7 @@ import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {keyDownOn} from 'chrome://webui-test/keyboard_mock_interactions.js';
 import {eventToPromise, isVisible, microtasksFinished} from 'chrome://webui-test/test_util.js';
 
-import {getCtrlModifier} from './ink2_text_box_test_utils.js';
+import {getCtrlModifier, getStrikethroughKey, getStrikethroughModifiers} from './ink2_text_box_test_utils.js';
 import {getNewTestBeforeUnloadProxy} from './test_before_unload_proxy.js';
 import {TestPdfViewerPrivateProxy} from './test_pdf_viewer_private_proxy.js';
 import {createTextBox, getRequiredElement, getTextBox, setupMockMetricsPrivate, setupTestMockPluginForInk} from './test_util.js';
@@ -34,10 +34,10 @@ async function setAnnotationMode(mode: AnnotationMode) {
   await microtasksFinished();
 }
 
-function dispatchSendClickEvent() {
+function dispatchSendClickEvent(x: number = 50, y: number = 50) {
   PluginController.getInstance().getEventTarget().dispatchEvent(new CustomEvent(
       PluginControllerEventType.PLUGIN_MESSAGE,
-      {detail: {type: 'sendClickEvent', x: 50, y: 50}}));
+      {detail: {type: 'sendClickEvent', x, y}}));
 }
 
 chrome.test.runTests([
@@ -458,16 +458,9 @@ chrome.test.runTests([
     textbox.$.textbox.dispatchEvent(new CustomEvent('input'));
     await microtasksFinished();
 
-    // Click to commit the current textbox.
-    // Note: Manually dispatching sendClickEvent simulates clicking in another
-    // location even when reusing the same coordinates, because it simulates
-    // the event falling through to the plugin. This only happens in prod code
-    // for locations outside the current textbox and any existing annotations,
-    // because ink-text-box and ink-text-annotations intercept and handle any
-    // click events that occur on these elements before the click reaches the
-    // plugin.
+    // Click outside the current textbox to commit it.
     const whenStateChanged = eventToPromise('state-changed', textbox);
-    dispatchSendClickEvent();
+    dispatchSendClickEvent(350, 50);
     await whenStateChanged;
     await microtasksFinished();
 
@@ -477,8 +470,9 @@ chrome.test.runTests([
     chrome.test.assertNe(undefined, finishMessage);
     mockPlugin.clearMessages();
 
-    // Click again. This should create a new textbox.
-    dispatchSendClickEvent();
+    // Click again at a location outside the committed annotation.
+    // This should create a new textbox.
+    dispatchSendClickEvent(350, 50);
     await microtasksFinished();
 
     // Empty new textbox is visible.
@@ -488,7 +482,8 @@ chrome.test.runTests([
     chrome.test.succeed();
   },
 
-  // Test bold and italic keyboard shortcuts toggle styles in text mode.
+  // Test bold, italic, and strikethrough keyboard shortcuts toggle styles in
+  // text mode.
   async function testTextAnnotationStyleKeyboardShortcuts() {
     await enableTextAnnotations(true);
     await setAnnotationMode(AnnotationMode.OFF);
@@ -497,11 +492,14 @@ chrome.test.runTests([
     // Shortcuts are ignored when not in text annotation mode.
     keyDownOn(viewer, 0, getCtrlModifier(), 'b');
     keyDownOn(viewer, 0, getCtrlModifier(), 'i');
+    keyDownOn(viewer, 0, getStrikethroughModifiers(), getStrikethroughKey());
     await microtasksFinished();
     chrome.test.assertFalse(
         manager.getCurrentTextAttributes().styles[TextStyle.BOLD]);
     chrome.test.assertFalse(
         manager.getCurrentTextAttributes().styles[TextStyle.ITALIC]);
+    chrome.test.assertFalse(
+        manager.getCurrentTextAttributes().styles[TextStyle.STRIKETHROUGH]);
 
     // Enable text annotation mode.
     await setAnnotationMode(AnnotationMode.TEXT);
@@ -527,6 +525,17 @@ chrome.test.runTests([
     await microtasksFinished();
     chrome.test.assertFalse(
         manager.getCurrentTextAttributes().styles[TextStyle.ITALIC]);
+
+    // Toggle strikethrough on and off.
+    keyDownOn(viewer, 0, getStrikethroughModifiers(), getStrikethroughKey());
+    await microtasksFinished();
+    chrome.test.assertTrue(
+        manager.getCurrentTextAttributes().styles[TextStyle.STRIKETHROUGH]);
+
+    keyDownOn(viewer, 0, getStrikethroughModifiers(), getStrikethroughKey());
+    await microtasksFinished();
+    chrome.test.assertFalse(
+        manager.getCurrentTextAttributes().styles[TextStyle.STRIKETHROUGH]);
 
     chrome.test.succeed();
   },

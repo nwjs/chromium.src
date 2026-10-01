@@ -27,6 +27,7 @@
 #include "chrome/browser/contextual_tasks/contextual_tasks_utils.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_web_contents_user_data.h"
 #include "chrome/browser/contextual_tasks/entry_point_eligibility_manager.h"
+#include "chrome/browser/contextual_tasks/smart_tab_sharing_metrics.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/tab_list/tab_list_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
@@ -59,11 +60,14 @@
 #include "components/tabs/public/tab_handle_factory.h"
 #include "components/tabs/public/tab_interface.h"
 #include "components/url_deduplication/url_deduplication_helper.h"
+#include "content/public/browser/navigation_controller.h"
 #include "mojo/public/cpp/base/big_buffer.h"
 #include "net/base/mime_util.h"
 #include "net/base/url_util.h"
 #include "third_party/lens_server_proto/aim_communication.pb.h"
 #include "third_party/lens_server_proto/aim_query.pb.h"
+#include "ui/base/page_transition_types.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/gfx/skia_util.h"
 #include "ui/shell_dialogs/select_file_dialog.h"
 
@@ -394,6 +398,14 @@ void ContextualTasksComposeboxHandler::CreateAndSendQueryMessage(
     const std::string& query,
     bool is_voice_search,
     const std::map<std::string, std::string>& additional_cgi_params) {
+  contextual_tasks::LogThreadWithTabsSubmitted(IsSmartTabSharingActive());
+  if (IsSmartTabSharingActive() &&
+      !contextual_tasks::ShouldToggleOffAfterSubmit()) {
+    auto* session_handle = GetContextualSessionHandle();
+    if (session_handle && !session_handle->previous_turns().empty()) {
+      contextual_tasks::LogOptOutMidThread(false);
+    }
+  }
   base::RecordAction(base::UserMetricsAction(
       "ContextualTasks.Composebox.UserAction.QuerySubmitted"));
   auto* session_handle = GetContextualSessionHandle();
@@ -475,23 +487,23 @@ void ContextualTasksComposeboxHandler::CreateAndSendQueryMessage(
   // Kick off the on-submit contextualization flow to upload delayed tabs and
   // recontextualize the active tab.
   recontextualization_pending_count_++;
-  // It is safe to use base::Unretained(this) here because `recontextualizer_`
-  // is owned by `this` and will be destroyed when `this` is destroyed,
-  // cancelling any pending callbacks.
   auto callback = base::BindOnce(
-      [](ContextualTasksComposeboxHandler* handler, std::string query,
-         std::optional<base::Uuid> task_id,
+      [](base::WeakPtr<ContextualTasksComposeboxHandler> handler,
+         std::string query, std::optional<base::Uuid> task_id,
          std::optional<base::UnguessableToken> token, bool voice,
          std::map<std::string, std::string> cgi_params,
          base::WeakPtr<contextual_search::ContextualSearchSessionHandle>
              handle) {
+        if (!handler) {
+          return;
+        }
         // The session handle is accessed via GetContextualSessionHandle(),
         // so we ignore it here.
         handler->ContinueCreateAndSendQueryMessage(query, task_id, token, voice,
                                                    std::move(cgi_params));
       },
-      base::Unretained(this), query, task_id, overlay_token, is_voice_search,
-      additional_cgi_params);
+      weak_factory_.GetWeakPtr(), query, task_id, overlay_token,
+      is_voice_search, additional_cgi_params);
 
   contextual_tasks::QueryContextualizer::ContextualizeParams params;
   params.task_id = task_id;
@@ -500,11 +512,11 @@ void ContextualTasksComposeboxHandler::CreateAndSendQueryMessage(
   params.auto_suggested_chip_tabs = tabs_to_force_contextualize;
   params.on_ineligible_callback = base::BindRepeating(
       &ContextualTasksComposeboxHandler::OnPageContextIneligible,
-      base::Unretained(this));
+      weak_factory_.GetWeakPtr());
   params.on_processed_callback =
       base::BindRepeating(&ContextualTasksComposeboxHandler::
                               OnTabProcessedForQueryContextualization,
-                          base::Unretained(this));
+                          weak_factory_.GetWeakPtr());
   params.complete_callback = std::move(callback);
   params.enable_smart_tab_selection = IsSmartTabSharingActive();
   recontextualizer_->Contextualize(std::move(params));
@@ -583,6 +595,11 @@ void ContextualTasksComposeboxHandler::InitializeInputStateModel() {
   } else {
     ResetInputStateModel();
     ContextualSearchboxHandler::InitializeInputStateModel();
+  }
+
+  if (contextual_tasks::ShouldToggleOffAfterSubmit() &&
+      HasSubmittedContextOrTurns()) {
+    DeactivateSmartTabSharing();
   }
 
   if (base::FeatureList::IsEnabled(omnibox::kContextManagementInComposebox)) {
@@ -750,6 +767,10 @@ void ContextualTasksComposeboxHandler::ContinueCreateAndSendQueryMessage(
     // If there is an auto-added tab, the user sending the query means the
     // system should upload it.
     UploadSnapshotTabContextIfPresent();
+
+    if (contextual_tasks::ShouldToggleOffAfterSubmit()) {
+      DeactivateSmartTabSharing();
+    }
 
     // Create a client to aim message and send it to the page.
     auto create_client_to_aim_request_info =
@@ -998,8 +1019,21 @@ void ContextualTasksComposeboxHandler::AddTabContext(
 
   pending_context_uploads_.insert(token);
 
-  ContextualSearchboxHandler::ContinueAddTabContext(tab_id, delay_upload, token,
-                                                    std::move(callback));
+  ContextualSearchboxHandler::ContinueAddTabContext(
+      tab_id, delay_upload, token,
+      base::BindOnce(&ContextualTasksComposeboxHandler::ForwardTabContextResult,
+                     weak_factory_.GetWeakPtr(), token, std::move(callback)));
+}
+
+void ContextualTasksComposeboxHandler::ForwardTabContextResult(
+    const base::UnguessableToken& token,
+    AddTabContextCallback callback,
+    base::expected<base::UnguessableToken,
+                   contextual_search::ContextUploadErrorType> result) {
+  if (!result.has_value()) {
+    MarkContextUploadFinished(token);
+  }
+  std::move(callback).Run(std::move(result));
 }
 
 void ContextualTasksComposeboxHandler::ClearFiles(
@@ -1386,4 +1420,27 @@ void ContextualTasksComposeboxHandler::MaybeSendPendingQuery() {
     }
     pending_query_request_info_.reset();
   }
+}
+
+bool ContextualTasksComposeboxHandler::HasSubmittedContextOrTurns() {
+  auto* session_handle = GetContextualSessionHandle();
+  return session_handle &&
+         (session_handle->has_submitted_context() ||
+          !session_handle->GetSubmittedContextFileInfos().empty() ||
+          !session_handle->previous_turns().empty());
+}
+
+void ContextualTasksComposeboxHandler::DeactivateSmartTabSharing() {
+  smart_tab_sharing_active_for_thread_ = false;
+  if (auto* session_handle = GetContextualSessionHandle()) {
+    session_handle->set_smart_tab_sharing_active(false);
+  }
+  if (input_state_model_) {
+    input_state_model_->SetSmartTabSharingActive(false);
+  }
+#if !BUILDFLAG(IS_ANDROID)
+  if (SearchboxHandler::page_) {
+    SearchboxHandler::page_->UpdateSmartTabSharingActive(false);
+  }
+#endif
 }

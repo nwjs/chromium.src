@@ -8,6 +8,7 @@
 #include <optional>
 #include <utility>
 
+#include "ash/constants/chrome_switches.h"
 #include "ash/public/cpp/app_menu_constants.h"
 #include "ash/public/cpp/shelf_item.h"
 #include "ash/public/cpp/shelf_model.h"
@@ -46,7 +47,6 @@
 #include "chrome/browser/ui/ash/shelf/shelf_controller_helper.h"
 #include "chrome/browser/web_applications/test/fake_web_app_provider.h"
 #include "chrome/browser/web_applications/test/web_app_install_test_utils.h"
-#include "chrome/common/chrome_switches.h"
 #include "chrome/test/base/chrome_ash_test_base.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/testing_profile.h"
@@ -72,6 +72,7 @@
 #include "components/viz/test/test_gpu_service_holder.h"
 #include "ui/aura/window_event_dispatcher.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/display/display.h"
 #include "ui/views/widget/widget.h"
 #include "url/gurl.h"
@@ -119,13 +120,13 @@ class ShelfContextMenuTest : public ChromeAshTestBase {
  protected:
   ShelfContextMenuTest() {
     base::CommandLine::ForCurrentProcess()->AppendSwitch(
-        switches::kDisableDefaultApps);
+        ash::chrome_switches::kDisableDefaultApps);
   }
   ~ShelfContextMenuTest() override = default;
 
   void SetUp() override {
     base::CommandLine::ForCurrentProcess()->AppendSwitch(
-        switches::kDisableDefaultApps);
+        ash::chrome_switches::kDisableDefaultApps);
 
     ash::ChunneldClient::InitializeFake();
     ash::CiceroneClient::InitializeFake();

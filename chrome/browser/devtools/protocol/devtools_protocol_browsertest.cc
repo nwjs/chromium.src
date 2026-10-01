@@ -7,6 +7,7 @@
 
 #include "base/base64.h"
 #include "base/check_deref.h"
+#include "base/files/scoped_temp_dir.h"
 #include "base/functional/bind.h"
 #include "base/memory/memory_pressure_listener_registry.h"
 #include "base/memory/raw_ptr.h"
@@ -18,6 +19,7 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/bind.h"
 #include "base/test/scoped_feature_list.h"
+#include "base/test/test_future.h"
 #include "base/test/test_switches.h"
 #include "base/test/values_test_util.h"
 #include "base/threading/thread_restrictions.h"
@@ -30,15 +32,19 @@
 #include "chrome/browser/data_saver/data_saver.h"
 #include "chrome/browser/devtools/devtools_window.h"
 #include "chrome/browser/devtools/protocol/devtools_protocol_test_support.h"
+#include "chrome/browser/first_party_sets/first_party_sets_policy_service.h"
+#include "chrome/browser/first_party_sets/first_party_sets_policy_service_factory.h"
 #include "chrome/browser/preloading/preloading_prefs.h"
 #include "chrome/browser/privacy_sandbox/privacy_sandbox_attestations/privacy_sandbox_attestations_mixin.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/ssl/https_upgrades_util.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/common/chrome_paths.h"
+#include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/test/base/chrome_test_utils.h"
+#include "components/component_updater/installer_policies/first_party_sets_component_installer_policy.h"
 #include "components/content_settings/core/browser/cookie_settings.h"
 #include "components/content_settings/core/common/pref_names.h"
 #include "components/custom_handlers/protocol_handler_registry.h"
@@ -47,11 +53,13 @@
 #include "components/infobars/core/infobar_delegate.h"
 #include "components/optimization_guide/proto/features/common_quality_data.pb.h"
 #include "components/privacy_sandbox/privacy_sandbox_attestations/privacy_sandbox_attestations.h"
+#include "components/privacy_sandbox/privacy_sandbox_prefs.h"
 #include "components/services/app_service/public/cpp/app_launch_params.h"
 #include "content/public/browser/btm_redirect.h"
 #include "content/public/browser/btm_service.h"
 #include "content/public/browser/cookie_access_details.h"
 #include "content/public/browser/devtools_agent_host.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/page_navigator.h"
 #include "content/public/browser/ssl_status.h"
@@ -64,6 +72,7 @@
 #include "content/public/test/download_test_observer.h"
 #include "content/public/test/preloading_test_util.h"
 #include "content/public/test/prerender_test_util.h"
+#include "extensions/buildflags/buildflags.h"
 #include "net/base/ip_address.h"
 #include "net/dns/mock_host_resolver.h"
 #include "net/ssl/ssl_cipher_suite_names.h"
@@ -71,7 +80,6 @@
 #include "net/ssl/ssl_connection_status_flags.h"
 #include "net/ssl/ssl_server_config.h"
 #include "printing/buildflags/buildflags.h"
-#include "services/network/public/cpp/network_switches.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/boringssl/src/include/openssl/ssl.h"
@@ -102,6 +110,7 @@
 #include "chrome/browser/sessions/session_service_test_helper.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/web_applications/test/isolated_web_app_test_utils.h"
 #include "chrome/browser/web_applications/isolated_web_apps/isolated_web_app_url_info.h"
 #include "chrome/browser/web_applications/isolated_web_apps/test/isolated_web_app_builder.h"
@@ -1115,11 +1124,11 @@ IN_PROC_BROWSER_TEST_F(
   GURL url("invalid.scheme:for-sure");
   ui_test_utils::AllBrowserTabAddedWaiter tab_added_waiter;
 
-  content::WebContents* web_contents = browser()->OpenURL(
-      content::OpenURLParams(url, content::Referrer(),
-                             WindowOpenDisposition::NEW_FOREGROUND_TAB,
-                             ui::PAGE_TRANSITION_TYPED, false),
-      /*navigation_handle_callback=*/{});
+  content::WebContents* web_contents =
+      browser()->OpenURL(content::OpenURLParams::CreateBrowserInitiated(
+                             url, WindowOpenDisposition::NEW_FOREGROUND_TAB,
+                             ui::PAGE_TRANSITION_TYPED),
+                         /*navigation_handle_callback=*/{});
   tab_added_waiter.Wait();
   ASSERT_TRUE(WaitForLoadStop(web_contents));
 
@@ -1269,10 +1278,9 @@ testing::AssertionResult SimulateBtmBounce(content::WebContents* web_contents,
                                            const GURL& bounce_url,
                                            const GURL& final_url) {
   web_contents = web_contents->OpenURL(
-      content::OpenURLParams(initial_url, content::Referrer(),
-                             WindowOpenDisposition::NEW_FOREGROUND_TAB,
-                             ui::PageTransition::PAGE_TRANSITION_TYPED,
-                             /*is_renderer_initiated=*/false),
+      content::OpenURLParams::CreateBrowserInitiated(
+          initial_url, WindowOpenDisposition::NEW_FOREGROUND_TAB,
+          ui::PageTransition::PAGE_TRANSITION_TYPED),
       {});
   if (!web_contents) {
     return testing::AssertionFailure() << "OpenURL() returned nullptr";
@@ -2330,17 +2338,42 @@ class DevToolsProtocolTest_RelatedWebsiteSets : public DevToolsProtocolTest {
   const char* kServiceSite = "https://c.test";
   const char* kPrimaryCcTLD = "https://a.cctld";
 
-  void SetUpCommandLine(base::CommandLine* command_line) override {
-    DevToolsProtocolTest::SetUpCommandLine(command_line);
-    command_line->AppendSwitchASCII(
-        network::switches::kUseRelatedWebsiteSet,
-        base::StringPrintf(R"({"primary": "%s",)"
-                           R"("associatedSites": ["%s"],)"
-                           R"("serviceSites": ["%s"],)"
-                           R"("ccTLDs": {"%s": ["%s"]}})",
-                           kPrimarySite, kAssociatedSite, kServiceSite,
-                           kPrimarySite, kPrimaryCcTLD));
+  void SetUpDefaultCommandLine(base::CommandLine* command_line) override {
+    DevToolsProtocolTest::SetUpDefaultCommandLine(command_line);
+    command_line->RemoveSwitch(switches::kDisableComponentUpdate);
   }
+
+  void SetUpInProcessBrowserTestFixture() override {
+    DevToolsProtocolTest::SetUpInProcessBrowserTestFixture();
+    CHECK(component_dir_.CreateUniqueTempDir());
+    base::ScopedAllowBlockingForTesting allow_blocking;
+    component_updater::FirstPartySetsComponentInstallerPolicy::
+        WriteComponentForTesting(
+            base::Version("1.2.3"), component_dir_.GetPath(),
+            base::StringPrintf(R"({"primary": "%s",)"
+                               R"("associatedSites": ["%s"],)"
+                               R"("serviceSites": ["%s"],)"
+                               R"("ccTLDs": {"%s": ["%s"]}})",
+                               kPrimarySite, kAssociatedSite, kServiceSite,
+                               kPrimarySite, kPrimaryCcTLD));
+  }
+
+  void SetUpOnMainThread() override {
+    DevToolsProtocolTest::SetUpOnMainThread();
+    browser()->GetProfile()->GetPrefs()->SetBoolean(
+        prefs::kPrivacySandboxRelatedWebsiteSetsEnabled, true);
+
+    first_party_sets::FirstPartySetsPolicyService* service =
+        first_party_sets::FirstPartySetsPolicyServiceFactory::
+            GetForBrowserContext(browser()->GetProfile());
+    ASSERT_NE(service, nullptr);
+    base::test::TestFuture<void> future;
+    service->WaitForFirstInitCompleteForTesting(future.GetCallback());
+    ASSERT_TRUE(future.Wait());
+  }
+
+ private:
+  base::ScopedTempDir component_dir_;
 };
 
 IN_PROC_BROWSER_TEST_F(DevToolsProtocolTest_RelatedWebsiteSets,
@@ -2353,26 +2386,22 @@ IN_PROC_BROWSER_TEST_F(DevToolsProtocolTest_RelatedWebsiteSets,
 
   SendCommandSync("Storage.getRelatedWebsiteSets");
 
-  if (result()) {
-    const base::ListValue* set_list = result()->FindList("sets");
-    ASSERT_TRUE(set_list);
+  ASSERT_TRUE(result());
+  const base::ListValue* set_list = result()->FindList("sets");
+  ASSERT_TRUE(set_list);
 
-    base::ListValue expected =
-        base::ListValue()  //
-            .Append(base::DictValue()
-                        .Set("associatedSites",
-                             base::ListValue().Append(kAssociatedSite))
-                        .Set("primarySites", base::ListValue()
-                                                 .Append(kPrimaryCcTLD)
-                                                 .Append(kPrimarySite))
-                        .Set("serviceSites",
-                             base::ListValue().Append(kServiceSite)));
+  base::ListValue expected =
+      base::ListValue()  //
+          .Append(
+              base::DictValue()
+                  .Set("associatedSites",
+                       base::ListValue().Append(kAssociatedSite))
+                  .Set("primarySites", base::ListValue()
+                                           .Append(kPrimaryCcTLD)
+                                           .Append(kPrimarySite))
+                  .Set("serviceSites", base::ListValue().Append(kServiceSite)));
 
-    EXPECT_EQ(*set_list, expected);
-  } else if (error()) {
-    EXPECT_EQ(*error()->FindString("message"),
-              "Failed fetching RelatedWebsiteSets");
-  }
+  EXPECT_EQ(*set_list, expected);
 }
 
 IN_PROC_BROWSER_TEST_F(DevToolsProtocolTest,

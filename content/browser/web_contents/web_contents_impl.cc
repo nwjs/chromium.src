@@ -82,7 +82,7 @@
 #include "content/browser/devtools/render_frame_devtools_agent_host.h"
 #include "content/browser/display_cutout/display_cutout_host_impl.h"
 #include "content/browser/dom_storage/dom_storage_context_wrapper.h"
-#include "content/browser/dom_storage/session_storage_namespace_impl.h"
+#include "content/browser/dom_storage/session_storage_namespace_handle_impl.h"
 #include "content/browser/download/mhtml_generation_manager.h"
 #include "content/browser/download/save_package.h"
 #include "content/browser/fenced_frame/fenced_frame.h"
@@ -310,7 +310,6 @@ enum class CrashRepHandlingOutcome {
 constexpr auto kUpdateLoadStatesInterval = base::Milliseconds(250);
 
 using LifecycleState = RenderFrameHost::LifecycleState;
-using LifecycleStateImpl = RenderFrameHostImpl::LifecycleStateImpl;
 
 base::LazyInstance<base::RepeatingCallbackList<void(WebContents*)>>::
     DestructorAtExit g_created_callbacks = LAZY_INSTANCE_INITIALIZER;
@@ -779,7 +778,7 @@ std::unique_ptr<WebContentsImpl> WebContentsImpl::Create(
 
 std::unique_ptr<WebContents> WebContents::CreateWithSessionStorage(
     const WebContents::CreateParams& params,
-    const SessionStorageNamespaceMap& session_storage_namespace_map) {
+    const SessionStorageNamespaceHandleMap& session_storage_namespace_map) {
   OPTIONAL_TRACE_EVENT0("content", "WebContents::CreateWithSessionStorage");
   std::unique_ptr<WebContentsImpl> new_contents(
       new WebContentsImpl(params.browser_context));
@@ -871,7 +870,7 @@ WebContents* WebContents::FromDragId(BrowserContext* browser_context,
   }
 
   RenderFrameHost* rfh = RenderFrameHost::FromFrameToken(source_rfh_token);
-  if (!rfh) {
+  if (!rfh || !rfh->IsActive()) {
     return nullptr;
   }
 
@@ -1488,6 +1487,10 @@ WebContentsImpl::~WebContentsImpl() {
   }
   created_widgets_.clear();
 
+  if (GetPrimaryMainFrame() && GetPrimaryMainFrame()->GetRenderWidgetHost()) {
+    GetPrimaryMainFrame()->GetRenderWidgetHost()->DetachDelegate();
+  }
+
   // Clear out any JavaScript state.
   CancelDialogManagerDialogs(/*reset_state=*/true);
 
@@ -1859,7 +1862,7 @@ bool WebContentsImpl::IsPrerenderedFrame(FrameTreeNodeId frame_tree_node_id) {
   if (frame_tree_node->GetParentOrOuterDocumentOrEmbedder()) {
     return frame_tree_node->GetParentOrOuterDocumentOrEmbedder()
                ->lifecycle_state() ==
-           RenderFrameHostImpl::LifecycleStateImpl::kPrerendering;
+           RenderFrameHostLifecycleStateImpl::kPrerendering;
   }
   return frame_tree_node->GetFrameType() == FrameType::kPrerenderMainFrame;
 }
@@ -2275,7 +2278,8 @@ void WebContentsImpl::DidCapturedSurfaceControl() {
 }
 
 void WebContentsImpl::OnFedCmFederatedLogin(
-    webid::FederatedLoginResult result) {
+    webid::FederatedLoginResult result,
+    const std::optional<url::Origin>& idp_origin) {
   observers_.NotifyObservers(&WebContentsObserver::OnFedCmFederatedLogin,
                              result == webid::FederatedLoginResult::kSuccess);
 
@@ -2287,7 +2291,10 @@ void WebContentsImpl::OnFedCmFederatedLogin(
 
   webid::FederatedEmbedderLoginRequest* embedder_login_request =
       webid::FederatedEmbedderLoginRequest::Get(this);
-  if (embedder_login_request) {
+  // Continue waiting if the resolved IdP isn't the same IdP from the embedder
+  // request.
+  if (embedder_login_request && idp_origin &&
+      *idp_origin == embedder_login_request->idp_origin()) {
     embedder_login_request->OnFederatedResultReceived(result);
   }
 }
@@ -3371,7 +3378,7 @@ void WebContentsImpl::AttachInnerWebContentsImpl(
 
   // Inner WebContents aren't supported with prerendering. See
   // https://crbug.com/40191159 for details.
-  CHECK_NE(RenderFrameHostImpl::LifecycleStateImpl::kPrerendering,
+  CHECK_NE(RenderFrameHostLifecycleStateImpl::kPrerendering,
            render_frame_host_impl->lifecycle_state());
 
   RenderFrameHostManager* inner_render_manager =
@@ -3405,7 +3412,7 @@ void WebContentsImpl::AttachInnerWebContentsImpl(
     if (RenderWidgetHostViewBase* prev_rwhv =
             static_cast<RenderWidgetHostViewBase*>(rfh->GetView())) {
       if (!prev_rwhv->IsRenderWidgetHostViewChildFrame()) {
-        prev_rwhv->Destroy();
+        prev_rwhv->DestroyOrDefer();
       }
     }
 
@@ -3517,7 +3524,7 @@ void WebContentsImpl::DetachUnownedInnerWebContents(
       if (rvh->GetWidget()->GetView()->IsRenderWidgetHostViewChildFrame()) {
         list_of_rvh_with_rwhv.push_back(rvh);
       }
-      rvh->GetWidget()->GetView()->Destroy();
+      rvh->GetWidget()->GetView()->DestroyOrDefer();
     }
   }
 
@@ -3588,7 +3595,7 @@ void WebContentsImpl::SetSurfaceEmbedConnector(
     if (RenderWidgetHostViewBase* prev_rwhv =
             static_cast<RenderWidgetHostViewBase*>(rfh->GetView())) {
       if (!prev_rwhv->IsRenderWidgetHostViewChildFrame()) {
-        prev_rwhv->Destroy();
+        prev_rwhv->DestroyOrDefer();
       }
     }
   }
@@ -3648,7 +3655,7 @@ void WebContentsImpl::ClearSurfaceEmbedConnector() {
       if (rvh->GetWidget()->GetView()->IsRenderWidgetHostViewChildFrame()) {
         list_of_rvh_with_rwhv.push_back(rvh);
       }
-      rvh->GetWidget()->GetView()->Destroy();
+      rvh->GetWidget()->GetView()->DestroyOrDefer();
     }
   }
 
@@ -3714,7 +3721,7 @@ void WebContentsImpl::AttachGuestPage(
 
   // Guest pages aren't supported with prerendering. See
   // https://crbug.com/40191159 for details.
-  CHECK_NE(RenderFrameHostImpl::LifecycleStateImpl::kPrerendering,
+  CHECK_NE(RenderFrameHostLifecycleStateImpl::kPrerendering,
            outer_render_frame_host_impl->lifecycle_state());
 
   auto* guest_page_impl = static_cast<GuestPageHolderImpl*>(guest_page.get());
@@ -5449,7 +5456,9 @@ void WebContentsImpl::LostPointerLock(
     RenderWidgetHostImpl* render_widget_host) {
   OPTIONAL_TRACE_EVENT1("content", "WebContentsImpl::LostPointerLock",
                         "render_widget_host", render_widget_host);
-  CHECK(pointer_lock_widget_);
+  if (!pointer_lock_widget_) {
+    return;
+  }
 
   if (WebContentsImpl::FromRenderWidgetHostImpl(pointer_lock_widget_) != this) {
     return pointer_lock_widget_->delegate()->LostPointerLock(
@@ -5606,7 +5615,7 @@ FrameTree* WebContentsImpl::CreateNewWindow(
     const mojom::CreateNewWindowParams& params,
     bool is_new_browsing_instance,
     bool has_user_gesture,
-    SessionStorageNamespace* session_storage_namespace) {
+    SessionStorageNamespaceHandle* session_storage_namespace) {
   TRACE_EVENT2("browser,content,navigation", "WebContentsImpl::CreateNewWindow",
                "opener", opener, "params", params);
   DCHECK(opener);
@@ -5641,8 +5650,9 @@ FrameTree* WebContentsImpl::CreateNewWindow(
     DOMStorageContextWrapper* dom_storage_context =
         static_cast<DOMStorageContextWrapper*>(
             partition->GetDOMStorageContext());
-    SessionStorageNamespaceImpl* session_storage_namespace_impl =
-        static_cast<SessionStorageNamespaceImpl*>(session_storage_namespace);
+    SessionStorageNamespaceHandleImpl* session_storage_namespace_impl =
+        static_cast<SessionStorageNamespaceHandleImpl*>(
+            session_storage_namespace);
     CHECK(session_storage_namespace_impl->IsFromContext(dom_storage_context));
   }
 
@@ -5892,7 +5902,7 @@ FrameTree* WebContentsImpl::CreateNewWindow(
     load_params->initiator_process_id = render_process_id;
     load_params->initiator_frame_token = opener->GetFrameToken();
     load_params->initiator_navigation_state =
-        opener->CreateInitiatorStateFromCurrentFrame();
+        opener->GetCurrentInitiatorNavigationState();
     // Avoiding setting |load_params->source_site_instance| when
     // |opener_suppressed| is true, because in that case we do not want to use
     // the old SiteInstance and/or BrowsingInstance.  See also the test here:
@@ -6045,10 +6055,6 @@ WebContents* WebContentsImpl::ShowCreatedWindow(
 
   WebContentsImpl* created = owned_created->contents.get();
 
-  // This uses the delegate for the WebContents where the window was created
-  // from, to control how to show the newly created window.
-  WebContentsDelegate* delegate = GetDelegate();
-
   // Individual members of |window_features.bounds| may be 0 to indicate that
   // the window.open() feature string did not specify a value. This code does
   // not distinguish between an unspecified value and 0.
@@ -6065,7 +6071,11 @@ WebContents* WebContentsImpl::ShowCreatedWindow(
     return nullptr;
   }
 
-  // The delegate can be null in tests.
+  // This uses the delegate for the WebContents where the window was created
+  // from, to control how to show the newly created window.
+  // The delegate can be null in tests, or reset if dropping fullscreen executed
+  // event handlers.
+  WebContentsDelegate* delegate = GetDelegate();
   if (!delegate) {
     return nullptr;
   }
@@ -6084,6 +6094,24 @@ WebContents* WebContentsImpl::ShowCreatedWindow(
                                   nullptr);
   delegate->set_tmp_manifest(std::string());
   return ret;
+}
+
+gfx::Rect WebContentsImpl::ConstrainPopupBounds(const gfx::Rect& bounds) {
+  if (!base::FeatureList::IsEnabled(features::kLimitPopupWidgetHostPosition)) {
+    return bounds;
+  }
+  // Constrain popup bounds so that the top of the popup is at or below the line
+  // of death (the top of the top-level main frame). See crbug.com/424995036.
+  RenderWidgetHostView* view = GetTopLevelRenderWidgetHostView();
+  if (!view) {
+    return bounds;
+  }
+  gfx::Rect constrained_bounds = bounds;
+  int line_of_death = view->GetViewBounds().y();
+  if (constrained_bounds.y() < line_of_death) {
+    constrained_bounds.set_y(line_of_death);
+  }
+  return constrained_bounds;
 }
 
 void WebContentsImpl::ShowCreatedWidget(ChildProcessId process_id,
@@ -6149,6 +6177,8 @@ void WebContentsImpl::ShowCreatedWidget(ChildProcessId process_id,
         gfx::Rect(origin.x(), origin.y(), bottom_right.x() - origin.x(),
                   bottom_right.y() - origin.y());
   }
+
+  transformed_rect = ConstrainPopupBounds(transformed_rect);
 
   RenderWidgetHostImpl* render_widget_host_impl = widget_host_view->host();
 
@@ -7253,6 +7283,15 @@ void WebContentsImpl::SaveFrameWithHeaders(
     bool is_subresource) {
   DCHECK(rfh);
   auto& rfhi = *static_cast<RenderFrameHostImpl*>(rfh);
+
+  if (WebContents::FromRenderFrameHost(rfh) != this) {
+    // Note that the PDF viewer can legitimately save from the context of a RFH
+    // outside of this WebContents. The following CHECK guards against the
+    // caller possibly being tricked into providing a RFH with different storage
+    // access. See https://crbug.com/40167434 and https://crbug.com/501790682
+    CHECK_EQ(rfhi.GetStoragePartition(),
+             GetPrimaryMainFrame()->GetStoragePartition());
+  }
 
   OPTIONAL_TRACE_EVENT2("content", "WebContentsImpl::SaveFrameWithHeaders",
                         "url", url, "headers", headers);
@@ -8679,6 +8718,20 @@ void WebContentsImpl::ViewSource(RenderFrameHostImpl* frame) {
     return;
   }
 
+  // Any new WebContents opened while this WebContents is in fullscreen can be
+  // used to confuse the user, so drop fullscreen. Dropping fullscreen can run
+  // event handlers synchronously, which may reset `delegate_` or detach
+  // `frame`. Dropping fullscreen before reading NavigationEntries also avoids
+  // holding pointers across the nested message loop.
+  base::WeakPtr<RenderFrameHostImpl> weak_frame = frame->GetWeakPtr();
+  if (!ForSecurityDropFullscreen(/*display_id=*/display::kInvalidDisplayId) ||
+      !delegate_) {
+    return;
+  }
+  if (!weak_frame) {
+    return;
+  }
+
   // Use the last committed entry, since the pending entry hasn't loaded yet and
   // won't be copied into the cloned tab.
   NavigationEntryImpl* last_committed_entry =
@@ -8690,16 +8743,6 @@ void WebContentsImpl::ViewSource(RenderFrameHostImpl* frame) {
   FrameNavigationEntry* frame_entry =
       last_committed_entry->GetFrameEntry(frame->frame_tree_node());
   if (!frame_entry) {
-    return;
-  }
-
-  // Any new WebContents opened while this WebContents is in fullscreen can be
-  // used to confuse the user, so drop fullscreen.
-  base::WeakPtr<RenderFrameHostImpl> weak_frame = frame->GetWeakPtr();
-  if (!ForSecurityDropFullscreen(/*display_id=*/display::kInvalidDisplayId)) {
-    return;
-  }
-  if (!weak_frame) {
     return;
   }
 
@@ -8931,12 +8974,15 @@ void WebContentsImpl::OnPageScaleFactorChanged(PageImpl& source) {
 
 void WebContentsImpl::EnumerateDirectory(
     base::WeakPtr<FileChooserImpl> file_chooser,
-    RenderFrameHost* render_frame_host,
+    RenderFrameHostImpl* render_frame_host,
     scoped_refptr<FileChooserImpl::FileSelectListenerImpl> listener,
     const base::FilePath& directory_path) {
   OPTIONAL_TRACE_EVENT2("content", "WebContentsImpl::EnumerateDirectory",
                         "render_frame_host", render_frame_host,
                         "directory_path", directory_path);
+  // The sole caller, FileChooserImpl::EnumerateChosenDirectory(), returns
+  // early if its frame is gone, and dereferences it on the way here.
+  CHECK(render_frame_host);
   absl::Cleanup cancel_chooser = [&listener] {
     listener->FileSelectionCanceled();
   };
@@ -8954,10 +9000,13 @@ void WebContentsImpl::EnumerateDirectory(
   }
 
   // Any explicit focusing of another window while this WebContents is in
-  // fullscreen can be used to confuse the user, so drop fullscreen.
+  // fullscreen can be used to confuse the user, so drop fullscreen. Dropping
+  // fullscreen can run event handlers synchronously, which may detach the
+  // frame that asked for the directory listing.
+  base::WeakPtr<RenderFrameHostImpl> weak_rfh = render_frame_host->GetWeakPtr();
   auto blocker =
       ForSecurityDropFullscreen(/*display_id=*/display::kInvalidDisplayId);
-  if (!blocker) {
+  if (!blocker || !weak_rfh || !weak_rfh->IsActive()) {
     return;
   }
   listener->SetFullscreenBlock(std::move(*blocker));
@@ -10263,7 +10312,7 @@ void WebContentsImpl::SetWindowRect(const gfx::Rect& new_bounds) {
   // Only drop fullscreen on the specific destination display, which is known.
   // This supports sites using cross-screen window management capabilities to
   // retain fullscreen and place a window on another screen.
-  if (!ForSecurityDropFullscreen(display_id)) {
+  if (!ForSecurityDropFullscreen(display_id) || !delegate_) {
     return;
   }
 
@@ -10281,7 +10330,7 @@ void WebContentsImpl::MoveWindowTo(const gfx::Point& origin) {
   }
   gfx::Rect bounds(origin, view->GetBoundsInScreen().size());
   int64_t display_id = AdjustWindowRect(&bounds, GetPrimaryMainFrame());
-  if (!ForSecurityDropFullscreen(display_id)) {
+  if (!ForSecurityDropFullscreen(display_id) || !delegate_) {
     return;
   }
   delegate_->SetContentsBounds(this, bounds);
@@ -10298,7 +10347,7 @@ void WebContentsImpl::ResizeWindowTo(const gfx::Size& size) {
   }
   gfx::Rect bounds(view->GetBoundsInScreen().origin(), size);
   int64_t display_id = AdjustWindowRect(&bounds, GetPrimaryMainFrame());
-  if (!ForSecurityDropFullscreen(display_id)) {
+  if (!ForSecurityDropFullscreen(display_id) || !delegate_) {
     return;
   }
   delegate_->SetContentsBounds(this, bounds);
@@ -10331,7 +10380,7 @@ WebContentsImpl::GetActiveTopLevelDocumentsInBrowsingContextGroup(
 
     // Filters out inactive documents.
     if (other_render_frame_host->lifecycle_state() !=
-        RenderFrameHostImpl::LifecycleStateImpl::kActive) {
+        RenderFrameHostLifecycleStateImpl::kActive) {
       continue;
     }
 
@@ -11361,7 +11410,7 @@ void WebContentsImpl::NotifySwappedFromRenderManager(
                "old_render_frame_host", old_frame, "new_render_frame_host",
                new_frame);
   DCHECK_NE(new_frame->lifecycle_state(),
-            RenderFrameHostImpl::LifecycleStateImpl::kSpeculative);
+            RenderFrameHostLifecycleStateImpl::kSpeculative);
 
   // Only fire RenderViewHostChanged if it is related to our FrameTree, as
   // observers can not deal with events coming from non-primary FrameTree.

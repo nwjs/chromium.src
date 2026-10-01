@@ -116,19 +116,28 @@ FormFillingRequest CreateFormFillingRequest(
   return request;
 }
 
+// Creates an AttemptFormFillingToolRequest for testing.
+// `enqueued_click` defaults to true so that most tests can bypass the
+// pre-click enqueuing logic and test the core form filling behavior directly.
+// Tests that specifically verify the pre-click behavior (e.g. enqueuing click
+// and follow-up fill) should pass `false` explicitly.
 std::unique_ptr<ToolRequest> MakeAttemptFormFillingRequest(
     const tabs::TabInterface& tab,
-    std::vector<FormFillingRequest> requests) {
-  return std::make_unique<AttemptFormFillingToolRequest>(tab.GetHandle(),
-                                                         std::move(requests));
+    std::vector<FormFillingRequest> requests,
+    bool enqueued_click = true) {
+  return std::make_unique<AttemptFormFillingToolRequest>(
+      tab.GetHandle(), std::move(requests), enqueued_click);
 }
 
 std::unique_ptr<ToolRequest> MakeAttemptFormFillingRequest(
     const tabs::TabInterface& tab,
-    std::vector<PageTarget> trigger_fields) {
+    std::vector<PageTarget> trigger_fields,
+    bool enqueued_click = true) {
   return MakeAttemptFormFillingRequest(
-      tab, {CreateFormFillingRequest(RequestedData::kUnknown,
-                                     std::move(trigger_fields))});
+      tab,
+      {CreateFormFillingRequest(RequestedData::kUnknown,
+                                std::move(trigger_fields))},
+      enqueued_click);
 }
 
 // Gets the dom node or returns nullopt when the node id or document token
@@ -868,7 +877,8 @@ IN_PROC_BROWSER_TEST_F(AttemptFormFillingToolTest,
 }
 
 // Test that when switches::kAttemptFormFillingToolSkipsUI is enabled, the
-// user is not asked to select a suggestion.
+// user is not asked to select a suggestion, and each form section is filled
+// before notifying suggestions selected.
 IN_PROC_BROWSER_TEST_F(AttemptFormFillingToolTest, TestSkippingSelection) {
   base::test::ScopedCommandLine scoped_command_line;
   scoped_command_line.GetProcessCommandLine()->AppendSwitch(
@@ -882,30 +892,49 @@ IN_PROC_BROWSER_TEST_F(AttemptFormFillingToolTest, TestSkippingSelection) {
       GetDomNodeOnPage(*main_frame(), "#ADDRESS_HOME_LINE1");
   ASSERT_TRUE(address_home_line1);
 
-  autofill::ActorFormFillingRequest request;
+  autofill::ActorFormFillingRequest request1;
   autofill::ActorSuggestion suggestion1;
   suggestion1.id = autofill::ActorSuggestionId(123);
   suggestion1.title = "My Address";
-  request.suggestions.push_back(suggestion1);
+  request1.suggestions.push_back(suggestion1);
+
+  autofill::ActorFormFillingRequest request2;
   autofill::ActorSuggestion suggestion2;
   suggestion2.id = autofill::ActorSuggestionId(456);
-  suggestion2.title = "Work Address";
-  request.suggestions.push_back(suggestion2);
-  std::vector<autofill::ActorFormFillingRequest> requests = {request};
+  suggestion2.title = "My Contact";
+  request2.suggestions.push_back(suggestion2);
+  autofill::ActorSuggestion suggestion3;
+  suggestion3.id = autofill::ActorSuggestionId(789);
+  suggestion3.title = "Work Contact";
+  request2.suggestions.push_back(suggestion3);
+
+  std::vector<autofill::ActorFormFillingRequest> requests = {request1,
+                                                             request2};
 
   EXPECT_CALL(mock_form_filling_service(), GetSuggestions)
       .WillOnce(RunOnceCallback<2>(requests));
 
   // RequestToShowAutofillSuggestions should not be shown but instead the
-  // first address is automatically selected.
+  // first suggestion is automatically selected for each section.
   EXPECT_CALL(mock_execution_engine(), RequestToShowAutofillSuggestions)
       .Times(0);
 
   EXPECT_CALL(
       mock_form_filling_service(),
+      FillForm(Ref(autofill_client()), 0,
+               MakeActorFormFillingSelection(request1.suggestions[0].id)));
+  EXPECT_CALL(
+      mock_form_filling_service(),
+      FillForm(Ref(autofill_client()), 1,
+               MakeActorFormFillingSelection(request2.suggestions[0].id)));
+
+  EXPECT_CALL(
+      mock_form_filling_service(),
       FillSuggestions(
           _,
-          ElementsAre(MakeActorFormFillingSelection(request.suggestions[0].id)),
+          ElementsAre(
+              MakeActorFormFillingSelection(request1.suggestions[0].id),
+              MakeActorFormFillingSelection(request2.suggestions[0].id)),
           _))
       .WillOnce(RunOnceCallback<2>(""));
 
@@ -1104,7 +1133,8 @@ IN_PROC_BROWSER_TEST_F(AttemptFormFillingToolPreClickTest,
       .WillOnce(MoveArg<0>(&enqueued_click));
 
   std::unique_ptr<ToolRequest> action = MakeAttemptFormFillingRequest(
-      *active_tab(), {PageTarget(*address_home_line1)});
+      *active_tab(), {PageTarget(*address_home_line1)},
+      /*enqueued_click=*/false);
   ActResultFuture result;
   actor_task().Act(ToRequestList(std::move(action)), result.GetCallback());
   ExpectOkResult(result);
@@ -1150,7 +1180,8 @@ IN_PROC_BROWSER_TEST_F(AttemptFormFillingToolNoPreClickTest,
           base::unexpected(autofill::ActorFormFillingError::kNoSuggestions)));
 
   std::unique_ptr<ToolRequest> action = MakeAttemptFormFillingRequest(
-      *active_tab(), {PageTarget(*address_home_line1)});
+      *active_tab(), {PageTarget(*address_home_line1)},
+      /*enqueued_click=*/false);
   ActResultFuture result;
   actor_task().Act(ToRequestList(std::move(action)), result.GetCallback());
   ExpectErrorResult(

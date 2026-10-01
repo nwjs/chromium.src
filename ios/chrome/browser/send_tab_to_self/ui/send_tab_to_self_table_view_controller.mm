@@ -9,12 +9,14 @@
 #import "base/apple/foundation_util.h"
 #import "base/check.h"
 #import "base/feature_list.h"
+#import "base/not_fatal_until.h"
 #import "base/strings/sys_string_conversions.h"
 #import "components/send_tab_to_self/features.h"
 #import "components/send_tab_to_self/send_tab_to_self_model.h"
 #import "components/send_tab_to_self/target_device_info.h"
 #import "components/strings/grit/components_strings.h"
 #import "components/sync_device_info/device_info.h"
+#import "ios/chrome/browser/send_tab_to_self/ui/send_tab_to_self_constants.h"
 #import "ios/chrome/browser/send_tab_to_self/ui/send_tab_to_self_image_detail_text_item.h"
 #import "ios/chrome/browser/send_tab_to_self/ui/send_tab_to_self_manage_devices_item.h"
 #import "ios/chrome/browser/send_tab_to_self/ui/send_tab_to_self_modal_delegate.h"
@@ -33,13 +35,6 @@
 
 namespace {
 
-// Accessibility identifier of the Modal Cancel Button.
-NSString* const kSendTabToSelfModalCancelButton =
-    @"kSendTabToSelfModalCancelButton";
-// Accessibility identifier of the Modal Cancel Button.
-NSString* const kSendTabToSelfModalSendButton =
-    @"kSendTabToSelfModalSendButton";
-
 constexpr CGFloat kSymbolSize = 22;
 
 }  // namespace
@@ -51,15 +46,12 @@ typedef NS_ENUM(NSInteger, ItemType) {
   ItemTypeManageDevices,
 };
 
-@interface SendTabToSelfTableViewController () {
-  // The list of devices with thier names, cache_guids, device types,
-  // and active times.
-  std::vector<send_tab_to_self::TargetDeviceInfo> _targetDeviceList;
-}
+@interface SendTabToSelfTableViewController ()
+
 // Item that holds the currently selected device.
 @property(nonatomic, strong) SendTabToSelfImageDetailTextItem* selectedItem;
 
-// Delegate to handle dismisal and event actions.
+// Delegate to handle dismissal and event actions.
 @property(nonatomic, weak) id<SendTabToSelfModalDelegate> delegate;
 
 // Avatar of the account sharing a tab.
@@ -71,7 +63,11 @@ typedef NS_ENUM(NSInteger, ItemType) {
 @property(nonatomic, strong) TableViewTextButtonItem* sendToDevice;
 @end
 
-@implementation SendTabToSelfTableViewController
+@implementation SendTabToSelfTableViewController {
+  // The list of devices with their names, cache_guids, device types,
+  // and active times.
+  std::vector<send_tab_to_self::TargetDeviceInfo> _targetDeviceList;
+}
 
 - (instancetype)initWithDeviceList:
                     (std::vector<send_tab_to_self::TargetDeviceInfo>)
@@ -192,7 +188,7 @@ typedef NS_ENUM(NSInteger, ItemType) {
 - (void)tableView:(UITableView*)tableView
     didSelectRowAtIndexPath:(NSIndexPath*)indexPath {
   TableViewItem* item = [self.tableViewModel itemAtIndexPath:indexPath];
-  DCHECK(item);
+  CHECK(item, base::NotFatalUntil::M158);
   if (item.type == ItemTypeDevice) {
     SendTabToSelfImageDetailTextItem* imageDetailTextItem =
         base::apple::ObjCCastStrict<SendTabToSelfImageDetailTextItem>(item);
@@ -220,15 +216,14 @@ typedef NS_ENUM(NSInteger, ItemType) {
 }
 
 - (void)addDeviceItems {
-  for (auto iter = _targetDeviceList.begin(); iter != _targetDeviceList.end();
-       ++iter) {
-
+  BOOL isFirst = YES;
+  for (const auto& targetDevice : _targetDeviceList) {
     SendTabToSelfImageDetailTextItem* deviceItem =
         [[SendTabToSelfImageDetailTextItem alloc] initWithType:ItemTypeDevice];
-    deviceItem.text = base::SysUTF8ToNSString(iter->device_name);
+    deviceItem.text = base::SysUTF8ToNSString(targetDevice.device_name);
     deviceItem.detailText =
-        base::SysUTF16ToNSString(iter->GetLastActiveTimeForDisplay());
-    switch (iter->form_factor) {
+        base::SysUTF16ToNSString(targetDevice.GetLastActiveTimeForDisplay());
+    switch (targetDevice.form_factor) {
       case syncer::DeviceInfo::FormFactor::kTablet:
         deviceItem.image =
             MakeSymbolMonochrome(SymbolWithPointSize(SymbolIPad, kSymbolSize));
@@ -249,12 +244,13 @@ typedef NS_ENUM(NSInteger, ItemType) {
 
     deviceItem.imageViewTintColor = [UIColor colorNamed:kGrey400Color];
 
-    if (iter == _targetDeviceList.begin()) {
+    if (isFirst) {
       deviceItem.accessoryType = UITableViewCellAccessoryCheckmark;
       self.selectedItem = deviceItem;
+      isFirst = NO;
     }
 
-    deviceItem.cacheGuid = base::SysUTF8ToNSString(iter->cache_guid);
+    deviceItem.cacheGuid = base::SysUTF8ToNSString(targetDevice.cache_guid);
 
     [self.tableViewModel addItem:deviceItem
          toSectionWithIdentifier:kSectionIdentifierEnumZero];

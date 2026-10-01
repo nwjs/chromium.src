@@ -647,23 +647,6 @@ constexpr std::array<DataTypeInfo, syncer::GetNumDataTypes()>
             .local_sync_support_policy = LocalSyncSupportPolicy::kSupported,
         },
         {
-            .type = WEB_APKS,
-            .specifics_field_number =
-                sync_pb::EntitySpecifics::kWebApkFieldNumber,
-            .debug_string = "Web Apks",
-            .histogram_suffix = "WEB_APK",
-            .stable_lowercase_string = "webapks",
-            .encryption_policy =
-                EncryptionPolicy::kEncryptedIfCustomPassphraseSet,
-            .priority = DataTypePriority::kRegular,
-            .communication_direction = CommunicationDirection::kRegularTwoWay,
-            .apply_updates_batch_policy = ApplyUpdatesBatchPolicy::kStandard,
-            .unsynced_data_check_on_signout_policy =
-                UnsyncedDataCheckOnSignoutPolicy::kNone,
-            .cross_user_sharing_policy = CrossUserSharingPolicy::kNone,
-            .local_sync_support_policy = LocalSyncSupportPolicy::kSupported,
-        },
-        {
             .type = OS_PREFERENCES,
             .specifics_field_number =
                 sync_pb::EntitySpecifics::kOsPreferenceFieldNumber,
@@ -1193,6 +1176,22 @@ constexpr std::array<DataTypeInfo, syncer::GetNumDataTypes()>
             .cross_user_sharing_policy = CrossUserSharingPolicy::kNone,
             .local_sync_support_policy = LocalSyncSupportPolicy::kUnsupported,
         },
+        {
+            .type = AUTOFILL_ENTITY_SUPPRESSION,
+            .specifics_field_number =
+                sync_pb::EntitySpecifics::kAutofillEntitySuppressionFieldNumber,
+            .debug_string = "Autofill Entity Suppression",
+            .histogram_suffix = "AUTOFILL_ENTITY_SUPPRESSION",
+            .stable_lowercase_string = "autofill_entity_suppression",
+            .encryption_policy = EncryptionPolicy::kAlwaysEncrypted,
+            .priority = DataTypePriority::kRegular,
+            .communication_direction = CommunicationDirection::kRegularTwoWay,
+            .apply_updates_batch_policy = ApplyUpdatesBatchPolicy::kStandard,
+            .unsynced_data_check_on_signout_policy =
+                UnsyncedDataCheckOnSignoutPolicy::kNone,
+            .cross_user_sharing_policy = CrossUserSharingPolicy::kNone,
+            .local_sync_support_policy = LocalSyncSupportPolicy::kUnsupported,
+        },
     }};
 
 // LINT.IfChange(DataTypeHistogramSuffix)
@@ -1201,7 +1200,7 @@ static_assert(GetNumDataTypes() == 65,
               "histograms.xml and follow the integration checklist in "
               "https://www.chromium.org/developers/design-documents/sync/"
               "integration-checklist/");
-// LINT.ThenChange(/tools/metrics/histograms/metadata/sync/histograms.xml:DataTypeHistogramSuffix)
+// LINT.ThenChange(//tools/metrics/histograms/metadata/sync/histograms.xml:DataTypeHistogramSuffix)
 
 const DataTypeInfo& GetDataTypeInfo(DataType type) {
   static const base::NoDestructor<
@@ -1335,9 +1334,6 @@ void AddDefaultFieldValue(DataType type, sync_pb::EntitySpecifics* specifics) {
     case WEB_APPS:
       specifics->mutable_web_app();
       break;
-    case WEB_APKS:
-      specifics->mutable_web_apk();
-      break;
     case WIFI_CONFIGURATIONS:
       specifics->mutable_wifi_configuration();
       break;
@@ -1418,6 +1414,9 @@ void AddDefaultFieldValue(DataType type, sync_pb::EntitySpecifics* specifics) {
       break;
     case JOURNEY:
       specifics->mutable_journey();
+      break;
+    case AUTOFILL_ENTITY_SUPPRESSION:
+      specifics->mutable_autofill_entity_suppression();
       break;
   }
 }
@@ -1699,8 +1698,6 @@ DataTypeForHistograms DataTypeHistogramValue(DataType data_type) {
       return DataTypeForHistograms::kWifiConfigurations;
     case WEB_APPS:
       return DataTypeForHistograms::kWebApps;
-    case WEB_APKS:
-      return DataTypeForHistograms::kWebApks;
     case OS_PREFERENCES:
       return DataTypeForHistograms::kOsPreferences;
     case OS_PRIORITY_PREFERENCES:
@@ -1757,6 +1754,8 @@ DataTypeForHistograms DataTypeHistogramValue(DataType data_type) {
       return DataTypeForHistograms::kNotebook;
     case JOURNEY:
       return DataTypeForHistograms::kJourney;
+    case AUTOFILL_ENTITY_SUPPRESSION:
+      return DataTypeForHistograms::kAutofillEntitySuppression;
   }
   NOTREACHED();
 }

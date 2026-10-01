@@ -10,9 +10,11 @@
 
 #include <memory>
 #include <optional>
-#include <string_view>
+#include <string>
 
-#include "fuchsia_web/common/test/fake_feedback_service.h"
+#include "base/memory/raw_ptr.h"
+#include "base/strings/strcat.h"
+#include "fuchsia_web/common/test/test_realm_root.h"
 #include "fuchsia_web/runners/cast/test/cast_runner_features.h"
 #include "fuchsia_web/runners/cast/test/fake_cast_agent.h"
 
@@ -40,6 +42,17 @@ class CastRunnerLauncher {
   CastRunnerLauncher(const CastRunnerLauncher&) = delete;
   CastRunnerLauncher& operator=(const CastRunnerLauncher&) = delete;
 
+  // Registers a component moniker (relative to this launcher's Realm, e.g.
+  // "cast_runner") that is expected to terminate abnormally.
+  void ExpectAbnormalTermination(std::string_view component_name) {
+    realm_root_.value().ExpectAbnormalTermination(component_name);
+  }
+
+  // Returns the moniker prefix for components within this launcher's Realm.
+  const std::string& realm_prefix() const {
+    return realm_root_.value().realm_prefix();
+  }
+
   // Returns a reference to the set of services exposed by the launcher, which
   // includes both the capabilities exposed by the `cast_runner` component, and
   // a `Realm` containing the test collection into which Cast activities may
@@ -51,7 +64,7 @@ class CastRunnerLauncher {
   FakeCastAgent& fake_cast_agent() { return *fake_cast_agent_; }
 
  private:
-  std::optional<::component_testing::RealmRoot> realm_root_;
+  std::optional<TestRealmRoot> realm_root_;
 
   std::unique_ptr<sys::ServiceDirectory> exposed_services_;
 

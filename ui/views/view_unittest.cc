@@ -14,7 +14,10 @@
 
 #include "base/command_line.h"
 #include "base/functional/bind.h"
+#include "base/i18n/language_tag.h"
 #include "base/i18n/rtl.h"
+#include "base/i18n/tag_converters.h"
+#include "base/i18n/test/scoped_icu_locale.h"
 #include "base/logging.h"
 #include "base/memory/raw_ptr.h"
 #include "base/rand_util.h"
@@ -5158,7 +5161,8 @@ TEST_F(ViewTest, AddExistingChild) {
 }
 
 TEST_F(ViewTest, UseMirroredLayoutDisableMirroring) {
-  base::i18n::SetICUDefaultLocale("ar");
+  base::i18n::ScopedDefaultIcuLocale scoped_locale(
+      base::i18n::GetKnownLanguageTag("ar"));
   ASSERT_TRUE(base::i18n::IsRTL());
 
   View parent, child1, child2;
@@ -5186,7 +5190,8 @@ TEST_F(ViewTest, UseMirroredLayoutDisableMirroring) {
 }
 
 TEST_F(ViewTest, UseMirroredLayoutEnableMirroring) {
-  base::i18n::SetICUDefaultLocale("en");
+  base::i18n::ScopedDefaultIcuLocale scoped_locale(
+      base::i18n::GetKnownLanguageTag("en"));
   ASSERT_FALSE(base::i18n::IsRTL());
 
   View parent, child1, child2;
@@ -6349,7 +6354,7 @@ TEST_F(ViewLayerTest, RemoveLayerFromRegionsWhenNoViewLayer) {
   view->RemoveLayerFromRegions(layer.get());
 }
 
-TEST_F(ViewLayerTest, ReorderChildLayersWithUnparentedRegionLayer) {
+TEST_F(ViewLayerTest, RecreateRegionLayers) {
   View root;
   root.SetPaintToLayer();
 
@@ -6358,16 +6363,40 @@ TEST_F(ViewLayerTest, ReorderChildLayersWithUnparentedRegionLayer) {
   v1->SetPaintToLayer();
   v2->SetPaintToLayer();
 
-  auto layer = std::make_unique<ui::LayerTextured>();
-  v2->AddLayerToRegion(layer.get(), LayerRegion::kBelow);
+  ui::LayerOwner below_owner(std::make_unique<ui::LayerTextured>());
+  ui::LayerOwner above_owner(std::make_unique<ui::LayerTextured>());
+  v2->AddLayerToRegion(below_owner.layer(), LayerRegion::kBelow);
+  v2->AddLayerToRegion(above_owner.layer(), LayerRegion::kAbove);
 
-  // Detach the region layer from the root layer tree while keeping it in v2's
-  // regions. Reordering views triggers layer reordering and should safely
-  // ignore unparented region layers rather than attempting to stack them
-  // relative to the root layer.
-  root.layer()->Remove(layer.get());
+  std::unique_ptr<ui::Layer> old_below = below_owner.RecreateLayer();
+  std::unique_ptr<ui::Layer> old_above = above_owner.RecreateLayer();
+
+  // Recreated layers should replace old layers in `layers_below_` and
+  // `layers_above_`.
+  EXPECT_THAT(v2->GetLayersInOrder(),
+              testing::ElementsAre(below_owner.layer(), v2->layer(),
+                                   above_owner.layer()));
+
+  // Move old layers to a separate parent (as wm::RecreateLayers does).
+  // Reordering while `old_below` and `old_above` are still alive in `old_root`
+  // must restack the new layers under `root.layer()` rather than attempting to
+  // stack `old_below` / `old_above` (which would crash in StackRelativeTo).
+  std::unique_ptr<ui::Layer> old_root = ui::Layer::Create(ui::LAYER_NOT_DRAWN);
+  old_root->Add(old_below.get());
+  old_root->Add(old_above.get());
 
   root.ReorderChildView(v1, 1);
+  EXPECT_THAT(root.layer()->children(),
+              testing::ElementsAre(below_owner.layer(), v2->layer(),
+                                   above_owner.layer(), v1->layer()));
+
+  // Destroying the old layers afterward should not remove the new layers from
+  // `v2`'s regions.
+  old_below.reset();
+  old_above.reset();
+  EXPECT_THAT(v2->GetLayersInOrder(),
+              testing::ElementsAre(below_owner.layer(), v2->layer(),
+                                   above_owner.layer()));
 }
 
 // View::OrphanLayers() captures a bare ui::Layer* `parent` local and loops

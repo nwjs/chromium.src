@@ -22,7 +22,9 @@
 #include "components/omnibox/browser/shortcuts_backend.h"
 #include "content/public/browser/web_contents.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/page_transition_types.h"
 #include "ui/base/ui_base_features.h"
+#include "ui/base/window_open_disposition.h"
 
 AlternateNavInfoBarDelegate::~AlternateNavInfoBarDelegate() = default;
 
@@ -92,8 +94,8 @@ bool AlternateNavInfoBarDelegate::LinkClicked(
   // Pretend the user typed this URL, so that navigating to it will be the
   // default action when it's typed again in the future.
   infobars::ContentInfoBarManager::WebContentsFromInfoBar(infobar())->OpenURL(
-      content::OpenURLParams(destination_url_, content::Referrer(), disposition,
-                             ui::PAGE_TRANSITION_TYPED, false),
+      content::OpenURLParams::CreateBrowserInitiated(
+          destination_url_, disposition, ui::PAGE_TRANSITION_TYPED),
       /*navigation_handle_callback=*/{});
 
   // We should always close, even if the navigation did not occur within this

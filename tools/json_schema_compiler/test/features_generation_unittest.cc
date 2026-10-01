@@ -9,7 +9,6 @@
 #include <vector>
 
 #include "base/containers/span.h"
-#include "base/test/bind.h"
 #include "extensions/buildflags/buildflags.h"
 #include "extensions/common/extensions_client.h"
 #include "extensions/common/features/complex_feature.h"
@@ -219,13 +218,12 @@ TEST(FeaturesGenerationTest, DescriptorBackedFeature) {
 
 TEST(FeaturesGenerationTest, FeaturesTest) {
   Feature::FeatureDelegatedAvailabilityCheckMap map;
-  map.emplace("requires_delegated_availability_check",
-              base::BindLambdaForTesting(
-                  [&](const std::string& api_full_name,
-                      const Extension* extension, mojom::ContextType context,
-                      const GURL& url, Feature::Platform platform,
-                      int context_id, bool check_developer_mode,
-                      const ContextData& context_data) { return false; }));
+  map.emplace(
+      "requires_delegated_availability_check",
+      +[](std::string_view api_full_name, const Extension* extension,
+          mojom::ContextType context, const GURL& url,
+          Feature::Platform platform, int context_id, bool check_developer_mode,
+          const ContextData& context_data) { return false; });
   ExtensionsClient::Get()->SetFeatureDelegatedAvailabilityCheckMap(
       std::move(map));
   FeatureProvider provider;
@@ -316,8 +314,8 @@ TEST(FeaturesGenerationTest, FeaturesTest) {
     comparator.no_parent = true;
     // We cheat and have both children exactly the same for ease of comparing;
     // complex features are tested more thoroughly below.
-    complex_feature->VisitFeatures([&](Feature& feature) {
-      comparator.CompareFeature(static_cast<SimpleFeature*>(&feature));
+    complex_feature->VisitFeatures([&](const Feature& feature) {
+      comparator.CompareFeature(static_cast<const SimpleFeature*>(&feature));
       return true;
     });
   }
@@ -385,9 +383,9 @@ TEST(FeaturesGenerationTest, FeaturesTest) {
     size_t feature_count = 0u;
     bool saw_stable = false;
     bool saw_beta = false;
-    feature->VisitFeatures([&](Feature& child) {
+    feature->VisitFeatures([&](const Feature& child) {
       ++feature_count;
-      const auto* simple_child = static_cast<SimpleFeature*>(&child);
+      const auto* simple_child = static_cast<const SimpleFeature*>(&child);
       FeatureComparator comparator("complex");
       comparator.contexts = std::vector<mojom::ContextType>(
           {mojom::ContextType::kPrivilegedExtension});

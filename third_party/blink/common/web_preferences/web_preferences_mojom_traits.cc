@@ -44,6 +44,7 @@ bool StructTraits<blink::mojom::WebPreferencesDataView,
       !data.ReadNetworkQualityEstimatorWebHoldback(
           &out->network_quality_estimator_web_holdback) ||
       !data.ReadWebAppScope(&out->web_app_scope) ||
+      !data.ReadWebAppCustomManifestUrl(&out->web_app_custom_manifest_url) ||
       !data.ReadRootScrollbarThemeColor(&out->root_scrollbar_theme_color)
 #if BUILDFLAG(IS_ANDROID)
       || !data.ReadDefaultVideoPosterUrl(&out->default_video_poster_url)
@@ -67,6 +68,7 @@ bool StructTraits<blink::mojom::WebPreferencesDataView,
   out->text_areas_are_resizable = data.text_areas_are_resizable();
   out->allow_scripts_to_close_windows = data.allow_scripts_to_close_windows();
   out->allow_unrestricted_window_focus = data.allow_unrestricted_window_focus();
+  out->clipboard_focus_exempt = data.clipboard_focus_exempt();
   out->remote_fonts_enabled = data.remote_fonts_enabled();
   out->javascript_can_access_clipboard = data.javascript_can_access_clipboard();
   out->dns_prefetching_enabled = data.dns_prefetching_enabled();

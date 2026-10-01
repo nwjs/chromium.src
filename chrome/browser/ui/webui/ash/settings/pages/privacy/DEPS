@@ -14,7 +14,6 @@ include_rules = [
   "+chrome/browser/ash/auth",
   "+chrome/browser/ash/eche_app",
   "+chrome/browser/ash/login/quick_unlock",
-  "+chrome/browser/ash/login/users",
   "+chrome/browser/ash/ownership",
   "+chrome/browser/ash/privacy_hub",
   "+chrome/browser/ash/profiles",
@@ -23,14 +22,18 @@ include_rules = [
   "+chrome/browser/browser_process.h",
   "+chrome/browser/metrics",
   "+chrome/browser/net",
-  "+chrome/browser/prefs",
   "+chrome/browser/profiles/profile.h",
   "+chrome/browser/ui/webui/ash/settings/os_settings_features_util.h",
   "+chrome/browser/ui/webui/ash/settings/pages/os_settings_section.h",
   "+chrome/browser/ui/webui/ash/settings/pages/people",
   "+chrome/browser/ui/webui/ash/settings/search",
   "+chrome/browser/ui/webui/settings",
-  "+chrome/common",
   "+chrome/grit",
   "+chrome/test",
 ]
+
+specific_include_rules = {
+  ".*_unittest\\.cc": [
+    "+chrome/browser/prefs",
+  ],
+}

@@ -33,6 +33,7 @@
 #import "components/safe_browsing/ios/browser/safe_browsing_url_allow_list.h"
 #import "components/security_interstitials/core/unsafe_resource.h"
 #import "components/signin/public/identity_manager/identity_manager.h"
+#import "ios/chrome/browser/intelligence/proto_wrappers/page_context_wrapper.h"
 #import "ios/chrome/browser/safe_browsing/model/client_side_detection/client_side_detection_service.h"
 #import "ios/chrome/browser/safe_browsing/model/user_population_helper.h"
 #import "ios/chrome/browser/shared/model/application_context/application_context.h"
@@ -40,6 +41,7 @@
 #import "ios/chrome/browser/shared/model/url/chrome_url_constants.h"
 #import "ios/chrome/browser/snapshots/model/snapshot_tab_helper.h"
 #import "ios/components/security_interstitials/safe_browsing/safe_browsing_service.h"
+#import "ios/components/security_interstitials/safe_browsing/safe_browsing_tab_helper.h"
 #import "ios/components/security_interstitials/safe_browsing/safe_browsing_unsafe_resource_container.h"
 #import "ios/web/public/browser_state.h"
 #import "ios/web/public/navigation/navigation_context.h"
@@ -57,6 +59,9 @@ namespace safe_browsing {
 namespace {
 // Delay before initiating snapshot and classification to allow page to settle.
 constexpr base::TimeDelta kStabilizationDelay = base::Milliseconds(750);
+
+// Whether local resource / localhost checks should be bypassed for testing.
+bool g_bypass_local_resource_check_for_testing = false;
 
 // Matches enum in tools/metrics/histograms/metadata/sb_client/enums.xml.
 enum class ClientSideAllowlistMatchResult {
@@ -146,6 +151,9 @@ ClientSideDetectionHostIOS::ClientSideDetectionHostIOS(
   EnsureObservingQueryManager();
   classifier_ = std::make_unique<safe_browsing::PhishingClassifier>();
   image_embedder_ = std::make_unique<safe_browsing::PhishingImageEmbedder>();
+  if (service_) {
+    scorer_observation_.Observe(service_);
+  }
 }
 
 ClientSideDetectionHostIOS::~ClientSideDetectionHostIOS() {
@@ -173,9 +181,17 @@ ClientSideDetectionHostIOS::GetFeatureCache() {
 }
 
 std::vector<GURL> ClientSideDetectionHostIOS::GetRedirectChain() {
-  // TODO(crbug.com/502615476): Hook into SafeBrowsingTabHelper to leverage its
-  // existing redirect chain extraction.
-  return std::vector<GURL>();
+  if (!web_state_) {
+    return std::vector<GURL>();
+  }
+
+  SafeBrowsingTabHelper* sb_tab_helper =
+      SafeBrowsingTabHelper::FromWebState(web_state_);
+  if (!sb_tab_helper) {
+    return std::vector<GURL>();
+  }
+
+  return sb_tab_helper->GetRedirectChain();
 }
 
 credit_card_form::ReferringApp ClientSideDetectionHostIOS::GetReferringApp()
@@ -199,8 +215,36 @@ bool ClientSideDetectionHostIOS::IsErrorDocument() {
 }
 
 void ClientSideDetectionHostIOS::GetInnerText(HostInnerTextCallback callback) {
-  // TODO(crbug.com/502615476): Implement inner text extraction on iOS.
-  std::move(callback).Run("");
+  if (!web_state_) {
+    std::move(callback).Run("");
+    return;
+  }
+
+  if (pending_inner_text_callback_) {
+    inner_text_weak_factory_.InvalidateWeakPtrs();
+    std::move(pending_inner_text_callback_).Run("");
+  }
+  pending_inner_text_callback_ = std::move(callback);
+
+  auto completion_callback = base::BindOnce(
+      [](base::WeakPtr<ClientSideDetectionHostIOS> weak_host,
+         PageContextWrapperCallbackResponse response) {
+        if (!weak_host) {
+          return;
+        }
+        std::string inner_text;
+        if (response.has_value() && response.value() &&
+            response.value()->has_inner_text()) {
+          inner_text = std::move(*response.value()->mutable_inner_text());
+        }
+        weak_host->OnInnerTextExtracted(std::move(inner_text));
+      },
+      inner_text_weak_factory_.GetWeakPtr());
+  page_context_wrapper_ = [[PageContextWrapper alloc]
+        initWithWebState:web_state_
+      completionCallback:std::move(completion_callback)];
+  [page_context_wrapper_ setShouldGetInnerText:YES];
+  [page_context_wrapper_ populatePageContextFieldsAsync];
 }
 
 void ClientSideDetectionHostIOS::ClassifyPhishingThroughThresholds(
@@ -324,16 +368,21 @@ void ClientSideDetectionHostIOS::MaybeStartPreClassification(
 
 void ClientSideDetectionHostIOS::CancelPendingRequests() {
   weak_ptr_factory_.InvalidateWeakPtrs();
-  if (classifier_ && classifier_->is_ready()) {
+  // We cancel unconditionally since both cancel methods are idempotent and safe
+  // to call when nothing is pending.
+  if (classifier_) {
     classifier_->CancelPendingClassification();
   }
-  if (image_embedder_ && image_embedder_->is_ready()) {
+  if (image_embedder_) {
     image_embedder_->CancelPendingImageEmbedding();
   }
   is_preclassifying_ = false;
   set_is_classifying(false);
   set_is_csd_running(false);
   classification_image_ = gfx::Image();
+  inner_text_weak_factory_.InvalidateWeakPtrs();
+  pending_inner_text_callback_.Reset();
+  page_context_wrapper_ = nil;
   ClientSideDetectionHostBase::CancelPendingRequests();
 }
 
@@ -476,6 +525,7 @@ void ClientSideDetectionHostIOS::PageLoaded(
 void ClientSideDetectionHostIOS::WebStateDestroyed(web::WebState* web_state) {
   query_manager_observation_.Reset();
   metrics_helper_observation_.Reset();
+  scorer_observation_.Reset();
   CancelPendingRequests();
   stabilization_timer_.Stop();
   web_state_->RemoveObserver(this);
@@ -542,6 +592,28 @@ void ClientSideDetectionHostIOS::
   OnClassificationDone(url, gfx::Image(), request_type,
                        /*classification_start_time=*/tick_clock()->NowTicks(),
                        verdict, PhishingClassifier::Result::kSuccess);
+}
+
+// static
+void ClientSideDetectionHostIOS::
+    SetBypassLocalResourceCheckForTesting(  // IN-TEST
+        bool bypass) {
+  g_bypass_local_resource_check_for_testing = bypass;
+}
+
+#pragma mark - ClientSideDetectionService::Observer
+
+void ClientSideDetectionHostIOS::OnScorerChanged() {
+  // The previous `Scorer` is destroyed asynchronously on a background thread,
+  // unmapping its model file. Cancel in-flight requests and clear cached raw
+  // pointers to prevent use-after-free (crbug.com/561910278).
+  CancelPendingRequests();
+  if (classifier_) {
+    classifier_->set_scorer(nullptr);
+  }
+  if (image_embedder_) {
+    image_embedder_->set_scorer(nullptr);
+  }
 }
 
 #pragma mark - WebPerformanceMetricsTabHelper::Observer
@@ -629,26 +701,29 @@ void ClientSideDetectionHostIOS::MaybeStartClassification(const GURL& url) {
 
   // 2. Local Resource / Localhost Guard.
   std::string_view host = url.host();
-  if (base::FeatureList::IsEnabled(kClientSideDetectionLocalResourceCheckFix)) {
-    if (url.SchemeIsFile() || net::IsLocalhost(url)) {
-      RecordPreClassificationCheckResult(
-          url, PreClassificationCheckResult::NO_CLASSIFY_LOCAL_RESOURCE);
-      return;
-    }
-  } else {
-    if (url.HostIsIPAddress()) {
-      net::IPAddress address;
-      if (address.AssignFromIPLiteral(host) && !address.IsValid()) {
+  if (!g_bypass_local_resource_check_for_testing) {
+    if (base::FeatureList::IsEnabled(
+            kClientSideDetectionLocalResourceCheckFix)) {
+      if (url.SchemeIsFile() || net::IsLocalhost(url)) {
         RecordPreClassificationCheckResult(
             url, PreClassificationCheckResult::NO_CLASSIFY_LOCAL_RESOURCE);
         return;
       }
-    } else if (host == "localhost" ||
-               host.find('.') == std::string_view::npos) {
-      // Intranet hostnames have no dots.
-      RecordPreClassificationCheckResult(
-          url, PreClassificationCheckResult::NO_CLASSIFY_LOCAL_RESOURCE);
-      return;
+    } else {
+      if (url.HostIsIPAddress()) {
+        net::IPAddress address;
+        if (address.AssignFromIPLiteral(host) && !address.IsValid()) {
+          RecordPreClassificationCheckResult(
+              url, PreClassificationCheckResult::NO_CLASSIFY_LOCAL_RESOURCE);
+          return;
+        }
+      } else if (host == "localhost" ||
+                 host.find('.') == std::string_view::npos) {
+        // Intranet hostnames have no dots.
+        RecordPreClassificationCheckResult(
+            url, PreClassificationCheckResult::NO_CLASSIFY_LOCAL_RESOURCE);
+        return;
+      }
     }
   }
 
@@ -676,7 +751,7 @@ void ClientSideDetectionHostIOS::MaybeStartClassification(const GURL& url) {
   }
 
   // 5. Private IP Address.
-  if (url.HostIsIPAddress()) {
+  if (!g_bypass_local_resource_check_for_testing && url.HostIsIPAddress()) {
     net::IPAddress address;
     if (address.AssignFromIPLiteral(host) &&
         service_->IsPrivateIPAddress(address)) {
@@ -1090,4 +1165,13 @@ void ClientSideDetectionHostIOS::OnImageEmbeddingDone(
       translated_result, std::move(embedding), std::move(visual));
 }
 
+void ClientSideDetectionHostIOS::OnInnerTextExtracted(std::string inner_text) {
+  page_context_wrapper_ = nil;
+
+  if (!pending_inner_text_callback_) {
+    return;
+  }
+
+  std::move(pending_inner_text_callback_).Run(std::move(inner_text));
+}
 }  // namespace safe_browsing

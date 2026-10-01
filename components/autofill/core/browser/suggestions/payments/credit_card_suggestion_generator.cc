@@ -20,7 +20,6 @@
 #include "base/i18n/case_conversion.h"
 #include "base/strings/strcat.h"
 #include "build/buildflag.h"
-#include "components/autofill/core/browser/autofill_browser_util.h"
 #include "components/autofill/core/browser/autofill_field.h"
 #include "components/autofill/core/browser/data_manager/payments/payments_data_manager.h"
 #include "components/autofill/core/browser/data_manager/personal_data_manager.h"
@@ -177,7 +176,7 @@ using SuggestionDataSource = SuggestionGenerator::SuggestionDataSource;
 bool IsSaveAndFillEnabled() {
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || \
     BUILDFLAG(IS_CHROMEOS)
-  return base::FeatureList::IsEnabled(features::kAutofillEnableSaveAndFill);
+  return true;
 #elif BUILDFLAG(IS_IOS)
   return base::FeatureList::IsEnabled(
       features::kAutofillEnableBottomSheetScanCardAndFill);

@@ -37,7 +37,8 @@ export interface ResultInterfaceInterface {
   syncMethod(a: boolean): Promise<boolean>;
 }
 
-export class ResultInterfaceRemote implements ResultInterfaceInterface {
+export class ResultInterfaceRemote implements ResultInterfaceInterface,
+    mojo.internal.interfaceSupport.InterfaceRemote<ResultInterfacePendingReceiver> {
   private proxy: mojo.internal.interfaceSupport.InterfaceRemoteBase<ResultInterfacePendingReceiver>;
   $: mojo.internal.interfaceSupport.InterfaceRemoteBaseWrapper<ResultInterfacePendingReceiver>;
   onConnectionError: mojo.internal.interfaceSupport.ConnectionErrorEventRouter;
@@ -83,7 +84,9 @@ export class ResultInterfaceRemote implements ResultInterfaceInterface {
  * mojom interface. Must be constructed over an object which implements that
  * interface.
  */
-export class ResultInterfaceReceiver {
+export class ResultInterfaceReceiver implements
+    mojo.internal.interfaceSupport.InterfaceReceiver<
+        ResultInterfaceRemote, ResultInterfacePendingReceiver> {
   private helper_internal_: mojo.internal.interfaceSupport.InterfaceReceiverHelperInternal<
     ResultInterfaceRemote, ResultInterfacePendingReceiver>;
 
@@ -140,7 +143,9 @@ export class ResultInterface {
  * on this object for each message defined in the mojom interface, and each
  * receiver can have any number of listeners added to it.
  */
-export class ResultInterfaceCallbackRouter {
+export class ResultInterfaceCallbackRouter implements
+    mojo.internal.interfaceSupport.InterfaceCallbackRouter<
+        ResultInterfaceRemote, ResultInterfacePendingReceiver> {
   private helper_internal_: mojo.internal.interfaceSupport.InterfaceReceiverHelperInternal<
     ResultInterfaceRemote, ResultInterfacePendingReceiver>;
   $: mojo.internal.interfaceSupport.InterfaceReceiverHelper<
@@ -217,7 +222,7 @@ export const ResultInterface_SyncMethod_ResponseParam_ResultSpec: { $: mojo.inte
 
 
 
-export interface ResultTestErrorMojoType {
+export declare interface ResultTestErrorMojoType {
 }
 
 
@@ -233,7 +238,7 @@ mojo.internal.Struct<ResultTestErrorMojoType>(
 
 
 
-export interface ResultInterface_Method_ParamsMojoType {
+export declare interface ResultInterface_Method_ParamsMojoType {
   a: boolean;
 }
 
@@ -260,7 +265,7 @@ mojo.internal.Struct<ResultInterface_Method_ParamsMojoType>(
 
 
 
-export interface ResultInterface_Method_ResponseParamsMojoType {
+export declare interface ResultInterface_Method_ResponseParamsMojoType {
   result: ResultInterface_Method_ResponseParam_Result;
 }
 
@@ -287,7 +292,7 @@ mojo.internal.Struct<ResultInterface_Method_ResponseParamsMojoType>(
 
 
 
-export interface ResultInterface_SyncMethod_ParamsMojoType {
+export declare interface ResultInterface_SyncMethod_ParamsMojoType {
   a: boolean;
 }
 
@@ -314,7 +319,7 @@ mojo.internal.Struct<ResultInterface_SyncMethod_ParamsMojoType>(
 
 
 
-export interface ResultInterface_SyncMethod_ResponseParamsMojoType {
+export declare interface ResultInterface_SyncMethod_ResponseParamsMojoType {
   result: ResultInterface_SyncMethod_ResponseParam_Result;
 }
 
@@ -352,7 +357,7 @@ mojo.internal.Union(
       },
     });
 
-export interface ResultInterface_Method_ResponseParam_Result {
+export declare interface ResultInterface_Method_ResponseParam_Result {
   success?: boolean,
   failure?: ResultTestError,
 }
@@ -384,7 +389,7 @@ mojo.internal.Union(
       },
     });
 
-export interface ResultInterface_SyncMethod_ResponseParam_Result {
+export declare interface ResultInterface_SyncMethod_ResponseParam_Result {
   success?: boolean,
   failure?: ResultTestError,
 }

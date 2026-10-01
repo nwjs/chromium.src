@@ -16,6 +16,7 @@
 #include "base/test/scoped_feature_list.h"
 #include "base/test/test_future.h"
 #include "base/test/with_feature_override.h"
+#include "base/threading/thread_restrictions.h"
 #include "chrome/browser/extensions/extension_apitest.h"
 #include "chrome/browser/extensions/extension_browsertest.h"
 #include "chrome/browser/profiles/profile.h"
@@ -27,7 +28,6 @@
 #include "content/public/test/service_worker_test_helpers.h"
 #include "extensions/browser/browsertest_util.h"
 #include "extensions/browser/disable_reason.h"
-#include "extensions/browser/event_router.h"
 #include "extensions/browser/events/listener_registration_phase_map.h"
 #include "extensions/browser/extension_pref_names.h"
 #include "extensions/browser/extension_prefs.h"
@@ -64,6 +64,7 @@ namespace extensions {
 
 namespace {
 
+using service_worker_test_utils::GetListenerRegistrationPhaseState;
 using service_worker_test_utils::TestServiceWorkerTaskQueueObserver;
 
 // A helper class that intercepts the
@@ -1445,14 +1446,11 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerListenerRegistrationPhaseBrowserTest,
   ASSERT_TRUE(extension);
   const ExtensionId extension_id = extension->id();
   const GURL scope = extension->url();
-  auto phase_state = [&]() {
-    return EventRouter::Get(profile())->listener_registration_phases().GetState(
-        extension_id, *profile());
-  };
 
   // The initial worker instance starts a registration phase.
   ASSERT_TRUE(first_start_listener.WaitUntilSatisfied());
-  EXPECT_EQ(State::kStarted, phase_state());
+  EXPECT_EQ(State::kStarted,
+            GetListenerRegistrationPhaseState(*profile(), extension_id));
 
   // Stopping the worker aborts the phase. Waiting for untrack ensures
   // ServiceWorkerTaskQueue::OnWorkerStop() has processed the abort.
@@ -1460,7 +1458,8 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerListenerRegistrationPhaseBrowserTest,
   browsertest_util::StopServiceWorkerForExtensionGlobalScope(profile(),
                                                              extension_id);
   task_queue_observer.WaitForUntrackServiceWorkerState(scope);
-  EXPECT_EQ(State::kAborted, phase_state());
+  EXPECT_EQ(State::kAborted,
+            GetListenerRegistrationPhaseState(*profile(), extension_id));
 
   // A pending task starts a new worker instance and begins a new phase. Use a
   // task instead of an event because the extension never completes its phase,
@@ -1469,11 +1468,13 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerListenerRegistrationPhaseBrowserTest,
   ServiceWorkerTaskQueue::Get(profile())->AddPendingTask(
       LazyContextId::ForExtension(profile(), extension), base::DoNothing());
   ASSERT_TRUE(second_start_listener.WaitUntilSatisfied());
-  EXPECT_EQ(State::kStarted, phase_state());
+  EXPECT_EQ(State::kStarted,
+            GetListenerRegistrationPhaseState(*profile(), extension_id));
 
   // Disabling the extension removes the registration phase.
   DisableExtension(extension_id);
-  EXPECT_EQ(std::nullopt, phase_state());
+  EXPECT_EQ(std::nullopt,
+            GetListenerRegistrationPhaseState(*profile(), extension_id));
 }
 
 }  // namespace

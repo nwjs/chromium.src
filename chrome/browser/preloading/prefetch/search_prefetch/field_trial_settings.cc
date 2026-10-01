@@ -92,13 +92,7 @@ void SetSearchPrefetchMaxCacheEntriesForTesting(size_t cache_size) {
   g_cache_size_for_testing = cache_size;
 }
 
-BASE_FEATURE(kSearchNavigationPrefetch,
-#if BUILDFLAG(IS_ANDROID)
-             base::FEATURE_ENABLED_BY_DEFAULT
-#else
-             base::FEATURE_DISABLED_BY_DEFAULT
-#endif  // BUILDFLAG(IS_ANDROID)
-);
+BASE_FEATURE(kSearchNavigationPrefetch, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kSearchPrefetchIgnoreSaverModesOnPress,
 #if BUILDFLAG(IS_ANDROID)
@@ -202,16 +196,6 @@ const base::FeatureParam<base::TimeDelta>
     kAutocompletePreloadedDictionaryTimeout{
         &kAutocompleteDictionaryPreload,
         "autocomplete_preloaded_dictionary_timeout", base::Milliseconds(60000)};
-
-BASE_FEATURE(kSuppressesSearchPrefetchOnSlowNetwork,
-             base::FEATURE_DISABLED_BY_DEFAULT);
-
-// Regarding how this number was chosen, see the design doc linked from
-// crbug.com/350519234.
-const base::FeatureParam<base::TimeDelta>
-    kSuppressesSearchPrefetchOnSlowNetworkThreshold{
-        &kSuppressesSearchPrefetchOnSlowNetwork,
-        "slow_network_threshold_for_search_prefetch", base::Milliseconds(208)};
 
 BASE_FEATURE(kSuppressPrefetchForUnsupportedSearchMode,
              base::FEATURE_DISABLED_BY_DEFAULT);

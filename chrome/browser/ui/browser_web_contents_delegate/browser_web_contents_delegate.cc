@@ -52,8 +52,10 @@
 #include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/browser/ui/tab_dialogs.h"
 #include "chrome/browser/ui/tab_modal_confirm_dialog.h"
+#include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_delegate.h"
+#include "chrome/browser/ui/unload_controller.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/contents_web_view.h"
 #include "chrome/browser/ui/views/status_bubble_views.h"
@@ -97,6 +99,7 @@
 #include "extensions/browser/guest_view/mime_handler_view/mime_handler_view_guest.h"
 #include "extensions/browser/process_manager.h"
 #include "extensions/browser/process_map.h"
+#include "extensions/buildflags/buildflags.h"
 #include "extensions/common/constants.h"
 #include "extensions/common/extension.h"
 #include "extensions/common/extension_features.h"
@@ -108,6 +111,8 @@
 #include "third_party/blink/public/mojom/frame/fullscreen.mojom.h"
 #include "third_party/blink/public/mojom/use_counter/metrics/web_feature.mojom.h"
 #include "ui/base/base_window.h"
+#include "ui/base/page_transition_types.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/events/keycodes/keyboard_codes.h"
 #include "url/origin.h"
 
@@ -203,7 +208,7 @@ BackgroundContents* CreateBackgroundContents(
     const std::string& frame_name,
     const GURL& target_url,
     const content::StoragePartitionConfig& partition_config,
-    content::SessionStorageNamespace* session_storage_namespace) {
+    content::SessionStorageNamespaceHandle* session_storage_namespace) {
   BackgroundContentsService* service =
       BackgroundContentsServiceFactory::GetForProfile(profile);
   const extensions::Extension* extension =
@@ -1085,7 +1090,7 @@ content::WebContents* BrowserWebContentsDelegate::CreateCustomWebContents(
     WindowOpenDisposition disposition,
     const blink::mojom::WindowFeatures& window_features,
     const content::StoragePartitionConfig& partition_config,
-    content::SessionStorageNamespace* session_storage_namespace) {
+    content::SessionStorageNamespaceHandle* session_storage_namespace) {
   if (auto* opener_contents = content::WebContents::FromRenderFrameHost(opener);
       actor::HasActorTaskPreventingNewWebContents(opener)) {
     // If an ExecutionEngine is acting on the opener, we force the navigation
@@ -1529,7 +1534,8 @@ std::string BrowserWebContentsDelegate::GetTitleForMediaControls(
 void BrowserWebContentsDelegate::GetAIPageContent(
     content::WebContents* web_contents,
     bool include_actionable_elements,
-    base::OnceCallback<void(const std::string&)> callback) {
+    base::OnceCallback<void(base::expected<std::string, std::string>)>
+        callback) {
   auto options = include_actionable_elements
                      ? optimization_guide::ActionableAIPageContentOptions(
                            /*on_critical_path=*/false)
@@ -1539,11 +1545,11 @@ void BrowserWebContentsDelegate::GetAIPageContent(
   optimization_guide::GetAIPageContent(
       web_contents, std::move(options),
       base::BindOnce([](optimization_guide::AIPageContentResultOrError result)
-                         -> std::string {
+                         -> base::expected<std::string, std::string> {
         if (!result.has_value()) {
-          return "";
+          return base::unexpected(result.error());
         }
-        return result->proto.SerializeAsString();
+        return base::ok(result->proto.SerializeAsString());
       }).Then(std::move(callback)));
 }
 

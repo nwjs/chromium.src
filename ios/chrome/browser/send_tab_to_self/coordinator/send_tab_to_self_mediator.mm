@@ -6,20 +6,19 @@
 
 #import "components/signin/public/identity_manager/objc/identity_manager_observer_bridge.h"
 #import "ios/chrome/browser/send_tab_to_self/coordinator/send_tab_to_self_mediator_delegate.h"
-#import "ios/chrome/browser/signin/model/authentication_service_observer_bridge.h"
+#import "ios/chrome/browser/signin/model/authentication_service.h"
 #import "ios/chrome/browser/signin/model/system_identity.h"
 
-@interface SendTabToSelfMediator () <IdentityManagerObserving> {
+@interface SendTabToSelfMediator () <IdentityManagerObserving>
+@end
+
+@implementation SendTabToSelfMediator {
   std::unique_ptr<signin::IdentityManagerObserverBridge>
       _identityManagerObserver;
   raw_ptr<AuthenticationService> _authenticationService;
   id<SystemIdentity> _primaryIdentity;
   raw_ptr<signin::IdentityManager> _identityManager;
 }
-
-@end
-
-@implementation SendTabToSelfMediator
 
 - (instancetype)
     initWithAuthenticationService:(AuthenticationService*)authenticationService
@@ -36,14 +35,15 @@
 }
 
 - (void)dealloc {
-  CHECK(!_authenticationService, base::NotFatalUntil::M150);
-  CHECK(!_identityManagerObserver, base::NotFatalUntil::M150);
+  CHECK(!_authenticationService);
+  CHECK(!_identityManagerObserver);
 }
 
 #pragma mark - Public
 
 - (void)disconnect {
   _authenticationService = nullptr;
+  _identityManager = nullptr;
   _identityManagerObserver.reset();
 }
 

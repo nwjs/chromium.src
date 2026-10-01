@@ -5,6 +5,7 @@
 #include "ash/accelerators/accelerator_controller_impl.h"
 #include "ash/constants/ash_features.h"
 #include "ash/constants/ash_pref_names.h"
+#include "ash/constants/chrome_switches.h"
 #include "ash/shell.h"
 #include "ash/style/system_dialog_delegate_view.h"
 #include "ash/test/ash_test_util.h"
@@ -25,19 +26,19 @@
 #include "chrome/browser/ash/app_restore/app_restore_test_util.h"
 #include "chrome/browser/ash/app_restore/full_restore_app_launch_handler.h"
 #include "chrome/browser/ash/app_restore/full_restore_service.h"
-#include "chrome/browser/ash/browser_delegate/browser_controller.h"
-#include "chrome/browser/ash/browser_delegate/browser_delegate.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/ui/ash/system_web_apps/system_web_app_ui_utils.h"
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/webui/ash/settings/pref_names.h"
-#include "chrome/common/chrome_switches.h"
 #include "chrome/test/base/ash/util/ash_test_util.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
+#include "chromeos/ash/components/browser_delegate/browser_controller.h"
+#include "chromeos/ash/components/browser_delegate/browser_delegate.h"
 #include "chromeos/ash/components/system_web_apps/system_web_app_type.h"
 #include "components/prefs/pref_service.h"
 #include "content/public/test/browser_test.h"
@@ -679,7 +680,7 @@ class InformedRestoreOnboardingTest : public InformedRestoreTest {
 
     // Onboarding dialog is gated by this switch so it doesn't affect other
     // browser tests.
-    command_line->RemoveSwitch(::switches::kNoFirstRun);
+    command_line->RemoveSwitch(ash::chrome_switches::kNoFirstRun);
   }
 };
 

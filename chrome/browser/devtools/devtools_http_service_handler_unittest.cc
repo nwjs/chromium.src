@@ -4,7 +4,8 @@
 
 #include "chrome/browser/devtools/devtools_http_service_handler.h"
 
-#include "base/memory/ptr_util.h"
+#include <memory>
+
 #include "base/test/bind.h"
 #include "base/test/test_future.h"
 #include "chrome/browser/devtools/devtools_dispatch_http_request_params.h"
@@ -42,7 +43,7 @@ class DevToolsHttpServiceHandlerTest : public testing::Test {
         CreateProfileForIdentityTestEnvironment();
     identity_test_env_adaptor_ =
         std::make_unique<IdentityTestEnvironmentProfileAdaptor>(profile_.get());
-    mock_handler_ = base::WrapUnique(new TestServiceHandler());
+    mock_handler_ = std::make_unique<TestServiceHandler>();
 
     params_.service = "unknownService";
     params_.path = "/path";

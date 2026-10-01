@@ -34,6 +34,7 @@
 #include "partition_alloc/partition_oom.h"
 #include "partition_alloc/partition_page.h"
 #include "partition_alloc/reservation_offset_table.h"
+#include "partition_alloc/slot_address_and_size.h"
 #include "partition_alloc/slot_start.h"
 #include "partition_alloc/spinning_mutex.h"
 #include "partition_alloc/tagging.h"
@@ -1120,8 +1121,8 @@ void PartitionRoot::Init(PartitionOptions opts) {
 
     // We mark the sentinel slot span as free to make sure it is skipped by our
     // logic to find a new active slot span.
-    PA_UNSAFE_TODO(memset(&sentinel_bucket_, 0, sizeof(sentinel_bucket_)));
-    sentinel_bucket_.active_slot_spans_head =
+    buckets_[kSentinelBucketIndex] = {};
+    buckets_[kSentinelBucketIndex].active_slot_spans_head =
         internal::SlotSpanMetadata::get_sentinel_slot_span_non_const();
 
     // This is a "magic" value so we can test if a root pointer is valid.
@@ -1131,7 +1132,7 @@ void PartitionRoot::Init(PartitionOptions opts) {
     for (size_t bucket_index = 0; bucket_index < BucketIndexLookup::kNumBuckets;
          ++bucket_index) {
       const size_t slot_size = BucketIndexLookup::GetBucketSize(bucket_index);
-      PA_UNSAFE_TODO(buckets_[bucket_index]).Init(slot_size);
+      buckets_[bucket_index].Init(slot_size);
     }
 
 #if !PA_CONFIG(THREAD_CACHE_SUPPORTED)
@@ -1465,7 +1466,7 @@ bool PartitionRoot::TryReallocInPlaceForNormalBuckets(
 // malloc() et al., but it doesn't have to. crbug.com/1292646 shows an example
 // where this isn't the case. Note, an inner object pointer won't work for
 // direct map, unless it is within the first partition page.
-size_t PartitionRoot::GetUsableSize(const void* ptr) {
+size_t PartitionRoot::GetExternalUsableSize(const void* ptr) {
   // malloc_usable_size() is expected to handle NULL gracefully and return 0.
   if (!ptr) {
     return 0;
@@ -1474,7 +1475,29 @@ size_t PartitionRoot::GetUsableSize(const void* ptr) {
       internal::GetMetadataOffsetFromAddr(internal::ObjectInnerPtr2Addr(ptr));
   auto* slot_span = SlotSpanMetadata::FromObjectInnerPtr(ptr, offset);
   auto* root = FromSlotSpanMetadata(slot_span);
-  return root->GetSlotUsableSize(slot_span);
+  size_t usable = root->GetSlotUsableSize(slot_span);
+#if PA_BUILDFLAG(CHECKED_SPAN_HAS_METADATA_SUPPORT)
+  if (root->brp_enabled()) [[likely]] {
+    const uintptr_t address = UntagPtr(ptr);
+    const auto reservation_info = internal::ReservationOffsetTable::Get(
+                                      internal::pool_handle::kBRPPoolHandle)
+                                      .GetAddressInfo(address);
+    const auto slot_address_and_size =
+        partition_alloc::SlotAddressAndSize::From(
+            address, internal::pool_handle::kBRPPoolHandle, reservation_info,
+            offset);
+    const internal::InSlotMetadata* in_slot_metadata =
+        internal::InSlotMetadata::From(slot_address_and_size);
+    if (in_slot_metadata->IsSmuggledSizeAvailable()) {
+      // By convention, we do not set the bit for spans that store their
+      // raw size; Checked Span instead acts
+      // directly on the raw size.
+      PA_DCHECK(!slot_span->CanStoreRawSize());
+      usable -= sizeof(internal::CheckedSpanSmuggledRequestedSize);
+    }
+  }
+#endif  // PA_BUILDFLAG(CHECKED_SPAN_HAS_METADATA_SUPPORT)
+  return usable;
 }
 
 // Return the capacity of the underlying slot (adjusted for extras) that'd be
@@ -1488,7 +1511,7 @@ size_t PartitionRoot::AllocationCapacityFromRequestedSize(size_t size) const {
 #else
   PA_DCHECK(PartitionRoot::initialized_);
   size = AdjustSizeForExtrasAdd(size);
-  auto& bucket = bucket_at(SizeToBucketIndex(size, GetBucketDistribution()));
+  auto& bucket = buckets_[SizeToBucketIndex(size, GetBucketDistribution())];
   PA_DCHECK(!bucket.slot_size || bucket.slot_size >= size);
   PA_DCHECK(!(bucket.slot_size % internal::kAlignment));
 
@@ -1655,7 +1678,6 @@ void PartitionRoot::DumpStats(const char* partition_name,
   {
     ::partition_alloc::internal::ScopedGuard guard{
         internal::PartitionRootLock(this)};
-    PA_DCHECK(total_size_of_allocated_bytes_ <= max_size_of_allocated_bytes_);
 
     stats.total_mmapped_bytes =
         total_size_of_super_pages_.load(std::memory_order_relaxed) +
@@ -1681,7 +1703,7 @@ void PartitionRoot::DumpStats(const char* partition_name,
 
     size_t direct_mapped_allocations_total_size = 0;
     for (size_t i = 0; i < BucketIndexLookup::kNumBuckets; ++i) {
-      const Bucket* bucket = &bucket_at(i);
+      const Bucket* bucket = &buckets_[i];
       // Don't report the pseudo buckets_ that the generic allocator sets up in
       // order to preserve a fast size->bucket map (see
       // PartitionRoot::Init() for details).
@@ -2081,7 +2103,8 @@ PA_NOINLINE PA_MALLOC_FN void* PartitionRoot::Alloc(size_t requested_size,
                                                     const char* type_name) {
   static_assert(!ContainsFlags(flags, AllocFlags::kAlignedAlloc));
   return AllocInternal<flags>(requested_size, internal::PartitionPageSize(),
-                              type_name);
+                              type_name)
+      .object;
 }
 
 template <AllocFlags alloc_flags, FreeFlags free_flags>
@@ -2139,11 +2162,6 @@ PA_NOINLINE void PartitionRoot::FreeInUnknownRoot(
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Winvalid-offsetof"
 #endif
-static_assert(offsetof(PartitionRoot, sentinel_bucket_) ==
-                  offsetof(PartitionRoot, buckets_) +
-                      BucketIndexLookup::kNumBuckets *
-                          sizeof(PartitionRoot::Bucket),
-              "sentinel_bucket_ must be just after the regular buckets_.");
 
 static_assert(
     offsetof(PartitionRoot, lock_) >= internal::kPartitionCachelineSize,

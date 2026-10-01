@@ -42,7 +42,7 @@ class TestImageBacking : public SharedImageBacking {
   gfx::Rect ClearedRect() const override;
   void SetClearedRect(const gfx::Rect& cleared_rect) override;
   void SetPurgeable(bool purgeable) override;
-  void Update(std::unique_ptr<gfx::GpuFence> in_fence) override {}
+  void Update(gfx::GpuFenceHandle in_fence) override {}
   bool UploadFromMemory(const std::vector<SkPixmap>& pixmap) override;
   bool ReadbackToMemory(const std::vector<SkPixmap>& pixmaps) override;
 
@@ -93,6 +93,10 @@ class TestImageBacking : public SharedImageBacking {
   std::unique_ptr<OverlayImageRepresentation> ProduceOverlay(
       SharedImageManager* manager,
       MemoryTypeTracker* tracker) override;
+  std::unique_ptr<VideoImageRepresentation> ProduceVideo(
+      SharedImageManager* manager,
+      MemoryTypeTracker* tracker,
+      VideoDevice device) override;
 
  private:
   std::vector<raw_ptr<gles2::Texture>> textures_;
@@ -134,6 +138,28 @@ class TestOverlayImageRepresentation : public OverlayImageRepresentation {
  private:
   bool IsInUseByWindowServer() const override;
 #endif  // BUILDFLAG(IS_APPLE)
+};
+
+class TestVideoImageRepresentation : public VideoImageRepresentation {
+ public:
+  TestVideoImageRepresentation(SharedImageManager* manager,
+                               SharedImageBacking* backing,
+                               MemoryTypeTracker* tracker)
+      : VideoImageRepresentation(manager, backing, tracker) {}
+
+ private:
+  bool BeginWriteAccess() override;
+  void EndWriteAccess() override;
+  bool BeginReadAccess() override;
+  void EndReadAccess() override;
+
+#if BUILDFLAG(IS_WIN)
+  D3D11TextureAndArrayIndex GetD3D11Texture() const override;
+#endif
+
+#if BUILDFLAG(IS_ANDROID)
+  AHardwareBuffer* GetAHardwareBuffer() const override;
+#endif
 };
 
 }  // namespace gpu

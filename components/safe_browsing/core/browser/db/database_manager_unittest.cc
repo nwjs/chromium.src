@@ -12,6 +12,7 @@
 #include "base/base64.h"
 #include "base/location.h"
 #include "base/memory/ref_counted.h"
+#include "base/memory/scoped_refptr.h"
 #include "base/run_loop.h"
 #include "base/strings/string_view_util.h"
 #include "base/synchronization/waitable_event.h"
@@ -19,10 +20,10 @@
 #include "base/test/bind.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/task_environment.h"
+#include "components/safe_browsing/core/browser/db/sb_test_util.h"
 #include "components/safe_browsing/core/browser/db/test_database_manager.h"
 #include "components/safe_browsing/core/browser/db/v4_get_hash_protocol_manager.h"
 #include "components/safe_browsing/core/browser/db/v4_protocol_manager_util.h"
-#include "components/safe_browsing/core/browser/db/v4_test_util.h"
 #include "components/safe_browsing/core/browser/db/v5_get_hash_protocol_manager.h"
 #include "components/safe_browsing/core/browser/db/v5_search_hashes_cache.h"
 #include "components/safe_browsing/core/common/features.h"
@@ -88,10 +89,10 @@ class SafeBrowsingDatabaseManagerTest : public testing::Test {
         base::MakeRefCounted<network::WeakWrapperSharedURLLoaderFactory>(
             &test_url_loader_factory_);
 
-    db_manager_ = new TestSafeBrowsingDatabaseManager(
+    db_manager_ = base::MakeRefCounted<TestSafeBrowsingDatabaseManager>(
         base::SequencedTaskRunner::GetCurrentDefault());
     db_manager_->StartOnUIThread(test_shared_loader_factory_,
-                                 GetTestV4ProtocolConfig());
+                                 GetTestSBProtocolConfig());
   }
 
   void TearDown() override {
@@ -134,7 +135,7 @@ class SafeBrowsingDatabaseManagerTest : public testing::Test {
     v5_cache_ =
         std::make_unique<V5SearchHashesCache>(/*history_service=*/nullptr);
     v5_manager_ = std::make_unique<V5GetHashProtocolManager>(
-        test_shared_loader_factory_, GetTestV4ProtocolConfig(),
+        test_shared_loader_factory_, GetTestSBProtocolConfig(),
         v5_cache_.get());
     client.SetV5GetHashProtocolManager(v5_manager_->GetWeakPtr());
   }

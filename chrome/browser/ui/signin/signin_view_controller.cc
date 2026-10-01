@@ -30,6 +30,7 @@
 #include "chrome/browser/ui/signin/signin_modal_dialog.h"
 #include "chrome/browser/ui/signin/signin_modal_dialog_impl.h"
 #include "chrome/browser/ui/signin/signin_view_controller_delegate.h"
+#include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/browser/ui/tabs/tab_strip_user_gesture_details.h"
 #include "chrome/browser/ui/webui/signin/signin_url_utils.h"
 #include "chrome/browser/ui/webui/signin/signin_utils.h"
@@ -48,11 +49,14 @@
 #include "components/supervised_user/core/common/features.h"
 #include "components/sync/base/data_type_histogram.h"
 #include "components/sync/base/features.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/web_contents.h"
 #include "extensions/buildflags/buildflags.h"
 #include "google_apis/gaia/core_account_id.h"
 #include "google_apis/gaia/gaia_id.h"
+#include "ui/base/page_transition_types.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/views/bubble/bubble_dialog_delegate_view.h"
 #include "ui/views/widget/widget.h"
 #include "ui/views/widget/widget_observer.h"
@@ -298,8 +302,8 @@ void HandleSignoutConfirmationChoice(
       if (!accounts_in_cookies.AreAccountsFresh() ||
           !accounts_in_cookies.GetPotentiallyInvalidSignedInAccounts()
                .empty()) {
-        browser->GetFeatures().signin_view_controller()->ShowGaiaLogoutTab(
-            token_signout_source);
+        SigninViewController::From(browser.get())
+            ->ShowGaiaLogoutTab(token_signout_source);
       }
 
       // In Uno, Gaia logout tab invalidating the account will lead to a sign
@@ -375,10 +379,19 @@ DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(SigninViewController,
 
 DEFINE_CLASS_ELEMENT_IDENTIFIER_VALUE(SigninViewController, kSigninErrorViewId);
 
+DEFINE_USER_DATA(SigninViewController);
+
+// static
+SigninViewController* SigninViewController::From(
+    BrowserWindowInterface* browser) {
+  return Get(browser->GetUnownedUserDataHost());
+}
+
 SigninViewController::SigninViewController(BrowserWindowInterface* browser,
                                            Profile* profile,
                                            TabStripModel* tab_strip_model)
-    : browser_(CHECK_DEREF(browser)),
+    : scoped_unowned_user_data_(browser->GetUnownedUserDataHost(), *this),
+      browser_(CHECK_DEREF(browser)),
       profile_(CHECK_DEREF(profile)),
       tab_strip_model_(CHECK_DEREF(tab_strip_model)) {}
 
@@ -553,10 +566,11 @@ void SigninViewController::ShowModalSigninEmailConfirmationDialog(
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
 void SigninViewController::ShowCrossDeviceSigninQrBubble(
+    GURL qr_code_url,
     base::OnceClosure closing_callback) {
   CloseBubbleSignin();
   auto delegate = ::CreateCrossDeviceSigninQrBubble(
-      &*browser_, std::move(closing_callback));
+      &*browser_, std::move(qr_code_url), std::move(closing_callback));
   bubble_widget_ = views::BubbleDialogDelegate::CreateBubble(
       delegate.release(),
       base::BindOnce(&SigninViewController::OnBubbleClosed, AsWeakPtr()));
@@ -968,6 +982,7 @@ void SigninViewController::ShowChromeSigninDialogForExtensions(
       .AddCancelButton(base::DoNothing(),
                        ui::DialogModel::Button::Params().SetLabel(
                            l10n_util::GetStringUTF16(IDS_CANCEL)))
+      .SetEnableInputProtection(true)
       .SetDialogDestroyingCallback(std::move(on_complete));
 
   chrome::ShowTabModal(dialog_builder.Build(), contents);

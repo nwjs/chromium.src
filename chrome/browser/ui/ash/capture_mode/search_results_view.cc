@@ -14,6 +14,7 @@
 #include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "content/public/browser/web_contents.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
+#include "ui/base/page_transition_types.h"
 #include "ui/base/window_open_disposition.h"
 
 namespace ash {
@@ -104,11 +105,9 @@ bool SearchResultsView::IsWebContentsCreationOverridden(
             if (self) {
               self->OpenURLFromTab(
                   self->web_contents(),
-                  content::OpenURLParams(
-                      url, content::Referrer(),
-                      WindowOpenDisposition::NEW_FOREGROUND_TAB,
-                      ui::PAGE_TRANSITION_LINK,
-                      /*is_renderer_initiated=*/false),
+                  content::OpenURLParams::CreateBrowserInitiated(
+                      url, WindowOpenDisposition::NEW_FOREGROUND_TAB,
+                      ui::PAGE_TRANSITION_LINK),
                   /*navigation_handle_callback=*/{});
             }
           },

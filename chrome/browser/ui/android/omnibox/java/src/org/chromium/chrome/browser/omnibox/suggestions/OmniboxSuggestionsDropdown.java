@@ -185,7 +185,7 @@ public class OmniboxSuggestionsDropdown extends RecyclerView {
         /* package */ int updateKeyboardVisibilityAndScroll(
                 int resultingDeltaY, int requestedDeltaY) {
             // Change keyboard visibility only once per gesture.
-            // This helps in situations where the user interacts with the horizontal caoursel (e.g.
+            // This helps in situations where the user interacts with the horizontal carousel (e.g.
             // the Most Visited Sites), where a horizontal finger swipe could result in a series of
             // keyboard show/hide events.
             if (mCurrentGestureAffectedKeyboardState) return resultingDeltaY;
@@ -317,8 +317,8 @@ public class OmniboxSuggestionsDropdown extends RecyclerView {
                     runsOnExpectedThread);
             mHandler = new Handler(Looper.getMainLooper());
 
-            setFocusable(true);
-            setFocusableInTouchMode(true);
+            setFocusable(/* focusable= */ true);
+            setFocusableInTouchMode(/* focusable= */ true);
             setId(R.id.omnibox_suggestions_dropdown);
 
             // By default RecyclerViews come with item animators.
@@ -339,7 +339,7 @@ public class OmniboxSuggestionsDropdown extends RecyclerView {
 
             // Disable the scrollbar since it causes the hover events happening near the
             // scrollbar not dispatched to the underlying views.
-            setVerticalScrollBarEnabled(false);
+            setVerticalScrollBarEnabled(/* verticalScrollBarEnabled= */ false);
 
             mViewHolderFactory = new OmniboxViewHolderFactory();
             if (OmniboxFeatures.sAsyncViewInflation.isEnabled()) {
@@ -523,7 +523,7 @@ public class OmniboxSuggestionsDropdown extends RecyclerView {
         child.setAlpha(1.0f);
     }
 
-    /** Resests the tracked keyboard shown state to properly respond to scroll events. */
+    /** Resets the tracked keyboard shown state to properly respond to scroll events. */
     void resetScrollState() {
         mLayoutScrollListener.resetScrollState();
     }

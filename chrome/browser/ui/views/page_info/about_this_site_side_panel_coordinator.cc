@@ -23,18 +23,19 @@
 #include "content/public/browser/web_contents_observer.h"
 #include "net/base/url_util.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
+#include "ui/base/page_transition_types.h"
+#include "ui/base/window_open_disposition.h"
 
 constexpr char kStaticLoadingScreenURL[] =
     "https://www.gstatic.com/diner/chrome/atp_loading.html";
 
 namespace {
 content::OpenURLParams CreateOpenUrlParams(const GURL& url) {
-  return content::OpenURLParams(
+  return content::OpenURLParams::CreateBrowserInitiated(
       net::AppendOrReplaceQueryParameter(
           url, page_info::AboutThisSiteRenderModeParameterName,
           page_info::AboutThisSiteRenderModeParameterValue),
-      content::Referrer(), WindowOpenDisposition::NEW_FOREGROUND_TAB,
-      ui::PAGE_TRANSITION_LINK, /*is_renderer_initiated=*/false);
+      WindowOpenDisposition::NEW_FOREGROUND_TAB, ui::PAGE_TRANSITION_LINK);
 }
 }  // namespace
 
@@ -186,7 +187,7 @@ SidePanelUI* AboutThisSideSidePanelCoordinator::GetSidePanelUI() {
   BrowserWindowInterface* browser =
       GlobalBrowserCollection::GetInstance()->FindBrowserWithTab(
           web_contents());
-  return browser ? browser->GetFeatures().side_panel_ui() : nullptr;
+  return browser ? SidePanelUI::From(browser) : nullptr;
 }
 
 GURL AboutThisSideSidePanelCoordinator::GetOpenInNewTabUrl() {

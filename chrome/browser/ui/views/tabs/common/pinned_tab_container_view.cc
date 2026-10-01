@@ -15,6 +15,7 @@
 #include "chrome/browser/ui/views/tabs/common/tab_drag_handler.h"
 #include "chrome/browser/ui/views/tabs/common/tab_strip_collection_controller.h"
 #include "chrome/browser/ui/views/tabs/common/tab_view.h"
+#include "content/public/browser/navigation_controller.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/views/controls/scroll_view.h"
@@ -331,9 +332,8 @@ const TabCollectionNode* PinnedTabContainerView::GetCollectionNodeFromView(
 views::ProposedLayout PinnedTabContainerView::CalculateHorizontalLayout(
     const views::SizeBounds& size_bounds) const {
   views::ProposedLayout layouts;
-  const std::vector<views::View*> children =
-      collection_node_ ? collection_node_->GetDirectChildren()
-                       : std::vector<views::View*>();
+  const auto children = collection_node_ ? collection_node_->GetDirectChildren()
+                                         : TabCollectionNode::ChildViews();
 
   const int tab_overlap = TabStyle::Get()->GetTabOverlap();
   int x = 0;
@@ -374,9 +374,8 @@ views::ProposedLayout PinnedTabContainerView::CalculateHorizontalLayout(
 views::ProposedLayout PinnedTabContainerView::CalculateVerticalLayout(
     const views::SizeBounds& size_bounds) const {
   views::ProposedLayout layouts;
-  const std::vector<views::View*> children =
-      collection_node_ ? collection_node_->GetDirectChildren()
-                       : std::vector<views::View*>();
+  const auto children = collection_node_ ? collection_node_->GetDirectChildren()
+                                         : TabCollectionNode::ChildViews();
 
   int total_width = 0;
   int total_height = 0;

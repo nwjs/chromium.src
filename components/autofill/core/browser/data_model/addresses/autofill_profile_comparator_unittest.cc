@@ -27,6 +27,7 @@
 #include "components/autofill/core/common/autofill_clock.h"
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/signin/public/identity_manager/account_info.h"
+#include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
 namespace autofill {
@@ -117,114 +118,86 @@ class AutofillProfileComparatorTest : public testing::Test {
   void MergeEmailAddressesAndExpect(const AutofillProfile& a,
                                     const AutofillProfile& b,
                                     const EmailInfo& expected) {
-    EmailInfo actual;
-    const AutofillProfile::ProfileMergeResult expected_result =
-        b.GetRawInfo(EMAIL_ADDRESS) == expected.GetRawInfo(EMAIL_ADDRESS)
-            ? AutofillProfile::ProfileMergeResult::
-                  kMergeSucceededWithoutModification
-            : AutofillProfile::ProfileMergeResult::
-                  kMergeSucceededWithModification;
-    EXPECT_EQ(comparator_.MergeEmailAddresses(a, b, actual), expected_result);
+    std::optional<EmailInfo> actual = comparator_.MergeEmailAddresses(a, b);
+    ASSERT_TRUE(actual.has_value());
     EXPECT_EQ(expected.GetRawInfo(EMAIL_ADDRESS),
-              actual.GetRawInfo(EMAIL_ADDRESS));
+              actual->GetRawInfo(EMAIL_ADDRESS));
   }
 
   void MergeCompanyNamesAndExpect(const AutofillProfile& a,
                                   const AutofillProfile& b,
                                   const CompanyInfo& expected) {
-    CompanyInfo actual;
-    const AutofillProfile::ProfileMergeResult expected_result =
-        b.GetRawInfo(COMPANY_NAME) == expected.GetRawInfo(COMPANY_NAME)
-            ? AutofillProfile::ProfileMergeResult::
-                  kMergeSucceededWithoutModification
-            : AutofillProfile::ProfileMergeResult::
-                  kMergeSucceededWithModification;
-    EXPECT_EQ(comparator_.MergeCompanyNames(a, b, actual), expected_result);
+    std::optional<CompanyInfo> actual = comparator_.MergeCompanyNames(a, b);
+    ASSERT_TRUE(actual.has_value());
     EXPECT_EQ(expected.GetRawInfo(COMPANY_NAME),
-              actual.GetRawInfo(COMPANY_NAME));
+              actual->GetRawInfo(COMPANY_NAME));
   }
 
-  void MergePhoneNumbersAndExpect(const AutofillProfile& a,
-                                  const AutofillProfile& b,
+  void MergePhoneNumbersAndExpect(const AutofillProfile& new_profile,
+                                  const AutofillProfile& old_profile,
                                   const std::u16string& expected_str) {
-    AutofillProfile profile(kLegacyHierarchyCountryCode);
+    PhoneNumber expected(&old_profile);
+    expected.SetRawInfo(PHONE_HOME_WHOLE_NUMBER, expected_str);
 
     // Merge the phone numbers.
-    PhoneNumber actual(&profile);
-    const AutofillProfile::ProfileMergeResult expected_result =
-        b.GetRawInfo(PHONE_HOME_WHOLE_NUMBER) == expected_str
-            ? AutofillProfile::ProfileMergeResult::
-                  kMergeSucceededWithoutModification
-            : AutofillProfile::ProfileMergeResult::
-                  kMergeSucceededWithModification;
-    EXPECT_EQ(comparator_.MergePhoneNumbers(a, b, actual), expected_result);
-
-    // Construct the expected value.
-    PhoneNumber expected(&profile);
-    expected.SetRawInfo(PHONE_HOME_WHOLE_NUMBER, expected_str);
+    std::optional<PhoneNumber> actual =
+        comparator_.MergePhoneNumbers(new_profile, old_profile);
+    ASSERT_TRUE(actual.has_value());
 
     // Validate that we get what we expect.
     EXPECT_EQ(expected.GetRawInfo(PHONE_HOME_WHOLE_NUMBER),
-              actual.GetRawInfo(PHONE_HOME_WHOLE_NUMBER));
+              actual->GetRawInfo(PHONE_HOME_WHOLE_NUMBER));
     EXPECT_EQ(expected.GetInfo(PHONE_HOME_WHOLE_NUMBER, kLocale),
-              actual.GetInfo(PHONE_HOME_WHOLE_NUMBER, kLocale));
+              actual->GetInfo(PHONE_HOME_WHOLE_NUMBER, kLocale));
     EXPECT_EQ(expected.GetInfo(PHONE_HOME_COUNTRY_CODE, kLocale),
-              actual.GetInfo(PHONE_HOME_COUNTRY_CODE, kLocale));
+              actual->GetInfo(PHONE_HOME_COUNTRY_CODE, kLocale));
     EXPECT_EQ(expected.GetInfo(PHONE_HOME_CITY_AND_NUMBER, kLocale),
-              actual.GetInfo(PHONE_HOME_CITY_AND_NUMBER, kLocale));
+              actual->GetInfo(PHONE_HOME_CITY_AND_NUMBER, kLocale));
     EXPECT_EQ(expected.GetInfo(PHONE_HOME_CITY_CODE, kLocale),
-              actual.GetInfo(PHONE_HOME_CITY_CODE, kLocale));
+              actual->GetInfo(PHONE_HOME_CITY_CODE, kLocale));
     EXPECT_EQ(expected.GetInfo(PHONE_HOME_NUMBER, kLocale),
-              actual.GetInfo(PHONE_HOME_NUMBER, kLocale));
+              actual->GetInfo(PHONE_HOME_NUMBER, kLocale));
   }
 
   void MergeAddressesAndExpect(const AutofillProfile& a,
                                const AutofillProfile& b,
                                const Address& expected,
                                bool check_structured_address_tokens = false) {
-    Address actual(kLegacyHierarchyCountryCode);
-    const AutofillProfile::ProfileMergeResult merge_result =
-        comparator_.MergeAddresses(a, b, actual);
-    ASSERT_NE(merge_result, AutofillProfile::ProfileMergeResult::kMergeFailed);
-    const AutofillProfile::ProfileMergeResult expected_result =
-        actual == b.GetAddress() ? AutofillProfile::ProfileMergeResult::
-                                       kMergeSucceededWithoutModification
-                                 : AutofillProfile::ProfileMergeResult::
-                                       kMergeSucceededWithModification;
-    EXPECT_EQ(merge_result, expected_result);
+    std::optional<Address> actual = comparator_.MergeAddresses(a, b);
+    ASSERT_TRUE(actual.has_value());
 
     EXPECT_EQ(expected.GetInfo(ADDRESS_HOME_LINE1, kLocale),
-              actual.GetInfo(ADDRESS_HOME_LINE1, kLocale));
+              actual->GetInfo(ADDRESS_HOME_LINE1, kLocale));
     EXPECT_EQ(expected.GetInfo(ADDRESS_HOME_LINE2, kLocale),
-              actual.GetInfo(ADDRESS_HOME_LINE2, kLocale));
+              actual->GetInfo(ADDRESS_HOME_LINE2, kLocale));
     EXPECT_EQ(expected.GetInfo(ADDRESS_HOME_LINE3, kLocale),
-              actual.GetInfo(ADDRESS_HOME_LINE3, kLocale));
+              actual->GetInfo(ADDRESS_HOME_LINE3, kLocale));
     EXPECT_EQ(expected.GetInfo(ADDRESS_HOME_STREET_ADDRESS, kLocale),
-              actual.GetInfo(ADDRESS_HOME_STREET_ADDRESS, kLocale));
+              actual->GetInfo(ADDRESS_HOME_STREET_ADDRESS, kLocale));
     EXPECT_EQ(expected.GetInfo(ADDRESS_HOME_DEPENDENT_LOCALITY, kLocale),
-              actual.GetInfo(ADDRESS_HOME_DEPENDENT_LOCALITY, kLocale));
+              actual->GetInfo(ADDRESS_HOME_DEPENDENT_LOCALITY, kLocale));
     EXPECT_EQ(expected.GetInfo(ADDRESS_HOME_SORTING_CODE, kLocale),
-              actual.GetInfo(ADDRESS_HOME_SORTING_CODE, kLocale));
+              actual->GetInfo(ADDRESS_HOME_SORTING_CODE, kLocale));
     EXPECT_EQ(expected.GetInfo(ADDRESS_HOME_CITY, kLocale),
-              actual.GetInfo(ADDRESS_HOME_CITY, kLocale));
+              actual->GetInfo(ADDRESS_HOME_CITY, kLocale));
     EXPECT_EQ(expected.GetInfo(ADDRESS_HOME_STATE, kLocale),
-              actual.GetInfo(ADDRESS_HOME_STATE, kLocale));
+              actual->GetInfo(ADDRESS_HOME_STATE, kLocale));
     EXPECT_EQ(expected.GetInfo(ADDRESS_HOME_ZIP, kLocale),
-              actual.GetInfo(ADDRESS_HOME_ZIP, kLocale));
+              actual->GetInfo(ADDRESS_HOME_ZIP, kLocale));
     EXPECT_EQ(expected.GetInfo(ADDRESS_HOME_COUNTRY, kLocale),
-              actual.GetInfo(ADDRESS_HOME_COUNTRY, kLocale));
+              actual->GetInfo(ADDRESS_HOME_COUNTRY, kLocale));
 
     if (check_structured_address_tokens) {
       EXPECT_EQ(expected.GetInfo(ADDRESS_HOME_STREET_NAME, kLocale),
-                actual.GetInfo(ADDRESS_HOME_STREET_NAME, kLocale));
+                actual->GetInfo(ADDRESS_HOME_STREET_NAME, kLocale));
       EXPECT_EQ(expected.GetInfo(ADDRESS_HOME_HOUSE_NUMBER, kLocale),
-                actual.GetInfo(ADDRESS_HOME_HOUSE_NUMBER, kLocale));
+                actual->GetInfo(ADDRESS_HOME_HOUSE_NUMBER, kLocale));
       EXPECT_EQ(expected.GetInfo(ADDRESS_HOME_SUBPREMISE, kLocale),
-                actual.GetInfo(ADDRESS_HOME_SUBPREMISE, kLocale));
+                actual->GetInfo(ADDRESS_HOME_SUBPREMISE, kLocale));
       EXPECT_EQ(expected.GetInfo(ADDRESS_HOME_LANDMARK, kLocale),
-                actual.GetInfo(ADDRESS_HOME_LANDMARK, kLocale));
+                actual->GetInfo(ADDRESS_HOME_LANDMARK, kLocale));
       EXPECT_EQ(expected.GetInfo(ADDRESS_HOME_BETWEEN_STREETS, kLocale),
-                actual.GetInfo(ADDRESS_HOME_BETWEEN_STREETS, kLocale));
+                actual->GetInfo(ADDRESS_HOME_BETWEEN_STREETS, kLocale));
     }
   }
 
@@ -342,26 +315,17 @@ TEST_F(AutofillProfileComparatorTest, MergePhoneNumbers_Mergeability) {
   AutofillProfile p2 = CreateProfileWithPhoneNumber("6708700");
   AutofillProfile different = CreateProfileWithPhoneNumber("1-800-321-4567");
 
-  PhoneNumber phone(&p1);
-  EXPECT_NE(comparator_.MergePhoneNumbers(p1, p1, phone),
-            AutofillProfile::ProfileMergeResult::kMergeFailed);
-  EXPECT_NE(comparator_.MergePhoneNumbers(p1, p2, phone),
-            AutofillProfile::ProfileMergeResult::kMergeFailed);
+  EXPECT_TRUE(comparator_.MergePhoneNumbers(p1, p1).has_value());
+  EXPECT_TRUE(comparator_.MergePhoneNumbers(p1, p2).has_value());
 
-  EXPECT_NE(comparator_.MergePhoneNumbers(p2, p1, phone),
-            AutofillProfile::ProfileMergeResult::kMergeFailed);
-  EXPECT_NE(comparator_.MergePhoneNumbers(p2, p2, phone),
-            AutofillProfile::ProfileMergeResult::kMergeFailed);
+  EXPECT_TRUE(comparator_.MergePhoneNumbers(p2, p1).has_value());
+  EXPECT_TRUE(comparator_.MergePhoneNumbers(p2, p2).has_value());
 
-  EXPECT_NE(comparator_.MergePhoneNumbers(p1, empty, phone),
-            AutofillProfile::ProfileMergeResult::kMergeFailed);
-  EXPECT_NE(comparator_.MergePhoneNumbers(empty, p2, phone),
-            AutofillProfile::ProfileMergeResult::kMergeFailed);
+  EXPECT_TRUE(comparator_.MergePhoneNumbers(p1, empty).has_value());
+  EXPECT_TRUE(comparator_.MergePhoneNumbers(empty, p2).has_value());
 
-  EXPECT_EQ(comparator_.MergePhoneNumbers(p1, different, phone),
-            AutofillProfile::ProfileMergeResult::kMergeFailed);
-  EXPECT_EQ(comparator_.MergePhoneNumbers(different, p1, phone),
-            AutofillProfile::ProfileMergeResult::kMergeFailed);
+  EXPECT_FALSE(comparator_.MergePhoneNumbers(p1, different).has_value());
+  EXPECT_FALSE(comparator_.MergePhoneNumbers(different, p1).has_value());
 }
 
 // Tests that merging a phone number with an explicit '+' country code and a
@@ -376,8 +340,7 @@ TEST_F(AutofillProfileComparatorTest,
   profile_b.SetInfo(ADDRESS_HOME_COUNTRY, u"US", kLocale);
 
   PhoneNumber merged_number(&profile_b);
-  EXPECT_EQ(comparator_.MergePhoneNumbers(profile_a, profile_b, merged_number),
-            AutofillProfile::ProfileMergeResult::kMergeFailed);
+  EXPECT_FALSE(comparator_.MergePhoneNumbers(profile_a, profile_b).has_value());
 }
 
 // Tests that MergeAddresses correctly identifies mergeable and
@@ -420,57 +383,33 @@ TEST_F(AutofillProfileComparatorTest, MergeAddresses_Mergeability) {
 
   AutofillProfile name_email_profile{AccountInfo{}};
 
-  Address address(AddressCountryCode("ZA"));
-
   // A profile with no country uses the legacy address and can be merged with
   // other profiles using the same hierarchy.
-  EXPECT_EQ(
-      comparator_.MergeAddresses(p1, empty, address),
-      AutofillProfile::ProfileMergeResult::kMergeSucceededWithModification);
-  EXPECT_EQ(
-      comparator_.MergeAddresses(empty, p2, address),
-      AutofillProfile::ProfileMergeResult::kMergeSucceededWithoutModification);
+  EXPECT_TRUE(comparator_.MergeAddresses(p1, empty).has_value());
+  EXPECT_TRUE(comparator_.MergeAddresses(empty, p2).has_value());
 
-  EXPECT_EQ(
-      comparator_.MergeAddresses(p1, p3, address),
-      AutofillProfile::ProfileMergeResult::kMergeSucceededWithModification);
-  EXPECT_EQ(
-      comparator_.MergeAddresses(p3, p1, address),
-      AutofillProfile::ProfileMergeResult::kMergeSucceededWithModification);
+  EXPECT_TRUE(comparator_.MergeAddresses(p1, p3).has_value());
+  EXPECT_TRUE(comparator_.MergeAddresses(p3, p1).has_value());
 
   // |p2| matches neither |p1| nor |p3| because we can't resolve the mismatched
   // city/suburb names.
-  EXPECT_EQ(comparator_.MergeAddresses(p1, p2, address),
-            AutofillProfile::ProfileMergeResult::kMergeFailed);
-  EXPECT_EQ(comparator_.MergeAddresses(p2, p1, address),
-            AutofillProfile::ProfileMergeResult::kMergeFailed);
-  EXPECT_EQ(comparator_.MergeAddresses(p2, p3, address),
-            AutofillProfile::ProfileMergeResult::kMergeFailed);
-  EXPECT_EQ(comparator_.MergeAddresses(p3, p2, address),
-            AutofillProfile::ProfileMergeResult::kMergeFailed);
+  EXPECT_FALSE(comparator_.MergeAddresses(p1, p2).has_value());
+  EXPECT_FALSE(comparator_.MergeAddresses(p2, p1).has_value());
+  EXPECT_FALSE(comparator_.MergeAddresses(p2, p3).has_value());
+  EXPECT_FALSE(comparator_.MergeAddresses(p3, p2).has_value());
 
   // Changing things about |p1| causes its copies to stop being mergeable.
-  EXPECT_EQ(comparator_.MergeAddresses(p1, different_country, address),
-            AutofillProfile::ProfileMergeResult::kMergeFailed);
-  EXPECT_EQ(comparator_.MergeAddresses(p1, different_zip, address),
-            AutofillProfile::ProfileMergeResult::kMergeFailed);
-  EXPECT_EQ(comparator_.MergeAddresses(p1, different_state, address),
-            AutofillProfile::ProfileMergeResult::kMergeFailed);
-  EXPECT_EQ(comparator_.MergeAddresses(p1, different_city, address),
-            AutofillProfile::ProfileMergeResult::kMergeFailed);
-  EXPECT_EQ(comparator_.MergeAddresses(p1, different_address, address),
-            AutofillProfile::ProfileMergeResult::kMergeFailed);
-  EXPECT_EQ(comparator_.MergeAddresses(p1, different_locality, address),
-            AutofillProfile::ProfileMergeResult::kMergeFailed);
-  EXPECT_EQ(comparator_.MergeAddresses(p1, different_sortingCode, address),
-            AutofillProfile::ProfileMergeResult::kMergeFailed);
+  EXPECT_FALSE(comparator_.MergeAddresses(p1, different_country).has_value());
+  EXPECT_FALSE(comparator_.MergeAddresses(p1, different_zip).has_value());
+  EXPECT_FALSE(comparator_.MergeAddresses(p1, different_state).has_value());
+  EXPECT_FALSE(comparator_.MergeAddresses(p1, different_city).has_value());
+  EXPECT_FALSE(comparator_.MergeAddresses(p1, different_address).has_value());
+  EXPECT_FALSE(comparator_.MergeAddresses(p1, different_locality).has_value());
+  EXPECT_FALSE(
+      comparator_.MergeAddresses(p1, different_sortingCode).has_value());
 
-  EXPECT_EQ(
-      comparator_.MergeAddresses(name_email_profile, p1, address),
-      AutofillProfile::ProfileMergeResult::kMergeSucceededWithoutModification);
-  EXPECT_EQ(
-      comparator_.MergeAddresses(p1, name_email_profile, address),
-      AutofillProfile::ProfileMergeResult::kMergeSucceededWithModification);
+  EXPECT_TRUE(comparator_.MergeAddresses(name_email_profile, p1).has_value());
+  EXPECT_TRUE(comparator_.MergeAddresses(p1, name_email_profile).has_value());
 }
 
 // Tests that individual profile components are merged correctly and that
@@ -518,33 +457,18 @@ TEST_F(AutofillProfileComparatorTest, MergeComponents) {
   // Note, all other profiles are already finalized.
   p.FinalizeAfterImport();
 
-  EmailInfo email;
-  CompanyInfo company;
-  PhoneNumber phone(&p);
-  Address address(p.GetAddressCountryCode());
-
-  EXPECT_NE(comparator_.MergeEmailAddresses(p, p, email),
-            AutofillProfile::ProfileMergeResult::kMergeFailed);
-  EXPECT_NE(comparator_.MergeCompanyNames(p, p, company),
-            AutofillProfile::ProfileMergeResult::kMergeFailed);
-  EXPECT_NE(comparator_.MergePhoneNumbers(p, p, phone),
-            AutofillProfile::ProfileMergeResult::kMergeFailed);
-  EXPECT_EQ(
-      comparator_.MergeAddresses(p, p, address),
-      AutofillProfile::ProfileMergeResult::kMergeSucceededWithoutModification);
+  EXPECT_TRUE(comparator_.MergeEmailAddresses(p, p).has_value());
+  EXPECT_TRUE(comparator_.MergeCompanyNames(p, p).has_value());
+  EXPECT_TRUE(comparator_.MergePhoneNumbers(p, p).has_value());
+  EXPECT_TRUE(comparator_.MergeAddresses(p, p).has_value());
   EXPECT_TRUE(
       NameInfo::AreNamesMergeable(p.GetNameInfo(), p.GetAddressCountryCode(),
                                   p.GetNameInfo(), p.GetAddressCountryCode()));
 
-  EXPECT_NE(comparator_.MergeEmailAddresses(p, mergeable, email),
-            AutofillProfile::ProfileMergeResult::kMergeFailed);
-  EXPECT_NE(comparator_.MergeCompanyNames(p, mergeable, company),
-            AutofillProfile::ProfileMergeResult::kMergeFailed);
-  EXPECT_NE(comparator_.MergePhoneNumbers(p, mergeable, phone),
-            AutofillProfile::ProfileMergeResult::kMergeFailed);
-  EXPECT_EQ(
-      comparator_.MergeAddresses(p, mergeable, address),
-      AutofillProfile::ProfileMergeResult::kMergeSucceededWithModification);
+  EXPECT_TRUE(comparator_.MergeEmailAddresses(p, mergeable).has_value());
+  EXPECT_TRUE(comparator_.MergeCompanyNames(p, mergeable).has_value());
+  EXPECT_TRUE(comparator_.MergePhoneNumbers(p, mergeable).has_value());
+  EXPECT_TRUE(comparator_.MergeAddresses(p, mergeable).has_value());
   EXPECT_TRUE(NameInfo::AreNamesMergeable(
       p.GetNameInfo(), p.GetAddressCountryCode(), mergeable.GetNameInfo(),
       mergeable.GetAddressCountryCode()));
@@ -553,17 +477,15 @@ TEST_F(AutofillProfileComparatorTest, MergeComponents) {
       p.GetNameInfo(), p.GetAddressCountryCode(),
       not_mergeable_by_name.GetNameInfo(),
       not_mergeable_by_name.GetAddressCountryCode()));
-  EXPECT_EQ(
-      comparator_.MergeEmailAddresses(p, not_mergeable_by_email_address, email),
-      AutofillProfile::ProfileMergeResult::kMergeFailed);
-  EXPECT_EQ(
-      comparator_.MergeCompanyNames(p, not_mergeable_by_company_name, company),
-      AutofillProfile::ProfileMergeResult::kMergeFailed);
-  EXPECT_EQ(comparator_.MergeAddresses(p, not_mergeable_by_address, address),
-            AutofillProfile::ProfileMergeResult::kMergeFailed);
-  EXPECT_EQ(
-      comparator_.MergePhoneNumbers(p, not_mergeable_by_phone_number, phone),
-      AutofillProfile::ProfileMergeResult::kMergeFailed);
+  EXPECT_FALSE(
+      comparator_.MergeEmailAddresses(p, not_mergeable_by_email_address)
+          .has_value());
+  EXPECT_FALSE(comparator_.MergeCompanyNames(p, not_mergeable_by_company_name)
+                   .has_value());
+  EXPECT_FALSE(
+      comparator_.MergeAddresses(p, not_mergeable_by_address).has_value());
+  EXPECT_FALSE(comparator_.MergePhoneNumbers(p, not_mergeable_by_phone_number)
+                   .has_value());
 }
 
 // Tests that addresses containing empty-value placeholders (e.g. "n/a", "NULL")
@@ -590,19 +512,12 @@ TEST_F(AutofillProfileComparatorTest, MergeAddresses_EmptyValuePlaceholders) {
   AutofillProfile p4 =
       CopyAndModify(p1, {{ADDRESS_HOME_LINE1, u"Main str 123, NULL"}});
 
-  Address address(AddressCountryCode("US"));
   // State "CA" vs "n/a" -> mergeable.
-  EXPECT_EQ(
-      comparator_.MergeAddresses(p1, p2, address),
-      AutofillProfile::ProfileMergeResult::kMergeSucceededWithModification);
+  EXPECT_TRUE(comparator_.MergeAddresses(p1, p2).has_value());
   // Zip "12345" vs "not applicable" -> mergeable.
-  EXPECT_EQ(
-      comparator_.MergeAddresses(p1, p3, address),
-      AutofillProfile::ProfileMergeResult::kMergeSucceededWithModification);
+  EXPECT_TRUE(comparator_.MergeAddresses(p1, p3).has_value());
   // Address line "Main str 123, apt 10" vs "Main str 123, NULL" -> mergeable.
-  EXPECT_EQ(
-      comparator_.MergeAddresses(p1, p4, address),
-      AutofillProfile::ProfileMergeResult::kMergeSucceededWithModification);
+  EXPECT_TRUE(comparator_.MergeAddresses(p1, p4).has_value());
 }
 
 // Tests that email addresses are merged correctly (by recency, non-empty, and
@@ -634,11 +549,10 @@ TEST_F(AutofillProfileComparatorTest, MergeEmailAddresses) {
   MergeEmailAddressesAndExpect(empty, profile_a, email_a);
 
   AutofillProfile different = CreateProfileWithEmail("not@the-same.com");
-  EmailInfo email;
-  EXPECT_EQ(comparator_.MergeEmailAddresses(profile_a, different, email),
-            AutofillProfile::ProfileMergeResult::kMergeFailed);
-  EXPECT_EQ(comparator_.MergeEmailAddresses(different, profile_a, email),
-            AutofillProfile::ProfileMergeResult::kMergeFailed);
+  EXPECT_FALSE(
+      comparator_.MergeEmailAddresses(profile_a, different).has_value());
+  EXPECT_FALSE(
+      comparator_.MergeEmailAddresses(different, profile_a).has_value());
 }
 
 // Tests that company names are merged correctly.
@@ -688,11 +602,8 @@ TEST_F(AutofillProfileComparatorTest, MergeCompanyNames) {
   MergeCompanyNamesAndExpect(empty, profile_a, company_a);
 
   AutofillProfile different = CreateProfileWithCompanyName("Other Corp");
-  CompanyInfo company;
-  EXPECT_EQ(comparator_.MergeCompanyNames(profile_a, different, company),
-            AutofillProfile::ProfileMergeResult::kMergeFailed);
-  EXPECT_EQ(comparator_.MergeCompanyNames(different, profile_a, company),
-            AutofillProfile::ProfileMergeResult::kMergeFailed);
+  EXPECT_FALSE(comparator_.MergeCompanyNames(profile_a, different).has_value());
+  EXPECT_FALSE(comparator_.MergeCompanyNames(different, profile_a).has_value());
 }
 
 TEST_F(AutofillProfileComparatorTest, MergePhoneNumbers_NA) {
@@ -955,26 +866,13 @@ TEST_F(AutofillProfileComparatorTest, CheckStatesMergability) {
   AutofillProfile p4 =
       CreateProfileWithAddress("", "", "", "AlternateRandomState", "", "DE");
 
-  Address address(AddressCountryCode("DE"));
-  EXPECT_EQ(
-      comparator_.MergeAddresses(empty, empty, address),
-      AutofillProfile::ProfileMergeResult::kMergeSucceededWithoutModification);
-  EXPECT_EQ(
-      comparator_.MergeAddresses(p1, empty, address),
-      AutofillProfile::ProfileMergeResult::kMergeSucceededWithModification);
-  EXPECT_EQ(
-      comparator_.MergeAddresses(p1, p1, address),
-      AutofillProfile::ProfileMergeResult::kMergeSucceededWithoutModification);
-  EXPECT_EQ(comparator_.MergeAddresses(p1, p2, address),
-            AutofillProfile::ProfileMergeResult::kMergeFailed);
-  EXPECT_EQ(
-      comparator_.MergeAddresses(p3, p1, address),
-      AutofillProfile::ProfileMergeResult::kMergeSucceededWithoutModification);
-  EXPECT_EQ(
-      comparator_.MergeAddresses(p1, p4, address),
-      AutofillProfile::ProfileMergeResult::kMergeSucceededWithModification);
-  EXPECT_EQ(comparator_.MergeAddresses(p2, p4, address),
-            AutofillProfile::ProfileMergeResult::kMergeFailed);
+  EXPECT_TRUE(comparator_.MergeAddresses(empty, empty).has_value());
+  EXPECT_TRUE(comparator_.MergeAddresses(p1, empty).has_value());
+  EXPECT_TRUE(comparator_.MergeAddresses(p1, p1).has_value());
+  EXPECT_FALSE(comparator_.MergeAddresses(p1, p2).has_value());
+  EXPECT_TRUE(comparator_.MergeAddresses(p3, p1).has_value());
+  EXPECT_TRUE(comparator_.MergeAddresses(p1, p4).has_value());
+  EXPECT_FALSE(comparator_.MergeAddresses(p2, p4).has_value());
 }
 
 // Tests if determining if two profiles have at least one different settings

@@ -10,7 +10,9 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/time/time.h"
 #include "base/trace_event/trace_event.h"
-#include "chrome/browser/glic/host/webui_contents_container.h"
+#include "chrome/browser/glic/host/glic_no_webview_contents_manager.h"
+#include "chrome/browser/glic/host/glic_web_contents_manager.h"
+#include "chrome/browser/glic/host/glic_webui_contents_manager.h"
 #include "chrome/browser/glic/public/features.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/chrome_features.h"
@@ -67,14 +69,13 @@ class GlicWebContentsWarmingPool::Metrics {
   }
 
   GlicWebContentsWarmingPool::WarmingPoolStatus RecordTakeContainerStatus(
-      const std::unique_ptr<WebUIContentsContainer>& warmed_container,
+      const std::unique_ptr<GlicWebContentsManager>& warmed_container,
       bool is_warming_allowed_by_memory_pressure) {
     WarmingPoolStatus status = WarmingPoolStatus::kCold;
     if (warmed_container) {
-      status = warmed_container->web_contents()->IsCrashed()
+      status = warmed_container->ShouldReloadOnShow()
                    ? WarmingPoolStatus::kCrashed
                    : WarmingPoolStatus::kHit;
-      warmed_container_creation_time_ = warmed_container->creation_time();
       if (status == WarmingPoolStatus::kHit) {
         RecordWarmedContainerFate(WarmedContainerFate::kUsed);
       }
@@ -94,7 +95,7 @@ class GlicWebContentsWarmingPool::Metrics {
   }
 
   void RecordClearWarmedContainer(
-      const std::unique_ptr<WebUIContentsContainer>& warmed_container,
+      const std::unique_ptr<GlicWebContentsManager>& warmed_container,
       ClearReason reason) {
     if (!warmed_container) {
       return;
@@ -149,7 +150,7 @@ GlicWebContentsWarmingPool::~GlicWebContentsWarmingPool() {
   Shutdown();
 }
 
-std::unique_ptr<WebUIContentsContainer>
+std::unique_ptr<GlicWebContentsManager>
 GlicWebContentsWarmingPool::TakeContainer() {
   metrics_->RecordTakeContainerStatus(warmed_container_,
                                       IsWarmingAllowedByMemoryPressure());
@@ -157,7 +158,7 @@ GlicWebContentsWarmingPool::TakeContainer() {
   is_active_ = true;
 
   EnsurePreload(ContainerCreationReason::kUserTriggeredColdStart);
-  std::unique_ptr<WebUIContentsContainer> result = std::move(warmed_container_);
+  std::unique_ptr<GlicWebContentsManager> result = std::move(warmed_container_);
   warmed_container_ = nullptr;
   expiry_timer_.Stop();
 
@@ -186,13 +187,16 @@ void GlicWebContentsWarmingPool::OnProfileWillBeDestroyed(Profile* profile) {
   Shutdown();
 }
 
-std::unique_ptr<WebUIContentsContainer>
+std::unique_ptr<GlicWebContentsManager>
 GlicWebContentsWarmingPool::CreateContainer() {
   TRACE_EVENT("glic", "GlicWebContentsWarmingPool::CreateContainer");
   bool initially_hidden =
       base::FeatureList::IsEnabled(features::kGlicContentsInitiallyHidden);
-  return std::make_unique<WebUIContentsContainerImpl>(profile_,
-                                                      initially_hidden);
+  if (features::IsGlicNoWebviewEnabled()) {
+    return std::make_unique<GlicNoWebviewContentsManager>(profile_,
+                                                          initially_hidden);
+  }
+  return std::make_unique<GlicWebUIContentsManager>(profile_, initially_hidden);
 }
 
 void GlicWebContentsWarmingPool::Clear(ClearReason reason) {
@@ -241,7 +245,7 @@ void GlicWebContentsWarmingPool::EnsurePreload(ContainerCreationReason reason) {
   CHECK(IsWarmingAllowedByMemoryPressure() ||
         reason == ContainerCreationReason::kUserTriggeredColdStart);
   delay_timer_.Stop();
-  if (warmed_container_ && warmed_container_->web_contents()->IsCrashed()) {
+  if (warmed_container_ && warmed_container_->ShouldReloadOnShow()) {
     metrics_->RecordWarmedContainerFate(Metrics::WarmedContainerFate::kCrashed);
     warmed_container_ = nullptr;
   }
@@ -307,13 +311,13 @@ bool GlicWebContentsWarmingPool::HasWarmedContainerForTesting() const {
   return !!warmed_container_;
 }
 
-WebUIContentsContainer*
+GlicWebContentsManager*
 GlicWebContentsWarmingPool::GetWarmedContainerForTesting() const {
   return warmed_container_.get();
 }
 
 content::WebContents* GlicWebContentsWarmingPool::GetWarmedWebContents() const {
-  return warmed_container_ ? warmed_container_->web_contents() : nullptr;
+  return warmed_container_ ? warmed_container_->active_web_contents() : nullptr;
 }
 
 }  // namespace glic

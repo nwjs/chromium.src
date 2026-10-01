@@ -9,9 +9,11 @@
 #include <utility>
 
 #include "base/files/file_path.h"
+#include "base/sequence_checker.h"
+#include "base/trace_event/named_trigger.h"
+#include "components/tracing/common/background_tracing_utils.h"
 #include "content/browser/tracing/background_tracing_agent_client_impl.h"
 #include "content/common/child_process.mojom.h"
-#include "content/public/browser/background_tracing.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/content_browser_client.h"
 #include "content/public/browser/tracing_delegate.h"
@@ -57,25 +59,27 @@ void BackgroundTracingManagerImpl::ActivateForProcess(
 }
 
 BackgroundTracingManagerImpl::BackgroundTracingManagerImpl(
-    TracingDelegate* delegate)
-    : delegate_(delegate), state_manager_(delegate_->CreateStateManager()) {
+    std::unique_ptr<TracingDelegate> delegate)
+    : delegate_(std::move(delegate)) {
+  CHECK(delegate_);
   g_background_tracing_manager_impl = this;
   TracingAgentObserverManager::SetInstance(this);
   preferences_ = std::make_unique<PreferenceManagerImpl>();
+  state_manager_ = delegate_->CreateStateManager();
 }
 
 BackgroundTracingManagerImpl::~BackgroundTracingManagerImpl() {
-  DCHECK_EQ(this, g_background_tracing_manager_impl);
+  CHECK_EQ(this, g_background_tracing_manager_impl, base::NotFatalUntil::M159);
   g_background_tracing_manager_impl = nullptr;
   DisableScenarios();
   TracingAgentObserverManager::SetInstance(nullptr);
 }
 
 bool BackgroundTracingManagerImpl::IsRecordingAllowed(
-    bool privacy_filter_enabled,
+    bool is_local_scenario,
     base::TimeTicks scenario_start_time) {
-  return delegate_->IsRecordingAllowed(privacy_filter_enabled,
-                                       scenario_start_time);
+  return delegate_->IsRecordingAllowed(
+      TracingDelegate::IsLocalScenario(is_local_scenario), scenario_start_time);
 }
 
 bool BackgroundTracingManagerImpl::ShouldSaveUnuploadedTrace() {
@@ -125,7 +129,7 @@ BackgroundTracingManagerImpl::GetAllScenarios() const {
 
 void BackgroundTracingManagerImpl::AddAgent(
     tracing::mojom::BackgroundTracingAgent* agent) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   agents_.insert(agent);
 
   for (AgentObserver* observer : agent_observers_) {
@@ -135,7 +139,7 @@ void BackgroundTracingManagerImpl::AddAgent(
 
 void BackgroundTracingManagerImpl::RemoveAgent(
     tracing::mojom::BackgroundTracingAgent* agent) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   for (AgentObserver* observer : agent_observers_) {
     observer->OnAgentRemoved(agent);
   }
@@ -145,7 +149,7 @@ void BackgroundTracingManagerImpl::RemoveAgent(
 
 void BackgroundTracingManagerImpl::AddAgentObserver(
     tracing::TracingAgentObserverManager::AgentObserver* observer) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   agent_observers_.insert(observer);
 
   MaybeConstructPendingAgents();
@@ -157,7 +161,7 @@ void BackgroundTracingManagerImpl::AddAgentObserver(
 
 void BackgroundTracingManagerImpl::RemoveAgentObserver(
     tracing::TracingAgentObserverManager::AgentObserver* observer) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   agent_observers_.erase(observer);
 
   for (tracing::mojom::BackgroundTracingAgent* agent : agents_) {
@@ -170,7 +174,7 @@ void BackgroundTracingManagerImpl::AddPendingAgent(
     int child_process_id,
     mojo::PendingRemote<tracing::mojom::BackgroundTracingAgentProvider>
         pending_provider) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  DCHECK_CALLED_ON_VALID_SEQUENCE(GetInstance().sequence_checker_);
   // Delay agent initialization until we have an interested AgentObserver.
   // We set disconnect handler for cleanup when the tracing target is closed.
   mojo::Remote<tracing::mojom::BackgroundTracingAgentProvider> provider(
@@ -185,12 +189,12 @@ void BackgroundTracingManagerImpl::AddPendingAgent(
 
 // static
 void BackgroundTracingManagerImpl::ClearPendingAgent(int child_process_id) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  DCHECK_CALLED_ON_VALID_SEQUENCE(GetInstance().sequence_checker_);
   GetInstance().pending_agents_.erase(child_process_id);
 }
 
 void BackgroundTracingManagerImpl::MaybeConstructPendingAgents() {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
   if (agent_observers_.empty() && enabled_scenarios_.empty()) {
     return;
@@ -204,9 +208,17 @@ void BackgroundTracingManagerImpl::MaybeConstructPendingAgents() {
   pending_agents_.clear();
 }
 
-std::unique_ptr<tracing::BackgroundTracingManager>
-CreateBackgroundTracingManager(TracingDelegate* delegate) {
-  return std::make_unique<BackgroundTracingManagerImpl>(delegate);
+std::unique_ptr<BackgroundTracingManagerImpl>
+CreateBackgroundTracingManagerAndInitializeScenarios() {
+  auto manager = std::make_unique<BackgroundTracingManagerImpl>(
+      GetContentClient()->browser()->CreateTracingDelegate());
+  tracing::SetupFieldTracingFromFieldTrial();
+  tracing::SetupSystemTracingFromFieldTrial();
+  tracing::SetupBackgroundTracingFromCommandLine();
+  tracing::SetupPresetTracingFromFieldTrial();
+  base::trace_event::EmitNamedTrigger(
+      base::trace_event::kStartupTracingTriggerName);
+  return manager;
 }
 
 }  // namespace content

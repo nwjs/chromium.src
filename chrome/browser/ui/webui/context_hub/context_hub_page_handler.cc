@@ -8,6 +8,7 @@
 
 #include "base/check.h"
 #include "base/containers/flat_map.h"
+#include "base/containers/to_vector.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/strings/utf_string_conversions.h"
@@ -18,6 +19,7 @@
 #include "chrome/browser/context_hub/context_hub_service_factory.h"
 #include "chrome/browser/context_hub/memory_bank/memory_bank_entry.h"
 #include "chrome/browser/profiles/profile.h"
+#include "components/sessions/core/session_id.h"
 #include "content/public/browser/web_contents.h"
 #include "url/gurl.h"
 
@@ -58,16 +60,7 @@ ContextHubPageHandler::~ContextHubPageHandler() = default;
 
 void ContextHubPageHandler::OnAutoTodosChanged(
     base::span<const context_hub::AutoTodoEntry> entries) {
-  std::vector<context_hub::AutoTodoEntry> visible_entries;
-  for (const auto& entry : entries) {
-    // TODO(crbug.com/540562062): Consider showing dismissed todos in a separate
-    // section.
-    if (entry.status == context_hub::AutoTodoEntry::Status::kDismissed) {
-      continue;
-    }
-    visible_entries.push_back(entry);
-  }
-  page_->OnAutoTodosChanged(std::move(visible_entries));
+  page_->OnAutoTodosChanged(base::ToVector(entries));
 }
 
 void ContextHubPageHandler::OnFirstPartyAutoTodosGenerationStateChanged(
@@ -96,38 +89,35 @@ void ContextHubPageHandler::GetAutoTodos(GetAutoTodosCallback callback) {
   context_hub::ContextHubService* service =
       ContextHubServiceFactory::GetForProfile(profile_);
   if (!service) {
-    std::move(callback).Run({}, {}, base::Time(), base::Time());
+    std::move(callback).Run({}, {}, context_hub::AutoTodosGenerationMetadata(),
+                            context_hub::AutoTodosGenerationMetadata());
     return;
   }
 
-  base::Time last_first_party_generation_time =
-      service->GetLastFirstPartyGenerationTime();
-  base::Time last_third_party_generation_time =
-      service->GetLastThirdPartyGenerationTime();
+  context_hub::AutoTodosGenerationMetadata first_party_metadata =
+      service->GetFirstPartyGenerationMetadata();
+  context_hub::AutoTodosGenerationMetadata third_party_metadata =
+      service->GetThirdPartyGenerationMetadata();
 
   service->GetAutoTodos(base::BindOnce(
       [](GetAutoTodosCallback callback,
-         base::Time last_first_party_generation_time,
-         base::Time last_third_party_generation_time,
+         context_hub::AutoTodosGenerationMetadata first_party_metadata,
+         context_hub::AutoTodosGenerationMetadata third_party_metadata,
          std::vector<context_hub::AutoTodoEntry> entries) {
         std::vector<context_hub::AutoTodoEntry> first_party_todos;
         std::vector<context_hub::AutoTodoEntry> third_party_todos;
         for (auto& entry : entries) {
-          if (entry.status == context_hub::AutoTodoEntry::Status::kDismissed) {
-            continue;
-          }
           if (entry.is_first_party()) {
             first_party_todos.push_back(std::move(entry));
           } else if (entry.is_third_party()) {
             third_party_todos.push_back(std::move(entry));
           }
         }
-        std::move(callback).Run(
-            std::move(first_party_todos), std::move(third_party_todos),
-            last_first_party_generation_time, last_third_party_generation_time);
+        std::move(callback).Run(std::move(first_party_todos),
+                                std::move(third_party_todos),
+                                first_party_metadata, third_party_metadata);
       },
-      std::move(callback), last_first_party_generation_time,
-      last_third_party_generation_time));
+      std::move(callback), first_party_metadata, third_party_metadata));
 }
 
 void ContextHubPageHandler::UpdateAutoTodo(
@@ -325,6 +315,23 @@ void ContextHubPageHandler::GetAllMemoryBankCollections(
   }
 
   service->GetAllMemoryBankCollections(std::move(callback));
+}
+
+void ContextHubPageHandler::UpdateMemoryBankEntryAnnotations(
+    int64_t id,
+    browser::context_hub::mojom::MemoryBankEntryAnnotationsPtr annotations,
+    UpdateMemoryBankEntryAnnotationsCallback callback) {
+  auto* service = ContextHubServiceFactory::GetForProfile(profile_);
+  if (!service || !annotations) {
+    std::move(callback).Run(/*success=*/false);
+    return;
+  }
+
+  std::vector<std::string> tags =
+      std::move(annotations->tags).value_or(std::vector<std::string>{});
+  service->UpdateMemoryBankEntryAnnotations(
+      id, std::move(tags), std::move(annotations->note),
+      std::move(annotations->collection), std::move(callback));
 }
 
 namespace {
@@ -576,6 +583,29 @@ void ContextHubPageHandler::AskGeminiWithContext(
           std::move(callback)));
 }
 
+void ContextHubPageHandler::GetMemoryBankChatHistory(
+    GetMemoryBankChatHistoryCallback callback) {
+  context_hub::ContextHubService* service =
+      ContextHubServiceFactory::GetForProfile(profile_);
+  if (!service) {
+    std::move(callback).Run({});
+    return;
+  }
+
+  std::move(callback).Run(
+      ToMojoChatHistory(service->GetMemoryBankChatHistory()));
+}
+
+void ContextHubPageHandler::ClearMemoryBankChatHistory(
+    ClearMemoryBankChatHistoryCallback callback) {
+  context_hub::ContextHubService* service =
+      ContextHubServiceFactory::GetForProfile(profile_);
+  if (service) {
+    service->ClearMemoryBankChatHistory();
+  }
+  std::move(callback).Run();
+}
+
 void ContextHubPageHandler::ConfirmAllTabGroups(
     ConfirmAllTabGroupsCallback callback) {
   context_hub::ContextHubService* service =
@@ -685,4 +715,17 @@ void ContextHubPageHandler::RemoveAllConfirmedTabGroups(
 
   service->RemoveAllConfirmedTabGroups();
   std::move(callback).Run();
+}
+
+void ContextHubPageHandler::ExecuteSmartSearch(
+    const std::string& query,
+    ExecuteSmartSearchCallback callback) {
+  context_hub::ContextHubService* service =
+      ContextHubServiceFactory::GetForProfile(profile_);
+  if (!service) {
+    std::move(callback).Run({});
+    return;
+  }
+
+  service->ExecuteSmartSearch(query, std::move(callback));
 }

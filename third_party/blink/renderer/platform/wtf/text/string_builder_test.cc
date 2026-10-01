@@ -251,7 +251,7 @@ TEST(StringBuilderTest, ExtendSharedViewCharByChar) {
   String source("abcdefghij");
   StringBuilder builder;
   builder.Append(StringView(source, 0, 1));  // "a"
-  for (unsigned i = 1; i < source.length(); ++i) {
+  for (wtf_size_t i = 1; i < source.length(); ++i) {
     builder.Append(static_cast<LChar>(source[i]));
   }
   EXPECT_EQ(source, builder.ToString());
@@ -438,7 +438,7 @@ TEST(StringBuilderTest, ReleaseString) {
   EXPECT_EQ(string2.Impl()->RefCountChangeCountForTesting(), 1u);
   String string3 = builder.ToString();
   EXPECT_EQ(string3.Impl()->RefCountChangeCountForTesting(), 2u);
-  unsigned refcount = string2.Impl()->RefCountChangeCountForTesting();
+  wtf_size_t refcount = string2.Impl()->RefCountChangeCountForTesting();
 #endif
 
   // StringImpl of the copied and released string should match
@@ -705,6 +705,45 @@ TEST(StringBuilderTest, DoesAppendCauseOverflow) {
     EXPECT_FALSE(builder.DoesAppendCauseOverflow(kStringMaxUCharLength));
     EXPECT_TRUE(builder.DoesAppendCauseOverflow(kStringMaxUCharLength + 1));
     EXPECT_TRUE(builder.DoesAppendCauseOverflow(kOneGiB));
+  }
+}
+
+TEST(StringBuilderTest, AppendRange) {
+  Vector<StringView> str_vector{"1", "2", "3"};
+  {
+    StringBuilder builder;
+    builder.AppendRange(str_vector, ", ");
+    EXPECT_EQ("1, 2, 3", builder.ReleaseString());
+  }
+  Vector<int> int_vector{1, 2, 3};
+  {
+    StringBuilder builder;
+    builder.AppendRange(int_vector, ";", [](const auto& val, StringBuilder& b) {
+      b.AppendNumber(val * 10);
+    });
+    EXPECT_EQ("10;20;30", builder.ReleaseString());
+  }
+  Vector<int> empty_vector;
+  {
+    StringBuilder builder;
+    builder.AppendRange(empty_vector, ", ",
+                        [](const auto&, StringBuilder& b) { b.Append("foo"); });
+    EXPECT_TRUE(builder.empty());
+  }
+}
+
+TEST(StringBuilderTest, Utf8) {
+  {
+    StringBuilder builder;
+    builder.Append("Hello, world!");
+    EXPECT_EQ("Hello, world!", builder.Utf8());
+  }
+  {
+    StringBuilder builder;
+    builder.Append(String(u"Hello, \u3053\u3093\u306b\u3061\u306f!"));
+    EXPECT_EQ(
+        "Hello, \xe3\x81\x93\xe3\x82\x93\xe3\x81\xab\xe3\x81\xa1\xe3\x81\xaf!",
+        builder.Utf8());
   }
 }
 

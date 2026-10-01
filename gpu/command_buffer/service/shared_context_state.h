@@ -52,10 +52,6 @@ class GLShareGroup;
 class GLSurface;
 }  // namespace gl
 
-namespace viz {
-class VulkanContextProvider;
-}  // namespace viz
-
 namespace skgpu::graphite {
 class PrecompileContext;
 class Recorder;
@@ -68,6 +64,7 @@ class GpuDriverBugWorkarounds;
 class GpuProcessShmCount;
 class ServiceTransferCache;
 class GraphiteSharedContext;
+class VulkanContextProvider;
 struct GpuFeatureInfo;
 
 namespace gles2 {
@@ -110,7 +107,7 @@ class GPU_GLES2_EXPORT SharedContextState
       bool use_virtualized_gl_contexts,
       ContextLostCallback context_lost_callback,
       GrContextType gr_context_type,
-      viz::VulkanContextProvider* vulkan_context_provider = nullptr,
+      VulkanContextProvider* vulkan_context_provider = nullptr,
       DawnContextProvider* dawn_context_provider = nullptr,
       scoped_refptr<gpu::MemoryTracker::Observer> peak_memory_monitor = nullptr,
       bool direct_rendering_display_compositor_enabled = false,
@@ -154,6 +151,27 @@ class GPU_GLES2_EXPORT SharedContextState
   bool SubmitIfNecessary(std::vector<GrBackendSemaphore> signal_semaphores,
                          bool need_graphite_submit);
 
+  // Sets the active SharedContextState for the calling thread using
+  // thread-local storage. This is typically set by the thread owner (such as
+  // GpuChannelManager on the GPU main thread, CompositorGpuThread on the
+  // compositor thread, or OutputSurfaceProviderWebView on WebView render
+  // thread) to allow downstream multi-threaded components (such as
+  // CompoundImageBacking fallback copies) to look up the active context on the
+  // current thread.
+  // Note that this and other methods below
+  // GetForCurrentThread()/ClearForCurrentThread() are currently not applicable
+  // to webview(hence OutputSurfaceProviderWebView) and should not be used for
+  // webview.
+  static void SetForCurrentThread(SharedContextState* state);
+
+  // Returns the active SharedContextState for the current thread, or nullptr
+  // if none is registered.
+  static SharedContextState* GetForCurrentThread();
+
+  // Clears the active SharedContextState for the current thread. Must be
+  // called before the registered SharedContextState is destroyed.
+  static void ClearForCurrentThread();
+
   // Returns true if context state is using GL, either for Skia to run on
   // or if there is no skia context and context state exists for WebGL fallback
   // only.
@@ -189,7 +207,7 @@ class GPU_GLES2_EXPORT SharedContextState
   gl::GLContext* real_context() const { return real_context_.get(); }
   gl::GLSurface* surface() const;
   gl::GLDisplay* display();  // non const since it calls GLSurface::GetGLDisplay
-  viz::VulkanContextProvider* vk_context_provider() const {
+  VulkanContextProvider* vk_context_provider() const {
     return vk_context_provider_;
   }
   DawnContextProvider* dawn_context_provider() const {
@@ -374,7 +392,7 @@ class GPU_GLES2_EXPORT SharedContextState
   scoped_refptr<MemoryTracker> memory_tracker_shared_context_state_;
   scoped_refptr<MemoryTracker> memory_tracker_;
   gpu::MemoryTypeTracker memory_type_tracker_;
-  const raw_ptr<viz::VulkanContextProvider> vk_context_provider_ = nullptr;
+  const raw_ptr<VulkanContextProvider> vk_context_provider_ = nullptr;
   const raw_ptr<DawnContextProvider> dawn_context_provider_ = nullptr;
   raw_ptr<const GrContextOptionsProvider> gr_context_options_provider_ =
       nullptr;

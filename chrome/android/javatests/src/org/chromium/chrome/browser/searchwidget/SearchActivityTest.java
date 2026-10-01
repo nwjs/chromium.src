@@ -271,11 +271,14 @@ public class SearchActivityTest {
                     return null;
                 },
                 url);
-        Assert.assertEquals(
-                1,
-                RecordHistogram.getHistogramValueCountForTesting(
-                        LaunchCauseMetrics.LAUNCH_CAUSE_HISTOGRAM,
-                        LaunchCauseMetrics.LaunchCause.HOME_SCREEN_WIDGET));
+        CriteriaHelper.pollInstrumentationThread(
+                () -> {
+                    Criteria.checkThat(
+                            RecordHistogram.getHistogramValueCountForTesting(
+                                    LaunchCauseMetrics.LAUNCH_CAUSE_HISTOGRAM,
+                                    LaunchCauseMetrics.LaunchCause.HOME_SCREEN_WIDGET),
+                            Matchers.is(1));
+                });
     }
 
     @Test

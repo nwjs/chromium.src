@@ -27,7 +27,6 @@
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/browser_window.h"
-#include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "chrome/browser/ui/extensions/extension_action_test_helper.h"
@@ -59,6 +58,7 @@
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/crx_file/id_util.h"
 #include "components/sessions/content/session_tab_helper.h"
+#include "components/sessions/core/session_id.h"
 #include "components/web_modal/web_contents_modal_dialog_manager.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
@@ -74,7 +74,9 @@
 #include "extensions/test/test_extension_dir.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
 #include "ui/actions/actions.h"
+#include "ui/base/page_transition_types.h"
 #include "ui/base/ui_base_features.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/gfx/image/image_unittest_util.h"
 #include "ui/shell_dialogs/select_file_dialog.h"
 #include "ui/shell_dialogs/select_file_dialog_factory.h"
@@ -322,11 +324,11 @@ class ExtensionSidePanelBrowserTest : public ExtensionBrowserTest {
   ExtensionSidePanelCoordinator* GetCoordinator(
       const ExtensionId& extension_id,
       content::WebContents* web_contents) {
-    auto* manager =
-        web_contents ? tabs::TabInterface::GetFromContents(web_contents)
-                           ->GetTabFeatures()
-                           ->extension_side_panel_manager()
-                     : browser()->GetFeatures().extension_side_panel_manager();
+    auto* manager = web_contents
+                        ? tabs::TabInterface::GetFromContents(web_contents)
+                              ->GetTabFeatures()
+                              ->extension_side_panel_manager()
+                        : ExtensionSidePanelManager::From(browser());
     return manager->GetExtensionCoordinatorForTesting(extension_id);
   }
 
@@ -359,9 +361,7 @@ class ExtensionSidePanelBrowserTest : public ExtensionBrowserTest {
         extension_coordinator->GetHostWebContentsForTesting(), script.c_str()));
   }
 
-  SidePanelUI* GetSidePanelUI() {
-    return browser()->GetFeatures().side_panel_ui();
-  }
+  SidePanelUI* GetSidePanelUI() { return SidePanelUI::From(browser()); }
 };
 
 // Test that only extensions with side panel content will have a SidePanelEntry
@@ -431,7 +431,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionSidePanelBrowserTest,
   SidePanelEntry* const extension_entry =
       global_registry->GetEntryForKey(extension_key);
   ASSERT_TRUE(extension_entry);
-  SidePanelUI* const side_panel_ui = browser()->GetFeatures().side_panel_ui();
+  SidePanelUI* const side_panel_ui = SidePanelUI::From(browser());
 
   // The key for the extension should be registered, but the side panel isn't
   // shown yet.
@@ -882,7 +882,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionSidePanelBrowserTest, SidePanelQuicklyClosed) {
   ASSERT_TRUE(extension);
   SidePanelEntry::Key extension_key = GetKey(extension->id());
 
-  SidePanelUI* const side_panel_ui = browser()->GetFeatures().side_panel_ui();
+  SidePanelUI* const side_panel_ui = SidePanelUI::From(browser());
   SidePanelEntry* entry =
       SidePanelRegistry::From(browser())->GetEntryForKey(extension_key);
   EXPECT_TRUE(entry);
@@ -967,7 +967,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionSidePanelBrowserTest, SetOptions_Enabled) {
     waiter.WaitForRegistration();
   }
 
-  SidePanelUI* const side_panel_ui = browser()->GetFeatures().side_panel_ui();
+  SidePanelUI* const side_panel_ui = SidePanelUI::From(browser());
   EXPECT_TRUE(global_registry->GetEntryForKey(extension_key));
   side_panel_ui->Show(extension_key);
 
@@ -1010,7 +1010,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionSidePanelBrowserTest, SetOptions_Path) {
   // path.
   RunSetOptions(*extension, /*tab_id=*/std::nullopt, "panel_1.html",
                 /*enabled=*/true);
-  SidePanelUI* const side_panel_ui = browser()->GetFeatures().side_panel_ui();
+  SidePanelUI* const side_panel_ui = SidePanelUI::From(browser());
   side_panel_ui->Show(extension_key);
   ASSERT_TRUE(panel_1_listener.WaitUntilSatisfied());
   EXPECT_FALSE(default_path_listener.was_satisfied());
@@ -1068,7 +1068,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionSidePanelBrowserTest, SetOptions_Url) {
   content::DOMMessageQueue message_queue;
   RunSetOptions(*extension, /*tab_id=*/std::nullopt, kPanelUrl.spec(),
                 /*enabled=*/true);
-  SidePanelUI* const side_panel_ui = browser()->GetFeatures().side_panel_ui();
+  SidePanelUI* const side_panel_ui = SidePanelUI::From(browser());
   side_panel_ui->Show(extension_key);
 
   // Note: We use DOMMessageQueue here because since this isn't an extension
@@ -1089,7 +1089,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionSidePanelBrowserTest, WindowCloseCalled) {
   ASSERT_TRUE(extension);
   SidePanelEntry::Key extension_key = GetKey(extension->id());
   SidePanelRegistry* const global_registry = SidePanelRegistry::From(browser());
-  SidePanelUI* const side_panel_ui = browser()->GetFeatures().side_panel_ui();
+  SidePanelUI* const side_panel_ui = SidePanelUI::From(browser());
   EXPECT_TRUE(global_registry->GetEntryForKey(extension_key));
 
   {
@@ -1163,7 +1163,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionSidePanelBrowserTest,
   waiter.WaitForRegistration();
 
   ExtensionTestMessageListener panel_2_listener("panel_2");
-  SidePanelUI* const side_panel_ui = browser()->GetFeatures().side_panel_ui();
+  SidePanelUI* const side_panel_ui = SidePanelUI::From(browser());
   side_panel_ui->Show(extension_key);
 
   // Wait until the view in the side panel is active by listening for the
@@ -1194,7 +1194,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionSidePanelBrowserTest,
   SidePanelEntry::Key extension_key = GetKey(extension->id());
   SidePanelRegistry* const global_registry = SidePanelRegistry::From(browser());
   EXPECT_TRUE(global_registry->GetEntryForKey(extension_key));
-  SidePanelUI* const side_panel_ui = browser()->GetFeatures().side_panel_ui();
+  SidePanelUI* const side_panel_ui = SidePanelUI::From(browser());
 
   {
     ExtensionTestMessageListener default_path_listener("default_path");
@@ -1230,7 +1230,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionSidePanelBrowserTest,
   scoped_refptr<const extensions::Extension> extension = LoadExtension(
       test_data_dir_.AppendASCII("api_test/side_panel/simple_default"));
   ASSERT_TRUE(extension);
-  SidePanelUI* const side_panel_ui = browser()->GetFeatures().side_panel_ui();
+  SidePanelUI* const side_panel_ui = SidePanelUI::From(browser());
   SidePanelRegistry* const global_registry = SidePanelRegistry::From(browser());
 
   // Global side panel is enabled by default.
@@ -1249,7 +1249,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionSidePanelBrowserTest,
   // Show the extension side panel. This should show the tab-scoped side panel.
   side_panel_ui->Show(extension_key);
   ASSERT_TRUE(base::test::RunUntil([&]() {
-    return browser()->GetFeatures().side_panel_ui()->IsSidePanelEntryShowing(
+    return SidePanelUI::From(browser())->IsSidePanelEntryShowing(
         extension_key,
         /*for_tab=*/true);
   }));
@@ -1290,7 +1290,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionSidePanelBrowserTest,
 
   int second_tab_id = GetCurrentTabId();
   browser()->GetTabStripModel()->ActivateTabAt(0);
-  SidePanelUI* const side_panel_ui = browser()->GetFeatures().side_panel_ui();
+  SidePanelUI* const side_panel_ui = SidePanelUI::From(browser());
   SidePanelRegistry* const global_registry = SidePanelRegistry::From(browser());
 
   scoped_refptr<const extensions::Extension> extension = LoadExtension(
@@ -1345,7 +1345,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionSidePanelBrowserTest,
   // Set a local variable's value to "GLOBAL" for the extension's global side
   // panel's WebContents.
   SidePanelEntry::Key extension_key = GetKey(extension->id());
-  SidePanelUI* const side_panel_ui = browser()->GetFeatures().side_panel_ui();
+  SidePanelUI* const side_panel_ui = SidePanelUI::From(browser());
 
   {
     ExtensionTestMessageListener default_path_listener("default_path");
@@ -1443,7 +1443,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionSidePanelBrowserTest,
       test_data_dir_.AppendASCII("api_test/side_panel/simple_default"));
   ASSERT_TRUE(extension);
   SidePanelEntry::Key extension_key = GetKey(extension->id());
-  SidePanelUI* const side_panel_ui = browser()->GetFeatures().side_panel_ui();
+  SidePanelUI* const side_panel_ui = SidePanelUI::From(browser());
   SidePanelRegistry* const global_registry = SidePanelRegistry::From(browser());
   EXPECT_TRUE(global_registry->GetEntryForKey(extension_key));
 
@@ -1502,7 +1502,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionSidePanelBrowserTest,
       ExtensionActionTestHelper::Create(browser());
 
   SidePanelEntry::Key extension_key = GetKey(extension->id());
-  SidePanelUI* const side_panel_ui = browser()->GetFeatures().side_panel_ui();
+  SidePanelUI* const side_panel_ui = SidePanelUI::From(browser());
   SidePanelRegistry* const global_registry = SidePanelRegistry::From(browser());
 
   RunSetPanelBehavior(*extension, /*openPanelOnActionClick=*/true);
@@ -1556,7 +1556,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionSidePanelBrowserTest,
       ExtensionActionTestHelper::Create(browser());
 
   SidePanelEntry::Key extension_key = GetKey(extension->id());
-  SidePanelUI* const side_panel_ui = browser()->GetFeatures().side_panel_ui();
+  SidePanelUI* const side_panel_ui = SidePanelUI::From(browser());
   SidePanelRegistry* const global_registry = SidePanelRegistry::From(browser());
 
   RunSetPanelBehavior(*extension, /*openPanelOnActionClick=*/true);
@@ -1615,7 +1615,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionSidePanelBrowserTest,
   EXPECT_FALSE(action_item->GetImage().IsEmpty());
 
   SidePanelEntry::Key extension_key = GetKey(extension->id());
-  SidePanelUI* const side_panel_ui = browser()->GetFeatures().side_panel_ui();
+  SidePanelUI* const side_panel_ui = SidePanelUI::From(browser());
   SidePanelRegistry* const global_registry = SidePanelRegistry::From(browser());
   SidePanelEntry* extension_entry =
       global_registry->GetEntryForKey(extension_key);
@@ -1803,7 +1803,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionOpenSidePanelBrowserTest,
   // Register a global side panel.
   RunSetOptions(*extension, /*tab_id=*/std::nullopt, "panel.html",
                 /*enabled=*/true);
-  SidePanelUI* const side_panel_ui = browser()->GetFeatures().side_panel_ui();
+  SidePanelUI* const side_panel_ui = SidePanelUI::From(browser());
 
   EXPECT_FALSE(side_panel_ui->IsSidePanelShowing());
   // Run `sidePanel.open()`. The panel should open.
@@ -1833,10 +1833,9 @@ IN_PROC_BROWSER_TEST_F(ExtensionOpenSidePanelBrowserTest,
   int incognito_tab_id = ExtensionTabUtil::GetTabId(
       incognito_browser->GetTabStripModel()->GetActiveWebContents());
 
-  SidePanelUI* const incognito_panel_ui =
-      incognito_browser->GetFeatures().side_panel_ui();
+  SidePanelUI* const incognito_panel_ui = SidePanelUI::From(incognito_browser);
   SidePanelUI* const non_incognito_panel_ui =
-      non_incognito_browser->GetFeatures().side_panel_ui();
+      SidePanelUI::From(non_incognito_browser);
   EXPECT_FALSE(incognito_panel_ui->IsSidePanelShowing());
   EXPECT_FALSE(non_incognito_panel_ui->IsSidePanelShowing());
 
@@ -1867,7 +1866,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionOpenSidePanelBrowserTest,
   int new_tab_id = GetCurrentTabId();
   ASSERT_NE(new_tab_id, tab_id);
 
-  SidePanelUI* const side_panel_ui = browser()->GetFeatures().side_panel_ui();
+  SidePanelUI* const side_panel_ui = SidePanelUI::From(browser());
   EXPECT_FALSE(side_panel_ui->IsSidePanelShowing());
 
   // Open the side panel on the original tab.
@@ -1891,7 +1890,7 @@ IN_PROC_BROWSER_TEST_F(
 
   // Open a different global side panel (reading list).
   ShowEntryAndWait(SidePanelEntry::Key(SidePanelEntry::Id::kReadingList));
-  SidePanelUI* const side_panel_ui = browser()->GetFeatures().side_panel_ui();
+  SidePanelUI* const side_panel_ui = SidePanelUI::From(browser());
   EXPECT_TRUE(side_panel_ui->IsSidePanelEntryShowing(
       SidePanelEntryKey(SidePanelEntryId::kReadingList)));
 
@@ -1919,7 +1918,7 @@ IN_PROC_BROWSER_TEST_F(
 
   // Open a different global side panel (reading list).
   ShowEntryAndWait(SidePanelEntry::Key(SidePanelEntry::Id::kReadingList));
-  SidePanelUI* const side_panel_ui = browser()->GetFeatures().side_panel_ui();
+  SidePanelUI* const side_panel_ui = SidePanelUI::From(browser());
   EXPECT_TRUE(side_panel_ui->IsSidePanelEntryShowing(
       SidePanelEntryKey(SidePanelEntryId::kReadingList)));
 
@@ -1942,7 +1941,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionOpenSidePanelBrowserTest,
 
   // Open a global side panel (reading list) on the first tab.
   ShowEntryAndWait(SidePanelEntry::Key(SidePanelEntry::Id::kReadingList));
-  SidePanelUI* const side_panel_ui = browser()->GetFeatures().side_panel_ui();
+  SidePanelUI* const side_panel_ui = SidePanelUI::From(browser());
   EXPECT_TRUE(side_panel_ui->IsSidePanelEntryShowing(
       SidePanelEntryKey(SidePanelEntryId::kReadingList)));
 
@@ -1995,7 +1994,7 @@ IN_PROC_BROWSER_TEST_F(
   // Show the contextual entry for the second extension on the active (third)
   // tab.
   ShowContextualEntryAndWait(extension2_key);
-  SidePanelUI* const side_panel_ui = browser()->GetFeatures().side_panel_ui();
+  SidePanelUI* const side_panel_ui = SidePanelUI::From(browser());
   EXPECT_TRUE(side_panel_ui->IsSidePanelEntryShowing(extension2_key));
 
   // Now, run `sidePanel.open()` from the first extension. This is a global
@@ -2038,7 +2037,7 @@ IN_PROC_BROWSER_TEST_F(
   // tab. The panel shouldn't be displayed on the active tab since it's
   // contextual.
   RunOpenPanelForTab(*extension2, first_tab_id);
-  SidePanelUI* const side_panel_ui = browser()->GetFeatures().side_panel_ui();
+  SidePanelUI* const side_panel_ui = SidePanelUI::From(browser());
   EXPECT_FALSE(side_panel_ui->IsSidePanelEntryShowing(extension2_key));
 
   // Now, run `sidePanel.open()` from the first extension on the inactive
@@ -2080,7 +2079,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionOpenSidePanelBrowserTest,
   // Show the contextual entry for the second extension on the active (third)
   // tab.
   ShowContextualEntryAndWait(extension2_key);
-  SidePanelUI* const side_panel_ui = browser()->GetFeatures().side_panel_ui();
+  SidePanelUI* const side_panel_ui = SidePanelUI::From(browser());
   EXPECT_TRUE(side_panel_ui->IsSidePanelEntryShowing(extension2_key));
 
   // Now, run `sidePanel.open()` from the first extension. This should override
@@ -2108,7 +2107,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionOpenSidePanelBrowserTest,
 
   // Call `sidePanel.open()` on the first tab.
   RunOpenPanelForTab(*extension, first_tab_id);
-  SidePanelUI* const side_panel_ui = browser()->GetFeatures().side_panel_ui();
+  SidePanelUI* const side_panel_ui = SidePanelUI::From(browser());
 
   // The contextual side panel should not show on the current tab.
   EXPECT_FALSE(side_panel_ui->IsSidePanelEntryShowing(extension_key));
@@ -2127,7 +2126,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionOpenSidePanelBrowserTest,
   // Register a global side panel.
   RunSetOptions(*extension, /*tab_id=*/std::nullopt, "panel.html",
                 /*enabled=*/true);
-  SidePanelUI* const side_panel_ui = browser()->GetFeatures().side_panel_ui();
+  SidePanelUI* const side_panel_ui = SidePanelUI::From(browser());
 
   EXPECT_FALSE(side_panel_ui->IsSidePanelEntryShowing(GetKey(extension->id())));
   // Run `sidePanel.open()`. The panel should open.
@@ -2156,10 +2155,9 @@ IN_PROC_BROWSER_TEST_F(ExtensionOpenSidePanelBrowserTest,
   ASSERT_TRUE(incognito_browser);
   int incognito_window_id = ExtensionTabUtil::GetWindowId(incognito_browser);
 
-  SidePanelUI* const incognito_panel_ui =
-      incognito_browser->GetFeatures().side_panel_ui();
+  SidePanelUI* const incognito_panel_ui = SidePanelUI::From(incognito_browser);
   SidePanelUI* const non_incognito_panel_ui =
-      non_incognito_browser->GetFeatures().side_panel_ui();
+      SidePanelUI::From(non_incognito_browser);
   EXPECT_FALSE(incognito_panel_ui->IsSidePanelShowing());
   EXPECT_FALSE(non_incognito_panel_ui->IsSidePanelShowing());
 
@@ -2185,7 +2183,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionOpenSidePanelBrowserTest,
 
   // Open a different global side panel (reading list).
   ShowEntryAndWait(SidePanelEntry::Key(SidePanelEntry::Id::kReadingList));
-  SidePanelUI* const side_panel_ui = browser()->GetFeatures().side_panel_ui();
+  SidePanelUI* const side_panel_ui = SidePanelUI::From(browser());
   EXPECT_TRUE(side_panel_ui->IsSidePanelEntryShowing(
       SidePanelEntryKey(SidePanelEntry::Id::kReadingList)));
 
@@ -2222,7 +2220,7 @@ IN_PROC_BROWSER_TEST_F(
 
   // Show the contextual entry for the second extension on the active tab.
   ShowContextualEntryAndWait(extension2_key);
-  SidePanelUI* const side_panel_ui = browser()->GetFeatures().side_panel_ui();
+  SidePanelUI* const side_panel_ui = SidePanelUI::From(browser());
   EXPECT_TRUE(side_panel_ui->IsSidePanelEntryShowing(extension2_key));
 
   // Now, run `sidePanel.open()` from the first extension. This is a global
@@ -2261,7 +2259,7 @@ IN_PROC_BROWSER_TEST_F(
 
   // Show the contextual entry for the second extension on the inactive tab.
   RunOpenPanelForTab(*extension2, first_tab_id);
-  SidePanelUI* const side_panel_ui = browser()->GetFeatures().side_panel_ui();
+  SidePanelUI* const side_panel_ui = SidePanelUI::From(browser());
 
   // Now, run `sidePanel.open()` from the first extension. This is a global
   // panel, and shouldn't override the inactive tab's contextual panel, but
@@ -2291,10 +2289,8 @@ IN_PROC_BROWSER_TEST_F(ExtensionOpenSidePanelBrowserTest,
   ASSERT_TRUE(second_browser);
   ui_test_utils::BrowserDidBecomeActiveWaiter(second_browser).Wait();
 
-  SidePanelUI* const first_side_panel_ui =
-      browser()->GetFeatures().side_panel_ui();
-  SidePanelUI* const second_side_panel_ui =
-      second_browser->GetFeatures().side_panel_ui();
+  SidePanelUI* const first_side_panel_ui = SidePanelUI::From(browser());
+  SidePanelUI* const second_side_panel_ui = SidePanelUI::From(second_browser);
 
   EXPECT_FALSE(
       first_side_panel_ui->IsSidePanelEntryShowing(GetKey(extension->id())));
@@ -2337,7 +2333,7 @@ IN_PROC_BROWSER_TEST_F(
 
   const Extension* side_panel_extension = LoadSidePanelExtension();
   ASSERT_TRUE(side_panel_extension);
-  SidePanelUI* const side_panel_ui = browser()->GetFeatures().side_panel_ui();
+  SidePanelUI* const side_panel_ui = SidePanelUI::From(browser());
   EXPECT_FALSE(side_panel_ui->IsSidePanelEntryShowing(
       GetKey(side_panel_extension->id())));
 
@@ -2388,7 +2384,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionOpenSidePanelBrowserTest,
 
   const Extension* side_panel_extension = LoadSidePanelExtension();
   ASSERT_TRUE(side_panel_extension);
-  SidePanelUI* const side_panel_ui = browser()->GetFeatures().side_panel_ui();
+  SidePanelUI* const side_panel_ui = SidePanelUI::From(browser());
   EXPECT_FALSE(side_panel_ui->IsSidePanelEntryShowing(
       GetKey(side_panel_extension->id())));
 
@@ -2449,7 +2445,7 @@ IN_PROC_BROWSER_TEST_F(
     OpenSidePanel_ContextMenu_ContextualPanel_ToggleSidePanelVisibility) {
   const Extension* side_panel_extension = LoadSidePanelExtension();
   ASSERT_TRUE(side_panel_extension);
-  SidePanelUI* const side_panel_ui = browser()->GetFeatures().side_panel_ui();
+  SidePanelUI* const side_panel_ui = SidePanelUI::From(browser());
   EXPECT_FALSE(side_panel_ui->IsSidePanelEntryShowing(
       GetKey(side_panel_extension->id())));
 
@@ -2506,7 +2502,7 @@ IN_PROC_BROWSER_TEST_F(
   scoped_refptr<const extensions::Extension> side_panel_extension =
       LoadSidePanelExtension();
 
-  SidePanelUI* const side_panel_ui = browser()->GetFeatures().side_panel_ui();
+  SidePanelUI* const side_panel_ui = SidePanelUI::From(browser());
   EXPECT_FALSE(side_panel_ui->IsSidePanelEntryShowing(
       GetKey(side_panel_extension->id())));
 
@@ -2646,7 +2642,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionCloseSidePanelBrowserTest,
       test_data_dir_.AppendASCII("api_test/side_panel/simple_default"));
   ASSERT_TRUE(extension);
   SidePanelEntry::Key extension_key = GetKey(extension->id());
-  SidePanelUI* const side_panel_ui = browser()->GetFeatures().side_panel_ui();
+  SidePanelUI* const side_panel_ui = SidePanelUI::From(browser());
   EXPECT_TRUE(
       SidePanelRegistry::From(browser())->GetEntryForKey(extension_key));
 
@@ -2680,7 +2676,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionCloseSidePanelBrowserTest,
   ASSERT_TRUE(contextual_registry->GetEntryForKey(extension_key));
 
   // Show the panel and verify it is visible.
-  SidePanelUI* const side_panel_ui = browser()->GetFeatures().side_panel_ui();
+  SidePanelUI* const side_panel_ui = SidePanelUI::From(browser());
   side_panel_ui->Show(extension_key);
   EXPECT_TRUE(side_panel_ui->IsSidePanelEntryShowing(extension_key));
 
@@ -2705,7 +2701,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionCloseSidePanelBrowserTest,
   ASSERT_TRUE(first_tab_contents);
   RunSetOptions(*extension, GetCurrentTabId(), "panel_2.html",
                 /*enabled=*/true);
-  SidePanelUI* const side_panel_ui = browser()->GetFeatures().side_panel_ui();
+  SidePanelUI* const side_panel_ui = SidePanelUI::From(browser());
   side_panel_ui->Show(extension_key);
   EXPECT_TRUE(side_panel_ui->IsSidePanelEntryShowing(extension_key));
 
@@ -2760,7 +2756,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionCloseSidePanelBrowserTest,
       test_data_dir_.AppendASCII("api_test/side_panel/setoptions"));
   ASSERT_TRUE(contextual_extension);
   SidePanelEntry::Key contextual_key = GetKey(contextual_extension->id());
-  SidePanelUI* const side_panel_ui = browser()->GetFeatures().side_panel_ui();
+  SidePanelUI* const side_panel_ui = SidePanelUI::From(browser());
   SidePanelRegistry* const global_registry = SidePanelRegistry::From(browser());
 
   // Show the global panel first to set it as the window's active global entry.
@@ -2832,7 +2828,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionOnOpenedEventSidePanelBrowserTest,
 
   // Enable the panel and show it.
   RunSetOptions(*extension, GetCurrentTabId(), "panel.html", /*enabled=*/true);
-  SidePanelUI* const side_panel_ui = browser()->GetFeatures().side_panel_ui();
+  SidePanelUI* const side_panel_ui = SidePanelUI::From(browser());
   side_panel_ui->Show(GetKey(extension->id()));
 
   // Assert that the onOpened event fired and our listener received the message.
@@ -2853,7 +2849,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionOnOpenedEventSidePanelBrowserTest,
 
   // Show the panel on the first tab.
   RunSetOptions(*extension, GetCurrentTabId(), "panel.html", /*enabled=*/true);
-  SidePanelUI* const side_panel_ui = browser()->GetFeatures().side_panel_ui();
+  SidePanelUI* const side_panel_ui = SidePanelUI::From(browser());
   side_panel_ui->Show(extension_key);
   EXPECT_TRUE(side_panel_ui->IsSidePanelEntryShowing(extension_key));
 
@@ -2892,7 +2888,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionOnOpenedEventSidePanelBrowserTest,
 
   // Enable and show the side panel.
   RunSetOptions(*extension, GetCurrentTabId(), "panel.html", /*enabled=*/true);
-  SidePanelUI* const side_panel_ui = browser()->GetFeatures().side_panel_ui();
+  SidePanelUI* const side_panel_ui = SidePanelUI::From(browser());
   side_panel_ui->Show(GetKey(extension->id()));
 
   // Wait for the onOpened event to fire and send its message.
@@ -3055,7 +3051,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionOnClosedEventSidePanelBrowserTest,
       GetCurrentTabRegistry()->GetEntryForKey(GetKey(extension->id()));
   ASSERT_TRUE(extension_entry);
   ShowContextualEntryAndWait(GetKey(extension->id()));
-  SidePanelUI* const side_panel_ui = browser()->GetFeatures().side_panel_ui();
+  SidePanelUI* const side_panel_ui = SidePanelUI::From(browser());
 
   // Show a different panel, which should cause the extension's panel to close.
   // This action should trigger the onClosed event in the extension.
@@ -3083,7 +3079,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionOnClosedEventSidePanelBrowserTest,
       GetCurrentTabRegistry()->GetEntryForKey(GetKey(extension->id()));
   ASSERT_TRUE(extension_entry);
   ShowContextualEntryAndWait(GetKey(extension->id()));
-  SidePanelUI* const side_panel_ui = browser()->GetFeatures().side_panel_ui();
+  SidePanelUI* const side_panel_ui = SidePanelUI::From(browser());
 
   // Close the panel. This action should trigger the onClosed event in the
   // extension.
@@ -3125,7 +3121,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionOnClosedEventSidePanelBrowserTest,
   // Show the panel in `browser_to_close` and wait for it to be visible.
   {
     SidePanelUI* const browser_to_close_ui =
-        browser_to_close->GetFeatures().side_panel_ui();
+        SidePanelUI::From(browser_to_close);
     TestSidePanelEntryWaiter waiter(extension_entry);
 
     // Prepare to wait for Extensionhost so that onOpened can be dispatched.
@@ -3198,7 +3194,7 @@ IN_PROC_BROWSER_TEST_F(ExtensionOnClosedEventSidePanelBrowserTest,
                       new_window_id, new_tab_id))
                   .GetBool());
 
-  new_browser->GetFeatures().side_panel_ui()->Close();
+  SidePanelUI::From(new_browser)->Close();
   // Verify the extension's test succeeded, confirming onClosed was fired with
   // the correct details from the new window.
   ASSERT_TRUE(result_catcher.GetNextResult()) << result_catcher.message();

@@ -5,6 +5,7 @@
 #include "chrome/browser/private_verification_tokens/private_verification_tokens_service.h"
 
 #include <map>
+#include <set>
 #include <string>
 #include <utility>
 #include <vector>
@@ -15,9 +16,14 @@
 #include "base/files/file_path.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
+#include "base/logging.h"
 #include "base/memory/ptr_util.h"
 #include "base/memory/scoped_refptr.h"
+#include "base/metrics/histogram_functions.h"
+#include "base/supports_user_data.h"
 #include "base/task/sequenced_task_runner.h"
+#include "base/time/time.h"
+#include "chrome/browser/profiles/profile.h"
 #include "components/content_settings/core/browser/host_content_settings_map.h"
 #include "components/private_verification_tokens/common/privacy_pass_athm_batch_request.h"
 #include "components/private_verification_tokens/common/private_verification_tokens_issuer_config.h"
@@ -35,6 +41,57 @@ const base::FilePath::CharType kDatabaseName[] =
     FILE_PATH_LITERAL("PrivateVerificationTokens");
 
 using private_verification_tokens::PrivateVerificationTokensStore;
+
+const char* PrivacyPassAthmBatchRequestErrorToString(
+    private_verification_tokens::PrivacyPassAthmBatchRequestError error) {
+  switch (error) {
+    case private_verification_tokens::PrivacyPassAthmBatchRequestError::
+        kInvalidBatchSize:
+      return "kInvalidBatchSize";
+    case private_verification_tokens::PrivacyPassAthmBatchRequestError::
+        kInvalidBucketCount:
+      return "kInvalidBucketCount";
+    case private_verification_tokens::PrivacyPassAthmBatchRequestError::
+        kClientRequestGenerationFailed:
+      return "kClientRequestGenerationFailed";
+    case private_verification_tokens::PrivacyPassAthmBatchRequestError::
+        kAlreadyFinalized:
+      return "kAlreadyFinalized";
+    case private_verification_tokens::PrivacyPassAthmBatchRequestError::
+        kInvalidResponseBodyLength:
+      return "kInvalidResponseBodyLength";
+    case private_verification_tokens::PrivacyPassAthmBatchRequestError::
+        kClientFinalizeFailed:
+      return "kClientFinalizeFailed";
+  }
+}
+
+const char* TryGetTokensErrorToString(
+    private_verification_tokens::TryGetTokensError error) {
+  switch (error) {
+    case private_verification_tokens::TryGetTokensError::kNetNotOk:
+      return "kNetNotOk";
+    case private_verification_tokens::TryGetTokensError::kNullResponse:
+      return "kNullResponse";
+  }
+}
+const char kOtrIssuerTrackerKey[] = "PrivateVerificationTokensOtrTracker";
+
+class OtrIssuerTracker : public base::SupportsUserData::Data {
+ public:
+  std::set<url::Origin> issuers;
+};
+
+OtrIssuerTracker* GetOrCreateOtrTracker(Profile* profile) {
+  OtrIssuerTracker* tracker = static_cast<OtrIssuerTracker*>(
+      profile->GetUserData(kOtrIssuerTrackerKey));
+  if (!tracker) {
+    auto new_tracker = std::make_unique<OtrIssuerTracker>();
+    tracker = new_tracker.get();
+    profile->SetUserData(kOtrIssuerTrackerKey, std::move(new_tracker));
+  }
+  return tracker;
+}
 
 }  // namespace
 
@@ -184,6 +241,26 @@ void PrivateVerificationTokensService::GetTokenIssuers(
   std::move(callback).Run(std::move(issuers));
 }
 
+void PrivateVerificationTokensService::GetAllTokens(
+    base::OnceCallback<
+        void(std::vector<private_verification_tokens::TokenWithId>)> callback) {
+  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  if (is_shutting_down_) {
+    std::move(callback).Run({});
+    return;
+  }
+
+  if (!is_initialized()) {
+    pending_operations_.push_back(
+        base::BindOnce(&PrivateVerificationTokensService::GetAllTokens,
+                       weak_ptr_factory_.GetWeakPtr(), std::move(callback)));
+    return;
+  }
+
+  CHECK(store_);
+  store_->GetAllTokens(std::move(callback));
+}
+
 void PrivateVerificationTokensService::DeleteTokens(
     base::Time delete_begin,
     base::Time delete_end,
@@ -277,6 +354,10 @@ void PrivateVerificationTokensService::MaybeFetchTokens(
   }
   const auto& config = it->second;
 
+  if (config.public_key.expiration() <= base::Time::Now()) {
+    return;
+  }
+
   if (store_->TokenCountForIssuer(issuer) >
       static_cast<size_t>(config.batch_size / 2)) {
     return;
@@ -285,6 +366,8 @@ void PrivateVerificationTokensService::MaybeFetchTokens(
   auto params = private_verification_tokens::GetParametersForVersion(
       config.public_key.version());
   if (!params.has_value()) {
+    VLOG(1) << "Invalid version value in PVT config. Version: "
+            << config.public_key.version();
     return;
   }
 
@@ -294,13 +377,18 @@ void PrivateVerificationTokensService::MaybeFetchTokens(
           private_verification_tokens::PrivacyPassAthmBatchRequest::Create(
               config, params->num_buckets);
   if (!batch_request.has_value()) {
+    VLOG(1) << "PVT token request derivation failed with error: "
+            << PrivacyPassAthmBatchRequestErrorToString(batch_request.error());
     return;
   }
 
   auto fetcher =
       private_verification_tokens::PrivateVerificationTokensFetcher::Create(
-          config.issuer_request_url, url_loader_factory->Clone());
+          config.issuer_request_url, url_loader_factory->Clone(),
+          params->max_response_body_size);
   if (!fetcher) {
+    VLOG(1) << "Failed to initialize PVT fetcher for URL: "
+            << config.issuer_request_url;
     return;
   }
 
@@ -332,6 +420,9 @@ void PrivateVerificationTokensService::OnFetchTokensCompleted(
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   active_fetchers_.erase(issuer);
   if (!result.has_value()) {
+    VLOG(1) << "PVT fetcher failed with error: "
+            << TryGetTokensErrorToString(result.error().error)
+            << ", network error code: " << result.error().network_error_code;
     return;
   }
   base::expected<std::vector<std::vector<uint8_t>>,
@@ -339,6 +430,9 @@ void PrivateVerificationTokensService::OnFetchTokensCompleted(
       finalized_tokens =
           batch_request.Finalize(base::as_byte_span(result.value()));
   if (!finalized_tokens.has_value()) {
+    VLOG(1) << "PVT response parsing failed with error: "
+            << PrivacyPassAthmBatchRequestErrorToString(
+                   finalized_tokens.error());
     return;
   }
   std::vector<private_verification_tokens::PrivateVerificationTokensToken>
@@ -353,7 +447,8 @@ void PrivateVerificationTokensService::OnFetchTokensCompleted(
 
 std::optional<std::pair<int64_t, std::string>>
 PrivateVerificationTokensService::GetTokenForRedemption(
-    const url::Origin& redeemer_origin) {
+    const url::Origin& redeemer_origin,
+    Profile* profile) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   if (is_shutting_down_ || !is_initialized() || !issuer_config_) {
     return std::nullopt;
@@ -373,6 +468,29 @@ PrivateVerificationTokensService::GetTokenForRedemption(
     return std::nullopt;
   }
 
+  auto config_it = issuer_config_->config().find(matching_issuer);
+  if (config_it == issuer_config_->config().end() ||
+      config_it->second.public_key.expiration() <= base::Time::Now()) {
+    return std::nullopt;
+  }
+
+  OtrIssuerTracker* tracker = nullptr;
+  if (profile && profile->IsOffTheRecord()) {
+    tracker = GetOrCreateOtrTracker(profile);
+    if (tracker->issuers.contains(matching_issuer)) {
+      // matching_issuer already received a token in this session.
+      return std::nullopt;
+    }
+    auto params = private_verification_tokens::GetParametersForVersion(
+        config_it->second.public_key.version());
+    if (params.has_value() &&
+        tracker->issuers.size() >= params->max_distinct_issuers_per_session) {
+      base::UmaHistogramBoolean("PrivateVerificationTokens.RedemptionLimitHit",
+                                true);
+      return std::nullopt;
+    }
+  }
+
   CHECK(store_);
   const auto& tokens = store_->tokens();
   auto it = tokens.find(matching_issuer);
@@ -382,6 +500,24 @@ PrivateVerificationTokensService::GetTokenForRedemption(
 
   std::string base64_token = base::Base64Encode(it->second.token.token());
   return std::make_pair(it->second.id, std::move(base64_token));
+}
+
+void PrivateVerificationTokensService::TrackerInsert(
+    Profile* profile,
+    const url::Origin& redeemer_origin) {
+  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  CHECK(profile);
+  if (!profile->IsOffTheRecord()) {
+    return;
+  }
+
+  OtrIssuerTracker* tracker = GetOrCreateOtrTracker(profile);
+  auto it_issuer = redeemer_to_issuer_.find(redeemer_origin);
+  if (it_issuer == redeemer_to_issuer_.end()) {
+    return;
+  }
+
+  tracker->issuers.insert(it_issuer->second);
 }
 
 void PrivateVerificationTokensService::DeleteToken(int64_t token_id,
@@ -409,7 +545,18 @@ bool PrivateVerificationTokensService::IsRegisteredRedeemer(
   if (!issuer_config_) {
     return false;
   }
-  return redeemer_to_issuer_.contains(redeemer_origin);
+  auto it = redeemer_to_issuer_.find(redeemer_origin);
+  if (it == redeemer_to_issuer_.end()) {
+    return false;
+  }
+
+  auto config_it = issuer_config_->config().find(it->second);
+  if (config_it == issuer_config_->config().end() ||
+      config_it->second.public_key.expiration() <= base::Time::Now()) {
+    return false;
+  }
+
+  return true;
 }
 
 void PrivateVerificationTokensService::SetIssuerConfig(

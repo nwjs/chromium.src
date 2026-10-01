@@ -5,6 +5,8 @@
 #ifndef IOS_CHROME_BROWSER_INTELLIGENCE_BWG_UTILS_GEMINI_AVAILABILITY_H_
 #define IOS_CHROME_BROWSER_INTELLIGENCE_BWG_UTILS_GEMINI_AVAILABILITY_H_
 
+#import <Foundation/Foundation.h>
+
 #import <optional>
 
 #import "ios/chrome/browser/intelligence/bwg/metrics/gemini_metrics.h"
@@ -20,6 +22,11 @@ class WebState;
 
 namespace gemini {
 
+// Reason why a Gemini entry point is disabled.
+enum class EntryPointDisabledReason {
+  kQuotaExhausted,
+};
+
 // Result describing both the visibility and interactive state of Gemini for an
 // entry point.
 struct GeminiAvailabilityResult {
@@ -29,6 +36,14 @@ struct GeminiAvailabilityResult {
   // tappable). An entry point may be visible but disabled (such as for
   // signed-out users).
   bool enabled = false;
+  // The specific reason when the entry point is disabled. Will be
+  // `std::nullopt` when the entry point is not disabled or disabled due to
+  // general ineligibility.
+  std::optional<EntryPointDisabledReason> disabled_reason = std::nullopt;
+  // An optional subtitle explaining why the entry point is disabled, if
+  // applicable. Will be `nil` when the entry point is enabled or has no
+  // disabled subtitle.
+  NSString* disabled_reason_subtitle = nil;
   // The specific profile ineligibility reasons when Gemini is not available.
   // Will be `std::nullopt` when the profile is eligible.
   std::optional<IneligibilityReasons> ineligibility_reasons = std::nullopt;
@@ -44,17 +59,20 @@ struct GeminiAvailabilityResult {
 // - `entry_point`: The entry point surface being evaluated. Pass
 //   EntryPoint::Unknown to evaluate general Gemini availability for the profile
 //   and web state without enforcing entry-point-specific contextual rules.
-// - `profile`: The user profile to check eligibility for.
+// - `profile`: Optional user profile to check eligibility for. For bar surfaces
+//   (Toolbar, AppBar), if null, will be inferred from `web_state` when
+//   available.
 // - `web_state`: The WebState for tab-bound entry points (can be nullptr for
 //   non-tab-bound surfaces).
 // - `auth_service`: Optional AuthenticationService for checking user identity
-//   in certain entry points (e.g., Toolbar).
+//   in certain entry points (e.g., Toolbar, AppBar).
 // - `pref_service`: Optional PrefService for checking enterprise policy
-//   exceptions for signed-out users in certain entry points (e.g., Toolbar).
+//   exceptions for signed-out users in certain entry points (e.g., Toolbar,
+//   AppBar).
 GeminiAvailabilityResult IsGeminiAvailable(
     EntryPoint entry_point,
-    ProfileIOS* profile,
-    web::WebState* web_state,
+    ProfileIOS* profile = nullptr,
+    web::WebState* web_state = nullptr,
     AuthenticationService* auth_service = nullptr,
     PrefService* pref_service = nullptr);
 

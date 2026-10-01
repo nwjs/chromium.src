@@ -302,7 +302,7 @@ V5StoreReadResult V5Store::ReadFromDiskInternal() {
     expected_checksum_ = file_format.list_details().checksum().sha256();
   }
 
-  // Update |file_size_| now because we parsed the file correctly.
+  // Update `file_size_` now because we parsed the file correctly.
   file_size_ = file_size;
   if (file_format.list_details().has_hash_file()) {
     file_size_ += file_format.list_details().hash_file().file_size();
@@ -429,8 +429,6 @@ V4ToV5MigrationResult V5Store::MigrateFromV4(
   if (!v5_ext.empty()) {
     V5HashFile* v5_hash_file = list_details->mutable_hash_file();
     v5_hash_file->set_extension(v5_ext);
-    // TODO(crbug.com/362791941): ensure this is the same as what V5 WriteToDisk
-    // eventually does
     v5_hash_file->set_file_size(file_size);
   }
 
@@ -540,6 +538,14 @@ void V5Store::Reset() {
   version_.clear();
   has_valid_data_ = false;
   file_size_ = 0;
+}
+
+std::vector<base::FilePath> V5Store::GetPathsInUse() const {
+  std::vector<base::FilePath> paths{store_path_};
+  for (const auto& path : hash_prefix_list_->GetPaths()) {
+    paths.push_back(path);
+  }
+  return paths;
 }
 
 bool V5Store::VerifyChecksum() {

@@ -63,6 +63,7 @@ try_.builder(
     ],
     gn_args = "ci/mac-arm64-archive-rel",
     cpu = cpu.ARM64,
+    contact_team_email = "bling-engprod@google.com",
     properties = {
         # The format of these properties is defined at archive/properties.proto
         "$build/archive": {
@@ -91,6 +92,7 @@ try_.builder(
     ),
     builderless = False,
     cpu = cpu.ARM64,
+    contact_team_email = "bling-engprod@google.com",
     siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
 )
 
@@ -101,6 +103,7 @@ try_.builder(
     ],
     gn_args = "ci/mac-archive-rel",
     cpu = cpu.ARM64,
+    contact_team_email = "bling-engprod@google.com",
     properties = {
         # The format of these properties is defined at archive/properties.proto
         "$build/archive": {
@@ -140,6 +143,7 @@ try_.builder(
     ],
     gn_args = "ci/mac-arm64-rel",
     cpu = cpu.ARM64,
+    contact_team_email = "bling-engprod@google.com",
     execution_timeout = 6 * time.hour,
     siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
 )
@@ -195,6 +199,7 @@ try_.orchestrator_builder(
         ],
     ),
     compilator = "mac-rel-compilator",
+    contact_team_email = "bling-engprod@google.com",
     coverage_test_types = ["overall", "unit"],
     cq_settings = try_.cq_settings(
         on_default_cq = True,
@@ -206,6 +211,8 @@ try_.orchestrator_builder(
         "chromium.enable_cleandead": 100,
         # go/rts-project-proposal
         "chromium_rts.filter_file_analysis": 100,
+        # crbug.com/40280175
+        "chromium_checkout.expand_submodules": 100,
         "luci.buildbucket.run_in_turboci": 100,
     },
     main_list_view = "try",
@@ -219,6 +226,21 @@ try_.compilator_builder(
     name = "mac-rel-compilator",
     branch_selector = branches.selector.MAC_BRANCHES,
     cpu = cpu.ARM64,
+    main_list_view = "try",
+)
+
+try_.builder(
+    name = "mac-webdriver-bidi-rel",
+    description_html = "Runs webdriver bidi tests exactly like mac-rel",
+    mirrors = [
+        "ci/mac-webdriver-bidi-rel",
+    ],
+    gn_args = "ci/mac-webdriver-bidi-rel",
+    cpu = cpu.ARM64,
+    contact_team_email = "chrome-devtools@google.com",
+    cq_settings = try_.cq_settings(
+        includable_only = True,
+    ),
     main_list_view = "try",
 )
 
@@ -257,6 +279,8 @@ try_.orchestrator_builder(
         "chromium.enable_cleandead": 100,
         # go/rts-project-proposal
         "chromium_rts.filter_file_analysis": 100,
+        # crbug.com/40280175
+        "chromium_checkout.expand_submodules": 100,
         "luci.buildbucket.run_in_turboci": 2,
     },
     main_list_view = "try",
@@ -340,6 +364,7 @@ try_.builder(
     builderless = True,
     cores = None,
     cpu = cpu.ARM64,
+    contact_team_email = "bling-engprod@google.com",
     main_list_view = "try",
 )
 
@@ -433,6 +458,7 @@ try_.builder(
         ],
     ),
     cpu = cpu.ARM64,
+    contact_team_email = "bling-engprod@google.com",
     properties = {
         "$build/test_utils": {
             "min_failed_suites_to_skip_retry": 10,
@@ -533,6 +559,7 @@ try_.builder(
     ),
     # TODO(crbug.com/543006750): Revert to MAC_DEFAULT after arm migration.
     os = os.MAC_15,
+    contact_team_email = "chrome-sanitizer-builder-owners@google.com",
     siso_remote_jobs = siso.remote_jobs.HIGH_JOBS_FOR_CQ,
 )
 
@@ -553,6 +580,7 @@ try_.builder(
     ),
     cores = None,
     cpu = cpu.ARM64,
+    contact_team_email = "bling-engprod@google.com",
     cq_settings = try_.cq_settings(
         on_default_cq = True,
     ),
@@ -609,6 +637,7 @@ try_.builder(
         ],
     ),
     cpu = cpu.ARM64,
+    contact_team_email = "bling-engprod@google.com",
     siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
 )
 
@@ -620,6 +649,7 @@ try_.builder(
     ],
     gn_args = "ci/mac-arm64-dbg",
     cpu = cpu.ARM64,
+    contact_team_email = "bling-engprod@google.com",
     siso_remote_jobs = siso.remote_jobs.LOW_JOBS_FOR_CQ,
 )
 
@@ -683,6 +713,7 @@ ios_builder(
     ],
     gn_args = "ci/ios-asan",
     cpu = cpu.ARM64,
+    contact_team_email = "chrome-sanitizer-builder-owners@google.com",
 )
 
 ios_builder(
@@ -761,6 +792,8 @@ try_.orchestrator_builder(
         "chromium.add_one_test_shard": 10,
         # go/rts-project-proposal
         "chromium_rts.filter_file_analysis": 100,
+        # crbug.com/40280175
+        "chromium_checkout.expand_submodules": 100,
         "luci.buildbucket.run_in_turboci": 2,
     },
     main_list_view = "try",
@@ -936,42 +969,12 @@ shared_gpu.try_.mac_optional_builder(
     branch_selector = branches.selector.MAC_BRANCHES,
     description_html = ("Runs GPU tests on Mac Minis with Intel UHD 630 GPUs and Macbook Pros with AMD GPUs. " +
                         "Only automatically added to CLs that touch GPU-related files."),
-    builder_spec = builder_config.builder_spec(
-        gclient_config = builder_config.gclient_config(
-            config = "chromium",
-        ),
-        chromium_config = builder_config.chromium_config(
-            config = "chromium",
-            apply_configs = [
-                "mb",
-            ],
-            build_config = builder_config.build_config.RELEASE,
-            target_arch = builder_config.target_arch.INTEL,
-            target_bits = 64,
-            target_platform = builder_config.target_platform.MAC,
-        ),
-    ),
-    gn_args = gn_args.config(
-        configs = [
-            "gpu_fyi_tests",
-            "release_builder",
-            "remoteexec",
-            "minimal_symbols",
-            "dcheck_always_on",
-            "mac",
-            "x64",
-        ],
-    ),
-    targets = targets.bundle(
-        targets = [
-            "mac_optional_gpu_tests_rel_gtests",
-            "mac_optional_gpu_tests_rel_gpu_telemetry_tests",
-        ],
-    ),
-    targets_settings = targets.settings(
-        browser_config = targets.browser_config.RELEASE,
-        os_type = targets.os_type.MAC,
-    ),
+    mirrors = [
+        "ci/GPU FYI Mac Builder",
+        "ci/Mac FYI Release (Intel)",
+        "ci/Mac FYI Retina Release (AMD)",
+    ],
+    gn_args = "ci/GPU FYI Mac Builder",
     alerts_enabled = False,
     contact_team_email = "chrome-gpu-infra@google.com",
     cq_settings = try_.cq_settings(

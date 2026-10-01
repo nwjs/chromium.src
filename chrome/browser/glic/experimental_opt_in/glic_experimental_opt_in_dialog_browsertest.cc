@@ -32,6 +32,7 @@
 #include "chrome/browser/ui/browser_tabstrip.h"
 #include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
+#include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_switches.h"
@@ -46,6 +47,7 @@
 #include "components/signin/public/identity_manager/identity_test_utils.h"
 #include "components/sync/test/test_sync_service.h"
 #include "components/sync_device_info/fake_device_info_sync_service.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/test_navigation_observer.h"
@@ -55,6 +57,7 @@
 #include "net/dns/mock_host_resolver.h"
 #include "services/network/public/cpp/network_switches.h"
 #include "ui/base/base_window.h"
+#include "ui/base/page_transition_types.h"
 #include "ui/views/controls/webview/webview.h"
 #include "ui/views/test/widget_test.h"
 #include "ui/views/view_tracker.h"
@@ -143,7 +146,6 @@ class GlicExperimentalOptInTest
     fake_gaia_.set_initialize_configuration(false);
     BaseClass::SetUpOnMainThread();
     opt_in_test_server_.StartAcceptingConnections();
-    ASSERT_TRUE(embedded_https_test_server().Start());
     host_resolver()->AddRule("*", "127.0.0.1");
     creation_subscription_ = content::RegisterWebContentsCreationCallback(
         base::BindRepeating(&GlicExperimentalOptInTest::OnWebContentsCreated,

@@ -21,6 +21,7 @@
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/time/time.h"
+#include "remoting/base/email_utils.h"
 #include "remoting/host/win/core_resource.h"
 #include "remoting/host/win/simple_task_dialog.h"
 
@@ -94,7 +95,7 @@ void It2MeConfirmationDialogWin::Show(const std::string& remote_user_email,
       base::AsWString(base::i18n::MessageFormatter::FormatWithNumberedArgs(
           base::AsStringPiece16(
               std::wstring_view(message_stringw, string_length)),
-          base::UTF8ToUTF16(remote_user_email)));
+          FormatEmailForDisplay(remote_user_email)));
 
   task_dialog.set_message_text(message_text);
   task_dialog.set_default_button(IDNO);

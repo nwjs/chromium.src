@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 #include "chrome/browser/ui/browser_tab_strip_model_delegate.h"
 
+#include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/tab_group_sync/tab_group_sync_service_factory.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
@@ -13,11 +14,14 @@
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
+#include "components/enterprise/isolated_mode/isolated_mode_features.h"
 #include "components/saved_tab_groups/public/features.h"
 #include "components/saved_tab_groups/public/tab_group_sync_service.h"
+#include "components/tab_groups/tab_group_id.h"
 #include "content/public/test/browser_test.h"
 #include "net/dns/mock_host_resolver.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
+#include "ui/base/page_transition_types.h"
 
 namespace chrome {
 
@@ -202,6 +206,44 @@ IN_PROC_BROWSER_TEST_F(BrowserTabStripModelDelegateWithEmbeddedServerTest,
   VerifyMute(incognito_browser, /*isMuted=*/false);
 }
 
+class IsolatedBrowserTabStripModelDelegateWithEmbeddedServerTest
+    : public BrowserTabStripModelDelegateWithEmbeddedServerTest {
+ public:
+  void SetUpCommandLine(base::CommandLine* command_line) override {
+    BrowserTabStripModelDelegateWithEmbeddedServerTest::SetUpCommandLine(
+        command_line);
+    command_line->AppendSwitch(
+        enterprise_isolated_mode::switches::
+            kForceEnterpriseIsolatedModeReplacesIncognito);
+  }
+};
+
+IN_PROC_BROWSER_TEST_F(
+    IsolatedBrowserTabStripModelDelegateWithEmbeddedServerTest,
+    ToggleMuteInRegularAndThenToggleMuteInIsolatedMode) {
+  GURL url = embedded_test_server()->GetURL("/title1.html");
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), url));
+
+  // Mute the site in regular tab.
+  ToggleMute(browser());
+  VerifyMute(browser(), /*isMuted=*/true);
+
+  // Open Isolated Mode tab and check the site is muted there.
+  BrowserWindowInterface* isolated_browser =
+      CreateIncognitoBrowser(browser()->GetProfile());
+  EXPECT_TRUE(
+      isolated_browser->GetProfile()->IsEnterpriseIsolatedModeProfile());
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(isolated_browser, url));
+  VerifyMute(isolated_browser, /*isMuted=*/true);
+
+  // Unmute in Isolated Mode tab.
+  ToggleMute(isolated_browser);
+  VerifyMute(isolated_browser, /*isMuted=*/false);
+
+  // In regular tab the site should still be muted.
+  VerifyMute(browser(), /*isMuted=*/true);
+}
+
 IN_PROC_BROWSER_TEST_F(BrowserTabStripModelDelegateWithEmbeddedServerTest,
                        ToggleMuteOnlyInIncognitoWindow) {
   GURL url = embedded_test_server()->GetURL("/title1.html");
@@ -370,6 +412,39 @@ IN_PROC_BROWSER_TEST_F(BrowserTabStripModelDelegateTest,
             group_id);
   ASSERT_EQ(browser()->GetTabStripModel()->GetTabGroupForTab(1).value(),
             group_id);
+}
+
+class IsolatedBrowserTabStripModelDelegateTest
+    : public BrowserTabStripModelDelegateTest {
+ public:
+  void SetUpCommandLine(base::CommandLine* command_line) override {
+    BrowserTabStripModelDelegateTest::SetUpCommandLine(command_line);
+    command_line->AppendSwitch(
+        enterprise_isolated_mode::switches::
+            kForceEnterpriseIsolatedModeReplacesIncognito);
+  }
+};
+
+IN_PROC_BROWSER_TEST_F(IsolatedBrowserTabStripModelDelegateTest,
+                       NewSplitTabFromIsolatedMode) {
+  BrowserWindowInterface* isolated_browser =
+      CreateIncognitoBrowser(browser()->GetProfile());
+  ASSERT_TRUE(isolated_browser);
+  EXPECT_TRUE(
+      isolated_browser->GetProfile()->IsEnterpriseIsolatedModeProfile());
+
+  std::unique_ptr<TabStripModelDelegate> delegate =
+      std::make_unique<BrowserTabStripModelDelegate>(isolated_browser);
+
+  GURL url1("chrome://about");
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(isolated_browser, url1));
+
+  delegate->NewSplitTab({}, split_tabs::SplitTabLayout::kSideBySide,
+                        split_tabs::SplitTabCreatedSource::kToolbarButton);
+
+  ASSERT_EQ(isolated_browser->GetTabStripModel()->count(), 2);
+  ASSERT_EQ(isolated_browser->GetTabStripModel()->GetWebContentsAt(1)->GetURL(),
+            chrome::ChromeUINewTabURLAsGURL());
 }
 
 IN_PROC_BROWSER_TEST_F(BrowserTabStripModelDelegateTest,

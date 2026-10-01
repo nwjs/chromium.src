@@ -57,7 +57,6 @@
 #include "ui/gfx/geometry/size.h"
 #include "ui/gfx/geometry/skia_conversions.h"
 #include "ui/gfx/skia_span_util.h"
-#include "ui/gl/trace_util.h"
 
 namespace cc {
 
@@ -430,13 +429,6 @@ class GpuImageDecodeTaskImpl : public TileTask {
   }
   void OnTaskCompleted() override {
     cache_->OnImageDecodeTaskCompleted(image_, task_type_, client_id_);
-  }
-
-  // Overridden from TileTask:
-  bool TaskContainsLCPCandidateImages() const override {
-    if (!HasCompleted() && image_.paint_image().may_be_lcp_candidate())
-      return true;
-    return TileTask::TaskContainsLCPCandidateImages();
   }
 
  protected:
@@ -1556,8 +1548,6 @@ void GpuImageDecodeCache::OnImageDecodeTaskCompleted(
   // Decode task is complete, remove our reference to it.
   ImageData* image_data = GetImageDataForDrawImage(draw_image, cache_key);
   DCHECK(image_data);
-  UMA_HISTOGRAM_BOOLEAN("Compositing.DecodeLCPCandidateImage.Hardware",
-                        draw_image.paint_image().may_be_lcp_candidate());
   if (task_type == TaskType::kInRaster) {
     image_data->decode.task_map.erase(client_id);
   } else {

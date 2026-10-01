@@ -4,14 +4,18 @@
 
 package org.chromium.chrome.browser.autofill.settings;
 
+import static org.chromium.chrome.browser.autofill.AutofillClientProviderUtils.isPlatformAutofillEnabledForProfile;
+
 import android.app.Activity;
 import android.content.Context;
 import android.graphics.PorterDuff;
 import android.graphics.drawable.Drawable;
+import android.text.TextUtils;
+import android.widget.TextView;
 
 import androidx.preference.Preference;
-import androidx.preference.PreferenceCategory;
 import androidx.preference.PreferenceScreen;
+import androidx.preference.PreferenceViewHolder;
 
 import org.chromium.base.ApiCompatibilityUtils;
 import org.chromium.base.TimeUtils;
@@ -21,8 +25,6 @@ import org.chromium.base.task.TaskTraits;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.R;
-import org.chromium.chrome.browser.autofill.AndroidAutofillAvailabilityStatus;
-import org.chromium.chrome.browser.autofill.AutofillClientProviderUtils;
 import org.chromium.chrome.browser.autofill.GoogleWalletLauncher;
 import org.chromium.chrome.browser.autofill.autofill_ai.EntityDataManager;
 import org.chromium.chrome.browser.autofill.autofill_ai.EntityDataManagerFactory;
@@ -49,6 +51,7 @@ import org.chromium.components.autofill.autofill_ai.EntityTypeName;
 import org.chromium.components.autofill.autofill_ai.RecordType;
 import org.chromium.components.browser_ui.settings.CardWithButtonPreference;
 import org.chromium.components.browser_ui.settings.ChromeBasePreference;
+import org.chromium.components.browser_ui.settings.ChromeBasePreferenceCategory;
 import org.chromium.components.browser_ui.settings.ChromeSwitchPreference;
 import org.chromium.components.browser_ui.settings.SettingsNavigation;
 import org.chromium.components.browser_ui.settings.search.SettingsIndexData;
@@ -338,15 +341,9 @@ public class AutofillAiDelegate {
         }
     }
 
-    static boolean disabledSettingsInThirdPartyMode(Profile profile) {
-        return AutofillClientProviderUtils.getAndroidAutofillFrameworkAvailability(
-                        UserPrefs.get(profile))
-                == AndroidAutofillAvailabilityStatus.AVAILABLE;
-    }
-
     private static boolean shouldShowWalletDataSharingDataCard(Profile profile) {
         EntityDataManager entityDataManager = EntityDataManagerFactory.getForProfile(profile);
-        return !disabledSettingsInThirdPartyMode(profile)
+        return !isPlatformAutofillEnabledForProfile(profile)
                 && entityDataManager != null
                 && !entityDataManager.isWalletPublicPassStorageEnabled()
                 && ChromeFeatureList.isEnabled(
@@ -397,7 +394,7 @@ public class AutofillAiDelegate {
     /** Adds an information card if Chrome settings are disabled in third-party mode. */
     void maybeAddDisabledSettingsInfoCard(
             PreferenceScreen screen, @AutofillOptionsReferrer int referrer) {
-        if (disabledSettingsInThirdPartyMode(mFragment.getProfile())) {
+        if (isPlatformAutofillEnabledForProfile(mFragment.getProfile())) {
             addDisabledSettingsInfoCard(screen, referrer);
         }
     }
@@ -419,7 +416,7 @@ public class AutofillAiDelegate {
         disabledSettingsInfoPref.setOnButtonClick(
                 () -> {
                     SettingsNavigation settingsNavigation =
-                            SettingsNavigationFactory.createSettingsNavigation();
+                            SettingsNavigationFactory.createSettingsNavigation(getStyledContext());
                     settingsNavigation.startSettings(
                             getStyledContext(),
                             AutofillOptionsFragment.class,
@@ -439,7 +436,7 @@ public class AutofillAiDelegate {
     /** Adds an information card to the search index if Chrome settings are disabled. */
     static void maybeAddDisabledSettingsInfoCard(
             SettingsIndexData indexData, Profile profile, String prefFragmentName) {
-        if (disabledSettingsInThirdPartyMode(profile)) {
+        if (isPlatformAutofillEnabledForProfile(profile)) {
             if (indexData.getEntryForKey(prefFragmentName, DISABLED_SETTINGS_INFO) == null) {
                 addDisabledSettingsInfoCard(indexData, prefFragmentName);
             }
@@ -518,13 +515,23 @@ public class AutofillAiDelegate {
                 continue;
             }
 
-            PreferenceCategory category = new PreferenceCategory(getStyledContext());
+            var category = new ChromeBasePreferenceCategory(getStyledContext());
             category.setTitle(type.getTypeNameSectionTitleString());
             category.setKey(type.getTypeNameAsString());
             screen.addPreference(category);
 
             for (EntityInstanceWithLabels entity : entities) {
-                Preference pref = new Preference(getStyledContext());
+                Preference pref =
+                        new ChromeBasePreference(getStyledContext()) {
+                            @Override
+                            public void onBindViewHolder(PreferenceViewHolder holder) {
+                                super.onBindViewHolder(holder);
+                                TextView summaryView =
+                                        (TextView) holder.findViewById(android.R.id.summary);
+                                summaryView.setSingleLine(true);
+                                summaryView.setEllipsize(TextUtils.TruncateAt.END);
+                            }
+                        };
                 pref.setTitle(entity.getEntityInstanceLabel());
                 pref.setSummary(entity.getEntityInstanceSubLabel());
                 pref.setKey(entity.getGuid());
@@ -572,7 +579,7 @@ public class AutofillAiDelegate {
             EntityDataManager entityDataManager, EntityType entityType) {
         boolean buttonEnabled = isAddButtonEnabled(entityDataManager, entityType);
 
-        Preference pref = new Preference(getStyledContext());
+        Preference pref = new ChromeBasePreference(getStyledContext());
         Drawable plusIcon =
                 ApiCompatibilityUtils.getDrawable(mFragment.getResources(), R.drawable.plus);
         plusIcon.mutate();
@@ -606,7 +613,7 @@ public class AutofillAiDelegate {
 
     private boolean isAddButtonEnabled(EntityDataManager entityDataManager, EntityType entityType) {
         return isEligibleToAddEntities(entityDataManager, entityType.getTypeName())
-                && !disabledSettingsInThirdPartyMode(mFragment.getProfile());
+                && !isPlatformAutofillEnabledForProfile(mFragment.getProfile());
     }
 
     private boolean isEligibleToAddEntities(
@@ -634,7 +641,8 @@ public class AutofillAiDelegate {
     private AutofillAiToggleState getToggleState(@EntityTypeName int entityTypeName) {
         EntityDataManager entityDataManager =
                 EntityDataManagerFactory.getForProfile(mFragment.getProfile());
-        if (entityDataManager == null || disabledSettingsInThirdPartyMode(mFragment.getProfile())) {
+        if (entityDataManager == null
+                || isPlatformAutofillEnabledForProfile(mFragment.getProfile())) {
             return AutofillAiToggleState.DISABLED;
         }
 

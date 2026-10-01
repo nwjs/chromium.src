@@ -6,6 +6,7 @@
 
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/browser/ui/tabs/tab_group_data.h"
 #include "chrome/browser/ui/tabs/tab_style.h"
 #include "chrome/browser/ui/tabs/vertical_tab_strip_state_controller.h"
@@ -31,6 +32,7 @@
 #include "components/tabs/public/tab_collection_types.h"
 #include "components/tabs/public/tab_group.h"
 #include "components/tabs/public/tab_group_tab_collection.h"
+#include "content/public/browser/navigation_controller.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/models/list_selection_model.h"
 #include "ui/gfx/geometry/rect.h"
@@ -133,15 +135,6 @@ void TabGroupView::OnGestureEvent(ui::GestureEvent* event) {
     group_header_->OnGestureEvent(&converted_event);
     event->SetHandled();
   }
-}
-
-views::View::Views TabGroupView::GetChildrenInZOrder() {
-  views::View::Views paint_order = views::View::GetChildrenInZOrder();
-  auto it = std::ranges::find(paint_order, group_line_.get());
-  if (it != paint_order.end() && std::next(it) != paint_order.end()) {
-    std::rotate(it, it + 1, paint_order.end());
-  }
-  return paint_order;
 }
 
 void TabGroupView::ToggleCollapsedState(

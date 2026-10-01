@@ -27,7 +27,9 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/models/image_model.h"
+#include "ui/base/page_transition_types.h"
 #include "ui/base/resource/resource_bundle.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/color/color_id.h"
 #include "ui/gfx/text_constants.h"
 #include "ui/views/bubble/bubble_dialog_delegate_view.h"
@@ -283,10 +285,11 @@ bool IOSPromoBubbleView::Accept() {
       return false;
     }
     case BubbleType::kQRCode: {
-      content::OpenURLParams params(GURL(config_.qr_code_url),
-                                    content::Referrer(),
-                                    WindowOpenDisposition::NEW_FOREGROUND_TAB,
-                                    ui::PAGE_TRANSITION_LINK, false);
+      content::OpenURLParams params =
+          content::OpenURLParams::CreateBrowserInitiated(
+              GURL(config_.qr_code_url),
+              WindowOpenDisposition::NEW_FOREGROUND_TAB,
+              ui::PAGE_TRANSITION_LINK);
 
       if (open_url_callback_) {
         open_url_callback_.Run(params);

@@ -12,6 +12,7 @@
 #include "chrome/browser/ui/autofill/autofill_ai/autofill_ai_import_data_controller.h"
 #include "chrome/browser/ui/autofill/autofill_ai/entity_attribute_update_details.h"
 #include "chrome/browser/ui/views/autofill/autofill_ai/autofill_ai_bubble_utils.h"
+#include "chrome/browser/ui/views/autofill/autofill_bubble_utils.h"
 #include "chrome/browser/ui/views/autofill/payments/dialog_view_ids.h"
 #include "chrome/browser/ui/views/chrome_layout_provider.h"
 #include "components/autofill/core/common/autofill_features.h"
@@ -106,6 +107,10 @@ AutofillAiImportDataBubbleView::AutofillAiImportDataBubbleView(
       controller_->GetUpdatedAttributesDetails();
   for (const EntityAttributeUpdateDetails& detail : attributes_details) {
     attributes_wrapper->AddChildView(BuildEntityAttributeRow(detail));
+  }
+
+  if (!controller_->GetLegalMessageLines().empty()) {
+    main_content_wrapper->AddChildView(GetWalletableEntityDisclosure());
   }
 
   DialogDelegate::SetButtonLabel(
@@ -216,8 +221,21 @@ AutofillAiImportDataBubbleView::GetWalletableEntitySubtitle() const {
       l10n_util::GetStringUTF16(IDS_AUTOFILL_GOOGLE_WALLET_TITLE);
   const std::u16string account_email = controller_->GetPrimaryAccountEmail();
 
-  if (controller_->IsSavePrompt() &&
-      base::FeatureList::IsEnabled(features::kAutofillAiWalletPrivatePasses)) {
+  if (controller_->GetNoticeStringId() ==
+      IDS_AUTOFILL_AI_SAVE_ENTITY_TO_WALLET_DIALOG_SUBTITLE_BRANDED) {
+    const std::u16string manage_settings_text = l10n_util::GetStringUTF16(
+        IDS_AUTOFILL_MANAGE_YOUR_WALLET_SETTINGS_LINK);
+
+    formatted_text = l10n_util::GetStringFUTF16(
+        controller_->GetNoticeStringId(), {manage_settings_text, account_email},
+        &offsets);
+
+    link_range =
+        gfx::Range(offsets[0], offsets[0] + manage_settings_text.size());
+
+  } else if (controller_->IsSavePrompt() &&
+             base::FeatureList::IsEnabled(
+                 features::kAutofillAiWalletPrivatePasses)) {
     const std::u16string manage_info_text =
         l10n_util::GetStringUTF16(IDS_AUTOFILL_MANAGE_YOUR_INFO_LINK);
 
@@ -250,6 +268,21 @@ AutofillAiImportDataBubbleView::GetWalletableEntitySubtitle() const {
       .SetHorizontalAlignment(gfx::HorizontalAlignment::ALIGN_LEFT)
       .AddStyleRange(link_range, go_to_wallet)
       .Build();
+}
+
+std::unique_ptr<views::View>
+AutofillAiImportDataBubbleView::GetWalletableEntityDisclosure() {
+  std::unique_ptr<views::View> legal_message_view = CreateLegalMessageView(
+      controller_->GetLegalMessageLines(),
+      base::BindRepeating(
+          &AutofillAiImportDataController::OnLegalMessageLinkClicked,
+          controller_));
+  legal_message_view->SetProperty(
+      views::kMarginsKey,
+      gfx::Insets().set_top(ChromeLayoutProvider::Get()->GetDistanceMetric(
+          views::DISTANCE_RELATED_CONTROL_VERTICAL)));
+  legal_message_view->SetID(DialogViewId::LEGAL_MESSAGE_VIEW);
+  return legal_message_view;
 }
 
 void AutofillAiImportDataBubbleView::Hide() {

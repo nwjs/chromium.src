@@ -80,6 +80,8 @@
 #include "third_party/blink/public/mojom/ai/model_streaming_responder.mojom.h"
 #include "third_party/blink/public/mojom/devtools/console_message.mojom-shared.h"
 
+using blink::mojom::AILanguageCodePtr;
+
 namespace {
 
 constexpr float kDefaultMaxTemperature = 2.0f;
@@ -122,6 +124,8 @@ const char kExperimentalLanguageWarning[] =
 const char kSpeedPreferenceMarkdownWarning[] =
     "The 'speed' performance preference utilizes a model with limited support "
     "for 'markdown' format.";
+
+const char kModelVersionParam[] = "model_version";
 
 // Eagerly initializes other downloadable APIs when any session type is created.
 BASE_FEATURE(kBuiltInAIEagerInit, base::FEATURE_ENABLED_BY_DEFAULT);
@@ -382,6 +386,7 @@ void CreateSessionWithConfigAndResolver(
     base::OnceCallback<
         void(std::unique_ptr<optimization_guide::OnDeviceSession>)> callback,
     AIManager::UseCaseResolver resolver,
+    optimization_guide::SessionConfigParams config_params,
     std::optional<mojo_base::ProtoWrapper> wrapper) {
   std::optional<std::string> use_case = std::move(resolver).Run(wrapper);
 
@@ -395,8 +400,7 @@ void CreateSessionWithConfigAndResolver(
                                                     std::move(monitor));
   }
 
-  broker_client->CreateSession(*use_case,
-                               ::optimization_guide::SessionConfigParams{},
+  broker_client->CreateSession(*use_case, std::move(config_params),
                                std::move(callback));
 }
 
@@ -412,7 +416,7 @@ void CreateSessionWithConfig(
   CreateSessionWithConfigAndResolver(
       broker_client, std::move(monitor), std::move(callback),
       base::BindOnce(&GetUseCaseFromFeatureConfig<FeatureConfigProto>),
-      std::move(wrapper));
+      ::optimization_guide::SessionConfigParams{}, std::move(wrapper));
 }
 
 // Request assets and wait for the model broker client to become
@@ -672,7 +676,12 @@ void CheckAndLogEligibility(
 }
 
 template <typename OptionsPtr>
-uint32_t GetInputContextLimit(const OptionsPtr& options) {
+uint32_t GetInputContextLimit(
+    const OptionsPtr& options,
+    const optimization_guide::OnDeviceSession* session = nullptr) {
+  if (session && session->GetTokenLimits().max_execute_tokens > 0) {
+    return session->GetTokenLimits().max_execute_tokens;
+  }
   if constexpr (std::is_same_v<OptionsPtr,
                                blink::mojom::AISummarizerCreateOptionsPtr>) {
     return AISummarizer::GetInputContextLimit(options);
@@ -711,7 +720,6 @@ std::string_view AILanguageModelSamplingModeToString(
 // field param kModelVersionParam to specify the model version. Example:
 // --enable-features=AIApiFoundationalModel:model_version/v4
 BASE_FEATURE(kAIApiFoundationalModel, base::FEATURE_DISABLED_BY_DEFAULT);
-const char kModelVersionParam[] = "model_version";
 
 AIManager::AIManager(content::BrowserContext* browser_context,
                      content::RenderFrameHost* rfh)
@@ -1170,6 +1178,20 @@ void AIManager::CreateSummarizer(
   auto callback =
       CreateSummarizerSessionCallback(std::move(options), std::move(client));
 
+  optimization_guide::SessionConfigParams config_params;
+  if (base::FeatureList::IsEnabled(
+          on_device_model::features::kOnDeviceModelSpeculativeDecoding) &&
+      (!options_clone ||
+       options_clone->preference ==
+           blink::mojom::PerformancePreference::kAuto ||
+       options_clone->preference ==
+           blink::mojom::PerformancePreference::kCapability)) {
+    config_params.sampling_params = optimization_guide::SamplingParams{
+        .top_k = 1,
+        .temperature = 0.0f,
+    };
+  }
+
   if (base::FeatureList::IsEnabled(
           optimization_guide::kOptimizationGuideManifestBroker)) {
     model_broker_client_->GetConfig(
@@ -1178,7 +1200,8 @@ void AIManager::CreateSummarizer(
                        model_broker_client_.get(), std::move(monitor),
                        std::move(callback),
                        base::BindOnce(&ResolveSummarizerUseCaseName,
-                                      std::move(options_clone))));
+                                      std::move(options_clone)),
+                       std::move(config_params)));
   } else {
     if (monitor) {
       model_broker_client_->AddModelDownloadProgressObserver(
@@ -1188,7 +1211,7 @@ void AIManager::CreateSummarizer(
     }
     model_broker_client_->CreateSession(
         optimization_guide::mojom::OnDeviceFeature::kSummarize,
-        ::optimization_guide::SessionConfigParams{}, std::move(callback));
+        std::move(config_params), std::move(callback));
   }
 }
 
@@ -1701,7 +1724,7 @@ void AIManager::OnSessionCreated(
   }
 
   mojo::PendingRemote<ContextBoundObjectReceiverInterface> pending_remote;
-  const uint32_t context_window = GetInputContextLimit(options);
+  const uint32_t context_window = GetInputContextLimit(options, session.get());
   context_bound_object_set_.AddContextBoundObject(
       std::make_unique<ContextBoundObjectType>(
           context_bound_object_set_, std::move(session), std::move(options),
@@ -1724,7 +1747,7 @@ void AIManager::OnGotExecutionInputSizeInTokens(
         blink::mojom::AIManagerCreateClientError::kUnableToCalculateTokenSize);
     return;
   }
-  const uint32_t context_window = GetInputContextLimit(options);
+  const uint32_t context_window = GetInputContextLimit(options, session.get());
   if (result.value() > context_window) {
     on_device_ai::SendClientRemoteError(
         client_remote,

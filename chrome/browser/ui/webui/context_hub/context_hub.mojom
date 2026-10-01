@@ -18,6 +18,11 @@ feature kAutoTodos {
   const bool default_state = false;
 };
 
+feature kSmartSearch {
+  const string name = "SmartSearch";
+  const bool default_state = false;
+};
+
 enum AutoTodoStatus {
   kActive,
   kCompleted,
@@ -41,9 +46,15 @@ struct PhotosReference {
   url.mojom.Url photos_url;
 };
 
+struct DriveFile {
+  url.mojom.Url url;
+  string name;
+};
+
 union SourceReference {
   GmailReference gmail;
   PhotosReference photos;
+  DriveFile drive;
 };
 
 // Data for Gmail-based AutoTodos.
@@ -82,6 +93,14 @@ struct AutoTodoItem {
   float score;
   // Type-specific data for the item.
   AutoTodoData data;
+};
+
+// Metadata regarding the generation of Auto Todos.
+struct AutoTodosGenerationMetadata {
+  // Timestamp of the last successful generation.
+  mojo_base.mojom.Time last_generation_time;
+  // Whether the last generation attempt failed.
+  bool has_error;
 };
 
 enum EntryType {
@@ -161,6 +180,12 @@ struct AutoTodoItemFeedback {
   bool liked;
 };
 
+// Represents a search result returned by the Smart Search feature.
+struct SmartSearchResult {
+  string description;
+  array<SourceReference> source_references;
+};
+
 // Interface for the browser process to push updates to the WebUI page.
 // Implemented in the renderer process (the Context Hub WebUI).
 interface Page {
@@ -195,20 +220,20 @@ interface PageHandler {
   GenerateFirstPartyAutoTodos() => (bool success);
 
   // Returns stored Auto Todos from the cache, differentiated by whether they
-  // are first party or third party, along with the timestamps when they were
-  // last generated.
+  // are first party or third party, along with generation metadata for each.
   [RuntimeFeature=kAutoTodos]
   GetAutoTodos() => (array<AutoTodoItem> first_party_todos,
                      array<AutoTodoItem> third_party_todos,
-                     mojo_base.mojom.Time last_first_party_generation_time,
-                     mojo_base.mojom.Time last_third_party_generation_time);
+                     AutoTodosGenerationMetadata first_party_metadata,
+                     AutoTodosGenerationMetadata third_party_metadata);
 
   // Updates an existing Auto Todo item in the cache, returns true if
   // successful.
   [RuntimeFeature=kAutoTodos]
   UpdateAutoTodo(AutoTodoItem todo) => (bool success);
 
-  // Generates Tab-based Todos and stores them in the cache. Gated by kAutoTodos flag.
+  // Generates Tab-based Todos and stores them in the cache. Gated by kAutoTodos
+  // flag.
   [RuntimeFeature=kAutoTodos]
   GenerateTabBasedTodos() => (bool success);
 
@@ -246,13 +271,19 @@ interface PageHandler {
   DeleteMemoryBankEntries(array<int64> ids) => ();
 
   // Saves the current context entry to the memory bank with user annotations.
-  SaveMemoryBankEntry(MemoryBankEntryAnnotations annotations) => (bool success);
+  SaveMemoryBankEntry(MemoryBankEntryAnnotations annotations)
+      => (bool success);
 
   // Returns all unique tags stored in the memory bank.
   GetAllMemoryBankTags() => (array<string> tags);
 
   // Returns all unique collections stored in the memory bank.
   GetAllMemoryBankCollections() => (array<string> collections);
+
+  // Updates an existing memory bank entry with new user annotations.
+  UpdateMemoryBankEntryAnnotations(int64 id,
+                                   MemoryBankEntryAnnotations annotations)
+      => (bool success);
 
   // Returns the list of open ungrouped tabs in the current window.
   [RuntimeFeature=kAutoTabGroups]
@@ -292,6 +323,12 @@ interface PageHandler {
       string user_command, array<int64> memory_bank_entry_ids)
       => (ChatMessage response);
 
+  // Returns stored memory bank chat history.
+  GetMemoryBankChatHistory() => (array<ChatMessage> history);
+
+  // Clears stored memory bank chat history.
+  ClearMemoryBankChatHistory() => ();
+
   // Confirms all suggested tab groups to the browser window and saves them
   // to TabGroupSyncService.
   [RuntimeFeature=kAutoTabGroups]
@@ -315,4 +352,9 @@ interface PageHandler {
   // their open tabs in the browser window.
   [RuntimeFeature=kAutoTabGroups]
   RemoveAllConfirmedTabGroups() => ();
+
+  // Executes the provided natural language query to search across Drive
+  // artifacts.
+  [RuntimeFeature=kSmartSearch]
+  ExecuteSmartSearch(string query) => (array<SmartSearchResult> results);
 };

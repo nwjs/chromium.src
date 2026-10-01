@@ -7,6 +7,7 @@
 #include <memory>
 
 #include "ash/constants/ash_switches.h"
+#include "ash/constants/chrome_switches.h"
 #include "ash/public/cpp/shelf_prefs.h"
 #include "ash/public/cpp/shelf_test_api.h"
 #include "ash/public/cpp/shelf_types.h"
@@ -22,7 +23,6 @@
 #include "base/run_loop.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_manager.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/test/base/in_process_browser_test.h"
@@ -189,7 +189,7 @@ class ShelfGuestSessionBrowserTest : public InProcessBrowserTest {
  protected:
   void SetUpCommandLine(base::CommandLine* command_line) override {
     command_line->AppendSwitch(switches::kGuestSession);
-    command_line->AppendSwitch(::switches::kIncognito);
+    command_line->AppendSwitch(ash::chrome_switches::kIncognito);
     command_line->AppendSwitchASCII(switches::kLoginProfile, "hash");
     command_line->AppendSwitchASCII(
         switches::kLoginUser, user_manager::GuestAccountId().GetUserEmail());

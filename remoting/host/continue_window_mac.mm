@@ -16,16 +16,20 @@
 #include "ui/base/l10n/l10n_util_mac.h"
 
 // Handles the ContinueWindow.
-@interface ContinueWindowMacController : NSObject {
+@interface ContinueWindowMacController : NSObject <NSWindowDelegate> {
  @private
   NSMutableArray<NSWindow*>* __strong _shades;
   NSAlert* __strong _continue_alert;
+  NSButton* __weak _cancel_button;
+  NSButton* __weak _continue_button;
   raw_ptr<remoting::ContinueWindow> _continue_window;
 }
 
 - (instancetype)initWithWindow:(remoting::ContinueWindow*)continue_window;
 - (void)show;
 - (void)hide;
+- (void)cancelOperation:(id)sender;
+- (void)setButtonsEnabled:(BOOL)enabled;
 - (void)onCancel:(id)sender;
 - (void)onContinue:(id)sender;
 @end
@@ -47,6 +51,7 @@ class ContinueWindowMac : public ContinueWindow {
   // ContinueWindow overrides.
   void ShowUi() override;
   void HideUi() override;
+  void SetButtonsEnabled(bool enabled) override;
 
  private:
   ContinueWindowMacController* __strong controller_;
@@ -76,6 +81,14 @@ void ContinueWindowMac::HideUi() {
   @autoreleasepool {
     [controller_ hide];
     controller_ = nil;
+  }
+}
+
+void ContinueWindowMac::SetButtonsEnabled(bool enabled) {
+  DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
+
+  if (controller_) {
+    [controller_ setButtonsEnabled:enabled ? YES : NO];
   }
 }
 
@@ -114,6 +127,9 @@ std::unique_ptr<HostWindow> HostWindow::CreateContinueWindow() {
     // Leave the dock and menu bar exposed so the user has some basic level
     // of control (like they can quit Chromium).
     shade.level = NSModalPanelWindowLevel - 1;
+    shade.collectionBehavior = NSWindowCollectionBehaviorCanJoinAllSpaces |
+                               NSWindowCollectionBehaviorFullScreenAuxiliary |
+                               NSWindowCollectionBehaviorStationary;
     [shade orderFront:nil];
     [_shades addObject:shade];
   }
@@ -122,15 +138,18 @@ std::unique_ptr<HostWindow> HostWindow::CreateContinueWindow() {
   _continue_alert = [[NSAlert alloc] init];
   _continue_alert.messageText = l10n_util::GetNSString(IDS_CONTINUE_PROMPT);
 
-  NSButton* continue_button = [_continue_alert
-      addButtonWithTitle:l10n_util::GetNSString(IDS_CONTINUE_BUTTON)];
-  continue_button.action = @selector(onContinue:);
-  continue_button.target = self;
-
-  NSButton* cancel_button = [_continue_alert
+  _cancel_button = [_continue_alert
       addButtonWithTitle:l10n_util::GetNSString(IDS_STOP_SHARING_BUTTON)];
-  cancel_button.action = @selector(onCancel:);
-  cancel_button.target = self;
+  _cancel_button.action = @selector(onCancel:);
+  _cancel_button.target = self;
+  _cancel_button.enabled = NO;
+
+  _continue_button = [_continue_alert
+      addButtonWithTitle:l10n_util::GetNSString(IDS_CONTINUE_BUTTON)];
+  _continue_button.action = @selector(onContinue:);
+  _continue_button.target = self;
+  _continue_button.keyEquivalent = @"";
+  _continue_button.enabled = NO;
 
   NSBundle* bundle = [NSBundle bundleForClass:[self class]];
   NSString* imagePath = [bundle pathForResource:@"chromoting128" ofType:@"png"];
@@ -140,8 +159,13 @@ std::unique_ptr<HostWindow> HostWindow::CreateContinueWindow() {
 
   // Force alert to be at the proper level and location.
   NSWindow* continue_window = _continue_alert.window;
+  continue_window.delegate = self;
   [continue_window center];
   continue_window.level = NSModalPanelWindowLevel;
+  continue_window.collectionBehavior =
+      NSWindowCollectionBehaviorCanJoinAllSpaces |
+      NSWindowCollectionBehaviorFullScreenAuxiliary |
+      NSWindowCollectionBehaviorStationary;
   [continue_window orderWindow:NSWindowAbove
                     relativeTo:_shades.lastObject.windowNumber];
   [continue_window makeKeyWindow];
@@ -154,17 +178,37 @@ std::unique_ptr<HostWindow> HostWindow::CreateContinueWindow() {
   }
   _shades = nil;
   if (_continue_alert) {
+    _continue_alert.window.delegate = nil;
     [_continue_alert.window close];
     _continue_alert = nil;
   }
+  _cancel_button = nil;
+  _continue_button = nil;
+}
+
+- (void)setButtonsEnabled:(BOOL)enabled {
+  _cancel_button.enabled = enabled;
+  _continue_button.enabled = enabled;
+}
+
+- (void)cancelOperation:(id)sender {
+  [self onCancel:sender];
 }
 
 - (void)onCancel:(id)sender {
+  if (!_cancel_button.enabled) {
+    return;
+  }
+
   [self hide];
   _continue_window->DisconnectSession();
 }
 
 - (void)onContinue:(id)sender {
+  if (!_continue_button.enabled) {
+    return;
+  }
+
   [self hide];
   _continue_window->ContinueSession();
 }

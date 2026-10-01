@@ -14,6 +14,7 @@
 #include "base/time/time.h"
 #include "chrome/common/readaloud/read_aloud.mojom.h"
 #include "chrome/services/readaloud/decoded_audio_segment.h"
+#include "chrome/services/readaloud/word_timing.h"
 #include "media/base/decoder_buffer.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -38,9 +39,14 @@ TEST_F(PrefetchManagerTest, DefaultConstructor) {
 
 TEST_F(PrefetchManagerTest, InsertAndRetrieveCachedSegment) {
   PrefetchManager manager;
-  std::vector<DecodedAudioSegment::WordTiming> timings = {
-      {"Hello", base::Milliseconds(0), base::Milliseconds(200)},
-      {"World", base::Milliseconds(200), base::Milliseconds(500)}};
+  std::vector<WordTiming> timings = {{.start_time = base::Milliseconds(0),
+                                      .end_time = base::Milliseconds(200),
+                                      .start_character_offset = 0u,
+                                      .end_character_offset = 5u},
+                                     {.start_time = base::Milliseconds(200),
+                                      .end_time = base::Milliseconds(500),
+                                      .start_character_offset = 6u,
+                                      .end_character_offset = 11u}};
 
   manager.InsertCachedSegment(
       0,
@@ -57,10 +63,12 @@ TEST_F(PrefetchManagerTest, InsertAndRetrieveCachedSegment) {
   EXPECT_EQ(4u, cached->opus_buffer->size());
   EXPECT_EQ(0x4F, *cached->opus_buffer->begin());
   ASSERT_EQ(2u, cached->timings.size());
-  EXPECT_EQ("Hello", cached->timings[0].text);
+  EXPECT_EQ(0u, cached->timings[0].start_character_offset);
+  EXPECT_EQ(5u, cached->timings[0].end_character_offset);
   EXPECT_EQ(base::Milliseconds(0), cached->timings[0].start_time);
   EXPECT_EQ(base::Milliseconds(200), cached->timings[0].end_time);
-  EXPECT_EQ("World", cached->timings[1].text);
+  EXPECT_EQ(6u, cached->timings[1].start_character_offset);
+  EXPECT_EQ(11u, cached->timings[1].end_character_offset);
 }
 
 TEST_F(PrefetchManagerTest, SetTextContentPopulatesTimelineAndClearsCache) {
@@ -97,6 +105,51 @@ TEST_F(PrefetchManagerTest, SetTextContentPopulatesTimelineAndClearsCache) {
   // Verify canonical sentence timeline was generated in kSpeed mode.
   EXPECT_EQ(4u, manager.GetTimelineChunkCount());
   EXPECT_FALSE(manager.GetTimelineChunks().empty());
+}
+
+TEST_F(PrefetchManagerTest, SetTextContentFiresOnTextChunkedCallback) {
+  PrefetchManager manager;
+
+  std::vector<std::u16string> received_chunks;
+  int callback_count = 0;
+  manager.SetOnTextChunkedCallback(base::BindRepeating(
+      [](std::vector<std::u16string>* out_chunks, int* count,
+         const std::vector<std::u16string>& chunks) {
+        *out_chunks = chunks;
+        (*count)++;
+      },
+      base::Unretained(&received_chunks), base::Unretained(&callback_count)));
+
+  std::vector<read_aloud::mojom::TextSegmentPtr> segments;
+  read_aloud::mojom::TextSegmentPtr seg = read_aloud::mojom::TextSegment::New();
+  seg->segment_index = 0;
+  seg->text = u"First sentence. Second sentence!";
+  segments.push_back(std::move(seg));
+
+  manager.SetTextContent(segments);
+
+  EXPECT_EQ(callback_count, 1);
+  EXPECT_THAT(received_chunks,
+              testing::ElementsAre(u"First sentence.", u"Second sentence!"));
+}
+
+TEST_F(PrefetchManagerTest,
+       SetTextContentEmptySegmentsFiresOnTextChunkedCallback) {
+  PrefetchManager manager;
+
+  std::vector<std::u16string> received_chunks;
+  int callback_count = 0;
+  manager.SetOnTextChunkedCallback(base::BindRepeating(
+      [](std::vector<std::u16string>* out_chunks, int* count,
+         const std::vector<std::u16string>& chunks) {
+        *out_chunks = chunks;
+        (*count)++;
+      },
+      base::Unretained(&received_chunks), base::Unretained(&callback_count)));
+
+  manager.SetTextContent({});
+  EXPECT_EQ(callback_count, 1);
+  EXPECT_TRUE(received_chunks.empty());
 }
 
 TEST_F(PrefetchManagerTest, ResetSessionClearsCacheAndTimeline) {
@@ -306,13 +359,56 @@ TEST_F(PrefetchManagerTest,
   // Simulate synthesis error response with nullptr buffer.
   manager.OnSynthesisResponse(seq_id, 0, nullptr, {});
 
-  // Chunk 0 should not be cached, but in-flight slot must be freed and chunk 3
-  // dispatched.
+  // Chunk 0 should not be reported as cached audio, but its status must be
+  // recorded as kSynthesisError in session_cache_, in-flight slot freed, and
+  // chunk 3 dispatched.
   EXPECT_FALSE(manager.HasCachedSegment(0));
+  const CachedCompressedSegment* cached0 = manager.GetCachedSegment(0);
+  ASSERT_NE(cached0, nullptr);
+  EXPECT_EQ(cached0->status, SynthesisResultStatus::kSynthesisError);
+  EXPECT_EQ(cached0->opus_buffer, nullptr);
+
   ASSERT_EQ(PrefetchManager::kMaxConcurrentRequests + 1,
             dispatched_indices.size());
   EXPECT_EQ(static_cast<uint32_t>(PrefetchManager::kMaxConcurrentRequests),
             dispatched_indices.back());
+}
+
+TEST_F(PrefetchManagerTest, RecordsSynthesisErrorStatusInCache) {
+  PrefetchManager manager;
+  std::vector<read_aloud::mojom::TextSegmentPtr> segments;
+  read_aloud::mojom::TextSegmentPtr seg = read_aloud::mojom::TextSegment::New();
+  seg->segment_index = 0;
+  seg->text = u"Chunk zero.";
+  segments.push_back(std::move(seg));
+  manager.SetTextContent(segments);
+
+  manager.InsertCachedSegment(0, nullptr, {},
+                              SynthesisResultStatus::kSynthesisError);
+  EXPECT_FALSE(manager.HasCachedSegment(0));
+  const CachedCompressedSegment* cached = manager.GetCachedSegment(0);
+  ASSERT_NE(cached, nullptr);
+  EXPECT_EQ(cached->status, SynthesisResultStatus::kSynthesisError);
+  EXPECT_EQ(cached->opus_buffer, nullptr);
+}
+
+TEST_F(PrefetchManagerTest, RecordsCorruptDataStatusInCache) {
+  PrefetchManager manager;
+  std::vector<read_aloud::mojom::TextSegmentPtr> segments;
+  read_aloud::mojom::TextSegmentPtr seg = read_aloud::mojom::TextSegment::New();
+  seg->segment_index = 0;
+  seg->text = u"Chunk zero.";
+  segments.push_back(std::move(seg));
+  manager.SetTextContent(segments);
+
+  scoped_refptr<media::DecoderBuffer> corrupt_buffer =
+      media::DecoderBuffer::CopyFrom(std::vector<uint8_t>{0xff, 0xff});
+  manager.InsertCachedSegment(0, corrupt_buffer, {},
+                              SynthesisResultStatus::kCorruptData);
+  EXPECT_FALSE(manager.HasCachedSegment(0));
+  const CachedCompressedSegment* cached = manager.GetCachedSegment(0);
+  ASSERT_NE(cached, nullptr);
+  EXPECT_EQ(cached->status, SynthesisResultStatus::kCorruptData);
 }
 
 TEST_F(PrefetchManagerTest, StaleOrOutOrderResponseIsDiscarded) {
@@ -527,6 +623,144 @@ TEST_F(PrefetchManagerTest, GetRequiredPrefetchChunksRespectsTimelineBounds) {
 
   EXPECT_THAT(manager.GetRequiredPrefetchChunks(8, base::Seconds(0)),
               testing::ElementsAre(8, 9));
+}
+
+TEST_F(PrefetchManagerTest,
+       SetTextContentMultiSegmentMonotonicDocumentOffsets) {
+  PrefetchManager manager;
+  std::vector<read_aloud::mojom::TextSegmentPtr> segments;
+
+  read_aloud::mojom::TextSegmentPtr seg0 =
+      read_aloud::mojom::TextSegment::New();
+  seg0->segment_index = 0;
+  seg0->text = u"First sentence. Second sentence!";
+  segments.push_back(std::move(seg0));
+
+  read_aloud::mojom::TextSegmentPtr seg1 =
+      read_aloud::mojom::TextSegment::New();
+  seg1->segment_index = 1;
+  seg1->text = u"Third sentence? Fourth sentence.";
+  segments.push_back(std::move(seg1));
+
+  manager.SetTextContent(segments, base::i18n::GetKnownLanguageTag("en-US"));
+
+  const std::vector<TextChunk>& chunks = manager.GetTimelineChunks();
+  ASSERT_EQ(chunks.size(), 4u);
+
+  EXPECT_EQ(chunks[0].text, u"First sentence.");
+  EXPECT_EQ(chunks[0].start_code_unit_offset, 0u);
+
+  EXPECT_EQ(chunks[1].text, u"Second sentence!");
+  EXPECT_EQ(chunks[1].start_code_unit_offset, 16u);
+
+  // Segment 1 chunks must have base_offset equal to segment 0 length (32).
+  EXPECT_EQ(chunks[2].text, u"Third sentence?");
+  EXPECT_EQ(chunks[2].start_code_unit_offset, 32u);
+
+  EXPECT_EQ(chunks[3].text, u"Fourth sentence.");
+  EXPECT_EQ(chunks[3].start_code_unit_offset, 48u);
+}
+
+TEST_F(PrefetchManagerTest, SetTextContentInterleavedNullSegment) {
+  PrefetchManager manager;
+  std::vector<read_aloud::mojom::TextSegmentPtr> segments;
+
+  read_aloud::mojom::TextSegmentPtr seg0 =
+      read_aloud::mojom::TextSegment::New();
+  seg0->segment_index = 0;
+  seg0->text = u"First sentence.";  // Length 15
+  segments.push_back(std::move(seg0));
+
+  // Interleaved null segment should be safely skipped.
+  segments.push_back(nullptr);
+
+  read_aloud::mojom::TextSegmentPtr seg1 =
+      read_aloud::mojom::TextSegment::New();
+  seg1->segment_index = 1;
+  seg1->text = u"Second sentence.";  // Length 16
+  segments.push_back(std::move(seg1));
+
+  manager.SetTextContent(segments, base::i18n::GetKnownLanguageTag("en-US"));
+
+  const std::vector<TextChunk>& chunks = manager.GetTimelineChunks();
+  ASSERT_EQ(chunks.size(), 2u);
+
+  EXPECT_EQ(chunks[0].text, u"First sentence.");
+  EXPECT_EQ(chunks[0].start_code_unit_offset, 0u);
+
+  EXPECT_EQ(chunks[1].text, u"Second sentence.");
+  EXPECT_EQ(chunks[1].start_code_unit_offset, 15u);
+}
+
+TEST_F(PrefetchManagerTest, SetTextContentInterleavedEmptySegment) {
+  PrefetchManager manager;
+  std::vector<read_aloud::mojom::TextSegmentPtr> segments;
+
+  read_aloud::mojom::TextSegmentPtr seg0 =
+      read_aloud::mojom::TextSegment::New();
+  seg0->segment_index = 0;
+  seg0->text = u"First sentence.";  // Length 15
+  segments.push_back(std::move(seg0));
+
+  // Interleaved empty segment should be safely skipped without accumulating.
+  read_aloud::mojom::TextSegmentPtr seg_empty =
+      read_aloud::mojom::TextSegment::New();
+  seg_empty->segment_index = 1;
+  seg_empty->text = u"";
+  segments.push_back(std::move(seg_empty));
+
+  read_aloud::mojom::TextSegmentPtr seg1 =
+      read_aloud::mojom::TextSegment::New();
+  seg1->segment_index = 2;
+  seg1->text = u"Second sentence.";  // Length 16
+  segments.push_back(std::move(seg1));
+
+  manager.SetTextContent(segments, base::i18n::GetKnownLanguageTag("en-US"));
+
+  const std::vector<TextChunk>& chunks = manager.GetTimelineChunks();
+  ASSERT_EQ(chunks.size(), 2u);
+
+  EXPECT_EQ(chunks[0].text, u"First sentence.");
+  EXPECT_EQ(chunks[0].start_code_unit_offset, 0u);
+
+  EXPECT_EQ(chunks[1].text, u"Second sentence.");
+  EXPECT_EQ(chunks[1].start_code_unit_offset, 15u);
+}
+
+TEST_F(PrefetchManagerTest, SetTextContentInterleavedWhitespaceSegment) {
+  PrefetchManager manager;
+  std::vector<read_aloud::mojom::TextSegmentPtr> segments;
+
+  read_aloud::mojom::TextSegmentPtr seg0 =
+      read_aloud::mojom::TextSegment::New();
+  seg0->segment_index = 0;
+  seg0->text = u"First sentence.";  // Length 15
+  segments.push_back(std::move(seg0));
+
+  read_aloud::mojom::TextSegmentPtr seg_ws =
+      read_aloud::mojom::TextSegment::New();
+  seg_ws->segment_index = 1;
+  seg_ws->text = u"   \t\n   ";  // Length 8, whitespace only -> yields 0 chunks
+  segments.push_back(std::move(seg_ws));
+
+  read_aloud::mojom::TextSegmentPtr seg1 =
+      read_aloud::mojom::TextSegment::New();
+  seg1->segment_index = 2;
+  seg1->text = u"Second sentence.";  // Length 16
+  segments.push_back(std::move(seg1));
+
+  manager.SetTextContent(segments, base::i18n::GetKnownLanguageTag("en-US"));
+
+  const std::vector<TextChunk>& chunks = manager.GetTimelineChunks();
+  ASSERT_EQ(chunks.size(), 2u);
+
+  EXPECT_EQ(chunks[0].text, u"First sentence.");
+  EXPECT_EQ(chunks[0].start_code_unit_offset, 0u);
+
+  // Segment 1 (whitespace, 8 code units) accumulates into document_offset,
+  // even though it yields 0 chunks. seg0 length (15) + seg_ws length (8) = 23.
+  EXPECT_EQ(chunks[1].text, u"Second sentence.");
+  EXPECT_EQ(chunks[1].start_code_unit_offset, 23u);
 }
 
 }  // namespace readaloud

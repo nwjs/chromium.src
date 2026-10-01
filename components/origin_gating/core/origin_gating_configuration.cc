@@ -20,14 +20,36 @@ constexpr DecisionSource kForbiddenPredicates[] = {
     DecisionSource::kNoVerdict,
 };
 
+bool UsesAtMostOneCustomPredicateDomain(
+    base::span<const PredicateConfiguration> predicates) {
+  auto first_custom_it =
+      std::ranges::find_if(predicates, [](const PredicateConfiguration& pc) {
+        return std::holds_alternative<CustomPredicate>(pc.predicate());
+      });
+  if (first_custom_it == predicates.end()) {
+    return true;
+  }
+  const DecisionAttribution::CustomPredicateAttribution&
+      first_custom_attribution =
+          std::get<CustomPredicate>(first_custom_it->predicate()).attribution();
+  return std::ranges::all_of(
+      first_custom_it, predicates.end(), [&](const PredicateConfiguration& pc) {
+        const auto* cp = std::get_if<CustomPredicate>(&pc.predicate());
+        return !cp || cp->attribution().IsSameDomain(first_custom_attribution);
+      });
+}
+
 }  // namespace
 
-CustomPredicate::CustomPredicate(AsyncPredicate predicate,
-                                 std::string_view name)
-    : predicate_(std::move(predicate)), name_(name) {}
+CustomPredicate::CustomPredicate(
+    AsyncPredicate predicate,
+    const DecisionAttribution::CustomPredicateAttribution& attribution)
+    : predicate_(std::move(predicate)), attribution_(attribution) {}
 
-CustomPredicate::CustomPredicate(SyncPredicate predicate, std::string_view name)
-    : predicate_(std::move(predicate)), name_(name) {}
+CustomPredicate::CustomPredicate(
+    SyncPredicate predicate,
+    const DecisionAttribution::CustomPredicateAttribution& attribution)
+    : predicate_(std::move(predicate)), attribution_(attribution) {}
 
 CustomPredicate::~CustomPredicate() = default;
 
@@ -60,6 +82,7 @@ OriginGatingConfiguration::OriginGatingConfiguration(
     const DecisionSource* source = std::get_if<DecisionSource>(&pc.predicate());
     return source && std::ranges::contains(kForbiddenPredicates, *source);
   }));
+  CHECK(UsesAtMostOneCustomPredicateDomain(predicates_));
 }
 
 OriginGatingConfiguration::~OriginGatingConfiguration() = default;

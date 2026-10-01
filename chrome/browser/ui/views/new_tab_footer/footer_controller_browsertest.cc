@@ -14,6 +14,8 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/tabs/split_tab_metrics.h"
+#include "chrome/browser/ui/tabs/tab_enums.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/contents_container_view.h"
 #include "chrome/browser/ui/views/new_tab_footer/footer_web_view.h"
@@ -32,6 +34,7 @@
 #include "extensions/test/test_extension_dir.h"
 #include "net/base/url_util.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "ui/base/page_transition_types.h"
 #include "ui/base/window_open_disposition.h"
 #include "url/gurl.h"
 
@@ -484,9 +487,10 @@ IN_PROC_BROWSER_TEST_F(FooterControllerSplitViewTest, OpenUrlFromTabInSplit) {
   ASSERT_TRUE(ntp_footer);
 
   const GURL kTargetUrl("https://www.google.com/");
-  content::OpenURLParams params(kTargetUrl, content::Referrer(),
-                                WindowOpenDisposition::CURRENT_TAB,
-                                ui::PAGE_TRANSITION_LINK, false);
+  content::OpenURLParams params =
+      content::OpenURLParams::CreateBrowserInitiated(
+          kTargetUrl, WindowOpenDisposition::CURRENT_TAB,
+          ui::PAGE_TRANSITION_LINK);
   content::TestNavigationObserver nav_observer(ntp_tab_contents);
   ntp_footer->OpenURLFromTab(ntp_footer->GetWebContents(), params, {});
   nav_observer.Wait();

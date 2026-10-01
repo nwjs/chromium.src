@@ -1,3 +1,4 @@
+# LINT.IfChange
 [submodule "third_party/clang-format/script"]
 	path = third_party/clang-format/script
 	url = https://chromium.googlesource.com/external/github.com/llvm/llvm-project/clang/tools/clang-format
@@ -328,6 +329,10 @@
 	gclient-condition = checkout_press_benchmarks
 [submodule "third_party/jetstream/v2.2"]
 	path = third_party/jetstream/v2.2
+	url = https://chromium.googlesource.com/external/github.com/WebKit/JetStream
+	gclient-condition = checkout_press_benchmarks
+[submodule "third_party/jetstream/v3.0"]
+	path = third_party/jetstream/v3.0
 	url = https://chromium.googlesource.com/external/github.com/WebKit/JetStream
 	gclient-condition = checkout_press_benchmarks
 [submodule "third_party/speedometer/main"]
@@ -957,3 +962,4 @@
 	path = webkit/data/test_shell/plugins
 	url = https://chrome-internal.googlesource.com/chrome/data/webkit_plugin_tests
 	gclient-condition = checkout_src_internal
+# LINT.ThenChange(//OWNERS:Submodules)

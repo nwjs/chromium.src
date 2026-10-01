@@ -27,9 +27,21 @@ bool TestCueTarget::RequiresModelExecution() const {
   return requires_model_execution || !generate_result.has_value();
 }
 
+bool TestCueTarget::OverridesUcbScoring() const {
+  return overrides_ucb_scoring;
+}
+
+bool TestCueTarget::DowngradesToQuietOnDismiss() const {
+  return downgrades_to_quiet_on_dismiss;
+}
+
 bool TestCueTarget::SupportsIntrusivenessImpl(
     CueIntrusiveness intrusiveness) const {
   return supported_intrusiveness.contains(intrusiveness);
+}
+
+bool TestCueTarget::IsPersistent() const {
+  return is_persistent;
 }
 
 bool TestCueTarget::IsEligible() const {

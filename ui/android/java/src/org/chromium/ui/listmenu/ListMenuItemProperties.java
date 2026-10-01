@@ -10,6 +10,7 @@ import android.graphics.drawable.Drawable;
 import android.view.View;
 
 import androidx.annotation.DrawableRes;
+import androidx.annotation.StyleRes;
 
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
@@ -88,6 +89,14 @@ public class ListMenuItemProperties {
     public static final WritableIntPropertyKey ICON_TINT_COLOR_STATE_LIST_ID =
             new WritableIntPropertyKey();
     public static final ReadableIntPropertyKey TEXT_APPEARANCE_ID = new ReadableIntPropertyKey();
+
+    /** The {@link StyleRes} ID for the subtitle text appearance of the menu item. */
+    public static final ReadableIntPropertyKey SUBTITLE_TEXT_APPEARANCE_ID =
+            new ReadableIntPropertyKey();
+
+    /** The vertical padding in pixels to apply to the menu item view. */
+    public static final ReadableIntPropertyKey VERTICAL_PADDING = new ReadableIntPropertyKey();
+
     public static final ReadableBooleanPropertyKey IS_TEXT_ELLIPSIZED_AT_END =
             new ReadableBooleanPropertyKey();
     public static final ReadableBooleanPropertyKey KEEP_START_ICON_SPACING_WHEN_HIDDEN =
@@ -112,6 +121,9 @@ public class ListMenuItemProperties {
     public static final WritableBooleanPropertyKey CHECKABLE = new WritableBooleanPropertyKey();
     public static final WritableBooleanPropertyKey CHECKED = new WritableBooleanPropertyKey();
 
+    /** The menu item's position in the menu. */
+    public static final WritableIntPropertyKey POSITION = new WritableIntPropertyKey();
+
     public static final PropertyKey[] ALL_KEYS = {
         TITLE_ID,
         TITLE,
@@ -135,6 +147,8 @@ public class ListMenuItemProperties {
         ENABLED,
         ICON_TINT_COLOR_STATE_LIST_ID,
         TEXT_APPEARANCE_ID,
+        SUBTITLE_TEXT_APPEARANCE_ID,
+        VERTICAL_PADDING,
         IS_TEXT_ELLIPSIZED_AT_END,
         KEEP_START_ICON_SPACING_WHEN_HIDDEN,
         SHOULD_TINT_END_ICON,
@@ -144,6 +158,7 @@ public class ListMenuItemProperties {
         LONG_CLICK_LISTENER,
         ORDER,
         CHECKABLE,
-        CHECKED
+        CHECKED,
+        POSITION
     };
 }

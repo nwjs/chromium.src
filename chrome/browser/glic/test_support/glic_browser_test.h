@@ -49,21 +49,24 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_interface_iterator.h"
 #include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/ui/side_panel/side_panel_ui.h"
-#include "chrome/browser/ui/side_panel/side_panel_ui_provider.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/test/base/platform_browser_test.h"
 #include "components/feature_engagement/test/scoped_iph_feature_list.h"
 #include "components/tabs/public/tab_interface.h"
 #include "content/public/browser/host_zoom_map.h"
 #include "content/public/browser/navigation_controller.h"
+#include "content/public/browser/render_widget_host.h"
+#include "content/public/browser/render_widget_host_view.h"
 #include "content/public/test/browser_test_utils.h"
 #include "content/public/test/test_utils.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/input/web_input_event.h"
+#include "third_party/blink/public/common/input/web_mouse_wheel_event.h"
 #include "third_party/blink/public/common/page/page_zoom.h"
 #include "ui/base/accelerators/accelerator.h"
 #include "ui/base/base_window.h"
 #include "ui/base/test/ui_controls.h"
+#include "ui/events/event.h"
 #include "ui/gfx/geometry/point_conversions.h"
 #include "url/gurl.h"
 
@@ -166,6 +169,20 @@ template <typename T>
     std::string_view message = std::string_view()) {
   return RunUntilComparisonPasses<T>(get_value, unexpected_value,
                                      std::not_equal_to<T>(), "!=", message);
+}
+
+template <typename T>
+[[nodiscard]] TestResult<> RunUntilNear(
+    base::FunctionRef<std::type_identity_t<T>()> get_value,
+    const T& expected_value,
+    double tolerance = 0.001,
+    std::string_view message = std::string_view()) {
+  return RunUntilComparisonPasses<T>(
+      get_value, expected_value,
+      [tolerance](const T& a, const T& b) {
+        return std::abs(a - b) <= tolerance;
+      },
+      "~=", message);
 }
 
 template <typename Callable>
@@ -336,14 +353,15 @@ class GlicBrowserTestMixin : public T {
 
     // Disable side panel animations on supported platforms.
     if (IsSidePanelEnabled()) {
-      SidePanelUI* side_panel_ui = SidePanelUIProvider::From(GetBrowser());
+      SidePanelUI* side_panel_ui = SidePanelUI::From(GetBrowser());
       CHECK(side_panel_ui);
       side_panel_ui->SetNoDelaysForTesting(true);
       side_panel_ui->DisableAnimationsForTesting();
     }
 
     CHECK(glic_test_environment_.SetupEmbeddedTestServers(
-        T::embedded_test_server(), &T::embedded_https_test_server()));
+        T::embedded_test_server(), &T::embedded_https_test_server(),
+        use_https_for_glic_url_));
     T::GetTabListInterface()
         ->GetActiveTab()
         ->GetBrowserWindowInterface()
@@ -975,6 +993,12 @@ class GlicBrowserTestMixin : public T {
     return T::embedded_test_server()->GetURL("/test_data/" + file_name);
   }
 
+  // Configures whether the Glic guest URL should use HTTPS instead of HTTP.
+  // Must be called before `SetUpOnMainThread()`.
+  void SetUseHttpsForGlicUrl(bool use_https = true) {
+    use_https_for_glic_url_ = use_https;
+  }
+
   void SetGlicPagePath(const std::string& glic_page_path) {
     glic_test_environment_.SetGlicPagePath(glic_page_path);
   }
@@ -1059,8 +1083,9 @@ class GlicBrowserTestMixin : public T {
     if (accelerator.IsCmdDown()) {
       accelerator_state |= ui_controls::kCommand;
     }
-    ui_controls::SendKeyEvents(window, accelerator.key_code(),
-                               ui_controls::kKeyPress, accelerator_state);
+    ui_controls::SendKeyEvents(
+        window, accelerator.key_code(),
+        ui_controls::kKeyPress | ui_controls::kKeyRelease, accelerator_state);
 #else
     views::Widget* widget = views::Widget::GetWidgetForNativeWindow(
         GetBrowser()->GetWindow()->GetNativeWindow());
@@ -1073,6 +1098,42 @@ class GlicBrowserTestMixin : public T {
 
   void TriggerHotkey(LocalHotkeyManager::Command command) {
     TriggerHotkey(GetAccelerator(command));
+  }
+
+  void TriggerCtrlWheel(content::WebContents* web_contents, bool zoom_in) {
+    CHECK(web_contents);
+    content::RenderWidgetHost* rwh =
+        web_contents->GetPrimaryMainFrame()->GetRenderWidgetHost();
+    CHECK(rwh);
+
+    blink::WebMouseWheelEvent wheel_event(
+        blink::WebInputEvent::Type::kMouseWheel,
+        blink::WebInputEvent::kControlKey, base::TimeTicks::Now());
+
+    if (rwh->GetView()) {
+      const gfx::Rect view_bounds = rwh->GetView()->GetViewBounds();
+      const gfx::Point center_in_widget(view_bounds.width() / 2,
+                                        view_bounds.height() / 2);
+      wheel_event.SetPositionInWidget(center_in_widget.x(),
+                                      center_in_widget.y());
+      wheel_event.SetPositionInScreen(view_bounds.CenterPoint().x(),
+                                      view_bounds.CenterPoint().y());
+    }
+
+    wheel_event.delta_units = ui::ScrollGranularity::kScrollByLine;
+    wheel_event.delta_y =
+        (zoom_in ? 1.0 : -1.0) * ui::MouseWheelEvent::kWheelDelta;
+    wheel_event.wheel_ticks_y = (zoom_in ? 1.0 : -1.0);
+    wheel_event.event_action =
+        blink::WebMouseWheelEvent::EventAction::kPageZoom;
+    wheel_event.phase = blink::WebMouseWheelEvent::kPhaseBegan;
+    rwh->ForwardWheelEvent(wheel_event);
+  }
+
+  void TriggerCtrlWheel(GlicInstanceImpl* instance, bool zoom_in) {
+    CHECK(instance);
+    content::WebContents* web_contents = instance->host().webui_contents();
+    TriggerCtrlWheel(web_contents, zoom_in);
   }
 
  private:
@@ -1102,6 +1163,7 @@ class GlicBrowserTestMixin : public T {
   // safe profile access during teardown even if all browser windows were
   // closed.
   base::WeakPtr<Profile> weak_profile_;
+  bool use_https_for_glic_url_ = true;
 };
 
 using GlicBrowserTest = GlicBrowserTestMixin<PlatformBrowserTest>;

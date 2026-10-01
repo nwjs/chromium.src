@@ -68,6 +68,7 @@
 #include "third_party/blink/renderer/core/testing/file_backed_blob_factory_test_helper.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/blob/blob_data.h"
+#include "third_party/blink/renderer/platform/blob/testing/fake_blob_registry.h"
 #include "third_party/blink/renderer/platform/file_metadata.h"
 #include "third_party/blink/renderer/platform/graphics/unaccelerated_static_bitmap_image.h"
 #include "third_party/blink/renderer/platform/heap/garbage_collected.h"
@@ -1630,6 +1631,7 @@ TEST(V8ScriptValueSerializerTest, TransferOffscreenCanvas) {
 
 TEST(V8ScriptValueSerializerTest, RoundTripBlob) {
   test::TaskEnvironment task_environment;
+  ScopedFakeBlobRegistry blob_registry;
   V8TestingScope scope;
   const char kHelloWorld[] = "Hello world!";
   Blob* blob = Blob::Create(
@@ -1665,6 +1667,7 @@ TEST(V8ScriptValueSerializerTest, DecodeBlobWithoutHandles) {
 
 TEST(V8ScriptValueSerializerTest, RoundTripBlobIndex) {
   test::TaskEnvironment task_environment;
+  ScopedFakeBlobRegistry blob_registry;
   V8TestingScope scope;
   const char kHelloWorld[] = "Hello world!";
   Blob* blob = Blob::Create(
@@ -1757,6 +1760,7 @@ TEST(V8ScriptValueSerializerTest, RoundTripFileNative) {
 
 TEST(V8ScriptValueSerializerTest, RoundTripFileBackedByBlob) {
   test::TaskEnvironment task_environment;
+  ScopedFakeBlobRegistry blob_registry;
   V8TestingScope scope;
   const base::Time kModificationTime = base::Time::UnixEpoch();
   scoped_refptr<BlobDataHandle> blob_data_handle = BlobDataHandle::Create();
@@ -1795,6 +1799,7 @@ TEST(V8ScriptValueSerializerTest, RoundTripFileNativeSnapshot) {
 
 TEST(V8ScriptValueSerializerTest, RoundTripFileNonNativeSnapshot) {
   test::TaskEnvironment task_environment;
+  ScopedFakeBlobRegistry blob_registry;
   // Preserving behavior, filesystem URL is not preserved across cloning.
   KURL url("filesystem:http://example.com/isolated/hash/non-native-file");
   V8TestingScope scope;
@@ -2229,56 +2234,6 @@ TEST(V8ScriptValueSerializerTest, CanDeserializeIn_OldValues) {
   scoped_refptr<SerializedScriptValue> input =
       SerializedValue({0xff, 0x09, 'T', 0x00});
   EXPECT_TRUE(input->CanDeserializeIn(scope.GetExecutionContext()));
-}
-
-TEST(V8ScriptValueSerializerTest, RoundTripFencedFrameConfig) {
-  test::TaskEnvironment task_environment;
-  ScopedFencedFramesForTest fenced_frames(true);
-  V8TestingScope scope;
-  FencedFrameConfig* config = FencedFrameConfig::Create(
-      KURL("https://example.com"),
-      KURL("urn:uuid:37665e6f-f3fd-4393-8429-719d02843a54"), gfx::Size(64, 48),
-      gfx::Size(32, 16), FencedFrameConfig::AttributeVisibility::kOpaque, true);
-  v8::Local<v8::Value> wrapper =
-      ToV8Traits<FencedFrameConfig>::ToV8(scope.GetScriptState(), config);
-  v8::Local<v8::Value> result =
-      RoundTrip(wrapper, scope, scope.GetExceptionState());
-  FencedFrameConfig* new_config =
-      V8FencedFrameConfig::ToWrappable(scope.GetIsolate(), result);
-  ASSERT_NE(new_config, nullptr);
-  EXPECT_NE(config, new_config);
-  EXPECT_EQ(config->url_, new_config->url_);
-  EXPECT_EQ(config->urn_uuid_, new_config->urn_uuid_);
-  EXPECT_EQ(config->container_size_, new_config->container_size_);
-  EXPECT_EQ(config->content_size_, new_config->content_size_);
-  EXPECT_EQ(config->url_attribute_visibility_,
-            new_config->url_attribute_visibility_);
-  EXPECT_EQ(config->deprecated_should_freeze_initial_size_,
-            new_config->deprecated_should_freeze_initial_size_);
-}
-
-TEST(V8ScriptValueSerializerTest, RoundTripFencedFrameConfigNullValues) {
-  test::TaskEnvironment task_environment;
-  ScopedFencedFramesForTest fenced_frames(true);
-  V8TestingScope scope;
-  FencedFrameConfig* config = FencedFrameConfig::Create(g_empty_string);
-  ASSERT_FALSE(config->urn_uuid_.has_value());
-  ASSERT_FALSE(config->container_size_.has_value());
-  ASSERT_FALSE(config->content_size_.has_value());
-  v8::Local<v8::Value> wrapper =
-      ToV8Traits<FencedFrameConfig>::ToV8(scope.GetScriptState(), config);
-  v8::Local<v8::Value> result =
-      RoundTrip(wrapper, scope, scope.GetExceptionState());
-  FencedFrameConfig* new_config =
-      V8FencedFrameConfig::ToWrappable(scope.GetIsolate(), result);
-  ASSERT_NE(new_config, nullptr);
-  EXPECT_NE(config, new_config);
-  EXPECT_EQ(config->urn_uuid_, new_config->urn_uuid_);
-  EXPECT_FALSE(new_config->urn_uuid_.has_value());
-  EXPECT_EQ(config->container_size_, new_config->container_size_);
-  EXPECT_FALSE(new_config->container_size_.has_value());
-  EXPECT_EQ(config->content_size_, new_config->content_size_);
-  EXPECT_FALSE(new_config->content_size_.has_value());
 }
 
 namespace {

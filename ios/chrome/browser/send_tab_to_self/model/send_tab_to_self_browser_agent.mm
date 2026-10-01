@@ -10,10 +10,12 @@
 #import <string>
 
 #import "base/check.h"
+#import "base/check_op.h"
 #import "base/containers/span.h"
 #import "base/feature_list.h"
 #import "base/functional/bind.h"
 #import "base/functional/callback_helpers.h"
+#import "base/not_fatal_until.h"
 #import "base/strings/utf_string_conversions.h"
 #import "components/infobars/core/infobar.h"
 #import "components/infobars/core/infobar_manager.h"
@@ -46,9 +48,9 @@
 #import "ios/chrome/browser/url_loading/model/url_loading_notifier_browser_agent.h"
 #import "ios/chrome/browser/url_loading/model/url_loading_params.h"
 #import "ios/chrome/grit/ios_strings.h"
-#import "ios/web/public/web_state.h"
 #import "ios/web/public/thread/web_task_traits.h"
 #import "ios/web/public/thread/web_thread.h"
+#import "ios/web/public/web_state.h"
 #import "ui/base/l10n/l10n_util.h"
 
 namespace {
@@ -192,7 +194,7 @@ SendTabToSelfBrowserAgent::SendTabToSelfBrowserAgent(Browser* browser)
   if (loading_notifier) {
     url_loading_observation_.Observe(loading_notifier);
   }
-  StartObserving(browser_);
+  web_state_list_observation_.Observe(browser_->GetWebStateList());
   if (base::FeatureList::IsEnabled(send_tab_to_self::kSendTabToSelfAutoOpen)) {
     if (web::WebState* web_state =
             browser_->GetWebStateList()->GetActiveWebState()) {
@@ -204,13 +206,11 @@ SendTabToSelfBrowserAgent::SendTabToSelfBrowserAgent(Browser* browser)
   }
 }
 
-SendTabToSelfBrowserAgent::~SendTabToSelfBrowserAgent() {
-  StopObserving();
-}
+SendTabToSelfBrowserAgent::~SendTabToSelfBrowserAgent() = default;
 
 void SendTabToSelfBrowserAgent::BrowserDestroyed(Browser* browser) {
   weak_ptr_factory_.InvalidateWeakPtrs();
-  StopObserving();
+  web_state_list_observation_.Reset();
   url_loading_observation_.Reset();
   model_observation_.Reset();
   browser_observation_.Reset();
@@ -323,17 +323,25 @@ void SendTabToSelfBrowserAgent::DismissEntries(
   }
 }
 
-#pragma mark - TabsDependencyInstaller
+#pragma mark - WebStateListObserver
 
-void SendTabToSelfBrowserAgent::OnWebStateInserted(web::WebState* web_state) {}
+void SendTabToSelfBrowserAgent::WebStateListWillChange(
+    WebStateList* web_state_list,
+    const WebStateListChangeDetach& detach_change,
+    const WebStateListStatus& status) {
+  if (!detach_change.is_closing()) {
+    return;
+  }
 
-void SendTabToSelfBrowserAgent::OnWebStateRemoved(web::WebState* web_state) {}
+  if (!detach_change.is_user_action() && !detach_change.is_tabs_cleanup()) {
+    return;
+  }
 
-void SendTabToSelfBrowserAgent::OnWebStateDeleted(web::WebState* web_state) {
   if (base::FeatureList::IsEnabled(send_tab_to_self::kSendTabToSelfAutoOpen)) {
     // If the tab is being closed explicitly by the user (and not due to browser
     // shutdown, tab strip destruction, or tab dragging between windows), log
     // the abandonment metric.
+    web::WebState* web_state = detach_change.detached_web_state();
     SendTabToSelfTabCardLabelData* label_data =
         SendTabToSelfTabCardLabelData::FromWebState(web_state);
     if (label_data) {
@@ -342,9 +350,15 @@ void SendTabToSelfBrowserAgent::OnWebStateDeleted(web::WebState* web_state) {
   }
 }
 
-void SendTabToSelfBrowserAgent::OnActiveWebStateChanged(
-    web::WebState* old_active,
-    web::WebState* new_active) {
+void SendTabToSelfBrowserAgent::WebStateListDidChange(
+    WebStateList* web_state_list,
+    const WebStateListChange& change,
+    const WebStateListStatus& status) {
+  if (!status.active_web_state_change()) {
+    return;
+  }
+
+  web::WebState* new_active = status.new_active_web_state;
   if (!new_active) {
     return;
   }
@@ -368,6 +382,11 @@ void SendTabToSelfBrowserAgent::OnActiveWebStateChanged(
   CleanUpObserversAndVariables();
 }
 
+void SendTabToSelfBrowserAgent::WebStateListDestroyed(
+    WebStateList* web_state_list) {
+  web_state_list_observation_.Reset();
+}
+
 #pragma mark - WebStateObserver
 
 void SendTabToSelfBrowserAgent::WasShown(web::WebState* web_state) {
@@ -377,8 +396,8 @@ void SendTabToSelfBrowserAgent::WasShown(web::WebState* web_state) {
     return;
   }
 
-  DCHECK(pending_entry_guid_.has_value());
-  DCHECK(pending_web_state_);
+  CHECK(pending_entry_guid_.has_value(), base::NotFatalUntil::M158);
+  CHECK(pending_web_state_, base::NotFatalUntil::M158);
 
   const send_tab_to_self::SendTabToSelfEntry* entry =
       model_->GetEntryByGUID(*pending_entry_guid_);
@@ -395,8 +414,8 @@ void SendTabToSelfBrowserAgent::WebStateDestroyed(web::WebState* web_state) {
     return;
   }
 
-  DCHECK(pending_web_state_);
-  DCHECK(pending_web_state_ == web_state);
+  CHECK(pending_web_state_, base::NotFatalUntil::M158);
+  CHECK_EQ(pending_web_state_, web_state, base::NotFatalUntil::M158);
 
   web_state_observation_.Reset();
   pending_web_state_ = nullptr;

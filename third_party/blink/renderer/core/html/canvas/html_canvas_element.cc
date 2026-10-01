@@ -295,24 +295,29 @@ bool HTMLCanvasElement::PrepareTransferableResource(
 
   scoped_refptr<CanvasResource> frame =
       RenderingContext()->PaintRenderingResultsToResource(kBackBuffer, reason);
-  if (!frame || !frame->IsValid()) {
+  if (!frame) {
     return false;
   }
 
   if (!frame->PrepareTransferableResource(out_resource,
-                                          /*needs_verified_synctoken=*/false) ||
-      *out_resource == cc_layer_->current_transferable_resource()) {
-    // If the resource did not change, the release will be handled correctly
-    // when the callback from the previous frame is dispatched. But we need to
-    // drop ref to the current resource.
+                                          /*needs_verified_synctoken=*/false)) {
     CanvasResource::DropRefOnOwningThread(std::move(frame));
     return false;
   }
   // TODO(https://crbug.com/1475955): HDR metadata should be propagated to
   // `frame`, and should be populated by the above call to
   // CanvasResource::PrepareTransferableResource, rather than be inserted
-  // here.
+  // here. It must be set before comparing against the layer's current resource,
+  // since the comparison includes `hdr_metadata`.
   out_resource->hdr_metadata = hdr_metadata_;
+
+  if (*out_resource == cc_layer_->current_transferable_resource()) {
+    // If the resource did not change, the release will be handled correctly
+    // when the callback from the previous frame is dispatched. But we need to
+    // drop ref to the current resource.
+    CanvasResource::DropRefOnOwningThread(std::move(frame));
+    return false;
+  }
   // Note: frame is kept alive via a reference kept in out_release_callback.
   *out_release_callback =
       blink::BindOnce(ReleaseCanvasResource, std::move(frame));
@@ -1251,7 +1256,7 @@ void HTMLCanvasElement::Paint(GraphicsContext& context,
     // Make the icon more visually prominent on high-DPI displays.
     icon_size.Scale(dpr);
     context.DrawImage(*broken_canvas, Image::kSyncDecode,
-                      ImageAutoDarkMode::Disabled(), ImagePaintTimingInfo(),
+                      ImageAutoDarkMode::Disabled(), ReportPaintTiming::kReport,
                       gfx::RectF(upper_left, icon_size));
     context.Restore();
     return;
@@ -1279,7 +1284,7 @@ void HTMLCanvasElement::Paint(GraphicsContext& context,
     if (!image_for_printing)
       return;
     context.DrawImage(*image_for_printing, Image::kSyncDecode,
-                      ImageAutoDarkMode::Disabled(), ImagePaintTimingInfo(),
+                      ImageAutoDarkMode::Disabled(), ReportPaintTiming::kReport,
                       gfx::RectF(ToPixelSnappedRect(r)));
     return;
   }
@@ -1343,7 +1348,7 @@ void HTMLCanvasElement::PaintInternal(GraphicsContext& context,
     snapshot = snapshot->MakeUnaccelerated();
     DCHECK(!snapshot->IsTextureBacked());
     context.DrawImage(*snapshot, Image::kSyncDecode,
-                      ImageAutoDarkMode::Disabled(), ImagePaintTimingInfo(),
+                      ImageAutoDarkMode::Disabled(), ReportPaintTiming::kReport,
                       gfx::RectF(ToPixelSnappedRect(r)), &src_rect,
                       composite_operator);
   } else {

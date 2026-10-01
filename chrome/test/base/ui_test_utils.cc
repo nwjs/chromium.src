@@ -40,7 +40,6 @@
 #include "chrome/browser/task_manager/providers/web_contents/web_contents_tag.h"
 #include "chrome/browser/task_manager/providers/web_contents/web_contents_tags_manager.h"
 #include "chrome/browser/task_manager/web_contents_tags.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_active_state_manager/browser_active_state_manager.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_window.h"
@@ -57,6 +56,7 @@
 #include "chrome/browser/ui/omnibox/omnibox_controller.h"
 #include "chrome/browser/ui/omnibox/omnibox_edit_model.h"
 #include "chrome/browser/ui/omnibox/omnibox_view.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/pref_names.h"
@@ -71,6 +71,7 @@
 #include "components/javascript_dialogs/app_modal_dialog_queue.h"
 #include "components/omnibox/browser/autocomplete_controller.h"
 #include "components/prefs/pref_service.h"
+#include "components/sessions/core/session_id.h"
 #include "components/web_modal/web_contents_modal_dialog_manager.h"
 #include "content/public/browser/download_manager.h"
 #include "content/public/browser/navigation_controller.h"
@@ -92,6 +93,8 @@
 #include "services/network/public/cpp/resource_request_body.h"
 #include "services/network/public/mojom/cookie_manager.mojom.h"
 #include "third_party/blink/public/common/chrome_debug_urls.h"
+#include "ui/base/page_transition_types.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/views/test/views_test_utils.h"
 #include "ui/views/test/widget_activation_waiter.h"
@@ -349,8 +352,8 @@ NavigateToURLWithDispositionBlockUntilNavigationsComplete(
   AllBrowserTabAddedWaiter tab_added_waiter;
 
   WebContents* const web_contents =
-      browser->OpenURL(OpenURLParams(url, Referrer(), disposition,
-                                     ui::PAGE_TRANSITION_TYPED, false),
+      browser->OpenURL(OpenURLParams::CreateBrowserInitiated(
+                           url, disposition, ui::PAGE_TRANSITION_TYPED),
                        /*navigation_handle_callback=*/{});
   if (browser_test_flags & BROWSER_TEST_WAIT_FOR_BROWSER) {
     // `WaitForBrowserNotInSet()` waits until the new browser is created, and
@@ -597,10 +600,9 @@ bool MaximizeAndWaitUntilUIUpdateDone(BrowserWindowInterface& browser) {
 
 FullscreenWaiter::FullscreenWaiter(BrowserWindowInterface* browser,
                                    FullscreenWaiter::Expectation expectation)
-    : FullscreenWaiter(browser->GetFeatures()
-                           .exclusive_access_manager()
-                           ->fullscreen_controller(),
-                       std::move(expectation)) {}
+    : FullscreenWaiter(
+          ExclusiveAccessManager::From(browser)->fullscreen_controller(),
+          std::move(expectation)) {}
 
 FullscreenWaiter::FullscreenWaiter(FullscreenController* controller,
                                    FullscreenWaiter::Expectation expectation)
@@ -669,10 +671,8 @@ void ToggleFullscreenModeAndWait(BrowserWindowInterface* browser) {
   // The waiting condition is following the current implementation.
   // If the mode is either browser/tab fullscreen, it will be existed.
   // Otherwise, entering into browser fullscreen.
-  bool current = browser->GetFeatures()
-                     .exclusive_access_manager()
-                     ->context()
-                     ->IsFullscreen();
+  bool current =
+      ExclusiveAccessManager::From(browser)->context()->IsFullscreen();
   FullscreenWaiter waiter(browser, current ? FullscreenWaiter::kNoFullscreen
                                            : FullscreenWaiter::Expectation{
                                                  .browser_fullscreen = true});

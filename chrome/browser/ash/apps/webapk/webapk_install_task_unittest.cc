@@ -7,6 +7,7 @@
 #include <memory>
 
 #include "ash/constants/ash_features.h"
+#include "ash/constants/chrome_switches.h"
 #include "base/command_line.h"
 #include "base/functional/bind.h"
 #include "base/test/bind.h"
@@ -20,7 +21,6 @@
 #include "chrome/browser/web_applications/test/fake_web_app_provider.h"
 #include "chrome/browser/web_applications/test/web_app_install_test_utils.h"
 #include "chrome/browser/web_applications/web_app_install_info.h"
-#include "chrome/common/chrome_switches.h"
 #include "chrome/test/base/testing_browser_process.h"
 #include "chrome/test/base/testing_profile.h"
 #include "chrome/test/base/testing_profile_manager.h"
@@ -325,7 +325,8 @@ TEST_F(WebApkInstallTaskTest, MinterTimeout) {
   auto app_id =
       web_app::test::InstallWebApp(profile(), BuildDefaultWebAppInfo());
   base::CommandLine::ForCurrentProcess()->AppendSwitchASCII(
-      switches::kWebApkServerUrl, test_server()->GetURL("/slow?1000").spec());
+      ash::chrome_switches::kWebApkServerUrl,
+      test_server()->GetURL("/slow?1000").spec());
   base::HistogramTester histograms;
 
   apps::WebApkInstallTask install_task(profile(), app_id);
@@ -409,9 +410,9 @@ TEST_F(WebApkInstallTaskTest, SuccessfulUpdateScope) {
   ASSERT_THAT(last_webapk_request()->update_reasons(),
               ::testing::ElementsAre(webapk::WebApk::SCOPE_DIFFERS));
 
-  webapk::WebAppManifest manifest = last_webapk_request()->manifest();
-  EXPECT_EQ(last_webapk_request()->manifest().scopes_size(), 1);
-  EXPECT_EQ(last_webapk_request()->manifest().scopes(0),
+  const webapk::WebAppManifest& manifest = last_webapk_request()->manifest();
+  EXPECT_EQ(manifest.scopes_size(), 1);
+  EXPECT_EQ(manifest.scopes(0),
             GURL(kTestAppDifferentScope).spec());
 
   // Check we still only have 1 version of |app_id| installed.

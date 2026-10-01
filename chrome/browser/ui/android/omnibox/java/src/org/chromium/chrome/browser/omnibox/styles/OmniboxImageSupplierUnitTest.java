@@ -11,8 +11,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
@@ -36,6 +35,7 @@ import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
+import org.mockito.quality.Strictness;
 
 import org.chromium.base.Callback;
 import org.chromium.base.ContextUtils;
@@ -60,7 +60,8 @@ public final class OmniboxImageSupplierUnitTest {
     private static final GURL NAV_URL_2 = JUnitTestGURLs.URL_2;
     private static final int FALLBACK_COLOR = 0xACE0BA5E;
 
-    @Rule public final MockitoRule mockitoRule = MockitoJUnit.rule();
+    @Rule
+    public final MockitoRule mMockitoRule = MockitoJUnit.rule().strictness(Strictness.STRICT_STUBS);
 
     @Mock private Bitmap mBitmap1;
     @Mock private Bitmap mBitmap2;
@@ -89,11 +90,13 @@ public final class OmniboxImageSupplierUnitTest {
         assertThat(mFaviconSize).isNotEqualTo(0);
         mSupplier = new OmniboxImageSupplier(context);
 
-        doReturn(1L).when(mLargeIconBridgeJni).init();
-        doReturn(true)
+        lenient().doReturn(1L).when(mLargeIconBridgeJni).init();
+        lenient()
+                .doReturn(true)
                 .when(mLargeIconBridgeJni)
                 .getLargeIconForURL(anyLong(), any(), any(), anyInt(), anyInt(), any());
-        doAnswer(
+        lenient()
+                .doAnswer(
                         invocation -> {
                             String url = invocation.getArgument(0);
                             if (url.contains("one.com")) {
@@ -135,7 +138,7 @@ public final class OmniboxImageSupplierUnitTest {
      */
     private void verifyReturnedIcon(@Nullable Bitmap bitmap) {
         if (bitmap == null) {
-            verify(mCallback1, times(1)).onResult(eq(null));
+            verify(mCallback1).onResult(eq(null));
         } else {
             verifyReturnedImage(mCallback1, bitmap);
         }
@@ -143,7 +146,7 @@ public final class OmniboxImageSupplierUnitTest {
 
     private void verifyReturnedImage(Callback<Drawable> callback, Bitmap expectedBitmap) {
         ArgumentCaptor<Drawable> captor = ArgumentCaptor.forClass(Drawable.class);
-        verify(callback, times(1)).onResult(captor.capture());
+        verify(callback).onResult(captor.capture());
         assertThat(captor.getValue()).isInstanceOf(BitmapDrawable.class);
         assertThat(((BitmapDrawable) captor.getValue()).getBitmap()).isEqualTo(expectedBitmap);
     }
@@ -174,7 +177,7 @@ public final class OmniboxImageSupplierUnitTest {
         mSupplier.generateFavicon(NAV_URL, mCallback1);
         RobolectricUtil.runAllBackgroundAndUi();
 
-        verify(mCallback1, times(1)).onResult(eq(null));
+        verify(mCallback1).onResult(eq(null));
         verifyNoOtherInteractionsAndClearInteractions();
     }
 
@@ -184,7 +187,7 @@ public final class OmniboxImageSupplierUnitTest {
         mSupplier.generateFavicon(NAV_URL, mCallback1);
         RobolectricUtil.runAllBackgroundAndUi();
 
-        verify(mCallback1, times(1)).onResult(mDrawableCaptor.capture());
+        verify(mCallback1).onResult(mDrawableCaptor.capture());
         Drawable drawable = mDrawableCaptor.getValue();
         assertThat(drawable).isInstanceOf(LayerDrawable.class);
         verifyNoOtherInteractionsAndClearInteractions();
@@ -196,7 +199,7 @@ public final class OmniboxImageSupplierUnitTest {
         mSupplier.generateFavicon(NAV_URL, OmniboxImageSupplier.FallbackIconType.GLOBE, mCallback1);
         RobolectricUtil.runAllBackgroundAndUi();
 
-        verify(mCallback1, times(1)).onResult(mDrawableCaptor.capture());
+        verify(mCallback1).onResult(mDrawableCaptor.capture());
         assertThat(mDrawableCaptor.getValue()).isNotNull();
         verifyNoOtherInteractionsAndClearInteractions();
     }
@@ -204,7 +207,7 @@ public final class OmniboxImageSupplierUnitTest {
     @Test
     public void testIconRetrieval_largeIconAvailableWithNoBackoff() {
         mSupplier.setProfile(mProfile);
-        verify(mLargeIconBridgeJni, times(1)).init();
+        verify(mLargeIconBridgeJni).init();
         mSupplier.fetchFavicon(NAV_URL, mCallback1);
         verifyLargeIconBridgeRequest(NAV_URL, mBitmap1);
         verifyReturnedIcon(mBitmap1);
@@ -219,7 +222,7 @@ public final class OmniboxImageSupplierUnitTest {
     @Test
     public void testIconRetrieval_differentUrlsDontCollide() {
         mSupplier.setProfile(mProfile);
-        verify(mLargeIconBridgeJni, times(1)).init();
+        verify(mLargeIconBridgeJni).init();
 
         mSupplier.fetchFavicon(NAV_URL, mCallback1);
         verifyLargeIconBridgeRequest(NAV_URL, mBitmap1);
@@ -236,7 +239,7 @@ public final class OmniboxImageSupplierUnitTest {
     @Test
     public void testIconRetrieval_clearingCacheRestartsEntireFlow() {
         mSupplier.setProfile(mProfile);
-        verify(mLargeIconBridgeJni, times(1)).init();
+        verify(mLargeIconBridgeJni).init();
         mSupplier.fetchFavicon(NAV_URL, mCallback1);
         verifyLargeIconBridgeRequest(NAV_URL, mBitmap1);
         verifyReturnedIcon(mBitmap1);
@@ -254,25 +257,25 @@ public final class OmniboxImageSupplierUnitTest {
     @Test
     public void destroy_releasesLargeIconBridgeIfSet() {
         mSupplier.setProfile(mProfile);
-        verify(mLargeIconBridgeJni, times(1)).init();
+        verify(mLargeIconBridgeJni).init();
         verifyNoMoreInteractions(mLargeIconBridgeJni);
         mSupplier.destroy();
-        verify(mLargeIconBridgeJni, times(1)).destroy(anyLong());
+        verify(mLargeIconBridgeJni).destroy(anyLong());
         verifyNoMoreInteractions(mLargeIconBridgeJni);
     }
 
     @Test
     public void setProfile_destroysOldLargeIconBridgeIfPresent() {
         mSupplier.setProfile(mProfile);
-        verify(mLargeIconBridgeJni, times(1)).init();
+        verify(mLargeIconBridgeJni).init();
         verifyNoMoreInteractions(mLargeIconBridgeJni);
         clearInvocations(mLargeIconBridgeJni);
 
         // We technically don't expect the change to be "to the same profile", we don't check for
         // this.
         mSupplier.setProfile(mProfile);
-        verify(mLargeIconBridgeJni, times(1)).destroy(anyLong());
-        verify(mLargeIconBridgeJni, times(1)).init();
+        verify(mLargeIconBridgeJni).destroy(anyLong());
+        verify(mLargeIconBridgeJni).init();
         verifyNoMoreInteractions(mLargeIconBridgeJni);
     }
 
@@ -286,7 +289,7 @@ public final class OmniboxImageSupplierUnitTest {
         mSupplier.setImageFetcherForTesting(mImageFetcher);
 
         mSupplier.resetCache();
-        verify(mImageFetcher, times(1)).clear();
+        verify(mImageFetcher).clear();
     }
 
     @Test
@@ -301,8 +304,7 @@ public final class OmniboxImageSupplierUnitTest {
 
         // Observe only one interaction with ImageFetcher.
         ArgumentCaptor<Callback<Bitmap>> callbackCaptor = MockitoHelper.callbackCaptor();
-        verify(mImageFetcher, times(1))
-                .fetchImage(mParamCaptor.capture(), callbackCaptor.capture());
+        verify(mImageFetcher).fetchImage(mParamCaptor.capture(), callbackCaptor.capture());
         verifyNoMoreInteractions(mImageFetcher);
 
         // Confirm the URL and no callbacks emitted to registered callbacks.
@@ -329,8 +331,7 @@ public final class OmniboxImageSupplierUnitTest {
 
         // Observe only one interaction with ImageFetcher.
         ArgumentCaptor<Callback<Bitmap>> callbackCaptor = MockitoHelper.callbackCaptor();
-        verify(mImageFetcher, times(1))
-                .fetchImage(mParamCaptor.capture(), callbackCaptor.capture());
+        verify(mImageFetcher).fetchImage(mParamCaptor.capture(), callbackCaptor.capture());
         verifyNoMoreInteractions(mImageFetcher);
 
         // Confirm the URL and no callbacks emitted to registered callbacks.
@@ -374,7 +375,7 @@ public final class OmniboxImageSupplierUnitTest {
 
         // Issue first request and observe the interaction with ImageFetcher.
         mSupplier.fetchImage(url, mCallback1);
-        verify(mImageFetcher, times(1)).fetchImage(any(), callbackCaptor.capture());
+        verify(mImageFetcher).fetchImage(any(), callbackCaptor.capture());
 
         // Resolve the image. Observe only the first callback receives notification.
         callbackCaptor.getValue().onResult(mBitmap1);
@@ -402,7 +403,7 @@ public final class OmniboxImageSupplierUnitTest {
 
         // Issue 2 requests for two different URLs.
         mSupplier.fetchImage(url1, mCallback1);
-        verify(mImageFetcher, times(1)).fetchImage(any(), captor1.capture());
+        verify(mImageFetcher).fetchImage(any(), captor1.capture());
         mSupplier.fetchImage(url2, mCallback2);
         verify(mImageFetcher, times(2)).fetchImage(any(), captor2.capture());
         verifyNoMoreInteractions(mImageFetcher, mCallback1, mCallback2);
@@ -428,12 +429,12 @@ public final class OmniboxImageSupplierUnitTest {
 
         // Observe only one interaction with ImageFetcher.
         ArgumentCaptor<Callback<Bitmap>> callbackCaptor = MockitoHelper.callbackCaptor();
-        verify(mImageFetcher, times(1)).fetchImage(any(), callbackCaptor.capture());
+        verify(mImageFetcher).fetchImage(any(), callbackCaptor.capture());
         verifyNoMoreInteractions(mImageFetcher, mCallback1);
 
         // Simulate end of Omnibox interaction.
         mSupplier.resetCache();
-        verify(mImageFetcher, times(1)).clear();
+        verify(mImageFetcher).clear();
         verifyNoMoreInteractions(mImageFetcher, mCallback1);
 
         // Emit late reply. The callback should not be delivered.
@@ -451,13 +452,13 @@ public final class OmniboxImageSupplierUnitTest {
 
         // Observe only one interaction with ImageFetcher.
         ArgumentCaptor<Callback<Bitmap>> callbackCaptor = MockitoHelper.callbackCaptor();
-        verify(mImageFetcher, times(1)).fetchImage(any(), callbackCaptor.capture());
+        verify(mImageFetcher).fetchImage(any(), callbackCaptor.capture());
         verifyNoMoreInteractions(mImageFetcher, mCallback1);
 
         // Simulate end of Omnibox interaction.
         mSupplier.setProfile(mProfile);
-        verify(mImageFetcher, times(1)).clear();
-        verify(mImageFetcher, times(1)).destroy();
+        verify(mImageFetcher).clear();
+        verify(mImageFetcher).destroy();
         verifyNoMoreInteractions(mImageFetcher, mCallback1);
 
         // Emit late reply. The callback should not be delivered.
@@ -475,11 +476,11 @@ public final class OmniboxImageSupplierUnitTest {
 
         // Observe only one interaction with ImageFetcher.
         ArgumentCaptor<Callback<Bitmap>> callbackCaptor = MockitoHelper.callbackCaptor();
-        verify(mImageFetcher, times(1)).fetchImage(any(), callbackCaptor.capture());
+        verify(mImageFetcher).fetchImage(any(), callbackCaptor.capture());
         verifyNoMoreInteractions(mImageFetcher, mCallback1);
 
         mSupplier.destroy();
-        verify(mImageFetcher, times(1)).destroy();
+        verify(mImageFetcher).destroy();
         verifyNoMoreInteractions(mImageFetcher, mCallback1);
 
         // Emit late reply. The callback should not be delivered.

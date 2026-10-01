@@ -224,7 +224,7 @@ void PageContentAnnotationsService::Shutdown() {
   history_service_observation_.Reset();
 }
 
-void PageContentAnnotationsService::Annotate(const HistoryVisit& visit) {
+void PageContentAnnotationsService::Annotate(HistoryVisit visit) {
   if (last_annotated_history_visits_.Peek(visit) !=
       last_annotated_history_visits_.end()) {
     // We have already been requested to annotate this visit, so don't submit
@@ -252,7 +252,7 @@ void PageContentAnnotationsService::Annotate(const HistoryVisit& visit) {
     //
     // TODO(crbug.com/40212690): If the model was updated, the cached value
     // could be stale so we should invalidate the cache on model updates.
-    OnPageContentAnnotated(visit, it->second);
+    OnPageContentAnnotated(std::move(visit), it->second);
     base::UmaHistogramBoolean(
         "OptimizationGuide.PageContentAnnotations.AnnotateVisitResultCached",
         true);
@@ -263,7 +263,7 @@ void PageContentAnnotationsService::Annotate(const HistoryVisit& visit) {
                << "URL: " << visit.url << "\n"
                << "Text: " << visit.text_to_annotate.value_or(std::string());
   }
-  visits_to_annotate_.insert(visit);
+  visits_to_annotate_.insert(std::move(visit));
 
   base::UmaHistogramBoolean(
       "OptimizationGuide.PageContentAnnotations.AnnotateVisitResultCached",
@@ -333,10 +333,11 @@ void PageContentAnnotationsService::AnnotateVisitBatch() {
   // Cancel any pending timers.
   batch_annotations_start_timer_.Cancel();
 
-  current_visit_annotation_batch_.assign(
-      std::move_iterator(visits_to_annotate_.begin()),
-      std::make_move_iterator(visits_to_annotate_.end()));
-  visits_to_annotate_.clear();
+  current_visit_annotation_batch_.reserve(visits_to_annotate_.size());
+  while (!visits_to_annotate_.empty()) {
+    current_visit_annotation_batch_.push_back(std::move(
+        visits_to_annotate_.extract(visits_to_annotate_.begin()).value()));
+  }
 
   // Used for testing.
   LOCAL_HISTOGRAM_BOOLEAN(
@@ -426,7 +427,7 @@ void PageContentAnnotationsService::OnBatchVisitsAnnotated(
   DCHECK_EQ(merged_annotation_outputs->size(),
             current_visit_annotation_batch_.size());
   for (size_t i = 0; i < merged_annotation_outputs->size(); i++) {
-    OnPageContentAnnotated(current_visit_annotation_batch_[i],
+    OnPageContentAnnotated(std::move(current_visit_annotation_batch_[i]),
                            merged_annotation_outputs->at(i));
   }
 
@@ -483,7 +484,7 @@ void PageContentAnnotationsService::RequestAndNotifyWhenModelAvailable(
 }
 
 void PageContentAnnotationsService::OnPageContentAnnotated(
-    const HistoryVisit& visit,
+    HistoryVisit visit,
     const std::optional<history::VisitContentModelAnnotations>&
         content_annotations) {
   base::UmaHistogramBoolean(
@@ -510,7 +511,7 @@ void PageContentAnnotationsService::OnPageContentAnnotated(
     history_service_->AddContentModelAnnotationsForVisit(*content_annotations,
                                                          visit.visit_id);
   } else {
-    QueryURL(visit,
+    QueryURL(visit.nav_entry_timestamp, visit.url,
              base::BindOnce(
                  &history::HistoryService::AddContentModelAnnotationsForVisit,
                  history_service_->AsWeakPtr(), *content_annotations),
@@ -556,7 +557,8 @@ void PageContentAnnotationsService::OnZeroSuggestResponseUpdated(
 }
 
 void PageContentAnnotationsService::OnRelatedSearchesExtracted(
-    const HistoryVisit& visit,
+    base::Time navigation_timestamp,
+    const GURL& navigation_url,
     continuous_search::SearchResultExtractorClientStatus status,
     continuous_search::mojom::CategoryResultsPtr results) {
   // Fetch any cached "related searches" data obtained via ZPS prefetch.
@@ -564,7 +566,7 @@ void PageContentAnnotationsService::OnRelatedSearchesExtracted(
   if (ShouldExtractRelatedSearchesFromZPSCache()) {
     bool found = false;
     const auto it = prefetched_related_searches_.Get(
-        GetCanonicalSearchURL(visit.url, template_url_service_));
+        GetCanonicalSearchURL(navigation_url, template_url_service_));
     if (it != prefetched_related_searches_.end()) {
       related_searches_from_zps_prefetch = it->second;
       found = true;
@@ -607,32 +609,35 @@ void PageContentAnnotationsService::OnRelatedSearchesExtracted(
     return;
   }
 
-  AddRelatedSearchesForVisit(visit, related_searches);
+  AddRelatedSearchesForVisit(navigation_timestamp, navigation_url,
+                             related_searches);
 }
 
 void PageContentAnnotationsService::AddRelatedSearchesForVisit(
-    const HistoryVisit& visit,
+    base::Time navigation_timestamp,
+    const GURL& navigation_url,
     const std::vector<std::string>& related_searches) {
-  QueryURL(visit,
+  QueryURL(navigation_timestamp, navigation_url,
            base::BindOnce(&history::HistoryService::AddRelatedSearchesForVisit,
                           history_service_->AsWeakPtr(), related_searches),
            PageContentAnnotationsType::kRelatedSearches);
 }
 
 void PageContentAnnotationsService::QueryURL(
-    const HistoryVisit& visit,
+    base::Time navigation_timestamp,
+    const GURL& navigation_url,
     PersistAnnotationsCallback callback,
     PageContentAnnotationsType annotation_type) {
   history_service_->QueryURLAndVisits(
-      visit.url, history::VisitQuery404sPolicy::kExclude404s,
+      navigation_url, history::VisitQuery404sPolicy::kExclude404s,
       base::BindOnce(&PageContentAnnotationsService::OnURLQueried,
-                     weak_ptr_factory_.GetWeakPtr(), visit, std::move(callback),
-                     annotation_type),
+                     weak_ptr_factory_.GetWeakPtr(), navigation_timestamp,
+                     std::move(callback), annotation_type),
       &history_service_task_tracker_);
 }
 
 void PageContentAnnotationsService::OnURLQueried(
-    const HistoryVisit& visit,
+    base::Time navigation_timestamp,
     PersistAnnotationsCallback callback,
     PageContentAnnotationsType annotation_type,
     history::QueryURLAndVisitsResult url_result) {
@@ -644,7 +649,7 @@ void PageContentAnnotationsService::OnURLQueried(
 
   bool did_store_content_annotations = false;
   for (const auto& visit_for_url : base::Reversed(url_result.visits)) {
-    if (visit.nav_entry_timestamp != visit_for_url.visit_time) {
+    if (navigation_timestamp != visit_for_url.visit_time) {
       continue;
     }
 
@@ -777,7 +782,7 @@ void PageContentAnnotationsService::OnWaitForTitleDone(const GURL& url) {
   auto it = missing_title_visits_by_url_.Peek(url);
   if (it != missing_title_visits_by_url_.end()) {
     for (auto& history_visit : it->second) {
-      Annotate(history_visit);
+      Annotate(std::move(history_visit));
     }
     missing_title_visits_by_url_.Erase(it);
   }
@@ -924,7 +929,9 @@ HistoryVisit::HistoryVisit(history::VisitID visit_id) {
   this->visit_id = visit_id;
 }
 
-HistoryVisit::~HistoryVisit() = default;
 HistoryVisit::HistoryVisit(const HistoryVisit&) = default;
+HistoryVisit::HistoryVisit(HistoryVisit&&) = default;
+
+HistoryVisit::~HistoryVisit() = default;
 
 }  // namespace page_content_annotations

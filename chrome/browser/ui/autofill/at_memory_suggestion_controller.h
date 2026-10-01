@@ -55,9 +55,7 @@ class AtMemorySuggestionController : public AutofillSuggestionController {
       AutofillMetrics::SuggestionAcceptedMethod accept_method) override;
   void SelectSuggestion(int index) override;
   void UnselectSuggestion() override;
-  bool RemoveSuggestion(
-      int index,
-      AutofillMetrics::SingleEntryRemovalMethod removal_method) override;
+  bool RemoveSuggestion(int index) override;
   int GetLineCount() const override;
   const std::vector<Suggestion>& GetSuggestions() const override;
   const Suggestion& GetSuggestionAt(int row) const override;
@@ -71,6 +69,7 @@ class AtMemorySuggestionController : public AutofillSuggestionController {
   std::optional<UiSessionId> GetUiSessionId() const override;
   void SetKeepPopupOpenForTesting(bool keep_popup_open_for_testing) override;
   void UpdateDataListValues(base::span<const SelectOption> options) override;
+  const LocalFrameToken& GetFrameToken() const override;
   bool MayRecycle(
       base::WeakPtr<AutofillSuggestionDelegate> delegate,
       content::WebContents* web_contents,

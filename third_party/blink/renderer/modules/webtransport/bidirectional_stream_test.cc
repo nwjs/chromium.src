@@ -115,6 +115,12 @@ class StubWebTransport : public network::mojom::blink::WebTransport {
                     base::OnceCallback<void(bool)>) override {
     NOTREACHED();
   }
+  void CreateDatagramWritable(
+      mojo::PendingReceiver<network::mojom::blink::WebTransportDatagramWritable>
+          writable,
+      network::mojom::blink::WebTransportStreamPriorityPtr priority) override {
+    NOTREACHED();
+  }
 
   void CreateStream(
       mojo::ScopedDataPipeConsumerHandle output_consumer,
@@ -171,6 +177,11 @@ class StubWebTransport : public network::mojom::blink::WebTransport {
   void SetOutgoingDatagramExpirationDuration(base::TimeDelta) override {}
 
   void GetStats(GetStatsCallback callback) override {
+    std::move(callback).Run(nullptr);
+  }
+
+  void GetReceiveStreamStats(uint32_t stream_id,
+                             GetReceiveStreamStatsCallback callback) override {
     std::move(callback).Run(nullptr);
   }
 
@@ -361,7 +372,7 @@ TEST(BidirectionalStreamTest, IncomingStreamCleanClose) {
   ASSERT_TRUE(bidirectional_stream);
 
   scoped_web_transport.GetWebTransport()->OnIncomingStreamClosed(
-      kDefaultStreamId, true);
+      kDefaultStreamId, true, /*bytes_received=*/0);
   scoped_web_transport.Stub()->InputProducer().reset();
 
   auto* script_state = scope.GetScriptState();
@@ -404,7 +415,7 @@ TEST(BidirectionalStreamTest, OutgoingStreamCleanClose) {
 
   // The incoming side is closed by the network service.
   scoped_web_transport.GetWebTransport()->OnIncomingStreamClosed(
-      kDefaultStreamId, false);
+      kDefaultStreamId, false, /*bytes_received=*/0);
   scoped_web_transport.Stub()->InputProducer().reset();
 
   const auto* const stub = scoped_web_transport.Stub();
@@ -472,7 +483,7 @@ TEST(BidirectionalStreamTest, WriteAfterIncomingClosed) {
   ASSERT_TRUE(bidirectional_stream);
 
   scoped_web_transport.GetWebTransport()->OnIncomingStreamClosed(
-      kDefaultStreamId, true);
+      kDefaultStreamId, true, /*bytes_received=*/0);
   scoped_web_transport.Stub()->InputProducer().reset();
 
   test::RunPendingTasks();

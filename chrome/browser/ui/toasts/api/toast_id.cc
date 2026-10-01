@@ -119,6 +119,10 @@ std::string_view GetToastName(ToastId toast_id) {
       return "IndigoDeleteSuccess";
     case ToastId::kAtMemorySpiiFetchErrorMessage:
       return "AtMemorySpiiFetchErrorMessage";
+    case ToastId::kEmailVerificationLoading:
+      return "EmailVerificationLoading";
+    case ToastId::kScheduledRestartOnIdle:
+      return "ScheduledRestartOnIdle";
   }
 
   NOTREACHED();

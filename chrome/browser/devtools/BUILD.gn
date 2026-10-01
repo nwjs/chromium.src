@@ -60,6 +60,7 @@ if (enable_devtools_frontend) {
 
 _concatenated_protocol_path =
     "$root_gen_dir/chrome/browser/devtools/protocol.json"
+
 action("concatenate_protocols") {
   script = _inspector_protocol + "/concatenate_protocols.py"
 
@@ -504,9 +505,7 @@ static_library("test_support") {
     deps += [
       ":devtools",
       "//base",
-      "//chrome/browser",
       "//chrome/browser:browser_features",
-      "//chrome/browser/ui",
       "//chrome/test:test_support",
       "//components/policy/core/common:test_support",
       "//content/public/browser",
@@ -652,6 +651,7 @@ if (enable_devtools_frontend) {
       "//chrome/test:test_support",
       "//components/autofill/content/browser:test_support",
       "//components/autofill/core/browser:test_support",
+      "//components/component_updater/installer_policies:installer_policies_no_content_deps",
       "//components/infobars/content",
       "//components/javascript_dialogs",
       "//components/language/core/browser",
@@ -714,6 +714,7 @@ if (!is_android) {
       ":devtools",
       ":test_support",
       "//base",
+      "//chrome/browser/ui:browser_window_deleter",
       "//chrome/browser/ui/extensions",
       "//chrome/browser/ui/side_panel",
       "//chrome/browser/ui/side_panel:side_panel_views_dependent",

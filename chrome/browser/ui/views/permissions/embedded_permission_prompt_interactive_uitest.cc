@@ -14,6 +14,7 @@
 #include "chrome/browser/policy/policy_test_utils.h"
 #include "chrome/browser/policy/profile_policy_connector_builder.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/ui/omnibox/omnibox_next_features.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_popup_webui_base_content.h"
 #include "chrome/browser/ui/views/omnibox/rounded_omnibox_results_frame.h"
@@ -28,6 +29,7 @@
 #include "chrome/browser/ui/views/permissions/embedded_permission_prompt_system_settings_view.h"
 #include "chrome/browser/ui/views/permissions/permission_prompt_bubble_base_view.h"
 #include "chrome/browser/ui/views/toolbar/toolbar_view.h"
+#include "chrome/common/webui_url_constants.h"
 #include "chrome/test/base/interactive_test_utils.h"
 #include "chrome/test/interaction/interactive_browser_test.h"
 #include "components/content_settings/core/browser/host_content_settings_map.h"
@@ -54,6 +56,7 @@
 #include "ui/compositor/layer.h"
 #include "ui/events/base_event_utils.h"
 #include "ui/views/controls/label.h"
+#include "ui/views/controls/webview/webview.h"
 #include "ui/views/views_switches.h"
 #include "ui/views/widget/any_widget_observer.h"
 #include "ui/views/widget/widget_deletion_observer.h"
@@ -801,7 +804,8 @@ IN_PROC_BROWSER_TEST_P(EmbeddedPermissionPromptInteractiveTest,
             }
           }, true);
         })JS"),
-      WaitForStateChange(kWebContentsElementId, pepc_visible), Do([this]() {
+      WaitForStateChange(kWebContentsElementId, pepc_visible),
+      FocusWebContents(kWebContentsElementId), Do([this]() {
         // The exact number of "tab" presses needed to pass through all elements
         // differs by platform. Here we do it 10 times to be sure.
         for (int i = 0; i < 10; i++) {
@@ -1691,7 +1695,7 @@ IN_PROC_BROWSER_TEST_P(EmbeddedPermissionPromptInteractiveTest,
   widget->SetBounds(gfx::Rect(0, 0, 800, 600));
 
   auto* browser_view = BrowserView::GetBrowserViewForBrowser(browser());
-  auto* location_bar = browser_view->toolbar()->location_bar_view();
+  auto* location_bar = browser_view->toolbar()->location_bar();
 
   auto container = std::make_unique<views::View>();
   auto* omnibox_content = container->AddChildView(
@@ -1757,6 +1761,204 @@ IN_PROC_BROWSER_TEST_P(EmbeddedPermissionPromptInteractiveTest,
       [&]() { return !deletion_observer.IsWidgetAlive(); }));
 }
 
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
+class EmbeddedPermissionPromptLoomniboxInteractiveTest
+    : public EmbeddedPermissionPromptInteractiveTest {
+ public:
+  EmbeddedPermissionPromptLoomniboxInteractiveTest() {
+    feature_list_.Reset();
+    feature_list_.InitWithFeatures(
+        {blink::features::kGeolocationElement,
+         blink::features::kUserMediaElement,
+         blink::features::kUserMediaElementLegacy,
+         blink::features::kBypassPepcSecurityForTesting,
+         omnibox::kOmniboxEverywhere},
+        {});
+  }
+};
+
+IN_PROC_BROWSER_TEST_P(EmbeddedPermissionPromptLoomniboxInteractiveTest,
+                       ScrimRoundedCornersLoomnibox) {
+  views::Widget::InitParams params(
+      views::Widget::InitParams::CLIENT_OWNS_WIDGET,
+      views::Widget::InitParams::TYPE_WINDOW_FRAMELESS);
+  params.context = browser()->GetWindow()->GetNativeWindow();
+  auto widget = std::make_unique<views::Widget>();
+  widget->Init(std::move(params));
+  widget->SetBounds(gfx::Rect(0, 0, 800, 600));
+
+  std::unique_ptr<content::WebContents> test_web_contents =
+      content::WebContents::Create(
+          content::WebContents::CreateParams(browser()->GetProfile()));
+
+  auto web_view = std::make_unique<views::WebView>(browser()->GetProfile());
+  web_view->SetWebContents(test_web_contents.get());
+  widget->SetContentsView(std::move(web_view));
+  widget->Show();
+
+  ASSERT_TRUE(content::NavigateToURL(
+      test_web_contents.get(), GURL(chrome::kChromeUIOmniboxEverywhereURL)));
+
+  ASSERT_TRUE(base::test::RunUntil([&]() {
+    return views::Widget::GetTopLevelWidgetForNativeView(
+               test_web_contents->GetContentNativeView()) == widget.get();
+  }));
+
+  EXPECT_TRUE(EmbeddedPermissionPromptContentScrimView::IsOmniboxEverywhere(
+      *test_web_contents));
+
+  TestScrimDelegate delegate;
+  auto scrim_view = std::make_unique<EmbeddedPermissionPromptContentScrimView>(
+      delegate.GetWeakPtr(), *test_web_contents.get(),
+      /*should_dismiss_on_click=*/true);
+
+  // Scrim layer should have rounded corners matching Loomnibox (28.0f).
+  EXPECT_NE(scrim_view->layer(), nullptr);
+  EXPECT_FALSE(scrim_view->layer()->fills_bounds_opaquely());
+  EXPECT_TRUE(scrim_view->layer()->GetMasksToBounds());
+  EXPECT_EQ(scrim_view->layer()->rounded_corner_radii(),
+            gfx::RoundedCornersF(EmbeddedPermissionPromptContentScrimView::
+                                     kOmniboxEverywhereCornerRadius));
+
+  views::WidgetDeletionObserver deletion_observer(widget.get());
+  widget.reset();
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return !deletion_observer.IsWidgetAlive(); }));
+}
+
+IN_PROC_BROWSER_TEST_P(EmbeddedPermissionPromptLoomniboxInteractiveTest,
+                       ScrimBoundsLoomnibox) {
+  views::Widget::InitParams params(
+      views::Widget::InitParams::CLIENT_OWNS_WIDGET,
+      views::Widget::InitParams::TYPE_WINDOW_FRAMELESS);
+  params.context = browser()->GetWindow()->GetNativeWindow();
+  auto widget = std::make_unique<views::Widget>();
+  widget->Init(std::move(params));
+  widget->SetBounds(gfx::Rect(100, 100, 728, 300));
+
+  std::unique_ptr<content::WebContents> test_web_contents =
+      content::WebContents::Create(
+          content::WebContents::CreateParams(browser()->GetProfile()));
+
+  auto web_view = std::make_unique<views::WebView>(browser()->GetProfile());
+  web_view->SetWebContents(test_web_contents.get());
+  widget->SetContentsView(std::move(web_view));
+  widget->Show();
+
+  ASSERT_TRUE(content::NavigateToURL(
+      test_web_contents.get(), GURL(chrome::kChromeUIOmniboxEverywhereURL)));
+
+  ASSERT_TRUE(base::test::RunUntil([&]() {
+    return views::Widget::GetTopLevelWidgetForNativeView(
+               test_web_contents->GetContentNativeView()) == widget.get();
+  }));
+
+  EXPECT_TRUE(EmbeddedPermissionPromptContentScrimView::IsOmniboxEverywhere(
+      *test_web_contents));
+
+  gfx::Rect container_bounds = test_web_contents->GetContainerBounds();
+  gfx::Rect scrim_bounds =
+      EmbeddedPermissionPromptContentScrimView::GetScrimBounds(
+          *test_web_contents);
+
+  // Padding should be applied to all four sides (24px each).
+  constexpr int kPadding =
+      EmbeddedPermissionPromptContentScrimView::kOmniboxEverywherePadding;
+  EXPECT_EQ(scrim_bounds.x(), container_bounds.x() + kPadding);
+  EXPECT_EQ(scrim_bounds.y(), container_bounds.y() + kPadding);
+  EXPECT_EQ(scrim_bounds.width(), container_bounds.width() - 2 * kPadding);
+  EXPECT_EQ(scrim_bounds.height(), container_bounds.height() - 2 * kPadding);
+
+  views::WidgetDeletionObserver deletion_observer(widget.get());
+  widget.reset();
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return !deletion_observer.IsWidgetAlive(); }));
+}
+#endif  // BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
+
+IN_PROC_BROWSER_TEST_P(EmbeddedPermissionPromptInteractiveTest,
+                       ScrimRoundedCornersNonLoomnibox) {
+  views::Widget::InitParams params(
+      views::Widget::InitParams::CLIENT_OWNS_WIDGET,
+      views::Widget::InitParams::TYPE_WINDOW_FRAMELESS);
+  params.context = browser()->GetWindow()->GetNativeWindow();
+  auto widget = std::make_unique<views::Widget>();
+  widget->Init(std::move(params));
+  widget->SetBounds(gfx::Rect(0, 0, 800, 600));
+
+  std::unique_ptr<content::WebContents> test_web_contents =
+      content::WebContents::Create(
+          content::WebContents::CreateParams(browser()->GetProfile()));
+
+  auto web_view = std::make_unique<views::WebView>(browser()->GetProfile());
+  web_view->SetWebContents(test_web_contents.get());
+  widget->SetContentsView(std::move(web_view));
+  widget->Show();
+
+  ASSERT_TRUE(
+      content::NavigateToURL(test_web_contents.get(), GURL("about:blank")));
+
+  ASSERT_TRUE(base::test::RunUntil([&]() {
+    return views::Widget::GetTopLevelWidgetForNativeView(
+               test_web_contents->GetContentNativeView()) == widget.get();
+  }));
+
+  EXPECT_FALSE(EmbeddedPermissionPromptContentScrimView::IsOmniboxEverywhere(
+      *test_web_contents));
+
+  TestScrimDelegate delegate;
+  auto scrim_view = std::make_unique<EmbeddedPermissionPromptContentScrimView>(
+      delegate.GetWeakPtr(), *test_web_contents.get(),
+      /*should_dismiss_on_click=*/true);
+
+  // Standard web pages do not use rounded corner layers on the scrim.
+  EXPECT_EQ(scrim_view->layer(), nullptr);
+
+  views::WidgetDeletionObserver deletion_observer(widget.get());
+  widget.reset();
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return !deletion_observer.IsWidgetAlive(); }));
+}
+
+IN_PROC_BROWSER_TEST_P(EmbeddedPermissionPromptInteractiveTest,
+                       ScrimBoundsNonLoomnibox) {
+  views::Widget::InitParams params(
+      views::Widget::InitParams::CLIENT_OWNS_WIDGET,
+      views::Widget::InitParams::TYPE_WINDOW_FRAMELESS);
+  params.context = browser()->GetWindow()->GetNativeWindow();
+  auto widget = std::make_unique<views::Widget>();
+  widget->Init(std::move(params));
+  widget->SetBounds(gfx::Rect(100, 100, 800, 600));
+
+  std::unique_ptr<content::WebContents> test_web_contents =
+      content::WebContents::Create(
+          content::WebContents::CreateParams(browser()->GetProfile()));
+
+  auto web_view = std::make_unique<views::WebView>(browser()->GetProfile());
+  web_view->SetWebContents(test_web_contents.get());
+  widget->SetContentsView(std::move(web_view));
+  widget->Show();
+
+  ASSERT_TRUE(
+      content::NavigateToURL(test_web_contents.get(), GURL("about:blank")));
+
+  EXPECT_FALSE(EmbeddedPermissionPromptContentScrimView::IsOmniboxEverywhere(
+      *test_web_contents));
+
+  gfx::Rect container_bounds = test_web_contents->GetContainerBounds();
+  gfx::Rect scrim_bounds =
+      EmbeddedPermissionPromptContentScrimView::GetScrimBounds(
+          *test_web_contents);
+
+  // For non-Loomnibox, bounds match container bounds with 0 padding.
+  EXPECT_EQ(scrim_bounds, container_bounds);
+
+  views::WidgetDeletionObserver deletion_observer(widget.get());
+  widget.reset();
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return !deletion_observer.IsWidgetAlive(); }));
+}
+
 // Setting up to run all tests with two screen scale factors.
 INSTANTIATE_TEST_SUITE_P(,
                          EmbeddedPermissionPromptInteractiveTest,
@@ -1767,3 +1969,8 @@ INSTANTIATE_TEST_SUITE_P(,
 INSTANTIATE_TEST_SUITE_P(,
                          EmbeddedPermissionPromptPositioningInteractiveTest,
                          testing::Values(1.0, 2.0));
+#if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)
+INSTANTIATE_TEST_SUITE_P(,
+                         EmbeddedPermissionPromptLoomniboxInteractiveTest,
+                         testing::Values(1.0, 2.0));
+#endif  // BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN)

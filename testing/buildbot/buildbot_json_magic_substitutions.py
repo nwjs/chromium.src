@@ -47,6 +47,7 @@ ANDROID_VULKAN_DEVICES = {
   # Pixel 6 phones map to multiple GPU models.
   'oriole': GpuDevice('13b5', '92020010,92020000'),
   'frankel': GpuDevice('1010', '71061212'),
+  'kodiak': GpuDevice('1010', '70061042'),
 }
 
 
@@ -315,6 +316,27 @@ def _GetGpusFromTestConfig(test_config):
     gpus = dimensions['gpu'].split('|')
     for gpu in gpus:
       yield gpu
+
+
+def _IsTestConfigTargetingGce(test_config):
+  """Determines if a test config is targeting a GCE instance."""
+  dimensions = test_config.get('swarming', {}).get('dimensions')
+  if dimensions.get("gce", "0") == "1":
+    return True
+  if "gpu" not in dimensions or dimensions["gpu"] == "none":
+    return True
+  return False
+
+
+def GPUNoXvfbForRealHardware(test_config, _, tester_config):
+  """Add --no-xvfb if the test is running on real hardware."""
+  os_type = tester_config.get('os_type')
+  assert os_type
+  assert os_type == 'linux'
+
+  if _IsTestConfigTargetingGce(test_config):
+    return []
+  return ['--no-xvfb']
 
 
 def GPUParallelJobs(test_config, tester_name, tester_config):

@@ -202,18 +202,12 @@ class WebGPUDecoderImpl final : public WebGPUDecoder {
   bool HasMoreIdleWork() const override { return false; }
   void PerformIdleWork() override {}
 
-  bool HasPollingWork() const override {
-    return has_polling_work_ ||
-           (!use_spontaneous_wire_server_ && wire_serializer_->NeedsFlush());
-  }
+  bool HasPollingWork() const override { return has_polling_work_; }
 
   void PerformPollingWork() override {
     TRACE_EVENT0(TRACE_DISABLED_BY_DEFAULT("gpu.dawn"),
                  "WebGPUDecoderImpl::PerformPollingWork");
     if (known_device_metadata_.empty()) {
-      if (!use_spontaneous_wire_server_) {
-        wire_serializer_->Flush();
-      }
       return;
     }
 
@@ -232,9 +226,6 @@ class WebGPUDecoderImpl final : public WebGPUDecoder {
       } else {
         ++it;
       }
-    }
-    if (!use_spontaneous_wire_server_) {
-      wire_serializer_->Flush();
     }
   }
 
@@ -431,7 +422,6 @@ class WebGPUDecoderImpl final : public WebGPUDecoder {
   std::vector<std::string> require_disabled_toggles_;
   base::flat_set<std::string> runtime_unsafe_features_;
   bool tiered_adapter_limits_;
-  bool use_spontaneous_wire_server_;
 
   // Isolation key that is necessary for device requests. Optional to
   // differentiate between an empty isolation key, and an unset one.
@@ -1181,7 +1171,6 @@ WebGPUDecoderImpl::WebGPUDecoderImpl(
         std::forward<decltype(args)>(args)...);
   };
 
-  use_spontaneous_wire_server_ = features::kWebGPUSpontaneousWireServer.Get();
   wire_server_ = DawnWireServer::Create(
       wire_serializer_.get(), memory_transfer_service_.get(), wire_procs);
 
@@ -1278,6 +1267,7 @@ bool WebGPUDecoderImpl::IsFeatureExposed(wgpu::FeatureName feature) const {
     case wgpu::FeatureName::AdapterPropertiesVk:
     case wgpu::FeatureName::AdapterPropertiesMemoryHeaps:
     case wgpu::FeatureName::ShaderModuleCompilationOptions:
+    case wgpu::FeatureName::AtomicVec2uMinMax:
       return safety_level_ == webgpu::SafetyLevel::kUnsafe ||
              safety_level_ == webgpu::SafetyLevel::kSafeExperimental;
     case wgpu::FeatureName::CoreFeaturesAndLimits:
@@ -1633,6 +1623,14 @@ wgpu::Adapter WebGPUDecoderImpl::CreatePreferredAdapter(
     bool force_fallback,
     wgpu::FeatureLevel feature_level,
     bool webgpu_on_vk_gl_interop) const {
+  // The fallback adapter is SwiftShader, which is only allowed with
+  // --enable-unsafe-webgpu. Don't make Dawn load it otherwise.
+  const bool allow_fallback_adapter =
+      safety_level_ == webgpu::SafetyLevel::kUnsafe;
+  if (force_fallback && !allow_fallback_adapter) {
+    return nullptr;
+  }
+
   // Update power_preference based on command-line flag
   // use_webgpu_power_preference_.
   switch (use_webgpu_power_preference_) {
@@ -1850,6 +1848,10 @@ wgpu::Adapter WebGPUDecoderImpl::CreatePreferredAdapter(
 
       return wgpu::Adapter(native_adapter.Get());
     }
+  }
+
+  if (!allow_fallback_adapter) {
+    return nullptr;
   }
 
   // If we still don't have an adapter, now try to find the fallback adapter.

@@ -8,7 +8,9 @@
 
 #import "base/strings/strcat.h"
 #import "base/strings/utf_string_conversions.h"
+#import "components/device_signals/core/common/signals_features.h"
 #import "components/enterprise/browser/reporting/common_pref_names.h"
+#import "components/enterprise/browser/reporting/reporting_features.h"
 #import "components/enterprise/connectors/core/features.h"
 #import "components/grit/management_resources.h"
 #import "components/grit/management_resources_map.h"
@@ -98,6 +100,16 @@ bool IsProfileReportingEnabled(PrefService* profile_prefs) {
       enterprise_reporting::kCloudProfileReportingEnabled);
 }
 
+// Whether the Device Signals disclosure should be displayed.
+bool IsDeviceSignalsDisclosureEnabled(PrefService* profile_prefs,
+                                      PrefService* local_state) {
+  return base::FeatureList::IsEnabled(
+             enterprise_reporting::kIOSSignalSharingEnabled) &&
+         enterprise_signals::features::IsProfileSignalsReportingEnabled() &&
+         (IsBrowserReportingEnabled(local_state) ||
+          IsProfileReportingEnabled(profile_prefs));
+}
+
 // Whether the "Page is visited" event subsection under Chrome Enteprise
 // Connectors should be displayed. This subsection is visible if Enterprise Url
 // filtering is enabled.
@@ -107,7 +119,7 @@ bool IsPageVisitEventEnabled(ConnectorsService* connectors_service) {
              connectors_service->GetAppliedRealTimeUrlCheck());
 }
 
-// Whether the "Security event occurs" event subsection under Chrome Enteprise
+// Whether the "Security event occurs" event subsection under Chrome Enterprise
 // Connectors should be displayed. This subsection is visible if Enterprise
 // Event Reporting is enabled.
 bool IsSecurityEventEnabled(ConnectorsService* connectors_service) {
@@ -266,6 +278,14 @@ web::WebUIIOSDataSource* CreateManagementUIHTMLSource(web::WebUIIOS* web_ui) {
                              IDS_MANAGEMENT_PROFILE_REPORTING_POLICY);
   source->AddLocalizedString("profileReportingLearnMore",
                              IDS_MANAGEMENT_PROFILE_REPORTING_LEARN_MORE);
+
+  // Device signals disclosure
+  source->AddLocalizedString("deviceSignalsDisclosure",
+                             IDS_MANAGEMENT_DEVICE_SIGNALS_DISCLOSURE);
+  source->AddBoolean(
+      "deviceSignalsDisclosureEnabled",
+      IsDeviceSignalsDisclosureEnabled(
+          profile->GetPrefs(), GetApplicationContext()->GetLocalState()));
 
   // Connectors Section
   auto* connectors_service =

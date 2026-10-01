@@ -23,6 +23,7 @@ import android.view.ViewGroup.LayoutParams;
 import android.view.accessibility.AccessibilityNodeInfo;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.RadioButton;
 import android.widget.TextView;
 
 import androidx.appcompat.content.res.AppCompatResources;
@@ -124,6 +125,58 @@ public class ListMenuItemViewBinderUnitTest {
                 propertyModel, mListItemView, ListMenuItemProperties.SUBTITLE);
         verify(mSubtitleView).setText("");
         verify(mSubtitleView).setVisibility(View.GONE);
+    }
+
+    @Test
+    @SmallTest
+    public void testSubtitleTextAppearance() {
+        int customStyleId = 123;
+        PropertyModel propertyModel =
+                new PropertyModel.Builder(ListMenuItemProperties.ALL_KEYS)
+                        .with(ListMenuItemProperties.SUBTITLE_TEXT_APPEARANCE_ID, customStyleId)
+                        .build();
+        ListMenuItemViewBinder.binder(
+                propertyModel, mListItemView, ListMenuItemProperties.SUBTITLE_TEXT_APPEARANCE_ID);
+        verify(mSubtitleView).setTextAppearance(customStyleId);
+
+        // Verify resetting when Resources.ID_NULL.
+        PropertyModel resetModel =
+                new PropertyModel.Builder(ListMenuItemProperties.ALL_KEYS)
+                        .with(ListMenuItemProperties.SUBTITLE_TEXT_APPEARANCE_ID, Resources.ID_NULL)
+                        .build();
+        ListMenuItemViewBinder.binder(
+                resetModel, mListItemView, ListMenuItemProperties.SUBTITLE_TEXT_APPEARANCE_ID);
+        verify(mSubtitleView).setTextAppearance(R.style.TextAppearance_ListMenuItem_Subtitle);
+    }
+
+    @Test
+    @SmallTest
+    public void testVerticalPadding() {
+        int verticalPadding = 24;
+        int paddingStart = 16;
+        int paddingEnd = 16;
+        when(mListItemView.getPaddingStart()).thenReturn(paddingStart);
+        when(mListItemView.getPaddingEnd()).thenReturn(paddingEnd);
+
+        PropertyModel propertyModel =
+                new PropertyModel.Builder(ListMenuItemProperties.ALL_KEYS)
+                        .with(ListMenuItemProperties.VERTICAL_PADDING, verticalPadding)
+                        .build();
+        ListMenuItemViewBinder.binder(
+                propertyModel, mListItemView, ListMenuItemProperties.VERTICAL_PADDING);
+
+        verify(mListItemView)
+                .setPaddingRelative(paddingStart, verticalPadding, paddingEnd, verticalPadding);
+
+        // Verify resetting when vertical padding is 0.
+        PropertyModel resetModel =
+                new PropertyModel.Builder(ListMenuItemProperties.ALL_KEYS)
+                        .with(ListMenuItemProperties.VERTICAL_PADDING, 0)
+                        .build();
+        ListMenuItemViewBinder.binder(
+                resetModel, mListItemView, ListMenuItemProperties.VERTICAL_PADDING);
+
+        verify(mListItemView).setPaddingRelative(paddingStart, 0, paddingEnd, 0);
     }
 
     @Test
@@ -438,6 +491,7 @@ public class ListMenuItemViewBinderUnitTest {
                 new PropertyModel.Builder(ListMenuItemProperties.ALL_KEYS)
                         .with(ListMenuItemProperties.CHECKABLE, true)
                         .with(ListMenuItemProperties.CHECKED, true)
+                        .with(ListMenuItemProperties.POSITION, 1)
                         .build();
 
         View view =
@@ -447,8 +501,12 @@ public class ListMenuItemViewBinderUnitTest {
                         super.setAccessibilityDelegate(delegate);
                         AccessibilityNodeInfo nodeInfo = AccessibilityNodeInfo.obtain();
                         delegate.onInitializeAccessibilityNodeInfo(this, nodeInfo);
+                        Assert.assertEquals(RadioButton.class.getName(), nodeInfo.getClassName());
                         Assert.assertTrue(nodeInfo.isCheckable());
                         Assert.assertTrue(nodeInfo.isChecked());
+                        Assert.assertNotNull(nodeInfo.getCollectionItemInfo());
+                        Assert.assertEquals(1, nodeInfo.getCollectionItemInfo().getRowIndex());
+                        Assert.assertEquals(0, nodeInfo.getCollectionItemInfo().getColumnIndex());
                     }
                 };
 
@@ -462,6 +520,7 @@ public class ListMenuItemViewBinderUnitTest {
                 new PropertyModel.Builder(ListMenuItemProperties.ALL_KEYS)
                         .with(ListMenuItemProperties.CHECKABLE, true)
                         .with(ListMenuItemProperties.CHECKED, false)
+                        .with(ListMenuItemProperties.POSITION, 2)
                         .build();
 
         View view =
@@ -471,8 +530,12 @@ public class ListMenuItemViewBinderUnitTest {
                         super.setAccessibilityDelegate(delegate);
                         AccessibilityNodeInfo nodeInfo = AccessibilityNodeInfo.obtain();
                         delegate.onInitializeAccessibilityNodeInfo(this, nodeInfo);
+                        Assert.assertEquals(RadioButton.class.getName(), nodeInfo.getClassName());
                         Assert.assertTrue(nodeInfo.isCheckable());
                         Assert.assertFalse(nodeInfo.isChecked());
+                        Assert.assertNotNull(nodeInfo.getCollectionItemInfo());
+                        Assert.assertEquals(2, nodeInfo.getCollectionItemInfo().getRowIndex());
+                        Assert.assertEquals(0, nodeInfo.getCollectionItemInfo().getColumnIndex());
                     }
                 };
 
@@ -494,8 +557,12 @@ public class ListMenuItemViewBinderUnitTest {
                         super.setAccessibilityDelegate(delegate);
                         AccessibilityNodeInfo nodeInfo = AccessibilityNodeInfo.obtain();
                         delegate.onInitializeAccessibilityNodeInfo(this, nodeInfo);
+                        Assert.assertEquals(RadioButton.class.getName(), nodeInfo.getClassName());
                         Assert.assertTrue(nodeInfo.isCheckable());
                         Assert.assertFalse(nodeInfo.isChecked());
+                        Assert.assertNotNull(nodeInfo.getCollectionItemInfo());
+                        Assert.assertEquals(0, nodeInfo.getCollectionItemInfo().getRowIndex());
+                        Assert.assertEquals(0, nodeInfo.getCollectionItemInfo().getColumnIndex());
                     }
                 };
 

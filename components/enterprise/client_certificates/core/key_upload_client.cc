@@ -15,6 +15,7 @@
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
 #include "base/memory/weak_ptr.h"
+#include "base/notreached.h"
 #include "base/task/task_traits.h"
 #include "base/task/thread_pool.h"
 #include "base/types/expected.h"
@@ -24,7 +25,7 @@
 #include "components/policy/core/common/cloud/dmserver_job_configurations.h"
 #include "components/policy/proto/device_management_backend.pb.h"
 #include "crypto/evp.h"
-#include "crypto/signature_verifier.h"
+#include "crypto/sign.h"
 #include "net/cert/asn1_util.h"
 #include "net/cert/x509_certificate.h"
 #include "net/cert/x509_util.h"
@@ -49,15 +50,26 @@ BPKUR::KeyTrustLevel SourceToTrustLevel(PrivateKeySource source) {
   }
 }
 
-BPKUR::KeyType AlgorithmToType(
-    crypto::SignatureVerifier::SignatureAlgorithm algorithm) {
+BPKUR::KeyType AlgorithmToType(crypto::sign::SignatureKind algorithm) {
   switch (algorithm) {
-    case crypto::SignatureVerifier::RSA_PKCS1_SHA1:
-    case crypto::SignatureVerifier::RSA_PKCS1_SHA256:
-    case crypto::SignatureVerifier::RSA_PSS_SHA256:
+    case crypto::sign::RSA_PKCS1_SHA1:
+    case crypto::sign::RSA_PKCS1_SHA256:
+    case crypto::sign::RSA_PKCS1_SHA384:
+    case crypto::sign::RSA_PKCS1_SHA512:
+    case crypto::sign::RSA_PSS_SHA256:
+    case crypto::sign::RSA_PSS_SHA384:
+    case crypto::sign::RSA_PSS_SHA512:
       return BPKUR::RSA_KEY;
-    case crypto::SignatureVerifier::ECDSA_SHA256:
+    case crypto::sign::ECDSA_SHA1:
+    case crypto::sign::ECDSA_SHA256:
+    case crypto::sign::ECDSA_SHA384:
+    case crypto::sign::ECDSA_SHA512:
       return BPKUR::EC_KEY;
+    case crypto::sign::ED25519:
+    case crypto::sign::MLDSA_44:
+    case crypto::sign::MLDSA_65:
+    case crypto::sign::MLDSA_87:
+      NOTREACHED();
   }
 }
 

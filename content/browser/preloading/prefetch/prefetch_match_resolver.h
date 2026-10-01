@@ -9,6 +9,7 @@
 
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
+#include "base/trace_event/trace_event.h"
 #include "content/browser/preloading/prefetch/no_vary_search_helper.h"
 #include "content/browser/preloading/prefetch/prefetch_container.h"
 #include "content/browser/preloading/prefetch/prefetch_container_observer.h"
@@ -16,9 +17,8 @@
 #include "content/browser/preloading/prefetch/prefetch_servable_state.h"
 #include "content/browser/preloading/prefetch/prefetch_serving_handle.h"
 #include "content/browser/preloading/preload_serving_metrics.h"
-#include "content/browser/preloading/prerender/prerender_host.h"
-#include "content/browser/renderer_host/frame_tree_node.h"
 #include "content/common/content_export.h"
+#include "content/public/browser/frame_tree_node_id.h"
 #include "content/public/browser/global_routing_id.h"
 
 namespace base {
@@ -27,6 +27,7 @@ class OneShotTimer;
 
 namespace content {
 
+class NavigationRequest;
 class PrefetchService;
 
 // Represents the collect result with the detailed reason. Only used for metrics
@@ -182,6 +183,7 @@ class CONTENT_EXPORT PrefetchMatchResolver final
   void OnDeterminedHead(const PrefetchContainer& prefetch_container) override;
   void OnPrefetchCompletedOrFailed(
       const PrefetchContainer& prefetch_container) override;
+  void OnPrefetchStale(const PrefetchContainer& prefetch_container) override;
 
   // Finds prefetch that matches to a navigation and is servable.
   //

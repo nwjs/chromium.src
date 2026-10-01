@@ -85,18 +85,8 @@ perfetto::NamedTrack GetTracingTrack(
 
 SchedulerStateMachine::SchedulerStateMachine(const SchedulerSettings& settings)
     : settings_(settings),
-      repeated_no_damage_frame_throttling_threshold1_(
-          std::max(1,
-                   features::kThrottleRepeatedNoDamageFramesThreshold1.Get())),
-      repeated_no_damage_frame_throttling_threshold2_(
-          std::max(1,
-                   features::kThrottleRepeatedNoDamageFramesThreshold2.Get())),
-      repeated_no_damage_frame_throttling_factor1_(std::max(
-          1,
-          features::kThrottleRepeatedNoDamageFramesIntervalFactor1.Get())),
-      repeated_no_damage_frame_throttling_factor2_(std::max(
-          1,
-          features::kThrottleRepeatedNoDamageFramesIntervalFactor2.Get())) {}
+      throttle_repeated_no_damage_frames_(base::FeatureList::IsEnabled(
+          features::kThrottleRepeatedNoDamageFrames)) {}
 
 SchedulerStateMachine::~SchedulerStateMachine() = default;
 
@@ -640,7 +630,7 @@ bool SchedulerStateMachine::ShouldThrottleSendBeginMainFrame() const {
   bool result = false;
   auto throttled_interval = MainFrameThrottledInterval();
 
-  if (base::FeatureList::IsEnabled(features::kThrottleRepeatedNoDamageFrames)) {
+  if (throttle_repeated_no_damage_frames_) {
     throttled_interval =
         std::max(throttled_interval,
                  main_frame_consecutive_no_damage_throttled_interval_);
@@ -1630,7 +1620,7 @@ void SchedulerStateMachine::SetNeedsBeginMainFrame(bool now, bool unthrottled) {
   needs_begin_main_frame_ = true;
 
   if (unthrottled) {
-    // Reset the throttling interval for the next frame only.
+    consecutive_no_damage_main_frames_ = 0;
     main_frame_consecutive_no_damage_throttled_interval_ = base::TimeDelta();
   }
 
@@ -1642,6 +1632,20 @@ void SchedulerStateMachine::SetNeedsBeginMainFrame(bool now, bool unthrottled) {
 void SchedulerStateMachine::SetUrgentBeginMainFramePending() {
   urgent_begin_main_frame_pending_ = true;
   SetNeedsBeginMainFrame(true);
+}
+
+void SchedulerStateMachine::NotifyInputEvent() {
+  // We unthrottle normally when we receive damage. But, it doesn't happen
+  // until we process the damaged frame. This would lead to a noticeable delay
+  // with input handling, so we cancel the throttling immediately upon
+  // receiving input instead.
+  //
+  // Note: This is a pessimization, since the input may lead to no change, and
+  // thus we may unthrottle too eagerly. However, unthrottling doesn't cause
+  // correctness issues, so it's better to be pessimistic here, to avoid
+  // regressions on input when we do actually want to unthrottle.
+  consecutive_no_damage_main_frames_ = 0;
+  UpdateConsecutiveNoDamageThrottlingInterval();
 }
 
 void SchedulerStateMachine::SetNeedsOneBeginImplFrame() {
@@ -1804,8 +1808,7 @@ bool SchedulerStateMachine::HasInitializedLayerTreeFrameSink() const {
 
 
 void SchedulerStateMachine::UpdateConsecutiveNoDamageThrottlingInterval() {
-  if (!base::FeatureList::IsEnabled(
-          features::kThrottleRepeatedNoDamageFrames)) {
+  if (!throttle_repeated_no_damage_frames_) {
     return;
   }
 

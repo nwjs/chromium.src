@@ -241,10 +241,6 @@ if (!is_android && !is_mac) {
         "//components/crash/win:chrome_wer",
       ]
 
-      if (enable_separate_renderer_binary) {
-        data_deps += [ ":chrome_renderer" ]
-      }
-
       if (is_chrome_branded) {
         data_deps += [
           "//chrome/common/request_header_integrity/internal:chromecompaneros",
@@ -410,6 +406,10 @@ if (!is_android && !is_mac) {
       "//components/privacy_sandbox/privacy_sandbox_attestations/preload:component",
       "//third_party/widevine/cdm",
     ]
+
+    if (enable_separate_renderer_binary) {
+      data_deps += [ ":chrome_renderer" ]
+    }
 
     if (is_linux) {
       sources += [
@@ -701,6 +701,7 @@ if (is_win || (is_linux && !is_component_build)) {
       public_deps = [ ":chrome_app_strings" ]
     }
   }
+
   group("chrome_app_strings_bundle_data") {
     public_deps = []
     foreach(locale, locales_as_apple_outputs) {
@@ -978,6 +979,7 @@ if (is_win || (is_linux && !is_component_build)) {
     substitutions = [ "CHROMIUM_FULL_NAME=$chrome_product_full_name" ]
     output_name = "$target_gen_dir/helper_alerts_infoplist_strings/base.lproj/InfoPlist.strings"
   }
+
   bundle_data("chrome_helper_app_alerts_resources") {
     sources = get_target_outputs(":chrome_helper_app_alerts_plist_strings")
     outputs = [ "{{bundle_resources_dir}}/base.lproj/{{source_file_part}}" ]
@@ -1337,6 +1339,7 @@ if (is_win || (is_linux && !is_component_build)) {
   } else {
     _dll_target_type = "source_set"
   }
+
   target(_dll_target_type, "chrome_dll") {
     visibility = [
       ":chrome_framework",
@@ -1720,6 +1723,7 @@ if (is_win || (is_linux && !is_component_build)) {
   } else {
     group("chrome_dump_syms") {
     }
+
     group("chrome_dsym_archive") {
     }
   }
@@ -1981,6 +1985,7 @@ if (is_linux || is_chromeos) {
         ":angle_gles_symbols",
       ]
     }
+
     extract_symbols("chrome_symbols") {
       binary = "$root_out_dir/nw"
 
@@ -1993,6 +1998,7 @@ if (is_linux || is_chromeos) {
 
       deps = [ ":chrome" ]
     }
+
     extract_symbols("chrome_crashpad_symbols") {
       binary = "$root_out_dir/chrome_crashpad_handler"
 
@@ -2005,6 +2011,7 @@ if (is_linux || is_chromeos) {
 
       deps = [ "//components/crash/core/app:chrome_crashpad_handler" ]
     }
+
     extract_symbols("swiftshader_vk_symbols") {
       binary = "$root_out_dir/lib/libvk_swiftshader.so"
 
@@ -2017,6 +2024,7 @@ if (is_linux || is_chromeos) {
 
       deps = [ "//third_party/swiftshader/src/Vulkan:swiftshader_libvulkan" ]
     }
+
     extract_symbols("angle_egl_symbols") {
       binary = "$root_out_dir/lib/libEGL.so"
 
@@ -2036,6 +2044,7 @@ if (is_linux || is_chromeos) {
         deps = [ "//third_party/angle:libEGL" ]
       }
     }
+
     extract_symbols("angle_gles_symbols") {
       binary = "$root_out_dir/lib/libGLESv2.so"
 
@@ -2229,7 +2238,10 @@ if (enable_separate_renderer_binary) {
                   "app/chrome_crash_reporter_client.h",
                 ]
       defines = [ "BUILDING_CHROME_RENDERER" ]
-      deps = _chrome_renderer_deps
+      deps = _chrome_renderer_deps + [
+               "//chrome/child",
+               "//sandbox/linux:sandbox_services",
+             ]
     }
   }
 }

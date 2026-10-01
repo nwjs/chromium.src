@@ -66,15 +66,16 @@ class COMPONENT_EXPORT(MIRRORING_SERVICE) MediaRemoter final
 
   MediaRemoter(Client& client,
                const media::mojom::RemotingSinkMetadata& sink_metadata,
-               RpcDispatcher& message_dispatcher);
+               RpcDispatcher& rpc_dispatcher);
 
   MediaRemoter(const MediaRemoter&) = delete;
   MediaRemoter& operator=(const MediaRemoter&) = delete;
 
   ~MediaRemoter() override;
 
-  // Callback from |message_dispatcher_| for received RPC messages.
+  // Callback from |rpc_dispatcher_| for received RPC messages and errors.
   void OnMessageFromSink(const std::vector<uint8_t>& response);
+  void OnRpcError();
 
   // Called when OFFER/ANSWER exchange for a remoting session succeeds.
   void OnRemotingStarted();
@@ -103,9 +104,6 @@ class COMPONENT_EXPORT(MIRRORING_SERVICE) MediaRemoter final
       mojo::PendingReceiver<media::mojom::RemotingDataStreamSender>
           video_sender_receiver) override;
   void SendMessageToSink(const std::vector<uint8_t>& message) override;
-  void EstimateTransmissionCapacity(
-      media::mojom::Remoter::EstimateTransmissionCapacityCallback callback)
-      override;
   // Called by RemotingDataStreamSender when error occurred. Will stop this
   // remoting session and fallback to mirroring.
   void OnRemotingDataStreamError();

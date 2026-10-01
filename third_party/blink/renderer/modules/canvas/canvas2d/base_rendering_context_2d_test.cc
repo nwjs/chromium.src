@@ -73,8 +73,7 @@ using ::cc::SaveLayerOp;
 // just gives a definition to all pure virtual method, making it instantiable.
 class TestRenderingContext2D final
     : public GarbageCollected<TestRenderingContext2D>,
-      public BaseRenderingContext2D,
-      public MemoryManagedPaintRecorder::Client {
+      public BaseRenderingContext2D {
  public:
   explicit TestRenderingContext2D(V8TestingScope& scope)
       : BaseRenderingContext2D(
@@ -147,7 +146,6 @@ class TestRenderingContext2D final
       RestoreMatrixClipStack(canvas);
     }
   }
-  void RecordingCleared() override {}
 
   std::optional<cc::PaintRecord> FlushCanvas(FlushReason) override {
     return recorder_.ReleaseMainRecording();

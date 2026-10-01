@@ -33,6 +33,8 @@
 #include "content/public/browser/web_contents.h"
 #include "ui/android/window_android.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/page_transition_types.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/strings/grit/ui_strings.h"
 #include "url/gurl.h"
 
@@ -91,10 +93,9 @@ void PermissionBlockedMessageDelegate::OnLearnMoreClicked() {
   dialog_controller_->DismissDialog();
   delegate_->SetLearnMoreClicked();
   web_contents_->OpenURL(
-      content::OpenURLParams(GetNotificationBlockedLearnMoreUrl(),
-                             content::Referrer(),
-                             WindowOpenDisposition::NEW_FOREGROUND_TAB,
-                             ui::PAGE_TRANSITION_LINK, false),
+      content::OpenURLParams::CreateBrowserInitiated(
+          GetNotificationBlockedLearnMoreUrl(),
+          WindowOpenDisposition::NEW_FOREGROUND_TAB, ui::PAGE_TRANSITION_LINK),
       /*navigation_handle_callback=*/{});
 }
 

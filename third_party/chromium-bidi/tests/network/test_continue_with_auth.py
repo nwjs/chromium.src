@@ -260,6 +260,7 @@ async def test_continue_with_auth_completes(websocket, context_id, url_auth_requ
             "request": ANY_DICT,
             "response": ANY_DICT,
             "timestamp": ANY_TIMESTAMP,
+            "userContext": "default",
         },
         "type": "event",
     }
@@ -362,7 +363,6 @@ async def test_continue_with_auth_twice(websocket, context_id, url_auth_required
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(reason="b/553406062")
 async def test_continue_with_auth_remove_intercept_inflight_request(
     websocket, context_id, url_example, url_auth_required
 ):
@@ -472,6 +472,7 @@ async def test_continue_with_auth_remove_intercept_inflight_request(
             "request": ANY_DICT,
             "response": ANY_DICT,
             "timestamp": ANY_TIMESTAMP,
+            "userContext": "default",
         },
         "type": "event",
     }

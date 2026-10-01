@@ -165,7 +165,12 @@ void PopulateInitialState(base::DictValue& dict,
   } else {
     dict.Set(kHomeButtonShouldBeShown, false);
   }
-  dict.Set(kBatterySaverButtonVisible, state->battery_saver_button_visible);
+  if (state->battery_saver_control_state) {
+    dict.Set(kBatterySaverButtonVisible,
+             state->battery_saver_control_state->should_be_shown);
+  } else {
+    dict.Set(kBatterySaverButtonVisible, false);
+  }
   dict.Set(kLayoutConstantsVersion, state->layout_constants_version);
   dict.Set(kTouchUi, state->touch_ui);
 }
@@ -204,6 +209,8 @@ WebUIToolbarUI::WebUIToolbarUI(content::WebUI* web_ui)
       {"homeButtonAccName", IDS_ACCNAME_HOME},
       {"homeButtonTooltip", IDS_TOOLTIP_HOME},
       {"locationAccName", IDS_ACCNAME_LOCATION},
+      {"mediaButtonTooltip", IDS_GLOBAL_MEDIA_CONTROLS_ICON_TOOLTIP_TEXT},
+      {"overflowButtonTooltip", IDS_TOOLTIP_OVERFLOW_BUTTON},
       {"performanceInterventionButtonAccName",
        IDS_PERFORMANCE_INTERVENTION_BUTTON_ACCNAME},
       {"performanceInterventionButtonTooltip",
@@ -222,6 +229,8 @@ WebUIToolbarUI::WebUIToolbarUI(content::WebUI* web_ui)
   WebUIToolbarLayoutCssHelper::SetAsRequestFilter(source);
 
   source->AddBoolean("roundedIconsEnabled", features::IsRoundedIconsEnabled());
+  source->AddBoolean("enableBookmarkGlowUp",
+                     features::IsToolbarGlowUpBookmarkEnabled());
   source->AddBoolean("enableReloadButton",
                      features::IsWebUIReloadButtonEnabled());
   source->AddBoolean("enableHomeButton", features::IsWebUIHomeButtonEnabled());
@@ -244,10 +253,14 @@ WebUIToolbarUI::WebUIToolbarUI(content::WebUI* web_ui)
       "enableAvatarButton",
       features::IsWebUIAvatarButtonEnabled() &&
           AvatarToolbarButtonInterface::CanShowForProfile(profile));
+  source->AddBoolean("enableMediaButton",
+                     features::IsWebUIMediaButtonEnabled());
   source->AddBoolean("enableExtensionsContainer",
                      features::IsWebUIExtensionsContainerEnabled());
   source->AddBoolean("enablePerformanceInterventionButton",
                      features::IsWebUIPerformanceInterventionButtonEnabled());
+  source->AddBoolean("enablePageActionsElevatedToolbar",
+                     features::IsPageActionsElevatedToolbarEnabled());
 
   // Omnibox config:
   source->AddBoolean("reportMetrics", true);
@@ -264,27 +277,12 @@ WebUIToolbarUI::WebUIToolbarUI(content::WebUI* web_ui)
   source->AddBoolean("webUIToolbarFullyEnabled",
                      features::IsWebUIToolbarFullyEnabled());
 
-  BrowserWindowInterface* browser =
-      webui::GetBrowserWindowInterface(web_ui->GetWebContents());
-  webui_toolbar::PopulateSplitTabsDataSource(source, browser);
+  webui_toolbar::PopulateSplitTabsDataSource(source);
 
   source->AddResourcePaths(kWebuiToolbarSharedResources);
 
   // Handles chrome.send() calls that records non-timestamp histograms.
   web_ui->AddMessageHandler(std::make_unique<MetricsHandler>());
-
-  if (browser) {
-    // `base::Unretained(browser)` is safe because `browser` owns the
-    // WebContents hosting this WebUI and is guaranteed to outlive the
-    // `WebContentsUserData` holding this callback.
-    ui::TrackedElementHandlerDocumentSingleton::Register(
-        this, GetKnownElementIdentifiers(),
-        base::BindRepeating(
-            [](BrowserWindowInterface* bwi) {
-              return BrowserElements::From(bwi)->GetContext();
-            },
-            base::Unretained(browser)));
-  }
 
   content::URLDataSource::Add(
       profile, std::make_unique<FaviconSource>(
@@ -353,6 +351,12 @@ void WebUIToolbarUI::OnFocusRequested(
   }
 }
 
+void WebUIToolbarUI::ShowSplitTabsContextMenu() {
+  if (toolbar_ui_service_) {
+    toolbar_ui_service_->ShowSplitTabsContextMenu();
+  }
+}
+
 void WebUIToolbarUI::Init(DependencyProvider* dependency_provider) {
   CHECK(dependency_provider);
 
@@ -363,10 +367,28 @@ void WebUIToolbarUI::Init(DependencyProvider* dependency_provider) {
     return;
   }
 
+  BrowserWindowInterface* browser =
+      webui::GetBrowserWindowInterface(web_ui()->GetWebContents());
+  CHECK(browser);
+  // `base::Unretained(browser)` is safe because by the time this is called
+  // `browser` owns the WebContents hosting this WebUI and is guaranteed to
+  // outlive the `WebContentsUserData` holding this callback.
+  ui::TrackedElementHandlerDocumentSingleton::Register(
+      this, GetKnownElementIdentifiers(),
+      base::BindRepeating(
+          [](BrowserWindowInterface* bwi) {
+            return BrowserElements::From(bwi)->GetContext();
+          },
+          base::Unretained(browser)));
+
   InitBrowserControlsService(*dependency_provider);
   InitToolbarUIService(*dependency_provider);
 
   omnibox_controller_ = dependency_provider->GetOmniboxController();
+  if (delayed_searchbox_receiver_.is_valid()) {
+    CreatePageHandler(std::move(delayed_searchbox_page_),
+                      std::move(delayed_searchbox_receiver_));
+  }
 }
 
 void WebUIToolbarUI::DependenciesDestroying() {
@@ -481,18 +503,31 @@ void WebUIToolbarUI::PopulateLocalResourceLoaderConfig(
 void WebUIToolbarUI::CreateHelpBubbleHandler(
     mojo::PendingRemote<help_bubble::mojom::HelpBubbleClient> client,
     mojo::PendingReceiver<help_bubble::mojom::HelpBubbleHandler> handler) {
+  ui::TrackedElementHandlerDocumentSingleton::GetOrCreateAsync(
+      web_ui()->GetRenderFrameHost(),
+      base::BindOnce(&WebUIToolbarUI::FinishCreateHelpBubbleHandler,
+                     weak_ptr_factory_.GetWeakPtr(), std::move(client),
+                     std::move(handler)));
+}
+
+void WebUIToolbarUI::FinishCreateHelpBubbleHandler(
+    mojo::PendingRemote<help_bubble::mojom::HelpBubbleClient> client,
+    mojo::PendingReceiver<help_bubble::mojom::HelpBubbleHandler> handler,
+    base::WeakPtr<ui::TrackedElementHandler> tracked_element_handler) {
   help_bubble_handler_ = std::make_unique<user_education::HelpBubbleHandler>(
       std::move(handler), std::move(client),
-      ui::TrackedElementHandlerDocumentSingleton::GetOrCreate(
-          web_ui()->GetRenderFrameHost()));
+      std::move(tracked_element_handler));
 }
 
 void WebUIToolbarUI::CreatePageHandler(
     mojo::PendingRemote<searchbox::mojom::Page> page,
     mojo::PendingReceiver<searchbox::mojom::PageHandler> receiver) {
-  // If this failed in a MochaJS test, it probably forgot to set a test
-  // BrowserProxy for SearchboxHandler.
-  CHECK(omnibox_controller_);
+  if (!omnibox_controller_) {
+    // Init() hasn't been called yet, save the params so it can call us again.
+    delayed_searchbox_page_ = std::move(page);
+    delayed_searchbox_receiver_ = std::move(receiver);
+    return;
+  }
 
   MetricsReporterService* metrics_reporter_service =
       MetricsReporterService::GetFromWebContents(web_ui()->GetWebContents());
@@ -548,7 +583,8 @@ WebUIToolbarUI::GetKnownElementIdentifiers() {
        PermissionChipView::kIndicatorChipElementId,
        kToolbarBatterySaverButtonElementId,
        kExtensionsMenuButtonElementId,
-       kToolbarActionViewElementId});
+       kToolbarActionViewElementId,
+       kToolbarMediaButtonElementId});
   auto result = webui_toolbar::GetPinnedToolbarActionElementIds();
   std::vector<ui::ElementIdentifier> content_setting_identifiers =
       ContentSettingImageModel::GetAllElementIdentifiers();

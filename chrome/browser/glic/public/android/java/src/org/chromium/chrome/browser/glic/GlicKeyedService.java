@@ -19,6 +19,7 @@ import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
+import java.util.List;
 
 /**
  * GlicKeyedService is the core class for managing Glic flows. It represents a native
@@ -35,6 +36,7 @@ public interface GlicKeyedService {
         GlicInvocationSource.THREE_DOTS_MENU,
         GlicInvocationSource.WEB_CONTENTS_CONTEXT_MENU,
         GlicInvocationSource.TOOLBAR_BUTTON,
+        GlicInvocationSource.TAB_CONTEXT_MENU,
         GlicInvocationSource.MAX_VALUE,
     })
     @Retention(RetentionPolicy.SOURCE)
@@ -45,7 +47,8 @@ public interface GlicKeyedService {
         int THREE_DOTS_MENU = 7;
         int WEB_CONTENTS_CONTEXT_MENU = 23;
         int TOOLBAR_BUTTON = 31;
-        int MAX_VALUE = 34;
+        int TAB_CONTEXT_MENU = 41;
+        int MAX_VALUE = 42;
     }
 
     // LINT.ThenChange(//chrome/browser/glic/host/glic.mojom:InvocationSource)
@@ -83,8 +86,9 @@ public interface GlicKeyedService {
      * @param tab The {@link Tab} to target.
      * @param text The text prompt to populate.
      * @param invocationSource How the UI was triggered.
+     * @return true if Glic was successfully invoked with the prompt.
      */
-    void invokeWithPrompt(Tab tab, String text, @GlicInvocationSource int invocationSource);
+    boolean invokeWithPrompt(Tab tab, String text, @GlicInvocationSource int invocationSource);
 
     /**
      * Invokes the Glic service, opening the panel attached to the given tab without
@@ -181,6 +185,17 @@ public interface GlicKeyedService {
     /** Removes an observer for user enabled actuation on web changes. */
     void removeUserEnabledActuationOnWebObserver(UserEnabledActuationOnWebObserver observer);
 
+    /** Observer for experimental triggering (Gemini Spark) enabled changes. */
+    interface ExperimentalTriggeringObserver {
+        void onExperimentalTriggeringEnabledChanged(boolean enabled);
+    }
+
+    /** Adds an observer for experimental triggering enabled changes. */
+    void addExperimentalTriggeringObserver(ExperimentalTriggeringObserver observer);
+
+    /** Removes an observer for experimental triggering enabled changes. */
+    void removeExperimentalTriggeringObserver(ExperimentalTriggeringObserver observer);
+
     /** Observer for allowed changes. */
     interface AllowedChangedObserver {
         void onAllowedStateChanged();
@@ -215,6 +230,20 @@ public interface GlicKeyedService {
     void setUserEnabledActuationOnWeb(boolean enabled);
 
     /**
+     * Checks if the user has enabled experimental triggering (Gemini Spark).
+     *
+     * @return true if experimental triggering is enabled.
+     */
+    boolean getExperimentalTriggeringEnabled();
+
+    /**
+     * Sets whether the user has enabled experimental triggering (Gemini Spark).
+     *
+     * @param enabled true to enable experimental triggering.
+     */
+    void setExperimentalTriggeringEnabled(boolean enabled);
+
+    /**
      * Checks if the Glic toolbar button is currently active/pinned.
      *
      * @param profile The current profile.
@@ -228,4 +257,40 @@ public interface GlicKeyedService {
      * @return true if the bottom bar is enabled.
      */
     boolean isBottomBarEnabled();
+
+    /**
+     * Shares (pins) the given tabs with a Glic conversation, invoked from the tab strip context
+     * menu.
+     *
+     * @param tabs The tabs to share.
+     * @param instanceId The target conversation's instance id, or null to start a new conversation.
+     * @param newConversation Whether to start a brand new conversation.
+     * @param invocationSource How the share was triggered.
+     */
+    void shareTabs(
+            List<Tab> tabs,
+            @Nullable String instanceId,
+            boolean newConversation,
+            @GlicInvocationSource int invocationSource);
+
+    /**
+     * Unshares (unpins) the given tabs from all Glic conversations.
+     *
+     * @param tabs The tabs to unshare.
+     */
+    void unshareTabs(List<Tab> tabs);
+
+    /**
+     * Returns whether any of the given tabs is currently shared (pinned) with a Glic conversation.
+     *
+     * @param tabs The tabs to check.
+     */
+    boolean isTabPinnedToAnyInstance(List<Tab> tabs);
+
+    /**
+     * Returns up to {@code limit} recently active Glic conversations, most recent first.
+     *
+     * @param limit The maximum number of conversations to return.
+     */
+    List<ConversationInfo> getRecentlyActiveInstances(int limit);
 }

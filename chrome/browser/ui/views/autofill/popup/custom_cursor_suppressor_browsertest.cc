@@ -7,7 +7,6 @@
 #include <vector>
 
 #include "chrome/browser/extensions/extension_browsertest.h"
-#include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/extensions/extension_side_panel_manager.h"
@@ -26,6 +25,7 @@
 #include "net/test/embedded_test_server/embedded_test_server.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "ui/base/window_open_disposition.h"
 #include "url/gurl.h"
 
 namespace {
@@ -273,7 +273,7 @@ class CustomCursorSuppressorExtensionBrowserTest
     CHECK(entry);
 
     ExtensionTestMessageListener default_path_listener("default_path");
-    SidePanelUI* const side_panel_ui = browser()->GetFeatures().side_panel_ui();
+    SidePanelUI* const side_panel_ui = SidePanelUI::From(browser());
     side_panel_ui->Show(extension_key);
     CHECK(default_path_listener.WaitUntilSatisfied());
     CHECK(side_panel_ui->IsSidePanelShowing());
@@ -289,9 +289,7 @@ IN_PROC_BROWSER_TEST_F(CustomCursorSuppressorExtensionBrowserTest,
   scoped_refptr<const extensions::Extension> extension =
       LoadExtensionInSidePanel();
   auto* extension_coordinator =
-      browser()
-          ->GetFeatures()
-          .extension_side_panel_manager()
+      extensions::ExtensionSidePanelManager::From(browser())
           ->GetExtensionCoordinatorForTesting(extension->id());
   content::WebContents* host_contents =
       extension_coordinator->GetHostWebContentsForTesting();
@@ -314,9 +312,7 @@ IN_PROC_BROWSER_TEST_F(
   scoped_refptr<const extensions::Extension> extension =
       LoadExtensionInSidePanel();
   auto* extension_coordinator =
-      browser()
-          ->GetFeatures()
-          .extension_side_panel_manager()
+      extensions::ExtensionSidePanelManager::From(browser())
           ->GetExtensionCoordinatorForTesting(extension->id());
   content::WebContents* host_contents =
       extension_coordinator->GetHostWebContentsForTesting();

@@ -18,7 +18,9 @@
 #include "base/notimplemented.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/types/pass_key.h"
+#include "chrome/browser/contextual_cueing/features.h"
 #include "chrome/browser/glic/host/glic.mojom.h"
+#include "chrome/browser/glic/public/glic_enabling.h"
 #include "chrome/browser/glic/public/glic_invoke_options.h"
 #include "chrome/browser/glic/public/glic_keyed_service.h"
 #include "chrome/browser/glic/public/glic_side_panel_coordinator.h"
@@ -51,6 +53,7 @@
 #include "components/optimization_guide/core/hints/optimization_guide_decider.h"
 #include "components/optimization_guide/core/hints/optimization_guide_decision.h"
 #include "components/page_content_annotations/core/tracked_element_feature.h"
+#include "components/prefs/pref_service.h"
 #include "components/signin/public/base/signin_metrics.h"
 #include "components/skills/public/skill.h"
 #include "components/skills/public/skills_service.h"
@@ -81,57 +84,6 @@ const char kForceIndigoOnboardingSwitch[] = "force-indigo-onboarding";
 // The minimum width of the primary image frame in DIPs below which
 // the transformation will fail.
 constexpr int kMinPrimaryImageWidthDips = 170;
-
-void RecordTransformationResultCannotGenerateImage(
-    const CombinedEligibility& eligibility) {
-  DCHECK(!eligibility.CanGenerateImage());
-  IndigoTransformationResult result;
-
-  if (eligibility.local_eligibility != LocalEligibility::kEligible) {
-    switch (eligibility.local_eligibility) {
-      case LocalEligibility::kNotSignedIn:
-        result = IndigoTransformationResult::kNotSignedIn;
-        break;
-      case LocalEligibility::kRefreshTokenInPersistentErrorState:
-        result =
-            IndigoTransformationResult::kRefreshTokenInPersistentErrorState;
-        break;
-      case LocalEligibility::kMissingCapabilities:
-        result = IndigoTransformationResult::kMissingCapabilities;
-        break;
-      case LocalEligibility::kDisabledByPolicy:
-        result = IndigoTransformationResult::kDisabledByPolicy;
-        break;
-      case LocalEligibility::kMissingScript:
-        result = IndigoTransformationResult::kMissingScript;
-        break;
-      case LocalEligibility::kManagedDomain:
-        result = IndigoTransformationResult::kManagedDomain;
-        break;
-      case LocalEligibility::kGlicDisabledForProfile:
-        result = IndigoTransformationResult::kGlicDisabledForProfile;
-        break;
-      case LocalEligibility::kEnterpriseDisallowed:
-        result = IndigoTransformationResult::kEnterpriseDisallowed;
-        break;
-      case LocalEligibility::kEligible:
-        NOTREACHED();
-    }
-  } else if (!eligibility.remote_eligibility.has_value()) {
-    result = IndigoTransformationResult::kRemoteStatusMissing;
-  } else if (!eligibility.remote_eligibility
-                  ->is_service_supported_for_account) {
-    result = IndigoTransformationResult::kServiceNotSupported;
-  } else if (!eligibility.remote_eligibility->has_user_image) {
-    result = IndigoTransformationResult::kMissingUserImage;
-  } else if (!eligibility.has_onboarded_pref) {
-    result = IndigoTransformationResult::kNotOnboarded;
-  } else {
-    result = IndigoTransformationResult::kUnknown;
-  }
-
-  base::UmaHistogramEnumeration("Indigo.Transformation.Result", result);
-}
 
 class Require1PSkillRefreshObserver : public skills::SkillsService::Observer {
  public:
@@ -310,15 +262,22 @@ void IndigoPageActionController::ContinueInvoke(
 
 bool IndigoPageActionController::MaybeInvokeGlic() {
   if (!base::FeatureList::IsEnabled(features::kIndigoOpenGlic)) {
+    base::UmaHistogramEnumeration(
+        kMaybeInvokeGlicResultHistogramName,
+        IndigoMaybeInvokeGlicResult::kFeatureDisabled);
     return false;
   }
 
   if (glic::GlicSidePanelCoordinator::IsShowing(&tab())) {
+    base::UmaHistogramEnumeration(kMaybeInvokeGlicResultHistogramName,
+                                  IndigoMaybeInvokeGlicResult::kAlreadyShowing);
     return false;
   }
 
   content::WebContents* web_contents = tab().GetContents();
   if (!web_contents) {
+    base::UmaHistogramEnumeration(kMaybeInvokeGlicResultHistogramName,
+                                  IndigoMaybeInvokeGlicResult::kNoWebContents);
     return false;
   }
 
@@ -326,14 +285,24 @@ bool IndigoPageActionController::MaybeInvokeGlic() {
       Profile::FromBrowserContext(web_contents->GetBrowserContext());
   auto* glic_keyed_service = glic::GlicKeyedService::Get(profile);
   if (!glic_keyed_service) {
+    base::UmaHistogramEnumeration(
+        kMaybeInvokeGlicResultHistogramName,
+        IndigoMaybeInvokeGlicResult::kNoGlicKeyedService);
     return false;
   }
 
   if (auto* instance = glic_keyed_service->GetInstanceForTab(&tab())) {
     if (instance->conversation_id().has_value()) {
+      base::UmaHistogramEnumeration(
+          kMaybeInvokeGlicResultHistogramName,
+          IndigoMaybeInvokeGlicResult::kExistingConversation);
       return false;
     }
   }
+
+  base::UmaHistogramBoolean(
+      "Indigo.PageAction.IsGlicOptedOutOnIndigoInvocation",
+      !glic::IsAnyEntryPointEnabled(profile));
 
   glic::GlicInvokeOptions options(
       glic::Target(tab(), glic::NewConversation()),
@@ -367,6 +336,8 @@ bool IndigoPageActionController::MaybeInvokeGlic() {
   }
 
   if (prompt.empty()) {
+    base::UmaHistogramEnumeration(kMaybeInvokeGlicResultHistogramName,
+                                  IndigoMaybeInvokeGlicResult::kPromptEmpty);
     return false;
   }
 
@@ -381,9 +352,17 @@ bool IndigoPageActionController::MaybeInvokeGlic() {
                      IndigoTransformationTriggerSource::kPageAction);
 
   options.prompts.push_back(std::move(prompt));
-  glic_keyed_service->InvokeWithAutoSubmit(
+  auto instance = glic_keyed_service->InvokeWithAutoSubmit(
       glic::InvokeWithAutoSubmitPasskeyProvider::GetPassKey(),
       std::move(options));
+  if (!instance) {
+    base::UmaHistogramEnumeration(kMaybeInvokeGlicResultHistogramName,
+                                  IndigoMaybeInvokeGlicResult::kInvokeRejected);
+    return false;
+  }
+
+  base::UmaHistogramEnumeration(kMaybeInvokeGlicResultHistogramName,
+                                IndigoMaybeInvokeGlicResult::kInvoked);
   return true;
 }
 
@@ -395,16 +374,15 @@ void IndigoPageActionController::TriggerIndigoAgent(
   }
   if (IndigoAgentHost::GetOrCreateForPage(web_contents->GetPrimaryPage())
           ->Invoke()) {
-    base::RecordAction(
-        base::UserMetricsAction("Indigo.Transformation.Trigger"));
-    base::UmaHistogramEnumeration("Indigo.Transformation.TriggerSource",
-                                  source);
+    RecordTransformationTrigger(source);
   }
 }
 
 void IndigoPageActionController::TriggerIndigoAgentWithDelay(
     IndigoTransformationTriggerSource source) {
   CHECK(base::FeatureList::IsEnabled(features::kIndigoOpenGlic));
+  base::UmaHistogramBoolean(kPanelActuallyShowingOnCallbackHistogramName,
+                            glic::GlicSidePanelCoordinator::IsShowing(&tab()));
   delay_agent_invoke_timer_.Start(
       FROM_HERE, features::kIndigoGlicTriggerDelay.Get(),
       base::BindOnce(&IndigoPageActionController::TriggerIndigoAgent,
@@ -493,8 +471,7 @@ void IndigoPageActionController::ShowToolbar() {
 void IndigoPageActionController::ShowInvocationErrorToast(
     IndigoTransformationResult result) {
   CHECK_NE(result, IndigoTransformationResult::kSuccess);
-  base::UmaHistogramEnumeration("Indigo.Transformation.Result", result);
-  base::RecordAction(base::UserMetricsAction("Indigo.Transformation.Failure"));
+  RecordTransformationResult(result);
 
   ToastController* toast_controller =
       ToastController::MaybeGetForTabInterface(&tab());
@@ -607,10 +584,7 @@ void IndigoPageActionController::TriggerRegeneration(
   auto* manager =
       IndigoImageReplacementManager::GetForPage(web_contents->GetPrimaryPage());
   if (manager && manager->RegenerateImage()) {
-    base::RecordAction(
-        base::UserMetricsAction("Indigo.Transformation.Trigger"));
-    base::UmaHistogramEnumeration("Indigo.Transformation.TriggerSource",
-                                  source);
+    RecordTransformationTrigger(source);
     DestroyToolbar();
   }
 }
@@ -743,6 +717,11 @@ void IndigoPageActionController::UpdateEntryPointsState() {
   TriggerEvaluation eval = EvaluateTriggerState();
   last_trigger_source_ = eval.source;
   const bool should_show = eval.source.has_value();
+
+  const bool delegate_to_contextual_cues =
+      base::FeatureList::IsEnabled(features::kIndigoContextualCueingV2) &&
+      base::FeatureList::IsEnabled(contextual_cueing::kContextualCueingV2);
+
   if (should_show) {
     ResolvePendingEligibilityCallbacks(/*eligible=*/true);
     // For V2, we defer recording the trigger source until
@@ -750,7 +729,7 @@ void IndigoPageActionController::UpdateEntryPointsState() {
     // it when the cue is actually prepared to be shown, rather than just when
     // eligibility is evaluated (which might be called multiple times or not
     // lead to a shown cue).
-    if (!base::FeatureList::IsEnabled(features::kIndigoContextualCueingV2)) {
+    if (!delegate_to_contextual_cues) {
       base::UmaHistogramEnumeration("Indigo.PageAction.TriggerSource",
                                     *eval.source);
     }
@@ -758,7 +737,7 @@ void IndigoPageActionController::UpdateEntryPointsState() {
     ResolvePendingEligibilityCallbacks(/*eligible=*/false);
   }
 
-  if (base::FeatureList::IsEnabled(features::kIndigoContextualCueingV2)) {
+  if (delegate_to_contextual_cues) {
     return;
   }
 

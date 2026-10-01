@@ -23,6 +23,8 @@
 #include "ui/android/view_android.h"
 #include "ui/android/window_android.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/page_transition_types.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/gfx/android/java_bitmap.h"
 
 // Must come after all headers that specialize FromJniType() / ToJniType().
@@ -130,9 +132,10 @@ void ExtensionInstallDialogViewAndroid::OnStoreLinkClicked(
     return;
   }
   GURL gurl(base::android::ConvertJavaStringToUTF8(env, url));
-  content::OpenURLParams params(gurl, content::Referrer(),
-                                WindowOpenDisposition::NEW_FOREGROUND_TAB,
-                                ui::PAGE_TRANSITION_LINK, false);
+  content::OpenURLParams params =
+      content::OpenURLParams::CreateBrowserInitiated(
+          gurl, WindowOpenDisposition::NEW_FOREGROUND_TAB,
+          ui::PAGE_TRANSITION_LINK);
   web_contents_->OpenURL(params, /*navigation_handle_callback=*/{});
 }
 

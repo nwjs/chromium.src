@@ -372,19 +372,11 @@ TEST(ClientSharedImageTest,
 }
 
 // When the client provides a native buffer with a single-plane format,
-// GL_TEXTURE_2D should be used as the texture target on all platforms other
-// than Mac, where the target for IO surfaces should be used.
+// GL_TEXTURE_2D
 TEST(ClientSharedImageTest,
      GetTextureTarget_SinglePlaneFormats_ClientNativeBuffer) {
   auto sii = base::MakeRefCounted<TestSharedImageInterface>();
   sii->emulate_client_provided_native_buffer();
-
-#if BUILDFLAG(IS_MAC)
-  // Explicitly set the texture target for IO surfaces to a target other than
-  // GL_TEXTURE_2D to ensure that the test is meaningful on Mac.
-  const uint32_t kTargetForIOSurfaces = GL_TEXTURE_RECTANGLE_ARB;
-  sii->set_texture_target_for_io_surfaces(kTargetForIOSurfaces);
-#endif
 
   const SharedImageUsageSet kUsage =
       SHARED_IMAGE_USAGE_RASTER_WRITE | SHARED_IMAGE_USAGE_DISPLAY_READ;
@@ -393,99 +385,15 @@ TEST(ClientSharedImageTest,
     auto client_si = sii->CreateSharedImage(
         CreateSharedImageInfo(format, kUsage), kNullSurfaceHandle);
 
-#if BUILDFLAG(IS_MAC)
-    const uint32_t expected_texture_target = kTargetForIOSurfaces;
-#else
-    const uint32_t expected_texture_target = GL_TEXTURE_2D;
-#endif
-    EXPECT_EQ(client_si->GetTextureTarget(), expected_texture_target);
-  }
-}
-
-// When the client asks for SCANOUT usage, GL_TEXTURE_2D should be used as the
-// texture target on all platforms other than Mac, where the target for IO
-// surfaces should be used.
-TEST(ClientSharedImageTest, GetTextureTarget_ScanoutUsage) {
-  auto sii = base::MakeRefCounted<TestSharedImageInterface>();
-
-#if BUILDFLAG(IS_MAC)
-  // Explicitly set the texture target for IO surfaces to a target other than
-  // GL_TEXTURE_2D to ensure that the test is meaningful on Mac.
-  const uint32_t kTargetForIOSurfaces = GL_TEXTURE_RECTANGLE_ARB;
-  sii->set_texture_target_for_io_surfaces(kTargetForIOSurfaces);
-#endif
-
-  const SharedImageUsageSet kUsage = SHARED_IMAGE_USAGE_SCANOUT;
-
-  // Test all single-plane formats as well as multiplane formats for which
-  // hardware GMBs are supported.
-  std::vector<viz::SharedImageFormat> formats_to_test;
-  for (auto format : viz::SinglePlaneFormat::kAll) {
-    formats_to_test.push_back(format);
-  }
-  for (auto format : kMultiPlaneFormatsWithHardwareGMBs) {
-    formats_to_test.push_back(format);
-  }
-
-  for (auto format : formats_to_test) {
-    auto client_si = sii->CreateSharedImage(
-        CreateSharedImageInfo(format, kUsage), kNullSurfaceHandle);
-
-#if BUILDFLAG(IS_MAC)
-    const uint32_t expected_texture_target = kTargetForIOSurfaces;
-#else
-    const uint32_t expected_texture_target = GL_TEXTURE_2D;
-#endif
-    EXPECT_EQ(client_si->GetTextureTarget(), expected_texture_target);
-  }
-}
-
-// When the client asks for WEBGPU usage, GL_TEXTURE_2D should be used as the
-// texture target on all platforms other than Mac, where the target for IO
-// surfaces should be used.
-TEST(ClientSharedImageTest, GetTextureTarget_WebGPUUsage) {
-  auto sii = base::MakeRefCounted<TestSharedImageInterface>();
-
-#if BUILDFLAG(IS_MAC)
-  // Explicitly set the texture target for IO surfaces to a target other than
-  // GL_TEXTURE_2D to ensure that the test is meaningful on Mac.
-  const uint32_t kTargetForIOSurfaces = GL_TEXTURE_RECTANGLE_ARB;
-  sii->set_texture_target_for_io_surfaces(kTargetForIOSurfaces);
-#endif
-
-  // Test all single-plane formats as well as multiplane formats for which
-  // hardware GMBs are supported.
-  std::vector<viz::SharedImageFormat> formats_to_test;
-  for (auto format : viz::SinglePlaneFormat::kAll) {
-    formats_to_test.push_back(format);
-  }
-  for (auto format : kMultiPlaneFormatsWithHardwareGMBs) {
-    formats_to_test.push_back(format);
-  }
-
-  for (SharedImageUsageSet webgpu_usage :
-       {SHARED_IMAGE_USAGE_WEBGPU_READ, SHARED_IMAGE_USAGE_WEBGPU_WRITE}) {
-    const SharedImageUsageSet kUsage = webgpu_usage;
-
-    for (auto format : formats_to_test) {
-      auto client_si = sii->CreateSharedImage(
-          CreateSharedImageInfo(format, kUsage), kNullSurfaceHandle);
-
-#if BUILDFLAG(IS_MAC)
-      const uint32_t expected_texture_target = kTargetForIOSurfaces;
-#else
-      const uint32_t expected_texture_target = GL_TEXTURE_2D;
-#endif
-      EXPECT_EQ(client_si->GetTextureTarget(), expected_texture_target);
-    }
+    EXPECT_EQ(client_si->GetTextureTarget(),
+              static_cast<uint32_t>(GL_TEXTURE_2D));
   }
 }
 
 // On all platforms, the default target should be used for multi-planar
 // formats if external sampling is not set and scanout/WebGPU usage are not
 // specified.
-TEST(ClientSharedImageTest,
-     GetTextureTarget_MultiplanarFormats_NoScanoutOrWebGPUUsage) {
+TEST(ClientSharedImageTest, GetTextureTarget_MultiplanarFormats) {
   auto sii = base::MakeRefCounted<TestSharedImageInterface>();
   const SharedImageUsageSet kUsage =
       SHARED_IMAGE_USAGE_RASTER_WRITE | SHARED_IMAGE_USAGE_DISPLAY_READ;
@@ -568,6 +476,31 @@ TEST(ClientSharedImageTest,
   EXPECT_TRUE(exported_vec.empty());
 }
 
+TEST(ClientSharedImageTest,
+     AutomaticSyncTokenManagement_EndDisplayCompositorAccess) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(features::kUseAutomaticSyncTokenManagement);
+
+  auto sii = base::MakeRefCounted<TestSharedImageInterface>();
+  auto client_si =
+      sii->CreateSharedImage(CreateSharedImageInfo(), kNullSurfaceHandle);
+
+  SyncToken compositor_token(CommandBufferNamespace::GPU_IO,
+                             CommandBufferId::FromUnsafeValue(789),
+                             /*release_count=*/101);
+
+  client_si->EndDisplayCompositorAccess(compositor_token);
+
+  auto exported_result = client_si->EndImport(SyncToken());
+  SyncToken expected_creation_token = client_si->creation_sync_token();
+  expected_creation_token.SetVerifyFlush();
+  SyncToken expected_compositor_token = compositor_token;
+  expected_compositor_token.SetVerifyFlush();
+  EXPECT_TRUE(exported_result.IsEqualForTesting(
+      SharedImageExportResult::CreateForTesting(
+          {expected_creation_token, expected_compositor_token})));
+}
+
 // Checks whether ClientSharedImage correctly stores only the latest SyncToken
 // on a sequence when feature UseAutomaticSyncTokenManagement is enabled.
 TEST(ClientSharedImageTest, AutomaticSyncTokenManagement_SyncTokenUpdate) {
@@ -597,10 +530,15 @@ TEST(ClientSharedImageTest, AutomaticSyncTokenManagement_SyncTokenUpdate) {
   SharedImageExportResult export_result = client_si->EndImport(SyncToken());
   EXPECT_TRUE(export_result.HasData());
 
-  // The export_result should only contain token2 (verified).
+  // The export_result should contain the creation sync token and token2 (both
+  // verified).
+  SyncToken expected_creation_token = client_si->creation_sync_token();
+  expected_creation_token.SetVerifyFlush();
   SyncToken expected_token = token2;
   expected_token.SetVerifyFlush();
-  EXPECT_TRUE(export_result.IsEqualForTesting(expected_token));
+  EXPECT_TRUE(
+      export_result.IsEqualForTesting(SharedImageExportResult::CreateForTesting(
+          {expected_creation_token, expected_token})));
 }
 
 TEST(ClientSharedImageTest, SignalLatestSyncToken_WithCallbackId) {

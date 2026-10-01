@@ -135,7 +135,7 @@ public class AccessibilitySettings extends PreferenceFragmentCompat
         mPageZoomDefaultZoomPref.setInitialValue(
                 PageZoomUtils.getDefaultZoomAsBarValue(mDelegate.getBrowserContextHandle()));
         mPageZoomDefaultZoomPref.setOnPreferenceChangeListener(this);
-        mPageZoomAlwaysShowPref.setChecked(PageZoomUtils.shouldShowZoomMenuItem());
+        mPageZoomAlwaysShowPref.setChecked(PageZoomUtils.shouldShowZoomMenuItem(getContext()));
         mPageZoomAlwaysShowPref.setOnPreferenceChangeListener(this);
 
         // When Smart Zoom feature is enabled, set the required delegate.
@@ -195,9 +195,9 @@ public class AccessibilitySettings extends PreferenceFragmentCompat
                             AllSiteSettings.EXTRA_TITLE,
                             getString(R.string.zoom_info_preference_title));
                     assumeNonNull(mDelegate)
-                            .getSiteSettingsNavigation()
+                            .getSiteSettingsNavigation(requireContext())
                             .startSettings(
-                                    ContextUtils.getApplicationContext(),
+                                    requireContext(),
                                     AllSiteSettings.class,
                                     initialArguments,
                                     /* addToBackStack= */ true);

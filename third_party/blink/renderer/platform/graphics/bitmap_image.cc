@@ -45,6 +45,7 @@
 #include "third_party/blink/renderer/platform/graphics/skia/skia_utils.h"
 #include "third_party/blink/renderer/platform/graphics/static_bitmap_image.h"
 #include "third_party/blink/renderer/platform/instrumentation/tracing/trace_event.h"
+#include "third_party/blink/renderer/platform/runtime_enabled_features.h"
 #include "third_party/blink/renderer/platform/scheduler/public/thread_scheduler.h"
 #include "third_party/blink/renderer/platform/timer.h"
 #include "third_party/blink/renderer/platform/transforms/affine_transform.h"
@@ -321,11 +322,9 @@ void BitmapImage::Draw(cc::PaintCanvas* canvas,
 
   auto paint_image_decoding_mode =
       ToPaintImageDecodingMode(draw_options.decode_mode);
-  if (image.decoding_mode() != paint_image_decoding_mode ||
-      image.may_be_lcp_candidate() != draw_options.may_be_lcp_candidate) {
+  if (image.decoding_mode() != paint_image_decoding_mode) {
     image = PaintImageBuilder::WithCopy(std::move(image))
                 .set_decoding_mode(paint_image_decoding_mode)
-                .set_may_be_lcp_candidate(draw_options.may_be_lcp_candidate)
                 .TakePaintImage();
   }
 
@@ -365,7 +364,7 @@ void BitmapImage::Draw(cc::PaintCanvas* canvas,
     }
   }
 
-  uint32_t stable_id = image.stable_id();
+  PaintImage::Id stable_id = image.stable_id();
   bool is_lazy_generated = image.IsLazyGenerated();
 
   const cc::PaintFlags* image_flags = &flags;

@@ -63,6 +63,7 @@ ReadAnythingUntrustedUI::ReadAnythingUntrustedUI(content::WebUI* web_ui)
       {"audioTitle", IDS_READING_MODE_AUDIO_LABEL},
       {"textSettingsTitle", IDS_READING_MODE_TEXT_STYLE_LABEL},
       {"mediaTitle", IDS_READING_MODE_MEDIA_LABEL},
+      {"toolsLabel", IDS_READING_MODE_TOOLS_LABEL},
       {"themeTitle", IDS_READING_MODE_COLORS_COMBOBOX_LABEL},
       {"letterSpacingTitle", IDS_READING_MODE_LETTER_SPACING_COMBOBOX_LABEL},
       {"fontSizeTitle", IDS_READING_MODE_FONT_SIZE},
@@ -218,6 +219,8 @@ ReadAnythingUntrustedUI::ReadAnythingUntrustedUI(content::WebUI* web_ui)
       {"voiceLabel", IDS_READING_MODE_VOICE_LABEL},
       {"accentMenuLabel", IDS_READING_MODE_ACCENT_MENU_LABEL},
       {"accentMenuClose", IDS_READING_MODE_ACCENT_MENU_CLOSE},
+      {"cancel", IDS_CANCEL},
+      {"save", IDS_SAVE},
   };
   for (const auto& str : kLocalizedStrings) {
     webui::AddLocalizedString(source, str.name, str.id);
@@ -259,7 +262,7 @@ ReadAnythingUntrustedUI::ReadAnythingUntrustedUI(content::WebUI* web_ui)
   source->OverrideContentSecurityPolicy(
       network::mojom::CSPDirectiveName::StyleSrc,
       "style-src 'self' chrome-untrusted://resources chrome-untrusted://theme "
-      "https://fonts.googleapis.com 'unsafe-inline';");
+      "https://fonts.googleapis.com https://www.gstatic.com 'unsafe-inline';");
   source->OverrideContentSecurityPolicy(
       network::mojom::CSPDirectiveName::FontSrc,
       "font-src 'self' chrome-untrusted://resources "
@@ -270,7 +273,7 @@ ReadAnythingUntrustedUI::ReadAnythingUntrustedUI(content::WebUI* web_ui)
       "chrome-untrusted://resources;");
   source->OverrideContentSecurityPolicy(
       network::mojom::CSPDirectiveName::TrustedTypes,
-      "trusted-types goog#html reader-mode-policy lit-html-desktop "
+      "trusted-types goog#html lit-html-desktop "
       "static-types "
       "parse-html-subset polymer-html-literal "
       "polymer-template-event-attribute-policy;");

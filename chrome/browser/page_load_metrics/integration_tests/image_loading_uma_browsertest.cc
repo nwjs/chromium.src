@@ -6,6 +6,7 @@
 #include "base/path_service.h"
 #include "base/strings/stringprintf.h"
 #include "base/test/metrics/histogram_tester.h"
+#include "base/threading/thread_restrictions.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
@@ -16,6 +17,8 @@
 #include "content/public/test/browser_test_utils.h"
 #include "net/test/embedded_test_server/controllable_http_response.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
+#include "ui/base/page_transition_types.h"
+#include "ui/base/window_open_disposition.h"
 
 class ImageLoadingUMATest : public InProcessBrowserTest {
  public:
@@ -71,10 +74,9 @@ class ImageLoadingUMATest : public InProcessBrowserTest {
     }
 
     content::WebContents* contents = browser()->OpenURL(
-        content::OpenURLParams(
+        content::OpenURLParams::CreateBrowserInitiated(
             embedded_test_server()->GetURL("/mock_page.html"),
-            content::Referrer(), WindowOpenDisposition::CURRENT_TAB,
-            ui::PAGE_TRANSITION_TYPED, false),
+            WindowOpenDisposition::CURRENT_TAB, ui::PAGE_TRANSITION_TYPED),
         /*navigation_handle_callback=*/{});
     auto waiter =
         std::make_unique<page_load_metrics::PageLoadMetricsTestWaiter>(

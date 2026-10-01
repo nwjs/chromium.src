@@ -34,15 +34,16 @@
 #include "chrome/browser/glic/public/glic_invoke_options.h"
 #include "chrome/browser/glic/public/glic_keyed_service.h"
 #include "chrome/browser/glic/public/glic_passkeys.h"
+#include "chrome/browser/glic/public/glic_side_panel_coordinator.h"
 #include "chrome/browser/glic/public/service/glic_instance_coordinator.h"
 #include "chrome/browser/glic/selection/explain_selection_trigger.h"
 #include "chrome/browser/glic/selection/inline_cue_blocklist_utils.h"
+#include "chrome/browser/glic/selection/selection_overlay_controller.h"
 #include "chrome/browser/platform_util.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/skills/skills_service_factory.h"
 #include "chrome/browser/skills/skills_update_observer.h"
-#include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/chrome_pages.h"
 #include "chrome/browser/ui/tabs/page_context_eligibility_helper.h"
@@ -80,6 +81,8 @@
 #include "ui/base/data_transfer_policy/data_transfer_endpoint.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/events/keycodes/keyboard_codes.h"
+#include "ui/gfx/geometry/point_f.h"
+#include "ui/gfx/geometry/vector2d_f.h"
 #include "ui/gfx/text_elider.h"
 #include "ui/views/widget/widget.h"
 
@@ -151,14 +154,6 @@ mojom::AdditionalContextPtr CreateAdditionalContext(
   return context;
 }
 
-// Minimum distance in pixels required for a mouse move step to establish or
-// change movement direction.
-constexpr float kMinShakeDistance = 10.0f;
-// Required number of direction changes to trigger region capture.
-constexpr int kRequiredDirectionChanges = 4;
-// Maximum time allowed between direction changes before the shake detector resets.
-constexpr base::TimeDelta kShakeTimeout = base::Milliseconds(1000);
-
 bool IsListenedToInputEvent(blink::WebInputEvent::Type type) {
   switch (type) {
     case blink::WebInputEvent::Type::kMouseDown:
@@ -185,6 +180,114 @@ bool IsListenedToInputEvent(blink::WebInputEvent::Type type) {
 
 }  // namespace
 
+class GlicSelectionObserver::ShakeDetector {
+ public:
+  ShakeDetector(base::RepeatingCallback<bool()> is_enabled_callback,
+                base::RepeatingClosure on_shake_detected)
+      : is_enabled_callback_(std::move(is_enabled_callback)),
+        on_shake_detected_(std::move(on_shake_detected)) {}
+  ~ShakeDetector() = default;
+
+  void OnInputEvent(const blink::WebInputEvent& event) {
+    switch (event.GetType()) {
+      case blink::WebInputEvent::Type::kMouseMove:
+        ProcessMouseMove(static_cast<const blink::WebMouseEvent&>(event));
+        break;
+      case blink::WebInputEvent::Type::kMouseDown:
+      case blink::WebInputEvent::Type::kPointerDown:
+      case blink::WebInputEvent::Type::kGestureTapDown:
+      case blink::WebInputEvent::Type::kTouchStart:
+      case blink::WebInputEvent::Type::kMouseUp:
+      case blink::WebInputEvent::Type::kPointerUp:
+      case blink::WebInputEvent::Type::kPointerCancel:
+      case blink::WebInputEvent::Type::kTouchEnd:
+      case blink::WebInputEvent::Type::kTouchCancel:
+      case blink::WebInputEvent::Type::kGestureTapCancel:
+      case blink::WebInputEvent::Type::kRawKeyDown:
+      case blink::WebInputEvent::Type::kKeyDown:
+      case blink::WebInputEvent::Type::kGestureScrollBegin:
+      case blink::WebInputEvent::Type::kMouseWheel:
+        Reset();
+        break;
+      default:
+        break;
+    }
+  }
+
+ private:
+  // Minimum distance in pixels required for a mouse move step to establish or
+  // change movement direction.
+  static constexpr float kMinShakeDistance = 10.0f;
+  // Required number of direction changes to trigger region capture.
+  static constexpr int kRequiredDirectionChanges = 4;
+  // Maximum time allowed between direction changes before the shake detector
+  // resets.
+  static constexpr base::TimeDelta kShakeTimeout = base::Milliseconds(1000);
+
+  void ProcessMouseMove(const blink::WebMouseEvent& mouse_event) {
+    if (!is_enabled_callback_.Run()) {
+      return;
+    }
+    if (direction_change_count_ > 0 &&
+        (base::TimeTicks::Now() - last_direction_change_time_) >
+            kShakeTimeout) {
+      Reset();
+    }
+
+    gfx::PointF current_pos = mouse_event.PositionInWidget();
+
+    if (!last_shake_point_.has_value()) {
+      last_shake_point_ = current_pos;
+      return;
+    }
+
+    gfx::Vector2dF delta = current_pos - *last_shake_point_;
+    float dist = delta.Length();
+    if (dist < kMinShakeDistance) {
+      return;
+    }
+
+    gfx::Vector2dF current_dir(delta.x() / dist, delta.y() / dist);
+
+    if (!last_shake_dir_.has_value()) {
+      last_shake_dir_ = current_dir;
+      last_shake_point_ = current_pos;
+      last_direction_change_time_ = base::TimeTicks::Now();
+      return;
+    }
+
+    float dot = last_shake_dir_->x() * current_dir.x() +
+                last_shake_dir_->y() * current_dir.y();
+    if (dot < -0.5f) {
+      direction_change_count_++;
+      last_shake_dir_ = current_dir;
+      last_shake_point_ = current_pos;
+      last_direction_change_time_ = base::TimeTicks::Now();
+
+      if (direction_change_count_ >= kRequiredDirectionChanges) {
+        Reset();
+        on_shake_detected_.Run();
+      }
+    } else {
+      last_shake_point_ = current_pos;
+    }
+  }
+
+  void Reset() {
+    last_shake_point_.reset();
+    last_shake_dir_.reset();
+    direction_change_count_ = 0;
+    last_direction_change_time_ = base::TimeTicks();
+  }
+
+  base::RepeatingCallback<bool()> is_enabled_callback_;
+  base::RepeatingClosure on_shake_detected_;
+  std::optional<gfx::PointF> last_shake_point_;
+  std::optional<gfx::Vector2dF> last_shake_dir_;
+  int direction_change_count_ = 0;
+  base::TimeTicks last_direction_change_time_;
+};
+
 class GlicSelectionObserver::WidgetActionDelegate
     : public GlicSelectionWidgetDelegate::ActionDelegate {
  public:
@@ -200,9 +303,8 @@ class GlicSelectionObserver::WidgetActionDelegate
   void OnAskGeminiForQuery(const std::u16string& query) override {
     observer_->OnAskGeminiForQuery(query);
   }
-  void OnAskGeminiMoreAboutThis(
-      const std::u16string& selected_text,
-      const std::string& explanation_text) override {
+  void OnAskGeminiMoreAboutThis(const std::u16string& selected_text,
+                                const std::string& explanation_text) override {
     observer_->OnAskGeminiMoreAboutThis(selected_text, explanation_text);
   }
   void OnCopy() override { observer_->OnCopy(); }
@@ -227,8 +329,20 @@ class GlicSelectionObserver::WidgetActionDelegate
   raw_ptr<GlicSelectionObserver> observer_;
 };
 
+DEFINE_USER_DATA(GlicSelectionObserver);
+
+// static
+GlicSelectionObserver* GlicSelectionObserver::From(tabs::TabInterface* tab) {
+  return tab ? Get(tab->GetUnownedUserDataHost()) : nullptr;
+}
+
 GlicSelectionObserver::GlicSelectionObserver(content::WebContents* web_contents)
     : content::WebContentsObserver(web_contents),
+      shake_detector_(std::make_unique<ShakeDetector>(
+          base::BindRepeating(&GlicSelectionObserver::IsShakeTriggerEnabled,
+                              base::Unretained(this)),
+          base::BindRepeating(&GlicSelectionObserver::TriggerRegionCapture,
+                              base::Unretained(this)))),
       action_delegate_(std::make_unique<WidgetActionDelegate>(this)) {
   CHECK(web_contents);
   Profile* profile =
@@ -253,6 +367,11 @@ GlicSelectionObserver::GlicSelectionObserver(content::WebContents* web_contents)
   }
 
   auto* tab_interface = tabs::TabInterface::MaybeGetFromContents(web_contents);
+  if (tab_interface) {
+    scoped_unowned_user_data_ =
+        std::make_unique<ui::ScopedUnownedUserData<GlicSelectionObserver>>(
+            tab_interface->GetUnownedUserDataHost(), *this);
+  }
   auto* helper = tab_interface
                      ? tabs::PageContextEligibilityHelper::From(tab_interface)
                      : nullptr;
@@ -289,6 +408,12 @@ bool GlicSelectionObserver::IsSelectionPromptEnabled() const {
     return false;
   }
   return GlicEnabling::IsSelectionPromptEnabledForProfile(profile);
+}
+
+void GlicSelectionObserver::UpdateSelectionStateFromContextMenu(
+    const std::u16string& selected_text) {
+  UpdateSelectionState(selected_text, /*is_pending_selection=*/false,
+                       SelectionSource::kContextMenu);
 }
 
 GlicSelectionObserver::~GlicSelectionObserver() {
@@ -360,12 +485,7 @@ void GlicSelectionObserver::OnVisibilityChanged(
 }
 
 void GlicSelectionObserver::PrimaryPageChanged(content::Page& page) {
-  is_hidden_on_current_page_ = false;
-  UpdatePageBlockedState();
-  if (widget_delegate_) {
-    is_explaining_ = false;
-    widget_delegate_->CloseWidget();
-  }
+  ResetSelectionState();
 }
 
 void GlicSelectionObserver::PrimaryMainFrameWasResized(bool width_changed) {
@@ -390,7 +510,11 @@ void GlicSelectionObserver::OnInputEvent(
   if (!IsListenedToInputEvent(event.GetType())) {
     return;
   }
-  if (!IsTabValidForSharing(web_contents())) {
+  // If text selection context was previously sent to the panel (e.g. via the
+  // "Ask Gemini" context menu), we must still process input events even on
+  // unshareable pages (such as chrome:// URLs) so that clicking away can clear
+  // the selection chip from the panel.
+  if (!IsTabValidForSharing(web_contents()) && !has_sent_selection_context_) {
     return;
   }
   base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
@@ -400,23 +524,17 @@ void GlicSelectionObserver::OnInputEvent(
 
 void GlicSelectionObserver::ProcessInputEvent(
     std::unique_ptr<blink::WebInputEvent> event) {
-  if (!IsSelectionPromptEnabled()) {
+  if (!IsSelectionPromptEnabled() && !has_sent_selection_context_) {
     return;
   }
 
-  switch (event->GetType()) {
-    case blink::WebInputEvent::Type::kMouseMove: {
-      const auto& mouse_event =
-          static_cast<const blink::WebMouseEvent&>(*event);
-      ProcessMouseMoveForShake(mouse_event);
-      break;
-    }
+  shake_detector_->OnInputEvent(*event);
 
+  switch (event->GetType()) {
     case blink::WebInputEvent::Type::kMouseDown:
     case blink::WebInputEvent::Type::kPointerDown:
     case blink::WebInputEvent::Type::kGestureTapDown:
     case blink::WebInputEvent::Type::kTouchStart: {
-      ResetShakeDetector();
       bool is_left_click_or_touch = true;
       if (event->GetType() == blink::WebInputEvent::Type::kMouseDown ||
           event->GetType() == blink::WebInputEvent::Type::kPointerDown) {
@@ -443,7 +561,8 @@ void GlicSelectionObserver::ProcessInputEvent(
         ResetPendingSelection();
         if (has_sent_selection_context_) {
           UpdateSelectionState(std::u16string(),
-                               /*is_pending_selection=*/false);
+                               /*is_pending_selection=*/false,
+                               SelectionSource::kAutomatic);
         }
       }
       break;
@@ -455,7 +574,6 @@ void GlicSelectionObserver::ProcessInputEvent(
     case blink::WebInputEvent::Type::kTouchEnd:
     case blink::WebInputEvent::Type::kTouchCancel:
     case blink::WebInputEvent::Type::kGestureTapCancel:
-      ResetShakeDetector();
       // Process the selection received so far. If the final selection IPC is
       // delayed, OnTextSelectionChanged will handle it since `is_selecting_`
       // becomes false.
@@ -470,7 +588,6 @@ void GlicSelectionObserver::ProcessInputEvent(
 
     case blink::WebInputEvent::Type::kRawKeyDown:
     case blink::WebInputEvent::Type::kKeyDown: {
-      ResetShakeDetector();
       if (is_key_selection_) {
         break;
       }
@@ -509,7 +626,6 @@ void GlicSelectionObserver::ProcessInputEvent(
 
     case blink::WebInputEvent::Type::kGestureScrollBegin:
     case blink::WebInputEvent::Type::kMouseWheel:
-      ResetShakeDetector();
       DismissUI(DismissReason::kExternal);
       break;
 
@@ -521,11 +637,18 @@ void GlicSelectionObserver::ProcessInputEvent(
 void GlicSelectionObserver::OnTextSelectionChanged(
     content::RenderFrameHost* render_frame_host,
     std::u16string_view selected_text) {
-  if (!IsSelectionPromptEnabled()) {
+  if (!IsSelectionPromptEnabled() && !has_sent_selection_context_) {
     return;
   }
 
+  // On unshareable pages (such as chrome:// URLs), automatic selection sharing
+  // is disabled. However, if context was explicitly sent (e.g. via the context
+  // menu), any deselection must clear that context from the panel.
   if (!IsTabValidForSharing(web_contents())) {
+    if (has_sent_selection_context_) {
+      UpdateSelectionState(std::u16string(), /*is_pending_selection=*/false,
+                           SelectionSource::kAutomatic);
+    }
     return;
   }
 
@@ -601,7 +724,8 @@ void GlicSelectionObserver::ProcessPendingSelection() {
   std::u16string selected_text = std::move(*pending_selection_text_);
   ResetPendingSelection();
 
-  UpdateSelectionState(selected_text, /*is_pending_selection=*/true);
+  UpdateSelectionState(selected_text, /*is_pending_selection=*/true,
+                       SelectionSource::kAutomatic);
 }
 
 void GlicSelectionObserver::ResetPendingSelection() {
@@ -705,18 +829,26 @@ void GlicSelectionObserver::InvokeGlicFromSelectionAffordance(
 
 void GlicSelectionObserver::UpdateSelectionState(
     const std::u16string& selected_text,
-    bool is_pending_selection) {
+    bool is_pending_selection,
+    SelectionSource source) {
   last_selected_text_ = selected_text;
   auto* tab_interface =
       tabs::TabInterface::MaybeGetFromContents(web_contents());
   if (!tab_interface) {
     return;
   }
+
+  if (source == SelectionSource::kContextMenu) {
+    has_sent_selection_context_ = !selected_text.empty();
+    return;
+  }
+
   BrowserWindowInterface* bwi = tab_interface->GetBrowserWindowInterface();
 
   if (selected_text.empty()) {
     if (widget_delegate_ && !is_explaining_) {
       widget_delegate_->CloseWidget();
+      generated_link_.reset();
     }
 
     if (has_sent_selection_context_) {
@@ -724,6 +856,7 @@ void GlicSelectionObserver::UpdateSelectionState(
       has_sent_selection_context_ = false;
     }
 
+    last_selection_frame_token_.reset();
     return;
   }
 
@@ -762,7 +895,7 @@ void GlicSelectionObserver::ShowSelectionAffordance(
       !identity_manager->HasPrimaryAccount(signin::ConsentLevel::kSignin)) {
     return;
   }
-  auto* controller = bwi->GetFeatures().glic_nudge_controller();
+  auto* controller = GlicNudgeController::From(bwi);
   if (controller) {
     bool is_post_fre = GlicEnabling::HasConsentedForProfile(
         Profile::FromBrowserContext(web_contents()->GetBrowserContext()));
@@ -875,7 +1008,6 @@ void GlicSelectionObserver::OnSettings() {
   }
 }
 
-
 void GlicSelectionObserver::RequestLinkGeneration(
     content::RenderFrameHost* rfh) {
   generated_link_.reset();
@@ -922,7 +1054,7 @@ void GlicSelectionObserver::WriteLinkToClipboard(
       if (auto* tab_interface =
               tabs::TabInterface::MaybeGetFromContents(web_contents_ptr)) {
         if (auto* bwi = tab_interface->GetBrowserWindowInterface()) {
-          if (auto* toast_controller = bwi->GetFeatures().toast_controller()) {
+          if (auto* toast_controller = ToastController::From(bwi)) {
             toast_controller->MaybeShowToast(
                 ToastParams(ToastId::kLinkToHighlightCopied));
           }
@@ -1065,10 +1197,42 @@ void GlicSelectionObserver::OnGlobalPanelShowHide() {
     return;
   }
 
-  UpdateSelectionState(last_selected_text_, /*is_pending_selection=*/false);
+  UpdateSelectionState(last_selected_text_, /*is_pending_selection=*/false,
+                       SelectionSource::kAutomatic);
+}
+
+void GlicSelectionObserver::ShowSelectionOverlay() {
+  auto* tab_interface =
+      tabs::TabInterface::MaybeGetFromContents(web_contents());
+  if (!tab_interface) {
+    return;
+  }
+  auto* controller =
+      SelectionOverlayController::FromTabWebContents(web_contents());
+  if (!controller) {
+    return;
+  }
+
+  std::optional<gfx::Rect> bounds;
+  if (last_selection_frame_token_.has_value()) {
+    if (auto* selected_frame = content::RenderFrameHost::FromFrameToken(
+            *last_selection_frame_token_)) {
+      bounds = web_contents()->GetTextSelectionBounds(selected_frame);
+    }
+  }
+  if (bounds.has_value() && !bounds->IsEmpty()) {
+    controller->ShowWithSelection(*bounds);
+  } else {
+    controller->Show(/*options=*/nullptr);
+  }
 }
 
 void GlicSelectionObserver::OnAskGemini() {
+  if (base::FeatureList::IsEnabled(features::kGlicSelectionSmallChip)) {
+    DismissUI(DismissReason::kActionTaken);
+    ShowSelectionOverlay();
+    return;
+  }
   if (ExplainSelectionTrigger::IsInlineFulfillmentSupported()) {
     is_explaining_ = true;
     if (explain_selection_trigger_) {
@@ -1110,8 +1274,7 @@ void GlicSelectionObserver::OnAskGeminiWithSkill(
   if (skill_prompt.empty()) {
     Profile* profile =
         Profile::FromBrowserContext(web_contents()->GetBrowserContext());
-    if (auto* service =
-            skills::SkillsServiceFactory::GetForProfile(profile)) {
+    if (auto* service = skills::SkillsServiceFactory::GetForProfile(profile)) {
       if (const auto* s = service->GetSkillById(skill.id)) {
         skill_prompt = s->prompt;
       }
@@ -1211,10 +1374,9 @@ void GlicSelectionObserver::OnAskGeminiMoreAboutThis(
   if (!explanation_text.empty()) {
     prompt += u"\n\nContext:\n" + base::UTF8ToUTF16(explanation_text);
   }
-  InvokeGlicFromSelectionAffordance(
-      last_selected_text_, /*is_widget=*/true,
-      web_contents()->GetWeakPtr(),
-      /*prompt_override=*/prompt);
+  InvokeGlicFromSelectionAffordance(last_selected_text_, /*is_widget=*/true,
+                                    web_contents()->GetWeakPtr(),
+                                    /*prompt_override=*/prompt);
 }
 
 void GlicSelectionObserver::OnInlineExplanationUpdate(
@@ -1260,6 +1422,12 @@ void GlicSelectionObserver::OnWidgetClose() {
   }
 }
 
+bool GlicSelectionObserver::IsSidePanelOpen() const {
+  auto* tab_interface =
+      tabs::TabInterface::MaybeGetFromContents(web_contents());
+  return tab_interface && GlicSidePanelCoordinator::IsShowing(tab_interface);
+}
+
 bool GlicSelectionObserver::IsShakeTriggerEnabled() const {
   if (!base::FeatureList::IsEnabled(features::kGlicShakeTrigger)) {
     return false;
@@ -1272,7 +1440,13 @@ bool GlicSelectionObserver::IsShakeTriggerEnabled() const {
   if (!profile || !profile->GetPrefs()) {
     return false;
   }
-  return profile->GetPrefs()->GetBoolean(prefs::kGlicShakeTriggerEnabled);
+  if (!profile->GetPrefs()->GetBoolean(prefs::kGlicShakeTriggerEnabled)) {
+    return false;
+  }
+  if (features::kGlicShakeTriggerOnlyOnSidePanel.Get() && !IsSidePanelOpen()) {
+    return false;
+  }
+  return true;
 }
 
 void GlicSelectionObserver::TriggerRegionCapture() {
@@ -1294,60 +1468,15 @@ void GlicSelectionObserver::TriggerRegionCapture() {
   glic_keyed_service_->Invoke(std::move(options));
 }
 
-void GlicSelectionObserver::ProcessMouseMoveForShake(
-    const blink::WebMouseEvent& mouse_event) {
-  if (!IsShakeTriggerEnabled()) {
-    return;
-  }
-  if (direction_change_count_ > 0 &&
-      (base::TimeTicks::Now() - last_direction_change_time_) > kShakeTimeout) {
-    ResetShakeDetector();
-  }
-
-  gfx::PointF current_pos = mouse_event.PositionInWidget();
-
-  if (!last_shake_point_.has_value()) {
-    last_shake_point_ = current_pos;
-    return;
-  }
-
-  gfx::Vector2dF delta = current_pos - *last_shake_point_;
-  float dist = delta.Length();
-  if (dist < kMinShakeDistance) {
-    return;
-  }
-
-  gfx::Vector2dF current_dir(delta.x() / dist, delta.y() / dist);
-
-  if (!last_shake_dir_.has_value()) {
-    last_shake_dir_ = current_dir;
-    last_shake_point_ = current_pos;
-    last_direction_change_time_ = base::TimeTicks::Now();
-    return;
-  }
-
-  float dot = last_shake_dir_->x() * current_dir.x() +
-              last_shake_dir_->y() * current_dir.y();
-  if (dot < -0.5f) {
-    direction_change_count_++;
-    last_shake_dir_ = current_dir;
-    last_shake_point_ = current_pos;
-    last_direction_change_time_ = base::TimeTicks::Now();
-
-    if (direction_change_count_ >= kRequiredDirectionChanges) {
-      ResetShakeDetector();
-      TriggerRegionCapture();
-    }
-  } else {
-    last_shake_point_ = current_pos;
-  }
-}
-
-void GlicSelectionObserver::ResetShakeDetector() {
-  last_shake_point_.reset();
-  last_shake_dir_.reset();
-  direction_change_count_ = 0;
-  last_direction_change_time_ = base::TimeTicks();
+void GlicSelectionObserver::ResetSelectionState() {
+  is_hidden_on_current_page_ = false;
+  is_explaining_ = false;
+  UpdatePageBlockedState();
+  // This should close the widget and clear most selection state.
+  UpdateSelectionState(u"", /*is_pending_selection=*/false,
+                       SelectionSource::kAutomatic);
+  // This should clear the rest.
+  ResetPendingSelection();
 }
 
 }  // namespace glic

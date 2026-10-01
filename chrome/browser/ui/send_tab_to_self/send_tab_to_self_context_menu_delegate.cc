@@ -27,6 +27,7 @@
 #include "components/sync_device_info/device_info.h"
 #include "content/public/browser/web_contents.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/window_open_disposition_utils.h"
 
 namespace send_tab_to_self {
 
@@ -174,9 +175,13 @@ void SendTabToSelfContextMenuDelegate::PopulateSubmenu(
   }
 
   model->AddSeparator(ui::NORMAL_SEPARATOR);
+  const int manage_devices_string_id =
+      entry_point_ == ShareEntryPoint::kShareMenu
+          ? IDS_SEND_TAB_TO_SELF_MANAGE_DEVICES
+          : IDS_CONTEXT_MENU_SEND_TAB_TO_SELF_MANAGE_DEVICES;
   model->AddItemWithStringId(
       IDC_CONTENT_CONTEXT_SEND_TAB_TO_SELF_MANAGE_DEVICES,
-      IDS_SEND_TAB_TO_SELF_MANAGE_DEVICES);
+      manage_devices_string_id);
 }
 
 bool SendTabToSelfContextMenuDelegate::IsCommandIdEnabled(
@@ -195,7 +200,8 @@ void SendTabToSelfContextMenuDelegate::ExecuteCommand(int command_id,
   if (command_id == IDC_CONTENT_CONTEXT_SEND_TAB_TO_SELF_MANAGE_DEVICES) {
     OpenManageDevicesPage(
         Profile::FromBrowserContext(primary_web_contents_->GetBrowserContext()),
-        event_flags);
+        ui::DispositionFromEventFlags(
+            event_flags, WindowOpenDisposition::NEW_FOREGROUND_TAB));
     return;
   }
 

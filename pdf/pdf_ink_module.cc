@@ -191,6 +191,7 @@ InkTextBoxAttributes GetTextBoxAttributesFromDict(const base::DictValue& data) {
   bool is_bold = styles.FindBool("bold").value();
   bool is_italic = styles.FindBool("italic").value();
   bool is_strikethrough = styles.FindBool("strikethrough").value();
+  bool is_underline = styles.FindBool("underline").value();
 
   return InkTextBoxAttributes{
       .rect = textbox,
@@ -203,6 +204,7 @@ InkTextBoxAttributes GetTextBoxAttributesFromDict(const base::DictValue& data) {
       .is_bold = is_bold,
       .is_italic = is_italic,
       .is_strikethrough = is_strikethrough,
+      .is_underline = is_underline,
       .text = *data.FindString("text"),
   };
 }
@@ -1425,7 +1427,8 @@ void PdfInkModule::HandleGetAllTextAnnotationsMessage(
                    base::DictValue()
                        .Set("bold", item.attributes.is_bold)
                        .Set("italic", item.attributes.is_italic)
-                       .Set("strikethrough", item.attributes.is_strikethrough));
+                       .Set("strikethrough", item.attributes.is_strikethrough)
+                       .Set("underline", item.attributes.is_underline));
 
       const gfx::RectF& rect = item.attributes.rect;
       auto textbox_rect = base::DictValue()
@@ -1715,7 +1718,7 @@ void PdfInkModule::HandleFinishTextAnnotationMessage(
   pdf::mojom::InkTextInfoPtr text_info_mojo;
   CHECK(pdf::mojom::InkTextInfo::Deserialize(text_info_blob, &text_info_mojo));
 
-  std::vector<InkTextInfo> ink_info = InkTextInfo::BlinkTextInfoToPDFTextInfo(
+  std::vector<InkTextLine> ink_lines = InkTextLine::BlinkTextInfoToPDFTextLines(
       text_info_mojo->text_runs, text_info_mojo->effective_zoom);
 
   // Note: `pdf_zoom` is similar to GetZoom() but GetZoom() is multiplied by
@@ -1736,7 +1739,7 @@ void PdfInkModule::HandleFinishTextAnnotationMessage(
   text_id_map_[frontend_id] = new_id;
   InkTextBoxAttributes attributes = GetTextBoxAttributesFromDict(data);
   client_->DrawText(
-      page_index, new_id, ink_info,
+      page_index, new_id, ink_lines,
       text_info_mojo->primary_ascent / text_info_mojo->effective_zoom, pdf_zoom,
       attributes);
 

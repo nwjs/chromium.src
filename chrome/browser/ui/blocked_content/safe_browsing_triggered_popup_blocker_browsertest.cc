@@ -36,8 +36,8 @@
 #include "components/policy/policy_constants.h"
 #include "components/prefs/pref_service.h"
 #include "components/safe_browsing/core/browser/db/safebrowsing.pb.h"
+#include "components/safe_browsing/core/browser/db/sb_test_util.h"
 #include "components/safe_browsing/core/browser/db/v4_embedded_test_server_util.h"
-#include "components/safe_browsing/core/browser/db/v4_test_util.h"
 #include "components/safe_browsing/core/browser/db/v5_embedded_test_server_util.h"
 #include "components/safe_browsing/core/common/features.h"
 #include "components/subresource_filter/core/browser/subresource_filter_features.h"
@@ -53,6 +53,7 @@
 #include "net/dns/mock_host_resolver.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "ui/base/window_open_disposition.h"
 #include "url/gurl.h"
 
 using content_settings::PageSpecificContentSettings;

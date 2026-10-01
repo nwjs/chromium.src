@@ -25,6 +25,7 @@
 
 #include <algorithm>
 #include <memory>
+#include <optional>
 #include <utility>
 
 #include "base/check_op.h"
@@ -65,6 +66,7 @@
 #include "third_party/blink/renderer/core/layout/layout_theme.h"
 #include "third_party/blink/renderer/core/layout/map_coordinates_flags.h"
 #include "third_party/blink/renderer/core/paint/compositing/compositing_reason_finder.h"
+#include "third_party/blink/renderer/core/paint/contoured_border_geometry.h"
 #include "third_party/blink/renderer/core/style/applied_text_decoration.h"
 #include "third_party/blink/renderer/core/style/basic_shapes.h"
 #include "third_party/blink/renderer/core/style/computed_style_constants.h"
@@ -83,11 +85,13 @@
 #include "third_party/blink/renderer/core/style/style_non_inherited_variables.h"
 #include "third_party/blink/renderer/core/style/style_ray.h"
 #include "third_party/blink/renderer/core/style/style_shape.h"
+#include "third_party/blink/renderer/core/style/superellipse.h"
 #include "third_party/blink/renderer/core/svg/svg_element.h"
 #include "third_party/blink/renderer/core/svg/svg_geometry_element.h"
 #include "third_party/blink/renderer/core/svg/svg_length_functions.h"
 #include "third_party/blink/renderer/platform/fonts/font.h"
 #include "third_party/blink/renderer/platform/fonts/font_selector.h"
+#include "third_party/blink/renderer/platform/geometry/contoured_rect.h"
 #include "third_party/blink/renderer/platform/geometry/length_functions.h"
 #include "third_party/blink/renderer/platform/geometry/path.h"
 #include "third_party/blink/renderer/platform/geometry/path_builder.h"
@@ -1556,6 +1560,17 @@ gfx::PointF GetStartingPointOfThePath(
   return PointForLengthPoint(offset_position, reference_box_size);
 }
 
+Path MakeContouredMotionPath(const ContouredRect& rect) {
+  PathBuilder builder;
+  builder.MoveTo(rect.TopLeftCorner().End());
+  builder.AddCorner(rect.TopRightCorner());
+  builder.AddCorner(rect.BottomRightCorner());
+  builder.AddCorner(rect.BottomLeftCorner());
+  builder.AddCorner(rect.TopLeftCorner());
+  builder.Close();
+  return builder.Finalize();
+}
+
 }  // namespace
 
 PointAndTangent ComputedStyle::CalculatePointAndTangentOnBasicShape(
@@ -1709,24 +1724,41 @@ void ComputedStyle::ApplyMotionPathTransform(float origin_x,
     }
   } else if (IsA<CoordBoxOffsetPathOperation>(offset_path)) {
     if (box && box->ContainingBlock()) {
-      BasicShapeInset* inset = MakeGarbageCollected<BasicShapeInset>();
-      inset->SetTop(Length::Fixed(0));
-      inset->SetBottom(Length::Fixed(0));
-      inset->SetLeft(Length::Fixed(0));
-      inset->SetRight(Length::Fixed(0));
       const ComputedStyle& style = box->ContainingBlock()->StyleRef();
-      inset->SetTopLeftRadius(style.BorderTopLeftRadius());
-      inset->SetTopRightRadius(style.BorderTopRightRadius());
-      inset->SetBottomRightRadius(style.BorderBottomRightRadius());
-      inset->SetBottomLeftRadius(style.BorderBottomLeftRadius());
       const gfx::RectF reference_box = GetReferenceBox(box, coord_box);
       const gfx::PointF offset_from_reference_box =
           GetOffsetFromContainingBlock(box) - reference_box.OffsetFromOrigin();
       const gfx::SizeF& reference_box_size = reference_box.size();
-      const gfx::PointF starting_point = GetStartingPointOfThePath(
-          offset_from_reference_box, position, reference_box_size);
-      path_position = CalculatePointAndTangentOnBasicShape(
-          *inset, starting_point, reference_box_size);
+      const bool has_ordinary_rounded_corners =
+          style.CornerTopLeftShape() == Superellipse::Round() &&
+          style.CornerTopRightShape() == Superellipse::Round() &&
+          style.CornerBottomRightShape() == Superellipse::Round() &&
+          style.CornerBottomLeftShape() == Superellipse::Round();
+      if (has_ordinary_rounded_corners) {
+        BasicShapeInset* inset = MakeGarbageCollected<BasicShapeInset>();
+        inset->SetTop(Length::Fixed(0));
+        inset->SetBottom(Length::Fixed(0));
+        inset->SetLeft(Length::Fixed(0));
+        inset->SetRight(Length::Fixed(0));
+        inset->SetTopLeftRadius(style.BorderTopLeftRadius());
+        inset->SetTopRightRadius(style.BorderTopRightRadius());
+        inset->SetBottomRightRadius(style.BorderBottomRightRadius());
+        inset->SetBottomLeftRadius(style.BorderBottomLeftRadius());
+        const gfx::PointF starting_point = GetStartingPointOfThePath(
+            offset_from_reference_box, position, reference_box_size);
+        path_position = CalculatePointAndTangentOnBasicShape(
+            *inset, starting_point, reference_box_size);
+      } else {
+        // Use the contoured border geometry so that the path follows
+        // corner-shape in addition to border-radius.
+        const ContouredRect contoured_rect =
+            ContouredBorderGeometry::ContouredBorder(
+                style,
+                PhysicalRect(PhysicalOffset(),
+                             PhysicalSize::FromSizeFRound(reference_box_size)));
+        path_position = CalculatePointAndTangentOnPath(
+            MakeContouredMotionPath(contoured_rect), 1);
+      }
       // `path_position.point` is now relative to the containing block.
       // Make it relative to the box.
       path_position.point -= offset_from_reference_box.OffsetFromOrigin();
@@ -3038,6 +3070,21 @@ bool ComputedStyle::HasBaseEffectiveAppearance() const {
          EffectiveAppearance() == AppearanceValue::kBase;
 }
 
+AnimatedSource ComputedStyle::GetAnimatedSource(CSSPropertyID property) const {
+  if (!RuntimeEnabledFeatures::TrackAnimatedSourcesEnabled()) {
+    return {};
+  }
+  const std::optional<AnimatedSourceProperty> tracked =
+      GetAnimatedSourceProperty(property);
+  if (!tracked) {
+    return {};
+  }
+  const StyleAnimatedSources& sources = CSSProperty::Get(property).IsInherited()
+                                            ? InheritedAnimatedSources()
+                                            : NonInheritedAnimatedSources();
+  return sources.Get(*tracked);
+}
+
 ComputedStyleBuilder::ComputedStyleBuilder(const ComputedStyle& style)
     : ComputedStyleBuilderBase(style) {}
 
@@ -3085,6 +3132,83 @@ void ComputedStyleBuilder::PropagateIndependentInheritedProperties(
   if (!HasVariableReference() && !HasVariableDeclaration() &&
       InheritedVariablesInternal() != parent_style.InheritedVariables()) {
     SetInheritedVariablesInternal(parent_style.InheritedVariablesInternal());
+  }
+}
+
+// Compares through the shared group first to avoid a copy-on-write when
+// unchanged.
+void ComputedStyleBuilder::UpdateAnimatedSource(AnimatedSourceProperty property,
+                                                bool is_inherited,
+                                                AnimatedSource source) {
+  DCHECK(source.IsValid());
+  if (is_inherited) {
+    if (InheritedAnimatedSources().Get(property) != source) {
+      MutableInheritedAnimatedSourcesInternal().Set(property, source);
+    }
+  } else if (NonInheritedAnimatedSources().Get(property) != source) {
+    MutableNonInheritedAnimatedSourcesInternal().Set(property, source);
+  }
+}
+
+void ComputedStyleBuilder::SetAnimatedSource(CSSPropertyID property,
+                                             Element& animating_element) {
+  // ForElement() may allocate through DOMNodeIds; only do that when
+  // setting an animated source.
+  if (!RuntimeEnabledFeatures::TrackAnimatedSourcesEnabled()) {
+    return;
+  }
+  const std::optional<AnimatedSourceProperty> tracked =
+      GetAnimatedSourceProperty(property);
+  if (!tracked) {
+    return;
+  }
+  UpdateAnimatedSource(*tracked, CSSProperty::Get(property).IsInherited(),
+                       AnimatedSource::ForElement(&animating_element));
+}
+
+void ComputedStyleBuilder::CopyAnimatedSourceFrom(
+    CSSPropertyID property,
+    const ComputedStyle* parent_style,
+    bool has_untracked_dependencies) {
+  if (!RuntimeEnabledFeatures::TrackAnimatedSourcesEnabled()) {
+    return;
+  }
+  const std::optional<AnimatedSourceProperty> tracked =
+      GetAnimatedSourceProperty(property);
+  if (!tracked) {
+    return;
+  }
+  if (!parent_style) {
+    ClearAnimatedSource(property);
+    return;
+  }
+  if (AnimatedSource source = parent_style->GetAnimatedSource(property);
+      source.IsValid()) {
+    source.has_untracked_dependencies = has_untracked_dependencies;
+    UpdateAnimatedSource(*tracked, CSSProperty::Get(property).IsInherited(),
+                         source);
+  } else {
+    ClearAnimatedSource(property);
+  }
+}
+
+void ComputedStyleBuilder::ClearAnimatedSource(CSSPropertyID property) {
+  if (!RuntimeEnabledFeatures::TrackAnimatedSourcesEnabled()) {
+    return;
+  }
+  const std::optional<AnimatedSourceProperty> tracked =
+      GetAnimatedSourceProperty(property);
+  if (!tracked) {
+    return;
+  }
+  // Compares through the shared group first to avoid a copy-on-write when
+  // already clear.
+  if (CSSProperty::Get(property).IsInherited()) {
+    if (InheritedAnimatedSources().Get(*tracked).IsValid()) {
+      MutableInheritedAnimatedSourcesInternal().Clear(*tracked);
+    }
+  } else if (NonInheritedAnimatedSources().Get(*tracked).IsValid()) {
+    MutableNonInheritedAnimatedSourcesInternal().Clear(*tracked);
   }
 }
 

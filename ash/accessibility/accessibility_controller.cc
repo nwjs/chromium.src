@@ -539,7 +539,7 @@ void ShowAccessibilityNotification(
   std::unique_ptr<message_center::Notification> notification =
       ash::CreateSystemNotificationPtr(
           message_center::NOTIFICATION_TYPE_SIMPLE, notification_id, title,
-          text, display_source, GURL(),
+          text, display_source,
           message_center::NotifierId(
               message_center::NotifierType::SYSTEM_COMPONENT,
               kNotifierAccessibility, catalog_name),
@@ -1517,11 +1517,9 @@ void AccessibilityController::RegisterProfilePrefs(
       kDefaultFaceGazePrecisionClickSpeedFactor,
       user_prefs::PrefRegistrySyncable::SYNCABLE_OS_PREF);
 
-  if (::features::IsAccessibilityMagnifierFollowsChromeVoxEnabled()) {
-    registry->RegisterBooleanPref(
-        prefs::kAccessibilityMagnifierFollowsChromeVox, true,
-        user_prefs::PrefRegistrySyncable::SYNCABLE_OS_PREF);
-  }
+  registry->RegisterBooleanPref(
+      prefs::kAccessibilityMagnifierFollowsChromeVox, true,
+      user_prefs::PrefRegistrySyncable::SYNCABLE_OS_PREF);
 
   registry->RegisterBooleanPref(
       prefs::kAccessibilityMagnifierFollowsSts, true,
@@ -1536,10 +1534,8 @@ void AccessibilityController::RegisterProfilePrefs(
   RegisterAccessibilityPrefsWithConditionalSync(
       registry, GetSyncableAccessibilityPrefsBatch3());
 
-  if (::features::IsAccessibilityFlashScreenFeatureEnabled()) {
-    registry->RegisterIntegerPref(prefs::kAccessibilityFlashNotificationsColor,
-                                  kDefaultFlashNotificationsColor);
-  }
+  registry->RegisterIntegerPref(prefs::kAccessibilityFlashNotificationsColor,
+                                kDefaultFlashNotificationsColor);
 
   registry->RegisterBooleanPref(
       prefs::kAccessibilityAlwaysShowScrollbarsEnabled, false);
@@ -2101,10 +2097,6 @@ bool AccessibilityController::IsEnterpriseIconVisibleForStickyKeys() {
 }
 
 bool AccessibilityController::IsReducedAnimationsSettingVisibleInTray() {
-  if (!::features::IsAccessibilityReducedAnimationsInKioskEnabled()) {
-    return false;
-  }
-
   // Only visible in kiosk mode.
   if (!Shell::Get()->session_controller()->IsRunningInAppMode()) {
     return false;
@@ -2779,20 +2771,16 @@ void AccessibilityController::ObservePrefs(PrefService* prefs) {
       base::BindRepeating(
           &AccessibilityController::UpdateCaretBlinkIntervalFromPrefs,
           base::Unretained(this)));
-  if (::features::IsAccessibilityFlashScreenFeatureEnabled()) {
-    pref_change_registrar_->Add(
-        prefs::kAccessibilityFlashNotificationsColor,
-        base::BindRepeating(
-            &AccessibilityController::UpdateFlashNotificationsFromPrefs,
-            base::Unretained(this)));
-  }
-  if (::features::IsAccessibilityDisableTouchpadEnabled()) {
-    pref_change_registrar_->Add(
-        prefs::kAccessibilityDisableTrackpadMode,
-        base::BindRepeating(
-            &AccessibilityController::UpdateDisableTouchpadFromPrefs,
-            base::Unretained(this), /*notify*/ true));
-  }
+  pref_change_registrar_->Add(
+      prefs::kAccessibilityFlashNotificationsColor,
+      base::BindRepeating(
+          &AccessibilityController::UpdateFlashNotificationsFromPrefs,
+          base::Unretained(this)));
+  pref_change_registrar_->Add(
+      prefs::kAccessibilityDisableTrackpadMode,
+      base::BindRepeating(
+          &AccessibilityController::UpdateDisableTouchpadFromPrefs,
+          base::Unretained(this), /*notify*/ true));
 
   for (const std::unique_ptr<Feature>& feature : features_) {
     // Log previous duration and clear duration metric if necessary
@@ -2842,12 +2830,8 @@ void AccessibilityController::ObservePrefs(PrefService* prefs) {
                           prefs::kAccessibilityFaceGazeActionsEnabledSentinel,
                           prefs::kAccessibilityFaceGazeActionsEnabled));
 
-  if (::features::IsAccessibilityFlashScreenFeatureEnabled()) {
-    UpdateFlashNotificationsFromPrefs();
-  }
-  if (::features::IsAccessibilityDisableTouchpadEnabled()) {
-    UpdateDisableTouchpadFromPrefs(/*notify=*/false);
-  }
+  UpdateFlashNotificationsFromPrefs();
+  UpdateDisableTouchpadFromPrefs(/*notify=*/false);
 }
 
 void AccessibilityController::UpdateAutoclickDelayFromPref() {
@@ -3129,9 +3113,6 @@ void AccessibilityController::UpdateFaceGazeFromPrefs() {
 }
 
 void AccessibilityController::UpdateFlashNotificationsFromPrefs() {
-  if (!::features::IsAccessibilityFlashScreenFeatureEnabled()) {
-    return;
-  }
   flash_screen_controller_->set_enabled(active_user_prefs_->GetBoolean(
       prefs::kAccessibilityFlashNotificationsEnabled));
   flash_screen_controller_->set_color(active_user_prefs_->GetInteger(
@@ -3139,8 +3120,7 @@ void AccessibilityController::UpdateFlashNotificationsFromPrefs() {
 }
 
 void AccessibilityController::UpdateDisableTouchpadFromPrefs(bool notify) {
-  if (!disable_touchpad_event_rewriter_ ||
-      !::features::IsAccessibilityDisableTouchpadEnabled()) {
+  if (!disable_touchpad_event_rewriter_) {
     return;
   }
 
@@ -3847,8 +3827,7 @@ void AccessibilityController::UpdateFeatureFromPref(FeatureType feature) {
       }
       break;
     case FeatureType::kDisableTouchpad:
-      if (!::features::IsAccessibilityDisableTouchpadEnabled() ||
-          !disable_touchpad_event_rewriter_) {
+      if (!disable_touchpad_event_rewriter_) {
         return;
       }
 

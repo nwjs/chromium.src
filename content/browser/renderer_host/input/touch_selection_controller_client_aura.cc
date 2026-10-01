@@ -119,6 +119,12 @@ TouchSelectionControllerClientAura::~TouchSelectionControllerClientAura() {
     observer.OnManagerWillDestroy(this);
 }
 
+void TouchSelectionControllerClientAura::Detach() {
+  rwhva_ = nullptr;
+  internal_client_.Detach();
+  env_event_observer_.reset();
+}
+
 void TouchSelectionControllerClientAura::OnWindowMoved() {
   UpdateQuickMenu();
 }
@@ -134,12 +140,18 @@ void TouchSelectionControllerClientAura::OnTouchUp() {
 }
 
 void TouchSelectionControllerClientAura::OnScrollStarted() {
+  if (!rwhva_) {
+    return;
+  }
   scroll_in_progress_ = true;
   rwhva_->selection_controller()->SetTemporarilyHidden(true);
   UpdateQuickMenu();
 }
 
 void TouchSelectionControllerClientAura::OnScrollCompleted() {
+  if (!rwhva_) {
+    return;
+  }
   scroll_in_progress_ = false;
   active_client_->DidScroll();
   rwhva_->selection_controller()->SetTemporarilyHidden(false);
@@ -248,7 +260,9 @@ void TouchSelectionControllerClientAura::InvalidateClient(
     ui::TouchSelectionControllerClient* client) {
   CHECK(client != &internal_client_, base::NotFatalUntil::M152);
   if (client == active_client_) {
-    GetTouchSelectionController()->HideAndDisallowShowingAutomatically();
+    if (GetTouchSelectionController()) {
+      GetTouchSelectionController()->HideAndDisallowShowingAutomatically();
+    }
     active_client_ = &internal_client_;
     active_menu_client_ = this;
   }
@@ -256,6 +270,9 @@ void TouchSelectionControllerClientAura::InvalidateClient(
 
 ui::TouchSelectionController*
 TouchSelectionControllerClientAura::GetTouchSelectionController() {
+  if (!rwhva_) {
+    return nullptr;
+  }
   return rwhva_->selection_controller();
 }
 
@@ -277,7 +294,7 @@ bool TouchSelectionControllerClientAura::IsQuickMenuAvailable(
 }
 
 void TouchSelectionControllerClientAura::ShowQuickMenu() {
-  if (!ui::TouchSelectionMenuRunner::GetInstance()) {
+  if (!rwhva_ || !ui::TouchSelectionMenuRunner::GetInstance()) {
     return;
   }
 
@@ -365,7 +382,7 @@ void TouchSelectionControllerClientAura::UpdateQuickMenu() {
 }
 
 void TouchSelectionControllerClientAura::ShowMagnifier() {
-  if (!::features::IsTouchTextEditingRedesignEnabled()) {
+  if (!rwhva_ || !::features::IsTouchTextEditingRedesignEnabled()) {
     return;
   }
 
@@ -423,6 +440,9 @@ void TouchSelectionControllerClientAura::MoveCaret(
 
 void TouchSelectionControllerClientAura::InternalClient::MoveCaret(
     const gfx::PointF& position) {
+  if (!rwhva_) {
+    return;
+  }
   RenderWidgetHostDelegate* host_delegate = rwhva_->host()->delegate();
   if (host_delegate)
     host_delegate->MoveCaret(gfx::ToRoundedPoint(position));
@@ -435,6 +455,9 @@ void TouchSelectionControllerClientAura::MoveRangeSelectionExtent(
 
 void TouchSelectionControllerClientAura::InternalClient::
     MoveRangeSelectionExtent(const gfx::PointF& extent) {
+  if (!rwhva_) {
+    return;
+  }
   RenderWidgetHostDelegate* host_delegate = rwhva_->host()->delegate();
   if (host_delegate)
     host_delegate->MoveRangeSelectionExtent(gfx::ToRoundedPoint(extent));
@@ -449,6 +472,9 @@ void TouchSelectionControllerClientAura::SelectBetweenCoordinates(
 void TouchSelectionControllerClientAura::InternalClient::
     SelectBetweenCoordinates(const gfx::PointF& base,
                              const gfx::PointF& extent) {
+  if (!rwhva_) {
+    return;
+  }
   RenderWidgetHostDelegate* host_delegate = rwhva_->host()->delegate();
   if (host_delegate) {
     host_delegate->SelectRange(gfx::ToRoundedPoint(base),
@@ -458,6 +484,9 @@ void TouchSelectionControllerClientAura::InternalClient::
 
 void TouchSelectionControllerClientAura::OnSelectionEvent(
     ui::SelectionEventType event) {
+  if (!rwhva_) {
+    return;
+  }
   // This function (implicitly) uses active_menu_client_, so we don't go to the
   // active view for this.
   switch (event) {
@@ -517,6 +546,9 @@ void TouchSelectionControllerClientAura::InternalClient::OnDragUpdate(
 
 std::unique_ptr<ui::TouchHandleDrawable>
 TouchSelectionControllerClientAura::CreateDrawable() {
+  if (!rwhva_) {
+    return nullptr;
+  }
   // This function is purely related to the top-level view's window, so it
   // is always handled here and never in
   // TouchSelectionControllerClientChildFrame.
@@ -622,11 +654,17 @@ void TouchSelectionControllerClientAura::RunContextMenu() {
 }
 
 bool TouchSelectionControllerClientAura::ShouldShowQuickMenu(bool can_paste) {
+  if (!rwhva_) {
+    return false;
+  }
   return quick_menu_requested_ && !touch_down_ && !scroll_in_progress_ &&
          !handle_drag_in_progress_ && IsQuickMenuAvailable(can_paste);
 }
 
 std::u16string TouchSelectionControllerClientAura::GetSelectedText() {
+  if (!rwhva_) {
+    return std::u16string();
+  }
   return rwhva_->GetSelectedText();
 }
 

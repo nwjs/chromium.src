@@ -73,7 +73,6 @@ class SyncServiceFactoryTest : public PlatformTest {
     datatypes.Put(syncer::AUTOFILL_WALLET_CREDENTIAL);
     datatypes.Put(syncer::AUTOFILL_WALLET_DATA);
     datatypes.Put(syncer::AUTOFILL_WALLET_METADATA);
-    datatypes.Put(syncer::AUTOFILL_WALLET_OFFER);
     datatypes.Put(syncer::BOOKMARKS);
     datatypes.Put(syncer::CONTACT_INFO);
     datatypes.Put(syncer::DEVICE_INFO);
@@ -137,6 +136,9 @@ class SyncServiceFactoryTest : public PlatformTest {
     }
     if (base::FeatureList::IsEnabled(syncer::kSyncJourney)) {
       datatypes.Put(syncer::JOURNEY);
+    }
+    if (base::FeatureList::IsEnabled(syncer::kSyncAutofillEntitySuppression)) {
+      datatypes.Put(syncer::AUTOFILL_ENTITY_SUPPRESSION);
     }
     return datatypes;
   }

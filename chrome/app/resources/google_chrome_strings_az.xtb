@@ -38,7 +38,6 @@ Bəzi funksiyalar əlçatmaz ola bilər ki, nəticədə tərcihlərə edilən d�
 <translation id="1333654552732143316">Chrome-u başladın</translation>
 <translation id="1341711321000856656">Dəyişməklə parollara başqa Chrome profilindən baxa bilərsiniz</translation>
 <translation id="1343830902827845050">Chrome-a daxil olun</translation>
-<translation id="1356661055722410047">Yenilik! Həm ekrandakı mətni, həm də təsvirləri tərcümə edə bilərsiniz</translation>
 <translation id="1361351916482714918">Google Linza ilə daha ağıllı şəkildə nəzər salın</translation>
 <translation id="1363996462118479832">Hesaba giriş xətası üzündən ChromeOS datanızı sinxronlaşdıra bilmədi.</translation>
 <translation id="137466361146087520">Google Chrome Beta</translation>
@@ -76,7 +75,6 @@ Bəzi funksiyalar əlçatmaz ola bilər ki, nəticədə tərcihlərə edilən d�
 <translation id="1640672724030957280">Endirilir...</translation>
 <translation id="1651617469580841801">Google Linzadan istifadə etdiyiniz zaman səhifə başlığı, URL və kontent, o cümlədən PDF sənədləri Google-a göndərilir. <ph name="LEARN_MORE" /></translation>
 <translation id="1662146548738125461">ChromeOS Flex haqqında</translation>
-<translation id="1664094661346151467">Chrome-un ölçüsü minimuma endirilmiş olsa belə, istənilən yerdən axtarış edin və suallar verin</translation>
 <translation id="1674870198290878346">Linki Gizli Chrome Pəncərəsində açın</translation>
 <translation id="1682634494516646069">Google Chrome öz data direktoriyasını oxuya və yaza bilmir:  <ph name="USER_DATA_DIRECTORY" /></translation>
 <translation id="1688214853608504530">Ünvan zolağına və ya axtarış xanasına yazdığınız zaman Chrome təkliflər təqdim etmək üçün yazdıqlarınızı təşkilatın axtarış, Sİ və agent alətlərinə göndərir.</translation>
@@ -98,6 +96,7 @@ Bəzi funksiyalar əlçatmaz ola bilər ki, nəticədə tərcihlərə edilən d�
 <translation id="1873233029667955273">Google Chrome defolt brauzeriniz deyil</translation>
 <translation id="1874309113135274312">Google Chrome Beta (mDNS-In)</translation>
 <translation id="1877026089748256423">Chrome'un vaxtı keçib</translation>
+<translation id="1877067026701708502"><ph name="EXISTING_USER" /> artıq daxil olub. Axtarışı ayrı saxlamaq üçün öz profilinizdə Chrome-a <ph name="USER_EMAIL_ADDRESS" /> kimi daxil olun. Bütün cihazlarınızda artırmalarınızı və daha çoxunu da əldə edəcəksiniz.</translation>
 <translation id="1880677175115548835">Mətn seçin</translation>
 <translation id="1896602904211344018">Chrome tətbiqini əldə edin</translation>
 <translation id="1919130412786645364">Chrome girişinə icazə verin</translation>
@@ -230,6 +229,7 @@ Bu səhifə gözlənildiyi kimi işləmirsə, optimallaşdırmaya icazə verməy
 <translation id="3112458742631356345">Bu fayl adətən endirilmədiyi və təhlükəli ola biləcəyi üçün Chrome endirməni blokladı</translation>
 <translation id="3119573284443908657">Chrome bu endirməni blokladı. Çünki arxiv faylına zərərli proqram gizlədə biləcək digər fayllar daxildir</translation>
 <translation id="3124332159330678621">Brauzerə yeni görünüş tətbiq etmək üçün Chrome-u fərdiləşdirin</translation>
+<translation id="3125851611828811913">Chrome-un ölçüsü minimuma endirilmiş olsa belə, istənilən yerdən axtarış edin və suallar verin. Chrome-un arxa fonda işləməsinə icazə verir.</translation>
 <translation id="3130333203120345554">Yeni axtarış</translation>
 <translation id="3135560418014806498">Chrome profili əlavə edin</translation>
 <translation id="3137969841538672700">Sürüşdürərək axtarın</translation>
@@ -387,6 +387,7 @@ Bu səhifə gözlənildiyi kimi işləmirsə, optimallaşdırmaya icazə verməy
 <translation id="4793679854893018356">Chrome-un təhlükəsizlik təminatı haqqında</translation>
 <translation id="4799870290441980300">Chrome-un ən güclü qorumalarını təmin etmək üçün əlavə funksiyaları aktiv edir</translation>
 <translation id="4828579605166583682">Google Chrome mövcud parolları əvəz etmək istəyir. İcazə vermək üçün Windows parolunu yazın.</translation>
+<translation id="4836321460899997044">Chrome profili</translation>
 <translation id="4842397268809523050">ChromeOS Flex datanızı sinxronizasiya edə bilmədi, çünki sinxronizasiya domeniniz üçün əlçatan deyil.</translation>
 <translation id="4851866215237571846"><ph name="EXISTING_USER" /> artıq giriş edib.  Baxışı ayrı saxlamaq üçün öz profilinizdə Chrome-a <ph name="USER_EMAIL_ADDRESS" /> kimi daxil olun.</translation>
 <translation id="4855026984605187434">Ekranı paylaşmaq üçün Sistem Ayarlarında Chrome üçün ekranın qeydə alınmasına icazə verin</translation>
@@ -502,6 +503,7 @@ Bəzi funksiyalar əlçatmaz ola bilər. Xüsusi profil direktoriyası göstəri
 <translation id="6014316319780893079"><ph name="BEGIN_LINK" />Chrome alətləri ilə<ph name="END_LINK" /> təhlükəsiz nəzər sala və nəzarət edə bilərsiniz</translation>
 <translation id="6018578474045062808">Telefonda Chrome ilə Google Linzanı sınayın</translation>
 <translation id="6022659036123304283">Chrome'u özünüzküləşdirin</translation>
+<translation id="6024930613143833266">İstənilən yerdən Chrome ilə axtarın</translation>
 <translation id="6025087594896450715">Google Chrome <ph name="REMAINING_TIME" /> sonra yenidən başladılacaq</translation>
 <translation id="6040143037577758943">Qapat</translation>
 <translation id="604424701295382420">Bərkidildi! Google Linzaya alətlər panelindəki yeni düymə ilə təkrar daxil ola bilərsiniz</translation>
@@ -546,6 +548,7 @@ Bəzi funksiyalar əlçatmaz ola bilər. Xüsusi profil direktoriyası göstəri
 <translation id="6334815226785304306">Chrome-u defolt brauzer edin və tapşırıqlar panelinə bərkidin</translation>
 <translation id="63540178978900677">Chrome artıq defolt brauzeriniz deyil. Chrome defolt brauzer edilsin?</translation>
 <translation id="6360449101159168105">Bu tab deaktiv olduqda Chrome-u sürətli saxlamaq üçün yaddaş boşaldıldı. Bu saytın deaktiv olmasını həmişə istisna edə bilərsiniz.</translation>
+<translation id="6362984640667950211"><ph name="EXISTING_USER" /> artıq daxil olub. Axtarışı ayrı saxlamaq üçün öz profilinizdə Chrome-a <ph name="USER_EMAIL_ADDRESS" /> kimi daxil olun. Bütün cihazlarınızda oxu siyahınızı və daha çoxunu da əldə edəcəksiniz.</translation>
 <translation id="6388799252195623474">bununla bağlı mənə kömək edin</translation>
 <translation id="6412673304250309937">URL'ləri Chrome'da saxlanılan təhlükəli saytların siyahısı ilə yoxlayır. Sayt parolunuzu oğurlamağa çalışdıqda və ya zərərli fayl endirdiyinizdə Chrome səhifə məzmunundan kiçik nümunələr də daxil olmaqla, URL'ləri Təhlükəsiz Baxışa göndərə bilər.</translation>
 <translation id="6417690341895039567">{COUNT,plural, =1{Chrome 1 dəqiqə istifadə edilmədikdə təşkilat onu avtomatik bağlayır. Baxış datası silinir. Bura tarixçə, avto doldurma və endirmələr daxil ola bilər.}other{Chrome # dəqiqə istifadə edilmədikdə təşkilat onu avtomatik bağlayır. Baxış datası silinir. Bura tarixçə, avto doldurma və endirmələr daxil ola bilər.}}</translation>
@@ -554,6 +557,7 @@ Bəzi funksiyalar əlçatmaz ola bilər. Xüsusi profil direktoriyası göstəri
 <translation id="6434035853014503219">Chrome-u defolt brauzer kimi seçdiyiniz üçün təşəkkür edirik!</translation>
 <translation id="6438015621983209660">Telefonda Chrome ilə qabaqcıl güvənli baxışı genişləndirin</translation>
 <translation id="6442774133615368941">Chrome iOS tətbiqində kamera ilə alış-veriş edin, tərcümə edin və gördüklərinizi müəyyənləşdirin</translation>
+<translation id="6446105560007692480">Chrome ilə axtarmaq və ya <ph name="BEGIN_LINK" />Ayarlarda<ph name="END_LINK" /> fərdiləşdirmək üçün</translation>
 <translation id="6448835208126432197">Chrome-da Gemini-da ekranın bir hissəsini seçmək üçün klaviatura qısayolundan istifadə edin.</translation>
 <translation id="6473905796280459355">Chrome haqqında səhifəsinə keçin</translation>
 <translation id="6481963882741794338">Fərdiləşdirmə və digər məqsədlər üçün Chrome və digər Google xidmətlərini əlaqələndirin</translation>
@@ -575,6 +579,7 @@ Bəzi funksiyalar əlçatmaz ola bilər. Xüsusi profil direktoriyası göstəri
 <translation id="6612152958212564387">İstifadə statistikası və xəta hesabatlarını Google-a göndərmirsiniz. <ph name="BEGIN_LINK" />İdarə edin<ph name="END_LINK" /></translation>
 <translation id="6613949864921837107">Chrome-u defolt brauzeriniz kimi təyin etməklə parollarınızı, əlfəcinlərinizi və tarixçənizi cihazlar arasında mükəmməl şəkildə sinxronlaşdırın.</translation>
 <translation id="6631524303639368205">Qaldığınız yerdən davam edin: Chrome tablarınızı son sessiyadan bərpa etdi. Burada deaktiv edə bilərsiniz:</translation>
+<translation id="6632012506031284914">Chrome ilə axtarmaq üçün.</translation>
 <translation id="6632473616050862500">ChromeOS Flex əlavə <ph name="BEGIN_LINK_CROS_OSS" />açıq mənbə proqramı<ph name="END_LINK_CROS_OSS" /> ilə əlçatan edilib.</translation>
 <translation id="6634299872736643004">Bu ayara edilən dəyişikliklər Chrome yenidən başladıqda tətbiq olunacaq.</translation>
 <translation id="6660596345553328257">Chrome-a daxil olursunuz?</translation>
@@ -591,6 +596,7 @@ Bəzi funksiyalar əlçatmaz ola bilər. Xüsusi profil direktoriyası göstəri
 <translation id="6750954913813541382">Orfoqrafik səhvləri düzəltmək üçün Chrome brauzerində yazdığınız mətni Google'a göndərir</translation>
 <translation id="6760235774835597023">Chrome-un V8 mühərriki ilə saytları sürətləndirir, lakin Chrome-un hücumlara qarşı müqavimətini bir qədər azaldır. Bu ayar aktivdir.</translation>
 <translation id="677276454032249905">Chrome'dan istənilən hada çıxılsın?</translation>
+<translation id="6777654166489463890">Chrome-dan kənar kontent, məsələn, açdığınız başqa tətbiq və ya fayl haqqında soruşun</translation>
 <translation id="6794858689789885890">Chrome-u bağladıqda sayt datasını cihazdan silin</translation>
 <translation id="6800285125190089494">iOS-da Chrome üçün yadda saxlanmış parollardan istifadə edərək saytlara daha sürətli daxil olun</translation>
 <translation id="6831043979455480757">Tərcümə et</translation>
@@ -643,6 +649,7 @@ Bəzi funksiyalar əlçatmaz ola bilər. Xüsusi profil direktoriyası göstəri
 <translation id="7285990705317078173">İstənilən saytda qiymətləri izləmək və qiymət endikdə xəbərdarlıq əldə etmək üçün telefonunuza Chrome endirin</translation>
 <translation id="7288567540154601580">Tab və artırmalar</translation>
 <translation id="7296210096911315575">Mühüm istifadə və təhlükəsizlik məlumatı</translation>
+<translation id="7299899569525778554">Masaüstündə axtarın</translation>
 <translation id="7302361266603927550">Müəyyən Chrome datası Google Hesabında yadda saxlanılmayıb. Çıxmazdan əvvəl bir neçə dəqiqə gözləyin. İndi çıxsanız, bu data silinəcək.</translation>
 <translation id="7306401458628386911">Dərhal nəzər salmağa başlayın: Chrome artıq Windows işə düşdükdə işə salına bilər.</translation>
 <translation id="7308322188646931570">Faylları endirmək üçün Chrome yaddaşa giriş tələb edir</translation>
@@ -706,6 +713,7 @@ Bəzi funksiyalar əlçatmaz ola bilər. Xüsusi profil direktoriyası göstəri
 <translation id="7845233973568007926">Quraşdırdığınız üçün təşəkkür edirik. <ph name="BUNDLE_NAME" /> istifadə etməzdən əvvəl kompüterinizi yenidən başlatmalısınız.</translation>
 <translation id="7847170235260850604">Windows işə başladıqda Chrome-u işə salın</translation>
 <translation id="7849037457735762883">Qaldığınız yerdən davam edin: Chrome hər dəfə yenidən başladıldıqda tablarınızı bərpa edə bilər. Bunu aktiv etmək üçün keçin:</translation>
+<translation id="7868731902994556427"><ph name="EXISTING_USER" /> artıq daxil olub. Axtarışı ayrı saxlamaq üçün öz profilinizdə Chrome-a <ph name="USER_EMAIL_ADDRESS" /> kimi daxil olun. <ph name="DEVICE" /> cihazından artırmalarınızı və daha çoxunu da əldə edəcəksiniz.</translation>
 <translation id="7869620795354551924">Yadda saxlanmış parolları istifadə etmək üçün QR kodunu skanlayın, iOS üçün Chrome endirin və Google Hesabına daxil olun</translation>
 <translation id="7872446069773932638">Endirilir... <ph name="SECONDS" /> saniyə qalıb</translation>
 <translation id="7886087451482920026">Google Linza ilə mətn seçin</translation>
@@ -792,7 +800,6 @@ Bəzilərini silənə qədər yeni əlfəcinləri hesabınızda yadda saxlamaq o
 <translation id="8575047640889685742">Google Hesabındakı bütün Chrome datasını şifrələmək üçün <ph name="BEGIN_LINK" />öz parol ifadənizdən<ph name="END_LINK" /> istifadə edin. Google Pay-dən ödəniş metodu və ünvanlar şifrələnməyəcək. Chrome-dan brauzer tarixçəsi sinxronlaşdırılmayacaq.</translation>
 <translation id="8590782867495422699">Google Axtarış Sİ rejimini yenidən açın</translation>
 <translation id="8598779894319572882">Alətlər panelindəki "Google Axtarış üzrə Sİ rejimi" düyməsindən istifadə edərək axtarış zamanı suallar vermək üçün Google Axtarış üzrə Sİ rejimini yenidən aça bilərsiniz</translation>
-<translation id="8601359445272098721">Yenilik! "Ekranı tərcümə edin" düyməsini seçməklə həm ekrandakı mətni, həm də təsvirləri tərcümə edə bilərsiniz</translation>
 <translation id="8614913330719544658">Google Chrome cavab vermir. Yenidən başladılsın?</translation>
 <translation id="8623450603356630491">Telefonda Chrome-a daxil olun</translation>
 <translation id="8624541899164515475">Ayarlar, yeni tabda açılır.</translation>
@@ -804,6 +811,7 @@ Bəzilərini silənə qədər yeni əlfəcinləri hesabınızda yadda saxlamaq o
 <translation id="8679801911857917785">O, həmçinin, Chrome açılanda hansı səhifənin göstərildiyini idarə edir.</translation>
 <translation id="8712637175834984815">Anladım</translation>
 <translation id="8712767363896337380">Güncəllənmək üzrədir! Güncəlləməni tamamlamaq üçün Chrome'u yenidən başladın.</translation>
+<translation id="8717554232729236539"><ph name="EXISTING_USER" /> artıq daxil olub. Axtarışı ayrı saxlamaq üçün öz profilinizdə Chrome-a <ph name="USER_EMAIL_ADDRESS" /> kimi daxil olun. <ph name="DEVICE" /> cihazından oxu siyahınızı və daha çoxunu da əldə edəcəksiniz.</translation>
 <translation id="8718062187489036808">Chrome'dan çıxın</translation>
 <translation id="873133009373065397">Google Chrome defolt brauzeri müəyyən edə və ya ayarlaya bilmir</translation>
 <translation id="8747073452963259673">axtarış sahəsinin aşağı sol küncü: <ph name="LEFT" />% sol, <ph name="BOTTOM" />% aşağı</translation>

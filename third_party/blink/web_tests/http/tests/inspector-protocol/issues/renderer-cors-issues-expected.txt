@@ -5,18 +5,18 @@ Cors issue: {
         corsIssueDetails : {
             corsErrorStatus : {
                 corsError : CorsDisabledScheme
-                failedParameter : file
+                failedParameter : ftp
             }
             initiatorOrigin : http://127.0.0.1:8000
             isWarning : false
             location : {
-                columnNumber : 7
+                columnNumber : 6
                 lineNumber : 2
                 scriptId : <string>
                 url :
             }
             request : {
-                url : file://doesnt.matter/
+                url : ftp://doesnt.matter/
             }
         }
     }
@@ -34,7 +34,7 @@ Cors issue: {
             initiatorOrigin : http://127.0.0.1:8000
             isWarning : false
             location : {
-                columnNumber : 7
+                columnNumber : 6
                 lineNumber : 6
                 scriptId : <string>
                 url :
@@ -58,7 +58,7 @@ Cors issue: {
             initiatorOrigin : http://127.0.0.1:8000
             isWarning : false
             location : {
-                columnNumber : 7
+                columnNumber : 6
                 lineNumber : 11
                 scriptId : <string>
                 url :

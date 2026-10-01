@@ -569,10 +569,6 @@ AccessibilityManager::AccessibilityManager(
     NOTREACHED();
   }
 
-  const bool enable_v3_manifest =
-      base::CommandLine::ForCurrentProcess()->HasSwitch(
-          ::switches::kEnableExperimentalAccessibilityManifestV3);
-
   accessibility_common_extension_loader_ =
       base::WrapUnique(new AccessibilityExtensionLoader(
           extension_misc::kAccessibilityCommonExtensionId,
@@ -587,11 +583,11 @@ AccessibilityManager::AccessibilityManager(
   const bool enable_chromevox_v3_manifest =
       ::features::IsAccessibilityManifestV3EnabledForChromeVox();
   const base::FilePath::CharType* chromevox_manifest_filename =
-      enable_v3_manifest || enable_chromevox_v3_manifest
+      enable_chromevox_v3_manifest
           ? extension_misc::kChromeVoxManifestV3Filename
           : extension_misc::kChromeVoxManifestFilename;
   const base::FilePath::CharType* chromevox_guest_manifest_filename =
-      enable_v3_manifest || enable_chromevox_v3_manifest
+      enable_chromevox_v3_manifest
           ? extension_misc::kChromeVoxGuestManifestV3Filename
           : extension_misc::kChromeVoxGuestManifestFilename;
 
@@ -997,9 +993,8 @@ void AccessibilityManager::EnableReducedAnimations(bool enabled) {
 }
 
 bool AccessibilityManager::IsReducedAnimationsEnabled() const {
-  return ::features::IsAccessibilityReducedAnimationsEnabled() && profile_ &&
-         profile_->GetPrefs()->GetBoolean(
-             prefs::kAccessibilityReducedAnimationsEnabled);
+  return profile_ && profile_->GetPrefs()->GetBoolean(
+                         prefs::kAccessibilityReducedAnimationsEnabled);
 }
 
 void AccessibilityManager::EnableAlwaysShowScrollbars(bool enabled) {
@@ -1961,12 +1956,10 @@ void AccessibilityManager::UpdateChromeOSAccessibilityHistograms() {
         prefs->GetBoolean(prefs::kAccessibilityAutoclickEnabled);
     base::UmaHistogramBoolean("Accessibility.CrosAutoclick", autoclick_enabled);
 
-    if (::features::IsAccessibilityReducedAnimationsEnabled()) {
-      bool reduced_animations_enabled =
-          prefs->GetBoolean(prefs::kAccessibilityReducedAnimationsEnabled);
-      base::UmaHistogramBoolean("Accessibility.CrosReducedAnimations",
-                                reduced_animations_enabled);
-    }
+    bool reduced_animations_enabled =
+        prefs->GetBoolean(prefs::kAccessibilityReducedAnimationsEnabled);
+    base::UmaHistogramBoolean("Accessibility.CrosReducedAnimations",
+                              reduced_animations_enabled);
 
     int caret_blink_interval_ms =
         prefs->GetInteger(prefs::kAccessibilityCaretBlinkInterval);
@@ -1996,11 +1989,9 @@ void AccessibilityManager::UpdateChromeOSAccessibilityHistograms() {
           prefs->GetInteger(prefs::kAccessibilityColorVisionCorrectionAmount));
     }
 
-    if (::features::IsAccessibilityFlashScreenFeatureEnabled()) {
-      base::UmaHistogramBoolean(
-          "Accessibility.CrosFlashNotifications",
-          prefs->GetBoolean(prefs::kAccessibilityFlashNotificationsEnabled));
-    }
+    base::UmaHistogramBoolean(
+        "Accessibility.CrosFlashNotifications",
+        prefs->GetBoolean(prefs::kAccessibilityFlashNotificationsEnabled));
 
     bool bounce_keys_enabled =
         prefs->GetBoolean(prefs::kAccessibilityBounceKeysEnabled);

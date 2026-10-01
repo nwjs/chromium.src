@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "base/check.h"
+#include "base/check_deref.h"
 #include "base/functional/bind.h"
 #include "base/functional/callback.h"
 #include "base/location.h"
@@ -48,6 +49,7 @@
 #include "content/public/browser/browser_thread.h"
 #include "extensions/browser/extensions_browser_client.h"
 #include "extensions/browser/ui_util.h"
+#include "extensions/buildflags/buildflags.h"
 #include "extensions/common/api/oauth2.h"
 #include "extensions/common/manifest_handlers/oauth2_manifest_handler.h"
 #include "extensions/common/utils/extension_utils.h"
@@ -356,19 +358,25 @@ void IdentityGetAuthTokenFunction::GetAuthTokenForAccount(
     const GaiaId& gaia_id) {
   refresh_tokens_loaded_waiter_.reset();
 
+  IdentityAPI& identity_api = CHECK_DEREF(
+      CHECK_DEREF(IdentityAPI::GetFactoryInstance()).Get(GetProfile()));
+
   selected_gaia_id_ = gaia_id;
   if (gaia_id.empty()) {
-    selected_gaia_id_ = IdentityAPI::GetFactoryInstance()
-                            ->Get(GetProfile())
-                            ->GetGaiaIdForExtension(token_key_.extension_id)
-                            .value_or(GaiaId());
+    selected_gaia_id_ =
+        identity_api.GetGaiaIdForExtension(token_key_.extension_id)
+            .value_or(GaiaId());
   }
 
   CoreAccountInfo selected_account;
   if (!selected_gaia_id_.empty()) {
-    // TODO(msalama): Check has access to accounts.
-    selected_account = IdentityManagerFactory::GetForProfile(GetProfile())
-                           ->FindExtendedAccountInfoByGaiaId(selected_gaia_id_);
+    const std::vector<CoreAccountInfo> accounts =
+        identity_api.GetAccountsWithRefreshTokensForExtensions();
+    auto it =
+        std::ranges::find(accounts, selected_gaia_id_, &CoreAccountInfo::gaia);
+    if (it != accounts.end()) {
+      selected_account = *it;
+    }
   } else {
     selected_account = GetSigninPrimaryAccount(GetProfile());
   }
@@ -876,7 +884,7 @@ void IdentityGetAuthTokenFunction::OnGaiaRemoteConsentFlowApproved(
     CoreAccountId primary_account_id =
         IdentityManagerFactory::GetForProfile(GetProfile())
             ->GetPrimaryAccountId(signin::ConsentLevel::kSignin);
-    if (primary_account_id != account.account_id) {
+    if (primary_account_id != account.GetAccountId()) {
       CompleteMintTokenFlow();
       CompleteFunctionWithError(IdentityGetAuthTokenError(
           IdentityGetAuthTokenError::State::kRemoteConsentUserNonPrimary));
@@ -890,7 +898,7 @@ void IdentityGetAuthTokenFunction::OnGaiaRemoteConsentFlowApproved(
   // It's important to update the cache before calling CompleteMintTokenFlow()
   // as this call may start a new request synchronously and query the cache.
   ExtensionTokenKey new_token_key(token_key_);
-  new_token_key.account_info = account;
+  new_token_key.account_info = account.GetCoreAccountInfo();
   id_api->token_cache()->SetToken(
       new_token_key,
       IdentityTokenCacheValue::CreateRemoteConsentApproved(consent_result));

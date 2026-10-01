@@ -26,6 +26,7 @@
 #include "ui/events/devices/input_device.h"
 #include "ui/events/devices/keyboard_device.h"
 #include "ui/events/devices/touchscreen_device.h"
+#include "ui/events/platform/wayland/wayland_event_watcher.h"
 #include "ui/gfx/geometry/point.h"
 #include "ui/gfx/linux/scoped_gbm_device.h"
 #include "ui/ozone/common/features.h"
@@ -48,6 +49,7 @@
 #include "ui/ozone/platform/wayland/host/wayland_data_drag_controller.h"
 #include "ui/ozone/platform/wayland/host/wayland_drm.h"
 #include "ui/ozone/platform/wayland/host/wayland_event_source.h"
+#include "ui/ozone/platform/wayland/host/wayland_idle_notify.h"
 #include "ui/ozone/platform/wayland/host/wayland_input_method_context.h"
 #include "ui/ozone/platform/wayland/host/wayland_keyboard.h"
 #include "ui/ozone/platform/wayland/host/wayland_output_manager.h"
@@ -150,6 +152,8 @@ WaylandConnection::~WaylandConnection() {
 bool WaylandConnection::Initialize(bool use_threaded_polling) {
   // Register factories for classes that implement wl::GlobalObjectRegistrar<T>.
   // Keep alphabetical order for convenience.
+  RegisterGlobalObjectFactory(ExtIdleNotifier::kInterfaceName,
+                              &ExtIdleNotifier::Instantiate);
   RegisterGlobalObjectFactory(FractionalScaleManager::kInterfaceName,
                               &FractionalScaleManager::Instantiate);
   RegisterGlobalObjectFactory(GtkPrimarySelectionDeviceManager::kInterfaceName,
@@ -253,6 +257,12 @@ bool WaylandConnection::Initialize(bool use_threaded_polling) {
   // blocks until wl_display.sync is done. Use it to ensure the required globals
   // are emitted.
   while (!WlGlobalsReady()) {
+    if (int err = wl_display_get_error(display())) {
+      LOG(ERROR) << "Wayland connection error during initialization: "
+                 << WaylandEventWatcher::GetWaylandProtocolError(err,
+                                                                 display());
+      return false;
+    }
     RoundTripQueue();
   }
 
@@ -430,7 +440,8 @@ std::vector<TouchscreenDevice> WaylandConnection::CreateTouchscreenDevices()
 }
 
 void WaylandConnection::UpdateCursor() {
-  if (auto* pointer = seat_->pointer()) {
+  // The compositor may not have announced a wl_seat (see Initialize()).
+  if (auto* pointer = seat_ ? seat_->pointer() : nullptr) {
     cursor_ = std::make_unique<WaylandCursor>(pointer, this);
     cursor_->set_listener(listener_);
     cursor_position_ = std::make_unique<WaylandCursorPosition>();

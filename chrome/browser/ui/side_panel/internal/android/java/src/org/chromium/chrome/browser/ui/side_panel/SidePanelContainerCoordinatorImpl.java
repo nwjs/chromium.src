@@ -7,7 +7,7 @@ package org.chromium.chrome.browser.ui.side_panel;
 import static org.chromium.build.NullUtil.assertNonNull;
 import static org.chromium.chrome.browser.ui.side_panel.SidePanelUtils.log;
 
-import android.graphics.Rect;
+import android.content.res.Resources;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -17,6 +17,7 @@ import android.view.accessibility.AccessibilityNodeInfo;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import androidx.annotation.DrawableRes;
 import androidx.annotation.Px;
 import androidx.annotation.VisibleForTesting;
 import androidx.core.view.ViewCompat;
@@ -25,6 +26,8 @@ import org.chromium.base.ThreadUtils;
 import org.chromium.build.BuildConfig;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
+import org.chromium.chrome.browser.browser_controls.TopControlsStacker;
+import org.chromium.chrome.browser.browser_controls.TopControlsStacker.TopControlType;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.ui.side_ui.SideUiContainer;
@@ -34,7 +37,6 @@ import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.HeightType;
 import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.SideUiId;
 import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.SideUiSpecs.SideUiSize;
 import org.chromium.chrome.browser.ui.side_ui.SideUiCoordinator.UiUpdateRequest;
-import org.chromium.chrome.browser.ui.vertical_tabs.VerticalTabUtils;
 import org.chromium.components.thinwebview.ThinWebView;
 import org.chromium.ui.accessibility.AccessibilityState;
 import org.chromium.ui.base.ActivityWindowAndroid;
@@ -51,6 +53,7 @@ final class SidePanelContainerCoordinatorImpl
     private final LinearLayout mContainerView;
     private final SidePanelNativeBridgeSelector mNativeBridgeSelector;
     private final SideUiCoordinator mSideUiCoordinator;
+    private final TopControlsStacker mTopControlsStacker;
 
     private @Nullable SidePanelContent mCurrentContent;
 
@@ -90,7 +93,8 @@ final class SidePanelContainerCoordinatorImpl
     SidePanelContainerCoordinatorImpl(
             ActivityWindowAndroid windowAndroid,
             SideUiCoordinator sideUiCoordinator,
-            TabModelSelector tabModelSelector) {
+            TabModelSelector tabModelSelector,
+            TopControlsStacker topControlsStacker) {
         log(TAG, "constructor");
 
         var activity = assertNonNull(windowAndroid.getActivity().get());
@@ -103,6 +107,7 @@ final class SidePanelContainerCoordinatorImpl
                 new SidePanelNativeBridgeSelector(
                         windowAndroid, /* sidePanelContainerCoordinator= */ this, tabModelSelector);
         mSideUiCoordinator = sideUiCoordinator;
+        mTopControlsStacker = topControlsStacker;
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -138,12 +143,10 @@ final class SidePanelContainerCoordinatorImpl
      * panel isn't shown.
      *
      * @param content Wrapper object for the content to show in the side panel.
-     * @param startingBounds Optional bounds for the animation to start from.
      * @param suppressAnimations Whether or not to suppress animations for this populate request.
      */
-    void startOpeningPanel(
-            SidePanelContent content, @Nullable Rect startingBounds, boolean suppressAnimations) {
-        log(TAG, "startOpeningPanel", content, startingBounds, suppressAnimations);
+    void startOpeningPanel(SidePanelContent content, boolean suppressAnimations) {
+        log(TAG, "startOpeningPanel", content, suppressAnimations);
         ThreadUtils.assertOnUiThread();
 
         // TODO(crbug.com/513302000): assert the side panel is currently closed.
@@ -419,7 +422,9 @@ final class SidePanelContainerCoordinatorImpl
         @HeightType
         int heightType =
                 determineHeightType(
-                        showableWidthDp, VerticalTabUtils.isVerticalTabsEnabled(context));
+                        showableWidthDp,
+                        mTopControlsStacker.getHeightFromLayerBottomToTop(TopControlType.TABSTRIP)
+                                > 0);
 
         return new SideUiSize(ViewUtils.dpToPx(context, showableWidthDp), heightType);
     }
@@ -460,6 +465,15 @@ final class SidePanelContainerCoordinatorImpl
     @Override
     public boolean shouldLockTopControls() {
         return true;
+    }
+
+    @Override
+    public void onUiUpdateStarting(
+            @Px int oldWidth,
+            @Px int newWidth,
+            @HeightType int oldHeightType,
+            @HeightType int newHeightType) {
+        updateContainerBackground(newHeightType);
     }
 
     @Override
@@ -565,12 +579,32 @@ final class SidePanelContainerCoordinatorImpl
     }
 
     @VisibleForTesting
-    static @HeightType int determineHeightType(int showableWidthDp, boolean isVerticalTabsEnabled) {
+    static @HeightType int determineHeightType(int showableWidthDp, boolean isTabStripShowing) {
         @HeightType int heightType = HeightType.NOT_APPLICABLE;
         if (showableWidthDp != 0) {
-            heightType = isVerticalTabsEnabled ? HeightType.WEB_CONTENTS : HeightType.TOOLBAR;
+            heightType = isTabStripShowing ? HeightType.TOOLBAR : HeightType.WEB_CONTENTS;
         }
         return heightType;
+    }
+
+    @VisibleForTesting
+    static @DrawableRes int getContainerBackgroundResId(@HeightType int heightType) {
+        return switch (heightType) {
+            case HeightType.TOOLBAR -> R.drawable.side_panel_container_toolbar_height_bg;
+            case HeightType.WEB_CONTENTS -> R.drawable.side_panel_container_webcontent_height_bg;
+            default ->
+                    // includes HeightType.NOT_APPLICABLE. This is expected to be called even when
+                    // the container will be hidden, so do not throw an exception.
+                    Resources.ID_NULL;
+        };
+    }
+
+    private void updateContainerBackground(@HeightType int heightType) {
+        @DrawableRes int bgResId = getContainerBackgroundResId(heightType);
+        // Expected if the container is hiding. In that case, no-op.
+        if (bgResId == Resources.ID_NULL) return;
+
+        mContainerView.setBackgroundResource(bgResId);
     }
 
     private @Nullable ThinWebView findThinWebView(View view) {

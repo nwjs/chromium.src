@@ -17,6 +17,7 @@
 #include "base/files/file_util.h"
 #include "base/memory/raw_ptr_exclusion.h"
 #include "base/path_service.h"
+#include "base/run_loop.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
@@ -103,6 +104,7 @@
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/base32/base32.h"
+#include "components/blocked_content/popup_blocker_tab_helper.h"
 #include "components/constrained_window/constrained_window_views.h"
 #include "components/contextual_tasks/public/features.h"
 #include "components/feature_engagement/public/feature_constants.h"
@@ -110,6 +112,7 @@
 #include "components/lens/lens_overlay_dismissal_source.h"
 #include "components/lens/lens_overlay_invocation_source.h"
 #include "components/lens/lens_overlay_mime_type.h"
+#include "components/lens/lens_overlay_non_blocking_privacy_notice_user_action.h"
 #include "components/lens/lens_overlay_permission_utils.h"
 #include "components/lens/lens_overlay_side_panel_menu_option.h"
 #include "components/lens/lens_overlay_side_panel_result.h"
@@ -124,6 +127,7 @@
 #include "components/policy/core/common/mock_configuration_policy_provider.h"
 #include "components/prefs/pref_service.h"
 #include "components/sessions/content/session_tab_helper.h"
+#include "components/sessions/core/session_id.h"
 #include "components/tabs/public/tab_interface.h"
 #include "components/ukm/test_ukm_recorder.h"
 #include "content/public/browser/context_menu_params.h"
@@ -568,10 +572,8 @@ class LensSearchControllerFake : public lens::TestLensSearchController {
 
   void CloseLensAsync(lens::LensOverlayDismissalSource dismissal_source,
                       bool side_panel_already_closing) override {
-    auto* const side_panel_ui = GetTabInterface()
-                                    ->GetBrowserWindowInterface()
-                                    ->GetFeatures()
-                                    .side_panel_ui();
+    auto* const side_panel_ui =
+        SidePanelUI::From(GetTabInterface()->GetBrowserWindowInterface());
     if (!side_panel_already_closing && IsActive() &&
         side_panel_ui->IsSidePanelEntryShowing(
             SidePanelEntryKey(SidePanelEntry::Id::kLensOverlayResults))) {
@@ -798,7 +800,7 @@ class LensOverlayControllerBrowserTest : public InProcessBrowserTest {
   }
 
   bool IsSidePanelOpen() {
-    return browser()->GetFeatures().side_panel_ui()->IsSidePanelShowing();
+    return SidePanelUI::From(browser())->IsSidePanelShowing();
   }
 
   bool IsLensResultsSidePanelShowing() {
@@ -910,6 +912,93 @@ class LensOverlayControllerBrowserTest : public InProcessBrowserTest {
       int browser_test_flags = ui_test_utils::BROWSER_TEST_WAIT_FOR_LOAD_STOP) {
     const GURL url = embedded_test_server()->GetURL(relative_url);
     lens::WaitForPaint(browser(), url, disposition, browser_test_flags);
+  }
+
+  // Opens the overlay and the results side panel, then returns the results
+  // frame hosted inside the side panel WebContents. Returns nullptr if any step
+  // fails; callers should ASSERT on the result before using it.
+  content::RenderFrameHost* OpenSidePanelAndGetResultsFrame() {
+    auto* controller = GetLensOverlayController();
+    OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
+    if (!base::test::RunUntil(
+            [&]() { return controller->state() == State::kOverlay; })) {
+      return nullptr;
+    }
+    if (!content::WaitForLoadStop(GetOverlayWebContents())) {
+      return nullptr;
+    }
+
+    controller->OpenSidePanelForTesting();
+    GetLensOverlaySidePanelCoordinator()->LoadURLInResultsFrameForTesting(
+        GURL("https://www.google.com/search"));
+    if (!IsLensResultsSidePanelShowing()) {
+      return nullptr;
+    }
+    content::WebContents* side_panel_contents =
+        controller->GetSidePanelWebContentsForTesting();
+    if (!side_panel_contents ||
+        !content::WaitForLoadStop(side_panel_contents)) {
+      return nullptr;
+    }
+
+    // The results frame is the only child frame of the side panel web contents.
+    return content::ChildFrameAt(side_panel_contents->GetPrimaryMainFrame(), 0);
+  }
+
+  // Builds the OpenURLParams that the browser would construct for a navigation
+  // requested by `initiator`.
+  content::OpenURLParams MakeRendererInitiatedParams(
+      content::RenderFrameHost* initiator,
+      const GURL& url,
+      WindowOpenDisposition disposition,
+      bool user_gesture,
+      content::FrameTreeNodeId frame_tree_node_id =
+          content::FrameTreeNodeId()) {
+    content::OpenURLParams params(url, content::Referrer(), frame_tree_node_id,
+                                  disposition, ui::PAGE_TRANSITION_LINK,
+                                  /*is_renderer_initiated=*/true);
+    params.user_gesture = user_gesture;
+    params.initiator_origin = initiator->GetLastCommittedOrigin();
+    params.initiator_frame_token = initiator->GetFrameToken();
+    params.initiator_process_id = initiator->GetProcess()->GetDeprecatedID();
+    params.source_site_instance = initiator->GetSiteInstance();
+    params.source_render_process_id =
+        initiator->GetProcess()->GetDeprecatedID();
+    params.source_render_frame_id = initiator->GetRoutingID();
+    return params;
+  }
+
+  // Builds the OpenURLParams that RenderViewContextMenuBase constructs when a
+  // link inside `initiator` is right clicked and a command such as "Open link
+  // in new tab" is chosen. These are browser initiated, which is why
+  // `user_gesture` defaults to true.
+  content::OpenURLParams MakeContextMenuParams(
+      content::RenderFrameHost* initiator,
+      const GURL& url,
+      WindowOpenDisposition disposition) {
+    content::OpenURLParams params =
+        content::OpenURLParams::CreateBrowserInitiated(
+            url, disposition, ui::PAGE_TRANSITION_LINK, content::Referrer(),
+            /*started_from_context_menu=*/true);
+    params.source_render_process_id =
+        initiator->GetProcess()->GetDeprecatedID();
+    params.source_render_frame_id = initiator->GetRoutingID();
+    params.initiator_frame_token = initiator->GetFrameToken();
+    params.initiator_process_id = initiator->GetProcess()->GetDeprecatedID();
+    params.initiator_origin = initiator->GetLastCommittedOrigin();
+    params.source_site_instance = initiator->GetSiteInstance();
+    return params;
+  }
+
+  // Runs every task that was already posted to this thread's task queue. Task
+  // runners are FIFO, so once the closure posted below runs, anything posted
+  // before it has run too. This is used to assert that a task which would have
+  // opened an extra tab did not do so.
+  void WaitForPreviouslyPostedTasks() {
+    base::RunLoop run_loop;
+    base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE, run_loop.QuitClosure());
+    run_loop.Run();
   }
 
   // Helper to remove the start time, client upload duration, and viewport size
@@ -1475,7 +1564,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   ASSERT_FALSE(GetWebView()->GetEnabled());
 
   // Close the side panel.
-  browser()->GetFeatures().side_panel_ui()->Close();
+  SidePanelUI::From(browser())->Close();
 
   // Ensure the overlay closes too.
   ASSERT_TRUE(base::test::RunUntil(
@@ -1507,7 +1596,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   EXPECT_TRUE(IsLensResultsSidePanelShowing());
 
   // Close the side panel.
-  browser()->GetFeatures().side_panel_ui()->Close();
+  SidePanelUI::From(browser())->Close();
 
   // Verify that the side panel close logic was not iteratively re-triggered
   // by the notification loop, which prevents reentrancy on the ObserverList.
@@ -2632,6 +2721,408 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
                   content::JsReplace(kCheckSearchboxInput, "apples"),
                   content::EvalJsOptions::EXECUTE_SCRIPT_NO_RESOLVE_PROMISES)
                   .ExtractBool());
+}
+
+IN_PROC_BROWSER_TEST_F(
+    LensOverlayControllerBrowserTest,
+    SidePanel_OpenURLFromTab_CurrentTabFromSubframe_DoesNotNavigateCurrentTab) {
+  WaitForPaint();
+
+  content::RenderFrameHost* results_frame = OpenSidePanelAndGetResultsFrame();
+  ASSERT_TRUE(results_frame);
+  ASSERT_TRUE(results_frame->GetParentOrOuterDocument());
+  content::WebContents* side_panel_contents =
+      GetLensOverlayController()->GetSidePanelWebContentsForTesting();
+  ASSERT_TRUE(side_panel_contents);
+
+  content::WebContents* active_tab =
+      browser()->GetTabStripModel()->GetActiveWebContents();
+  const GURL initial_active_url = active_tab->GetLastCommittedURL();
+  const int initial_tab_count = browser()->GetTabStripModel()->count();
+
+  // Request a CURRENT_TAB navigation carrying the results frame's frame tree
+  // node id, which belongs to the side panel rather than to the tab being
+  // navigated.
+  const content::OpenURLParams params = MakeRendererInitiatedParams(
+      results_frame, embedded_test_server()->GetURL("/title1.html"),
+      WindowOpenDisposition::CURRENT_TAB, /*user_gesture=*/true,
+      results_frame->GetFrameTreeNodeId());
+
+  // The request should be handled safely without crashing on frame tree
+  // lookups or navigating the current active tab.
+  side_panel_contents->OpenURL(params, /*navigation_handle_callback=*/{});
+
+  // Verify the active tab was not navigated, not even asynchronously.
+  EXPECT_FALSE(active_tab->GetController().GetPendingEntry());
+  EXPECT_EQ(initial_active_url, active_tab->GetLastCommittedURL());
+  EXPECT_EQ(initial_tab_count, browser()->GetTabStripModel()->count());
+}
+
+IN_PROC_BROWSER_TEST_F(
+    LensOverlayControllerBrowserTest,
+    SidePanel_OpenURLFromTab_WithoutUserActivation_BlocksPopup) {
+  WaitForPaint();
+
+  content::RenderFrameHost* results_frame = OpenSidePanelAndGetResultsFrame();
+  ASSERT_TRUE(results_frame);
+  content::WebContents* side_panel_contents =
+      GetLensOverlayController()->GetSidePanelWebContentsForTesting();
+  ASSERT_TRUE(side_panel_contents);
+
+  const int initial_tab_count = browser()->GetTabStripModel()->count();
+  auto* popup_blocker = blocked_content::PopupBlockerTabHelper::FromWebContents(
+      browser()->GetTabStripModel()->GetActiveWebContents());
+  ASSERT_TRUE(popup_blocker);
+
+  // Send OpenURL requests with user_gesture = false and no transient
+  // activation anywhere.
+  const WindowOpenDisposition kDispositions[] = {
+      WindowOpenDisposition::NEW_BACKGROUND_TAB,
+      WindowOpenDisposition::NEW_FOREGROUND_TAB,
+  };
+
+  size_t expected_blocked_popups = 0;
+  for (WindowOpenDisposition disposition : kDispositions) {
+    SCOPED_TRACE(testing::Message()
+                 << "disposition " << static_cast<int>(disposition));
+    const content::OpenURLParams params = MakeRendererInitiatedParams(
+        results_frame, embedded_test_server()->GetURL("/title1.html"),
+        disposition, /*user_gesture=*/false);
+
+    side_panel_contents->OpenURL(params, /*navigation_handle_callback=*/{});
+
+    // Verify that the request is evaluated against popup blocking rules and
+    // does not open a new tab.
+    ++expected_blocked_popups;
+    EXPECT_EQ(initial_tab_count, browser()->GetTabStripModel()->count());
+    EXPECT_EQ(expected_blocked_popups, popup_blocker->GetBlockedPopupsCount());
+  }
+}
+
+// The side panel WebUI main frame is chrome-untrusted:// content, so requests
+// it initiates must be validated exactly like requests from the results frame.
+IN_PROC_BROWSER_TEST_F(
+    LensOverlayControllerBrowserTest,
+    SidePanel_OpenURLFromTab_CurrentTabFromWebUIMainFrame_IsAlsoValidated) {
+  WaitForPaint();
+
+  ASSERT_TRUE(OpenSidePanelAndGetResultsFrame());
+  content::WebContents* side_panel_contents =
+      GetLensOverlayController()->GetSidePanelWebContentsForTesting();
+  ASSERT_TRUE(side_panel_contents);
+  content::RenderFrameHost* main_frame =
+      side_panel_contents->GetPrimaryMainFrame();
+  ASSERT_TRUE(main_frame);
+
+  content::WebContents* active_tab =
+      browser()->GetTabStripModel()->GetActiveWebContents();
+  const GURL initial_active_url = active_tab->GetLastCommittedURL();
+  const int initial_tab_count = browser()->GetTabStripModel()->count();
+  auto* popup_blocker =
+      blocked_content::PopupBlockerTabHelper::FromWebContents(active_tab);
+  ASSERT_TRUE(popup_blocker);
+
+  const content::OpenURLParams params = MakeRendererInitiatedParams(
+      main_frame, embedded_test_server()->GetURL("/title1.html"),
+      WindowOpenDisposition::CURRENT_TAB, /*user_gesture=*/true,
+      main_frame->GetFrameTreeNodeId());
+
+  side_panel_contents->OpenURL(params, /*navigation_handle_callback=*/{});
+
+  // The request is demoted and popup blocked rather than forwarded verbatim,
+  // so the tab is neither navigated nor replaced.
+  EXPECT_EQ(1u, popup_blocker->GetBlockedPopupsCount());
+  EXPECT_EQ(initial_tab_count, browser()->GetTabStripModel()->count());
+  EXPECT_FALSE(active_tab->GetController().GetPendingEntry());
+  EXPECT_EQ(initial_active_url, active_tab->GetLastCommittedURL());
+}
+
+// Dispositions that `blocked_content::ConsiderForPopupBlocking()` ignores must
+// not be forwarded as-is, otherwise the results frame could start downloads or
+// open off-the-record windows without a user gesture.
+IN_PROC_BROWSER_TEST_F(
+    LensOverlayControllerBrowserTest,
+    SidePanel_OpenURLFromTab_DemotesDispositionsThatSkipPopupBlocking) {
+  WaitForPaint();
+
+  content::RenderFrameHost* results_frame = OpenSidePanelAndGetResultsFrame();
+  ASSERT_TRUE(results_frame);
+  content::WebContents* side_panel_contents =
+      GetLensOverlayController()->GetSidePanelWebContentsForTesting();
+  ASSERT_TRUE(side_panel_contents);
+
+  content::WebContents* active_tab =
+      browser()->GetTabStripModel()->GetActiveWebContents();
+  const GURL initial_active_url = active_tab->GetLastCommittedURL();
+  const int initial_tab_count = browser()->GetTabStripModel()->count();
+  auto* popup_blocker =
+      blocked_content::PopupBlockerTabHelper::FromWebContents(active_tab);
+  ASSERT_TRUE(popup_blocker);
+
+  const WindowOpenDisposition kDispositions[] = {
+      WindowOpenDisposition::SAVE_TO_DISK,
+      WindowOpenDisposition::OFF_THE_RECORD,
+      WindowOpenDisposition::CURRENT_TAB,
+      WindowOpenDisposition::SWITCH_TO_TAB,
+      WindowOpenDisposition::NEW_PICTURE_IN_PICTURE,
+  };
+
+  size_t expected_blocked_popups = 0;
+  for (WindowOpenDisposition disposition : kDispositions) {
+    SCOPED_TRACE(testing::Message()
+                 << "disposition " << static_cast<int>(disposition));
+    const content::OpenURLParams params = MakeRendererInitiatedParams(
+        results_frame, embedded_test_server()->GetURL("/title1.html"),
+        disposition, /*user_gesture=*/true);
+
+    side_panel_contents->OpenURL(params, /*navigation_handle_callback=*/{});
+
+    // Each request is demoted to NEW_FOREGROUND_TAB, and because there is no
+    // real transient activation it is then caught by the popup blocker.
+    ++expected_blocked_popups;
+    EXPECT_EQ(expected_blocked_popups, popup_blocker->GetBlockedPopupsCount());
+    EXPECT_EQ(initial_tab_count, browser()->GetTabStripModel()->count());
+    EXPECT_FALSE(active_tab->GetController().GetPendingEntry());
+    EXPECT_EQ(initial_active_url, active_tab->GetLastCommittedURL());
+  }
+}
+
+IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
+                       SidePanel_OpenURLFromTab_BlocksNonWebSchemes) {
+  WaitForPaint();
+
+  content::RenderFrameHost* results_frame = OpenSidePanelAndGetResultsFrame();
+  ASSERT_TRUE(results_frame);
+  content::WebContents* side_panel_contents =
+      GetLensOverlayController()->GetSidePanelWebContentsForTesting();
+  ASSERT_TRUE(side_panel_contents);
+
+  content::WebContents* active_tab =
+      browser()->GetTabStripModel()->GetActiveWebContents();
+  const GURL initial_active_url = active_tab->GetLastCommittedURL();
+  const GURL initial_side_panel_url =
+      side_panel_contents->GetLastCommittedURL();
+  const int initial_tab_count = browser()->GetTabStripModel()->count();
+  auto* popup_blocker =
+      blocked_content::PopupBlockerTabHelper::FromWebContents(active_tab);
+  ASSERT_TRUE(popup_blocker);
+
+  const GURL non_web_urls[] = {
+      GURL("chrome://settings/"),
+      GURL("file:///etc/passwd"),
+      GURL("javascript:alert('sample')"),
+      GURL("data:text/html,<p>sample</p>"),
+      GURL("about:blank"),
+      GURL("devtools://devtools/bundled/inspector.html"),
+      GURL("mailto:sample@example.com"),
+  };
+
+  for (const GURL& target_url : non_web_urls) {
+    SCOPED_TRACE(testing::Message() << "url " << target_url);
+    const content::OpenURLParams params = MakeRendererInitiatedParams(
+        results_frame, target_url, WindowOpenDisposition::NEW_FOREGROUND_TAB,
+        /*user_gesture=*/true);
+
+    // The request is rejected outright, so it is neither navigated nor
+    // recorded as a blocked popup. The return value is not checked because
+    // LensOverlaySidePanelWebView::OpenURLFromTab() always returns nullptr;
+    // only the observable state below distinguishes a rejected request from an
+    // accepted one.
+    side_panel_contents->OpenURL(params, /*navigation_handle_callback=*/{});
+    EXPECT_EQ(initial_tab_count, browser()->GetTabStripModel()->count());
+    EXPECT_EQ(0u, popup_blocker->GetBlockedPopupsCount());
+    EXPECT_FALSE(active_tab->GetController().GetPendingEntry());
+    EXPECT_EQ(initial_active_url, active_tab->GetLastCommittedURL());
+    EXPECT_EQ(initial_side_panel_url,
+              side_panel_contents->GetLastCommittedURL());
+  }
+}
+
+// A genuine, user activated link click in the results frame must still open a
+// new tab and must not be caught by the popup blocker.
+IN_PROC_BROWSER_TEST_F(
+    LensOverlayControllerBrowserTest,
+    SidePanel_OpenURLFromTab_ActivatedLinkClick_IsNotPopupBlocked) {
+  WaitForPaint();
+
+  content::RenderFrameHost* results_frame = OpenSidePanelAndGetResultsFrame();
+  ASSERT_TRUE(results_frame);
+
+  auto* popup_blocker = blocked_content::PopupBlockerTabHelper::FromWebContents(
+      browser()->GetTabStripModel()->GetActiveWebContents());
+  ASSERT_TRUE(popup_blocker);
+
+  // The side panel only forwards navigations from the trusted search origin,
+  // so make the results frame present that origin.
+  content::OverrideLastCommittedOrigin(
+      results_frame, url::Origin::Create(GURL("https://www.google.com/")));
+
+  const int initial_tab_count = browser()->GetTabStripModel()->count();
+
+  // content::ExecJs runs the script with a user gesture, so the click below
+  // carries real transient activation.
+  ui_test_utils::AllBrowserTabAddedWaiter add_tab;
+  // Cross origin relative to the results frame, so the click is forwarded to
+  // the browser instead of being handled inside the side panel.
+  const GURL nav_url = embedded_test_server()->GetURL("/title1.html");
+  ASSERT_TRUE(content::ExecJs(
+      results_frame, content::JsReplace(kNewTabLinkClickScript, nav_url),
+      content::EvalJsOptions::EXECUTE_SCRIPT_NO_RESOLVE_PROMISES));
+
+  content::WebContents* new_tab = add_tab.Wait();
+  ASSERT_TRUE(new_tab);
+  EXPECT_TRUE(content::WaitForLoadStop(new_tab));
+  EXPECT_EQ(nav_url, new_tab->GetLastCommittedURL());
+  EXPECT_EQ(0u, popup_blocker->GetBlockedPopupsCount());
+
+  // A duplicate tab would be opened from a posted task, so let the already
+  // posted tasks run before counting.
+  WaitForPreviouslyPostedTasks();
+  EXPECT_EQ(initial_tab_count + 1, browser()->GetTabStripModel()->count());
+}
+
+// Regression test for a single request opening two tabs. The side panel
+// WebContents is observed by LensOverlaySidePanelCoordinator, which opens the
+// URL in the browser from DidOpenRequestedURL(). That notification is only sent
+// when the delegate returns a WebContents, so OpenURLFromTab() must not return
+// one. This is the shape of the params that the renderer context menu builds
+// for "Open link in new tab".
+IN_PROC_BROWSER_TEST_F(
+    LensOverlayControllerBrowserTest,
+    SidePanel_OpenURLFromTab_ContextMenuNewTab_OpensExactlyOneTab) {
+  WaitForPaint();
+
+  content::RenderFrameHost* results_frame = OpenSidePanelAndGetResultsFrame();
+  ASSERT_TRUE(results_frame);
+  content::WebContents* side_panel_contents =
+      GetLensOverlayController()->GetSidePanelWebContentsForTesting();
+  ASSERT_TRUE(side_panel_contents);
+
+  // The coordinator only re-opens URLs coming from the trusted search origin,
+  // so this is required for the duplicate tab to be reachable at all.
+  content::OverrideLastCommittedOrigin(
+      results_frame, url::Origin::Create(GURL("https://www.google.com/")));
+
+  auto* popup_blocker = blocked_content::PopupBlockerTabHelper::FromWebContents(
+      browser()->GetTabStripModel()->GetActiveWebContents());
+  ASSERT_TRUE(popup_blocker);
+
+  const int initial_tab_count = browser()->GetTabStripModel()->count();
+  const GURL nav_url = embedded_test_server()->GetURL("/title1.html");
+
+  // A real right click notifies user activation from
+  // EventHandler::HandleMousePressEvent(), so the frame has transient
+  // activation by the time the context menu command runs. content::ExecJs runs
+  // with a user gesture, which reproduces that state.
+  ASSERT_TRUE(content::ExecJs(results_frame, "true;"));
+
+  // RenderViewContextMenuBase builds browser initiated params, which default to
+  // user_gesture=true, and stamps the frame that was right clicked as both the
+  // source and the initiator.
+  const content::OpenURLParams params = MakeContextMenuParams(
+      results_frame, nav_url, WindowOpenDisposition::NEW_BACKGROUND_TAB);
+
+  ui_test_utils::AllBrowserTabAddedWaiter add_tab;
+  side_panel_contents->OpenURL(params, /*navigation_handle_callback=*/{});
+
+  content::WebContents* new_tab = add_tab.Wait();
+  ASSERT_TRUE(new_tab);
+  EXPECT_TRUE(content::WaitForLoadStop(new_tab));
+  EXPECT_EQ(nav_url, new_tab->GetLastCommittedURL());
+
+  // The duplicate tab would be opened from a posted task, so let the already
+  // posted tasks run before counting.
+  WaitForPreviouslyPostedTasks();
+  EXPECT_EQ(initial_tab_count + 1, browser()->GetTabStripModel()->count());
+  EXPECT_EQ(0u, popup_blocker->GetBlockedPopupsCount());
+}
+
+// Regression test for "Open link in incognito window" silently opening a normal
+// tab in the regular profile. OFF_THE_RECORD is excluded from the disposition
+// allow-list because a compromised renderer must not reach it, but a context
+// menu command is browser initiated and must still work. Note that no transient
+// activation is granted here: a context menu can easily stay open longer than
+// the activation lifetime, so browser initiated requests must not depend on it.
+IN_PROC_BROWSER_TEST_F(
+    LensOverlayControllerBrowserTest,
+    SidePanel_OpenURLFromTab_ContextMenuIncognito_OpensOffTheRecord) {
+  WaitForPaint();
+
+  content::RenderFrameHost* results_frame = OpenSidePanelAndGetResultsFrame();
+  ASSERT_TRUE(results_frame);
+  content::WebContents* side_panel_contents =
+      GetLensOverlayController()->GetSidePanelWebContentsForTesting();
+  ASSERT_TRUE(side_panel_contents);
+
+  const int initial_tab_count = browser()->GetTabStripModel()->count();
+  const GURL nav_url = embedded_test_server()->GetURL("/title1.html");
+
+  const content::OpenURLParams params = MakeContextMenuParams(
+      results_frame, nav_url, WindowOpenDisposition::OFF_THE_RECORD);
+
+  auto* popup_blocker = blocked_content::PopupBlockerTabHelper::FromWebContents(
+      browser()->GetTabStripModel()->GetActiveWebContents());
+  ASSERT_TRUE(popup_blocker);
+
+  ui_test_utils::AllBrowserTabAddedWaiter add_tab;
+  side_panel_contents->OpenURL(params, /*navigation_handle_callback=*/{});
+
+  // Popup blocking happens synchronously inside OpenURL, so checking it here
+  // makes a regression fail in seconds with a clear message rather than hanging
+  // in Wait() below until the test launcher timeout.
+  ASSERT_EQ(0u, popup_blocker->GetBlockedPopupsCount())
+      << "The request was demoted and popup blocked instead of being opened "
+         "off the record";
+
+  content::WebContents* new_tab = add_tab.Wait();
+  ASSERT_TRUE(new_tab);
+  EXPECT_TRUE(content::WaitForLoadStop(new_tab));
+  EXPECT_EQ(nav_url, new_tab->GetLastCommittedURL());
+
+  // The whole point: the request must land in an off the record profile rather
+  // than being demoted into a regular tab.
+  EXPECT_TRUE(new_tab->GetBrowserContext()->IsOffTheRecord());
+  EXPECT_NE(browser()->GetProfile(), new_tab->GetBrowserContext());
+
+  // The original browser must not have gained a tab.
+  WaitForPreviouslyPostedTasks();
+  EXPECT_EQ(initial_tab_count, browser()->GetTabStripModel()->count());
+}
+
+// The counterpart to the test above: the same disposition coming from the
+// renderer must still be demoted, because the popup blocker ignores
+// OFF_THE_RECORD and a compromised results frame could otherwise open
+// off the record windows at will.
+IN_PROC_BROWSER_TEST_F(
+    LensOverlayControllerBrowserTest,
+    SidePanel_OpenURLFromTab_RendererIncognito_IsStillDemoted) {
+  WaitForPaint();
+
+  content::RenderFrameHost* results_frame = OpenSidePanelAndGetResultsFrame();
+  ASSERT_TRUE(results_frame);
+  content::WebContents* side_panel_contents =
+      GetLensOverlayController()->GetSidePanelWebContentsForTesting();
+  ASSERT_TRUE(side_panel_contents);
+
+  auto* popup_blocker = blocked_content::PopupBlockerTabHelper::FromWebContents(
+      browser()->GetTabStripModel()->GetActiveWebContents());
+  ASSERT_TRUE(popup_blocker);
+
+  const int initial_tab_count = browser()->GetTabStripModel()->count();
+  const GURL nav_url = embedded_test_server()->GetURL("/title1.html");
+
+  const content::OpenURLParams params = MakeRendererInitiatedParams(
+      results_frame, nav_url, WindowOpenDisposition::OFF_THE_RECORD,
+      /*user_gesture=*/true);
+
+  side_panel_contents->OpenURL(params, /*navigation_handle_callback=*/{});
+  WaitForPreviouslyPostedTasks();
+
+  // Demoted to NEW_FOREGROUND_TAB, then popup blocked because the claimed
+  // gesture is not backed by transient activation. Either way, no off the
+  // record window is opened and no tab is added.
+  EXPECT_EQ(initial_tab_count, browser()->GetTabStripModel()->count());
+  EXPECT_EQ(1u, popup_blocker->GetBlockedPopupsCount());
 }
 
 // TODO(crbug.com/413042395): This test is not testing overlay logic, but
@@ -4534,7 +5025,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   ASSERT_EQ(controller->state(), State::kOff);
 
   // Open the side panel
-  auto* const side_panel_ui = browser()->GetFeatures().side_panel_ui();
+  auto* const side_panel_ui = SidePanelUI::From(browser());
   side_panel_ui->Show(SidePanelEntry::Id::kBookmarks);
   ASSERT_TRUE(base::test::RunUntil([&]() {
     return side_panel_ui->IsSidePanelEntryShowing(
@@ -4560,7 +5051,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   ASSERT_EQ(controller->state(), State::kOff);
 
   // Open the side panel (unrelated panel, e.g. Bookmarks)
-  auto* const side_panel_ui = browser()->GetFeatures().side_panel_ui();
+  auto* const side_panel_ui = SidePanelUI::From(browser());
   side_panel_ui->Show(SidePanelEntry::Id::kBookmarks);
   ASSERT_TRUE(base::test::RunUntil([&]() {
     return side_panel_ui->IsSidePanelEntryShowing(
@@ -4591,7 +5082,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   ASSERT_EQ(controller->state(), State::kOff);
 
   // Open the side panel
-  auto* const side_panel_ui = browser()->GetFeatures().side_panel_ui();
+  auto* const side_panel_ui = SidePanelUI::From(browser());
   side_panel_ui->Show(SidePanelEntry::Id::kBookmarks);
   ASSERT_TRUE(base::test::RunUntil([&]() {
     return side_panel_ui->IsSidePanelEntryShowing(
@@ -4636,7 +5127,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
   EXPECT_FALSE(fake_controller->fake_overlay_page_.did_notify_overlay_closing_);
 
   // Open the side panel
-  auto* const side_panel_ui = browser()->GetFeatures().side_panel_ui();
+  auto* const side_panel_ui = SidePanelUI::From(browser());
   side_panel_ui->Show(SidePanelEntry::Id::kBookmarks);
   ASSERT_TRUE(base::test::RunUntil([&]() {
     return side_panel_ui->IsSidePanelEntryShowing(
@@ -4680,8 +5171,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
       base::test::RunUntil([&]() { return IsLensResultsSidePanelShowing(); }));
 
   // Open a different side panel
-  browser()->GetFeatures().side_panel_ui()->Show(
-      SidePanelEntry::Id::kBookmarks);
+  SidePanelUI::From(browser())->Show(SidePanelEntry::Id::kBookmarks);
 
   // Overlay should close.
   ASSERT_TRUE(base::test::RunUntil(
@@ -4692,8 +5182,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest, SidePanelOpen) {
   WaitForPaint();
 
   // Wait for side panel to fully open.
-  browser()->GetFeatures().side_panel_ui()->Show(
-      SidePanelEntry::Id::kBookmarks);
+  SidePanelUI::From(browser())->Show(SidePanelEntry::Id::kBookmarks);
   ASSERT_TRUE(base::test::RunUntil(
       [&]() { return GetSidePanel()->state() == SidePanel::State::kOpen; }));
 
@@ -5333,10 +5822,8 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserFullscreenDisabled,
       [&]() { return controller->state() == State::kOverlay; }));
 
   // Enter into fullscreen mode.
-  FullscreenController* fullscreen_controller = browser()
-                                                    ->GetFeatures()
-                                                    .exclusive_access_manager()
-                                                    ->fullscreen_controller();
+  FullscreenController* fullscreen_controller =
+      ExclusiveAccessManager::From(browser())->fullscreen_controller();
   content::WebContents* tab_web_contents =
       browser()->GetTabStripModel()->GetActiveWebContents();
   fullscreen_controller->EnterFullscreenModeForTab(
@@ -5362,10 +5849,8 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserFullscreenDisabled,
           IDC_CONTENT_CONTEXT_LENS_OVERLAY));
 
   // Enter into fullscreen mode.
-  FullscreenController* fullscreen_controller = browser()
-                                                    ->GetFeatures()
-                                                    .exclusive_access_manager()
-                                                    ->fullscreen_controller();
+  FullscreenController* fullscreen_controller =
+      ExclusiveAccessManager::From(browser())->fullscreen_controller();
   content::WebContents* tab_web_contents =
       browser()->GetTabStripModel()->GetActiveWebContents();
   fullscreen_controller->EnterFullscreenModeForTab(
@@ -6278,7 +6763,7 @@ IN_PROC_BROWSER_TEST_P(LensOverlayControllerBrowserPDFContextualizationTest,
             metrics::OmniboxEventProto::CONTEXTUAL_SEARCHBOX);
 
   // Expect the Lens Overlay results panel to open.
-  EXPECT_TRUE(browser()->GetFeatures().side_panel_ui()->IsSidePanelEntryShowing(
+  EXPECT_TRUE(SidePanelUI::From(browser())->IsSidePanelEntryShowing(
       SidePanelEntryKey(SidePanelEntryId::kLensOverlayResults)));
   EXPECT_TRUE(content::WaitForLoadStop(
       controller->GetSidePanelWebContentsForTesting()));
@@ -9034,7 +9519,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerSideBySideBrowserTest,
   EXPECT_TRUE(rounded_corners.upper_left() == 0);
 
   // Test per-entry alignment override to left-align the active side panel.
-  auto* side_panel_ui = browser()->GetFeatures().side_panel_ui();
+  auto* side_panel_ui = SidePanelUI::From(browser());
   ASSERT_TRUE(side_panel_ui);
   auto current_entry_id = side_panel_ui->GetCurrentEntryId();
   ASSERT_TRUE(current_entry_id.has_value());
@@ -9191,7 +9676,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerBrowserTest,
                                     0);
 
   // Open the side panel so we can test the side panel closing metric.
-  auto* const side_panel_ui = browser()->GetFeatures().side_panel_ui();
+  auto* const side_panel_ui = SidePanelUI::From(browser());
   side_panel_ui->Show(SidePanelEntry::Id::kBookmarks);
   ASSERT_TRUE(base::test::RunUntil([&]() {
     return side_panel_ui->IsSidePanelEntryShowing(
@@ -9409,8 +9894,6 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerReinvocationBrowserTest,
                   .last_received_is_side_panel_open_.value());
 
   // Verify the content bytes were included in a followup request.
-  auto page_content_request_payload =
-      fake_query_controller->last_sent_page_content_payload();
   EXPECT_EQ(fake_query_controller->num_page_content_update_requests_sent(), 1);
 }
 
@@ -9703,7 +10186,7 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerReinvocationBrowserTest,
   controller->IssueLensRegionRequestForTesting(kTestRegion->Clone(),
                                                /*is_click=*/false);
   // Expect the Lens Overlay results panel to open.
-  ASSERT_TRUE(browser()->GetFeatures().side_panel_ui()->IsSidePanelEntryShowing(
+  ASSERT_TRUE(SidePanelUI::From(browser())->IsSidePanelEntryShowing(
       SidePanelEntryKey(SidePanelEntryId::kLensOverlayResults)));
   EXPECT_TRUE(content::WaitForLoadStop(
       controller->GetSidePanelWebContentsForTesting()));
@@ -10036,4 +10519,244 @@ IN_PROC_BROWSER_TEST_F(LensOverlayControllerCoBrowsePreselectionTest,
   EXPECT_EQ(preselection_widget->widget_delegate()->GetAccessibleWindowTitle(),
             l10n_util::GetStringUTF16(
                 IDS_LENS_OVERLAY_INITIAL_TOAST_MESSAGE_SIMPLIFIED));
+}
+
+class LensOverlayControllerNonBlockingPrivacyNoticeBrowserTest
+    : public LensOverlayControllerBrowserTest {
+ public:
+  LensOverlayControllerNonBlockingPrivacyNoticeBrowserTest() = default;
+
+  void SetupFeatureList() override {
+    feature_list_.InitWithFeatures(
+        /*enabled_features=*/
+        {lens::features::kLensOverlayNonBlockingPrivacyNotice,
+         lens::features::kLensOverlayContextualSearchbox,
+         contextual_tasks::kContextualTasksSidePanel},
+        /*disabled_features=*/{contextual_tasks::kContextualTasks});
+  }
+
+  void SetUpOnMainThread() override {
+    LensOverlayControllerBrowserTest::SetUpOnMainThread();
+    browser()->GetProfile()->GetPrefs()->SetBoolean(
+        lens::prefs::kLensSharingPageScreenshotEnabled, false);
+    browser()->GetProfile()->GetPrefs()->SetBoolean(
+        lens::prefs::kLensSharingPageContentEnabled, false);
+  }
+};
+
+IN_PROC_BROWSER_TEST_F(LensOverlayControllerNonBlockingPrivacyNoticeBrowserTest,
+                       AcceptPrivacyNoticeWithoutUserActivation_Rejected) {
+  WaitForPaint();
+
+  base::HistogramTester histogram_tester;
+
+  auto* controller = GetLensOverlayController();
+  EXPECT_EQ(controller->state(), State::kOff);
+
+  auto* prefs = browser()->GetProfile()->GetPrefs();
+  EXPECT_FALSE(
+      prefs->GetBoolean(lens::prefs::kLensSharingPageScreenshotEnabled));
+  EXPECT_FALSE(prefs->GetBoolean(lens::prefs::kLensSharingPageContentEnabled));
+
+  // Open the overlay.
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return controller->state() == State::kOverlay; }));
+
+  content::WebContents* overlay_web_contents = GetOverlayWebContents();
+  ASSERT_NE(overlay_web_contents, nullptr);
+  EXPECT_TRUE(content::WaitForLoadStop(overlay_web_contents));
+
+  content::RenderFrameHost* rfh = overlay_web_contents->GetPrimaryMainFrame();
+  ASSERT_NE(rfh, nullptr);
+  EXPECT_FALSE(rfh->HasTransientUserActivation());
+
+  content::RenderProcessHostBadMojoMessageWaiter bad_message_waiter(
+      rfh->GetProcess());
+
+  // Invoke AcceptPrivacyNotice via JavaScript without user activation.
+  content::ExecuteScriptAsyncWithoutUserGesture(
+      overlay_web_contents,
+      "document.querySelector('lens-overlay-app').browserProxy.handler."
+      "acceptPrivacyNotice();");
+
+  EXPECT_EQ(
+      "Received bad user message: AcceptPrivacyNotice called without user "
+      "activation.",
+      bad_message_waiter.Wait());
+
+  // Permissions should not be granted.
+  EXPECT_FALSE(
+      prefs->GetBoolean(lens::prefs::kLensSharingPageScreenshotEnabled));
+  EXPECT_FALSE(prefs->GetBoolean(lens::prefs::kLensSharingPageContentEnabled));
+
+  histogram_tester.ExpectTotalCount(
+      "Lens.Overlay.NonBlockingPrivacyNotice.Accepted", 0);
+}
+
+IN_PROC_BROWSER_TEST_F(
+    LensOverlayControllerNonBlockingPrivacyNoticeBrowserTest,
+    AcceptPrivacyNoticeWithUserActivation_GrantsPermissions) {
+  WaitForPaint();
+
+  base::HistogramTester histogram_tester;
+
+  auto* controller = GetLensOverlayController();
+  EXPECT_EQ(controller->state(), State::kOff);
+
+  auto* prefs = browser()->GetProfile()->GetPrefs();
+  EXPECT_FALSE(
+      prefs->GetBoolean(lens::prefs::kLensSharingPageScreenshotEnabled));
+  EXPECT_FALSE(prefs->GetBoolean(lens::prefs::kLensSharingPageContentEnabled));
+
+  // Open the overlay.
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return controller->state() == State::kOverlay; }));
+
+  content::WebContents* overlay_web_contents = GetOverlayWebContents();
+  ASSERT_NE(overlay_web_contents, nullptr);
+  EXPECT_TRUE(content::WaitForLoadStop(overlay_web_contents));
+
+  // Invoke AcceptPrivacyNotice with user activation via ExecJs (default option
+  // includes user gesture).
+  EXPECT_TRUE(content::ExecJs(
+      overlay_web_contents,
+      "document.querySelector('lens-overlay-app').browserProxy.handler."
+      "acceptPrivacyNotice();"));
+
+  // Wait for permissions to be granted.
+  EXPECT_TRUE(base::test::RunUntil([&]() {
+    return prefs->GetBoolean(lens::prefs::kLensSharingPageScreenshotEnabled) &&
+           prefs->GetBoolean(lens::prefs::kLensSharingPageContentEnabled);
+  }));
+
+  histogram_tester.ExpectUniqueSample(
+      "Lens.Overlay.NonBlockingPrivacyNotice.Accepted",
+      lens::LensOverlayNonBlockingPrivacyNoticeUserAction::kAccepted, 1);
+}
+
+IN_PROC_BROWSER_TEST_F(LensOverlayControllerNonBlockingPrivacyNoticeBrowserTest,
+                       DismissPrivacyNotice_Success) {
+  WaitForPaint();
+
+  base::HistogramTester histogram_tester;
+
+  auto* controller = GetLensOverlayController();
+  EXPECT_EQ(controller->state(), State::kOff);
+
+  // Open the overlay.
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return controller->state() == State::kOverlay; }));
+
+  content::WebContents* overlay_web_contents = GetOverlayWebContents();
+  ASSERT_NE(overlay_web_contents, nullptr);
+  EXPECT_TRUE(content::WaitForLoadStop(overlay_web_contents));
+
+  // Invoke DismissPrivacyNotice via JavaScript.
+  EXPECT_TRUE(content::ExecJs(
+      overlay_web_contents,
+      "document.querySelector('lens-overlay-app').browserProxy.handler."
+      "dismissPrivacyNotice();"));
+
+  histogram_tester.ExpectUniqueSample(
+      "Lens.Overlay.NonBlockingPrivacyNotice.Accepted",
+      lens::LensOverlayNonBlockingPrivacyNoticeUserAction::kDismissed, 1);
+}
+
+class LensOverlayControllerPrivacyNoticeFeatureDisabledBrowserTest
+    : public LensOverlayControllerBrowserTest {
+ public:
+  LensOverlayControllerPrivacyNoticeFeatureDisabledBrowserTest() = default;
+
+  void SetupFeatureList() override {
+    feature_list_.InitWithFeatures(
+        /*enabled_features=*/
+        {lens::features::kLensOverlayContextualSearchbox,
+         contextual_tasks::kContextualTasksSidePanel},
+        /*disabled_features=*/{
+            lens::features::kLensOverlayNonBlockingPrivacyNotice,
+            contextual_tasks::kContextualTasks});
+  }
+};
+
+IN_PROC_BROWSER_TEST_F(
+    LensOverlayControllerPrivacyNoticeFeatureDisabledBrowserTest,
+    AcceptPrivacyNoticeWhenFeatureDisabled_ReportsBadMessage) {
+  WaitForPaint();
+
+  base::HistogramTester histogram_tester;
+
+  auto* controller = GetLensOverlayController();
+  EXPECT_EQ(controller->state(), State::kOff);
+
+  // Open the overlay with non-blocking privacy notice disabled.
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return controller->state() == State::kOverlay; }));
+
+  content::WebContents* overlay_web_contents = GetOverlayWebContents();
+  ASSERT_NE(overlay_web_contents, nullptr);
+  EXPECT_TRUE(content::WaitForLoadStop(overlay_web_contents));
+
+  content::RenderFrameHost* rfh = overlay_web_contents->GetPrimaryMainFrame();
+  ASSERT_NE(rfh, nullptr);
+
+  content::RenderProcessHostBadMojoMessageWaiter bad_message_waiter(
+      rfh->GetProcess());
+
+  // Invoke AcceptPrivacyNotice when feature is disabled.
+  content::ExecuteScriptAsync(
+      overlay_web_contents,
+      "document.querySelector('lens-overlay-app').browserProxy.handler."
+      "acceptPrivacyNotice();");
+
+  EXPECT_EQ(
+      "Received bad user message: AcceptPrivacyNotice called when "
+      "non-blocking privacy notice is not enabled.",
+      bad_message_waiter.Wait());
+
+  histogram_tester.ExpectTotalCount(
+      "Lens.Overlay.NonBlockingPrivacyNotice.Accepted", 0);
+}
+
+IN_PROC_BROWSER_TEST_F(
+    LensOverlayControllerPrivacyNoticeFeatureDisabledBrowserTest,
+    DismissPrivacyNoticeWhenFeatureDisabled_ReportsBadMessage) {
+  WaitForPaint();
+
+  base::HistogramTester histogram_tester;
+
+  auto* controller = GetLensOverlayController();
+  EXPECT_EQ(controller->state(), State::kOff);
+
+  // Open the overlay with non-blocking privacy notice disabled.
+  OpenLensOverlay(LensOverlayInvocationSource::kAppMenu);
+  ASSERT_TRUE(base::test::RunUntil(
+      [&]() { return controller->state() == State::kOverlay; }));
+
+  content::WebContents* overlay_web_contents = GetOverlayWebContents();
+  ASSERT_NE(overlay_web_contents, nullptr);
+  EXPECT_TRUE(content::WaitForLoadStop(overlay_web_contents));
+
+  content::RenderFrameHost* rfh = overlay_web_contents->GetPrimaryMainFrame();
+  ASSERT_NE(rfh, nullptr);
+
+  content::RenderProcessHostBadMojoMessageWaiter bad_message_waiter(
+      rfh->GetProcess());
+
+  // Invoke DismissPrivacyNotice when feature is disabled.
+  content::ExecuteScriptAsync(
+      overlay_web_contents,
+      "document.querySelector('lens-overlay-app').browserProxy.handler."
+      "dismissPrivacyNotice();");
+
+  EXPECT_EQ(
+      "Received bad user message: DismissPrivacyNotice called when "
+      "non-blocking privacy notice is not enabled.",
+      bad_message_waiter.Wait());
+
+  histogram_tester.ExpectTotalCount(
+      "Lens.Overlay.NonBlockingPrivacyNotice.Accepted", 0);
 }

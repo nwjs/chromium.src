@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ui/views/frame/top_controls_slide_controller_chromeos.h"
 
+#include <tuple>
 #include <vector>
 
 #include "base/auto_reset.h"
@@ -13,8 +14,10 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/search/search.h"
 #include "chrome/browser/ssl/chrome_security_state_util.h"
+#include "chrome/browser/ui/tabs/tab_change_type.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
+#include "chrome/browser/ui/views/frame/safe_invoke/safe_invoke.h"
 #include "chrome/browser/ui/views/frame/top_container_view.h"
 #include "chrome/browser/ui/views/location_bar/location_bar_view.h"
 #include "chrome/browser/ui/views/omnibox/omnibox_view_views.h"
@@ -122,22 +125,11 @@ cc::BrowserControlsState GetBrowserControlsStateConstraints(
 void SynchronizeVisualProperties(content::WebContents* contents) {
   DCHECK(contents);
 
-  content::RenderFrameHost* main_frame = contents->GetPrimaryMainFrame();
-  if (!main_frame) {
-    return;
-  }
-
-  auto* rvh = main_frame->GetRenderViewHost();
-  if (!rvh) {
-    return;
-  }
-
-  auto* widget = rvh->GetWidget();
-  if (!widget) {
-    return;
-  }
-
-  widget->SynchronizeVisualProperties();
+  std::ignore =
+      SafeInvoke(contents->GetPrimaryMainFrame())
+          .Then(&content::RenderFrameHost::GetRenderViewHost)
+          .Then(&content::RenderViewHost::GetWidget)
+          .Then(&content::RenderWidgetHost::SynchronizeVisualProperties);
 }
 
 }  // namespace

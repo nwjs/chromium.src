@@ -28,6 +28,11 @@ interface ToolbarUIObserver {
   // Called to focus an element in the WebUI, with `target` specifying
   // which one.
   OnFocusRequested(FocusRequestTarget target);
+
+  // Requests that JavaScript show the split tabs menu. Although the browser
+  // process is responsivle for showing the menu, only the WebUI can determine
+  // the button's location and ensure it's visible before anchoring.
+  ShowSplitTabsContextMenu();
 };
 
 struct InitialState {
@@ -42,15 +47,20 @@ struct AdjustOmniboxTextForCopyResult {
   mojo_base.mojom.String16? page_title;
 };
 
+// TrackedElementIdentifier or PinnedToolbarAction of an item that should be
+// shown in the overflow menu. These are checked in the browser against elements
+// that can overflow, to determine the icon and string shown in the menu, and
+// what to do when the item is clicked. Unknown IDs or IDs of elements that
+// can't overflow result in exceptions.
+union OverflowMenuItemId {
+  tracked_element.mojom.TrackedElementIdentifier tracked_element_id;
+  PinnedToolbarAction pinned_action;
+};
+
 // Information about a control that is hidden due to overflow, and should be
 // shown on the overflow button's pulldown menu.
 struct OverflowMenuItem {
-  // TrackedElementIdentifier of the item. This is checked in the browser
-  // against a list of ui::ElementIdentifiers that can overflow, to determine
-  // the icon and string shown in the menu, and what to do when the item is
-  // clicked. Unknown IDs or those of elements that can't overflow result in
-  // an exception.
-  tracked_element.mojom.TrackedElementIdentifier id;
+  OverflowMenuItemId id;
 
   // Whether the menu item should be enabled or greyed out.
   bool is_enabled;
@@ -70,9 +80,23 @@ interface ToolbarUIService {
   // WebUI (DOMRect) to avoid misalignment after scaling by the zoom factor.
   // The source indicates what triggered showing this menu (mouse, keyboard,
   // etc).
+  //
+  // `showMenuState` is an opaque identifier that should be echoed back in the
+  // State associated with the control for `menu_type`. It's used so that
+  // controls that have been hidden due to overflow can be shown and act like
+  // there is a menu visible until they can be sure the browser process has
+  // processed their request for a context menu, at which point, they can trust
+  // the relevant fields of the control's State indicate if a menu was indeed
+  // opened, and the control can be hidden again due to overflow. Used to
+  // prevent visual flickering due to outdated state messages. Only controls
+  // whose State fields have a `show_menu_token` field support this. For other
+  // controls, it's ignored. For controls that support `show_menu_token`, it's
+  // also ignored if null. It's only used for left click menus, since clicking
+  // on the overflow menu always acts as a left click.
   ShowContextMenu(ContextMenuType menu_type,
                   gfx.mojom.RectF bounds_in_css_pixels,
-                  ui.mojom.MenuSourceType source);
+                  ui.mojom.MenuSourceType source,
+                  uint32? show_menu_token);
 
   // Displays the overflow menu with the provided list of overflow control
   // items at the provided bounding rectangle in CSS pixels.
@@ -202,7 +226,12 @@ interface ToolbarUIService {
   OnAppMenuFocusChanged(bool focused);
 
   // Executes the user action for the extension with the given ID.
-  ExecuteExtensionAction(string extension_id);
+  // `is_pointer_interaction` is true if the action was triggered by a pointer
+  // interaction (mouse, touch, etc.) rather than a keyboard interaction.
+  ExecuteExtensionAction(string extension_id, bool is_pointer_interaction);
+
+  // Called when an extension action button is pressed (e.g. pointerdown).
+  OnExtensionActionPointerDown(string extension_id);
 
   // Displays the context menu for the extension with the given ID.
   ShowExtensionContextMenu(string extension_id, ui.mojom.MenuSourceType source);
@@ -219,4 +248,10 @@ interface ToolbarUIService {
   // Called when the performance intervention button is pressed
   // (e.g. pointerdown).
   OnPerformanceInterventionButtonMousePressed();
+
+  // Called when the media button is clicked.
+  OnMediaButtonClicked(bool is_mouse_interaction);
+
+  // Called when the media button is pressed (e.g. pointerdown).
+  OnMediaButtonMousePressed();
 };

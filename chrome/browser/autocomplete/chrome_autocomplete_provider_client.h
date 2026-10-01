@@ -108,6 +108,7 @@ class ChromeAutocompleteProviderClient : public AutocompleteProviderClient {
   AiModeButtonService* GetAiModeButtonService() const override;
 
   bool IsOffTheRecord() const override;
+  bool IsPrimaryOTRProfileWithRegularParent() const override;
   bool IsIncognitoProfile() const override;
   bool IsGuestSession() const override;
   bool SearchSuggestEnabled() const override;
@@ -138,7 +139,6 @@ class ChromeAutocompleteProviderClient : public AutocompleteProviderClient {
   std::optional<bool> IsPagePaywalled() const override;
   bool ShouldSendContextualUrlSuggestParam() const override;
   bool ShouldSendPageTitleSuggestParam() const override;
-  bool IsOmniboxNextLensSearchChipEnabled() const override;
   bool IsAskGShowChipEnabled() const override;
   bool IsOmniboxNextAimPopupEnabled() const override;
   bool IsGeminiStarterPackEnabled() const override;

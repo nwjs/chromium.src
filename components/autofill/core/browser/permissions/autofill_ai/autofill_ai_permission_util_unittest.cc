@@ -65,8 +65,6 @@ std::string GetTestSuffix(
       return "kFilling";
     case AutofillAiAction::kImport:
       return "kImport";
-    case AutofillAiAction::kIphForOptIn:
-      return "kIphForOptIn";
     case AutofillAiAction::kListEntityInstancesInSettings:
       return "kListEntityInstancesInSettings";
     case AutofillAiAction::kLogToMqls:
@@ -199,11 +197,10 @@ class AutofillAiMayPerformActionTest
 };
 
 // Verifies that the test fixture sets up the client so that everything but
-// opt-in IPH and the Wallet data sharing promotion is permitted.
+// Wallet data sharing promotion is permitted.
 TEST_P(AutofillAiMayPerformActionTest, ActionsWhenEnabled) {
   constexpr auto kForbiddenActions =
-      DenseSet({AutofillAiAction::kIphForOptIn,
-                AutofillAiAction::kWalletDataSharingPromotion});
+      DenseSet({AutofillAiAction::kWalletDataSharingPromotion});
   EXPECT_EQ(
       MayPerformAutofillAiAction(client(), GetParam(), EntityType(kPassport)),
       !kForbiddenActions.contains(GetParam()));
@@ -238,12 +235,9 @@ TEST_P(AutofillAiMayPerformActionTest, ModelFeatureOff) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitAndDisableFeature(features::kAutofillAiServerModel);
 
-  // The opt-in IPH cannot be run either since we simulate a state in which the
-  // user has opted into the feature.
   constexpr auto kForbiddenActions =
       DenseSet({AutofillAiAction::kServerClassificationModel,
                 AutofillAiAction::kUseCachedServerClassificationModelResults,
-                AutofillAiAction::kIphForOptIn,
                 AutofillAiAction::kWalletDataSharingPromotion});
   EXPECT_EQ(
       MayPerformAutofillAiAction(client(), GetParam(), EntityType(kPassport)),
@@ -263,7 +257,6 @@ TEST_P(AutofillAiMayPerformActionTest, FeatureParamForModelCacheUseOff) {
   // user has opted into the feature.
   constexpr auto kForbiddenActions =
       DenseSet({AutofillAiAction::kUseCachedServerClassificationModelResults,
-                AutofillAiAction::kIphForOptIn,
                 AutofillAiAction::kWalletDataSharingPromotion});
   EXPECT_EQ(
       MayPerformAutofillAiAction(client(), GetParam(), EntityType(kPassport)),
@@ -394,8 +387,7 @@ TEST_P(AutofillAiMayPerformActionTest, CapabilityCheckIgnored) {
   AddEntity();
   client().SetCanUseModelExecutionFeatures(false);
   constexpr auto kForbiddenActions =
-      DenseSet({AutofillAiAction::kIphForOptIn,
-                AutofillAiAction::kWalletDataSharingPromotion});
+      DenseSet({AutofillAiAction::kWalletDataSharingPromotion});
   EXPECT_EQ(
       MayPerformAutofillAiAction(client(), GetParam(), EntityType(kPassport)),
       !kForbiddenActions.contains(GetParam()));
@@ -434,8 +426,7 @@ TEST_P(AutofillAiMayPerformActionTest, CountryCodeWithAllowlist) {
       MayPerformAutofillAiAction(client(), GetParam(), EntityType(kPassport)));
 
   constexpr auto kForbiddenActions =
-      DenseSet({AutofillAiAction::kIphForOptIn,
-                AutofillAiAction::kWalletDataSharingPromotion});
+      DenseSet({AutofillAiAction::kWalletDataSharingPromotion});
   client().SetVariationConfigCountryCode(GeoIpCountryCode("BR"));
   EXPECT_EQ(
       MayPerformAutofillAiAction(client(), GetParam(), EntityType(kPassport)),
@@ -468,8 +459,7 @@ TEST_P(AutofillAiMayPerformActionTest, CountryCodeWithBlocklist) {
       MayPerformAutofillAiAction(client(), GetParam(), EntityType(kPassport)));
 
   constexpr auto kForbiddenActions =
-      DenseSet({AutofillAiAction::kIphForOptIn,
-                AutofillAiAction::kWalletDataSharingPromotion});
+      DenseSet({AutofillAiAction::kWalletDataSharingPromotion});
   client().SetVariationConfigCountryCode(GeoIpCountryCode("DE"));
   EXPECT_EQ(
       MayPerformAutofillAiAction(client(), GetParam(), EntityType(kPassport)),
@@ -505,8 +495,7 @@ TEST_P(AutofillAiMayPerformActionTest, IgnoreGeoIp) {
   base::test::ScopedFeatureList feature_list{features::kAutofillAiIgnoreGeoIp};
 
   constexpr auto kForbiddenActions =
-      DenseSet({AutofillAiAction::kIphForOptIn,
-                AutofillAiAction::kWalletDataSharingPromotion});
+      DenseSet({AutofillAiAction::kWalletDataSharingPromotion});
   client().SetVariationConfigCountryCode(GeoIpCountryCode("DE"));
   EXPECT_EQ(
       MayPerformAutofillAiAction(client(), GetParam(), EntityType(kPassport)),
@@ -540,8 +529,7 @@ TEST_P(AutofillAiMayPerformActionTest, AppLocale) {
   client().set_app_locale("de-DE");
 
   constexpr auto kForbiddenActions =
-      DenseSet({AutofillAiAction::kIphForOptIn,
-                AutofillAiAction::kWalletDataSharingPromotion});
+      DenseSet({AutofillAiAction::kWalletDataSharingPromotion});
   EXPECT_EQ(
       MayPerformAutofillAiAction(client(), GetParam(), EntityType(kPassport)),
       !kForbiddenActions.contains(GetParam()));
@@ -553,9 +541,9 @@ TEST_P(AutofillAiMayPerformActionTest, kWalletSupportedCountries) {
   base::test::ScopedFeatureList feature_list{features::kAutofillAiIgnoreGeoIp};
   // Wallet is not supported in India.
   client().SetVariationConfigCountryCode(GeoIpCountryCode("IN"));
-  constexpr auto kForbiddenActions = DenseSet(
-      {AutofillAiAction::kImportToWallet, AutofillAiAction::kIphForOptIn,
-       AutofillAiAction::kWalletDataSharingPromotion});
+  constexpr auto kForbiddenActions =
+      DenseSet({AutofillAiAction::kImportToWallet,
+                AutofillAiAction::kWalletDataSharingPromotion});
   EXPECT_EQ(
       MayPerformAutofillAiAction(client(), GetParam(), EntityType(kPassport)),
       !kForbiddenActions.contains(GetParam()));
@@ -566,10 +554,9 @@ TEST_P(AutofillAiMayPerformActionTest, kWalletSupportedCountries) {
 TEST_P(AutofillAiMayPerformActionTest, WalletPublicPassDataSharingOff) {
   client().SetWalletPublicPassStorageEnabled(false);
 
-  constexpr auto kForbiddenActions = DenseSet({AutofillAiAction::kIphForOptIn});
   EXPECT_EQ(
       MayPerformAutofillAiAction(client(), GetParam(), EntityType(kPassport)),
-      !kForbiddenActions.contains(GetParam()));
+      true);
 }
 
 // Tests that if the Wallet public pass data sharing setting is turned off and
@@ -581,8 +568,7 @@ TEST_P(AutofillAiMayPerformActionTest,
   client().SetVariationConfigCountryCode(GeoIpCountryCode("IN"));
 
   constexpr auto kForbiddenActions =
-      DenseSet({AutofillAiAction::kIphForOptIn,
-                AutofillAiAction::kWalletDataSharingPromotion});
+      DenseSet({AutofillAiAction::kWalletDataSharingPromotion});
   EXPECT_EQ(
       MayPerformAutofillAiAction(client(), GetParam(), EntityType(kPassport)),
       !kForbiddenActions.contains(GetParam()));
@@ -666,6 +652,40 @@ TEST_F(AutofillAiPermissionUtilsTest,
     EXPECT_FALSE(MayPerformAutofillAiAction(
         client(), AutofillAiAction::kTypeSupportsAmbientAutofillData,
         EntityType(kRedressNumber)));
+  }
+}
+
+TEST_F(AutofillAiPermissionUtilsTest,
+       GetAutofillAmbientAutofillSupportedEntityTypes) {
+  // Test fixture default configuration.
+  EXPECT_EQ(
+      GetAutofillAmbientAutofillSupportedEntityTypes(),
+      (DenseSet<EntityType>{EntityType(kPassport), EntityType(kDriversLicense),
+                            EntityType(kVehicle), EntityType(kNationalIdCard),
+                            EntityType(kFlightReservation), EntityType(kOrder),
+                            EntityType(kShipment)}));
+
+  // Empty configuration returns an empty set.
+  {
+    base::test::ScopedFeatureList feature_list;
+    feature_list.InitAndEnableFeatureWithParameters(
+        features::kAutofillAmbientAutofill,
+        {{features::kAutofillAmbientAutofillSupportedEntityTypes.name, ""}});
+    EXPECT_TRUE(GetAutofillAmbientAutofillSupportedEntityTypes().empty());
+  }
+
+  // Parses valid types, trims whitespace, and ignores unknown types or empty
+  // tokens.
+  {
+    base::test::ScopedFeatureList feature_list;
+    feature_list.InitAndEnableFeatureWithParameters(
+        features::kAutofillAmbientAutofill,
+        {{features::kAutofillAmbientAutofillSupportedEntityTypes.name,
+          " Passport , UnknownType,  Driver's license ,, Vehicle "}});
+    EXPECT_EQ(GetAutofillAmbientAutofillSupportedEntityTypes(),
+              (DenseSet<EntityType>{EntityType(kPassport),
+                                    EntityType(kDriversLicense),
+                                    EntityType(kVehicle)}));
   }
 }
 
@@ -814,7 +834,6 @@ INSTANTIATE_TEST_SUITE_P(
            AutofillAiAction::kEditAndDeleteEntityInstanceInSettings,
            AutofillAiAction::kFilling,
            AutofillAiAction::kImport,
-           AutofillAiAction::kIphForOptIn,
            AutofillAiAction::kListEntityInstancesInSettings,
            AutofillAiAction::kLogToMqls,
            AutofillAiAction::kOptIn,

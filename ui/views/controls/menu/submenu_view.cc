@@ -113,12 +113,13 @@ void SubmenuView::UpdateMenuPartSizes() {
   const MenuConfig& config = MenuConfig::instance();
 
   const auto get_metrics = [&] {
-    return std::tie(icon_area_width_, label_start_, trailing_padding_);
+    return std::tie(icon_area_width_, label_start_, trailing_padding_,
+                    content_start_, item_horizontal_border_);
   };
   const auto old_metrics = get_metrics();
 
-  trailing_padding_ = config.item_horizontal_padding +
-                      parent_menu_item_->GetItemHorizontalBorder();
+  item_horizontal_border_ = parent_menu_item_->GetItemHorizontalBorder();
+  trailing_padding_ = config.item_horizontal_padding + item_horizontal_border_;
   const auto& menu_items = GetMenuItems();
   if (config.reserve_dedicated_arrow_column &&
       std::ranges::any_of(menu_items, &MenuItemView::HasSubmenu)) {
@@ -163,7 +164,8 @@ void SubmenuView::UpdateMenuPartSizes() {
     icon_area_width_ = std::max(icon_area_width_, max_icon_width);
   }
 
-  label_start_ = parent_menu_item_->GetContentStart() + icon_area_width_;
+  content_start_ = parent_menu_item_->GetContentStart();
+  label_start_ = content_start_ + icon_area_width_;
   if (icon_area_width_) {
     const auto* const controller = parent_menu_item_->GetMenuController();
     label_start_ += (controller && controller->use_ash_system_ui_layout())
@@ -228,11 +230,16 @@ void SubmenuView::Layout(PassKey) {
   const int between_item_vertical_padding =
       MenuConfig::instance().between_item_vertical_padding;
   bool previous_child_was_lower_separator = false;
+  bool previous_child_was_menu_item_separator = false;
   for (View* child : children()) {
     if (child->GetVisible()) {
       const auto* separator = AsViewClass<MenuSeparator>(child);
+      const bool is_menu_item_separator =
+          separator && separator->GetType() == ui::MENU_ITEM_SEPARATOR;
       if (y != insets.top() && !previous_child_was_lower_separator &&
-          (!separator || separator->GetType() != ui::UPPER_SEPARATOR)) {
+          !previous_child_was_menu_item_separator &&
+          (!separator || (separator->GetType() != ui::UPPER_SEPARATOR &&
+                          separator->GetType() != ui::MENU_ITEM_SEPARATOR))) {
         y += between_item_vertical_padding;
       }
       child->SetBounds(x, y, menu_item_width,
@@ -240,6 +247,7 @@ void SubmenuView::Layout(PassKey) {
       y = child->bounds().bottom();
       previous_child_was_lower_separator =
           separator && separator->GetType() == ui::LOWER_SEPARATOR;
+      previous_child_was_menu_item_separator = is_menu_item_separator;
     }
   }
 }
@@ -301,17 +309,23 @@ gfx::Size SubmenuView::CalculatePreferredSize(
   // Then, the height for that width.
   const int menu_item_width = width - insets.width();
   bool previous_child_was_lower_separator = false;
+  bool previous_child_was_menu_item_separator = false;
   const auto get_height = [&](int height, const View* child) {
     if (!child->GetVisible()) {
       return height;
     }
     const auto* separator = AsViewClass<MenuSeparator>(child);
+    const bool is_menu_item_separator =
+        separator && separator->GetType() == ui::MENU_ITEM_SEPARATOR;
     if (height && !previous_child_was_lower_separator &&
-        (!separator || separator->GetType() != ui::UPPER_SEPARATOR)) {
+        !previous_child_was_menu_item_separator &&
+        (!separator || (separator->GetType() != ui::UPPER_SEPARATOR &&
+                        separator->GetType() != ui::MENU_ITEM_SEPARATOR))) {
       height += config.between_item_vertical_padding;
     }
     previous_child_was_lower_separator =
         separator && separator->GetType() == ui::LOWER_SEPARATOR;
+    previous_child_was_menu_item_separator = is_menu_item_separator;
     return height + child->GetHeightForWidth(menu_item_width);
   };
   const int height =

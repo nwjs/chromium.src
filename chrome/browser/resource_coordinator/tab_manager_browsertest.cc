@@ -42,6 +42,7 @@
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "components/performance_manager/public/features.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_details.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/render_frame_host.h"
@@ -56,6 +57,8 @@
 #include "content/public/test/test_utils.h"
 #include "net/dns/mock_host_resolver.h"
 #include "third_party/blink/public/mojom/mediastream/media_stream.mojom.h"
+#include "ui/base/page_transition_types.h"
+#include "ui/base/window_open_disposition.h"
 #include "url/gurl.h"
 
 using content::OpenURLParams;
@@ -223,15 +226,15 @@ class TabManagerTest : public InProcessBrowserTest,
   void OpenTwoTabs(const GURL& first_url, const GURL& second_url) {
     // Open two tabs. Wait for both of them to load.
     content::TestNavigationObserver load1(tsm()->GetActiveWebContents(), 1);
-    OpenURLParams open1(first_url, content::Referrer(),
-                        WindowOpenDisposition::CURRENT_TAB,
-                        ui::PAGE_TRANSITION_TYPED, false);
+    OpenURLParams open1 = OpenURLParams::CreateBrowserInitiated(
+        first_url, WindowOpenDisposition::CURRENT_TAB,
+        ui::PAGE_TRANSITION_TYPED);
     browser()->OpenURL(open1, /*navigation_handle_callback=*/{});
     load1.Wait();
 
-    OpenURLParams open2(second_url, content::Referrer(),
-                        WindowOpenDisposition::NEW_BACKGROUND_TAB,
-                        ui::PAGE_TRANSITION_TYPED, false);
+    OpenURLParams open2 = OpenURLParams::CreateBrowserInitiated(
+        second_url, WindowOpenDisposition::NEW_BACKGROUND_TAB,
+        ui::PAGE_TRANSITION_TYPED);
     auto* tab2 = browser()->OpenURL(open2, /*navigation_handle_callback=*/{});
     content::WaitForLoadStop(tab2);
 
@@ -934,73 +937,10 @@ IN_PROC_BROWSER_TEST_P(TabManagerTest,
   EXPECT_EQ(false, content::EvalJs(main_frame, kDiscardedStateJS));
 }
 
-class TabManagerFencedFrameTest : public TabManagerTest {
- public:
-  TabManagerFencedFrameTest()
-      : https_server_(net::EmbeddedTestServer::TYPE_HTTPS) {
-    https_server_.SetSSLConfig(net::EmbeddedTestServer::CERT_TEST_NAMES);
-    https_server_.AddDefaultHandlers(GetChromeTestDataDir());
-  }
-  ~TabManagerFencedFrameTest() override = default;
 
- protected:
-  net::EmbeddedTestServer& https_server() { return https_server_; }
-  content::test::FencedFrameTestHelper& fenced_frame_test_helper() {
-    return fenced_frame_test_helper_;
-  }
-
- private:
-  net::EmbeddedTestServer https_server_;
-  content::test::FencedFrameTestHelper fenced_frame_test_helper_;
-};
 
 // Tests that `window.document.wasDiscarded` is updated for a fenced frame.
-IN_PROC_BROWSER_TEST_P(TabManagerFencedFrameTest, TabManagerWasDiscarded) {
-  const char kDiscardedStateJS[] = "window.document.wasDiscarded;";
 
-  // Navigate to a page with a fenced frame.
-  ASSERT_TRUE(https_server().Start());
-  GURL main_url(
-      https_server().GetURL("c.test", "/fenced_frames/basic_title.html"));
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), main_url));
-
-  // Grab the original frames.
-  content::WebContents* contents = tsm()->GetActiveWebContents();
-  content::RenderFrameHost* primary_main_frame =
-      contents->GetPrimaryMainFrame();
-
-  content::RenderFrameHost* fenced_frame =
-      fenced_frame_test_helper().GetMostRecentlyAddedFencedFrame(
-          primary_main_frame);
-  ASSERT_TRUE(fenced_frame);
-
-  // document.wasDiscarded is false before discard, on a main frame and fenced
-  // frame.
-  EXPECT_EQ(false, content::EvalJs(primary_main_frame, kDiscardedStateJS));
-
-  EXPECT_EQ(false, content::EvalJs(fenced_frame, kDiscardedStateJS));
-
-  // Discard the tab. This simulates a tab discard.
-  TabLifecycleUnitExternal::FromWebContents(contents)->DiscardTab(
-      LifecycleUnitDiscardReason::URGENT);
-
-  // Here we simulate re-focussing the tab causing reload with navigation,
-  // the navigation will reload the tab.
-  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), main_url));
-
-  // Re-assign pointers after discarding, as they've changed.
-  contents = tsm()->GetActiveWebContents();
-  primary_main_frame = contents->GetPrimaryMainFrame();
-  fenced_frame = fenced_frame_test_helper().GetMostRecentlyAddedFencedFrame(
-      primary_main_frame);
-  ASSERT_TRUE(fenced_frame);
-
-  // document.wasDiscarded is true after discard, on a main frame and fenced
-  // frame.
-  EXPECT_EQ(true, content::EvalJs(primary_main_frame, kDiscardedStateJS));
-
-  EXPECT_EQ(true, content::EvalJs(fenced_frame, kDiscardedStateJS));
-}
 
 // Do not run in debug or ASAN builds to avoid timeouts due to multiple
 // navigations. https://crbug.com/40706359
@@ -1093,15 +1033,6 @@ INSTANTIATE_TEST_SUITE_P(
     ::testing::Values(true),
     [](const ::testing::TestParamInfo<TabManagerTestWithTwoTabs::ParamType>&
            info) { return "RetainedWebContents"; });
-
-INSTANTIATE_TEST_SUITE_P(
-    ,
-    TabManagerFencedFrameTest,
-    ::testing::Values(false, true),
-    [](const ::testing::TestParamInfo<TabManagerFencedFrameTest::ParamType>&
-           info) {
-      return info.param ? "RetainedWebContents" : "UnretainedWebContents";
-    });
 // Data race on Linux. http://crbug.com/41357022
 // Flaky on Mac and Windows: https://crbug.com/41477172
 #if BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS) || BUILDFLAG(IS_MAC) || \

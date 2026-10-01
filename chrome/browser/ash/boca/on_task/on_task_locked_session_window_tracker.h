@@ -7,19 +7,14 @@
 
 #include <memory>
 
-#include "base/callback_list.h"
 #include "base/cancelable_callback.h"
 #include "base/memory/raw_ptr.h"
-#include "base/memory/singleton.h"
 #include "base/memory/weak_ptr.h"
 #include "base/observer_list.h"
 #include "base/scoped_observation.h"
-#include "chrome/browser/ash/browser_delegate/browser_controller.h"
-#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
-#include "chrome/browser/ui/tabs/tab_strip_model.h"
-#include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
 #include "chromeos/ash/components/boca/on_task/on_task_blocklist.h"
 #include "chromeos/ash/components/boca/on_task/on_task_notifications_manager.h"
+#include "chromeos/ash/components/browser_delegate/browser_controller.h"
 #include "components/keyed_service/core/keyed_service.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_thread.h"
@@ -27,8 +22,6 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "third_party/abseil-cpp/absl/container/flat_hash_map.h"
-
-class BrowserWindowInterface;
 
 namespace content::webid {
 class IdentityCredentialSource;
@@ -53,8 +46,8 @@ class BocaWindowObserver;
 // tab basis. See `OnTaskBlocklist` for more details about what the restrictions
 // are. All of these calls should be called from the main thread.
 class LockedSessionWindowTracker : public KeyedService,
-                                   public TabStripModelObserver,
                                    public ash::BrowserController::Observer,
+                                   public ash::BrowserController::TabObserver,
                                    public content::WebContentsObserver {
  public:
   LockedSessionWindowTracker(std::unique_ptr<OnTaskBlocklist> on_task_blocklist,
@@ -75,8 +68,7 @@ class LockedSessionWindowTracker : public KeyedService,
 
   // Updates the current blocklist with its appropriate restriction. This should
   // rarely be explicitly called except for when we start tracking a new browser
-  // window. All other calls should come from tab strip model changes (ex:
-  // active tab changes).
+  // window. All other calls should come from active tab changes.
   // TODO: b/357139784 - Remove RefreshBlockList.
   void RefreshUrlBlocklist();
 
@@ -104,7 +96,7 @@ class LockedSessionWindowTracker : public KeyedService,
 
   ash::OnTaskPodController* on_task_pod_controller();
   OnTaskBlocklist* on_task_blocklist();
-  BrowserWindowInterface* browser();
+  ash::BrowserDelegate* browser();
 
   // Test helpers:
   void SetNotificationManagerForTesting(
@@ -115,15 +107,33 @@ class LockedSessionWindowTracker : public KeyedService,
   void TriggerFedCmFederatedLoginCompletionForTesting(bool success);
 
  private:
-  // TabStripModelObserver Impl
-  void OnTabChangedAt(tabs::TabInterface* tab,
-                      TabChangeType change_type) override;
-  void OnTabStripModelChanged(
-      TabStripModel* tab_strip_model,
-      const TabStripModelChange& change,
-      const TabStripSelectionChange& selection) override;
-  void OnTabWillBeRemoved(tabs::TabInterface* tab, int index) override;
-  void WillCloseAllTabs(TabStripModel* tab_strip_model) override;
+  // Observes the active tab's WebContents for title updates and page
+  // navigations.
+  class ActiveTabWebContentsObserver : public content::WebContentsObserver {
+   public:
+    explicit ActiveTabWebContentsObserver(LockedSessionWindowTracker* tracker);
+    ~ActiveTabWebContentsObserver() override;
+
+    using content::WebContentsObserver::Observe;
+
+    // content::WebContentsObserver:
+    void DidFinishNavigation(
+        content::NavigationHandle* navigation_handle) override;
+    void TitleWasSet(content::NavigationEntry* entry) override;
+
+   private:
+    const raw_ptr<LockedSessionWindowTracker> tracker_;
+  };
+
+  // ash::BrowserController::TabObserver:
+  void OnTabInserted(ash::BrowserDelegate* browser,
+                     content::WebContents* contents) override;
+  void OnTabRemoved(ash::BrowserDelegate* browser,
+                    content::WebContents* contents,
+                    bool will_delete) override;
+  void OnActiveWebContentsChanged(ash::BrowserDelegate* browser,
+                                  content::WebContents* old_contents,
+                                  content::WebContents* new_contents) override;
 
   // ash::BrowserController::Observer:
   void OnBrowserCreated(ash::BrowserDelegate* browser) override;
@@ -137,9 +147,6 @@ class LockedSessionWindowTracker : public KeyedService,
                      const GURL& validated_url) override;
   void OnFedCmFederatedLogin(bool success) override;
 
-  // Callback for browser closed events.
-  void OnBrowserDidClose(BrowserWindowInterface* browser_window_interface);
-
   void MaybeCloseWebContents(base::WeakPtr<content::WebContents> weak_tab_ptr);
   void MaybeCloseBrowser(ash::BrowserDelegate* browser);
   void EnsureMaybeCloseBrowserTaskPosted(ash::BrowserDelegate* browser);
@@ -148,6 +155,7 @@ class LockedSessionWindowTracker : public KeyedService,
       content::Page& page);
 
   void CleanupWindowTracker();
+  void NotifyActiveTabChanged(const std::u16string& title);
 
   bool can_open_new_popup_ = true;
   bool can_start_navigation_throttle_ = true;
@@ -163,6 +171,10 @@ class LockedSessionWindowTracker : public KeyedService,
   base::ScopedObservation<ash::BrowserController,
                           ash::BrowserController::Observer>
       browser_controller_observation_{this};
+  ActiveTabWebContentsObserver active_tab_observer_{this};
+  base::ScopedObservation<ash::BrowserController,
+                          ash::BrowserController::TabObserver>
+      tab_observation_{this};
   absl::flat_hash_map<ash::BrowserDelegate*,
                       std::unique_ptr<base::CancelableOnceClosure>>
       pending_close_tasks_;

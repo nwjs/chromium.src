@@ -21,7 +21,6 @@ namespace content::webid {
 
 using FederatedApiPermissionStatus =
     FederatedIdentityApiPermissionContextDelegate::PermissionStatus;
-using LifecycleStateImpl = RenderFrameHostImpl::LifecycleStateImpl;
 using blink::mojom::EmailVerificationRequestResult;
 using blink::mojom::FederatedRequestResult;
 using blink::mojom::RequestTokenStatus;
@@ -105,6 +104,7 @@ RequestTokenStatus FederatedRequestResultToRequestTokenStatus(
     case FederatedRequestResult::kUiDismissedNoEmbargo:
     case FederatedRequestResult::kCorsError:
     case FederatedRequestResult::kSuppressedBySegmentationPlatform:
+    case FederatedRequestResult::kPopupBlockedByConnectionAllowlist:
     case FederatedRequestResult::kError: {
       return RequestTokenStatus::kError;
     }
@@ -155,7 +155,8 @@ MetricsEndpointErrorCode FederatedRequestResultToMetricsEndpointErrorCode(
     case FederatedRequestResult::kAccountsNoResponse:
     case FederatedRequestResult::kIdTokenHttpNotFound:
     case FederatedRequestResult::kIdTokenBlockedByConnectionAllowlist:
-    case FederatedRequestResult::kIdTokenNoResponse: {
+    case FederatedRequestResult::kIdTokenNoResponse:
+    case FederatedRequestResult::kPopupBlockedByConnectionAllowlist: {
       return MetricsEndpointErrorCode::kIdpServerUnavailable;
     }
     case FederatedRequestResult::kConfigNotInWellKnown:
@@ -207,19 +208,19 @@ AccountParseStatusToRequestResultAndTokenStatus(ParseStatus parse_status) {
 
 LifecycleStateFailureReason
 LifecycleStateImplLifecycleStateImplToFedCmLifecycleStateFailureReason(
-    LifecycleStateImpl lifecycle_state) {
+    RenderFrameHostLifecycleStateImpl lifecycle_state) {
   switch (lifecycle_state) {
-    case LifecycleStateImpl::kSpeculative:
+    case RenderFrameHostLifecycleStateImpl::kSpeculative:
       return LifecycleStateFailureReason::kSpeculative;
-    case LifecycleStateImpl::kPendingCommit:
+    case RenderFrameHostLifecycleStateImpl::kPendingCommit:
       return LifecycleStateFailureReason::kPendingCommit;
-    case LifecycleStateImpl::kPrerendering:
+    case RenderFrameHostLifecycleStateImpl::kPrerendering:
       return LifecycleStateFailureReason::kPrerendering;
-    case LifecycleStateImpl::kInBackForwardCache:
+    case RenderFrameHostLifecycleStateImpl::kInBackForwardCache:
       return LifecycleStateFailureReason::kInBackForwardCache;
-    case LifecycleStateImpl::kRunningUnloadHandlers:
+    case RenderFrameHostLifecycleStateImpl::kRunningUnloadHandlers:
       return LifecycleStateFailureReason::kRunningUnloadHandlers;
-    case LifecycleStateImpl::kReadyToBeDeleted:
+    case RenderFrameHostLifecycleStateImpl::kReadyToBeDeleted:
       return LifecycleStateFailureReason::kReadyToBeDeleted;
     default:
       return LifecycleStateFailureReason::kOther;
@@ -604,6 +605,8 @@ FederatedLoginResult FederatedRequestResultToFederatedLoginResult(
     case blink::mojom::FederatedRequestResult::kTypeNotMatching:
     case blink::mojom::FederatedRequestResult::kError:
     case blink::mojom::FederatedRequestResult::kCorsError:
+    case blink::mojom::FederatedRequestResult::
+        kPopupBlockedByConnectionAllowlist:
       federated_login_result = FederatedLoginResult::kIdpNetworkError;
       break;
     case blink::mojom::FederatedRequestResult::kIdTokenIdpErrorResponse:

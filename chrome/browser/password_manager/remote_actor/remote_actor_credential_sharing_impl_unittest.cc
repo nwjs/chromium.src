@@ -55,6 +55,13 @@ namespace password_manager {
 
 namespace {
 
+using testing::_;
+using testing::AllOf;
+using testing::Field;
+using testing::IsEmpty;
+using testing::Not;
+using testing::Property;
+
 class MockBadMessageHelper {
  public:
   MockBadMessageHelper() {
@@ -661,23 +668,17 @@ TEST_F(RemoteActorCredentialSharingImplTest, SuccessFlow_SelectCredential) {
   EXPECT_EQ(last_dialog_credentials_[0]->username_value, u"user");
   EXPECT_EQ(last_dialog_credential_domain_, "https://google.com");
 
-  using ::testing::_;
-  using ::testing::AllOf;
-  using ::testing::Field;
-  using ::testing::IsEmpty;
-  using ::testing::Not;
-
   EXPECT_CALL(
       *mock_sharing_service_,
       SharePassword(
           AllOf(Field(&RemoteActorCredentialSharingService::ShareParameters::
                           password_data,
-                      ::testing::Property(
+                      Property(
                           &sync_pb::PasswordSpecificsData::username_value,
                           "user")),
                 Field(&RemoteActorCredentialSharingService::ShareParameters::
                           password_data,
-                      ::testing::Property(
+                      Property(
                           &sync_pb::PasswordSpecificsData::password_value,
                           "pass")),
                 Field(&RemoteActorCredentialSharingService::ShareParameters::
@@ -686,9 +687,10 @@ TEST_F(RemoteActorCredentialSharingImplTest, SuccessFlow_SelectCredential) {
                 Field(&RemoteActorCredentialSharingService::ShareParameters::
                           task_id,
                       "actor_id"),
-                Field(&RemoteActorCredentialSharingService::ShareParameters::
-                          password_client_tag_hash,
-                      Not(IsEmpty()))),
+                Property(
+                    &RemoteActorCredentialSharingService::ShareParameters::
+                        password_client_tag_hash,
+                    Not(IsEmpty()))),
           _))
       .WillOnce(base::test::RunOnceCallback<1>(true));
 
@@ -1063,6 +1065,54 @@ TEST_F(RemoteActorCredentialSharingImplTest,
   histograms.ExpectBucketCount(
       "PasswordManager.RemoteActorCredentialSharing.Result",
       RemoteActorCredentialSharingResult::kSuccess, 1);
+}
+
+TEST_F(RemoteActorCredentialSharingImplTest,
+       WebContentsDestroyedWhileRequestInProgress) {
+  SignIn("user@gmail.com");
+  NavigateAndCommit(GURL("https://gemini.google.com"));
+  content::RenderFrameHostTester::For(main_rfh())
+      ->InitializeRenderFrameIfNeeded();
+  CreateImpl();
+
+  RemoteActorCredentialSharingImpl* impl =
+      RemoteActorCredentialSharingImpl::GetForCurrentDocument(main_rfh());
+  ASSERT_NE(impl, nullptr);
+
+  mojo::AssociatedRemote<chrome::mojom::RemoteActorCredentialSharing> remote;
+  impl->Bind(remote.BindNewEndpointAndPassDedicatedReceiver());
+
+  PasswordForm form;
+  form.signon_realm = "https://google.com/";
+  form.url = GURL("https://google.com");
+  form.username_value = u"user";
+  form.password_value = PasswordString(u"pass");
+  form.in_store = PasswordForm::Store::kProfileStore;
+  profile_store_->AddLogin(FromPasswordForm(form));
+
+  content::RenderFrameHostTester::For(main_rfh())->SimulateUserActivation();
+  base::test::TestFuture<bool> result_future;
+  base::test::TestFuture<void> disconnect_future;
+  remote.set_disconnect_handler(disconnect_future.GetCallback());
+
+  base::test::TestFuture<void> dialog_shown_future;
+  dialog_shown_quit_closure_ = dialog_shown_future.GetCallback();
+  remote->RequestAgentAuthentication(
+      /*gaia_id=*/account_info_.GetGaiaId().ToString(),
+      /*domain=*/"google.com", /*task_id=*/"actor_id",
+      result_future.GetCallback());
+
+  dialog_shown_future.Get();
+
+  // Destroy the WebContents (and therefore the RenderFrameHost and DocumentUserData)
+  // while the authentication request dialog is in flight.
+  mock_client_ = nullptr;
+  DeleteContents();
+
+  // The remote should observe a disconnection on the pipe.
+  EXPECT_TRUE(disconnect_future.Wait());
+  // The callback should NOT be run when the tab is closed.
+  EXPECT_FALSE(result_future.IsReady());
 }
 
 }  // namespace password_manager

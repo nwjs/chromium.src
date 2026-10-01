@@ -1,7 +1,6 @@
 <?xml version="1.0" ?>
 <!DOCTYPE translationbundle>
 <translationbundle lang="ms">
-<translation id="1035560095760914532">Letakkan Chrome pada bahagian bawah untuk mengakses Chrome pada bila-bila masa</translation>
 <translation id="1076643793026027628">Chrome membuka pautan Inkognito YouTube secara automatik dalam Inkognito.</translation>
 <translation id="1081114897601629648">Kata laluan yang berikut tidak diimport kepada Google Password Manager kerana kata laluan tersebut tidak sepadan dengan keperluan.</translation>
 <translation id="1086486568852410168">Cari dengan Google Lens</translation>
@@ -41,6 +40,7 @@ Perkara yang perlu dipertimbangkan:
 <translation id="1580570086594302477">Buka tab Inkognito Chrome baharu.</translation>
 <translation id="1605168141396675642">Elakkan kerumitan penyalinan. Lancarkan pautan terus dalam Chrome.</translation>
 <translation id="1646463005043273333">Buka Tetapan Chrome untuk menetapkan Chrome sebagai penyemak imbas lalai.</translation>
+<translation id="1665695109862533986">Tetapkan Chrome sebagai penyemak imbas lalai anda untuk membuka pautan dalam satu ketikan</translation>
 <translation id="1668930590094369898">Gunakan Chrome sebagai Lalai</translation>
 <translation id="1670609221633730681">Petua Chrome: Pilih kedudukan bar alamat anda</translation>
 <translation id="1683863426423719967">Untuk menerima Peringatan Tab daripada Chrome, hidupkan pemberitahuan dalam Tetapan iOS anda.</translation>
@@ -92,7 +92,6 @@ Perkara yang perlu dipertimbangkan:
 <translation id="288992067439702510">Anda telah mencapai had <ph name="LIMIT" /> penanda halaman Google Chrome, maka sesetengah penanda halaman anda belum disimpan dalam Google Account anda.
 
 Penanda halaman baharu tidak boleh disimpan dalam akaun anda sehingga anda memadamkan beberapa penanda halaman. Jika anda log keluar sekarang, penanda halaman yang tidak disimpan akan dipadamkan.</translation>
-<translation id="2901621928549457170">Buka Chrome dengan serta-merta apabila anda menggunakan iPad anda</translation>
 <translation id="2922914028977213693">Ketik di sini untuk memanfaatkan Chrome sepenuhnya pada iPad anda.</translation>
 <translation id="292371311537977079">Tetapan Chrome</translation>
 <translation id="2923827943290349720">Kunci tab Inkognito apabila anda menutup Chrome</translation>
@@ -151,6 +150,7 @@ Penanda halaman baharu tidak boleh disimpan dalam akaun anda sehingga anda memad
 <translation id="4523886039239821078">Beberapa tambahan menyebabkan Chrome ranap. Sila nyahpasang:</translation>
 <translation id="4568024439284012497">Akses Chrome dengan lebih pantas pada Skrin Utama iPhone anda.</translation>
 <translation id="4574806550936185355">Hidupkan "Kunci tab Inkognito apabila anda menutup Chrome"</translation>
+<translation id="457825396414281646">Jadikan Chrome penyemak imbas lalai anda untuk membuka pautan dalam satu ketikan</translation>
 <translation id="4633328489441962921">Chrome tidak dapat menyemak kemas kini</translation>
 <translation id="4636900170638246267">Log masuk ke laman ini dan Chrome.</translation>
 <translation id="4647910807533196601">Buka tab terbaharu saya dalam Chrome.</translation>
@@ -177,8 +177,6 @@ Penanda halaman baharu tidak boleh disimpan dalam akaun anda sehingga anda memad
 <translation id="5119391094379141756">Pilih Chrome</translation>
 <translation id="5123188916260706415">Cari dengan suara dalam Chrome</translation>
 <translation id="5162467219239570114">Chrome sudah lapuk. Jika tiada kemaskinian tersedia dalam <ph name="BEGIN_LINK" />Gedung Apl<ph name="END_LINK" />, mungkin peranti anda sudah tidak menyokong versi baharu Chrome lagi.</translation>
-<translation id="5172049865623113551">Buka Chrome dengan serta-merta apabila anda menggunakan iPhone anda</translation>
-<translation id="5179095426828744632">Akses Chrome dengan lebih pantas daripada dok anda</translation>
 <translation id="5184329579814168207">Buka dalam Chrome</translation>
 <translation id="5190139289262548459">Organisasi anda, <ph name="DOMAIN" />, mengurus akaun yang anda log masuk dan cara Chrome digunakan.</translation>
 <translation id="5209238444239954363">Chrome tidak dapat menyemak kemaskinian. Cuba sebentar lagi.</translation>
@@ -242,7 +240,6 @@ Tunggu beberapa minit sebelum menukar akaun. Jika anda menukar akaun sekarang, d
 <translation id="6484712497741564393">Log masuk sebagai <ph name="EMAIL" />.
 
 Data anda telah disulitkan dengan ungkapan laluan anda. Masukkan ungkapan laluan tersebut untuk menggunakan dan menyimpan data Chrome dalam Google Account anda.</translation>
-<translation id="6511034852811155835">Bawa Chrome bersama anda</translation>
 <translation id="6533470733797826516">Log masuk dengan lebih pantas menggunakan autolengkap Chrome</translation>
 <translation id="6536544321553662809">Tetapkan Chrome sebagai penyemak imbas lalai anda untuk berkongsi dan membuka pautan dengan mudah</translation>
 <translation id="6545449117344801102">Chrome mengesan alamat dan menggunakan Google Maps untuk memberi anda arah dan maklumat setempat.</translation>
@@ -266,7 +263,6 @@ Untuk mendapatkan lebih banyak tetapan yang menggunakan data untuk meningkatkan 
 <translation id="6924922227983877439">Buka pautan dalam Chrome secara Lalai</translation>
 <translation id="6926395711547387358">Tetapkan Chrome sebagai Lalai</translation>
 <translation id="6975725306479268850">Pilih Chrome untuk AutoLengkap</translation>
-<translation id="7001031184470316752">Alihkan Chrome kepada dok anda</translation>
 <translation id="7038674195294813388">Buka tetapan Apl Lalai dalam iOS, kemudian ketik "Apl Penyemak Imbas" dan pilih Chrome.</translation>
 <translation id="7056826488869329999">Buka dan Jalankan Pemeriksaan Keselamatan dalam Chrome.</translation>
 <translation id="7061455974939528301">Tekan dan tahan ikon Chrome dan klik "Edit skrin utama"</translation>
@@ -363,6 +359,7 @@ Data anda telah disulitkan dengan ungkapan laluan pada <ph name="TIME" />. Masuk
 <translation id="8610372330814566250">Gunakan kata laluan, sejarah, penanda halaman dan kad kredit Safari anda dalam Chrome</translation>
 <translation id="8630122478628016441">Hidupkan “Kunci tab Inkognito apabila anda menutup Chrome”.</translation>
 <translation id="8673726683583791503">Membeli-belah dengan Google Lens</translation>
+<translation id="869525545193934083">Video skrin penuh tentang cara menetapkan Chrome sebagai lalai: Buka tetapan Chrome dalam iOS, ketik "Apl Penyemak Imbas Lalai" dan pilih Chrome.</translation>
 <translation id="8765470054473112089">Apabila anda menaip dalam bar alamat atau kotak carian, Chrome menghantar perkara yang anda taip ke enjin carian lalai anda untuk mendapatkan cadangan yang lebih baik. Tetapan ini dimatikan dalam Inkognito.</translation>
 <translation id="8772179140489533211">Memaparkan gesaan untuk log masuk ke Chrome.</translation>
 <translation id="8788269841521769222">Anda tidak perlu mengingati kata laluan ini. Kata laluan ini akan disimpan pada Pengurus Kata Laluan Google untuk <ph name="EMAIL" /></translation>

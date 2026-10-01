@@ -83,7 +83,7 @@ import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.mojom.WindowOpenDisposition;
 import org.chromium.url.GURL;
 
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
@@ -307,7 +307,7 @@ public class ActivityTabWebContentsDelegateAndroid extends TabWebContentsDelegat
             tabLaunchType = TabLaunchType.FROM_LONGPRESS_FOREGROUND;
         }
 
-        final CompletableFuture<Boolean> addTabToModel = new CompletableFuture<Boolean>();
+        final CompletableFuture<Boolean> addTabToModel = new CompletableFuture<>();
         final Tab tab =
                 tabCreator.createTabWithWebContents(
                         mTab,
@@ -374,7 +374,7 @@ public class ActivityTabWebContentsDelegateAndroid extends TabWebContentsDelegat
                     && !Objects.equals(newTab.getTabGroupId(), sourceTab.getTabGroupId())
                     && tabModel.isTabModelRestored()) {
                 tabModel.mergeListOfTabsToGroup(
-                        Arrays.asList(newTab),
+                        Collections.singletonList(newTab),
                         sourceTab,
                         /* notify= */ TabGroupMergeNotificationType.DONT_NOTIFY);
                 if (mChromeActivityNativeDelegate != null) {
@@ -513,9 +513,11 @@ public class ActivityTabWebContentsDelegateAndroid extends TabWebContentsDelegat
             // Handle the Escape key here (instead of in KeyboardShortcuts.java), so it doesn't
             // interfere with other parts of the activity (e.g. the URL bar).
             // TODO(crbug.com/537851949): Audit Escape key usage and behavior.
-            if (event.getKeyCode() == KeyEvent.KEYCODE_ESCAPE && event.hasNoModifiers()) {
+            if (event.getKeyCode() == KeyEvent.KEYCODE_ESCAPE
+                    && event.hasNoModifiers()
+                    && event.getRepeatCount() == 0) {
                 WebContents wc = mTab.getWebContents();
-                if (wc != null) wc.stop();
+                if (wc != null && wc.isLoading()) wc.stop();
                 return;
             }
         }

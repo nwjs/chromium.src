@@ -55,6 +55,7 @@
 #include "content/browser/buckets/bucket_context.h"
 #include "content/browser/can_commit_status.h"
 #include "content/browser/locks/lock_manager.h"
+#include "content/browser/renderer_host/back_forward_cache_disabling_feature_handle.h"
 #include "content/browser/renderer_host/browsing_context_state.h"
 #include "content/browser/renderer_host/code_cache_host_impl.h"
 #include "content/browser/renderer_host/cookie_access_observers.h"
@@ -67,6 +68,7 @@
 #include "content/browser/renderer_host/origin_trial_state_host_impl.h"
 #include "content/browser/renderer_host/page_impl.h"
 #include "content/browser/renderer_host/policy_container_host.h"
+#include "content/browser/renderer_host/render_frame_host_lifecycle_state_impl.h"
 #include "content/browser/renderer_host/render_widget_host_impl.h"
 #include "content/browser/renderer_host/transient_allow_popup.h"
 #include "content/browser/renderer_host/transient_focus_source_user_activation.h"
@@ -92,6 +94,7 @@
 #include "content/public/browser/frame_type.h"
 #include "content/public/browser/global_request_id.h"
 #include "content/public/browser/global_routing_id.h"
+#include "content/public/browser/initiator_navigation_state.h"
 #include "content/public/browser/javascript_dialog_manager.h"
 #include "content/public/browser/navigation_discard_reason.h"
 #include "content/public/browser/reload_type.h"
@@ -284,7 +287,6 @@ class RemoteValidation;
 namespace content {
 
 class AgentSchedulingGroupHost;
-class UnboundedSurfaceWindow;
 class BrowsingContextState;
 class CodeCacheHostImpl;
 class CrossOriginEmbedderPolicyReporter;
@@ -297,10 +299,10 @@ class FrameTree;
 class FrameTreeNode;
 class GeolocationServiceImpl;
 class GuestPageHolderImpl;
+class HoldingBlockingIDBLockHandle;
 class IdleManagerImpl;
 class NavigationEarlyHintsManager;
 class NavigationRequest;
-class InitiatorNavigationStateImpl;
 class PeerConnectionTrackerHost;
 class PendingNavigation;
 class PrefetchedSignedExchangeCache;
@@ -320,6 +322,7 @@ class RenderWidgetHostView;
 class ServiceWorkerClient;
 class SiteInfo;
 class SpeechSynthesisImpl;
+class UnboundedSurfaceWindow;
 class WebAuthRequestSecurityChecker;
 class WebAuthRequestSecurityCheckerImpl;
 class WebUIImpl;
@@ -460,13 +463,6 @@ class CONTENT_EXPORT RenderFrameHostImpl
       mojo::UniqueReceiverSet<blink::mojom::CodeCacheHost>&)>;
   static void SetCodeCacheHostReceiverHandlerForTesting(
       CodeCacheHostReceiverHandler handler);
-
-  // Get the InitiatorNavigationStateImpl associated with `frame_token`.
-  static scoped_refptr<InitiatorNavigationState>
-  GetInitiatorNavigationStateFromFrameToken(
-      const blink::LocalFrameToken* frame_token,
-      int initiator_process_id,
-      BrowserContext* browser_context);
 
   RenderFrameHostImpl(const RenderFrameHostImpl&) = delete;
   RenderFrameHostImpl& operator=(const RenderFrameHostImpl&) = delete;
@@ -616,7 +612,7 @@ class CONTENT_EXPORT RenderFrameHostImpl
       blink::mojom::UserActivationNotificationType notification_type) override;
   bool Reload() override;
   bool IsDOMContentLoaded() override;
-  void UpdateIsAdFrame(bool is_ad_frame) override;
+  void UpdateToAdFrame() override;
   bool IsAdFrame() const override;
   void SetIsXrOverlaySetup() override;
   ukm::SourceId GetPageUkmSourceId() override;
@@ -659,7 +655,7 @@ class CONTENT_EXPORT RenderFrameHostImpl
   // - the RenderFrameHost is speculative
   const blink::DocumentToken& GetDocumentToken() const;
 
-  const base::UnguessableToken& current_initiator_state_token() const {
+  const blink::InitiatorStateToken& current_initiator_state_token() const {
     return current_initiator_state_token_;
   }
 
@@ -911,7 +907,7 @@ class CONTENT_EXPORT RenderFrameHostImpl
       const blink::LocalFrameToken& frame_token,
       const base::UnguessableToken& devtools_frame_token,
       const blink::DocumentToken& document_token,
-      const base::UnguessableToken& initiator_state_token,
+      const blink::InitiatorStateToken& initiator_state_token,
       const blink::FramePolicy& frame_policy,
       const blink::mojom::FrameOwnerProperties& frame_owner_properties,
       blink::FrameOwnerElementType owner_type,
@@ -949,7 +945,7 @@ class CONTENT_EXPORT RenderFrameHostImpl
       const blink::LocalFrameToken& frame_token,
       const blink::DocumentToken& document_token,
       base::UnguessableToken devtools_frame_token,
-      const base::UnguessableToken& initiator_state_token,
+      const blink::InitiatorStateToken& initiator_state_token,
       const blink::FramePolicy& frame_policy,
       std::string frame_name,
       std::string frame_unique_name,
@@ -1273,154 +1269,7 @@ class CONTENT_EXPORT RenderFrameHostImpl
   // Stop the load in progress.
   void Stop();
 
-  // Defines different states the RenderFrameHost can be in during its lifetime
-  // i.e., from point of creation to deletion. See |SetLifecycleState|.
-  // NOTE: this must be kept consistent with the
-  // RenderFrameHostImpl.LifecycleState enum in chrome_track_event.proto for
-  // tracing.
-  enum class LifecycleStateImpl {
-    // This state corresponds to when a speculative RenderFrameHost is created
-    // for an ongoing navigation (to new URL) but the navigation hasn't reached
-    // ReadyToCommitNavigation stage yet, mainly created for performance
-    // optimization. The frame can only be created in this state and no
-    // transitions happen to this state.
-    //
-    // Transitions from this state happen to one of:
-    // - kPendingCommit - when cross-RenderFrameHost navigation commits in
-    // the renderer and becomes ready to commit and the //content embedders are
-    // notified about the navigation's association with this RenderFrameHost.
-    // - kActive -- when speculative RenderFrameHost is swapped indirectly
-    // instead of following the full navigation path (known as "early commit").
-    // This happens when current RenderFrameHost is not live. The work to
-    // remove this transition is tracked in crbug.com/1072817.
-    //
-    // Speculative RenderFrameHost deletion happens without running any unload
-    // handlers and with LifecycleStateImpl remaining in kSpeculative state.
-    //
-    // Note that the term speculative is used, because the navigation might be
-    // canceled or redirected and the RenderFrameHost might get deleted before
-    // being used.
-    kSpeculative,
-
-    // This state corresponds to when a cross-RenderFrameHost navigation is
-    // waiting for an acknowledgment from the renderer to swap the
-    // RenderFrameHost.
-    //
-    // Note that cross-document same-RenderFrameHost navigations are not covered
-    // by this state, despite going through ReadyToCommitNavigation (the
-    // RenderFrameHost will be considered current and be in either kActive or
-    // kPrerendering state). The work to eliminate cross-document
-    // same-RenderFrameHost navigations is tracked in crbug.com/936696.
-    //
-    // Transitions from this state happen to one of:
-    // - kActive -- when a cross-RenderFrameHost navigation commits inside
-    // the primary frame tree.
-    // - kPrerendering -- when a cross-RenderFrameHost navigation commits
-    // inside prerendered frame tree.
-    // - kReadyToBeDeleted -- when the navigation gets aborted. The work to
-    // eliminate this is tracked in crbug.com/999255.
-    //
-    // Transition to this state only happens from kSpeculative state when a
-    // speculative RenderFrameHost created for cross-RenderFrameHost navigation
-    // commits in the renderer.
-    kPendingCommit,
-
-    // Prerender2:
-    // This state corresponds to when a RenderFrameHost is the current one in
-    // its RenderFrameHostManager and FrameTreeNode for a prerendered frame
-    // tree. Documents in this state are invisible to the user and aren't
-    // allowed to show any UI changes, but the page is allowed to load and run
-    // in the background. Documents in kPrerendering state can be evicted
-    // (cancelling prerendering) at any time.
-    //
-    // A prerendered page is created by an initial navigation in a prerendered
-    // frame tree. For the prerendered page to be shown to the user, another
-    // navigation in the primary frame tree activates the prerendered page.
-    //
-    // Transitions from this state happen to one of:
-    // - kActive -- when the prerendered page is activated.
-    // - kRunningUnloadHandlers -- when a navigation commits in a prerendered
-    // frame tree, unloading the previous one.
-    // - kReadyToBeDeleted -- when prerendering is cancelled and the prerendered
-    // page is deleted.
-    //
-    // Document can be created in kPrerendering state (while initializing root
-    // and child in a prerendered frame tree).
-    //
-    // Transition to kPrerendering can happen from kPendingCommit (when
-    // cross-RenderFrameHost navigation commits inside a prerendered frame
-    // tree).
-    //
-    // Please note that Prerender2 is an experimental feature behind the flag.
-    //
-    // Note that at the moment, this state is *not* used for RenderFrameHosts in
-    // nested FrameTrees inside prerendered pages. See crbug.com/1232528,
-    // crbug.com/1244274 for more discussion on whether or not we should support
-    // nested FrameTrees inside prerendered pages.
-    kPrerendering,
-
-    // This state corresponds to when a RenderFrameHost is the current one in
-    // its RenderFrameHostManager/FrameTreeNode inside a primary FrameTree or
-    // its descendant FrameTrees. In this state, RenderFrameHost is visible to
-    // the user. TODO(crbug.com/1232528, crbug.com/1244274): At the moment,
-    // prerendered pages implicitly support nested frame trees, whose
-    // RenderFrameHost's are always kActive even though they are not shown to
-    // the user. We need to formally determine if prerenders should support
-    // nested FrameTrees.
-    //
-    // Transition to kActive state may happen from one of:
-    // - kSpeculative -- when a speculative RenderFrameHost commits to make it
-    // the current one in primary frame tree before the corresponding navigation
-    // commits.
-    // - kPendingCommit -- when a cross-RenderFrameHost navigation commits. The
-    // work to eliminate these early commits is tracked in crbug.com/936696
-    // - kInBackForwardCache -- when restoring from BackForwardCache.
-    // - kPrerendering -- when a prerendered page activates.
-    //
-    // RenderFrameHost can also be created in this state for an empty document
-    // in a FrameTreeNode (e.g initializing root and child in an empty
-    // primary FrameTree).
-    //
-    // Note that this state is also used for nested pages e.g., the
-    // RenderFrameHosts in <fencedframe> elements, as these nested contexts do
-    // not get their own lifecycle state. A RenderFrameHost can tell if it is in
-    // a <fencedframe> however, by checking its `FrameTree`'s type.
-    kActive,
-
-    // This state corresponds to when RenderFrameHost is stored in
-    // BackForwardCache. This happens when the user navigates away from a
-    // document, so that the RenderFrameHost can be re-used after a history
-    // navigation. Transition to this state happens only from kActive state.
-    // BackForwardCache is disabled in prerendering frame trees because a
-    // prerendered page is invisible, and the user can't perform any
-    // back/forward navigations.
-    kInBackForwardCache,
-
-    // This state corresponds to when RenderFrameHost has started running unload
-    // handlers (this includes handlers for the "unload", "pagehide", and
-    // "visibilitychange" events). An event such as navigation commit or
-    // detaching the frame causes the RenderFrameHost to transition to this
-    // state. Then, the RenderFrameHost sends IPCs to the renderer process to
-    // execute unload handlers and deletes the RenderFrame. The RenderFrameHost
-    // waits for an ACK from the renderer process, either
-    // mojo::AgentSchedulingGroupHost::DidUnloadRenderFrame for a navigating
-    // frame or FrameHostMsg_Detach for its subframes, after which the
-    // RenderFrameHost transitions to kReadyToBeDeleted state.
-    //
-    // Transition to this state happens only from kActive and kPrerendering
-    // states. Note that eviction from BackForwardCache does not wait for unload
-    // handlers, and kInBackForwardCache moves to kReadyToBeDeleted.
-    kRunningUnloadHandlers,
-
-    // This state corresponds to when RenderFrameHost has completed running the
-    // unload handlers. Once all the descendant frames in other processes are
-    // gone, this RenderFrameHost will delete itself. Transition to this state
-    // may happen from one of kPrerendering, kActive, kInBackForwardCache or
-    // kRunningUnloadHandlers states.
-    kReadyToBeDeleted,
-  };
-  // Returns the string corresponding to LifecycleStateImpl, used for logging
-  // crash keys.
+  using LifecycleStateImpl = content::RenderFrameHostLifecycleStateImpl;
   static const char* LifecycleStateImplToString(LifecycleStateImpl state);
 
   LifecycleStateImpl lifecycle_state() const { return lifecycle_state_; }
@@ -2046,32 +1895,6 @@ class CONTENT_EXPORT RenderFrameHostImpl
   // Clears the entries in the PrefetchedSignedExchangeCache if exists.
   void ClearPrefetchedSignedExchangeCache();
 
-  class BackForwardCacheDisablingFeatureHandle {
-   public:
-    BackForwardCacheDisablingFeatureHandle();
-    BackForwardCacheDisablingFeatureHandle(
-        BackForwardCacheDisablingFeatureHandle&&);
-    BackForwardCacheDisablingFeatureHandle& operator=(
-        BackForwardCacheDisablingFeatureHandle&& other) = default;
-
-    ~BackForwardCacheDisablingFeatureHandle();
-
-    bool IsValid() const;
-
-    // This will reduce the feature count for |feature_| for the first time, and
-    // do nothing for further calls.
-    void Reset();
-
-   private:
-    friend class RenderFrameHostImpl;
-    BackForwardCacheDisablingFeatureHandle(
-        RenderFrameHostImpl* render_frame_host,
-        BackForwardCacheDisablingFeature feature);
-
-    base::WeakPtr<RenderFrameHostImpl> render_frame_host_ = nullptr;
-    BackForwardCacheDisablingFeature feature_;
-  };
-
   // A feature that blocks back/forward cache is used. This function is used for
   // non sticky blocking features.
   BackForwardCacheDisablingFeatureHandle
@@ -2082,29 +1905,6 @@ class CONTENT_EXPORT RenderFrameHostImpl
   // sticky blocking features.
   void OnBackForwardCacheDisablingStickyFeatureUsed(
       BackForwardCacheDisablingFeature feature);
-
-  // Used to notify that a document is blocking another IDB transaction, which
-  // means that it must not be frozen.
-  class HoldingBlockingIDBLockHandle {
-   public:
-    HoldingBlockingIDBLockHandle();
-    HoldingBlockingIDBLockHandle(HoldingBlockingIDBLockHandle&&);
-    HoldingBlockingIDBLockHandle& operator=(
-        HoldingBlockingIDBLockHandle&& other) = default;
-
-    ~HoldingBlockingIDBLockHandle();
-
-    bool IsValid() const;
-
-    void Reset();
-
-   private:
-    friend class RenderFrameHostImpl;
-    explicit HoldingBlockingIDBLockHandle(
-        RenderFrameHostImpl* render_frame_host);
-
-    base::WeakPtr<RenderFrameHostImpl> render_frame_host_ = nullptr;
-  };
 
   // Disables freezing for this document for the duration of the handle's
   // lifetime.
@@ -2399,6 +2199,10 @@ class CONTENT_EXPORT RenderFrameHostImpl
     return policy_container_host_.get();
   }
 
+  scoped_refptr<InitiatorNavigationState> current_navigation_state() const {
+    return current_navigation_state_;
+  }
+
   // This is used by RenderFrameHostManager to ensure the replacement
   // RenderFrameHost is properly initialized when performing an early commit
   // as a recovery for a crashed frame.
@@ -2596,6 +2400,7 @@ class CONTENT_EXPORT RenderFrameHostImpl
                         blink::mojom::FaviconUpdateReason reason) override;
   void DownloadURL(blink::mojom::DownloadURLParamsPtr params) override;
   void ShowCaptionSettings() override;
+  void UpdateToVideoAdFrame() override;
   void FocusedElementChanged(
       bool is_editable_element,
       bool is_richly_editable_element,
@@ -2692,7 +2497,8 @@ class CONTENT_EXPORT RenderFrameHostImpl
                      blink::mojom::DragEventSourceInfoPtr event_info) override;
   void IssueKeepAliveHandle(
       mojo::PendingReceiver<blink::mojom::NavigationStateKeepAliveHandle>
-          receiver) override;
+          receiver,
+      const blink::InitiatorStateToken& initiator_state_token) override;
   void NotifyStorageAccessed(blink::mojom::StorageTypeAccessed storage_type,
                              bool blocked) override;
   void RecordWindowProxyUsageMetrics(
@@ -3348,6 +3154,9 @@ class CONTENT_EXPORT RenderFrameHostImpl
   // status.
   CachedPermissionMap GetCachedPermissionStatuses();
 
+  // Returns the Storage Access API status for this instance.
+  net::StorageAccessApiStatus GetStorageAccessApiStatus();
+
   // Allows tests to disable the unload event timer to simulate bugs that
   // happen before it fires (to avoid flakiness).
   void DisableUnloadTimerForTesting();
@@ -3392,8 +3201,13 @@ class CONTENT_EXPORT RenderFrameHostImpl
 
   // Records the current navigation state of this RFH. It should be passed to
   // NavigationRequests initiated by this RFH.
-  scoped_refptr<InitiatorNavigationState>
-  CreateInitiatorStateFromCurrentFrame();
+  scoped_refptr<InitiatorNavigationState> GetCurrentInitiatorNavigationState();
+
+  // Used in tests. This bypasses normal lifecycle security checks around
+  // setting a PolicyContainerHost and generating an InitiatorNavigationState.
+  void SetPolicyContainerHostForTesting(
+      scoped_refptr<PolicyContainerHost> policy_container_host,
+      const blink::InitiatorStateToken& new_initiator_state_token);
 
  protected:
   friend class RenderFrameHostFactory;
@@ -3415,7 +3229,7 @@ class CONTENT_EXPORT RenderFrameHostImpl
       const blink::LocalFrameToken& frame_token,
       const blink::DocumentToken& document_token,
       base::UnguessableToken devtools_frame_token,
-      const base::UnguessableToken& initiator_state_token,
+      const blink::InitiatorStateToken& initiator_state_token,
       bool renderer_initiated_creation_of_main_frame,
       LifecycleStateImpl lifecycle_state,
       scoped_refptr<BrowsingContextState> browsing_context_state,
@@ -3477,14 +3291,16 @@ class CONTENT_EXPORT RenderFrameHostImpl
                                 base::WeakPtr<RenderFrameHostImpl> impl);
 
  private:
+  friend class BackForwardCacheDisablingFeatureHandle;
   friend class CommitNavigationPauser;
+  friend class HoldingBlockingIDBLockHandle;
+  friend class NavigationBrowserTest;
+  friend class RenderFrameHostManagerUnloadBrowserTest;
   friend class RenderFrameHostPermissionsPolicyTest;
   friend class TestRenderFrameHost;
   friend class TestRenderViewHost;
   friend class TextInputTestLocalFrame;
   friend class WebContentsSplitCacheBrowserTest;
-  friend class RenderFrameHostManagerUnloadBrowserTest;
-  friend class NavigationBrowserTest;
 
   FRIEND_TEST_ALL_PREFIXES(NavigatorTest, TwoNavigationsRacingCommit);
   FRIEND_TEST_ALL_PREFIXES(RenderFrameHostImplBeforeUnloadBrowserTest,
@@ -3702,7 +3518,7 @@ class CONTENT_EXPORT RenderFrameHostImpl
       override;
   void CreateChildFrame(
       const blink::LocalFrameToken& frame_token,
-      const base::UnguessableToken& initiator_state_token,
+      const blink::InitiatorStateToken& initiator_state_token,
       mojo::PendingAssociatedRemote<mojom::Frame> frame_remote,
       mojo::PendingReceiver<blink::mojom::BrowserInterfaceBroker>
           browser_interface_broker_receiver,
@@ -4342,15 +4158,39 @@ class CONTENT_EXPORT RenderFrameHostImpl
   // `current_initiator_state_token_` will also be set to
   // `new_initiator_state_token` to reflect the update of policies in the
   // RenderFrameHost.
+  // This will also cause the creation of a new `current_navigation_state_`
+  // identified by the passed `new_initiator_state_token`.
+  // `bypass_lifecycle_checks` is used to bypass the lifecycle checks when
+  // creating the new `current_navigation_state_`. This is only ever true for
+  // the early commit after a crash (where a speculative RFH is committed) and
+  // in tests.
   void SetPolicyContainerHost(
       scoped_refptr<PolicyContainerHost> policy_container_host,
-      const base::UnguessableToken& new_initiator_state_token);
+      const blink::InitiatorStateToken& new_initiator_state_token,
+      bool bypass_lifecycle_checks);
 
   // PolicyContainerHost::Client:
   void DidChangeReferrerPolicy(
       network::mojom::ReferrerPolicy referrer_policy) final;
   void DidUpdateInitiatorStateToken(
-      const base::UnguessableToken& new_initiator_state_token) final;
+      const blink::InitiatorStateToken& new_initiator_state_token) final;
+
+  // Updates the `current_initiator_navigation_state_` following an updated of
+  // `current_initiator_state_token_`. This returns false if the updated
+  // `current_initiator_state_token_` already has an InitiatorNavigationState
+  // associated to it in the BrowsingInstance, as InitiatorNavigationStates must
+  // be uniquely identified by `initiator_state_token`. The caller of the
+  // function must take into account the return value of this function. When the
+  // initiator state token is updated by the browser process, failure should
+  // never happen. When the token is updated by the renderer process, failure
+  // can only happen in the case of a compromised renderer and should cause
+  // termination of the renderer process.
+  // `bypass_lifecycle_checks` is used to bypass the lifecycle checks when
+  // creating the new `current_navigation_state_`. This is only ever true for
+  // the early commit after a crash (where a speculative RFH is committed) and
+  // in tests.
+  [[nodiscard]] bool UpdateCurrentInitiatorNavigationState(
+      bool bypass_lifecycle_checks);
 
   // Initializes |local_network_access_request_policy_|. Constructor helper.
   void InitializeLocalNetworkAccessRequestPolicy();
@@ -4519,6 +4359,9 @@ class CONTENT_EXPORT RenderFrameHostImpl
       bool is_cross_origin,
       blink::mojom::AuthenticatorStatus status);
 #endif
+
+  // Updates the frame's ad status to `ad_frame_status`.
+  void UpdateAdFrameStatus(blink::mojom::FrameAdStatus ad_frame_status);
 
   // Notifies the RenderProcessHost instance that this frame no longer has any
   // media stream. Called when this render frame is deleted or when the process
@@ -5498,10 +5341,14 @@ class CONTENT_EXPORT RenderFrameHostImpl
   // the InitiatorNavigationState set at the time this document was created,
   // because it could've changed with dynamic CSP policies set via meta tags,
   // or the referrer policy being updated in the renderer process.
-  // TODO(crbug.com/510258191): Actually have the InitiatorNavigationState be
-  // indexed on an initiator state token, once the initiator state token is
-  // properly set in the browser and renderer processes.
-  base::UnguessableToken current_initiator_state_token_;
+  blink::InitiatorStateToken current_initiator_state_token_;
+
+  // A record of the current state of the RenderFrameHost, to pass to
+  // navigations started from the current document. It is updated when the state
+  // of the `policy_container_host_` changes. Note that this is not the state of
+  // the initiator of the navigation that committed inside the RenderFrameHost,
+  // but the state of the RenderFrameHost itself.
+  scoped_refptr<InitiatorNavigationState> current_navigation_state_;
 
   // The current document's HTTP response head. This is used by back-forward
   // cache, for navigating a second time toward the same document.
@@ -5710,11 +5557,6 @@ class CONTENT_EXPORT RenderFrameHostImpl
   base::WeakPtrFactory<RenderFrameHostImpl>
       render_frame_scoped_weak_ptr_factory_{this};
 };
-
-// Used when DCHECK_STATE_TRANSITION triggers.
-CONTENT_EXPORT std::ostream& operator<<(
-    std::ostream& o,
-    const RenderFrameHostImpl::LifecycleStateImpl& s);
 
 }  // namespace content
 

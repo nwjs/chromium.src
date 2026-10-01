@@ -477,6 +477,10 @@ HTMLMediaElement::HTMLMediaElement(const QualifiedName& tag_name,
   SetHasCustomStyleCallbacks();
   AddElementToDocumentMap(this, &document);
 
+  if (!CanPlayWhileHidden()) {
+    UseCounter::Count(
+        document, WebFeature::kMediaPlaybackWhileNotVisiblePermissionPolicy);
+  }
   UseCounter::Count(document, WebFeature::kHTMLMediaElement);
 }
 
@@ -492,6 +496,7 @@ void HTMLMediaElement::Dispose() {
   // doesn't get dispatched during the object destruction.
   // See Document::isDelayingLoadEvent().
   // Also see http://crbug.com/275223 for more details.
+  is_disposing_ = true;
   ClearMediaPlayerAndAudioSourceProviderClientWithoutLocking();
 
   progress_event_timer_.Shutdown();
@@ -500,6 +505,12 @@ void HTMLMediaElement::Dispose() {
 
 void HTMLMediaElement::DidMoveToNewDocument(Document& old_document) {
   DVLOG(3) << "didMoveToNewDocument(" << *this << ")";
+
+  if (!CanPlayWhileHidden()) {
+    UseCounter::Count(
+        GetDocument(),
+        WebFeature::kMediaPlaybackWhileNotVisiblePermissionPolicy);
+  }
 
   load_timer_.MoveToNewTaskRunner(
       GetDocument().GetTaskRunner(TaskType::kInternalMedia));
@@ -690,7 +701,7 @@ bool HTMLMediaElement::ShouldReusePlayer(Document& old_document,
 
 bool HTMLMediaElement::CanPlayWhileHidden() const {
   ExecutionContext* context = GetDocument().GetExecutionContext();
-  return context &&
+  return !context ||
          context->IsFeatureEnabled(network::mojom::PermissionsPolicyFeature::
                                        kMediaPlaybackWhileNotVisible,
                                    ReportOptions::kDoNotReport);
@@ -1786,30 +1797,7 @@ void HTMLMediaElement::StartPlayerLoad() {
   web_media_player_->RequestRemotePlaybackDisabled(
       FastHasAttribute(html_names::kDisableremoteplaybackAttr));
 
-  if (RuntimeEnabledFeatures::
-          MediaPlaybackWhileNotVisiblePermissionPolicyEnabled(
-              GetExecutionContext())) {
-    UseCounter::Count(
-        GetDocument(),
-        WebFeature::kMediaPlaybackWhileNotVisiblePermissionPolicy);
-    web_media_player_->SetShouldPauseWhenFrameIsHidden(
-        !GetDocument().GetExecutionContext()->IsFeatureEnabled(
-            network::mojom::PermissionsPolicyFeature::
-                kMediaPlaybackWhileNotVisible,
-            ReportOptions::kDoNotReport));
-  }
-
-  if (!CanPlayWhileHidden()) {
-    // The "media-playback-while-not-visible" permission policy default value
-    // was overridden, which means that either this frame or an ancestor frame
-    // changed the permission policy's default value. This should only happen if
-    // the MediaPlaybackWhileNotVisiblePermissionPolicyEnabled runtime flag is
-    // enabled.
-    UseCounter::Count(
-        GetDocument(),
-        WebFeature::kMediaPlaybackWhileNotVisiblePermissionPolicy);
-    web_media_player_->SetShouldPauseWhenFrameIsHidden(true);
-  }
+  web_media_player_->SetShouldPauseWhenFrameIsHidden(!CanPlayWhileHidden());
 
   bool is_cache_disabled = false;
   probe::IsCacheDisabled(GetDocument().GetExecutionContext(),
@@ -5347,13 +5335,9 @@ void HTMLMediaElement::RequestPlay(bool triggered_by_user) {
 }
 
 void HTMLMediaElement::RequestPause(bool triggered_by_user) {
-  if (triggered_by_user) {
-    LocalFrame* frame = GetDocument().GetFrame();
-    if (frame) {
-      LocalFrame::NotifyUserActivation(
-          frame, mojom::blink::UserActivationNotificationType::kInteraction);
-    }
-  }
+  // Never grant user activation for pause actions. Pausing media never requires
+  // user activation and should not allow websites to trigger restricted APIs
+  // like popups or clipboard writes on pause events.
   PauseInternal(triggered_by_user
                     ? WebMediaPlayer::PauseReason::kPauseRequestedByUser
                     : WebMediaPlayer::PauseReason::kPauseRequestedInternally);

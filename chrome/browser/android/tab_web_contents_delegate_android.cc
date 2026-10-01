@@ -69,6 +69,7 @@
 #include "components/paint_preview/buildflags/buildflags.h"
 #include "components/safe_browsing/content/browser/safe_browsing_navigation_observer.h"
 #include "content/public/browser/file_select_listener.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_process_host.h"
@@ -88,6 +89,8 @@
 #include "third_party/blink/public/mojom/window_features/window_features.mojom.h"
 #include "third_party/jni_zero/default_conversions.h"
 #include "third_party/skia/include/core/SkRegion.h"
+#include "ui/base/page_transition_types.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/display/display.h"
 #include "ui/display/screen.h"
 #include "ui/gfx/android/rect_jni_conversion.h"
@@ -292,7 +295,7 @@ content::WebContents* TabWebContentsDelegateAndroid::CreateCustomWebContents(
     WindowOpenDisposition disposition,
     const blink::mojom::WindowFeatures& window_features,
     const content::StoragePartitionConfig& partition_config,
-    content::SessionStorageNamespace* session_storage_namespace) {
+    content::SessionStorageNamespaceHandle* session_storage_namespace) {
   if (actor::HasActorTaskPreventingNewWebContents(opener)) {
     // If an ExecutionEngine is acting on the opener, we force the navigation
     // to happen in the same tab.
@@ -418,6 +421,17 @@ WebContents* TabWebContentsDelegateAndroid::AddNewContents(
   // Can't create a new contents for the current tab - invalid case.
   DCHECK_NE(disposition, WindowOpenDisposition::CURRENT_TAB);
 
+  if (disposition == WindowOpenDisposition::NEW_PICTURE_IN_PICTURE) {
+    const GURL& opener_url = source ? source->GetLastCommittedURL() : GURL();
+    if (!PictureInPictureWindowManager::IsSupportedForDocumentPictureInPicture(
+            opener_url)) {
+      if (was_blocked) {
+        *was_blocked = true;
+      }
+      return nullptr;
+    }
+  }
+
   // At this point the |new_contents| is beyond the popup blocker, but we use
   // the same logic for determining if the popup tracker needs to be attached.
   if (source && blocked_content::ConsiderForPopupBlocking(disposition)) {
@@ -542,7 +556,8 @@ TabWebContentsDelegateAndroid::GetInstalledWebappGeolocationContext() {
 void TabWebContentsDelegateAndroid::GetAIPageContent(
     content::WebContents* web_contents,
     bool include_actionable_elements,
-    base::OnceCallback<void(const std::string&)> callback) {
+    base::OnceCallback<void(base::expected<std::string, std::string>)>
+        callback) {
   auto options = include_actionable_elements
                      ? optimization_guide::ActionableAIPageContentOptions(
                            /*on_critical_path=*/false)
@@ -552,11 +567,11 @@ void TabWebContentsDelegateAndroid::GetAIPageContent(
   optimization_guide::GetAIPageContent(
       web_contents, std::move(options),
       base::BindOnce([](optimization_guide::AIPageContentResultOrError result)
-                         -> std::string {
+                         -> base::expected<std::string, std::string> {
         if (!result.has_value()) {
-          return "";
+          return base::unexpected(result.error());
         }
-        return result->proto.SerializeAsString();
+        return base::ok(result->proto.SerializeAsString());
       }).Then(std::move(callback)));
 }
 

@@ -35,6 +35,9 @@
 #include "components/history/core/browser/expire_history_backend.h"
 #include "components/history/core/browser/history_backend_notifier.h"
 #include "components/history/core/browser/history_types.h"
+#include "components/history/core/browser/journeys/history_backend_for_journeys_sync.h"
+#include "components/history/core/browser/journeys/journey.h"
+#include "components/history/core/browser/journeys/journey_row.h"
 #include "components/history/core/browser/keyword_id.h"
 #include "components/history/core/browser/sync/history_backend_for_sync.h"
 #include "components/history/core/browser/visit_tracker.h"
@@ -61,6 +64,10 @@ class DataTypeControllerDelegate;
 }
 
 namespace history {
+namespace journeys {
+class JourneysSyncBridge;
+}  // namespace journeys
+
 struct DownloadRow;
 class HistoryBackendClient;
 class HistoryBackendDBBaseTest;
@@ -121,6 +128,7 @@ class QueuedHistoryDBTask {
 // here, see the history service for behavior.
 class HistoryBackend : public base::RefCountedThreadSafe<HistoryBackend>,
                        public HistoryBackendForSync,
+                       public journeys::HistoryBackendForJourneysSync,
                        public HistoryBackendNotifier,
                        public favicon::FaviconBackendDelegate {
  public:
@@ -207,6 +215,10 @@ class HistoryBackend : public base::RefCountedThreadSafe<HistoryBackend>,
   // and is deleted.
   static constexpr int kExpireDaysThreshold = 90;
 
+  // The maximum redirect chain depth to traverse before stopping. Prevents
+  // quadratic sql query floods on unbounded client-redirect chains.
+  static constexpr size_t kMaxRedirectChainLength = 30;
+
   // Init must be called to complete object creation. This object can be
   // constructed on any thread, but all other functions including Init() must
   // be called on the history thread.
@@ -226,6 +238,15 @@ class HistoryBackend : public base::RefCountedThreadSafe<HistoryBackend>,
   HistoryBackend(const HistoryBackend&) = delete;
   HistoryBackend& operator=(const HistoryBackend&) = delete;
 
+  // Sets parameters to be used when Init() is called.
+  void SetInitParams(bool force_fail,
+                     const HistoryDatabaseParams& history_database_params);
+
+  // Initializes the backend using parameters set via SetInitParams(). If
+  // already initialized, this is a no-op.
+  void InitWithCachedParams();
+
+  // Convenience method that sets parameters and initializes the backend.
   // Must be called after creation but before any objects are created. If this
   // fails, all other functions will fail as well. (Since this runs on another
   // thread, we don't bother returning failure.)
@@ -747,8 +768,22 @@ class HistoryBackend : public base::RefCountedThreadSafe<HistoryBackend>,
   base::WeakPtr<syncer::DataTypeControllerDelegate>
   GetHistorySyncControllerDelegate();
 
+  // Returns the sync controller delegate for syncing journeys, owned by
+  // `journeys_sync_bridge_`. The bridge is reset during database closing in
+  // backend teardown, in practice giving this a backend lifetime expectation.
+  base::WeakPtr<syncer::DataTypeControllerDelegate>
+  GetJourneysSyncControllerDelegate();
+
   // Sends the SyncService's TransportState `state` to the HistorySyncBridge.
   void SetSyncTransportState(syncer::SyncService::TransportState state);
+
+  // HistoryBackendForJourneysSync:
+  bool AddOrUpdateJourneyRows(
+      const std::vector<journeys::JourneyRow>& journeys) override;
+  bool DeleteJourneys(const std::vector<std::string>& journey_ids) override;
+  std::vector<journeys::JourneyRow> GetAllJourneyRows() override;
+  std::vector<journeys::Journey> GetAllJourneysWithVisits() override;
+  bool DeleteAllJourneys() override;
 
   // Deleting ------------------------------------------------------------------
 
@@ -1150,6 +1185,10 @@ class HistoryBackend : public base::RefCountedThreadSafe<HistoryBackend>,
   // it unregisters itself as observer during destruction.
   std::unique_ptr<HistorySyncBridge> history_sync_bridge_;
 
+  // Used to manage syncing of the journeys datatype. It will be null before
+  // HistoryBackend::Init() is called.
+  std::unique_ptr<journeys::JourneysSyncBridge> journeys_sync_bridge_;
+
   // Contains device information for all syncing devices.
   SyncDeviceInfoMap sync_device_info_;
 
@@ -1159,6 +1198,17 @@ class HistoryBackend : public base::RefCountedThreadSafe<HistoryBackend>,
 
   // Whether segments data should include foreign history.
   bool can_add_foreign_visits_to_segments_ = false;
+
+  // Sync transport state, cached if SetSyncTransportState() is called before
+  // InitWithCachedParams().
+  std::optional<syncer::SyncService::TransportState> sync_transport_state_;
+
+  // Tracks whether Init() has already run.
+  bool is_inited_ = false;
+
+  // Stored initialization parameters if Init is deferred.
+  bool force_fail_ = false;
+  std::unique_ptr<HistoryDatabaseParams> history_database_params_;
 };
 
 }  // namespace history

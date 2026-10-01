@@ -29,12 +29,13 @@
 #include "base/test/scoped_feature_list.h"
 #include "base/test/with_feature_override.h"
 #include "base/threading/thread_restrictions.h"
+#include "base/types/pass_key.h"
 #include "base/values.h"
 #include "build/build_config.h"
-#include "chrome/browser/extensions/api/permissions/permissions_api.h"
 #include "chrome/browser/extensions/browsertest_util.h"
 #include "chrome/browser/extensions/chrome_content_browser_client_extensions_part.h"
 #include "chrome/browser/extensions/chrome_test_extension_loader.h"
+#include "chrome/browser/extensions/component_loader.h"
 #include "chrome/browser/extensions/error_console/error_console.h"
 #include "chrome/browser/extensions/error_console/error_console_test_observer.h"
 #include "chrome/browser/extensions/extension_action_runner.h"
@@ -52,6 +53,7 @@
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/extensions/api/web_navigation.h"
 #include "components/content_settings/core/common/content_settings_types.h"
+#include "components/crx_file/id_util.h"
 #include "components/gcm_driver/fake_gcm_profile_service.h"
 #include "components/gcm_driver/instance_id/fake_gcm_driver_for_instance_id.h"
 #include "components/push_messaging/push_messaging_features.h"
@@ -75,6 +77,7 @@
 #include "content/public/test/content_mock_cert_verifier.h"
 #include "content/public/test/service_worker_test_helpers.h"
 #include "content/public/test/test_launcher.h"
+#include "extensions/browser/api/permissions/permissions_api.h"
 #include "extensions/browser/api/web_request/extension_web_request_event_router.h"
 #include "extensions/browser/api/web_request/web_request_api_helpers.h"
 #include "extensions/browser/browsertest_util.h"
@@ -82,6 +85,8 @@
 #include "extensions/browser/event_router.h"
 #include "extensions/browser/extension_function_histogram_value.h"
 #include "extensions/browser/extension_host.h"
+#include "extensions/browser/extension_mojo_binder_registry.h"
+#include "extensions/browser/extension_mojo_binder_registry_factory.h"
 #include "extensions/browser/extension_prefs.h"
 #include "extensions/browser/extension_registrar.h"
 #include "extensions/browser/extension_registry.h"
@@ -109,6 +114,7 @@
 #include "testing/gmock/include/gmock/gmock.h"
 #include "third_party/blink/public/common/service_worker/service_worker_status_code.h"
 #include "third_party/blink/public/common/storage_key/storage_key.h"
+#include "ui/base/page_transition_types.h"
 #include "ui/message_center/public/cpp/notification.h"
 #include "url/url_constants.h"
 
@@ -133,8 +139,9 @@ class WebContentsLoadStopObserver : content::WebContentsObserver {
       delete;
 
   void WaitForLoadStop() {
-    if (load_stop_observed_)
+    if (load_stop_observed_) {
       return;
+    }
     message_loop_runner_ = new content::MessageLoopRunner;
     message_loop_runner_->Run();
   }
@@ -142,8 +149,9 @@ class WebContentsLoadStopObserver : content::WebContentsObserver {
  private:
   void DidStopLoading() override {
     load_stop_observed_ = true;
-    if (message_loop_runner_)
+    if (message_loop_runner_) {
       message_loop_runner_->Quit();
+    }
   }
 
   bool load_stop_observed_;
@@ -373,7 +381,7 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerBasedBackgroundTest,
   const Extension* extension = LoadExtension(
       test_data_dir_.AppendASCII("service_worker/worker_based_background/"
                                  "service_worker_registration_failure"),
-                                 {.wait_for_renderers = false});
+      {.wait_for_renderers = false});
 
   ASSERT_TRUE(extension);
   observer.WaitForErrors();
@@ -1596,7 +1604,7 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerBasedBackgroundTest,
 // This test also verifies that if the requested resource exists in the manifest
 // but is not present in the extension directory, the Service Worker can still
 // serve the resource file.
-// TODO(crbug.com/469417243): Port to desktop Android. The test requires a
+// TODO(crbug.com/555405342): Port to desktop Android. The test requires a
 // background page to use window.registerServiceWorker, which is not
 // supported on Android's MV3 extensions.
 IN_PROC_BROWSER_TEST_F(ServiceWorkerTest, WebAccessibleResourcesIframeSrc) {
@@ -1726,7 +1734,7 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerTest,
 }
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
-// TODO(crbug.com/469417243): Port to desktop Android. Fails because
+// TODO(crbug.com/555404293): Port to desktop Android. Fails because
 // gcm_driver()->last_gettoken_app_id() is empty.
 IN_PROC_BROWSER_TEST_F(ServiceWorkerPushMessagingTest, OnPush) {
   const Extension* extension = LoadExtension(
@@ -3404,8 +3412,9 @@ IN_PROC_BROWSER_TEST_F(ServiceWorkerLazyBackgroundTest, ConsoleLogging) {
         const content::ConsoleMessage& message) override {
       // NOTE: We could check the version_id, but it shouldn't be necessary with
       // the expected messages we're verifying (they're uncommon enough).
-      if (message.message != expected_message_)
+      if (message.message != expected_message_) {
         return;
+      }
       scoped_observation_.Reset();
       run_loop_.QuitWhenIdle();
     }
@@ -3512,6 +3521,97 @@ IN_PROC_BROWSER_TEST_P(ServiceWorkerCheckBindingsTest, BindingsAvailability) {
 
   EXPECT_TRUE(BackgroundInfo::IsServiceWorkerBased(extension.get()));
   EXPECT_TRUE(result_listener.WaitUntilSatisfied());
+}
+
+IN_PROC_BROWSER_TEST_F(ServiceWorkerTest, MojoJsBindingsInServiceWorker) {
+  ComponentLoader::EnableBackgroundExtensionsForTesting();
+
+  class SWExtensionMojoBinderProvider : public ExtensionMojoBinderProvider {
+   public:
+    explicit SWExtensionMojoBinderProvider(ExtensionId id)
+        : ExtensionMojoBinderProvider(std::move(id)) {}
+    bool IsMojoJsEnabledForServiceWorker() const override { return true; }
+  };
+
+  static constexpr char kManifestTemplate[] =
+      R"({
+           "name": "Test Extension",
+           "version": "0.1",
+           "manifest_version": 3,
+           "key": "%s",
+           "background": {
+             "service_worker": "worker.js"
+           }
+         })";
+  static constexpr char kScript[] =
+      R"(
+         chrome.test.sendMessage(
+             typeof Mojo !== 'undefined' &&
+             typeof Mojo.bindInterface === 'function'
+                 ? 'HAS_MOJO'
+                 : 'NO_MOJO');
+       )";
+
+  int counter = 0;
+  auto run_sw_and_get_message = [&](bool is_component,
+                                    std::optional<bool> allow_mojo_in_sw) {
+    std::string seed = base::StringPrintf("seed_%d", ++counter);
+    std::string key;
+    EXPECT_TRUE(Extension::ProducePEM(seed, &key));
+    ExtensionId extension_id = crx_file::id_util::GenerateId(seed);
+
+    if (allow_mojo_in_sw.has_value()) {
+      auto provider =
+          *allow_mojo_in_sw
+              ? std::make_unique<SWExtensionMojoBinderProvider>(extension_id)
+              : std::make_unique<ExtensionMojoBinderProvider>(extension_id);
+      ExtensionMojoBinderRegistryFactory::GetOrCreateForBrowserContext(
+          profile())
+          ->RegisterProvider(GetPassKey(), std::move(provider));
+    }
+
+    TestExtensionDir test_dir;
+    test_dir.WriteManifest(base::StringPrintf(kManifestTemplate, key.c_str()));
+    test_dir.WriteFile(FILE_PATH_LITERAL("worker.js"), kScript);
+
+    ExtensionTestMessageListener listener;
+    const Extension* extension =
+        is_component ? LoadExtensionAsComponent(test_dir.UnpackedPath())
+                     : LoadExtension(test_dir.UnpackedPath());
+    EXPECT_TRUE(extension);
+    EXPECT_TRUE(listener.WaitUntilSatisfied());
+    return listener.message();
+  };
+
+#if BUILDFLAG(IS_CHROMEOS)
+  // On ChromeOS, all component extensions are auto-granted `mojoPrivate`,
+  // which unconditionally enables Mojo JS bindings in
+  // `ContextNeedsMojoBindings`.
+  constexpr char kExpectedDefaultComponentMojo[] = "HAS_MOJO";
+#else
+  constexpr char kExpectedDefaultComponentMojo[] = "NO_MOJO";
+#endif
+
+  // Standard extension.
+  EXPECT_EQ("NO_MOJO", run_sw_and_get_message(
+                           /*is_component=*/false,
+                           /*allow_mojo_in_sw=*/std::nullopt));
+
+  // Component extension with no provider.
+  EXPECT_EQ(kExpectedDefaultComponentMojo,
+            run_sw_and_get_message(
+                /*is_component=*/true,
+                /*allow_mojo_in_sw=*/std::nullopt));
+
+  // Component extension with default provider.
+  EXPECT_EQ(kExpectedDefaultComponentMojo, run_sw_and_get_message(
+                                               /*is_component=*/true,
+                                               /*allow_mojo_in_sw=*/false));
+
+  // Component extension with provider enabling SW Mojo JS.
+  EXPECT_EQ("HAS_MOJO", run_sw_and_get_message(
+                            /*is_component=*/true,
+                            /*allow_mojo_in_sw=*/true));
 }
 
 INSTANTIATE_TEST_SUITE_P(Unknown,

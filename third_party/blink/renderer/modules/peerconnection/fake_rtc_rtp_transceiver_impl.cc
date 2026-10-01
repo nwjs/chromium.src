@@ -113,6 +113,21 @@ void FakeRTCRtpSenderImpl::SetStreams(const Vector<String>& stream_ids) {
   NOTIMPLEMENTED();
 }
 
+scoped_refptr<webrtc::EncodedVideoFrameInjectorInterface>
+FakeRTCRtpSenderImpl::CreateEncodedVideoFrameInjector(
+    webrtc::KeyFrameCallback keyframe_callback,
+    webrtc::BitrateInfoCallback bitrate_callback) {
+  NOTIMPLEMENTED();
+  return nullptr;
+}
+
+scoped_refptr<webrtc::EncodedAudioFrameInjectorInterface>
+FakeRTCRtpSenderImpl::CreateEncodedAudioFrameInjector(
+    webrtc::TargetBitrateCallback bitrate_callback) {
+  NOTIMPLEMENTED();
+  return nullptr;
+}
+
 FakeRTCRtpReceiverImpl::FakeRTCRtpReceiverImpl(
     const String& track_id,
     Vector<String> stream_ids,

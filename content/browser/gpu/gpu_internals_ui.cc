@@ -16,7 +16,6 @@
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/i18n/time_formatting.h"
-#include "base/memory/raw_ref.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringize_macros.h"
@@ -567,15 +566,6 @@ base::ListValue GetVideoAcceleratorsInfo() {
   gpu::GPUInfo gpu_info = GpuDataManagerImpl::GetInstance()->GetGPUInfo();
   base::ListValue info;
 
-  struct {
-    const raw_ref<const gpu::VideoDecodeAcceleratorSupportedProfiles>
-        capabilities;
-    std::string name;
-  } kVideoDecoderImplementations[] = {
-      {raw_ref(gpu_info.video_decode_accelerator_supported_profiles),
-       "Decoding"},
-  };
-
   info.Append(display::BuildGpuInfoEntry("Decoding", ""));
   for (const auto& profile :
        gpu_info.video_decode_accelerator_supported_profiles) {
@@ -678,7 +668,7 @@ GpuMessageHandler::~GpuMessageHandler() {
 
 /* BrowserBridge.callAsync prepends a requestID to these messages. */
 void GpuMessageHandler::RegisterMessages() {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M159);
 
   web_ui()->RegisterMessageCallback(
       "getGpuInfo", base::BindRepeating(&GpuMessageHandler::HandleGetGpuInfo,
@@ -717,7 +707,7 @@ void GpuMessageHandler::HandleGetLogMessages(const base::ListValue& args) {
 
 void GpuMessageHandler::HandleGetGpuInfo(const base::ListValue& args) {
   CHECK_EQ(1U, args.size());
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M159);
   AllowJavascript();
 
   // Tell GpuDataManager it should have full GpuInfo. If the
@@ -733,7 +723,7 @@ void GpuMessageHandler::HandleGetGpuInfo(const base::ListValue& args) {
 }
 
 base::DictValue GpuMessageHandler::GetClientInfo() {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M159);
 
   base::DictValue dict;
 
@@ -776,7 +766,7 @@ base::DictValue GpuMessageHandler::GetClientInfo() {
 }
 
 base::ListValue GpuMessageHandler::GetLogMessages() {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M159);
 
   return GpuDataManagerImpl::GetInstance()->GetLogMessages();
 }

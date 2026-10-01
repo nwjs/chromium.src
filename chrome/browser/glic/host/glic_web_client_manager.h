@@ -43,7 +43,7 @@ enum class GlicWebClientLifecycleEvent {
 class GlicWebClientManager : public content::WebContentsObserver {
  public:
   // Interface to the owner of GlicWebClientManager. Note, the owner will differ
-  // depending on whether `kGlicNoWebview` is enabled.
+  // depending on whether `IsGlicNoWebviewEnabled()` is true.
   class Delegate {
    public:
     virtual ~Delegate() = default;
@@ -56,6 +56,8 @@ class GlicWebClientManager : public content::WebContentsObserver {
                                   bool is_initial_commit) {}
     // The guest process was terminated.
     virtual void OnGuestProcessGone(base::TerminationStatus status) {}
+    // The web client receiver was created/bound.
+    virtual void OnWebClientCreated() {}
     // The web client state was changed.
     virtual void OnWebClientStateChanged(mojom::WebClientState state) {}
   };
@@ -79,6 +81,8 @@ class GlicWebClientManager : public content::WebContentsObserver {
 
   GlicWebClientAccess* web_client_access() const { return web_client_; }
 
+  void SetPendingWebClientReceiver(
+      mojo::PendingReceiver<glic::mojom::WebClientHandler> web_client_receiver);
   void CreateWebClient(
       mojo::PendingReceiver<glic::mojom::WebClientHandler> web_client_receiver);
   void WebClientInitialized();
@@ -92,16 +96,12 @@ class GlicWebClientManager : public content::WebContentsObserver {
       content::NavigationHandle* navigation_handle) override;
   void PrimaryMainFrameRenderProcessGone(
       base::TerminationStatus status) override;
-  void RenderFrameHostChanged(content::RenderFrameHost* old_host,
-                              content::RenderFrameHost* new_host) override;
-  void RenderFrameDeleted(content::RenderFrameHost* render_frame_host) override;
 
  private:
   void OnWebClientStateChanged(mojom::WebClientState state);
 
   raw_ptr<Host> host_ = nullptr;
   raw_ptr<Delegate> delegate_ = nullptr;
-  raw_ptr<content::RenderFrameHost> guest_main_frame_ = nullptr;
 
   // Host owns at most one web client access. If a new access is created,
   // the old one is destroyed synchronously. This should usually not be used
@@ -114,6 +114,9 @@ class GlicWebClientManager : public content::WebContentsObserver {
 
   // Whether the guest frame has completed at least one navigation commit.
   bool has_navigation_committed_ = false;
+
+  mojo::PendingReceiver<glic::mojom::WebClientHandler>
+      pending_web_client_receiver_;
 };
 
 }  // namespace glic

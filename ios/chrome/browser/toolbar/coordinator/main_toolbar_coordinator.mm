@@ -5,6 +5,8 @@
 #import "ios/chrome/browser/toolbar/coordinator/main_toolbar_coordinator.h"
 
 #import "base/apple/foundation_util.h"
+#import "base/metrics/user_metrics.h"
+#import "base/metrics/user_metrics_action.h"
 #import "components/omnibox/browser/omnibox_pref_names.h"
 #import "components/omnibox/common/omnibox_features.h"
 #import "components/prefs/pref_service.h"
@@ -53,6 +55,7 @@
 #import "ios/chrome/browser/shared/public/commands/reader_mode_chip_commands.h"
 #import "ios/chrome/browser/shared/public/commands/scene_commands.h"
 #import "ios/chrome/browser/shared/public/commands/settings_commands.h"
+#import "ios/chrome/browser/shared/public/commands/snackbar_commands.h"
 #import "ios/chrome/browser/shared/public/commands/text_zoom_commands.h"
 #import "ios/chrome/browser/shared/public/commands/toolbar_commands.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
@@ -82,8 +85,10 @@
 #import "ios/chrome/browser/web/model/web_navigation_browser_agent.h"
 #import "ios/chrome/common/ui/util/constraints_ui_util.h"
 #import "ios/chrome/common/ui/util/ui_util.h"
+#import "ios/chrome/grit/ios_strings.h"
 #import "ios/components/webui/web_ui_url_constants.h"
 #import "ios/web/public/web_state.h"
+#import "ui/base/l10n/l10n_util.h"
 
 namespace layout_state {
 class MainToolbarCoordinatorPassKeyFactory {
@@ -179,6 +184,7 @@ inline LayoutStateToolbarPassKey PassKey() {
                                       PageActionMenuEntryPointCommands,
                                       PrimaryToolbarViewControllerDelegate,
                                       ReaderModeChipCommands,
+                                      LegacyToolbarMediatorDelegate,
                                       ToolbarCommands,
                                       ToolbarMediatorDelegate>
 
@@ -230,6 +236,8 @@ inline LayoutStateToolbarPassKey PassKey() {
   std::unique_ptr<FullscreenUIUpdater> _topToolbarFullscreenUIUpdater;
   /// Top location bar coordinator.
   LocationBarCoordinator* _topLocationBarCoordinator;
+  /// Top text-only location bar coordinator.
+  LocationBarCoordinator* _topTextOnlyLocationBarCoordinator;
   /// Coordinator for the tab group indicator.
   TabGroupIndicatorCoordinator* _tabGroupIndicatorCoordinator;
   /// Bottom toolbar mediator.
@@ -241,6 +249,8 @@ inline LayoutStateToolbarPassKey PassKey() {
   std::unique_ptr<FullscreenUIUpdater> _bottomToolbarFullscreenUIUpdater;
   /// Bottom location bar coordinator.
   LocationBarCoordinator* _bottomLocationBarCoordinator;
+  /// Bottom text-only location bar coordinator.
+  LocationBarCoordinator* _bottomTextOnlyLocationBarCoordinator;
 }
 
 - (instancetype)initWithBrowser:(Browser*)browser {
@@ -300,13 +310,22 @@ inline LayoutStateToolbarPassKey PassKey() {
   if (IsChromeNextIaEnabled()) {
     _topLocationBarCoordinator =
         [self createLocationBarCoordinatorActive:!isToolbarAtBottom
-                                     topPosition:YES];
+                                     topPosition:YES
+                                        textOnly:NO];
+    if (IsGlassToolbarEnabled()) {
+      _topTextOnlyLocationBarCoordinator =
+          [self createLocationBarCoordinatorActive:!isToolbarAtBottom
+                                       topPosition:YES
+                                          textOnly:YES];
+    }
     _topToolbarMediator = [self createToolbarMediatorTopPosition:YES];
-    _topToolbarViewController = [self
-        createToolbarViewControllerForMediator:_topToolbarMediator
-                                   locationBar:_topLocationBarCoordinator
-                                                   .locationBarViewController
-                                   topPosition:YES];
+    _topToolbarViewController =
+        [self createToolbarViewControllerForMediator:_topToolbarMediator
+                                         locationBar:_topLocationBarCoordinator
+                                 textOnlyLocationBar:
+                                     _topTextOnlyLocationBarCoordinator
+                                         .locationBarViewController
+                                         topPosition:YES];
     _tabGroupIndicatorCoordinator = [[TabGroupIndicatorCoordinator alloc]
         initWithBaseViewController:self.baseViewController
                            browser:browser];
@@ -330,12 +349,21 @@ inline LayoutStateToolbarPassKey PassKey() {
 
     _bottomLocationBarCoordinator =
         [self createLocationBarCoordinatorActive:isToolbarAtBottom
-                                     topPosition:NO];
+                                     topPosition:NO
+                                        textOnly:NO];
+    if (IsGlassToolbarEnabled()) {
+      _bottomTextOnlyLocationBarCoordinator =
+          [self createLocationBarCoordinatorActive:isToolbarAtBottom
+                                       topPosition:NO
+                                          textOnly:YES];
+    }
     _bottomToolbarMediator = [self createToolbarMediatorTopPosition:NO];
     _bottomToolbarViewController = [self
         createToolbarViewControllerForMediator:_bottomToolbarMediator
                                    locationBar:_bottomLocationBarCoordinator
-                                                   .locationBarViewController
+                           textOnlyLocationBar:
+                               _bottomTextOnlyLocationBarCoordinator
+                                   .locationBarViewController
                                    topPosition:NO];
     if (!IsFullscreenRefactoringEnabled()) {
       _bottomToolbarFullscreenUIUpdater = std::make_unique<FullscreenUIUpdater>(
@@ -420,6 +448,8 @@ inline LayoutStateToolbarPassKey PassKey() {
     _topToolbarMediator = nil;
     [_topLocationBarCoordinator stop];
     _topLocationBarCoordinator = nil;
+    [_topTextOnlyLocationBarCoordinator stop];
+    _topTextOnlyLocationBarCoordinator = nil;
     _topToolbarViewController = nil;
     _fullscreenObserver = nullptr;
     _topToolbarFullscreenUIUpdater = nullptr;
@@ -430,6 +460,8 @@ inline LayoutStateToolbarPassKey PassKey() {
     _bottomToolbarMediator = nil;
     [_bottomLocationBarCoordinator stop];
     _bottomLocationBarCoordinator = nil;
+    [_bottomTextOnlyLocationBarCoordinator stop];
+    _bottomTextOnlyLocationBarCoordinator = nil;
     _bottomToolbarViewController = nil;
     _bottomToolbarFullscreenUIUpdater = nullptr;
   }
@@ -699,9 +731,8 @@ inline LayoutStateToolbarPassKey PassKey() {
       return 0.0;
     }
     if ([self isToolbarPositionBottom]) {
-      if (IsAppBarHiddenInFullscreen() &&
-          self.browser->GetSceneState().layoutState.appBarPosition ==
-              AppBarPosition::kBottom) {
+      if (self.browser->GetSceneState().layoutState.appBarPosition ==
+          AppBarPosition::kBottom) {
         CGFloat safeAreaBottom = 0.0;
         if (self.browser->GetSceneState().window) {
           safeAreaBottom =
@@ -1174,9 +1205,7 @@ inline LayoutStateToolbarPassKey PassKey() {
   }
 }
 
-
-
-#pragma mark - ToolbarMediatorDelegate
+#pragma mark - LegacyToolbarMediatorDelegate
 
 - (void)transitionOmniboxToToolbarType:(ToolbarType)toolbarType {
   if (IsChromeNextIaEnabled()) {
@@ -1206,6 +1235,29 @@ inline LayoutStateToolbarPassKey PassKey() {
     }
   }
   return 0;
+}
+
+#pragma mark - ToolbarMediatorDelegate
+
+- (void)toolbarMediatorDidTapAssistantInIncognito:(ToolbarMediator*)mediator {
+  base::RecordAction(
+      base::UserMetricsAction("MobileToolbarAssistantIncognitoTapped"));
+  id<SnackbarCommands> snackbarHandler = HandlerForProtocol(
+      self.browser->GetCommandDispatcher(), SnackbarCommands);
+  id<SceneCommands> sceneHandler =
+      HandlerForProtocol(self.browser->GetCommandDispatcher(), SceneCommands);
+  [snackbarHandler
+      showSnackbarWithMessage:
+          l10n_util::GetNSString(IDS_IOS_APP_BAR_GEMINI_NOT_AVAILABLE_INCOGNITO)
+                   buttonText:l10n_util::GetNSString(
+                                  IDS_IOS_APP_BAR_SWITCH_MODES)
+                messageAction:^{
+                  base::RecordAction(base::UserMetricsAction(
+                      "MobileToolbarAssistantIncognitoSwitchModesTapped"));
+                  [sceneHandler
+                      displayTabGridInMode:TabGridOpeningMode::kRegular];
+                }
+             completionAction:nil];
 }
 
 #pragma mark - FullscreenBrowserAgentObserving
@@ -1340,7 +1392,9 @@ inline LayoutStateToolbarPassKey PassKey() {
 // Creates a new toolbar view controller, for the associated `mediator`.
 - (ToolbarViewController*)
     createToolbarViewControllerForMediator:(ToolbarMediator*)mediator
-                               locationBar:(UIViewController*)locationBar
+                               locationBar:(LocationBarCoordinator*)locationBar
+                       textOnlyLocationBar:
+                           (UIViewController*)textOnlyLocationBar
                                topPosition:(BOOL)topPosition {
   CHECK(IsChromeNextIaEnabled());
 
@@ -1371,7 +1425,11 @@ inline LayoutStateToolbarPassKey PassKey() {
   toolbarViewController.sceneHandler =
       HandlerForProtocol(dispatcher, SceneCommands);
   toolbarViewController.toolbarHeightDelegate = self.toolbarHeightDelegate;
-  toolbarViewController.locationBarViewController = locationBar;
+  [toolbarViewController
+      setLocationBarViewController:locationBar.locationBarViewController
+          andSteadyViewLayoutGuide:locationBar.steadyViewLayoutGuide];
+  [toolbarViewController
+      setTextOnlyLocationBarViewController:textOnlyLocationBar];
   toolbarViewController.bannerPromoDelegate = mediator;
 
   if (incognito) {
@@ -1385,10 +1443,11 @@ inline LayoutStateToolbarPassKey PassKey() {
 
 // Creates a new location bar coordinator.
 - (LocationBarCoordinator*)createLocationBarCoordinatorActive:(BOOL)active
-                                                  topPosition:
-                                                      (BOOL)topPosition {
+                                                  topPosition:(BOOL)topPosition
+                                                     textOnly:(BOOL)textOnly {
   LocationBarCoordinator* coordinator =
-      [[LocationBarCoordinator alloc] initWithBrowser:self.browser];
+      [[LocationBarCoordinator alloc] initWithBrowser:self.browser
+                                             textOnly:textOnly];
   [coordinator start];
   [coordinator setTopPosition:topPosition];
   [coordinator setLocationBarActive:active];
@@ -1412,10 +1471,11 @@ inline LayoutStateToolbarPassKey PassKey() {
         agentFromApp:browser->GetSceneState().profileState.appState];
   }
 
-  ProfileIOS* profile = self.profile;
+  ProfileIOS* regularProfile = self.profile->GetOriginalProfile();
   AuthenticationService* authService =
-      AuthenticationServiceFactory::GetForProfile(profile);
-  GeminiService* geminiService = GeminiServiceFactory::GetForProfile(profile);
+      AuthenticationServiceFactory::GetForProfile(regularProfile);
+  GeminiService* geminiService =
+      GeminiServiceFactory::GetForProfile(regularProfile);
   GeminiBrowserAgent* geminiBrowserAgent =
       GeminiBrowserAgent::FromBrowser(browser);
 
@@ -1423,7 +1483,8 @@ inline LayoutStateToolbarPassKey PassKey() {
                  initWithIncognito:isIncognito
                       webStateList:browser->GetWebStateList()
                      actionFactory:actionFactory
-                       prefService:profile->GetPrefs()
+                           profile:regularProfile
+                       prefService:regularProfile->GetPrefs()
               fullscreenController:FullscreenController::FromBrowser(browser)
             fullscreenBrowserAgent:FullscreenBrowserAgent::FromBrowser(browser)
                        topPosition:topPosition
@@ -1446,6 +1507,7 @@ inline LayoutStateToolbarPassKey PassKey() {
   toolbarMediator.baseViewController = self.baseViewController;
   toolbarMediator.sceneHandler =
       HandlerForProtocol(browser->GetCommandDispatcher(), SceneCommands);
+  toolbarMediator.delegate = self;
 
   return toolbarMediator;
 }

@@ -12,11 +12,13 @@
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
 #include "third_party/blink/public/common/loader/url_loader_throttle.h"
+#include "url/origin.h"
 
 namespace network {
 class SharedURLLoaderFactory;
 }
 
+class Profile;
 class PrivateVerificationTokensService;
 
 // Trigger PVT issuance and add PVT header when needed.
@@ -25,7 +27,7 @@ class PrivateVerificationTokensURLLoaderThrottle
  public:
   static std::unique_ptr<PrivateVerificationTokensURLLoaderThrottle> Create(
       PrivateVerificationTokensService* pvt_service,
-      bool is_off_the_record,
+      base::WeakPtr<Profile> profile,
       scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory);
 
   ~PrivateVerificationTokensURLLoaderThrottle() override;
@@ -45,13 +47,14 @@ class PrivateVerificationTokensURLLoaderThrottle
  private:
   PrivateVerificationTokensURLLoaderThrottle(
       base::WeakPtr<PrivateVerificationTokensService> pvt_service,
-      bool is_off_the_record,
+      base::WeakPtr<Profile> profile,
       scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory);
 
   base::WeakPtr<PrivateVerificationTokensService> pvt_service_;
-  bool is_off_the_record_;
+  base::WeakPtr<Profile> profile_;
   scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory_;
   std::optional<int64_t> token_id_;
+  std::optional<url::Origin> redeemer_origin_;
 };
 
 #endif  // CHROME_BROWSER_PRIVATE_VERIFICATION_TOKENS_PRIVATE_VERIFICATION_TOKENS_URL_LOADER_THROTTLE_H_

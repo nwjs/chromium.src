@@ -6,7 +6,10 @@
 
 #include <string_view>
 
+#include "build/build_config.h"
+
 #include "base/containers/fixed_flat_set.h"
+#include "base/i18n/icu4c_tag_converter.h"
 #include "base/i18n/language_tag_value_converters.h"
 #include "base/i18n/tag_converters.h"
 #include "base/test/gmock_expected_support.h"
@@ -536,6 +539,16 @@ TEST(LanguageTagTest, Canonicalize) {
   // Deprecated tags: "tl" -> "fil"
   EXPECT_THAT(LanguageTagConverter::GetInstance().FromString("tl"),
               Optional(GetKnownLanguageTag("fil")));
+
+#if BUILDFLAG(IS_WIN)
+  // Windows legacy Chinese tags: "zh-chs" -> "zh-cn"
+  EXPECT_THAT(LanguageTagConverter::GetInstance().FromString("zh-chs"),
+              Optional(GetKnownLanguageTag("zh-CN")));
+
+  // Windows legacy Chinese tags: "zh-cht" -> "zh-tw"
+  EXPECT_THAT(LanguageTagConverter::GetInstance().FromString("zh-cht"),
+              Optional(GetKnownLanguageTag("zh-TW")));
+#endif  // BUILDFLAG(IS_WIN)
 }
 
 TEST(LanguageTagTest, LegacyLanguages) {
@@ -556,6 +569,10 @@ TEST(LanguageTagTest, UndefinedLanguageTag) {
 }
 
 TEST(LanguageTagTest, CanCreateFixedFlatSet) {
+  static_assert(GetKnownLanguageTag("en-US") < GetKnownLanguageTag("pt-BR"),
+                "Comparison en-US < pt-BR failed!");
+  static_assert(GetKnownLanguageTag("en-US") != GetKnownLanguageTag("pt-BR"),
+                "Comparison en-US != pt-BR failed!");
   constexpr auto kLanguageTagsSet = base::MakeFixedFlatSet<LanguageTag>({
       GetKnownLanguageTag("en-US"),
       GetKnownLanguageTag("pt-BR"),
@@ -975,14 +992,14 @@ TEST(IcuLocaleConverterTest, FromLanguageTag) {
   EXPECT_STREQ("en_US@calendar=gregorian", locale_dynamic.getName());
 }
 
-TEST(LanguageTagConverterTest, FromIcuLocale) {
-  const LanguageTagConverter& converter = LanguageTagConverter::GetInstance();
+TEST(IcuLocaleConverterTest, ToLanguageTag) {
+  const IcuLocaleConverter& converter = IcuLocaleConverter::GetInstance();
 
   // Test simple locale conversion
   UErrorCode status = U_ZERO_ERROR;
   icu::Locale locale_en_us = icu::Locale::forLanguageTag("en-US", status);
   ASSERT_TRUE(U_SUCCESS(status));
-  LanguageTag en_us = converter.FromIcuLocale(locale_en_us);
+  LanguageTag en_us = converter.ToLanguageTag(locale_en_us);
   EXPECT_EQ("en-US", en_us.tag_string());
 
   // Test custom/dynamic locale conversion
@@ -990,12 +1007,12 @@ TEST(LanguageTagConverterTest, FromIcuLocale) {
   icu::Locale locale_dynamic =
       icu::Locale::forLanguageTag("en-US-u-ca-gregory", status);
   ASSERT_TRUE(U_SUCCESS(status));
-  LanguageTag dynamic_tag = converter.FromIcuLocale(locale_dynamic);
+  LanguageTag dynamic_tag = converter.ToLanguageTag(locale_dynamic);
   EXPECT_EQ("en-US-u-ca-gregory", dynamic_tag.tag_string());
 
   // Test fallback/failure or undefined
   icu::Locale locale_und = icu::Locale::getRoot();
-  LanguageTag und = converter.FromIcuLocale(locale_und);
+  LanguageTag und = converter.ToLanguageTag(locale_und);
   EXPECT_EQ("und", und.tag_string());
 }
 

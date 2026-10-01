@@ -1164,7 +1164,7 @@ and mapped to the variant by `StatisticNameToMachineStatisticVariant()` -->
 </histogram>
 
 <histogram name="ChromeOS.CountryCode.MissingVariationData"
-    enum="ChromeOSFallbackCountry" expires_after="2026-11-29">
+    enum="ChromeOSFallbackCountry" expires_after="2027-02-28">
   <owner>cschlosser@chromium.org</owner>
   <owner>chromeos-privacyhub@google.com</owner>
   <owner>chrome-regionalcapabilities@google.com</owner>
@@ -1176,20 +1176,6 @@ and mapped to the variant by `StatisticNameToMachineStatisticVariant()` -->
     updates and then have to fallback onto other mechanisms. This histogram
     tracks if the fallback mechanism was triggered and whether it also failed to
     determine a country and if so, why.
-  </summary>
-</histogram>
-
-<histogram name="ChromeOS.CountryCode.VPDRegionSplittingOutcome"
-    enum="BooleanSuccess" expires_after="2026-09-27">
-  <owner>cschlosser@chromium.org</owner>
-  <owner>chromeos-privacyhub@google.com</owner>
-  <owner>chrome-regionalcapabilities@google.com</owner>
-  <summary>
-    Records an enum when constructing the regional capabilities service during
-    browser startup and the fallback country is being computed from the VPD
-    region. This histogram tracks whether the 2-letters string obtained after
-    splitting the region read from VPD ends up being recognized as a valid
-    country code or not.
   </summary>
 </histogram>
 
@@ -1229,7 +1215,7 @@ and mapped to the variant by `StatisticNameToMachineStatisticVariant()` -->
 </histogram>
 
 <histogram name="ChromeOS.CWP.ParseCPUFrequencies"
-    enum="ChromeOSParseCPUFrequencyStatus" expires_after="2026-12-20">
+    enum="ChromeOSParseCPUFrequencyStatus" expires_after="2027-02-28">
   <owner>gmx@chromium.org</owner>
   <owner>cwp-team@google.com</owner>
   <summary>
@@ -1454,7 +1440,7 @@ and mapped to the variant by `StatisticNameToMachineStatisticVariant()` -->
 </histogram>
 
 <histogram name="ChromeOS.DiagnosticsUi.{RoutineType}Result"
-    enum="CrosDiagnosticsRoutineResult" expires_after="2026-12-31">
+    enum="CrosDiagnosticsRoutineResult" expires_after="2027-03-07">
   <owner>byronlee@google.com</owner>
   <owner>lt-diagnostics@google.com</owner>
   <summary>Records the result of the {RoutineType} Routine.</summary>
@@ -1796,7 +1782,7 @@ and mapped to the variant by `StatisticNameToMachineStatisticVariant()` -->
 </histogram>
 
 <histogram name="ChromeOS.HardwareVerifier.Report.IsCompliant" enum="Boolean"
-    expires_after="2026-12-31">
+    expires_after="2027-03-07">
   <owner>itspeter@chromium.org</owner>
   <owner>stimim@chromium.org</owner>
   <owner>chromeos-runtime-probe@google.com</owner>
@@ -1805,7 +1791,7 @@ and mapped to the variant by `StatisticNameToMachineStatisticVariant()` -->
 
 <histogram
     name="ChromeOS.HardwareVerifier.Report{HardwareVerifierSupportCategory}"
-    enum="HardwareVerifierQualificationStatus" expires_after="2026-12-31">
+    enum="HardwareVerifierQualificationStatus" expires_after="2027-03-07">
   <owner>itspeter@chromium.org</owner>
   <owner>stimim@chromium.org</owner>
   <owner>chromeos-runtime-probe@google.com</owner>
@@ -1831,7 +1817,7 @@ and mapped to the variant by `StatisticNameToMachineStatisticVariant()` -->
 </histogram>
 
 <histogram name="ChromeOS.HardwareVerifier.TimeToFinish" units="ms"
-    expires_after="2026-12-31">
+    expires_after="2027-03-07">
   <owner>itspeter@chromium.org</owner>
   <owner>stimim@chromium.org</owner>
   <owner>chromeos-runtime-probe@google.com</owner>
@@ -1876,7 +1862,7 @@ and mapped to the variant by `StatisticNameToMachineStatisticVariant()` -->
 </histogram>
 
 <histogram name="ChromeOS.Healthd.DiagnosticResult.{Routine}"
-    enum="CrosHealthdDiagnosticResult" expires_after="2026-12-31">
+    enum="CrosHealthdDiagnosticResult" expires_after="2027-03-07">
   <owner>weiluanwang@google.com</owner>
   <owner>dennyh@google.com</owner>
   <owner>lt-diagnostics@google.com</owner>
@@ -1947,7 +1933,7 @@ and mapped to the variant by `StatisticNameToMachineStatisticVariant()` -->
 </histogram>
 
 <histogram name="ChromeOS.Healthd.RoutineCreation"
-    enum="CrosHealthdRoutineCategory" expires_after="2026-12-31">
+    enum="CrosHealthdRoutineCategory" expires_after="2027-03-07">
   <owner>weiluanwang@google.com</owner>
   <owner>dennyh@google.com</owner>
   <owner>lt-diagnostics@google.com</owner>
@@ -4686,7 +4672,7 @@ and mapped to the variant by `StatisticNameToMachineStatisticVariant()` -->
 </histogram>
 
 <histogram name="ChromeOS.USB.DeviceError" enum="ChromeOSUsbDeviceError"
-    expires_after="2027-01-01">
+    expires_after="2027-03-07">
   <owner>jthies@google.com</owner>
   <owner>chromeos-usb@google.com</owner>
   <summary>
@@ -4697,7 +4683,7 @@ and mapped to the variant by `StatisticNameToMachineStatisticVariant()` -->
 
 <histogram
     name="ChromeOS.USB.ExternalDeviceAttached.{USBDeviceRecognized}.{USBDeviceClass}"
-    enum="ChromeOSUsbEventTiming" expires_after="2027-01-01">
+    enum="ChromeOSUsbEventTiming" expires_after="2027-03-07">
   <owner>jthies@google.com</owner>
   <owner>allenwebb@chromium.org</owner>
   <owner>chromeos-usb@google.com</owner>
@@ -4755,7 +4741,7 @@ and mapped to the variant by `StatisticNameToMachineStatisticVariant()` -->
 </histogram>
 
 <histogram name="ChromeOS.USB.ExternalDeviceAttached.{USBPortType}.DeviceSpeed"
-    enum="ChromeOSUsbDeviceSpeed" expires_after="2027-01-01">
+    enum="ChromeOSUsbDeviceSpeed" expires_after="2027-03-07">
   <owner>jthies@google.com</owner>
   <owner>chromeos-usb@google.com</owner>
   <summary>
@@ -4836,7 +4822,7 @@ and mapped to the variant by `StatisticNameToMachineStatisticVariant()` -->
 </histogram>
 
 <histogram name="ChromeOS.WXMountCount" units="count"
-    expires_after="2026-12-16">
+    expires_after="2027-03-07">
   <owner>jorgelo@chromium.org</owner>
   <owner>chromeos-hardening@google.com</owner>
   <summary>

@@ -96,7 +96,10 @@ class RendererImplTest : public ::testing::Test {
   RendererImplTest(const RendererImplTest&) = delete;
   RendererImplTest& operator=(const RendererImplTest&) = delete;
 
-  ~RendererImplTest() override { Destroy(); }
+  ~RendererImplTest() override {
+    Destroy();
+    SetMediaClient(nullptr);
+  }
 
  protected:
   void Destroy() {
@@ -867,14 +870,14 @@ TEST_F(RendererImplTest, AudioTrackDisableThenEnable) {
 
   base::RunLoop disable_wait;
   SetAudioTrackSwitchExpectations();
-  EXPECT_CALL(time_source_, SetMediaTime(_));
+  EXPECT_CALL(time_source_, SetMediaTime(_)).Times(testing::AnyNumber());
   renderer_impl_->OnTracksChanged(DemuxerStream::AUDIO, {},
                                   disable_wait.QuitClosure());
   disable_wait.Run();
 
   base::RunLoop enable_wait;
   SetAudioTrackSwitchExpectations();
-  EXPECT_CALL(time_source_, SetMediaTime(_));
+  EXPECT_CALL(time_source_, SetMediaTime(_)).Times(testing::AnyNumber());
   renderer_impl_->OnTracksChanged(DemuxerStream::AUDIO, streams_[0],
                                   enable_wait.QuitClosure());
   enable_wait.Run();
@@ -928,6 +931,62 @@ TEST_F(RendererImplTest, VideoTrackInBandSwitch) {
   switch_wait.Run();
 }
 
+TEST_F(RendererImplTest, VideoTrackResumeInBandSwitch) {
+  InitializeWithAudioAndVideo();
+  Play();
+  Mock::VerifyAndClearExpectations(&time_source_);
+
+  EXPECT_CALL(*video_stream_, ManagesTrackSwitchesInternally())
+      .WillRepeatedly(Return(true));
+
+  // Disable the video track. stream is nullptr.
+  base::RunLoop disable_wait;
+  SetVideoTrackSwitchExpectations();
+  renderer_impl_->OnTracksChanged(DemuxerStream::VIDEO, nullptr,
+                                  disable_wait.QuitClosure());
+  disable_wait.Run();
+
+  // When video hits EOF, OnTimeStopped is called.
+  EXPECT_CALL(*video_renderer_, OnTimeStopped()).Times(testing::AnyNumber());
+
+  // Enable (resume) the video track. stream is the in-band hls stream.
+  base::RunLoop enable_wait;
+
+  video_renderer_client_->OnEnded();
+  SetVideoTrackSwitchExpectations();
+
+  renderer_impl_->OnTracksChanged(DemuxerStream::VIDEO, video_stream_.get(),
+                                  enable_wait.QuitClosure());
+  enable_wait.Run();
+}
+
+TEST_F(RendererImplTest, AudioTrackResumeInBandSwitch) {
+  InitializeWithAudioAndVideo();
+  Play();
+  Mock::VerifyAndClearExpectations(&time_source_);
+
+  EXPECT_CALL(*audio_stream_, ManagesTrackSwitchesInternally())
+      .WillRepeatedly(Return(true));
+
+  // Disable the audio track. stream is nullptr.
+  base::RunLoop disable_wait;
+  SetAudioTrackSwitchExpectations();
+  EXPECT_CALL(time_source_, SetMediaTime(_)).Times(testing::AnyNumber());
+  renderer_impl_->OnTracksChanged(DemuxerStream::AUDIO, nullptr,
+                                  disable_wait.QuitClosure());
+  disable_wait.Run();
+
+  // Enable (resume) the audio track. stream is the in-band hls stream.
+  base::RunLoop enable_wait;
+
+  audio_renderer_client_->OnEnded();
+  SetAudioTrackSwitchExpectations();
+
+  renderer_impl_->OnTracksChanged(DemuxerStream::AUDIO, audio_stream_.get(),
+                                  enable_wait.QuitClosure());
+  enable_wait.Run();
+}
+
 TEST_F(RendererImplTest, AudioUnderflowDuringAudioTrackChange) {
   InitializeWithAudioAndVideo();
   Play();
@@ -943,7 +1002,7 @@ TEST_F(RendererImplTest, AudioUnderflowDuringAudioTrackChange) {
       .WillOnce(MoveArg(&audio_renderer_flush_cb));
 
   EXPECT_CALL(time_source_, CurrentMediaTime()).Times(2);
-  EXPECT_CALL(time_source_, SetMediaTime(_));
+  EXPECT_CALL(time_source_, SetMediaTime(_)).Times(testing::AnyNumber());
   std::vector<raw_ptr<DemuxerStream>> tracks;
   renderer_impl_->OnTracksChanged(DemuxerStream::AUDIO, {}, loop.QuitClosure());
 
@@ -999,7 +1058,7 @@ TEST_F(RendererImplTest, VideoUnderflowDuringAudioTrackChange) {
 
   EXPECT_CALL(time_source_, CurrentMediaTime()).Times(2);
   EXPECT_CALL(time_source_, StopTicking());
-  EXPECT_CALL(time_source_, SetMediaTime(_));
+  EXPECT_CALL(time_source_, SetMediaTime(_)).Times(testing::AnyNumber());
   renderer_impl_->OnTracksChanged(DemuxerStream::AUDIO, {}, loop.QuitClosure());
 
   EXPECT_CALL(*audio_renderer_, StartPlaying());
@@ -1059,7 +1118,7 @@ TEST_F(RendererImplTest, VideoResumedFromUnderflowDuringAudioTrackChange) {
     EXPECT_CALL(time_source_, CurrentMediaTime()).Times(2);
     EXPECT_CALL(*audio_renderer_, Flush(_))
         .WillOnce(MoveArg(&audio_renderer_flush_cb));
-    EXPECT_CALL(time_source_, SetMediaTime(_));
+    EXPECT_CALL(time_source_, SetMediaTime(_)).Times(testing::AnyNumber());
   }
   renderer_impl_->OnTracksChanged(DemuxerStream::AUDIO, {},
                                   track_change.QuitClosure());

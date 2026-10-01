@@ -4,11 +4,11 @@
 
 package org.chromium.chrome.browser.ui;
 
-import android.content.Context;
 import android.os.Bundle;
 
 import org.jni_zero.NativeMethods;
 
+import org.chromium.base.IntentUtils;
 import org.chromium.base.lifetime.Destroyable;
 import org.chromium.base.supplier.NonNullObservableSupplier;
 import org.chromium.base.supplier.ObservableSuppliers;
@@ -26,6 +26,7 @@ import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.components.browser_ui.desktop_windowing.DesktopWindowStateManager;
 import org.chromium.content_public.browser.RenderFrameHost;
 import org.chromium.content_public.browser.WebContents;
+import org.chromium.ui.base.WindowAndroid;
 
 import java.util.List;
 
@@ -111,13 +112,13 @@ public class ExclusiveAccessManager
 
     public void initialize(
             @Nullable TabModelSelector modelSelector,
-            Context context,
+            WindowAndroid windowAndroid,
             ActivityTabProvider activityTabProvider) {
         assert modelSelector != null;
         mTabModelSelector = modelSelector;
         mExclusiveAccessManagerAndroidNativePointer =
                 ExclusiveAccessManagerJni.get()
-                        .init(this, context, mFullscreenManager, activityTabProvider);
+                        .init(this, windowAndroid, mFullscreenManager, activityTabProvider);
 
         for (TabModel model : modelSelector.getModels()) {
             model.addObserver(mTabModelObserver);
@@ -159,7 +160,8 @@ public class ExclusiveAccessManager
         if (savedInstanceState == null) {
             return;
         }
-        FullscreenOptions options = savedInstanceState.getParcelable(LATEST_FULLSCREEN_OPTIONS);
+        FullscreenOptions options =
+                IntentUtils.safeGetParcelable(savedInstanceState, LATEST_FULLSCREEN_OPTIONS);
         if (options == null) {
             return;
         }
@@ -412,7 +414,7 @@ public class ExclusiveAccessManager
     public interface Natives {
         long init(
                 ExclusiveAccessManager caller,
-                Context context,
+                WindowAndroid windowAndroid,
                 FullscreenManager fullscreenManager,
                 ActivityTabProvider activityTabProvider);
 

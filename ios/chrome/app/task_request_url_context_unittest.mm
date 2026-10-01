@@ -12,18 +12,23 @@
 #import "base/test/metrics/histogram_tester.h"
 #import "base/test/metrics/user_action_tester.h"
 #import "base/test/scoped_feature_list.h"
+#import "components/prefs/pref_service.h"
 #import "ios/chrome/app/application_delegate/app_state.h"
 #import "ios/chrome/app/application_delegate/startup_information.h"
 #import "ios/chrome/app/application_delegate/tab_opening.h"
 #import "ios/chrome/app/profile/profile_state.h"
 #import "ios/chrome/app/startup/app_launch_metrics.h"
+#import "ios/chrome/browser/default_browser/model/utils.h"
+#import "ios/chrome/browser/default_browser/model/utils_test_support.h"
 #import "ios/chrome/browser/first_run/model/first_run_metrics.h"
 #import "ios/chrome/browser/intelligence/features/features.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_controller.h"
 #import "ios/chrome/browser/shared/coordinator/scene/scene_state.h"
 #import "ios/chrome/browser/shared/coordinator/scene/test/fake_scene_state.h"
 #import "ios/chrome/browser/shared/model/browser/test/test_browser.h"
+#import "ios/chrome/browser/shared/model/prefs/pref_names.h"
 #import "ios/chrome/browser/shared/model/profile/test/test_profile_ios.h"
+#import "ios/chrome/browser/shared/model/url/chrome_url_constants.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/url_loading/model/url_loading_params.h"
 #import "ios/chrome/common/app_group/app_group_constants.h"
@@ -36,6 +41,8 @@ class TaskRequestForURLContextTest : public PlatformTest {
  protected:
   void SetUp() override {
     PlatformTest::SetUp();
+
+    ClearDefaultBrowserPromoData();
 
     ResetEnableNewStartupFlowEnabledForTesting();
     scoped_feature_list_.InitAndEnableFeature(kEnableNewStartupFlow);
@@ -61,6 +68,7 @@ class TaskRequestForURLContextTest : public PlatformTest {
     profile_state_ = nil;
     profile_.reset();
     ResetEnableNewStartupFlowEnabledForTesting();
+    ClearDefaultBrowserPromoData();
     PlatformTest::TearDown();
   }
 
@@ -315,7 +323,7 @@ TEST_F(TaskRequestForURLContextTest, TestSimpleURLMetrics) {
 TEST_F(TaskRequestForURLContextTest, TestExternalActionMetrics) {
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitWithFeatures(
-      {kPageActionMenu, kAppStoreInAppEvents, kAppSwitcherAISummarization}, {});
+      {kPageActionMenu, kAppSwitcherAISummarization}, {});
 
   struct TestCase {
     NSString* url_string;
@@ -423,4 +431,151 @@ TEST_F(TaskRequestForURLContextTest, TestWidgetURLContextExecution) {
   EXPECT_EQ(tab_opener.completionAction,
             TabOpeningPostOpeningAction::FOCUS_OMNIBOX);
   EXPECT_TRUE(tab_opener.completionActionExecuted);
+}
+
+// Tests that a file URL execution loads the physical file URL and sets the
+// chrome://external-file/ virtual URL.
+TEST_F(TaskRequestForURLContextTest, TestFileURLContextExecution) {
+  NSURL* url = [NSURL URLWithString:@"file:///path/to/test.pdf"];
+  UIOpenURLContext* context = CreateMockURLContext(url);
+
+  TaskRequestForURLContext* request =
+      [TaskRequestForURLContext taskRequestWithURLContext:context
+                                               sceneState:scene_state_
+                                              isColdStart:YES];
+  EXPECT_NE(request, nil);
+
+  TaskRequestURLContextTestTabOpener* tab_opener =
+      [[TaskRequestURLContextTestTabOpener alloc]
+          initWithSceneState:scene_state_];
+  scene_state_.controller = tab_opener;
+
+  [request execute];
+
+  EXPECT_EQ(tab_opener.targetMode, ApplicationModeForTabOpening::NORMAL);
+  EXPECT_EQ(tab_opener.urlLoadParams.web_params.url,
+            GURL("file:///path/to/test.pdf"));
+  EXPECT_EQ(tab_opener.urlLoadParams.web_params.virtual_url,
+            GURL("chrome://external-file/test.pdf"));
+  EXPECT_TRUE(tab_opener.dismissOmnibox);
+}
+
+// Tests that an external action OpenNTP URL execution opens the NTP.
+TEST_F(TaskRequestForURLContextTest, TestExternalActionOpenNTPExecution) {
+  NSURL* url =
+      [NSURL URLWithString:@"googlechrome://ChromeExternalAction/OpenNTP"];
+  UIOpenURLContext* context = CreateMockURLContext(url);
+
+  TaskRequestForURLContext* request =
+      [TaskRequestForURLContext taskRequestWithURLContext:context
+                                               sceneState:scene_state_
+                                              isColdStart:YES];
+  EXPECT_NE(request, nil);
+
+  TaskRequestURLContextTestTabOpener* tab_opener =
+      [[TaskRequestURLContextTestTabOpener alloc]
+          initWithSceneState:scene_state_];
+  scene_state_.controller = tab_opener;
+
+  [request execute];
+
+  EXPECT_EQ(tab_opener.targetMode, ApplicationModeForTabOpening::UNDETERMINED);
+  EXPECT_EQ(tab_opener.urlLoadParams.web_params.url, GURL(kChromeUINewTabURL));
+  EXPECT_TRUE(tab_opener.urlLoadParams.web_params.virtual_url.is_empty());
+  EXPECT_TRUE(tab_opener.dismissOmnibox);
+}
+
+// Tests that an external action DefaultBrowserSettings URL opens the NTP when
+// Chrome is likely the default browser.
+TEST_F(TaskRequestForURLContextTest,
+       TestExternalActionDefaultBrowserSettingsWhenLikelyDefault) {
+  LogOpenHTTPURLFromExternalURL();
+
+  NSURL* url =
+      [NSURL URLWithString:
+                 @"googlechrome://ChromeExternalAction/DefaultBrowserSettings"];
+  UIOpenURLContext* context = CreateMockURLContext(url);
+
+  TaskRequestForURLContext* request =
+      [TaskRequestForURLContext taskRequestWithURLContext:context
+                                               sceneState:scene_state_
+                                              isColdStart:YES];
+  EXPECT_NE(request, nil);
+
+  TaskRequestURLContextTestTabOpener* tab_opener =
+      [[TaskRequestURLContextTestTabOpener alloc]
+          initWithSceneState:scene_state_];
+  scene_state_.controller = tab_opener;
+
+  [request execute];
+
+  EXPECT_EQ(tab_opener.targetMode, ApplicationModeForTabOpening::UNDETERMINED);
+  EXPECT_EQ(tab_opener.urlLoadParams.web_params.url, GURL(kChromeUINewTabURL));
+  EXPECT_TRUE(tab_opener.urlLoadParams.web_params.virtual_url.is_empty());
+  EXPECT_TRUE(tab_opener.dismissOmnibox);
+}
+
+// Tests that an external action DefaultBrowserSettings URL triggers the show
+// browser settings completion action when Chrome is not the default browser.
+TEST_F(TaskRequestForURLContextTest,
+       TestExternalActionDefaultBrowserSettingsWhenNotDefault) {
+  ClearDefaultBrowserPromoData();
+
+  NSURL* url =
+      [NSURL URLWithString:
+                 @"googlechrome://ChromeExternalAction/DefaultBrowserSettings"];
+  UIOpenURLContext* context = CreateMockURLContext(url);
+
+  TaskRequestForURLContext* request =
+      [TaskRequestForURLContext taskRequestWithURLContext:context
+                                               sceneState:scene_state_
+                                              isColdStart:YES];
+  EXPECT_NE(request, nil);
+
+  TaskRequestURLContextTestTabOpener* tab_opener =
+      [[TaskRequestURLContextTestTabOpener alloc]
+          initWithSceneState:scene_state_];
+  scene_state_.controller = tab_opener;
+
+  [request execute];
+
+  EXPECT_EQ(tab_opener.targetMode, ApplicationModeForTabOpening::UNDETERMINED);
+  EXPECT_TRUE(tab_opener.urlLoadParams.web_params.url.is_empty());
+  EXPECT_EQ(tab_opener.completionAction,
+            TabOpeningPostOpeningAction::EXTERNAL_ACTION_SHOW_BROWSER_SETTINGS);
+  EXPECT_TRUE(tab_opener.completionActionExecuted);
+  EXPECT_TRUE(tab_opener.dismissOmnibox);
+}
+
+// Tests that an external action AppStoreGeminiPromo URL opens the Gemini promo
+// URL, sets TRIGGER_GEMINI_PROMO, and sets the pref.
+TEST_F(TaskRequestForURLContextTest,
+       TestExternalActionAppStoreGeminiPromoExecution) {
+  NSURL* url = [NSURL
+      URLWithString:@"googlechrome://ChromeExternalAction/appstoregeminipromo"];
+  UIOpenURLContext* context = CreateMockURLContext(url);
+
+  TaskRequestForURLContext* request =
+      [TaskRequestForURLContext taskRequestWithURLContext:context
+                                               sceneState:scene_state_
+                                              isColdStart:YES];
+  EXPECT_NE(request, nil);
+
+  TaskRequestURLContextTestTabOpener* tab_opener =
+      [[TaskRequestURLContextTestTabOpener alloc]
+          initWithSceneState:scene_state_];
+  scene_state_.controller = tab_opener;
+
+  [request execute];
+
+  EXPECT_EQ(tab_opener.targetMode, ApplicationModeForTabOpening::UNDETERMINED);
+  EXPECT_EQ(tab_opener.urlLoadParams.web_params.url,
+            GURL(kGeminiAppStorePromoURL));
+  EXPECT_TRUE(tab_opener.urlLoadParams.web_params.virtual_url.is_empty());
+  EXPECT_EQ(tab_opener.completionAction,
+            TabOpeningPostOpeningAction::TRIGGER_GEMINI_PROMO);
+  EXPECT_TRUE(tab_opener.completionActionExecuted);
+  EXPECT_TRUE(tab_opener.dismissOmnibox);
+  EXPECT_TRUE(
+      profile_->GetPrefs()->GetBoolean(prefs::kAppStoreGeminiPromoTriggered));
 }

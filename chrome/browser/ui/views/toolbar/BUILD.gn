@@ -50,6 +50,7 @@ source_set("toolbar") {
     "webui_back_forward_control.h",
     "webui_battery_saver_control.h",
     "webui_home_control.h",
+    "webui_media_toolbar_button.h",
     "webui_overflow_button.h",
     "webui_performance_intervention_control.h",
     "webui_pinned_toolbar_actions.h",
@@ -72,6 +73,7 @@ source_set("toolbar") {
     "//chrome/browser/ui/color:color_headers",
     "//chrome/browser/ui/extensions",
     "//chrome/browser/ui/global_error",
+    "//chrome/browser/ui/global_media_controls",
     "//chrome/browser/ui/page_action:icon_type",
     "//chrome/browser/ui/performance_controls",
     "//chrome/browser/ui/toolbar",
@@ -84,12 +86,14 @@ source_set("toolbar") {
     "//chrome/browser/ui/views/frame",
     "//chrome/browser/ui/views/frame:toolbar_button_provider",
     "//chrome/browser/ui/views/glic",
+    "//chrome/browser/ui/views/global_media_controls:media_toolbar_button",
     "//chrome/browser/ui/views/location_bar",
     "//chrome/browser/ui/views/profiles:avatar_toolbar_button_types",
     "//chrome/browser/ui/views/tabs/hovercard:hovercard_helpers",
     "//chrome/browser/ui/webui/webui_toolbar",
     "//chrome/browser/ui/webui/webui_toolbar/adapters",
     "//chrome/browser/ui/webui/webui_toolbar/utils",
+    "//components/apps/link_capturing",
     "//components/bookmarks/browser",
     "//components/prefs",
     "//components/saved_tab_groups/public",
@@ -156,6 +160,7 @@ source_set("impl") {
     "webui_back_forward_control.cc",
     "webui_battery_saver_control.cc",
     "webui_home_control.cc",
+    "webui_media_toolbar_button.cc",
     "webui_overflow_button.cc",
     "webui_performance_intervention_control.cc",
     "webui_pinned_toolbar_actions.cc",
@@ -209,6 +214,7 @@ source_set("impl") {
     "//chrome/browser/sync:factories",
     "//chrome/browser/themes",
     "//chrome/browser/ui:browser_actions",
+    "//chrome/browser/ui:browser_content_setting_bubble_model_delegate",
     "//chrome/browser/ui:layout_constants",
     "//chrome/browser/ui:toolbar_controller_util",
     "//chrome/browser/ui:ui_features",
@@ -232,15 +238,19 @@ source_set("impl") {
     "//chrome/browser/ui/tabs:tab_strip_model_observer",
     "//chrome/browser/ui/tabs/saved_tab_groups",
     "//chrome/browser/ui/user_education",
+    "//chrome/browser/ui/views:intent_picker_bubble_view",
     "//chrome/browser/ui/views:layout_provider",
     "//chrome/browser/ui/views/app_menu:impl",
     "//chrome/browser/ui/views/contextual_tasks",
     "//chrome/browser/ui/views/download",
+    "//chrome/browser/ui/views/extensions:extension_popup",
     "//chrome/browser/ui/views/extensions:extension_view_utils",
     "//chrome/browser/ui/views/extensions:extensions_container_views",
+    "//chrome/browser/ui/views/extensions:extensions_toolbar_button",
     "//chrome/browser/ui/views/extensions:extensions_toolbar_coordinator",
     "//chrome/browser/ui/views/extensions:extensions_views_utils",
     "//chrome/browser/ui/views/frame:app_menu_button_observer",
+    "//chrome/browser/ui/views/frame:custom_corners_background",
     "//chrome/browser/ui/views/frame:toolbar_button_provider",
     "//chrome/browser/ui/views/glic",
     "//chrome/browser/ui/views/global_media_controls",
@@ -322,6 +332,7 @@ source_set("impl") {
   if (is_win || is_mac || is_linux || is_chromeos) {
     deps += [ "//chrome/browser/ui/ai_overlay_dialog" ]
   }
+  deps += [ "//chrome/browser/ui/views/extensions:extensions_toolbar_desktop" ]
 }
 
 if (!is_android) {
@@ -374,6 +385,7 @@ if (!is_android) {
       "//base/test:test_support",
       "//chrome/browser:flags",
       "//chrome/browser/ui:browser_actions",
+      "//chrome/browser/ui:layout_constants",
       "//chrome/browser/ui:ui_features",
       "//chrome/browser/ui/actions",
       "//chrome/browser/ui/browser_web_contents_delegate",
@@ -384,14 +396,18 @@ if (!is_android) {
       "//chrome/browser/ui/side_panel:side_panel_views_dependent",
       "//chrome/browser/ui/toolbar/chrome_labs",
       "//chrome/browser/ui/toolbar/pinned_toolbar",
+      "//chrome/browser/ui/views/extensions:extension_popup",
+      "//chrome/browser/ui/views/extensions:extensions_menu_coordinator",
       "//chrome/browser/ui/views/frame",
       "//chrome/browser/ui/views/frame:app_menu_button_observer",
       "//chrome/browser/ui/views/page_info",
       "//chrome/browser/ui/views/web_apps/frame_toolbar:test_support",
+      "//chrome/browser/ui/webui/searchbox:searchbox_test_utils",
       "//chrome/browser/ui/webui/webui_toolbar:impl",
       "//chrome/browser/web_applications:web_applications_test_support",
       "//chrome/test:test_support",
       "//components/commerce/core:feature_list",
+      "//components/contextual_tasks/public",
       "//components/prefs",
       "//components/translate/content/browser:test_support",
       "//components/user_education/views",
@@ -422,9 +438,17 @@ if (!is_android) {
         "webui_toolbar_web_view_test_base.h",
       ]
 
+      if (is_win || is_mac || is_linux) {
+        sources += [ "webui_media_toolbar_button_browsertest.cc" ]
+      }
+
       deps += [
         "//chrome/browser/ui:toolbar_controller_util",
+        "//chrome/browser/ui/global_media_controls",
+        "//chrome/browser/ui/views/contextual_tasks",
+        "//chrome/browser/ui/views/global_media_controls",
         "//chrome/browser/ui/views/performance_controls",
+        "//chrome/browser/ui/views/profiles:avatar_toolbar_button",
         "//chrome/browser/ui/webui:webui_util",
         "//chrome/browser/ui/webui/webui_toolbar:test_support",
       ]
@@ -476,6 +500,10 @@ if (!is_android && !is_chromeos_device) {
         "webui_toolbar_web_view_test_base.cc",
         "webui_toolbar_web_view_test_base.h",
       ]
+
+      if (is_win || is_mac || is_linux) {
+        sources += [ "webui_media_toolbar_button_interactive_uitest.cc" ]
+      }
     }
 
     if (is_chromeos) {
@@ -495,14 +523,19 @@ if (!is_android && !is_chromeos_device) {
       "//chrome/browser/profiles:misc",
       "//chrome/browser/profiles:profile",
       "//chrome/browser/ui:browser_actions",
+      "//chrome/browser/ui:browser_tabrestore",
       "//chrome/browser/ui:test_support",
       "//chrome/browser/ui:ui_features",
       "//chrome/browser/ui:view_ids",
+      "//chrome/browser/ui/actions:actions_util",
       "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/side_panel:side_panel_views_dependent",
       "//chrome/browser/ui/tabs:features",
       "//chrome/browser/ui/tabs:tab_menu",
       "//chrome/browser/ui/tabs:tab_strip",
+      "//chrome/browser/ui/views/extensions:extension_popup",
+      "//chrome/browser/ui/views/extensions:extensions_menu_coordinator",
+      "//chrome/browser/ui/views/extensions:extensions_toolbar_button",
       "//chrome/browser/ui/views/extensions:test_support",
       "//chrome/browser/ui/views/frame",
       "//chrome/browser/ui/views/page_info",
@@ -530,7 +563,10 @@ if (!is_android && !is_chromeos_device) {
       "//ui/views",
     ]
     if (toolkit_views) {
-      deps += [ "//chrome/browser/ui:toolbar_controller_util" ]
+      deps += [
+        "//chrome/browser/ui:toolbar_controller_util",
+        "//chrome/browser/ui/views/global_media_controls",
+      ]
     }
     if (use_aura) {
       deps += [ "//ui/aura:test_support" ]

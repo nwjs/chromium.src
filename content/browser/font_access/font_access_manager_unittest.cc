@@ -293,6 +293,99 @@ TEST_F(FontAccessManagerTest, PermissionPreviouslyDeniedErrors) {
   EXPECT_EQ(status, FontEnumerationStatus::kPermissionDenied);
 }
 
+TEST_F(FontAccessManagerTest, PermissionDeniedForOpaqueOrigin) {
+  AutoGrantPermission();
+  SimulateUserActivation();
+
+  NavigateAndCommit(GURL("data:text/html,test"));
+  ASSERT_TRUE(main_rfh()->GetLastCommittedOrigin().opaque());
+
+  const int process_id = main_rfh()->GetProcess()->GetDeprecatedID();
+  const int routing_id = main_rfh()->GetRoutingID();
+  const GlobalRenderFrameHostId main_frame_id(process_id, routing_id);
+
+  mojo::Remote<blink::mojom::FontAccessManager> manager_remote;
+  manager_->BindReceiver(main_frame_id,
+                         manager_remote.BindNewPipeAndPassReceiver());
+  FontAccessManagerSync sync_manager(manager_remote.get());
+
+  const auto [status, region] = sync_manager.EnumerateLocalFonts();
+  EXPECT_EQ(status, FontEnumerationStatus::kPermissionDenied);
+  EXPECT_FALSE(region.IsValid());
+}
+
+TEST_F(FontAccessManagerTest, EnumerationFailsWhenInactive) {
+  AskGrantPermission();
+  SimulateUserActivation();
+  EXPECT_TRUE(main_rfh()->HasTransientUserActivation());
+
+  static_cast<RenderFrameHostImpl*>(main_rfh())
+      ->SetLifecycleState(
+          RenderFrameHostLifecycleStateImpl::kRunningUnloadHandlers);
+  EXPECT_FALSE(main_rfh()->IsActive());
+
+  const auto [status, region] = manager_sync_->EnumerateLocalFonts();
+  EXPECT_EQ(status, FontEnumerationStatus::kNeedsUserActivation);
+  EXPECT_FALSE(region.IsValid());
+
+  // Transient user activation must NOT have been consumed.
+  EXPECT_TRUE(main_rfh()->HasTransientUserActivation());
+}
+
+TEST_F(FontAccessManagerTest,
+       EnumerationDoesNotConsumeTreeActivationWhenInactive) {
+  AskGrantPermission();
+
+  TestRenderFrameHost* child_rfh = main_test_rfh()->AppendChild("child");
+  child_rfh->InitializeRenderFrameIfNeeded();
+
+  mojo::Remote<blink::mojom::FontAccessManager> child_remote;
+  manager_->BindReceiver(child_rfh->GetGlobalId(),
+                         child_remote.BindNewPipeAndPassReceiver());
+  FontAccessManagerSync child_sync(child_remote.get());
+
+  // Arm user activation on both frames.
+  child_rfh->SimulateUserActivation();
+  SimulateUserActivation();
+  EXPECT_TRUE(child_rfh->HasTransientUserActivation());
+  EXPECT_TRUE(main_rfh()->HasTransientUserActivation());
+
+  // Transition child frame to inactive state.
+  child_rfh->SetLifecycleState(
+      RenderFrameHostLifecycleStateImpl::kRunningUnloadHandlers);
+  EXPECT_FALSE(child_rfh->IsActive());
+  EXPECT_TRUE(main_rfh()->IsActive());
+
+  // Calling enumeration on the inactive child must fail without consuming
+  // activation on the main frame.
+  const auto [status, region] = child_sync.EnumerateLocalFonts();
+  EXPECT_EQ(status, FontEnumerationStatus::kNeedsUserActivation);
+  EXPECT_FALSE(region.IsValid());
+
+  // Main frame's transient activation must remain intact.
+  EXPECT_TRUE(main_rfh()->HasTransientUserActivation());
+}
+
+TEST_F(FontAccessManagerTest, EnumerationWhenInactiveWithKillSwitchDisabled) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndDisableFeature(
+      blink::features::kFontAccessCheckFrameIsActive);
+
+  AskGrantPermission();
+  SimulateUserActivation();
+  EXPECT_TRUE(main_rfh()->HasTransientUserActivation());
+
+  static_cast<RenderFrameHostImpl*>(main_rfh())
+      ->SetLifecycleState(
+          RenderFrameHostLifecycleStateImpl::kRunningUnloadHandlers);
+  EXPECT_FALSE(main_rfh()->IsActive());
+
+  const auto [status, region] = manager_sync_->EnumerateLocalFonts();
+  // With kill switch disabled, activation is consumed by
+  // UpdateUserActivationState.
+  EXPECT_FALSE(main_rfh()->HasTransientUserActivation());
+}
+
 }  // namespace
 
 }  // namespace content

@@ -38,6 +38,7 @@ import org.chromium.base.DeviceInfo;
 import org.chromium.base.TraceEvent;
 import org.chromium.base.lifetime.Destroyable;
 import org.chromium.base.metrics.RecordUserAction;
+import org.chromium.base.supplier.LazyOneshotSupplier;
 import org.chromium.base.supplier.MonotonicObservableSupplier;
 import org.chromium.base.supplier.NonNullObservableSupplier;
 import org.chromium.base.supplier.NullableObservableSupplier;
@@ -52,7 +53,6 @@ import org.chromium.build.annotations.EnsuresNonNull;
 import org.chromium.build.annotations.MonotonicNonNull;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
-import org.chromium.build.annotations.RequiresNonNull;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.ActivityTabProvider;
 import org.chromium.chrome.browser.ActivityUtils;
@@ -132,6 +132,7 @@ import org.chromium.chrome.browser.messages.MessageContainerCoordinator;
 import org.chromium.chrome.browser.messages.MessageContainerObserver;
 import org.chromium.chrome.browser.messages.MessagesResourceMapperInitializer;
 import org.chromium.chrome.browser.metrics.UmaSessionStats;
+import org.chromium.chrome.browser.multiwindow.MultiWindowModeStateDispatcher;
 import org.chromium.chrome.browser.multiwindow.MultiWindowUtils;
 import org.chromium.chrome.browser.ntp_customization.NtpCustomizationUtils;
 import org.chromium.chrome.browser.ntp_customization.edge_to_edge.TopInsetCoordinator;
@@ -228,6 +229,7 @@ import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController.SheetState;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetControllerFactory;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetObserver;
+import org.chromium.components.browser_ui.bottomsheet.BottomSheetUtils;
 import org.chromium.components.browser_ui.bottomsheet.ExpandedSheetHelper;
 import org.chromium.components.browser_ui.bottomsheet.ManagedBottomSheetController;
 import org.chromium.components.browser_ui.desktop_windowing.DesktopWindowStateManager;
@@ -320,12 +322,13 @@ public class RootUiCoordinator
     private final MenuOrKeyboardActionController mMenuOrKeyboardActionController;
     protected final ActivityWindowAndroid mWindowAndroid;
     protected final ActivityResultTracker mActivityResultTracker;
+    protected final MultiWindowModeStateDispatcher mMultiWindowModeStateDispatcher;
     protected final OneshotSupplier<ChromeAndroidTask> mChromeAndroidTaskSupplier;
 
     protected final ActivityTabProvider mActivityTabProvider;
     protected MonotonicObservableSupplier<ShareDelegate> mShareDelegateSupplier;
 
-    protected @Nullable FindToolbarManager mFindToolbarManager;
+    protected final LazyOneshotSupplier<FindToolbarManager> mFindToolbarManagerSupplier;
     private @Nullable FindToolbarObserver mFindToolbarObserver;
 
     private @Nullable OverlayPanelManager mOverlayPanelManager;
@@ -400,7 +403,7 @@ public class RootUiCoordinator
     protected final OneshotSupplier<TabSwitcher> mTabSwitcherSupplier;
     protected final OneshotSupplier<TabSwitcher> mIncognitoTabSwitcherSupplier;
     protected @Nullable ManagedMessageDispatcher mMessageDispatcher;
-    private @Nullable MessageContainerCoordinator mMessageContainerCoordinator;
+    protected @Nullable MessageContainerCoordinator mMessageContainerCoordinator;
     private @Nullable MessageContainerObserver mMessageContainerObserver;
     private @Nullable ChromeMessageQueueMediator mMessageQueueMediator;
     private @Nullable LayoutManagerImpl mLayoutManager;
@@ -501,6 +504,7 @@ public class RootUiCoordinator
      * @param activityResultTracker Tracker dispatching activity result callbacks.
      * @param chromeAndroidTaskSupplier Supplies an {@link ChromeAndroidTask}.
      * @param activityLifecycleDispatcher Allows observation of the activity lifecycle.
+     * @param multiWindowModeStateDispatcher Allows observation of the multi-window mode state.
      * @param layoutManagerSupplier Supplies the {@link LayoutManager}.
      * @param menuOrKeyboardActionController Controls the menu or keyboard action controller.
      * @param activityThemeColorSupplier Supplies the activity color theme.
@@ -549,6 +553,7 @@ public class RootUiCoordinator
             ActivityResultTracker activityResultTracker,
             OneshotSupplier<ChromeAndroidTask> chromeAndroidTaskSupplier,
             ActivityLifecycleDispatcher activityLifecycleDispatcher,
+            MultiWindowModeStateDispatcher multiWindowModeStateDispatcher,
             MonotonicObservableSupplier<LayoutManagerImpl> layoutManagerSupplier,
             MenuOrKeyboardActionController menuOrKeyboardActionController,
             Supplier<Integer> activityThemeColorSupplier,
@@ -588,6 +593,7 @@ public class RootUiCoordinator
         mBrowserControlsManager = browserControlsManager;
         mModalDialogManagerSupplier = modalDialogManagerSupplier;
         mActivityLifecycleDispatcher = activityLifecycleDispatcher;
+        mMultiWindowModeStateDispatcher = multiWindowModeStateDispatcher;
         mAppMenuBlocker = appMenuBlocker;
         mSupportsAppMenuSupplier = supportsAppMenuSupplier;
         mTabCreatorManagerSupplier = tabCreatorManagerSupplier;
@@ -633,6 +639,8 @@ public class RootUiCoordinator
                                     : null;
                         });
         mTabObscuringHandlerSupplier = ObservableSuppliers.createNonNull(new TabObscuringHandler());
+        mFindToolbarManagerSupplier =
+                LazyOneshotSupplier.fromSupplier(this::createFindToolbarManager);
 
         setupUnownedUserDataSuppliers();
         mActivityLifecycleDispatcher.register(this);
@@ -1065,9 +1073,13 @@ public class RootUiCoordinator
             mIncognitoStateProvider = null;
         }
 
-        if (mFindToolbarManager != null) {
-            mFindToolbarManager.removeObserver(mFindToolbarObserver);
-            mFindToolbarManager.destroy();
+        if (mFindToolbarManagerSupplier.hasValue()) {
+            FindToolbarManager manager = mFindToolbarManagerSupplier.get();
+            if (mFindToolbarObserver != null) {
+                manager.removeObserver(mFindToolbarObserver);
+                mFindToolbarObserver = null;
+            }
+            manager.destroy();
         }
 
         var modalDialogManager = mModalDialogManagerSupplier.get();
@@ -1271,7 +1283,9 @@ public class RootUiCoordinator
     @Override
     public void onInflationComplete() {
         mScrimManagerSupplier.set(buildScrimWidget());
-        initFindToolbarManager();
+        if (!ChromeFeatureList.sAndroidStartupImprovements.isEnabled()) {
+            mFindToolbarManagerSupplier.get();
+        }
         initializeToolbar();
     }
 
@@ -1353,7 +1367,8 @@ public class RootUiCoordinator
 
         if (ChromeFeatureList.sEnableExclusiveAccessManager.isEnabled()) {
             assumeNonNull(mExclusiveAccessManager);
-            mExclusiveAccessManager.initialize(tabModelSelector, mActivity, mActivityTabProvider);
+            mExclusiveAccessManager.initialize(
+                    tabModelSelector, mWindowAndroid, mActivityTabProvider);
         }
 
         initMessagesInfra();
@@ -1933,9 +1948,7 @@ public class RootUiCoordinator
                 }
             }
 
-            if (mFindToolbarManager == null) return false;
-
-            mFindToolbarManager.showToolbar();
+            getOrCreateFindToolbarManager().showToolbar();
 
             if (fromMenu) {
                 RecordUserAction.record("MobileMenuFindInPage");
@@ -2032,8 +2045,9 @@ public class RootUiCoordinator
         }
 
         // Do not show the menu if we are in find in page view.
-        if (mFindToolbarManager != null
-                && mFindToolbarManager.isShowing()
+        FindToolbarManager findToolbarManager = getFindToolbarManager();
+        if (findToolbarManager != null
+                && findToolbarManager.isShowing()
                 && !DeviceFormFactor.isNonMultiDisplayContextOnTablet(mActivity)) {
             return false;
         }
@@ -2075,8 +2089,9 @@ public class RootUiCoordinator
             mPanelStateCallback =
                     state -> {
                         if (state != PanelState.CLOSED) {
-                            if (mFindToolbarManager != null) {
-                                mFindToolbarManager.hideToolbar(false);
+                            FindToolbarManager findToolbarManager = getFindToolbarManager();
+                            if (findToolbarManager != null) {
+                                findToolbarManager.hideToolbar(false);
                             }
 
                             if (mPageZoomBarCoordinator != null) {
@@ -2101,7 +2116,6 @@ public class RootUiCoordinator
      * Constructs {@link ToolbarManager} and the handler necessary for controlling the menu on the
      * {@link Toolbar}.
      */
-    @RequiresNonNull("mFindToolbarManager")
     @EnsuresNonNull("mToolbarManager")
     protected void initializeToolbar() {
         try (TraceEvent te = TraceEvent.scoped("RootUiCoordinator.initializeToolbar")) {
@@ -2232,7 +2246,7 @@ public class RootUiCoordinator
                             mActivityTabProvider,
                             getScrimManager(),
                             mActionModeControllerCallback,
-                            mFindToolbarManager,
+                            mFindToolbarManagerSupplier,
                             mProfileSupplier,
                             mBookmarkModelSupplier,
                             mLayoutStateProviderOneShotSupplier,
@@ -2250,6 +2264,7 @@ public class RootUiCoordinator
                             mStatusBarColorController,
                             mAppMenuDelegate,
                             mActivityLifecycleDispatcher,
+                            mMultiWindowModeStateDispatcher,
                             assertNonNull(getBottomSheetController()),
                             getDataSharingTabManager(),
                             mTabContentManagerSupplier.get(),
@@ -2348,7 +2363,10 @@ public class RootUiCoordinator
 
                         if (layoutType == LayoutType.HUB) {
                             // Hide find toolbar and app menu.
-                            if (mFindToolbarManager != null) mFindToolbarManager.hideToolbar();
+                            FindToolbarManager findToolbarManager = getFindToolbarManager();
+                            if (findToolbarManager != null) {
+                                findToolbarManager.hideToolbar();
+                            }
                             hideAppMenu();
                             // Attempt to show the promo sheet for the restore tabs feature.
                             // Do not attempt to show the promo if in incognito mode.
@@ -2461,10 +2479,9 @@ public class RootUiCoordinator
         return stubId;
     }
 
-    @EnsuresNonNull("mFindToolbarManager")
-    private void initFindToolbarManager() {
+    private FindToolbarManager createFindToolbarManager() {
         int stubId = getFindToolbarStub();
-        mFindToolbarManager =
+        FindToolbarManager manager =
                 new FindToolbarManager(
                         mActivity.findViewById(stubId),
                         mTabModelSelectorSupplier.asNonNull().get(),
@@ -2473,7 +2490,8 @@ public class RootUiCoordinator
                         mBackPressManager,
                         mActivity.findViewById(R.id.secondary_ui_container),
                         mIsTablet ? mActivity.findViewById(R.id.control_container) : null,
-                        mBrowserControlsManager);
+                        mBrowserControlsManager,
+                        getSideUiStateProviderSupplier());
 
         mFindToolbarObserver =
                 new FindToolbarObserver() {
@@ -2488,7 +2506,8 @@ public class RootUiCoordinator
                     }
                 };
 
-        mFindToolbarManager.addObserver(mFindToolbarObserver);
+        manager.addObserver(mFindToolbarObserver);
+        return manager;
     }
 
     /**
@@ -2753,7 +2772,12 @@ public class RootUiCoordinator
      * @return The {@link FindToolbarManager} controlling find toolbar.
      */
     public @Nullable FindToolbarManager getFindToolbarManager() {
-        return mFindToolbarManager;
+        return mFindToolbarManagerSupplier.hasValue() ? mFindToolbarManagerSupplier.get() : null;
+    }
+
+    /** Returns the {@link FindToolbarManager} controlling find toolbar, creating it if needed. */
+    public FindToolbarManager getOrCreateFindToolbarManager() {
+        return assumeNonNull(mFindToolbarManagerSupplier.get());
     }
 
     /** Returns the country {@link OneshotSupplier} for testing. */

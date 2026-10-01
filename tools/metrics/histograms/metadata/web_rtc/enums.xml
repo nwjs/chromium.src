@@ -26,17 +26,6 @@ chromium-metrics-reviews@google.com.
 
 <enums>
 
-<enum name="AddIceCandidateResult">
-  <int value="0" label="Success"/>
-  <int value="1" label="Closed"/>
-  <int value="2" label="No remote description"/>
-  <int value="3" label="Null candidate"/>
-  <int value="4" label="Candidate not valid"/>
-  <int value="5" label="PeerConnection not ready"/>
-  <int value="6" label="Failed in addition"/>
-  <int value="7" label="Failed - not usable"/>
-</enum>
-
 <enum name="ClockdriftLevel">
   <int value="0" label="None"/>
   <int value="1" label="Probable"/>
@@ -288,9 +277,16 @@ chromium-metrics-reviews@google.com.
   <int value="32" label="IceCandidateCount"/>
   <int value="33" label="Bundle"/>
   <int value="34" label="Bandwidth"/>
+  <int value="35" label="Sframe"/>
+  <int value="36" label="MsidStream"/>
+  <int value="37" label="MsidTrack"/>
+  <int value="38" label="IceOptionsRemoved"/>
+  <int value="39" label="Rejected"/>
   <int value="40" label="RtpHeaderExtensionsRemoved"/>
   <int value="41" label="RtpHeaderExtensionsAdded"/>
   <int value="42" label="RtpHeaderExtensionsModified"/>
+  <int value="43" label="Cryptex"/>
+  <int value="44" label="RtcpXrRcvrRtt"/>
   <int value="60" label="AudioCodecsRemoved"/>
   <int value="61" label="AudioCodecsAdded"/>
   <int value="62" label="AudioCodecsReordered"/>

@@ -32,7 +32,6 @@
 #include "base/types/expected_macros.h"
 #include "base/unguessable_token.h"
 #include "components/services/storage/indexed_db/locks/partitioned_lock_manager.h"
-#include "components/services/storage/privileged/mojom/indexed_db_client_state_checker.mojom-shared.h"
 #include "components/services/storage/privileged/mojom/indexed_db_internals_types.mojom.h"
 #include "components/services/storage/public/mojom/blob_storage_context.mojom-shared.h"
 #include "content/browser/indexed_db/indexed_db_external_object.h"
@@ -258,7 +257,7 @@ void Transaction::UnregisterOpenCursor(Cursor* cursor) {
 }
 
 void Transaction::DontAllowInactiveClientToBlockOthers(
-    storage::mojom::DisallowInactiveClientReason reason) {
+    DisallowInactiveClientReason reason) {
   if (state_ == STARTED && IsTransactionBlockingOtherClients()) {
     connection_->DisallowInactiveClient(reason, base::DoNothing());
   }
@@ -316,8 +315,7 @@ void Transaction::Start() {
   // If the client is in BFCache, the transaction will get stuck, so evict it if
   // necessary.
   DontAllowInactiveClientToBlockOthers(
-      storage::mojom::DisallowInactiveClientReason::
-          kTransactionIsStartingWhileBlockingOthers);
+      DisallowInactiveClientReason::kTransactionIsStartingWhileBlockingOthers);
 
   const base::TimeDelta time_queued =
       diagnostics_.start_time - diagnostics_.creation_time;
@@ -429,14 +427,6 @@ void Transaction::Put(int64_t object_store_id,
     return;
   }
 
-  if (input_value->bits.storage_type() ==
-      mojo_base::BigBuffer::StorageType::kInvalidBuffer) {
-    ReportBadMessage(BadMessageReason::kTransactionPutInvalidValue,
-                     "Attempted to Put invalid SSV.",
-                     receiver_.GetBadMessageCallback());
-    return;
-  }
-
   std::vector<IndexedDBExternalObject> external_objects;
   uint64_t total_blob_size = 0;
   if (!input_value->external_objects.empty() &&
@@ -455,7 +445,25 @@ void Transaction::Put(int64_t object_store_id,
   bucket_context_->CheckCanUseDiskSpace(preliminary_size_estimate_, {});
 
   IndexedDBValue value;
+  CHECK_NE(input_value->bits.storage_type(),
+           mojo_base::BigBuffer::StorageType::kInvalidBuffer)
+      << "Invalid buffer should have failed deserialization";
   value.bits = std::move(input_value->bits);
+  // If bits are in shared memory, make a copy in private memory to avoid TOCTOU
+  // attacks during processing (as the bits are later compressed before storage
+  // in SQLite). Note that we do this eagerly here to release the shmem handles,
+  // which is necessary to avoid potential FD exhaustion on Linux (see
+  // crbug.com/342779913). This may lead to some wasted work in some infrequent
+  // cases: if the transaction is aborted before the put is processed, for
+  // example.
+  if (bucket_context_->IsUsingSqlite()) {
+    value.bits.MakePrivateBytes();
+  } else if (value.bits.storage_type() ==
+             mojo_base::BigBuffer::StorageType::kSharedMemory) {
+    receiver_.ReportBadMessage(
+        "Value bits expected to be inlined, large values are blob-wrapped");
+    return;
+  }
   value.external_objects = std::move(external_objects);
 
   blink::mojom::IDBTransaction::PutCallback wrapped_callback =

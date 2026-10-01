@@ -25,6 +25,7 @@ import androidx.preference.PreferenceGroup.PreferencePositionCallback;
 import androidx.preference.TwoStatePreference;
 import androidx.recyclerview.widget.RecyclerView;
 
+import org.chromium.base.Callback;
 import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.base.shared_preferences.SharedPreferencesManager;
 import org.chromium.base.supplier.MonotonicObservableSupplier;
@@ -72,9 +73,11 @@ public class GlicSettings extends ChromeBaseSettingsFragment {
     static final String PREFERENCE_BOTTOM_BAR_BUTTON_TOGGLE = "glic_bottom_bar_button_toggle";
 
     @VisibleForTesting static final String PERMISSION_LOCATION = "permissions_location";
+    @VisibleForTesting static final String PERMISSION_MICROPHONE = "permissions_microphone";
     private static final String PERMISSION_DEFAULT_TAB_ACCESS =
             "glic_permissions_default_tab_access";
     private static final String PERMISSION_AUTO_BROWSE = "glic_permissions_auto_browse";
+    private static final String PERMISSION_SPARK_AUTO_BROWSE = "glic_permissions_spark_auto_browse";
     private static final String PERMISSION_ACTOR_LOGIN = "glic_actor_login_permissions";
 
     // TODO(b/498717684): Replace answer number urls with a p= identifier instead.
@@ -87,6 +90,10 @@ public class GlicSettings extends ChromeBaseSettingsFragment {
             "https://policies.google.com/terms/generative-ai/use-policy";
     private static final String AUTO_BROWSE_CONSIDER_UNEXPECTED_RESULTS_URL =
             "https://support.google.com/gemini/answer/16821166";
+    private static final String SPARK_AUTO_BROWSE_LEARN_MORE_URL =
+            "https://support.google.com/gemini/answer/17094507#spark_gic";
+    private static final String SPARK_AUTO_BROWSE_REVIEW_RISKS_URL =
+            "https://support.google.com/gemini/answer/17094507#spark_safety";
     private static final String ACTIVITY_URL =
             "https://myactivity.google.com/product/gemini?utm_source=gemini";
     private static final String EXTENSIONS_URL = "https://gemini.google.com/apps";
@@ -99,6 +106,10 @@ public class GlicSettings extends ChromeBaseSettingsFragment {
     private static final String PREF_LAUNCHER_HOTKEY = "glic_launcher_hotkey";
     @VisibleForTesting static final String PREF_NAVIGATION_SHORTCUT = "glic_navigation_shortcut";
 
+    // Request codes for runtime permissions requested from this fragment.
+    private static final int LOCATION_PERMISSION_REQUEST_CODE = 1;
+    @VisibleForTesting static final int MICROPHONE_PERMISSION_REQUEST_CODE = 2;
+
     private final SharedPreferencesManager mSharedPreferencesManager =
             ChromeSharedPreferences.getInstance();
     private final SettableMonotonicObservableSupplier<String> mPageTitle =
@@ -110,6 +121,8 @@ public class GlicSettings extends ChromeBaseSettingsFragment {
     private @Nullable PrefService mLocalPrefs;
     private GlicKeyedService.@Nullable UserEnabledActuationOnWebObserver
             mUserEnabledActuationOnWebObserver;
+    private GlicKeyedService.@Nullable ExperimentalTriggeringObserver
+            mExperimentalTriggeringObserver;
 
     @Override
     public void onViewCreated(View view, @Nullable Bundle savedInstanceState) {
@@ -275,6 +288,26 @@ public class GlicSettings extends ChromeBaseSettingsFragment {
             ensureFineLocationPermissionGranted();
         }
 
+        ChromeSwitchPreference microphonePref =
+                setupSwitchPreference(
+                        PERMISSION_MICROPHONE,
+                        ChromePreferenceKeys.GLIC_MICROPHONE_SETTING_ENABLED,
+                        GlicPrefNames.GLIC_MICROPHONE_ENABLED,
+                        (preference, newValue) -> {
+                            boolean enabled = (boolean) newValue;
+                            if (enabled) {
+                                RecordUserAction.record("Glic.Settings.Microphone.Enabled");
+                                ensureRecordAudioPermissionGranted();
+                            } else {
+                                RecordUserAction.record("Glic.Settings.Microphone.Disabled");
+                            }
+                            return true;
+                        });
+
+        if (microphonePref.isChecked()) {
+            ensureRecordAudioPermissionGranted();
+        }
+
         ChromeExpandableSwitchPreference tabAccessPref =
                 setupSwitchPreference(
                         PERMISSION_DEFAULT_TAB_ACCESS,
@@ -297,14 +330,13 @@ public class GlicSettings extends ChromeBaseSettingsFragment {
             boolean value = glicService.getUserEnabledActuationOnWeb();
             mSharedPreferencesManager.writeBoolean(
                     ChromePreferenceKeys.GLIC_AUTO_BROWSE_SETTING_ENABLED, value);
-            autoBrowsePref.setChecked(value);
-            autoBrowsePref.setOnPreferenceChangeListener(
-                    (pref, newValue) -> {
-                        boolean boolValue = (boolean) newValue;
+            setupServiceBackedSwitch(
+                    autoBrowsePref,
+                    value,
+                    boolValue -> {
                         mSharedPreferencesManager.writeBoolean(
                                 ChromePreferenceKeys.GLIC_AUTO_BROWSE_SETTING_ENABLED, boolValue);
                         glicService.setUserEnabledActuationOnWeb(boolValue);
-                        return true;
                     });
             mUserEnabledActuationOnWebObserver =
                     enabled -> {
@@ -324,6 +356,36 @@ public class GlicSettings extends ChromeBaseSettingsFragment {
                         autoBrowseSummary,
                         getLearnMoreSpanInfo(AUTO_BROWSE_LEARN_MORE_URL, autoBrowsePref)));
         autoBrowsePref.setOnBindExpandedAreaListener(this::setupAutoBrowseExpandedArea);
+
+        // "Let Gemini Spark browse on this device" (experimental triggering).
+        // Gated on the kGlicExperimentalTriggering flag. See b/551033026.
+        ChromeExpandableSwitchPreference sparkAutoBrowsePref =
+                assertNonNull(findPreference(PERMISSION_SPARK_AUTO_BROWSE));
+        if (!GlicEnabling.shouldShowExperimentalTriggeringToggle(getProfile())) {
+            sparkAutoBrowsePref.setVisible(false);
+        } else if (glicService != null) {
+            setupServiceBackedSwitch(
+                    sparkAutoBrowsePref,
+                    glicService.getExperimentalTriggeringEnabled(),
+                    boolValue -> glicService.setExperimentalTriggeringEnabled(boolValue));
+            mExperimentalTriggeringObserver =
+                    enabled -> {
+                        if (sparkAutoBrowsePref.isChecked() != enabled) {
+                            sparkAutoBrowsePref.setChecked(enabled);
+                        }
+                    };
+            glicService.addExperimentalTriggeringObserver(mExperimentalTriggeringObserver);
+
+            String sparkSummary =
+                    getString(R.string.settings_glic_experimental_triggering_sub_label);
+            sparkAutoBrowsePref.setSummary(
+                    SpanApplier.applySpans(
+                            sparkSummary,
+                            getLearnMoreSpanInfo(
+                                    SPARK_AUTO_BROWSE_LEARN_MORE_URL, sparkAutoBrowsePref)));
+            sparkAutoBrowsePref.setOnBindExpandedAreaListener(
+                    this::setupSparkAutoBrowseExpandedArea);
+        }
 
         Preference actorLoginPref = findPreference(PERMISSION_ACTOR_LOGIN);
         if (actorLoginPref != null) {
@@ -372,6 +434,7 @@ public class GlicSettings extends ChromeBaseSettingsFragment {
                 PREFERENCE_BUTTON_TOGGLE,
                 PREFERENCE_BOTTOM_BAR_BUTTON_TOGGLE,
                 PERMISSION_LOCATION,
+                PERMISSION_MICROPHONE,
                 PREF_KEY_GLIC_PERMISSIONS_ACTIVITY,
                 PREF_KEY_GLIC_EXTENSIONS,
                 PREF_LAUNCHER_ENABLED,
@@ -401,6 +464,13 @@ public class GlicSettings extends ChromeBaseSettingsFragment {
                         autoBrowsePref,
                         R.string.settings_glic_permissions_chrome_web_actuation_toggle_sublabel,
                         AUTO_BROWSE_LEARN_MORE_URL);
+            }
+
+            if (sparkAutoBrowsePref != null) {
+                setupDisabledPreference(
+                        sparkAutoBrowsePref,
+                        R.string.settings_glic_experimental_triggering_sub_label,
+                        SPARK_AUTO_BROWSE_LEARN_MORE_URL);
             }
         }
     }
@@ -515,6 +585,7 @@ public class GlicSettings extends ChromeBaseSettingsFragment {
         if (mPrefChangeRegistrar != null) {
             mPrefChangeRegistrar.removeObserver(GlicPrefNames.GLIC_PINNED_TO_TABSTRIP);
             mPrefChangeRegistrar.removeObserver(GlicPrefNames.GLIC_GEOLOCATION_ENABLED);
+            mPrefChangeRegistrar.removeObserver(GlicPrefNames.GLIC_MICROPHONE_ENABLED);
             mPrefChangeRegistrar.removeObserver(GlicPrefNames.GLIC_DEFAULT_TAB_CONTEXT_ENABLED);
             mPrefChangeRegistrar.destroy();
             mPrefChangeRegistrar = null;
@@ -528,6 +599,14 @@ public class GlicSettings extends ChromeBaseSettingsFragment {
             }
             mUserEnabledActuationOnWebObserver = null;
         }
+
+        if (mExperimentalTriggeringObserver != null) {
+            GlicKeyedService glicService = GlicKeyedServiceFactory.getForProfile(getProfile());
+            if (glicService != null) {
+                glicService.removeExperimentalTriggeringObserver(mExperimentalTriggeringObserver);
+            }
+            mExperimentalTriggeringObserver = null;
+        }
         super.onDestroy();
     }
 
@@ -535,7 +614,18 @@ public class GlicSettings extends ChromeBaseSettingsFragment {
         if (ContextCompat.checkSelfPermission(
                         getContext(), Manifest.permission.ACCESS_FINE_LOCATION)
                 != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(new String[] {Manifest.permission.ACCESS_FINE_LOCATION}, 1);
+            requestPermissions(
+                    new String[] {Manifest.permission.ACCESS_FINE_LOCATION},
+                    LOCATION_PERMISSION_REQUEST_CODE);
+        }
+    }
+
+    private void ensureRecordAudioPermissionGranted() {
+        if (ContextCompat.checkSelfPermission(getContext(), Manifest.permission.RECORD_AUDIO)
+                != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(
+                    new String[] {Manifest.permission.RECORD_AUDIO},
+                    MICROPHONE_PERMISSION_REQUEST_CODE);
         }
     }
 
@@ -600,16 +690,26 @@ public class GlicSettings extends ChromeBaseSettingsFragment {
     @Override
     public void onRequestPermissionsResult(
             int requestCode, String[] permissions, int[] grantResults) {
-        if (requestCode != 1) return;
+        String preferenceKey;
+        String profilePreferenceKey;
+        if (requestCode == LOCATION_PERMISSION_REQUEST_CODE) {
+            preferenceKey = PERMISSION_LOCATION;
+            profilePreferenceKey = GlicPrefNames.GLIC_GEOLOCATION_ENABLED;
+        } else if (requestCode == MICROPHONE_PERMISSION_REQUEST_CODE) {
+            preferenceKey = PERMISSION_MICROPHONE;
+            profilePreferenceKey = GlicPrefNames.GLIC_MICROPHONE_ENABLED;
+        } else {
+            return;
+        }
         boolean granted =
                 grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED;
         if (granted) return;
 
-        ChromeSwitchPreference locationPref = findPreference(PERMISSION_LOCATION);
-        if (locationPref != null) {
-            locationPref.setChecked(false);
+        ChromeSwitchPreference preference = findPreference(preferenceKey);
+        if (preference != null) {
+            preference.setChecked(false);
         }
-        UserPrefs.get(getProfile()).setBoolean(GlicPrefNames.GLIC_GEOLOCATION_ENABLED, false);
+        UserPrefs.get(getProfile()).setBoolean(profilePreferenceKey, false);
     }
 
     private void setupDisabledPreference(
@@ -654,6 +754,50 @@ public class GlicSettings extends ChromeBaseSettingsFragment {
                 consider2.setTextColor(autoBrowsePref.getDisabledColor());
                 // Re-enable the view so links remain clickable, even though it looks disabled.
                 consider2.setEnabled(true);
+            }
+        }
+    }
+
+    /**
+     * Applies the shared wiring for a service-backed expandable switch preference: sets its initial
+     * checked state and installs a change listener that forwards user toggles to {@code
+     * onUserToggled}. The caller creates and registers the type-specific observer that keeps the
+     * switch in sync with the service.
+     */
+    private static void setupServiceBackedSwitch(
+            ChromeExpandableSwitchPreference pref,
+            boolean checked,
+            Callback<Boolean> onUserToggled) {
+        pref.setChecked(checked);
+        pref.setOnPreferenceChangeListener(
+                (preference, newValue) -> {
+                    onUserToggled.onResult((boolean) newValue);
+                    return true;
+                });
+    }
+
+    private void setupSparkAutoBrowseExpandedArea(View expandedArea) {
+        TextView considerUserResponsibility =
+                expandedArea.findViewById(
+                        R.id.glic_spark_auto_browse_consider_user_responsibility_description);
+        if (considerUserResponsibility != null
+                && considerUserResponsibility.getMovementMethod() == null) {
+            ChromeExpandableSwitchPreference sparkAutoBrowsePref =
+                    assertNonNull(findPreference(PERMISSION_SPARK_AUTO_BROWSE));
+            String text = getString(R.string.settings_glic_experimental_triggering_consider_3);
+            considerUserResponsibility.setText(
+                    SpanApplier.applySpans(
+                            text,
+                            createLinkSpanInfo(
+                                    "$1",
+                                    SPARK_AUTO_BROWSE_REVIEW_RISKS_URL,
+                                    sparkAutoBrowsePref)));
+            considerUserResponsibility.setMovementMethod(LinkMovementMethod.getInstance());
+
+            if (GlicEnabling.isDisabledByPolicy(getProfile())) {
+                considerUserResponsibility.setTextColor(sparkAutoBrowsePref.getDisabledColor());
+                // Re-enable the view so links remain clickable, even though it looks disabled.
+                considerUserResponsibility.setEnabled(true);
             }
         }
     }
@@ -762,6 +906,9 @@ public class GlicSettings extends ChromeBaseSettingsFragment {
                             GlicEnabling.shouldShowWebActuationToggle(profile);
                     if (!shouldShowWebActuation) {
                         indexData.removeEntryForKey(prefFrag, PERMISSION_AUTO_BROWSE);
+                    }
+                    if (!GlicEnabling.shouldShowExperimentalTriggeringToggle(profile)) {
+                        indexData.removeEntryForKey(prefFrag, PERMISSION_SPARK_AUTO_BROWSE);
                     }
                 }
             };

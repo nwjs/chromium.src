@@ -8,12 +8,10 @@
 <translation id="1091252999271033193">То значи да ће Chromium сваки пут захтевати мобилни сајт.</translation>
 <translation id="1115463765356382667">Обавите ове предложене радње у наставку да бисте искористили Chromium на најбољи начин.</translation>
 <translation id="1185134272377778587">О Chromium-у</translation>
-<translation id="119044033865561140">Одмах отворите Chromium када сте на iPad-у</translation>
 <translation id="1229234641991056119">Користите Safari лозинке, историју, обележиваче и кредитне картице у Chromium-у</translation>
 <translation id="1257458525759135959">Да бисте сачували слике, додирните Подешавања да бисте омогућили Chromium-у да додаје слике</translation>
 <translation id="1260702988262336471">Отворите Chromium мени</translation>
 <translation id="12739128458173458">Да бисте послали ову картицу на други уређај, пријавите се у Chromium на оба уређаја.</translation>
-<translation id="1279797561821266129">Брже приступајте Chromium-у преко траке с апликацијама</translation>
 <translation id="1361748954329991663">Chromium је застарео. Ако ажурирање није доступно у <ph name="BEGIN_LINK" />App Store-у<ph name="END_LINK" />, уређај можда не подржава нове верзије Chromium-а.</translation>
 <translation id="1383876407941801731">Претражи</translation>
 <translation id="1423007117030725713">Започните претрагу на новој Chromium картици.</translation>
@@ -32,7 +30,6 @@
 <translation id="1553657876656159572">Прилагођени фид направљен за вас. Укључујући вести, спорт и време.</translation>
 <translation id="1561849081734670621">Да бисте онемогућили режим закључавања у Chromium-у, искључите га на iPhone-у.</translation>
 <translation id="1569258826720962327">Користите Chromium радње на iOS-у</translation>
-<translation id="1573441572176948907">Преместите Chromium на траку с апликацијама</translation>
 <translation id="159029779861043703">Chromium штити осетљиве податке помоћу Face ID-а.</translation>
 <translation id="1591119736686995611">Отвара мрежу Chromium картица.</translation>
 <translation id="16001233025397167">Провера безбедности вас штити од повреде података, небезбедних веб-сајтова и другог. Примајте обавештења о свим проблемима у вези са приватношћу или безбедношћу које Chromium открије за вас.</translation>
@@ -145,6 +142,7 @@
 <translation id="3855938650519180865">Шта је ново у Chromium-у</translation>
 <translation id="3886689467633467988">Пријавите се на овај сајт и у Chromium да би вам обележивачи и други садржај били доступни на свим уређајима.</translation>
 <translation id="3949514465204582407">Савет за Chromium: Приступајте лозинкама у било којој апликацији</translation>
+<translation id="3983298990898629929">Подесите Chromium као подразумевани прегледач да бисте отварали линкове једним додиром</translation>
 <translation id="4005283307739974863">Отвара и покреће Проверу безбедности у Chromium-у.</translation>
 <translation id="4043291146360695975">Лозинке се чувају у Менаџеру лозинки само на овом уређају.</translation>
 <translation id="4046625794029820944">Престаните да копирате URL-ове. Подесите Chromium као подразумевани прегледач да бисте директно учитавали странице.</translation>
@@ -182,7 +180,6 @@
 <translation id="4790638144988730920">Наставите да користите Chromium податке на Google налогу.</translation>
 <translation id="4828317641996116749">Chromium није успео да провери све лозинке. Пробајте поново касније.</translation>
 <translation id="4856138222358683580">Chromium радње</translation>
-<translation id="4869706986935301458">Одмах отворите Chromium када сте на iPhone-у</translation>
 <translation id="4904452304169763785">Обавештења о свим проблемима у вези са приватношћу или безбедношћу које Chromium открије за вас.</translation>
 <translation id="4962295957157529683">Завршите оно што сте радили у другом отвореном Chromium прозору.</translation>
 <translation id="4985291216379576555">Офлајн сте. Chromium не може да тражи ажурирања.</translation>
@@ -277,6 +274,7 @@
 <translation id="6680609900732453726">Заштитите приватност прегледања помоћу потврде идентитета уређаја када затворите Chromium</translation>
 <translation id="6696512128741076907">Подесите Chromium као подразумевани прегледач да бисте одмах отварали линкове из других апликација.</translation>
 <translation id="6752854822223394465">Ваша организација подешава Chromium...</translation>
+<translation id="6777348401413221846">Видео преко целог екрана о томе како да подесите Chromium као подразумевани прегледач: Отворите подешавања Chromium-а у iOS-у, додирните Подразумевана апликација за прегледач и изаберите Chromium.</translation>
 <translation id="6794054469102824109">Отвара игру Chromium диносаурус.</translation>
 <translation id="6820823224820483452">Chromium није успео да провери све лозинке. Пробајте поново сутра.</translation>
 <translation id="6830782797004194206">Брже се пријављујте помоћу аутоматског попуњавања у Chromium-у</translation>
@@ -306,8 +304,8 @@
 <translation id="7337881442233988129">Chromium</translation>
 <translation id="7395825497086981028">Лозинка се чува у Менаџеру лозинки за <ph name="EMAIL" /></translation>
 <translation id="7434848749522628428">Приступни кључ се чува у Менаџеру лозинки за <ph name="USER_EMAIL" /></translation>
+<translation id="7453822113116681031">Поставите Chromium као подразумевани прегледач да бисте отварали линкове једним додиром</translation>
 <translation id="7504829997542308412">Отворите Chromium</translation>
-<translation id="7507535968973352823">Поставите Chromium у доњу област да бисте му приступали кад год желите</translation>
 <translation id="7531461704633548377">Из Chromium-а</translation>
 <translation id="7554983317097061001">Савет за Chromium: Преместите Chromium на траку с апликацијама</translation>
 <translation id="7576863740961052505">Управљање подешавањима Chromium-а</translation>
@@ -357,7 +355,6 @@
 <translation id="8730503818204408000">Отвара подешавање Chromium-а да би га подесило као подразумевани прегледач.</translation>
 <translation id="8754966941001340678">Chromium препоручује побољшану заштиту</translation>
 <translation id="8759037115129007407">Члан породице тренутно не може да прима лозинке. Затражите му да ажурира Chromium и синхронизује лозинке. <ph name="BEGIN_LINK" />Сазнајте више<ph name="END_LINK" /></translation>
-<translation id="8769418653786388149">Понесите Chromium са собом</translation>
 <translation id="8776843108004031667">Овај налог и сви несачувани подаци уклониће се из Chromium-а.</translation>
 <translation id="8793333988063379360">Овде можете да пронађете Chromium подешавања и друго</translation>
 <translation id="8805148242934787134">Постави Chromium као подразумевани прегледач</translation>

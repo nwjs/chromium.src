@@ -5,15 +5,12 @@
 // A library to manage RLZ information for access-points shared
 // across different client applications.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
-#pragma allow_unsafe_buffers
-#endif
-
 #include "rlz/lib/rlz_lib.h"
 
 #include <algorithm>
 
+#include "base/compiler_specific.h"
+#include "base/strings/strcat.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/syslog_logging.h"
@@ -100,20 +97,12 @@ bool IsGoodRlzChar(const char ch) {
 // This function will remove bad rlz chars and also limit the max rlz to some
 // reasonable size.  It also assumes that normalized_rlz is at least
 // kMaxRlzLength+1 long.
-// TODO(crbug.com/351564777): Modernize NormalizeRlz to accept std::string_view
-// and return std::string.
-void NormalizeRlz(const char* raw_rlz, char* normalized_rlz) {
-  size_t index = 0;
-  for (; raw_rlz[index] != 0 && index < rlz_lib::kMaxRlzLength; ++index) {
-    char current = raw_rlz[index];
-    if (IsGoodRlzChar(current)) {
-      normalized_rlz[index] = current;
-    } else {
-      normalized_rlz[index] = '.';
-    }
+std::string NormalizeRlz(std::string_view raw_rlz) {
+  std::string normalized_rlz;
+  for (char current : raw_rlz.substr(0, rlz_lib::kMaxRlzLength)) {
+    normalized_rlz.push_back(IsGoodRlzChar(current) ? current : '.');
   }
-
-  normalized_rlz[index] = 0;
+  return normalized_rlz;
 }
 
 void GetEventsFromResponseString(
@@ -143,19 +132,20 @@ void GetEventsFromResponseString(
     if (event_string.size() != 3)  // 3 = 2(AP) + 1(E)
       continue;
 
-    rlz_lib::AccessPoint point = rlz_lib::NO_ACCESS_POINT;
-    rlz_lib::Event event = rlz_lib::INVALID_EVENT;
-    if (!GetAccessPointFromName(event_string.substr(0, 2).c_str(), &point) ||
-        point == rlz_lib::NO_ACCESS_POINT) {
+    std::string_view event_sv(event_string);
+    std::optional<rlz_lib::AccessPoint> point =
+        rlz_lib::GetAccessPointFromName(event_sv.substr(0, 2));
+    if (!point || *point == rlz_lib::NO_ACCESS_POINT) {
       continue;
     }
 
-    if (!GetEventFromName(event_string.substr(event_string.size() - 1).c_str(),
-                          &event) || event == rlz_lib::INVALID_EVENT) {
+    std::optional<rlz_lib::Event> event =
+        rlz_lib::GetEventFromName(event_sv.substr(2));
+    if (!event || *event == rlz_lib::INVALID_EVENT) {
       continue;
     }
 
-    ReturnedEvent current_event = {point, event};
+    ReturnedEvent current_event = {*point, *event};
     event_array->push_back(current_event);
   } while (event_end_index >= 0);
 }
@@ -169,60 +159,30 @@ bool RecordStatefulEvent(rlz_lib::Product product, rlz_lib::AccessPoint point,
     return false;
 
   // Write the new event to the value store.
-  const char* point_name = GetAccessPointName(point);
-  const char* event_name = GetEventName(event);
-  if (!point_name || !event_name)
+  std::string_view point_name = GetAccessPointName(point);
+  std::string_view event_name = GetEventName(event);
+  if (point_name.empty() || event_name.empty()) {
     return false;
+  }
 
-  if (!point_name[0] || !event_name[0])
-    return false;
-
-  std::string new_event_value;
-  base::StringAppendF(&new_event_value, "%s%s", point_name, event_name);
-  return store->AddStatefulEvent(product, new_event_value.c_str());
+  std::string new_event_value = base::StrCat({point_name, event_name});
+  return store->AddStatefulEvent(product, new_event_value);
 }
 
-bool GetProductEventsAsCgiHelper(rlz_lib::Product product, char* cgi,
-                                 size_t cgi_size,
-                                 rlz_lib::RlzValueStore* store) {
-  // Prepend the CGI param key to the buffer.
-  std::string cgi_arg;
-  base::StringAppendF(&cgi_arg, "%s=", rlz_lib::kEventsCgiVariable);
-  if (cgi_size <= cgi_arg.size())
-    return false;
-
-  size_t index;
-  for (index = 0; index < cgi_arg.size(); ++index)
-    cgi[index] = cgi_arg[index];
-
+std::optional<std::string> GetProductEventsAsCgiHelper(
+    rlz_lib::Product product,
+    rlz_lib::RlzValueStore* store) {
   // Read stored events.
-  std::vector<std::string> events;
-  if (!store->ReadProductEvents(product, &events))
-    return false;
+  std::vector<std::string> events = store->ReadProductEvents(product);
+  if (events.empty()) {
+    return std::nullopt;
+  }
 
   std::ranges::sort(events);
 
-  // Append the events to the buffer.
-  size_t num_values = 0;
-
-  for (num_values = 0; num_values < events.size(); ++num_values) {
-    cgi[index] = '\0';
-
-    int divider = num_values > 0 ? 1 : 0;
-    int size = cgi_size - (index + divider);
-    if (size <= 0)
-      return cgi_size >= (rlz_lib::kMaxCgiLength + 1);
-
-    strncpy(cgi + index + divider, events[num_values].c_str(), size);
-    if (divider)
-      cgi[index] = rlz_lib::kEventsCgiSeparator;
-
-    index += std::min((int)events[num_values].length(), size) + divider;
-  }
-
-  cgi[index] = '\0';
-
-  return num_values > 0;
+  return base::StrCat(
+      {rlz_lib::kEventsCgiVariable, "=",
+       base::JoinString(events, std::string(1, rlz_lib::kEventsCgiSeparator))});
 }
 
 }  // namespace
@@ -233,30 +193,14 @@ bool SetURLLoaderFactory(network::mojom::URLLoaderFactory* factory) {
   return FinancialPing::SetURLLoaderFactory(factory);
 }
 
-bool GetProductEventsAsCgi(Product product, char* cgi, size_t cgi_size) {
-  if (!cgi || cgi_size <= 0) {
-    ASSERT_STRING("GetProductEventsAsCgi: Invalid buffer");
-    return false;
-  }
-
-  cgi[0] = 0;
-
+std::optional<std::string> GetProductEventsAsCgi(Product product) {
   ScopedRlzValueStoreLock lock;
   RlzValueStore* store = lock.GetStore();
-  if (!store || !store->HasAccess(RlzValueStore::kReadAccess))
-    return false;
-
-  size_t size_local = std::min(
-      static_cast<size_t>(kMaxCgiLength + 1), cgi_size);
-  bool result = GetProductEventsAsCgiHelper(product, cgi, size_local, store);
-
-  if (!result) {
-    ASSERT_STRING("GetProductEventsAsCgi: Possibly insufficient buffer size");
-    cgi[0] = 0;
-    return false;
+  if (!store || !store->HasAccess(RlzValueStore::kReadAccess)) {
+    return std::nullopt;
   }
 
-  return true;
+  return GetProductEventsAsCgiHelper(product, store);
 }
 
 bool RecordProductEvent(Product product, AccessPoint point, Event event) {
@@ -266,26 +210,23 @@ bool RecordProductEvent(Product product, AccessPoint point, Event event) {
     return false;
 
   // Get this event's value.
-  const char* point_name = GetAccessPointName(point);
-  const char* event_name = GetEventName(event);
-  if (!point_name || !event_name)
+  std::string_view point_name = GetAccessPointName(point);
+  std::string_view event_name = GetEventName(event);
+  if (point_name.empty() || event_name.empty()) {
     return false;
+  }
 
-  if (!point_name[0] || !event_name[0])
-    return false;
-
-  std::string new_event_value;
-  base::StringAppendF(&new_event_value, "%s%s", point_name, event_name);
+  std::string new_event_value = base::StrCat({point_name, event_name});
 
   // Check whether this event is a stateful event. If so, don't record it.
-  if (store->IsStatefulEvent(product, new_event_value.c_str())) {
+  if (store->IsStatefulEvent(product, new_event_value)) {
     // For a stateful event we skip recording, this function is also
     // considered successful.
     return true;
   }
 
   // Write the new event to the value store.
-  return store->AddProductEvent(product, new_event_value.c_str());
+  return store->AddProductEvent(product, new_event_value);
 }
 
 bool ClearProductEvent(Product product, AccessPoint point, Event event) {
@@ -295,50 +236,37 @@ bool ClearProductEvent(Product product, AccessPoint point, Event event) {
     return false;
 
   // Get the event's value store value and delete it.
-  const char* point_name = GetAccessPointName(point);
-  const char* event_name = GetEventName(event);
-  if (!point_name || !event_name)
+  std::string_view point_name = GetAccessPointName(point);
+  std::string_view event_name = GetEventName(event);
+  if (point_name.empty() || event_name.empty()) {
     return false;
+  }
 
-  if (!point_name[0] || !event_name[0])
-    return false;
-
-  std::string event_value;
-  base::StringAppendF(&event_value, "%s%s", point_name, event_name);
-  return store->ClearProductEvent(product, event_value.c_str());
+  std::string event_value = base::StrCat({point_name, event_name});
+  return store->ClearProductEvent(product, event_value);
 }
 
 // RLZ storage functions.
 
-bool GetAccessPointRlz(AccessPoint point, char* rlz, size_t rlz_size) {
-  if (!rlz || rlz_size <= 0) {
-    ASSERT_STRING("GetAccessPointRlz: Invalid buffer");
-    return false;
-  }
-
-  rlz[0] = 0;
-
+std::optional<std::string> GetAccessPointRlz(AccessPoint point) {
   ScopedRlzValueStoreLock lock;
   RlzValueStore* store = lock.GetStore();
-  if (!store || !store->HasAccess(RlzValueStore::kReadAccess))
-    return false;
+  if (!store || !store->HasAccess(RlzValueStore::kReadAccess)) {
+    return std::nullopt;
+  }
 
-  if (!IsAccessPointSupported(point))
-    return false;
+  if (!IsAccessPointSupported(point)) {
+    return std::nullopt;
+  }
 
-  return store->ReadAccessPointRlz(point, rlz, rlz_size);
+  return store->ReadAccessPointRlz(point);
 }
 
-bool SetAccessPointRlz(AccessPoint point, const char* new_rlz) {
+bool SetAccessPointRlz(AccessPoint point, std::string_view new_rlz) {
   ScopedRlzValueStoreLock lock;
   RlzValueStore* store = lock.GetStore();
   if (!store || !store->HasAccess(RlzValueStore::kWriteAccess))
     return false;
-
-  if (!new_rlz) {
-    ASSERT_STRING("SetAccessPointRlz: Invalid buffer");
-    return false;
-  }
 
   // Return false if the access point is not set to Google.
   if (!IsAccessPointSupported(point)) {
@@ -348,19 +276,17 @@ bool SetAccessPointRlz(AccessPoint point, const char* new_rlz) {
   }
 
   // Verify the RLZ length.
-  size_t rlz_length = strlen(new_rlz);
-  if (rlz_length > kMaxRlzLength) {
+  if (new_rlz.size() > kMaxRlzLength) {
     ASSERT_STRING("SetAccessPointRlz: RLZ length is exceeds max allowed.");
     return false;
   }
 
-  char normalized_rlz[kMaxRlzLength + 1];
-  NormalizeRlz(new_rlz, normalized_rlz);
-  VERIFY(strlen(new_rlz) == rlz_length);
+  std::string normalized_rlz = NormalizeRlz(new_rlz);
 
   // Setting RLZ to empty == clearing.
-  if (normalized_rlz[0] == 0)
+  if (normalized_rlz.empty()) {
     return store->ClearAccessPointRlz(point);
+  }
   return store->WriteAccessPointRlz(point, normalized_rlz);
 }
 
@@ -374,30 +300,21 @@ bool UpdateExistingAccessPointRlz(const std::string& brand) {
 
 // Financial Server pinging functions.
 
-bool FormFinancialPingRequest(Product product, const AccessPoint* access_points,
-                              const char* product_signature,
-                              const char* product_brand,
-                              const char* product_id,
-                              const char* product_lang,
-                              bool exclude_machine_id,
-                              char* request, size_t request_buffer_size) {
-  if (!request || request_buffer_size == 0)
-    return false;
-
-  request[0] = 0;
-
-  std::string request_string;
+std::optional<std::string> FormFinancialPingRequest(
+    Product product,
+    base::span<const AccessPoint> access_points,
+    std::string_view product_signature,
+    std::string_view product_brand,
+    std::string_view product_id,
+    std::string_view product_lang,
+    bool exclude_machine_id) {
+  std::string request;
   if (!FinancialPing::FormRequest(product, access_points, product_signature,
                                   product_brand, product_id, product_lang,
-                                  exclude_machine_id, &request_string))
-    return false;
-
-  if (request_string.size() >= request_buffer_size)
-    return false;
-
-  strncpy(request, request_string.c_str(), request_buffer_size);
-  request[request_buffer_size - 1] = 0;
-  return true;
+                                  exclude_machine_id, &request)) {
+    return std::nullopt;
+  }
+  return request;
 }
 
 // Complex helpers built on top of other functions.
@@ -410,11 +327,11 @@ bool ParseFinancialPingResponse(Product product, const char* response) {
 }
 
 bool SendFinancialPing(Product product,
-                       const AccessPoint* access_points,
-                       const char* product_signature,
-                       const char* product_brand,
-                       const char* product_id,
-                       const char* product_lang,
+                       base::span<const AccessPoint> access_points,
+                       std::string_view product_signature,
+                       std::string_view product_brand,
+                       std::string_view product_id,
+                       std::string_view product_lang,
                        bool exclude_machine_id) {
   return SendFinancialPing(product, access_points, product_signature,
                            product_brand, product_id, product_lang,
@@ -422,11 +339,11 @@ bool SendFinancialPing(Product product,
 }
 
 bool SendFinancialPing(Product product,
-                       const AccessPoint* access_points,
-                       const char* product_signature,
-                       const char* product_brand,
-                       const char* product_id,
-                       const char* product_lang,
+                       base::span<const AccessPoint> access_points,
+                       std::string_view product_signature,
+                       std::string_view product_brand,
+                       std::string_view product_id,
+                       std::string_view product_lang,
                        bool exclude_machine_id,
                        const bool skip_time_check) {
   // Create the financial ping request.
@@ -503,11 +420,11 @@ bool ParsePingResponse(Product product, const char* response) {
 
       // Get the access point.
       std::string point_name =
-        response_line.substr(3, separator_index - rlz_cgi_length);
-      AccessPoint point = NO_ACCESS_POINT;
-      if (!GetAccessPointFromName(point_name.c_str(), &point) ||
-          point == NO_ACCESS_POINT)
+          response_line.substr(3, separator_index - rlz_cgi_length);
+      std::optional<AccessPoint> point = GetAccessPointFromName(point_name);
+      if (!point || *point == NO_ACCESS_POINT) {
         continue;  // Not a valid access point.
+      }
 
       // Get the new RLZ.
       std::string rlz_value(response_line.substr(separator_index + 2));
@@ -520,16 +437,16 @@ bool ParsePingResponse(Product product, const char* response) {
       if (rlz_length > kMaxRlzLength)
         continue;  // Too long.
 
-      if (IsAccessPointSupported(point))
-        SetAccessPointRlz(point, rlz_value.substr(0, rlz_length).c_str());
+      if (IsAccessPointSupported(*point)) {
+        SetAccessPointRlz(*point, rlz_value.substr(0, rlz_length));
+      }
     } else if (base::StartsWith(response_line, events_variable,
                                 base::CompareCase::SENSITIVE)) {
       // Clear events which server parsed.
       std::vector<ReturnedEvent> event_array;
       GetEventsFromResponseString(response_line, events_variable, &event_array);
-      for (size_t i = 0; i < event_array.size(); ++i) {
-        ClearProductEvent(product, event_array[i].access_point,
-                          event_array[i].event_type);
+      for (const auto& event : event_array) {
+        ClearProductEvent(product, event.access_point, event.event_type);
       }
     } else if (base::StartsWith(response_line, stateful_events_variable,
                                 base::CompareCase::SENSITIVE)) {
@@ -537,9 +454,8 @@ bool ParsePingResponse(Product product, const char* response) {
       std::vector<ReturnedEvent> event_array;
       GetEventsFromResponseString(response_line, stateful_events_variable,
                                   &event_array);
-      for (size_t i = 0; i < event_array.size(); ++i) {
-        RecordStatefulEvent(product, event_array[i].access_point,
-                            event_array[i].event_type);
+      for (const auto& event : event_array) {
+        RecordStatefulEvent(product, event.access_point, event.event_type);
       }
     }
   } while (line_end_index >= 0);
@@ -552,22 +468,9 @@ bool ParsePingResponse(Product product, const char* response) {
   return true;
 }
 
-// TODO(crbug.com/351564777): Modernize GetPingParams to return
-// std::optional<std::string> instead of writing to a raw char buffer.
-bool GetPingParams(Product product, const AccessPoint* access_points,
-                   char* cgi, size_t cgi_size) {
-  if (!cgi || cgi_size <= 0) {
-    ASSERT_STRING("GetPingParams: Invalid buffer");
-    return false;
-  }
-
-  cgi[0] = 0;
-
-  if (!access_points) {
-    ASSERT_STRING("GetPingParams: access_points is NULL");
-    return false;
-  }
-
+std::optional<std::string> GetPingParams(
+    Product product,
+    base::span<const AccessPoint> access_points) {
   // Add the RLZ Exchange Protocol version.
   std::string cgi_string(kProtocolCgiArgument);
 
@@ -579,19 +482,22 @@ bool GetPingParams(Product product, const AccessPoint* access_points,
     // calls below.
     ScopedRlzValueStoreLock lock;
     RlzValueStore* store = lock.GetStore();
-    if (!store || !store->HasAccess(RlzValueStore::kReadAccess))
-      return false;
+    if (!store || !store->HasAccess(RlzValueStore::kReadAccess)) {
+      return std::nullopt;
+    }
     bool first_rlz = true;  // comma before every RLZ but the first.
-    for (int i = 0; access_points[i] != NO_ACCESS_POINT; i++) {
-      char rlz[kMaxRlzLength + 1];
-      if (GetAccessPointRlz(access_points[i], rlz, std::size(rlz))) {
-        const char* access_point = GetAccessPointName(access_points[i]);
-        if (!access_point)
+    for (AccessPoint ap : access_points) {
+      if (ap == NO_ACCESS_POINT) {
+        break;
+      }
+      if (std::optional<std::string> rlz = GetAccessPointRlz(ap)) {
+        std::string_view access_point = GetAccessPointName(ap);
+        if (access_point.empty()) {
           continue;
+        }
 
-        base::StringAppendF(&cgi_string, "%s%s%s%s",
-                            first_rlz ? "" : kRlzCgiSeparator,
-                            access_point, kRlzCgiIndicator, rlz);
+        base::StrAppend(&cgi_string, {first_rlz ? "" : kRlzCgiSeparator,
+                                      access_point, kRlzCgiIndicator, *rlz});
         first_rlz = false;
       }
     }
@@ -604,13 +510,7 @@ bool GetPingParams(Product product, const AccessPoint* access_points,
 #endif
   }
 
-  if (cgi_string.size() >= cgi_size)
-    return false;
-
-  strncpy(cgi, cgi_string.c_str(), cgi_size);
-  cgi[cgi_size - 1] = 0;
-
-  return true;
+  return cgi_string;
 }
 
 }  // namespace rlz_lib

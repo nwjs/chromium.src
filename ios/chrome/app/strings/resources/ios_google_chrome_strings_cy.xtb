@@ -1,7 +1,6 @@
 <?xml version="1.0" ?>
 <!DOCTYPE translationbundle>
 <translationbundle lang="cy">
-<translation id="1035560095760914532">Rhoi Chrome yn yr ardal waelod i gael mynediad ato unrhyw bryd</translation>
 <translation id="1076643793026027628">Mae Chrome yn agor dolenni Anhysbys YouTube yn y modd Anhysbys yn awtomatig.</translation>
 <translation id="1081114897601629648">Ni chafodd y cyfrineiriau canlynol eu mewnforio i Reolwr Cyfrineiriau Google, oherwydd nad ydynt yn cyfateb i'r gofynion.</translation>
 <translation id="1086486568852410168">Chwilio â Google Lens</translation>
@@ -41,6 +40,7 @@ Pethau i'w hystyried:
 <translation id="1580570086594302477">Yn agor tab anhysbys Chrome newydd.</translation>
 <translation id="1605168141396675642">Osgoi'r drafferth o gopïo. Lansio dolenni yn syth i Chrome.</translation>
 <translation id="1646463005043273333">Yn agor y gosodiad Chromium i osod Chromium fel y porwr diofyn.</translation>
+<translation id="1665695109862533986">Gosodwch Chrome fel eich porwr diofyn i agor dolenni mewn un tap</translation>
 <translation id="1668930590094369898">Defnyddio Chrome fel y Porwr Diofyn</translation>
 <translation id="1670609221633730681">Awgrym Chrome: Dewiswch leoliad eich bar cyfeiriad</translation>
 <translation id="1683863426423719967">I dderbyn Atgoffwyr Tab gan Chrome, trowch hysbysiadau ymlaen yn eich Gosodiadau iOS.</translation>
@@ -92,7 +92,6 @@ Pethau i'w hystyried:
 <translation id="288992067439702510">Rydych wedi cyrraedd terfyn Google Chrome o <ph name="LIMIT" /> nod tudalen, felly nid yw rhai o'ch nodau tudalen wedi'u cadw yn eich Cyfrif Google eto.
 
 Ni ellir cadw nodau tudalen newydd yn eich cyfrif nes i chi ddileu rhai. Os byddwch yn allgofnodi nawr, bydd nodau tudalen sydd heb eu cadw yn cael eu dileu.</translation>
-<translation id="2901621928549457170">Agor Chrome ar unwaith pan fyddwch ar eich iPad</translation>
 <translation id="2922914028977213693">Tapiwch yma i gael y gorau o Chrome ar eich iPad.</translation>
 <translation id="292371311537977079">Gosodiadau Chrome</translation>
 <translation id="2923827943290349720">Cloi tabiau Anhysbys wrth gau Chrome</translation>
@@ -151,6 +150,7 @@ Ni ellir cadw nodau tudalen newydd yn eich cyfrif nes i chi ddileu rhai. Os bydd
 <translation id="4523886039239821078">Mae rhai ychwanegion yn achosi i Chrome dorri. Dadosodwch:</translation>
 <translation id="4568024439284012497">Cael mynediad at Chrome yn gyflymach o Sgrîn Hafan eich iPhone.</translation>
 <translation id="4574806550936185355">Troi "Cloi tabiau Anhysbys pan fyddwch yn cau Chrome" ymlaen</translation>
+<translation id="457825396414281646">Gwnewch Chrome yn borwr diofyn i agor dolenni mewn un tap</translation>
 <translation id="4633328489441962921">Ni all Chrome wirio am ddiweddariadau</translation>
 <translation id="4636900170638246267">Mewngofnodi i'r wefan hon a Chrome.</translation>
 <translation id="4647910807533196601">Agor fy nhab diweddaraf yn Chrome</translation>
@@ -177,8 +177,6 @@ Ni ellir cadw nodau tudalen newydd yn eich cyfrif nes i chi ddileu rhai. Os bydd
 <translation id="5119391094379141756">Dewiswch Chrome</translation>
 <translation id="5123188916260706415">Chwilio â llais yn Chrome.</translation>
 <translation id="5162467219239570114">Mae Chrome yn hen. Os nad oes diweddariad ar gael yn <ph name="BEGIN_LINK" />App Store<ph name="END_LINK" />, mae'n bosib nad yw'ch dyfais yn cefnogi fersiynau newydd o Chrome mwyach.</translation>
-<translation id="5172049865623113551">Agor Chrome ar unwaith pan fyddwch ar eich iPhone</translation>
-<translation id="5179095426828744632">Cael mynediad at Chrome yn gyflymach o'ch doc</translation>
 <translation id="5184329579814168207">Agor yn Chrome</translation>
 <translation id="5190139289262548459">Mae eich sefydliad, <ph name="DOMAIN" />, yn rheoli'r cyfrif rydych wedi mewngofnodi iddo a sut mae Chrome yn cael ei ddefnyddio.</translation>
 <translation id="5209238444239954363">Ni allai Chrome wirio am ddiweddariadau. Rhowch gynnig arall arni'n nes ymlaen.</translation>
@@ -242,7 +240,6 @@ Arhoswch ychydig funudau cyn newid cyfrif. Os byddwch yn newid cyfrif nawr, bydd
 <translation id="6484712497741564393">Wedi mewngofnodi fel <ph name="EMAIL" />.
 
 Mae eich data wedi'u hamgryptio â'ch cyfrinymadrodd. Rhowch ef i ddefnyddio a chadw data Chrome yn eich Cyfrif Google.</translation>
-<translation id="6511034852811155835">Ewch â'ch Chrome gyda chi</translation>
 <translation id="6533470733797826516">Mewngofnodwch yn gyflymach gydag awtolenwi Chrome</translation>
 <translation id="6536544321553662809">Gosodwch Chrome fel eich porwr diofyn i rannu ac agor dolenni yn hawdd</translation>
 <translation id="6545449117344801102">Mae Chrome yn canfod cyfeiriadau ac yn defnyddio Google Maps i roi cyfarwyddiadau a gwybodaeth leol i chi.</translation>
@@ -266,7 +263,6 @@ Am ragor o osodiadau sy'n defnyddio data i wella'ch profiad Chrome, ewch i <ph n
 <translation id="6924922227983877439">Agor dolenni yn Chrome yn ddiofyn</translation>
 <translation id="6926395711547387358">Gosod Chrome fel y Porwr Diofyn</translation>
 <translation id="6975725306479268850">Dewiswch Chrome ar gyfer Awtolenwi</translation>
-<translation id="7001031184470316752">Symud Chrome i'ch doc</translation>
 <translation id="7038674195294813388">Agorwch y gosodiadau Apiau Diofyn yn iOS, yna tapiwch ar "Browser App" a dewiswch Chrome.</translation>
 <translation id="7056826488869329999">Yn Agor a Rhedeg Gwiriad Diogelwch yn Chrome.</translation>
 <translation id="7061455974939528301">Pwyswch a daliwch yr eicon Chrome a chliciwch ar 'Golygu'r sgrîn hafan'</translation>
@@ -363,6 +359,7 @@ Cafodd eich data eu hamgryptio gyda'ch cyfrinymadrodd ar <ph name="TIME" />. Rho
 <translation id="8610372330814566250">Defnyddiwch eich cyfrineiriau, hanes, nodau tudalen a chardiau credyd Safari yn Chrome</translation>
 <translation id="8630122478628016441">Troi "Cloi tabiau anhysbys pan fyddwch yn cau Chrome" ymlaen.</translation>
 <translation id="8673726683583791503">Siopa gyda Google Lens</translation>
+<translation id="869525545193934083">Fideo sgrîn lawn o sut i osod Chrome fel y porwr diofyn: Agorwch y gosodiadau Chrome yn iOS, tapiwch 'Default Browser App', a dewiswch Chrome.</translation>
 <translation id="8765470054473112089">Pan fyddwch yn teipio yn y bar cyfeiriad neu'r blwch chwilio, bydd Chrome yn anfon yr hyn rydych yn ei deipio i'ch peiriant chwilio diofyn i gael awgrymiadau gwell. Mae hwn wedi'i ddiffodd yn y modd Anhysbys.</translation>
 <translation id="8772179140489533211">Dangos anogwyr i fewngofnodi i Chrome.</translation>
 <translation id="8788269841521769222">Ni fydd angen i chi gofio'r cyfrinair hwn. Bydd yn cael ei gadw i Reolwr Cyfrineiriau Google ar gyfer <ph name="EMAIL" /></translation>

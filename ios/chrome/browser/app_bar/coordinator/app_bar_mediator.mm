@@ -12,19 +12,15 @@
 #import "base/metrics/histogram_functions.h"
 #import "base/metrics/user_metrics.h"
 #import "base/metrics/user_metrics_action.h"
-#import "base/strings/string_util.h"
-#import "components/country_codes/country_codes.h"
 #import "components/omnibox/browser/aim_eligibility_service.h"
 #import "components/policy/core/common/policy_pref_names.h"
 #import "components/prefs/ios/pref_observer_bridge.h"
 #import "components/prefs/pref_change_registrar.h"
-#import "components/regional_capabilities/regional_capabilities_service.h"
 #import "components/search/search.h"
 #import "components/signin/public/base/consent_level.h"
 #import "components/signin/public/base/signin_metrics.h"
 #import "components/signin/public/identity_manager/identity_manager.h"
 #import "components/signin/public/identity_manager/objc/identity_manager_observer_bridge.h"
-#import "components/variations/service/variations_service.h"
 #import "ios/chrome/browser/aim/model/aim_util.h"
 #import "ios/chrome/browser/app_bar/ui/app_bar_constants.h"
 #import "ios/chrome/browser/app_bar/ui/app_bar_consumer.h"
@@ -40,9 +36,9 @@
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_browser_agent_observer_bridge.h"
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_service.h"
 #import "ios/chrome/browser/intelligence/bwg/model/gemini_service_observer_bridge.h"
+#import "ios/chrome/browser/intelligence/bwg/utils/gemini_availability.h"
 #import "ios/chrome/browser/intelligence/bwg/utils/gemini_constants.h"
 #import "ios/chrome/browser/intelligence/bwg/utils/gemini_entry_flow_result.h"
-#import "ios/chrome/browser/intelligence/bwg/utils/gemini_prefs.h"
 #import "ios/chrome/browser/intelligence/features/features.h"
 #import "ios/chrome/browser/intents/model/intents_donation_helper.h"
 #import "ios/chrome/browser/lens/ui_bundled/lens_availability.h"
@@ -196,6 +192,7 @@ inline LayoutStateAssistantPassKey PassKey() {
   raw_ptr<AimEligibilityService> _AIMEligibilityService;
   base::CallbackListSubscription _aimEligibilitySubscription;
   std::unique_ptr<NetworkChangeObserverBridge> _networkChangeObserver;
+  raw_ptr<ProfileIOS> _profile;
 }
 
 - (instancetype)
@@ -212,6 +209,7 @@ inline LayoutStateAssistantPassKey PassKey() {
                regularActionFactory:(BrowserActionFactory*)regularActionFactory
              incognitoActionFactory:
                  (BrowserActionFactory*)incognitoActionFactory
+                            profile:(ProfileIOS*)profile
                         prefService:(PrefService*)prefService
                  templateURLService:(TemplateURLService*)templateURLService
               authenticationService:
@@ -239,6 +237,7 @@ inline LayoutStateAssistantPassKey PassKey() {
     _incognitoFullscreenBrowserAgent = incognitoFullscreenBrowserAgent;
 
     _URLLoader = URLLoader;
+    _profile = profile;
     _prefService = prefService;
     _templateURLService = templateURLService;
     _searchEngineObserver =
@@ -430,6 +429,7 @@ inline LayoutStateAssistantPassKey PassKey() {
   _observerBridge.reset();
   _regularWebStateList = nullptr;
   _incognitoWebStateList = nullptr;
+  _profile = nullptr;
   _prefService = nullptr;
   _prefChangeRegistrar.reset();
   _prefObserverBridge.reset();
@@ -450,6 +450,18 @@ inline LayoutStateAssistantPassKey PassKey() {
   _lensOverlayState = nil;
   _identityManagerObserver.reset();
   _identityManager = nullptr;
+}
+
+#pragma mark - Properties
+
+- (BOOL)isIncognitoActive {
+  if (_tabGridState.tabGridVisible) {
+    TabGridPage page = _tabGridState.currentPage == TabGridPageTabGroups
+                           ? _tabGridState.originPage
+                           : _tabGridState.currentPage;
+    return page == TabGridPageIncognitoTabs;
+  }
+  return _incognitoState.incognitoContentVisible;
 }
 
 #pragma mark - PrefObserverDelegate
@@ -547,7 +559,7 @@ inline LayoutStateAssistantPassKey PassKey() {
 #pragma mark - TabGridStateObserving
 
 - (void)willEnterTabGrid {
-  _currentPage = _tabGridState.currentPage;
+  [self updateForTabGridPage:_tabGridState.currentPage];
   self.currentTabGroup = _tabGridState.visibleTabGroup;
 
   if (IsFullscreenRefactoringEnabled()) {
@@ -658,6 +670,10 @@ inline LayoutStateAssistantPassKey PassKey() {
   UmaHistogramEnumeration(kAppBarAssistantButtonTappedHistogram, state);
   switch (state) {
     case AppBarAssistantButtonState::kAsk: {
+      if ([self isIncognitoActive]) {
+        [self.delegate appBarMediatorDidTapAssistantInIncognito];
+        break;
+      }
       if (_geminiBrowserAgent && _geminiBrowserAgent->is_floaty_invoked()) {
         [self.geminiHandler dismissGeminiFlowWithCompletion:nil];
       } else {
@@ -729,21 +745,19 @@ inline LayoutStateAssistantPassKey PassKey() {
   [self updateAssistantButton];
   [self.layoutState setGeminiFloatyInvoked:isInvoked passKey:PassKey()];
 
-  if (IsAppBarHiddenInFullscreen()) {
-    if (IsFullscreenRefactoringEnabled()) {
-      if (_regularFullscreenBrowserAgent) {
-        _regularFullscreenBrowserAgent->InvalidateInsetRange();
-      }
-      if (_incognitoFullscreenBrowserAgent) {
-        _incognitoFullscreenBrowserAgent->InvalidateInsetRange();
-      }
-    } else {
-      if (_regularFullscreenController) {
-        _regularFullscreenController->ExitFullscreen();
-      }
-      if (_incognitoFullscreenController) {
-        _incognitoFullscreenController->ExitFullscreen();
-      }
+  if (IsFullscreenRefactoringEnabled()) {
+    if (_regularFullscreenBrowserAgent) {
+      _regularFullscreenBrowserAgent->InvalidateInsetRange();
+    }
+    if (_incognitoFullscreenBrowserAgent) {
+      _incognitoFullscreenBrowserAgent->InvalidateInsetRange();
+    }
+  } else {
+    if (_regularFullscreenController) {
+      _regularFullscreenController->ExitFullscreen();
+    }
+    if (_incognitoFullscreenController) {
+      _incognitoFullscreenController->ExitFullscreen();
     }
   }
 }
@@ -879,6 +893,7 @@ inline LayoutStateAssistantPassKey PassKey() {
       break;
   }
   [self updateButtonsForCurrentTabGridPage];
+  [self updateAssistantButton];
 }
 
 // Updates the buttons in the tab grid.
@@ -900,64 +915,15 @@ inline LayoutStateAssistantPassKey PassKey() {
   [self.consumer setIncognito:isIncognitoContentVisible];
 }
 
-// Returns YES if the user is in the EEA or Japan region.
-- (BOOL)isEEAOrJapan {
-  variations::VariationsService* variationsService =
-      GetApplicationContext()->GetVariationsService();
-  if (variationsService) {
-    country_codes::CountryId countryId(
-        base::ToUpperASCII(variationsService->GetStoredPermanentCountry()));
-    return regional_capabilities::RegionalCapabilitiesService::
-               IsInAnySearchEngineChoiceScreenRegion(countryId) ||
-           countryId == country_codes::CountryId("JP");
-  }
-  return NO;
-}
-
-// Returns YES if the primary identity is in an unverified state requiring
-// re-authentication / managing account approval.
-- (BOOL)isPrimaryIdentityUnverified {
-  if (!_authenticationService ||
-      !_authenticationService->HasPrimaryIdentity() || !_identityManager) {
-    return NO;
-  }
-  CoreAccountId accountId =
-      _identityManager->GetPrimaryAccountId(signin::ConsentLevel::kSignin);
-  if (accountId.empty()) {
-    return NO;
-  }
-  return _identityManager->HasAccountWithRefreshTokenInPersistentErrorState(
-      accountId);
-}
-
 // Returns YES if Gemini is eligible to be shown in the App Bar.
 - (BOOL)isGeminiEligible {
-  if (!IsPageActionMenuEnabled() || [self isEEAOrJapan] || !_geminiService) {
-    return NO;
-  }
-
-  if (!gemini::GeminiAllowedByPolicy(_prefService)) {
-    return NO;
-  }
-
-  BOOL isSignedOut = !_authenticationService->HasPrimaryIdentity();
-  BOOL isUnverified = [self isPrimaryIdentityUnverified];
-  if (isSignedOut || isUnverified) {
-    // For signed-out or unverified users, optimistically show the button to
-    // encourage sign-in or verification if sign-in is allowed.
-    return _authenticationService->SigninEnabled();
-  }
-
-  if (!net::NetworkChangeNotifier::IsOffline() &&
-      !_geminiService->IsWorkspacePolicyCheckPending()) {
-    std::optional<gemini::IneligibilityReasons> ineligibilityReasons =
-        _geminiService->GeminiIneligibilityForProfile();
-    if (ineligibilityReasons && ineligibilityReasons->workspace) {
-      return NO;
-    }
-  }
-
-  return YES;
+  web::WebState* activeWebState =
+      self.currentWebStateList ? self.currentWebStateList->GetActiveWebState()
+                               : nullptr;
+  return gemini::IsGeminiAvailable(gemini::EntryPoint::AppBar, _profile,
+                                   activeWebState, _authenticationService,
+                                   _prefService)
+      .visible;
 }
 
 // Returns YES if AIM is eligible to be shown in the App Bar.
@@ -1065,6 +1031,10 @@ inline LayoutStateAssistantPassKey PassKey() {
   BOOL signedIn = _authenticationService->HasPrimaryIdentity();
   if (state == AppBarAssistantButtonState::kAccount) {
     enabled = signedIn || _authenticationService->SigninEnabled();
+  }
+
+  if ([self isIncognitoActive] && state != AppBarAssistantButtonState::kAsk) {
+    enabled = NO;
   }
   [self.consumer setAssistantButtonState:state
                              highlighted:highlighted

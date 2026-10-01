@@ -21,6 +21,8 @@
 #include "chrome/browser/ui/browser_element_identifiers.h"
 #include "chrome/browser/ui/location_bar/location_bar.h"
 #include "chrome/browser/ui/omnibox/omnibox_context_menu_controller.h"
+#include "chrome/browser/ui/omnibox/omnibox_controller.h"
+#include "chrome/browser/ui/omnibox/omnibox_edit_model.h"
 #include "chrome/browser/ui/omnibox/omnibox_next_features.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/browser/ui/ui_features.h"
@@ -63,6 +65,7 @@
 #include "third_party/omnibox_proto/aim_eligibility_response.pb.h"
 #include "ui/accessibility/ax_mode.h"
 #include "ui/base/interaction/interaction_sequence.h"
+#include "ui/base/interaction/polling_state_observer.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/events/keycodes/keyboard_codes.h"
 #include "ui/gfx/geometry/rect.h"
@@ -74,6 +77,13 @@ namespace {
 DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kClassicPopupWebView);
 DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kAimPopupWebView);
 DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kNewTab);
+// Whether the browser-side omnibox has focus; autocomplete only runs while it
+// does.
+DEFINE_LOCAL_STATE_IDENTIFIER_VALUE(ui::test::PollingStateObserver<bool>,
+                                    kOmniboxFocusState);
+// Whether the omnibox is in keyword mode; e.g. `@gemini`.
+DEFINE_LOCAL_STATE_IDENTIFIER_VALUE(ui::test::PollingStateObserver<bool>,
+                                    kOmniboxKeywordState);
 
 using DeepQuery = WebContentsInteractionTestUtil::DeepQuery;
 const DeepQuery kClassicContextMenu = {
@@ -121,8 +131,7 @@ class OmniboxWebUiInteractiveTestBase
       base::FieldTrialParams simplification_params = {
           {omnibox::kWebUIOmniboxAimPopupAddContextButtonVariantParam.name,
            "below_results"},
-          {omnibox::kHideClassicContextButton.name, "false"},
-          {omnibox::kShowLensSearchChip.name, "true"}};
+          {omnibox::kHideClassicContextButton.name, "false"}};
       features.emplace_back(omnibox::internal::kWebUIOmniboxSimplification,
                             simplification_params);
       features.emplace_back(omnibox::kAimEnabled, base::FieldTrialParams());
@@ -157,6 +166,38 @@ class OmniboxWebUiInteractiveTestBase
         InSameContext(WaitForWebContentsReady(
             kClassicPopupWebView, GURL(chrome::kChromeUIOmniboxPopupURL))));
   }
+
+  // The browser-side omnibox model, which drives autocomplete and therefore
+  // the popup.
+  OmniboxEditModel* GetOmniboxEditModel() {
+    return BrowserView::GetBrowserViewForBrowser(browser())
+        ->GetLocationBar()
+        ->GetOmniboxController()
+        ->edit_model();
+  }
+
+  // Focuses the omnibox and waits until the browser-side `OmniboxEditModel`
+  // agrees that it is focused. With the WebUI toolbar `kOmniboxElementId` is a
+  // `ui::TrackedElementWebUI`, and the focus only reaches the browser once the
+  // renderer has reported it. Text entered before that is ignored, because
+  // `OmniboxEditModel::UpdateInput()` early-returns on `!has_focus()`, so
+  // autocomplete never runs and the popup never opens.
+  auto FocusOmnibox() {
+    return Steps(
+        // The WebUI toolbar registers `kOmniboxElementId` once its document
+        // has loaded.
+        InAnyContext(WaitForShow(kOmniboxElementId)),
+        // Focus the omnibox. For a WebUI omnibox this also focuses the WebView
+        // hosting it, without which focusing the element has no effect.
+        InAnyContext(FocusElement(kOmniboxElementId)),
+        // Observe the browser-side focus.
+        PollState(kOmniboxFocusState,
+                  [this]() { return GetOmniboxEditModel()->has_focus(); }),
+        // Wait until the browser knows the omnibox is focused.
+        WaitForState(kOmniboxFocusState, true),
+        // Release the state identifier so that it can be observed again.
+        StopObservingState(kOmniboxFocusState));
+  }
 };
 
 class OmniboxWebUiInteractiveTest : public OmniboxWebUiInteractiveTestBase {
@@ -169,10 +210,29 @@ class OmniboxWebUiInteractiveTest : public OmniboxWebUiInteractiveTestBase {
  protected:
   // Enters Gemini mode in the omnibox and waits for the popup to be ready.
   auto EnterGeminiMode() {
-    return Steps(FocusElement(kOmniboxElementId),
-                 EnterText(kOmniboxElementId, u"@gemini"),
-                 SendKeyPress(kOmniboxElementId, ui::VKEY_TAB),
-                 WaitForClassicPopupReady());
+    return Steps(
+        // Focus the omnibox; nothing is typed into it before it has focus.
+        FocusOmnibox(),
+        // Type the starter pack keyword, which starts autocomplete.
+        EnterText(kOmniboxElementId, u"@gemini"),
+        // Wait for the popup's WebContents to exist and finish loading.
+        WaitForClassicPopupReady(),
+        // Wait for the matches themselves. TAB only steps into the `@gemini`
+        // keyword row once they have arrived; before that it would simply move
+        // focus out of the omnibox.
+        InAnyContext(
+            WaitForElementToRender(kClassicPopupWebView, kClassicMatchText)),
+        // Press TAB to enter keyword mode.
+        SendKeyPress(kOmniboxElementId, ui::VKEY_TAB),
+        // Observe keyword mode. The key press is handled asynchronously, so
+        // the following steps must not run until it has taken effect.
+        PollState(
+            kOmniboxKeywordState,
+            [this]() { return GetOmniboxEditModel()->is_keyword_selected(); }),
+        // Wait until TAB was consumed by the omnibox rather than moving focus.
+        WaitForState(kOmniboxKeywordState, true),
+        // Release the state identifier so that it can be observed again.
+        StopObservingState(kOmniboxKeywordState));
   }
 
   auto WaitForElementToHide(const ui::ElementIdentifier& contents_id,
@@ -218,8 +278,10 @@ IN_PROC_BROWSER_TEST_F(OmniboxWebUiInteractiveTest, GeminiHidesVerbatimMatch) {
       EnterText(kOmniboxElementId, u"query"),
       InAnyContext(
           WaitForElementToHide(kClassicPopupWebView, kDropdownContent)),
-      // Confirming should navigate to the Gemini URL.
-      Confirm(kOmniboxElementId),
+      // Send a real ENTER key to the browser window, which delivers it to the
+      // focused omnibox and opens the selected match. Confirming should
+      // navigate to the Gemini URL.
+      SendKeyPress(kOmniboxElementId, ui::VKEY_RETURN),
       WaitForWebContentsNavigation(
           kNewTab, GURL(OmniboxFieldTrial::kGeminiUrlOverride.Get())));
 }
@@ -286,7 +348,7 @@ IN_PROC_BROWSER_TEST_F(OmniboxWebUiInteractiveTest, AimEntryPointHidden) {
   RunTestSequence(
       // Open the Omnibox.
       AddInstrumentedTab(kNewTab, chrome::ChromeUINewTabURLAsGURL()),
-      FocusElement(kOmniboxElementId), EnterText(kOmniboxElementId, u"a"),
+      FocusOmnibox(), EnterText(kOmniboxElementId, u"a"),
       WaitForClassicPopupReady(),
       // Ensure that there's no context menu button in the popup.
       InAnyContext(
@@ -373,16 +435,7 @@ class OmniboxAimWebUiInteractiveTestBase
     return Steps(
         FocusElement(kOmniboxElementId),
         WaitForPageActionChipVisible(kActionAiMode),
-        // TODO(crbug.com/553004577): `InvokePageAction(kActionAiMode)` cannot
-        // be used here because it prefers `PressButton(element_id)` for actions
-        // with an element ID, which fails when `kWebUILocationBar` is enabled
-        // since the button is rendered in WebUI rather than as a Views View.
-        // Update `InvokePageAction` to support WebUILocationBar.
-        Do([this]() {
-          page_actions::PageActionTestAccessor(browser(), kActionAiMode)
-              .Click();
-        }),
-        WaitForAimPopupReady(),
+        InvokePageAction(kActionAiMode), WaitForAimPopupReady(),
         InAnyContext(WaitForElementToRender(kAimPopupWebView, kAimInput)),
         InAnyContext(ExecuteJsAt(
             kAimPopupWebView, {"omnibox-aim-app"},
@@ -934,8 +987,7 @@ class WebUIOmniboxSimplificationInteractiveTest
              "below_results"},
             {omnibox::kHideClassicContextButton.name, "false"},
             {"Omnibox_ContextButtonHasBackground", "true"},
-            {"Omnibox_ContextButtonShapeIsOblong", "true"},
-            {"Omnibox_ContextButtonShowSuggestionLabel", "true"}});
+            {"Omnibox_ContextButtonShapeIsOblong", "true"}});
     enabled_features.emplace_back(omnibox::kAimUsePecApi,
                                   base::FieldTrialParams());
     feature_list_.InitWithFeaturesAndParameters(
@@ -989,23 +1041,3 @@ IN_PROC_BROWSER_TEST_F(WebUIOmniboxSimplificationInteractiveTest,
       InAnyContext(WaitForStateChange(kClassicPopupWebView, style_applied)));
 }
 
-IN_PROC_BROWSER_TEST_F(WebUIOmniboxSimplificationInteractiveTest,
-                       HasSuggestionLabel) {
-  const DeepQuery kSuggestionLabel = {
-      "omnibox-popup-app", "omnibox-popup-contextual-entrypoint", "#context",
-      "cr-composebox-contextual-entrypoint-button", "#description"};
-  browser()->GetWindow()->SetBounds(gfx::Rect(0, 0, 1280, 1024));
-  std::u16string expected_text =
-      l10n_util::GetStringUTF16(IDS_GOOGLE_SEARCH_BOX_EMPTY_HINT_MULTIMODAL);
-  RunTestSequence(
-      SetAimEligibleResponse(),
-      AddInstrumentedTab(kNewTab, chrome::ChromeUINewTabURLAsGURL()),
-      SeedSearchboxResult("a"), FocusElement(kOmniboxElementId),
-      EnterText(kOmniboxElementId, u"a"), WaitForClassicPopupReady(),
-      InAnyContext(WaitForOmniboxAimStateReady(kClassicPopupWebView)),
-      InAnyContext(
-          WaitForElementToRender(kClassicPopupWebView, kSuggestionLabel)),
-      InSameContext(CheckJsResultAt(kClassicPopupWebView, kSuggestionLabel,
-                                    "el => el.textContent.trim()",
-                                    base::UTF16ToUTF8(expected_text))));
-}

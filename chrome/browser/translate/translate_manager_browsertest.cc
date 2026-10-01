@@ -23,7 +23,6 @@
 #include "chrome/browser/search_engines/template_url_service_factory.h"
 #include "chrome/browser/translate/chrome_translate_client.h"
 #include "chrome/browser/translate/translate_test_utils.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/read_anything/read_anything_controller.h"
 #include "chrome/browser/ui/side_panel/side_panel_entry_id.h"
@@ -58,6 +57,7 @@
 #include "net/test/embedded_test_server/http_request.h"
 #include "net/test/embedded_test_server/http_response.h"
 #include "ui/accessibility/accessibility_features.h"
+#include "ui/base/page_transition_types.h"
 #include "ui/events/base_event_utils.h"
 #include "ui/views/controls/button/label_button.h"
 #include "ui/views/controls/button/md_text_button.h"
@@ -286,7 +286,7 @@ class TranslateManagerBrowserTest : public InProcessBrowserTest {
   }
 
   ToastController* GetToastController() {
-    return browser()->GetFeatures().toast_controller();
+    return ToastController::From(browser());
   }
 
   bool IsToastShown(ToastId id) {
@@ -1515,7 +1515,7 @@ IN_PROC_BROWSER_TEST_F(TranslateManagerBrowserTest, IsReadingModeOpen) {
 
   // 1. Test Side Panel Mode
   // Show reading mode side panel
-  SidePanelUI* side_panel_ui = browser()->GetFeatures().side_panel_ui();
+  SidePanelUI* side_panel_ui = SidePanelUI::From(browser());
   ASSERT_TRUE(side_panel_ui);
   side_panel_ui->Show(SidePanelEntryId::kReadAnything);
   EXPECT_TRUE(base::test::RunUntil(

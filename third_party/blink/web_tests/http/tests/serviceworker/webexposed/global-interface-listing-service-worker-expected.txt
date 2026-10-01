@@ -2066,15 +2066,21 @@ interface Subscriber
     method error
     method next
 interface SubtleCrypto
+    static method supports
     attribute @@toStringTag
     method constructor
+    method decapsulateBits
+    method decapsulateKey
     method decrypt
     method deriveBits
     method deriveKey
     method digest
+    method encapsulateBits
+    method encapsulateKey
     method encrypt
     method exportKey
     method generateKey
+    method getPublicKey
     method importKey
     method sign
     method unwrapKey
@@ -2943,6 +2949,7 @@ interface WebGL2RenderingContext
     method drawElementsInstanced
     method drawRangeElements
     method drawingBufferStorage
+    method drawingBufferToneMapping
     method enable
     method enableVertexAttribArray
     method endQuery
@@ -3478,6 +3485,7 @@ interface WebGLRenderingContext
     method drawArrays
     method drawElements
     method drawingBufferStorage
+    method drawingBufferToneMapping
     method enable
     method enableVertexAttribArray
     method finish
@@ -3637,6 +3645,7 @@ interface WebSocketStream
     method close
     method constructor
 interface WebTransport
+    static getter supportsReliableOnly
     attribute @@toStringTag
     getter anticipatedConcurrentIncomingBidirectionalStreams
     getter anticipatedConcurrentIncomingUnidirectionalStreams
@@ -3648,6 +3657,7 @@ interface WebTransport
     getter incomingUnidirectionalStreams
     getter protocol
     getter ready
+    getter reliability
     getter responseHeaders
     method close
     method constructor

@@ -28,12 +28,13 @@
 
 #include "base/compiler_specific.h"
 #include "third_party/blink/renderer/core/dom/element_data.h"
+#include "third_party/blink/renderer/platform/wtf/hash_functions_memory.h"
 
 namespace blink {
 
-inline unsigned AttributeHash(
+inline uint32_t AttributeHash(
     const Vector<Attribute, kAttributePrealloc>& attributes) {
-  return StringHasher::HashMemory32(base::as_byte_span(attributes));
+  return HashMemory32(base::as_byte_span(attributes));
 }
 
 inline bool HasSameAttributes(
@@ -46,14 +47,14 @@ ShareableElementData*
 ElementDataCache::CachedShareableElementDataWithAttributes(
     const StringImpl* tag_name,
     const Vector<Attribute, kAttributePrealloc>& attributes) {
-  unsigned hash = HashInts(tag_name->GetHash(), AttributeHash(attributes));
+  uint32_t hash = HashInts(tag_name->GetHash(), AttributeHash(attributes));
   return CachedElementData(tag_name, attributes, hash);
 }
 
 ShareableElementData* ElementDataCache::CachedElementData(
     const StringImpl* tag_name,
     const Vector<Attribute, kAttributePrealloc>& attributes,
-    unsigned hash) {
+    uint32_t hash) {
   DCHECK(!attributes.empty());
 
   hash = EnsureValidHash(hash);

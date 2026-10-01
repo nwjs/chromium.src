@@ -72,6 +72,7 @@ struct BLINK_COMMON_EXPORT WebPreferences {
   bool text_areas_are_resizable = true;
   bool allow_scripts_to_close_windows = false;
   bool allow_unrestricted_window_focus = false;
+  bool clipboard_focus_exempt = false;
   bool remote_fonts_enabled = true;
   bool javascript_can_access_clipboard = false;
   // We don't use dns_prefetching_enabled to disable DNS prefetching.  Instead,
@@ -253,6 +254,8 @@ struct BLINK_COMMON_EXPORT WebPreferences {
 
   // Representation of the Web App Manifest scope if any.
   GURL web_app_scope;
+
+  GURL web_app_custom_manifest_url;
 
   // Whether this renderer is associated with the browser's initial ("Default")
   // profile.

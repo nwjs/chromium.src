@@ -56,7 +56,6 @@ struct PendingTask;
 
 namespace cc {
 class Layer;
-class PaintCanvas;
 }  // namespace cc
 
 namespace gfx {
@@ -260,7 +259,6 @@ class CORE_EXPORT CanvasRenderingContext
   virtual std::optional<cc::PaintRecord> FlushCanvas(FlushReason) {
     NOTREACHED();
   }
-  virtual void RestoreCanvasMatrixClipStack(cc::PaintCanvas*) const {}
   virtual void Reset() {}
   virtual void RestoreFromInvalidSizeIfNeeded() {}
   virtual void StyleDidChange(const ComputedStyle* old_style,
@@ -331,6 +329,10 @@ class CORE_EXPORT CanvasRenderingContext
     return creation_attributes_;
   }
 
+  // Adjusts a rect for negative width or height to give the bounding rect.
+  template <typename T>
+  static void AdjustRectForCanvas(T& x, T& y, T& width, T& height);
+
   void Trace(Visitor*) const override;
   virtual void Stop() = 0;
 
@@ -375,6 +377,22 @@ class CORE_EXPORT CanvasRenderingContext
 
   void RecordUKMCanvasAccessibility();
 };
+
+template <typename T>
+void CanvasRenderingContext::AdjustRectForCanvas(T& x,
+                                                 T& y,
+                                                 T& width,
+                                                 T& height) {
+  if (width < 0) {
+    width = -width;
+    x -= width;
+  }
+
+  if (height < 0) {
+    height = -height;
+    y -= height;
+  }
+}
 
 }  // namespace blink
 

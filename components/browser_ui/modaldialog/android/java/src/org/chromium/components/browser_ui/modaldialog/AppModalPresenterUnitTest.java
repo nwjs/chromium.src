@@ -42,7 +42,6 @@ import org.chromium.ui.modaldialog.ModalDialogProperties.DialogStyles;
 import org.chromium.ui.modelutil.PropertyModel;
 
 @RunWith(BaseRobolectricTestRunner.class)
-@Config(manifest = Config.NONE)
 @EnableFeatures(ModalDialogFeatureList.MODAL_DIALOG_LAYOUT_WITH_SYSTEM_INSETS)
 public class AppModalPresenterUnitTest {
     private static final int WINDOW_WIDTH = 800;
@@ -643,7 +642,6 @@ public class AppModalPresenterUnitTest {
 
     @Test
     @Config(qualifiers = "sw600dp")
-    @EnableFeatures(ModalDialogFeatureList.DIALOGS_ON_LARGE_FORM_FACTORS)
     public void addDialogView_LargeFormFactorUi_Tablet_VerticalMargin24dpAndDimAmount() {
         mAppModalPresenter.setInsetObserver(null);
 
@@ -667,7 +665,6 @@ public class AppModalPresenterUnitTest {
 
     @Test
     @Config(qualifiers = "sw600dp")
-    @EnableFeatures(ModalDialogFeatureList.DIALOGS_ON_LARGE_FORM_FACTORS)
     public void addDialogView_LargeFormFactorUi_Desktop_VerticalMargin24dpAndDimAmount() {
         DeviceInfo.setIsDesktopForTesting(true);
         mAppModalPresenter.setInsetObserver(null);

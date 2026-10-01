@@ -115,8 +115,7 @@ void ReloadFromOmnibox() {
     config.features_enabled.push_back(kGeminiKillSwitch);
     config.features_disabled.push_back(kPageActionMenu);
     config.iph_feature_enabled = "IPH_iOSLensOverlayEntrypointTip";
-    config.features_enabled_and_params.push_back(
-        {kChromeNextIa, {{"chrome_next_ia_lens_icon_visible", "true"}}});
+    config.features_disabled.push_back(kChromeNextIa);
   } else {
     config.features_enabled.push_back(kChromeNextIa);
   }
@@ -696,15 +695,19 @@ void ReloadFromOmnibox() {
     EARL_GREY_TEST_SKIPPED(@"Skipped for iPad (IPH is iPhone only)");
   }
 
-  [ChromeEarlGrey addFakeSyncServerDeviceInfo:@"My other device"
-                         lastUpdatedTimestamp:base::Time::Now()];
-  [SigninEarlGrey signinWithFakeIdentity:[FakeSystemIdentity fakeIdentity1]];
-  [ChromeEarlGrey flushFakeSyncServerToDisk];
-  [ChromeEarlGrey commitPendingUserPrefsWrite];
-
   GREYAssertTrue(self.testServer->Start(), @"Server did not start.");
   const GURL destinationUrl = self.testServer->GetURL("/pony.html");
   [ChromeEarlGrey loadURL:destinationUrl];
+
+  [ChromeEarlGrey addFakeSyncServerDeviceInfo:@"My other device"
+                         lastUpdatedTimestamp:base::Time::Now()];
+  [SigninEarlGrey signinWithFakeIdentity:[FakeSystemIdentity fakeIdentity1]];
+
+  // Persist the tab session, fake sync server data, and user preferences so
+  // that the loaded page and signed-in state survive the app relaunch.
+  [ChromeEarlGrey saveSessionImmediately];
+  [ChromeEarlGrey flushFakeSyncServerToDisk];
+  [ChromeEarlGrey commitPendingUserPrefsWrite];
 
   [self relaunchWithIPHFeature:@"IPH_SendTabToSelfOmnibox" safariSwitcher:NO];
   [BaseEarlGreyTestCaseAppInterface disableFastAnimation];

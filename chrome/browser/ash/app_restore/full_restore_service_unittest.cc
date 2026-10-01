@@ -11,6 +11,7 @@
 #include "ash/constants/ash_pref_names.h"
 #include "ash/constants/ash_switches.h"
 #include "ash/constants/chrome_pref_names.h"
+#include "ash/constants/chrome_switches.h"
 #include "ash/wm/window_restore/informed_restore_contents_data.h"
 #include "ash/wm/window_restore/window_restore_util.h"
 #include "base/command_line.h"
@@ -44,7 +45,7 @@
 #include "components/app_restore/restore_data.h"
 #include "components/session_manager/core/session.h"
 #include "components/session_manager/core/session_manager.h"
-#include "components/session_manager/test/test_user_session_manager.h"
+#include "components/session_manager/test/user_session_test_environment.h"
 #include "components/strings/grit/components_strings.h"
 #include "components/sync/base/client_tag_hash.h"
 #include "components/sync/base/data_type.h"
@@ -139,10 +140,10 @@ class FullRestoreTestHelper {
  public:
   FullRestoreTestHelper(
       const AccountId& account_id,
-      ash::test::TestUserSessionManager& test_user_session_manager,
+      ash::test::UserSessionTestEnvironment& user_session_test_environment,
       TestingProfileManager& profile_manager)
       : account_id_(account_id) {
-    test_user_session_manager.LogIn(account_id);
+    user_session_test_environment.LogIn(account_id);
     profile_ = profile_manager.CreateTestingProfile(account_id_.GetUserEmail());
 
     ::app_restore::AppRestoreInfo::GetInstance()->SetRestorePref(account_id_,
@@ -194,10 +195,10 @@ class FullRestoreServiceTest : public testing::Test {
 
   void SetUp() override {
     base::CommandLine::ForCurrentProcess()->AppendSwitch(
-        ::switches::kNoFirstRun);
+        ash::chrome_switches::kNoFirstRun);
 
-    test_user_session_manager_ =
-        std::make_unique<ash::test::TestUserSessionManager>(
+    user_session_test_environment_ =
+        std::make_unique<ash::test::UserSessionTestEnvironment>(
             TestingBrowserProcess::GetGlobal()->local_state());
 
     profile_manager_ = std::make_unique<TestingProfileManager>(
@@ -210,18 +211,18 @@ class FullRestoreServiceTest : public testing::Test {
             user_manager::UserManager::Get());
 
     // Register two accounts. The second account may be needed by a subclass.
-    CHECK(test_user_session_manager_->AddRegularUser(kAccountId1));
-    CHECK(test_user_session_manager_->AddRegularUser(kAccountId2));
+    CHECK(user_session_test_environment_->AddRegularUser(kAccountId1));
+    CHECK(user_session_test_environment_->AddRegularUser(kAccountId2));
 
     test_helper_ = std::make_unique<FullRestoreTestHelper>(
-        kAccountId1, *test_user_session_manager_, *profile_manager_);
+        kAccountId1, *user_session_test_environment_, *profile_manager_);
   }
 
   void TearDown() override {
     test_helper_.reset();
     profile_manager_.reset();
     profile_user_manager_controller_.reset();
-    test_user_session_manager_.reset();
+    user_session_test_environment_.reset();
   }
 
   TestingProfile* profile() { return test_helper_->profile(); }
@@ -317,7 +318,8 @@ class FullRestoreServiceTest : public testing::Test {
  protected:
   content::BrowserTaskEnvironment task_environment_;
   ash::SessionTerminationManager session_termination_manager_;
-  std::unique_ptr<ash::test::TestUserSessionManager> test_user_session_manager_;
+  std::unique_ptr<ash::test::UserSessionTestEnvironment>
+      user_session_test_environment_;
   std::unique_ptr<TestingProfileManager> profile_manager_;
   std::unique_ptr<ash::ProfileUserManagerController>
       profile_user_manager_controller_;
@@ -648,7 +650,7 @@ class FullRestoreServiceMultipleUsersTest
     FullRestoreServiceTestHavingFullRestoreFile::SetUp();
 
     test_helper2_ = std::make_unique<FullRestoreTestHelper>(
-        kAccountId2, *test_user_session_manager_, *profile_manager_);
+        kAccountId2, *user_session_test_environment_, *profile_manager_);
     CreateRestoreData(profile2());
   }
 
@@ -694,7 +696,7 @@ class ForestFullRestoreServiceMultipleUsersTest
 
   void SetUp() override {
     base::CommandLine::ForCurrentProcess()->AppendSwitch(
-        ::switches::kNoFirstRun);
+        ash::chrome_switches::kNoFirstRun);
     FullRestoreServiceMultipleUsersTest::SetUp();
   }
 };

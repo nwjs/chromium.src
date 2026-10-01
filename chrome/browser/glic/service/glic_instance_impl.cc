@@ -23,6 +23,7 @@
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/glic/common/future_browser_features.h"
 #include "chrome/browser/glic/experimental_triggering/glic_experimental_triggering_manager.h"
+#include "chrome/browser/glic/gemini_enterprise/glic_gemini_enterprise_manager.h"
 #include "chrome/browser/glic/glic_metrics.h"
 #include "chrome/browser/glic/glic_pref_names.h"
 #include "chrome/browser/glic/glic_zero_state_suggestions_manager.h"
@@ -36,9 +37,9 @@
 #include "chrome/browser/glic/host/glic.mojom-shared.h"
 #include "chrome/browser/glic/host/glic_skills_manager_impl.h"
 #include "chrome/browser/glic/host/glic_ui.h"
+#include "chrome/browser/glic/host/glic_web_contents_manager.h"
 #include "chrome/browser/glic/host/guest_util.h"
 #include "chrome/browser/glic/host/host.h"
-#include "chrome/browser/glic/host/webui_contents_container.h"
 #include "chrome/browser/glic/public/context/glic_sharing_manager.h"
 #include "chrome/browser/glic/public/features.h"
 #include "chrome/browser/glic/public/glic_enabling.h"
@@ -46,7 +47,6 @@
 #include "chrome/browser/glic/public/glic_keyed_service_factory.h"
 #include "chrome/browser/glic/public/glic_side_panel_coordinator.h"
 #include "chrome/browser/glic/service/glic_instance_helper.h"
-#include "chrome/browser/glic/service/glic_tab_contents_swapper.h"
 #include "chrome/browser/glic/service/glic_tab_group_utils.h"
 #include "chrome/browser/glic/service/glic_ui_embedder.h"
 #include "chrome/browser/glic/service/glic_ui_types.h"
@@ -54,8 +54,6 @@
 #include "chrome/browser/glic/suggestions/contextual_cueing_features.h"
 #include "chrome/browser/glic/suggestions/contextual_cueing_service.h"
 #include "chrome/browser/glic/suggestions/contextual_cueing_service_factory.h"
-#include "chrome/browser/glic/widget/glic_inactive_tab_ui.h"
-#include "chrome/browser/glic/widget/glic_tab_ui.h"
 #include "chrome/browser/metrics/profile_metrics_service_factory.h"
 #include "chrome/browser/tab_list/tab_list_interface.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
@@ -71,6 +69,7 @@
 #include "components/critical_actions/core/browser/features.h"
 #include "components/feature_engagement/public/feature_constants.h"
 #include "components/prefs/pref_service.h"
+#include "components/tab_groups/tab_group_id.h"
 #include "components/tabs/public/tab_interface.h"
 #include "components/user_education/common/feature_promo/feature_promo_controller.h"
 #include "components/user_education/common/user_education_features.h"
@@ -227,14 +226,7 @@ void GlicInstanceImpl::MaybeDaisyChainToTab(tabs::TabInterface* source_tab,
 tabs::TabInterface* GlicInstanceImpl::GetTabFromEmbedderKey(
     const EmbedderKey& key) const {
   return std::visit(
-      absl::Overload{[&](const TabEmbedderKey&) -> tabs::TabInterface* {
-                       auto it = embedders_.find(EmbedderKey(TabEmbedderKey{}));
-                       if (it != embedders_.end()) {
-                         return it->second.tab.get();
-                       }
-                       return nullptr;
-                     },
-                     [&](const SidePanelEmbedderKey& key)
+      absl::Overload{[&](const SidePanelEmbedderKey& key)
                          -> tabs::TabInterface* { return &key.tab.get(); },
                      [&](const FloatingEmbedderKey&) -> tabs::TabInterface* {
                        return nullptr;
@@ -382,16 +374,11 @@ GlicSkillsManager& GlicInstanceImpl::skills_manager() {
   return *skills_manager_;
 }
 
-std::unique_ptr<WebUIContentsContainer>
-GlicInstanceImpl::CreateWebUIContentsContainer() {
-  return coordinator_delegate_->CreateWebUIContentsContainer();
+std::unique_ptr<GlicWebContentsManager>
+GlicInstanceImpl::CreateWebContentsManager() {
+  return coordinator_delegate_->CreateWebContentsManager();
 }
 
-void GlicInstanceImpl::ReclaimWebContents(
-    std::unique_ptr<content::WebContents> web_contents) {
-  host_.ReclaimWebContents(std::move(web_contents));
-  is_contents_in_tab_ = false;
-}
 bool GlicInstanceImpl::IsShowing() const {
   if (HasActiveEmbedder()) {
     return true;
@@ -433,11 +420,7 @@ Target GlicInstanceImpl::GetInvokeTarget(Target::Surface fallback_surface) {
   }
 
   target.surface = std::visit(
-      absl::Overload{[&](const TabEmbedderKey&) {
-                       // TODO(b/534773891): Support tab surface.
-                       return Target::Surface(DefaultSurface());
-                     },
-                     [](const SidePanelEmbedderKey& sp_key) {
+      absl::Overload{[](const SidePanelEmbedderKey& sp_key) {
                        return Target::Surface(sp_key.tab->GetHandle());
                      },
                      [](const FloatingEmbedderKey&) {
@@ -476,9 +459,6 @@ bool GlicInstanceImpl::ShouldShowInactiveSidePanel(
 }
 
 void GlicInstanceImpl::Show(ShowOptions options) {
-  if (is_transitioning_full_tab_embedder_) {
-    return;
-  }
   VLOG(1) << "Glic [InstanceImpl] Show, id=" << id_.value();
 
   TRACE_EVENT("glic", "GlicInstanceImpl::Show",
@@ -654,9 +634,6 @@ GlicUiEmbedder* GlicInstanceImpl::GetEmbedderForTab(tabs::TabInterface* tab) {
 
 EmbedderKey GlicInstanceImpl::GetEmbedderKeyForTab(
     tabs::TabInterface* tab) const {
-  if (GetTabFromEmbedderKey(TabEmbedderKey{}) == tab) {
-    return TabEmbedderKey{};
-  }
   return SidePanelEmbedderKey(tab);
 }
 
@@ -783,6 +760,18 @@ void GlicInstanceImpl::CreateZeroStateSuggestionsHandler(
   if (zero_state_suggestions_manager_) {
     zero_state_suggestions_manager_->Bind(std::move(receiver));
   }
+}
+
+void GlicInstanceImpl::CreateGeminiEnterpriseHandler(
+    mojo::PendingReceiver<mojom::GeminiEnterpriseHandler> receiver) {
+  if (!GlicEnabling::GetGeminiEnterpriseSettings(profile_).has_value()) {
+    return;
+  }
+  if (!gemini_enterprise_manager_) {
+    gemini_enterprise_manager_ =
+        std::make_unique<GlicGeminiEnterpriseManager>(profile_);
+  }
+  gemini_enterprise_manager_->Bind(std::move(receiver));
 }
 
 void GlicInstanceImpl::PrepareForOpen() {
@@ -1063,13 +1052,7 @@ std::optional<Target::Surface> GlicInstanceImpl::GetLastActiveSurface() const {
         return a.second.last_active_time < b.second.last_active_time;
       });
   return std::visit(
-      absl::Overload{[&](const TabEmbedderKey&) {
-                       tabs::TabInterface* tab =
-                           GetTabFromEmbedderKey(TabEmbedderKey{});
-                       return tab ? Target::Surface(tab->GetHandle())
-                                  : Target::Surface(Floating());
-                     },
-                     [](const SidePanelEmbedderKey& sp_key) {
+      absl::Overload{[](const SidePanelEmbedderKey& sp_key) {
                        return Target::Surface(sp_key.tab->GetHandle());
                      },
                      [](const FloatingEmbedderKey&) {
@@ -1086,9 +1069,6 @@ glic::mojom::ConversationInfoPtr GlicInstanceImpl::GetConversationInfo() const {
 // The floating UI is a more deliberate user choice, and we don't want a
 // tab switch to unexpectedly close the floating UI.
 bool GlicInstanceImpl::ShouldDoAutomaticActivation() const {
-  if (is_transitioning_full_tab_embedder_) {
-    return false;
-  }
   return !active_embedder_key_.has_value() ||
          !std::holds_alternative<FloatingEmbedderKey>(
              active_embedder_key_.value());
@@ -1138,28 +1118,30 @@ void GlicInstanceImpl::DeactivateCurrentEmbedder() {
   }
 
   EmbedderKey key = active_embedder_key_.value();
-  // If SidePanel has focus when it's being closed, focus tab's webcontents.
-  if (old_embedder->HasFocus()) {
-    tabs::TabInterface* tab = GetTabFromEmbedderKey(key);
-    if (tab && tab->GetContents()) {
-      tab->GetContents()->Focus();
-    }
-  }
+  const bool had_focus = old_embedder->HasFocus();
 
-  auto it = embedders_.find(key);
-  CHECK(it != embedders_.end());
+  auto* entry = GetEmbedderEntry(key);
+  CHECK(entry);
   // Avoid Use-After-Free.
   host_.SetDelegate(&empty_embedder_delegate_);
 
-  it->second.embedder = old_embedder->CreateInactiveEmbedder();
+  entry->embedder = old_embedder->CreateInactiveEmbedder();
   ClearActiveEmbedderAndNotifyVisibilityChange();
 
-  if (it->second.embedder) {
-    it->second.embedder->InitializeAfterRegistration();
+  if (entry->embedder) {
+    entry->embedder->InitializeAfterRegistration();
   } else {
     // Special case: call back to DidCloseFor if the embedder was closed by
     // deletion (eg. floating embedder).
     DidCloseFor(key, EmbedderCloseReason::kExplicitlyClosed);
+  }
+
+  // If SidePanel had focus when it was being closed, focus tab's webcontents.
+  if (had_focus) {
+    tabs::TabInterface* tab = GetTabFromEmbedderKey(key);
+    if (tab && tab->GetContents()) {
+      tab->GetContents()->Focus();
+    }
   }
 }
 
@@ -1173,9 +1155,6 @@ GlicUiEmbedder* GlicInstanceImpl::CreateActiveEmbedder(ShowOptions& options) {
             CHECK(base::FeatureList::IsEnabled(features::kGlicLiveMode));
             return CreateActiveEmbedderForFloaty(opts.initial_bounds,
                                                  opts.source_tab);
-          },
-          [&](TabShowOptions& opts) {
-            return CreateActiveEmbedderForTab(options);
           }},
       options.embedder_options);
 }
@@ -1201,101 +1180,6 @@ GlicUiEmbedder* GlicInstanceImpl::CreateActiveEmbedderForFloaty(
   entry_iter->second.embedder = std::make_unique<GlicFloatingUi>(
       profile_, initial_bounds, source_tab, *this, instance_metrics_);
   return entry_iter->second.embedder.get();
-}
-
-GlicUiEmbedder* GlicInstanceImpl::CreateActiveEmbedderForTab(
-    ShowOptions& options) {
-  auto& tab_opts = std::get<TabShowOptions>(options.embedder_options);
-  tabs::TabInterface* tab = tab_opts.tab_handle.Get();
-  if (!tab) {
-    return nullptr;
-  }
-
-  if (!is_contents_in_tab_ && !IsGlicWebUI(tab->GetContents())) {
-    std::unique_ptr<content::WebContents> real_contents =
-        host_.ReleaseWebContents();
-    if (real_contents) {
-      embedders_.erase(EmbedderKey(TabEmbedderKey{}));
-      if (auto* helper = GlicInstanceHelper::From(tab)) {
-        helper->SetBoundInstance(nullptr);
-      }
-      tabs::TabInterface* old_tab = tab;
-      tab_opts.tab_handle = tabs::TabHandle::Null();
-      tabs::TabInterface* new_tab = glic::SwapPlaceholderToGlic(
-          old_tab, std::move(real_contents), GetTabGroup());
-      if (new_tab) {
-        tab = new_tab;
-        tab_opts.tab_handle = new_tab->GetHandle();
-        is_contents_in_tab_ = true;
-      }
-    }
-  }
-
-  auto [it, inserted] = embedders_.try_emplace(EmbedderKey(TabEmbedderKey{}));
-  EmbedderEntry& entry = it->second;
-  if (entry.tab != tab) {
-    entry.tab = tab;
-    entry.tab_activation_subscription = tab->RegisterDidActivate(
-        base::BindRepeating(&GlicInstanceImpl::OnGlicTabActivated,
-                            weak_ptr_factory_.GetWeakPtr()));
-    entry.tab_detach_subscription = tab->RegisterWillDetach(
-        base::BindRepeating(&GlicInstanceImpl::OnGlicTabWillDetach,
-                            weak_ptr_factory_.GetWeakPtr()));
-  }
-  entry.embedder = std::make_unique<GlicTabUi>(tab->GetWeakPtr(), *this);
-  if (auto* helper = GlicInstanceHelper::From(tab)) {
-    helper->SetBoundInstance(this);
-    entry.destruction_subscription = helper->SubscribeToDestruction(
-        base::BindRepeating(&GlicInstanceImpl::OnBoundTabDestroyed,
-                            weak_ptr_factory_.GetWeakPtr()));
-  }
-  return entry.embedder.get();
-}
-
-void GlicInstanceImpl::SwapGlicTabToPlaceholder() {
-  if (!is_contents_in_tab_) {
-    return;
-  }
-  is_contents_in_tab_ = false;
-  auto* entry = GetEmbedderEntry(TabEmbedderKey{});
-  if (!entry) {
-    return;
-  }
-  tabs::TabInterface* real_tab = std::exchange(entry->tab, nullptr);
-  if (!real_tab) {
-    return;
-  }
-  entry->destruction_subscription = base::CallbackListSubscription();
-  entry->tab_activation_subscription = base::CallbackListSubscription();
-  entry->tab_detach_subscription = base::CallbackListSubscription();
-
-  tabs::TabInterface* placeholder_tab = ::glic::SwapGlicTabToPlaceholder(
-      real_tab, base::BindOnce(&GlicInstanceImpl::ReclaimWebContents,
-                               weak_ptr_factory_.GetWeakPtr()));
-  if (!placeholder_tab) {
-    return;
-  }
-
-  // Re-query the entry after calling InsertWebContentsAt, since the map might
-  // have been modified/shifted.
-  entry = GetEmbedderEntry(TabEmbedderKey{});
-  if (!entry) {
-    return;
-  }
-
-  entry->tab = placeholder_tab;
-  entry->tab_activation_subscription = placeholder_tab->RegisterDidActivate(
-      base::BindRepeating(&GlicInstanceImpl::OnGlicTabActivated,
-                          weak_ptr_factory_.GetWeakPtr()));
-  entry->tab_detach_subscription = placeholder_tab->RegisterWillDetach(
-      base::BindRepeating(&GlicInstanceImpl::OnGlicTabWillDetach,
-                          weak_ptr_factory_.GetWeakPtr()));
-  if (auto* helper = GlicInstanceHelper::From(placeholder_tab)) {
-    helper->SetBoundInstance(this);
-    entry->destruction_subscription = helper->SubscribeToDestruction(
-        base::BindRepeating(&GlicInstanceImpl::OnBoundTabDestroyed,
-                            weak_ptr_factory_.GetWeakPtr()));
-  }
 }
 
 void GlicInstanceImpl::ShowInactiveSidePanelEmbedderFor(
@@ -1429,7 +1313,7 @@ void GlicInstanceImpl::OnBoundTabDestroyed(tabs::TabInterface* tab) {
 }
 
 void GlicInstanceImpl::OnBoundTabActivated(tabs::TabInterface* tab) {
-  if (is_transitioning_full_tab_embedder_ || !ShouldDoAutomaticActivation()) {
+  if (!ShouldDoAutomaticActivation()) {
     return;
   }
   base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
@@ -1444,7 +1328,7 @@ void GlicInstanceImpl::OnBoundTabActivatedAsync(
   // task is posted and when it runs (e.g., during rapid tab switching). If the
   // tab is no longer active, we should abort to avoid erroneously showing the
   // side panel on a background tab.
-  if (!tab || !tab->IsActivated() || is_transitioning_full_tab_embedder_) {
+  if (!tab || !tab->IsActivated()) {
     return;
   }
   auto* embedder = GetEmbedderForTab(tab.get());
@@ -1463,81 +1347,6 @@ void GlicInstanceImpl::OnBoundTabActivatedAsync(
     show_options.invocation_source = mojom::InvocationSource::kReshowInactive;
     show_options.propagate_to_group = false;
     Show(show_options);
-  }
-}
-
-void GlicInstanceImpl::OnGlicTabActivated(tabs::TabInterface* tab) {
-  if (is_transitioning_full_tab_embedder_ ||
-      (IsActiveEmbedder(TabEmbedderKey{}) &&
-       GetTabFromEmbedderKey(TabEmbedderKey{}) == tab)) {
-    return;
-  }
-  base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
-      FROM_HERE,
-      base::BindOnce(&GlicInstanceImpl::OnGlicTabActivatedAsync,
-                     weak_ptr_factory_.GetWeakPtr(), tab->GetWeakPtr()));
-}
-
-void GlicInstanceImpl::OnGlicTabActivatedAsync(
-    base::WeakPtr<tabs::TabInterface> tab) {
-  if (!tab || !tab->IsActivated() || is_transitioning_full_tab_embedder_) {
-    return;
-  }
-  Show(ShowOptions(TabShowOptions(*tab)));
-}
-
-void GlicInstanceImpl::OnGlicTabWillDetach(
-    tabs::TabInterface* tab,
-    tabs::TabInterface::DetachReason reason) {
-  if (reason != tabs::TabInterface::DetachReason::kDelete) {
-    return;
-  }
-
-  is_contents_in_tab_ = false;
-
-  // Unbind the embedder asynchronously to avoid re-entrancy during tab
-  // deletion.
-  base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
-      FROM_HERE,
-      base::BindOnce(&GlicInstanceImpl::OnGlicTabClosedAsync,
-                     weak_ptr_factory_.GetWeakPtr(), tab->GetHandle()));
-}
-
-void GlicInstanceImpl::OnGlicTabClosedAsync(
-    tabs::TabInterface::Handle tab_handle) {
-  // Only unbind the tab if the tab currently bound to the instance is still
-  // the one that was closed. This avoids race conditions where a new tab is
-  // bound before this asynchronous task runs. We verify using a unique handle
-  // to avoid heap memory address reuse collisions.
-  if (GetGlicTab() && GetGlicTab()->GetHandle() == tab_handle) {
-    UnbindEmbedder(TabEmbedderKey{});
-  }
-}
-
-void GlicInstanceImpl::MaybeAdoptGlicTab() {
-  if (!tab_group_binding_) {
-    return;
-  }
-  tabs::TabInterface* tab = GetGlicTabInGroup(profile_, tab_group_binding_->id);
-  if (!tab) {
-    return;
-  }
-  auto [it, inserted] = embedders_.try_emplace(EmbedderKey(TabEmbedderKey{}));
-  EmbedderEntry& entry = it->second;
-  if (inserted || entry.tab != tab) {
-    entry.tab = tab;
-    entry.tab_activation_subscription = tab->RegisterDidActivate(
-        base::BindRepeating(&GlicInstanceImpl::OnGlicTabActivated,
-                            weak_ptr_factory_.GetWeakPtr()));
-    entry.tab_detach_subscription = tab->RegisterWillDetach(
-        base::BindRepeating(&GlicInstanceImpl::OnGlicTabWillDetach,
-                            weak_ptr_factory_.GetWeakPtr()));
-    if (auto* helper = GlicInstanceHelper::From(tab)) {
-      helper->SetBoundInstance(this);
-      entry.destruction_subscription = helper->SubscribeToDestruction(
-          base::BindRepeating(&GlicInstanceImpl::OnBoundTabDestroyed,
-                              weak_ptr_factory_.GetWeakPtr()));
-    }
   }
 }
 
@@ -1696,84 +1505,30 @@ void GlicInstanceImpl::ShowForTabGroup(tab_groups::TabGroupId group_id,
       options ? std::get_if<SidePanelShowOptions>(&options->embedder_options)
               : nullptr;
 
-  if (!features::kGlicTabGroupsUseFullTabEmbedder.Get()) {
-    for (tabs::TabInterface* tab : group_tabs) {
-      ShowOptions new_opts = options.value_or(
-          ShowOptions::ForSidePanel(*tab, GlicPinTrigger::kTabGroupIntegration,
-                                    mojom::InvocationSource::kUnsupported));
-      if (side_panel_options) {
-        SidePanelShowOptions tab_side_opts = *side_panel_options;
-        tab_side_opts.tab = *tab;
-        new_opts.embedder_options = tab_side_opts;
-      } else if (options) {
-        SidePanelShowOptions tab_side_opts(*tab);
-        tab_side_opts.pin_trigger = GlicPinTrigger::kTabGroupIntegration;
-        new_opts.embedder_options = tab_side_opts;
-      }
-      new_opts.propagate_to_group = false;
-      if (tab != tab_list->GetActiveTab()) {
-        new_opts.invocation_source = mojom::InvocationSource::kUnsupported;
-      }
-      Show(new_opts);
-    }
-    return;
-  }
-
   for (tabs::TabInterface* tab : group_tabs) {
-    if (IsGlicOwnedTab(tab)) {
-      continue;
-    }
-    BindTabWithoutShowing(tab, GlicPinTrigger::kTabGroupIntegration,
-                          /*pin_on_bind=*/true);
-  }
-
-  if (side_panel_options) {
-    MaybeAdoptGlicTab();
-    if (is_contents_in_tab_) {
-      base::AutoReset<bool> transition_guard(
-          &is_transitioning_full_tab_embedder_, true);
-      SwapGlicTabToPlaceholder();
-    }
-    ShowOptions new_opts = *options;
-    new_opts.propagate_to_group = false;
-    Show(new_opts);
-    return;
-  }
-
-  if (is_contents_in_tab_ && GetGlicTab()) {
-    ShowOptions new_opts = options.value_or(ShowOptions::ForTab(*GetGlicTab()));
-    if (options) {
-      new_opts.embedder_options = TabShowOptions(*GetGlicTab());
+    ShowOptions new_opts = options.value_or(
+        ShowOptions::ForSidePanel(*tab, GlicPinTrigger::kTabGroupIntegration,
+                                  mojom::InvocationSource::kUnsupported));
+    if (side_panel_options) {
+      SidePanelShowOptions tab_side_opts = *side_panel_options;
+      tab_side_opts.tab = *tab;
+      new_opts.embedder_options = tab_side_opts;
+    } else if (options) {
+      SidePanelShowOptions tab_side_opts(*tab);
+      tab_side_opts.pin_trigger = GlicPinTrigger::kTabGroupIntegration;
+      new_opts.embedder_options = tab_side_opts;
     }
     new_opts.propagate_to_group = false;
-    Show(new_opts);
-    return;
-  }
-
-  tabs::TabInterface* placeholder_tab = GetGlicTabInGroup(profile_, group_id);
-
-  if (!placeholder_tab) {
-    int start_index = tab_list->GetIndexOfTab(group_tabs[0]->GetHandle());
-    if (start_index != -1) {
-      placeholder_tab =
-          CreatePlaceholderTabInGroup(window, group_id, start_index);
+    if (tab != tab_list->GetActiveTab()) {
+      new_opts.invocation_source = mojom::InvocationSource::kUnsupported;
     }
-  }
-
-  if (placeholder_tab) {
-    ShowOptions new_opts = ShowOptions::ForTab(*placeholder_tab);
-    new_opts.propagate_to_group = false;
     Show(new_opts);
   }
 }
 
 void GlicInstanceImpl::OnTabGroupingChanged(tabs::TabInterface* tab,
                                             bool is_added) {
-  if (!tab_group_binding_ || is_transitioning_full_tab_embedder_) {
-    return;
-  }
-
-  if (IsGlicOwnedTab(tab)) {
+  if (!tab_group_binding_) {
     return;
   }
 
@@ -2273,9 +2028,7 @@ void GlicInstanceImpl::UnbindTabGroup() {
   std::vector<tabs::TabInterface*> bound_tabs = GetBoundTabs();
   std::vector<tabs::TabHandle> handles;
   for (tabs::TabInterface* t : bound_tabs) {
-    if (!IsGlicOwnedTab(t)) {
-      handles.push_back(t->GetHandle());
-    }
+    handles.push_back(t->GetHandle());
   }
   if (!handles.empty()) {
     GetSharingManagerInternal().UnpinTabs(
@@ -2283,23 +2036,7 @@ void GlicInstanceImpl::UnbindTabGroup() {
   }
 
   for (tabs::TabInterface* t : bound_tabs) {
-    if (!IsGlicOwnedTab(t)) {
-      UnbindEmbedder(SidePanelEmbedderKey(t));
-    }
+    UnbindEmbedder(SidePanelEmbedderKey(t));
   }
-
-  UnbindEmbedder(TabEmbedderKey{});
-}
-
-tabs::TabInterface* GlicInstanceImpl::GetGlicTab() const {
-  if (!is_contents_in_tab_) {
-    return nullptr;
-  }
-  for (const auto& [key, entry] : embedders_) {
-    if (std::holds_alternative<TabEmbedderKey>(key)) {
-      return entry.tab.get();
-    }
-  }
-  return nullptr;
 }
 }  // namespace glic

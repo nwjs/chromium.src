@@ -195,7 +195,6 @@ class SyncServiceFactoryTest : public testing::Test {
     datatypes.Put(syncer::AUTOFILL_WALLET_CREDENTIAL);
     datatypes.Put(syncer::AUTOFILL_WALLET_DATA);
     datatypes.Put(syncer::AUTOFILL_WALLET_METADATA);
-    datatypes.Put(syncer::AUTOFILL_WALLET_OFFER);
     datatypes.Put(syncer::AUTOFILL_WALLET_USAGE);
     datatypes.Put(syncer::BOOKMARKS);
     datatypes.Put(syncer::CONTACT_INFO);
@@ -224,11 +223,6 @@ class SyncServiceFactoryTest : public testing::Test {
         datatypes.Put(syncer::SHARED_COMMENT);
       }
     }
-#if BUILDFLAG(IS_ANDROID)
-    if (base::FeatureList::IsEnabled(syncer::kWebApkBackupAndRestoreBackend)) {
-      datatypes.Put(syncer::WEB_APKS);
-    }
-#endif  // BUILDFLAG(IS_ANDROID)
 
     datatypes.Put(syncer::AUTOFILL_VALUABLE);
 
@@ -283,6 +277,10 @@ class SyncServiceFactoryTest : public testing::Test {
 
     if (base::FeatureList::IsEnabled(syncer::kSyncJourney)) {
       datatypes.Put(syncer::JOURNEY);
+    }
+
+    if (base::FeatureList::IsEnabled(syncer::kSyncAutofillEntitySuppression)) {
+      datatypes.Put(syncer::AUTOFILL_ENTITY_SUPPRESSION);
     }
 
     return datatypes;

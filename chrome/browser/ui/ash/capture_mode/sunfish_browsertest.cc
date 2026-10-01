@@ -12,6 +12,8 @@
 #include "ash/constants/ash_switches.h"
 #include "ash/public/cpp/ash_web_view.h"
 #include "ash/public/cpp/capture_mode/capture_mode_api.h"
+#include "ash/session/session_controller_impl.h"
+#include "ash/shell.h"
 #include "base/functional/callback_helpers.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/scoped_feature_list.h"
@@ -21,14 +23,17 @@
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/test/base/in_process_browser_test.h"
+#include "components/account_id/account_id.h"
 #include "components/lens/lens_overlay_permission_utils.h"
 #include "components/prefs/pref_service.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/page_navigator.h"
 #include "content/public/common/referrer.h"
 #include "content/public/test/browser_test.h"
 #include "content/public/test/test_navigation_observer.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/base/page_transition_types.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/gfx/image/image_skia.h"
 #include "ui/views/view_utils.h"
 #include "ui/views/widget/widget.h"
@@ -175,10 +180,10 @@ IN_PROC_BROWSER_TEST_F(SunfishBrowserTest, OpensLinksOffTheRecord) {
   ASSERT_TRUE(web_view);
   content::WebContents* web_contents = web_view->web_contents();
   ASSERT_TRUE(web_contents);
-  content::OpenURLParams params(
-      GURL("https://assistant.google.com"), content::Referrer(),
-      WindowOpenDisposition::OFF_THE_RECORD, ui::PAGE_TRANSITION_LINK,
-      /*is_renderer_initiated=*/false);
+  content::OpenURLParams params =
+      content::OpenURLParams::CreateBrowserInitiated(
+          GURL("https://assistant.google.com"),
+          WindowOpenDisposition::OFF_THE_RECORD, ui::PAGE_TRANSITION_LINK);
   content::WebContents* new_contents =
       web_contents->OpenURL(params,
                             /*navigation_handle_callback=*/base::DoNothing());
@@ -190,16 +195,19 @@ IN_PROC_BROWSER_TEST_F(SunfishBrowserTest, OpensLinksOffTheRecord) {
 }
 
 IN_PROC_BROWSER_TEST_F(SunfishBrowserTest, SendSearchRequests) {
+  const AccountId& account_id =
+      ash::Shell::Get()->session_controller()->GetActiveAccountId();
+
   // Send a region search, simulated inside a regular capture session.
   ChromeCaptureModeDelegate* delegate = ChromeCaptureModeDelegate::Get();
   delegate->SendLensWebRegionSearch(gfx::Image(),
-                                    /*is_standalone_session=*/false,
+                                    /*is_standalone_session=*/false, account_id,
                                     base::BindRepeating([](GURL url) {}),
                                     base::DoNothing(), base::DoNothing());
 
   // Send a region search, simulated inside a standalone Sunfish session.
   delegate->SendLensWebRegionSearch(gfx::Image(),
-                                    /*is_standalone_session=*/true,
+                                    /*is_standalone_session=*/true, account_id,
                                     base::BindRepeating([](GURL url) {}),
                                     base::DoNothing(), base::DoNothing());
 }

@@ -10,7 +10,6 @@ import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import android.graphics.Rect;
@@ -25,6 +24,7 @@ import org.mockito.Spy;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
+import org.mockito.quality.Strictness;
 import org.mockito.stubbing.Answer;
 import org.robolectric.RuntimeEnvironment;
 
@@ -36,7 +36,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 @RunWith(BaseRobolectricTestRunner.class)
 public class KeyboardHideHelperUnitTest {
-    @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
+    @Rule
+    public final MockitoRule mMockitoRule = MockitoJUnit.rule().strictness(Strictness.STRICT_STUBS);
+
     @Mock private Runnable mKeyboardHiddenCallback;
     @Mock private View mRootView;
     @Mock private WindowDelegate mWindowDelegate;
@@ -61,7 +63,7 @@ public class KeyboardHideHelperUnitTest {
         doReturn(500).when(mRootView).getHeight();
         mKeyboardHideHelper.onGlobalLayout();
 
-        verify(mKeyboardHiddenCallback, times(1)).run();
+        verify(mKeyboardHiddenCallback).run();
         assertFalse(mKeyboardHideHelper.isMonitoringForLayoutChanges());
     }
 
@@ -88,7 +90,7 @@ public class KeyboardHideHelperUnitTest {
         height.set(500);
         mKeyboardHideHelper.onGlobalLayout();
 
-        verify(mKeyboardHiddenCallback, times(1)).run();
+        verify(mKeyboardHiddenCallback).run();
         assertFalse(mKeyboardHideHelper.isMonitoringForLayoutChanges());
     }
 

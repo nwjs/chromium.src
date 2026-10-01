@@ -6,11 +6,16 @@ package org.chromium.chrome.browser.omnibox;
 
 import static org.junit.Assert.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
 import android.view.View;
 
 import org.junit.Before;
@@ -21,6 +26,7 @@ import org.mockito.Answers;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
+import org.mockito.quality.Strictness;
 import org.robolectric.RuntimeEnvironment;
 
 import org.chromium.base.supplier.ObservableSuppliers;
@@ -33,6 +39,9 @@ import org.chromium.chrome.browser.omnibox.fusebox.FuseboxCoordinator;
 import org.chromium.chrome.browser.omnibox.fusebox.FuseboxCoordinator.FuseboxLayoutMode;
 import org.chromium.chrome.browser.omnibox.fusebox.FuseboxCoordinator.FuseboxState;
 import org.chromium.chrome.browser.omnibox.fusebox.FuseboxCoordinator.PopupState;
+import org.chromium.chrome.browser.toolbar.optional_button.ButtonData;
+import org.chromium.chrome.browser.toolbar.optional_button.ButtonData.ButtonSpec;
+import org.chromium.chrome.browser.toolbar.optional_button.ButtonDataImpl;
 import org.chromium.chrome.browser.toolbar.optional_button.OptionalButtonCoordinator;
 import org.chromium.components.metrics.OmniboxEventProtosIntDef.PageClassification;
 
@@ -40,7 +49,8 @@ import org.chromium.components.metrics.OmniboxEventProtosIntDef.PageClassificati
 @RunWith(BaseRobolectricTestRunner.class)
 @EnableFeatures(ChromeFeatureList.TOOLBAR_PHONE_ANIMATION_REFACTOR)
 public class LocationBarCoordinatorUnitTest {
-    @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
+    @Rule
+    public final MockitoRule mMockitoRule = MockitoJUnit.rule().strictness(Strictness.STRICT_STUBS);
 
     @Mock private UrlBarCoordinator mUrlCoordinator;
     @Mock private FuseboxCoordinator mFuseboxCoordinator;
@@ -52,6 +62,8 @@ public class LocationBarCoordinatorUnitTest {
     @Mock private OptionalButtonCoordinator mOptionalButtonCoordinator;
     @Mock private LocationBarMediator mLocationBarMediator;
     @Mock private NewTabPageDelegate mNewTabPageDelegate;
+    @Mock private LocationBarPhone mLocationBarPhone;
+    @Mock private View mOptionalButtonView;
 
     // LocationBarCoordinator takes a lot of dependencies and a very busy constructor.
     // This allows us to set up tests to verify logic we need to protect without overwhelming test
@@ -72,13 +84,21 @@ public class LocationBarCoordinatorUnitTest {
         mCoordinator.setOptionalButtonCoordinatorForTesting(mOptionalButtonCoordinator);
         mCoordinator.setLocationBarMediatorForTesting(mLocationBarMediator);
 
-        when(mUrlCoordinator.hasFocus()).thenReturn(true);
-        when(mLocationBarMediator.getLocationBarDataProvider())
+        lenient().when(mUrlCoordinator.hasFocus()).thenReturn(true);
+        lenient()
+                .when(mLocationBarMediator.getLocationBarDataProvider())
                 .thenReturn(mLocationBarDataProvider);
-        when(mLocationBarDataProvider.getNewTabPageDelegate()).thenReturn(mNewTabPageDelegate);
-        when(mLocationBarLayout.findViewById(R.id.fusebox_plus_button)).thenReturn(mPlusButton);
-        when(mLocationBarLayout.getContext()).thenReturn(RuntimeEnvironment.getApplication());
-        when(mFuseboxCoordinator.getFuseboxLayoutModeSupplier())
+        lenient()
+                .when(mLocationBarDataProvider.getNewTabPageDelegate())
+                .thenReturn(mNewTabPageDelegate);
+        lenient()
+                .when(mLocationBarLayout.findViewById(R.id.fusebox_plus_button))
+                .thenReturn(mPlusButton);
+        lenient()
+                .when(mLocationBarLayout.getContext())
+                .thenReturn(RuntimeEnvironment.getApplication());
+        lenient()
+                .when(mFuseboxCoordinator.getFuseboxLayoutModeSupplier())
                 .thenReturn(mFuseboxLayoutModeSupplier);
     }
 
@@ -131,7 +151,7 @@ public class LocationBarCoordinatorUnitTest {
 
     @Test
     public void testInitializeBoundsEllipsis_EnableInTabbedMode() {
-        when(mLocationBarDataProvider.getPageClassification(false))
+        when(mLocationBarDataProvider.getPageClassification(/* prefetch= */ false))
                 .thenReturn(PageClassification.OTHER);
         mCoordinator.initializeBoundsEllipsis(mLocationBarDataProvider);
         verify(mUrlCoordinator).setBoundsEllipsisEnabled(true);
@@ -139,7 +159,7 @@ public class LocationBarCoordinatorUnitTest {
 
     @Test
     public void testInitializeBoundsEllipsis_DisableInHubSearch() {
-        when(mLocationBarDataProvider.getPageClassification(false))
+        when(mLocationBarDataProvider.getPageClassification(/* prefetch= */ false))
                 .thenReturn(PageClassification.ANDROID_HUB);
         mCoordinator.initializeBoundsEllipsis(mLocationBarDataProvider);
         verify(mUrlCoordinator).setBoundsEllipsisEnabled(false);
@@ -147,7 +167,7 @@ public class LocationBarCoordinatorUnitTest {
 
     @Test
     public void testInitializeBoundsEllipsis_DisableInCct() {
-        when(mLocationBarDataProvider.getPageClassification(false))
+        when(mLocationBarDataProvider.getPageClassification(/* prefetch= */ false))
                 .thenReturn(PageClassification.OTHER_ON_CCT);
         mCoordinator.initializeBoundsEllipsis(mLocationBarDataProvider);
         verify(mUrlCoordinator).setBoundsEllipsisEnabled(false);
@@ -156,7 +176,7 @@ public class LocationBarCoordinatorUnitTest {
     @Test
     public void testSetMiniOriginMode_Transitions() {
         // Setup default bounds ellipsis
-        when(mLocationBarDataProvider.getPageClassification(false))
+        when(mLocationBarDataProvider.getPageClassification(/* prefetch= */ false))
                 .thenReturn(PageClassification.OTHER);
         mCoordinator.initializeBoundsEllipsis(mLocationBarDataProvider);
         verify(mUrlCoordinator).setBoundsEllipsisEnabled(true);
@@ -167,7 +187,7 @@ public class LocationBarCoordinatorUnitTest {
         verify(mLocationBarMediator).setMiniOriginMode(true);
 
         mCoordinator.setMiniOriginMode(false);
-        verify(mUrlCoordinator, org.mockito.Mockito.times(2)).setBoundsEllipsisEnabled(true);
+        verify(mUrlCoordinator, times(2)).setBoundsEllipsisEnabled(true);
         verify(mLocationBarMediator).setMiniOriginMode(false);
     }
 
@@ -185,9 +205,61 @@ public class LocationBarCoordinatorUnitTest {
 
     @Test
     public void testOnTextWrappingChanged() {
-        mCoordinator.onTextWrappingChanged(true);
-        verify(mFuseboxCoordinator).onFuseboxTextWrappingChanged(true);
+        mCoordinator.onTextWrappingChanged(/* isWrapping= */ true);
+        verify(mFuseboxCoordinator).onFuseboxTextWrappingChanged(/* isTextWrapping= */ true);
         verify(mLocationBarMediator).setIsTextWrapping(true);
         verify(mLocationBarMediator).updateButtonVisibility();
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.ANDROID_BOTTOM_BAR)
+    public void testOptionalButton_shownThenHidden() {
+        ButtonData buttonData = setUpPhoneLayoutWithOptionalButton();
+
+        mCoordinator.updateOptionalButton(buttonData);
+        verify(mOptionalButtonCoordinator).updateButton(buttonData, /* isIncognito= */ false);
+
+        mCoordinator.hideOptionalButton();
+        verify(mOptionalButtonCoordinator).hideButton();
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.ANDROID_BOTTOM_BAR)
+    public void testOptionalButton_hiddenWhenUrlBarFocused() {
+        ButtonData buttonData = setUpPhoneLayoutWithOptionalButton();
+        when(mLocationBarMediator.isUrlBarFocused()).thenReturn(true);
+
+        mCoordinator.updateOptionalButton(buttonData);
+
+        verify(mOptionalButtonCoordinator).hideButton();
+        verify(mOptionalButtonCoordinator, never()).updateButton(any(), anyBoolean());
+    }
+
+    @Test
+    @EnableFeatures(ChromeFeatureList.ANDROID_BOTTOM_BAR)
+    public void testOptionalButton_hiddenOnNtp() {
+        ButtonData buttonData = setUpPhoneLayoutWithOptionalButton();
+        when(mNewTabPageDelegate.isCurrentlyVisible()).thenReturn(true);
+
+        mCoordinator.updateOptionalButton(buttonData);
+
+        verify(mOptionalButtonCoordinator).hideButton();
+        verify(mOptionalButtonCoordinator, never()).updateButton(any(), anyBoolean());
+    }
+
+    /**
+     * Switches the coordinator to a phone layout hosting an optional button, as the optional button
+     * is phone-only, and returns button data eligible to be shown.
+     */
+    private ButtonData setUpPhoneLayoutWithOptionalButton() {
+        mCoordinator.setLocationBarLayoutForTesting(mLocationBarPhone);
+        when(mLocationBarPhone.getContext()).thenReturn(RuntimeEnvironment.getApplication());
+        when(mLocationBarPhone.findViewById(R.id.optional_button)).thenReturn(mOptionalButtonView);
+        return new ButtonDataImpl(
+                /* canShow= */ true,
+                /* isEnabled= */ true,
+                new ButtonSpec.Builder(
+                                new ColorDrawable(Color.RED), "test", /* supportsTinting= */ true)
+                        .build());
     }
 }

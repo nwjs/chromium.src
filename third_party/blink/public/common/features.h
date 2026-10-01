@@ -396,14 +396,8 @@ BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kDevToolsImprovedNetworkError);
 
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kDevToolsAllowInterestForcing);
 
-BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kDevToolsWebMCPSupport);
-
 // Enables the DevTools 'Application > Application > Ads' panel.
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kDevToolsAdsPanel);
-
-// Enables input IPC to directly target the renderer's compositor thread without
-// hopping through the IO thread first.
-BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kDirectCompositorThreadIpc);
 
 // TODO(https://crbug.com/1201109): temporary flag to disable new ArrayBuffer
 // size limits, so that tests can be written against code receiving these
@@ -485,6 +479,10 @@ BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE_PARAM(
     std::string,
     kFilteringScrollPredictionFilterParam);
 
+// When enabled, FontAccessManager ensures the requesting frame is active
+// before consuming transient user activation.
+// Kill switch for crbug.com/556250086.
+BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kFontAccessCheckFrameIsActive);
 
 // Block partial responses (206, 416) for requests without a Range header.
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kBlockPartialResponseWithoutRange);
@@ -1554,9 +1552,6 @@ BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE_PARAM(
     bool,
     kRestrictLinkHeaderOnSubresourceResourceLoad);
 
-// Enables the Rust-based BMP image decoder.
-BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kRustyBmpFeature);
-
 // Enables the Rust-based ICO image decoder.
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kRustyIcoFeature);
 
@@ -1836,8 +1831,6 @@ BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kWebAppEnableScopeExtensionsBySite);
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(
     kWebAppEnableScopeExtensionsForIsolatedWebApps);
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kWebAppManifestLockScreen);
-
-BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kWebAppMigrationApi);
 
 BLINK_COMMON_EXPORT BASE_DECLARE_FEATURE(kWebAudioDeferPullStatusUpdate);
 

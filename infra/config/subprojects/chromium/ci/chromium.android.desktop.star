@@ -86,7 +86,7 @@ ci.builder(
             "debug_static_builder",
             "remoteexec",
             "arm64",
-            "webview_trichrome",
+            "webview_debug_package_name",
         ],
     ),
     targets = targets.bundle(
@@ -133,7 +133,7 @@ ci.builder(
             "minimal_symbols",
             "arm64",
             "strip_debug_info",
-            "webview_trichrome",
+            "webview_debug_package_name",
         ],
     ),
     targets = targets.bundle(
@@ -176,7 +176,7 @@ ci.builder(
             "debug_static_builder",
             "remoteexec",
             "x64",
-            "webview_trichrome",
+            "webview_debug_package_name",
             "webview_shell",
         ],
     ),
@@ -224,7 +224,7 @@ ci.builder(
             "minimal_symbols",
             "x64",
             "strip_debug_info",
-            "webview_trichrome",
+            "webview_debug_package_name",
             "webview_shell",
         ],
     ),
@@ -329,7 +329,9 @@ ci.thin_tester(
     targets_settings = targets.settings(
         os_type = targets.os_type.ANDROID,
     ),
+    builderless = True,
     cores = 8,
+    ssd = None,
     gardener_rotations = gardener_rotations.ANDROID,
     console_view_entry = consoles.console_view_entry(
         category = "tester|x64",

@@ -218,8 +218,6 @@ GPU_CONFIG_EXPORT extern const base::FeatureParam<std::string>
     kWebGPUEnabledToggles;
 GPU_CONFIG_EXPORT extern const base::FeatureParam<std::string>
     kWebGPUUnsafeFeatures;
-GPU_CONFIG_EXPORT extern const base::FeatureParam<bool>
-    kWebGPUSpontaneousWireServer;
 GPU_CONFIG_EXPORT extern const base::FeatureParam<std::string>
     kWGSLUnsafeFeatures;
 
@@ -265,6 +263,8 @@ GPU_CONFIG_EXPORT extern const base::FeatureParam<int>
     kConfigurableGPUWatchdogTimeoutSeconds;
 
 GPU_CONFIG_EXPORT BASE_DECLARE_FEATURE(kWebGPUCompatibilityMode);
+
+GPU_CONFIG_EXPORT BASE_DECLARE_FEATURE(kWebGLDeleteBuffersInBackground);
 
 GPU_CONFIG_EXPORT bool IsGraphiteContextThreadSafe();
 

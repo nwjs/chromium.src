@@ -14,7 +14,6 @@
 #include "base/time/time.h"
 #include "base/unguessable_token.h"
 #include "base/uuid.h"
-#include "mojo/public/cpp/bindings/receiver.h"
 #include "net/storage_access_api/status.h"
 #include "services/metrics/public/cpp/ukm_source_id.h"
 #include "services/network/public/cpp/permissions_policy/permissions_policy_declaration.h"
@@ -134,10 +133,15 @@ struct BLINK_EXPORT WebNavigationInfo {
   // navigation with the tool that caused it.
   std::optional<base::UnguessableToken> script_tool_invocation_id;
 
+  // The host of the entity that injected the script initiating this
+  // navigation. This is only populated when the initiator document's
+  // ScriptInjectionPolicy is kNavigationProtection.
+  WebString script_injector_host;
+
   // Used to retrieve data related to the initiator of the navigation stored in
   // the browser process.
-  base::UnguessableToken initiator_state_token;
-  blink::DocumentToken initiator_document_token;
+  InitiatorStateToken initiator_state_token;
+  DocumentToken initiator_document_token;
 
   // Whether the navigation initiator frame has the
   // |network::mojom::blink::WebSandboxFlags::kDownloads| bit set in its sandbox
@@ -265,9 +269,9 @@ struct BLINK_EXPORT WebNavigationParams {
   // `initiator_state_token` and `base_auction_nonce` rather than randomly
   // creating new ones.
   explicit WebNavigationParams(
-      const blink::DocumentToken& document_token,
+      const DocumentToken& document_token,
       const base::UnguessableToken& devtools_navigation_token,
-      const base::UnguessableToken& initiator_state_token,
+      const InitiatorStateToken& initiator_state_token,
       const base::Uuid& base_auction_nonce);
 
   // Shortcut for navigating based on WebNavigationInfo parameters.
@@ -419,7 +423,7 @@ struct BLINK_EXPORT WebNavigationParams {
   // taking into account the origin computed by the renderer.
   StorageKey storage_key;
 
-  blink::DocumentToken document_token;
+  DocumentToken document_token;
   // The devtools token for this navigation. See DocumentLoader
   // for details.
   base::UnguessableToken devtools_navigation_token;
@@ -427,7 +431,7 @@ struct BLINK_EXPORT WebNavigationParams {
   // An unguessable token used to retrieve the complete set of policies to pass
   // to navigations initiated from the document resulting in this navigation
   // commit.
-  base::UnguessableToken initiator_state_token;
+  InitiatorStateToken initiator_state_token;
 
   // Token used to derive a consistent opaque origin for the initial empty
   // document of a newly created sandboxed frame (e.g., `<iframe sandbox>`) or

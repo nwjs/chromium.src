@@ -52,6 +52,8 @@ import static org.chromium.chrome.browser.tab.TabSelectionType.FROM_USER;
 import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.graphics.RectF;
+import android.text.Spanned;
+import android.text.style.ClickableSpan;
 import android.view.Surface;
 import android.view.View;
 import android.view.Window;
@@ -71,7 +73,6 @@ import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
 import org.mockito.stubbing.Answer;
 import org.robolectric.RuntimeEnvironment;
-import org.robolectric.annotation.Config;
 import org.robolectric.shadows.ShadowLooper;
 
 import org.chromium.base.CallbackUtils;
@@ -114,6 +115,9 @@ import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeController;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
+import org.chromium.components.browser_ui.widget.ActionConfirmationDialog;
+import org.chromium.components.browser_ui.widget.ActionConfirmationDialog.DialogHandle;
+import org.chromium.components.browser_ui.widget.StrictButtonPressController.ButtonClickResult;
 import org.chromium.components.browser_ui.widget.gesture.BackPressHandler;
 import org.chromium.components.embedder_support.view.ContentView;
 import org.chromium.content_public.browser.Visibility;
@@ -124,6 +128,7 @@ import org.chromium.ui.base.ApplicationViewportInsetTracker;
 import org.chromium.ui.display.DisplayAndroid;
 import org.chromium.ui.edge_to_edge.EdgeToEdgeStateProvider;
 import org.chromium.ui.insets.InsetObserver;
+import org.chromium.ui.modaldialog.DialogDismissalCause;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.ui.mojom.VirtualKeyboardMode;
 
@@ -135,7 +140,6 @@ import java.util.concurrent.atomic.AtomicReference;
 
 /** Controller tests for the root controller for interactions with the manual filling UI. */
 @RunWith(BaseRobolectricTestRunner.class)
-@Config(manifest = Config.NONE)
 @Features.EnableFeatures({
     ChromeFeatureList.AUTOFILL_ANDROID_DESKTOP_SUPPRESS_ACCESSORY_ON_EMPTY,
     ChromeFeatureList.AUTOFILL_ANDROID_DESKTOP_KEYBOARD_ACCESSORY_REVAMP,
@@ -364,6 +368,7 @@ public class ManualFillingControllerTest {
         when(mMockActivity.getResources()).thenReturn(mMockResources);
         when(mMockActivity.getPackageManager())
                 .thenReturn(RuntimeEnvironment.application.getPackageManager());
+        when(mMockActivity.getTheme()).thenReturn(RuntimeEnvironment.application.getTheme());
         when(mMockActivity.findViewById(android.R.id.content)).thenReturn(mMockContentView);
         when(mMockContentView.getRootView()).thenReturn(mock(View.class));
         mLastMockWebContents = mock(MockWebContents.class);
@@ -2127,5 +2132,151 @@ public class ManualFillingControllerTest {
                                 })
                 .when(mMockCompositorViewHolder)
                 .getVisibleViewport(any(RectF.class));
+    }
+
+    @Test
+    public void testConfirmDeletionOperation() {
+        ActionConfirmationDialog mockDialog = mock(ActionConfirmationDialog.class);
+        mMediator.setActionConfirmationDialogForTesting(mockDialog);
+
+        Runnable confirmedCallback = mock(Runnable.class);
+        Runnable declinedCallback = mock(Runnable.class);
+
+        mController.confirmDeletionOperation(
+                "Delete title",
+                "Delete message",
+                "",
+                "Delete",
+                confirmedCallback,
+                declinedCallback);
+
+        ArgumentCaptor<ActionConfirmationDialog.ConfirmationDialogParams> paramsCaptor =
+                ArgumentCaptor.forClass(ActionConfirmationDialog.ConfirmationDialogParams.class);
+        ArgumentCaptor<ActionConfirmationDialog.ConfirmationDialogHandler> handlerCaptor =
+                ArgumentCaptor.forClass(ActionConfirmationDialog.ConfirmationDialogHandler.class);
+
+        verify(mockDialog).show(paramsCaptor.capture(), handlerCaptor.capture());
+
+        // For standard dialog, positive button triggers confirmedCallback
+        handlerCaptor
+                .getValue()
+                .onDialogInteracted(
+                        mock(ActionConfirmationDialog.DismissHandler.class),
+                        ButtonClickResult.POSITIVE,
+                        /* stopShowing= */ false);
+        verify(confirmedCallback).run();
+        verify(declinedCallback, never()).run();
+
+        // For standard dialog, negative button triggers declinedCallback
+        reset(confirmedCallback, declinedCallback);
+        mController.confirmDeletionOperation(
+                "Delete title",
+                "Delete message",
+                "",
+                "Delete",
+                confirmedCallback,
+                declinedCallback);
+        verify(mockDialog, times(2)).show(paramsCaptor.capture(), handlerCaptor.capture());
+        handlerCaptor
+                .getValue()
+                .onDialogInteracted(
+                        mock(ActionConfirmationDialog.DismissHandler.class),
+                        ButtonClickResult.NEGATIVE,
+                        /* stopShowing= */ false);
+        verify(declinedCallback).run();
+        verify(confirmedCallback, never()).run();
+    }
+
+    @Test
+    public void testFormatDeletionMessageWithLink() {
+        String body = "Delete this item? <link>Learn more</link>";
+        String bodyLink = "https://google.com";
+        CharSequence result = mMediator.formatDeletionMessage(body, bodyLink);
+
+        assertThat(result).isInstanceOf(Spanned.class);
+        Spanned spanned = (Spanned) result;
+        ClickableSpan[] spans = spanned.getSpans(0, spanned.length(), ClickableSpan.class);
+        assertThat(spans.length).isEqualTo(1);
+        assertThat(spanned.toString()).isEqualTo("Delete this item? Learn more");
+    }
+
+    @Test
+    public void testFormatDeletionMessageWithoutLink() {
+        String body = "Delete this item without link.";
+        CharSequence result = mMediator.formatDeletionMessage(body, "");
+        assertThat(result.toString()).isEqualTo(body);
+    }
+
+    @Test
+    public void testDismissConfirmationDialogOnDestroy() {
+        ActionConfirmationDialog mockDialog = mock(ActionConfirmationDialog.class);
+        DialogHandle mockHandle = mock(DialogHandle.class);
+        when(mockDialog.show(any(), any())).thenReturn(mockHandle);
+        mMediator.setActionConfirmationDialogForTesting(mockDialog);
+
+        mController.confirmDeletionOperation(
+                "Delete title",
+                "Delete message",
+                "",
+                "Delete",
+                mock(Runnable.class),
+                mock(Runnable.class));
+        assertThat(mMediator.getConfirmationDialogDismissHandlerForTesting(), is(mockHandle));
+
+        mController.destroy();
+
+        verify(mockHandle).dismiss(DialogDismissalCause.UNKNOWN);
+        assertThat(mMediator.getConfirmationDialogDismissHandlerForTesting(), is(nullValue()));
+    }
+
+    @Test
+    public void testDismissConfirmationDialogOnPause() {
+        ActionConfirmationDialog mockDialog = mock(ActionConfirmationDialog.class);
+        DialogHandle mockHandle = mock(DialogHandle.class);
+        when(mockDialog.show(any(), any())).thenReturn(mockHandle);
+        mMediator.setActionConfirmationDialogForTesting(mockDialog);
+
+        mController.confirmDeletionOperation(
+                "Delete title",
+                "Delete message",
+                "",
+                "Delete",
+                mock(Runnable.class),
+                mock(Runnable.class));
+        assertThat(mMediator.getConfirmationDialogDismissHandlerForTesting(), is(mockHandle));
+
+        mMediator.pause();
+
+        verify(mockHandle).dismiss(DialogDismissalCause.UNKNOWN);
+        assertThat(mMediator.getConfirmationDialogDismissHandlerForTesting(), is(nullValue()));
+    }
+
+    @Test
+    public void testRepeatedConfirmDeletionOperationDismissesActiveDialog() {
+        ActionConfirmationDialog mockDialog = mock(ActionConfirmationDialog.class);
+        DialogHandle mockHandle1 = mock(DialogHandle.class);
+        DialogHandle mockHandle2 = mock(DialogHandle.class);
+        when(mockDialog.show(any(), any())).thenReturn(mockHandle1, mockHandle2);
+        mMediator.setActionConfirmationDialogForTesting(mockDialog);
+
+        mController.confirmDeletionOperation(
+                "Delete title 1",
+                "Delete message 1",
+                "",
+                "Delete",
+                mock(Runnable.class),
+                mock(Runnable.class));
+        assertThat(mMediator.getConfirmationDialogDismissHandlerForTesting(), is(mockHandle1));
+
+        mController.confirmDeletionOperation(
+                "Delete title 2",
+                "Delete message 2",
+                "",
+                "Delete",
+                mock(Runnable.class),
+                mock(Runnable.class));
+
+        verify(mockHandle1).dismiss(DialogDismissalCause.UNKNOWN);
+        assertThat(mMediator.getConfirmationDialogDismissHandlerForTesting(), is(mockHandle2));
     }
 }

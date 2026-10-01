@@ -11,7 +11,6 @@
 // The V5UpdateProtocolManager sends requests to Google Safe Browsing servers
 // for the V5 BatchGetHashLists API. This API is responsible for fetching lists
 // of full hashes or hash prefixes, or updates to those lists.
-// TODO(crbug.com/362791941): remove v4 references
 
 #include <memory>
 #include <optional>
@@ -19,9 +18,9 @@
 
 #include "base/time/time.h"
 #include "base/types/expected.h"
+#include "components/safe_browsing/core/browser/db/sb_protocol_config.h"
 #include "components/safe_browsing/core/browser/db/sb_protocol_manager_util.h"
 #include "components/safe_browsing/core/browser/db/sb_update_protocol_manager.h"
-#include "components/safe_browsing/core/browser/db/v4_protocol_config.h"
 #include "components/safe_browsing/core/common/proto/safebrowsingv5.pb.h"
 #include "components/safe_browsing/core/common/safe_browsing_prefs.h"
 
@@ -36,9 +35,9 @@ namespace safe_browsing {
 // V5UpdateCallback is invoked every time a scheduled update completes.
 // Parameters:
 //   - The mapping of update response protobufs received from the server for
-//     each list type. This can be `std::nullopt` if the update failed.
-using V5UpdateCallback = base::RepeatingCallback<void(
-    std::optional<std::map<ListIdentifier, V5::HashList>>)>;
+//     each list type.
+using V5UpdateCallback =
+    base::RepeatingCallback<void(std::map<ListIdentifier, V5::HashList>)>;
 
 class V5UpdateProtocolManager : public SBUpdateProtocolManager {
  public:
@@ -102,7 +101,7 @@ class V5UpdateProtocolManager : public SBUpdateProtocolManager {
   // and invokes `update_callback` when the results are retrieved.
   V5UpdateProtocolManager(
       scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
-      const V4ProtocolConfig& config,
+      const SBProtocolConfig& config,
       V5UpdateCallback update_callback);
 
   struct ListIdentifierAndVersion {

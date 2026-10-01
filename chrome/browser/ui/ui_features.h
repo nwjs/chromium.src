@@ -20,6 +20,7 @@ namespace features {
 // alongside the definition of their values in the .cc file.
 
 BASE_DECLARE_FEATURE(kUseActionsForBrowserCommands);
+bool ShouldUseActionsForBrowserCommands();
 
 BASE_DECLARE_FEATURE(kAllowEyeDropperWGCScreenCapture);
 
@@ -45,6 +46,7 @@ BASE_DECLARE_FEATURE(kTabStripDeclutter);
 BASE_DECLARE_FEATURE(kToolbarGlowUp);
 BASE_DECLARE_FEATURE_PARAM(bool, kToolbarGlowUpReloadEnabled);
 BASE_DECLARE_FEATURE_PARAM(bool, kToolbarGlowUpBackForwardEnabled);
+BASE_DECLARE_FEATURE_PARAM(bool, kToolbarGlowUpBookmarkEnabled);
 BASE_DECLARE_FEATURE(kMenuSimplification);
 BASE_DECLARE_FEATURE(kTabGroupColorRefresh);
 BASE_DECLARE_FEATURE(kWebuiRefresh2026);
@@ -58,9 +60,11 @@ bool IsTabStripDeclutterEnabled();
 bool IsToolbarGlowUpEnabled();
 bool IsToolbarGlowUpReloadEnabled();
 bool IsToolbarGlowUpBackForwardEnabled();
+bool IsToolbarGlowUpBookmarkEnabled();
 bool IsMenuSimplificationEnabled();
 bool IsTabGroupColorRefreshEnabled();
 bool IsWebuiRefresh2026Enabled();
+bool IsSettingsRefresh2026Enabled();
 
 #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 
@@ -88,6 +92,11 @@ BASE_DECLARE_FEATURE_PARAM(int, kSeparateDefaultAndPinPromptMessageVersion);
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
 
 #if BUILDFLAG(IS_MAC) || BUILDFLAG(IS_WIN) || BUILDFLAG(IS_LINUX)
+// When enabled, SessionService respects the should_trigger_session_restore
+// flag on BrowserInitState when deciding whether to restore a session for a
+// newly opened browser window.
+BASE_DECLARE_FEATURE(kRespectShouldTriggerSessionRestoreOnDesktop);
+
 // When enabled, user may see the session restore UI flow.
 BASE_DECLARE_FEATURE(kSessionRestoreInfobar);
 
@@ -177,7 +186,6 @@ BASE_DECLARE_FEATURE(kProcessIsolationSettings);
 #endif  // BUILDFLAG(IS_WIN)
 
 BASE_DECLARE_FEATURE(kRealboxVirtualFocusNavigation);
-BASE_DECLARE_FEATURE(kOmniboxPopupVirtualFocusNavigation);
 BASE_DECLARE_FEATURE(kLensOverlayVirtualFocusNavigation);
 BASE_DECLARE_FEATURE(kOmniboxEverywhereVirtualFocusNavigation);
 BASE_DECLARE_FEATURE(kWebuiBrowserVirtualFocusNavigation);
@@ -264,7 +272,6 @@ BASE_DECLARE_FEATURE_PARAM(int, kSidePanelFlyoverDurationMs);
 BASE_DECLARE_FEATURE(kUseDefaultDeadlineWhenAnimatingBounds);
 
 // TODO(crbug.com/460764864): Cleanup all the enterprise badging feature flags.
-BASE_DECLARE_FEATURE(kEnterpriseProfileBadgingForMenu);
 BASE_DECLARE_FEATURE(kNTPFooterBadgingPolicies);
 
 BASE_DECLARE_FEATURE(kEnterpriseManagementDisclaimerUsesCustomLabel);
@@ -376,6 +383,7 @@ BASE_DECLARE_FEATURE(kAiOverlayDialog);
 BASE_DECLARE_FEATURE_PARAM(std::string, kAiOverlayDialogApiKey);
 BASE_DECLARE_FEATURE_PARAM(std::string, kAiOverlayDialogMockJsonPath);
 BASE_DECLARE_FEATURE_PARAM(bool, kAiOverlayDialogUsesActor);
+BASE_DECLARE_FEATURE_PARAM(bool, kAiOverlayDialogUseMes);
 BASE_DECLARE_FEATURE(kAiOverlayDisableNavigationContext);
 
 BASE_DECLARE_FEATURE(kTabGroupsFocusing);

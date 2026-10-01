@@ -92,6 +92,7 @@ import org.chromium.base.test.util.Features.DisableFeatures;
 import org.chromium.base.test.util.Features.EnableFeatures;
 import org.chromium.base.test.util.HistogramWatcher;
 import org.chromium.base.test.util.UserActionTester;
+import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.pdf.PdfUtils.PdfHyperlinkClickResult;
 import org.chromium.chrome.browser.profiles.Profile;
@@ -187,6 +188,10 @@ public class PdfCoordinatorUnitTest {
     }
 
     private void createPdfCoordinator() {
+        createPdfCoordinator(mFilePath);
+    }
+
+    private void createPdfCoordinator(@Nullable String filePath) {
         // For the purpose of testing, we are using the transient file path and url above when in
         // reality, the file path will not be available for a transient pdf when this constructor
         // is called.
@@ -195,7 +200,7 @@ public class PdfCoordinatorUnitTest {
                         mNativePageHost,
                         mProfile,
                         mActivity,
-                        mFilePath,
+                        filePath,
                         PDF_TITLE,
                         mTab,
                         PDF_URL,
@@ -220,8 +225,7 @@ public class PdfCoordinatorUnitTest {
                 HistogramWatcher.newSingleRecordWatcher(
                         "Android.Pdf.Hyperlink.ClickResult",
                         PdfHyperlinkClickResult.SUCCESS_LOAD_INITIATED);
-        boolean result = mPdfCoordinator.onLinkClicked(linkUri);
-        assertTrue("name should verify true", result);
+        mPdfCoordinator.onLinkClicked(linkUri);
         histogramExpectation.assertExpected();
         ArgumentCaptor<LoadUrlParams> captor = ArgumentCaptor.forClass(LoadUrlParams.class);
         verify(mNativePageHost).openNewTab(captor.capture());
@@ -358,9 +362,7 @@ public class PdfCoordinatorUnitTest {
                     HistogramWatcher.newSingleRecordWatcher(
                             "Android.Pdf.Hyperlink.ClickResult",
                             PdfHyperlinkClickResult.BLOCKED_INVALID_SCHEME);
-            assertFalse(
-                    "onLinkClicked should reject " + raw,
-                    mPdfCoordinator.onLinkClicked(Uri.parse(raw)));
+            mPdfCoordinator.onLinkClicked(Uri.parse(raw));
             histogramExpectation.assertExpected();
         }
         verify(mNativePageHost, never()).openNewTab(any(LoadUrlParams.class));
@@ -376,9 +378,7 @@ public class PdfCoordinatorUnitTest {
                 HistogramWatcher.newSingleRecordWatcher(
                         "Android.Pdf.Hyperlink.ClickResult",
                         PdfHyperlinkClickResult.BLOCKED_INVALID_SCHEME);
-        assertFalse(
-                "onLinkClicked should reject schemeless URI.",
-                mPdfCoordinator.onLinkClicked(Uri.parse("//www.example.com/foo")));
+        mPdfCoordinator.onLinkClicked(Uri.parse("//www.example.com/foo"));
         histogramExpectation.assertExpected();
         verify(mNativePageHost, never()).openNewTab(any(LoadUrlParams.class));
     }
@@ -394,11 +394,7 @@ public class PdfCoordinatorUnitTest {
                 HistogramWatcher.newSingleRecordWatcher(
                         "Android.Pdf.Hyperlink.ClickResult",
                         PdfHyperlinkClickResult.SUCCESS_LOAD_INITIATED);
-        boolean result = mPdfCoordinator.onLinkClicked(linkUri);
-        assertTrue(
-                "onLinkClicked should return true and load via NativePageHost when inline PDF V2"
-                        + " is disabled.",
-                result);
+        mPdfCoordinator.onLinkClicked(linkUri);
         histogramExpectation.assertExpected();
         ArgumentCaptor<LoadUrlParams> captor = ArgumentCaptor.forClass(LoadUrlParams.class);
         verify(mNativePageHost).openNewTab(captor.capture());
@@ -549,9 +545,7 @@ public class PdfCoordinatorUnitTest {
                     HistogramWatcher.newSingleRecordWatcher(
                             "Android.Pdf.Hyperlink.ClickResult",
                             PdfHyperlinkClickResult.SUCCESS_LOAD_INITIATED);
-            assertTrue(
-                    "onLinkClicked should accept " + raw,
-                    mPdfCoordinator.onLinkClicked(Uri.parse(raw)));
+            mPdfCoordinator.onLinkClicked(Uri.parse(raw));
             histogramExpectation.assertExpected();
         }
         verify(mNativePageHost, times(allowedUris.length)).openNewTab(any(LoadUrlParams.class));
@@ -1447,6 +1441,72 @@ public class PdfCoordinatorUnitTest {
         createPdfCoordinator();
         assertNotNull(mPdfCoordinator.getView());
         assertTrue(mPdfCoordinator.mChromePdfViewerFragment.mIsPdfViewSetup);
+    }
+
+    @Test
+    @EnableFeatures({ChromeFeatureList.INLINE_PDF_V2, ChromeFeatureList.PDF_REUSE_FRAGMENT})
+    @Config(shadows = {ShadowEditablePdfViewerFragment.class, ShadowPdfView.class})
+    public void testRecoveredFragmentUriMatches_SameUri_RecordsTrue() {
+        PdfCoordinator.skipLoadPdfForTesting(false);
+        TestChromePdfViewerFragment existingFragment = new TestChromePdfViewerFragment();
+        Uri expectedUri = Uri.parse(TEST_CONTENT_URI);
+        existingFragment.setDocumentUri(expectedUri);
+        mActivity
+                .getSupportFragmentManager()
+                .beginTransaction()
+                .add(existingFragment, String.valueOf(TAB_ID))
+                .commitNow();
+        PdfView pdfView = new PdfView(mActivity);
+        ShadowPdfView shadowPdfView = Shadow.extract(pdfView);
+        PdfDocument mockDocument = Mockito.mock(PdfDocument.class);
+        when(mockDocument.getPageCount()).thenReturn(3);
+        shadowPdfView.mPdfDocument = mockDocument;
+        existingFragment.onPdfViewCreated(pdfView);
+
+        HistogramWatcher watcher =
+                HistogramWatcher.newSingleRecordWatcher(
+                        "Android.Pdf.RecoveredFragmentUriMatches", true);
+        createPdfCoordinator(TEST_CONTENT_URI);
+        watcher.assertExpected();
+    }
+
+    @Test
+    @EnableFeatures({ChromeFeatureList.INLINE_PDF_V2, ChromeFeatureList.PDF_REUSE_FRAGMENT})
+    @Config(shadows = {ShadowEditablePdfViewerFragment.class, ShadowPdfView.class})
+    public void testRecoveredFragmentUriMatches_DifferentUri_RecordsFalse() {
+        PdfCoordinator.skipLoadPdfForTesting(false);
+        TestChromePdfViewerFragment existingFragment = new TestChromePdfViewerFragment();
+        Uri differentUri = Uri.parse("content://different/uri.pdf");
+        existingFragment.setDocumentUri(differentUri);
+        mActivity
+                .getSupportFragmentManager()
+                .beginTransaction()
+                .add(existingFragment, String.valueOf(TAB_ID))
+                .commitNow();
+        PdfView pdfView = new PdfView(mActivity);
+        ShadowPdfView shadowPdfView = Shadow.extract(pdfView);
+        PdfDocument mockDocument = Mockito.mock(PdfDocument.class);
+        when(mockDocument.getPageCount()).thenReturn(3);
+        shadowPdfView.mPdfDocument = mockDocument;
+        existingFragment.onPdfViewCreated(pdfView);
+
+        HistogramWatcher watcher =
+                HistogramWatcher.newSingleRecordWatcher(
+                        "Android.Pdf.RecoveredFragmentUriMatches", false);
+        createPdfCoordinator(TEST_CONTENT_URI);
+        watcher.assertExpected();
+    }
+
+    @Test
+    @EnableFeatures({ChromeFeatureList.INLINE_PDF_V2, ChromeFeatureList.PDF_REUSE_FRAGMENT})
+    public void testRecoveredFragmentUriMatches_FreshLoad_DoesNotRecord() {
+        PdfCoordinator.skipLoadPdfForTesting(false);
+        HistogramWatcher watcher =
+                HistogramWatcher.newBuilder()
+                        .expectNoRecords("Android.Pdf.RecoveredFragmentUriMatches")
+                        .build();
+        createPdfCoordinator();
+        watcher.assertExpected();
     }
 
     @Test

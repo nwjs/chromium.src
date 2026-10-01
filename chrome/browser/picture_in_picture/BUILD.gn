@@ -129,6 +129,7 @@ source_set("impl") {
       "auto_picture_in_picture_tab_model_observer_helper.cc",
       "document_picture_in_picture_bridge_android.cc",
       "picture_in_picture_bounds_cache_bridge.cc",
+      "picture_in_picture_window_manager_bridge.cc",
     ]
     deps += [
       "//chrome/android:chrome_jni_headers",
@@ -283,6 +284,7 @@ if (!is_android) {
       "//chrome/browser/web_applications",
       "//chrome/test:test_support",
       "//components/content_settings/core/browser",
+      "//components/enterprise/isolated_mode",
       "//components/metrics:content",
       "//components/permissions",
       "//components/viz/common",
@@ -349,7 +351,6 @@ if (!is_android) {
       "//ui/gfx/geometry",
     ]
     deps = [
-      "//chrome/browser/ui",
       "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/tabs:tab_strip",
       "//content/public/browser",

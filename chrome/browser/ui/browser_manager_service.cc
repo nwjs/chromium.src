@@ -13,9 +13,9 @@
 #include "chrome/browser/printing/background_printing_manager.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/profiles/profile_destroyer.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_manager_service_factory.h"
 #include "chrome/browser/ui/browser_window/public/browser_collection_observer.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "components/keep_alive_registry/keep_alive_registry.h"
 #include "components/keep_alive_registry/keep_alive_types.h"
@@ -78,7 +78,8 @@ size_t BrowserManagerService::GetSize() const {
   return size;
 }
 
-void BrowserManagerService::AddBrowser(std::unique_ptr<Browser> browser) {
+void BrowserManagerService::AddBrowser(
+    std::unique_ptr<BrowserWindowInterface> browser) {
   CHECK(browsers_and_subscriptions_for_testing_.empty());
   BrowserWindowInterface* const browser_ptr = browser.get();
   // Prefer push_back, see totw/112.
@@ -142,18 +143,21 @@ void BrowserManagerService::DeleteBrowser(
   // TODO(crbug.com/40159237): Use ScopedProfileKeepAlive for Incognito too,
   // instead of separate logic for Incognito and regular profiles.
   target_browser_and_subscriptions->browser.reset();
-  if (browsers_and_subscriptions_.empty() && profile_->IsIncognitoProfile() &&
+  if (browsers_and_subscriptions_.empty() &&
+      profile_->IsPrimaryOTRProfileWithRegularParent() &&
       !profile_->IsSystemProfile()) {
 #if BUILDFLAG(ENABLE_PRINT_PREVIEW)
     // The Printing Background Manager holds onto preview dialog WebContents
     // whose corresponding print jobs have not yet fully spooled. Make sure
-    // these get destroyed before tearing down the incognito profile so that
-    // their RenderFrameHosts can exit in time - see crbug.com/41235373
+    // these get destroyed before tearing down the incognito or isolated mode
+    // profile so that their RenderFrameHosts can exit in time - see
+    // crbug.com/41235373
     g_browser_process->background_printing_manager()
         ->DeletePreviewContentsForBrowserContext(&profile_.get());
 #endif
-    // An incognito profile is no longer needed, this indirectly frees
-    // its cache and cookies once it gets destroyed at the appropriate time.
+    // The incognito or isolated mode profile is no longer needed, this
+    // indirectly frees its cache and cookies once it gets destroyed at the
+    // appropriate time.
     ProfileDestroyer::DestroyOTRProfileWhenAppropriate(&profile_.get());
   }
 

@@ -18,6 +18,7 @@
 #include "chrome/services/readaloud/decoded_audio_segment.h"
 #include "chrome/services/readaloud/decoder/opus_decoder_helper.h"
 #include "chrome/services/readaloud/prefetch/prefetch_manager.h"
+#include "chrome/services/readaloud/word_timing.h"
 #include "media/base/decoder_buffer.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -31,13 +32,10 @@ class FakeOpusDecoderHelper : public OpusDecoderHelper {
   FakeOpusDecoderHelper() = default;
   ~FakeOpusDecoderHelper() override = default;
 
-  void DecodeAndSlice(
-      scoped_refptr<media::DecoderBuffer> container_buffer,
-      const std::vector<DecodedAudioSegment::WordTiming>& timings,
-      const std::vector<int32_t>& sentence_chunk_indices,
-      DecodeCallback callback) override {
+  void DecodeAndSlice(scoped_refptr<media::DecoderBuffer> container_buffer,
+                      const std::vector<WordTiming>& timings,
+                      DecodeCallback callback) override {
     last_callback_ = std::move(callback);
-    last_chunk_indices_ = sentence_chunk_indices;
     decode_call_count_++;
   }
 
@@ -51,13 +49,9 @@ class FakeOpusDecoderHelper : public OpusDecoderHelper {
   }
 
   size_t decode_call_count() const { return decode_call_count_; }
-  const std::vector<int32_t>& last_chunk_indices() const {
-    return last_chunk_indices_;
-  }
 
  private:
   DecodeCallback last_callback_;
-  std::vector<int32_t> last_chunk_indices_;
   size_t decode_call_count_ = 0;
 };
 
@@ -83,10 +77,12 @@ class ReadAloudDecoderSequencerTest : public testing::Test {
     ASSERT_EQ(prefetch_manager_.GetTimelineChunkCount(), chunk_count);
   }
 
-  void InsertCachedSegment(uint32_t chunk_index,
-                           scoped_refptr<media::DecoderBuffer> opus_buffer) {
+  void InsertCachedSegment(
+      uint32_t chunk_index,
+      scoped_refptr<media::DecoderBuffer> opus_buffer,
+      SynthesisResultStatus status = SynthesisResultStatus::kSuccess) {
     prefetch_manager_.InsertCachedSegment(chunk_index, std::move(opus_buffer),
-                                          /*timings=*/{});
+                                          /*timings=*/{}, status);
   }
 
   scoped_refptr<media::DecoderBuffer> CreateDummyBuffer() {
@@ -275,6 +271,85 @@ TEST_F(ReadAloudDecoderSequencerTest,
       base::MakeRefCounted<DecodedAudioSegment>(base::Seconds(2));
   fake_decoder_.DeliverDecodedSegments({segment0});
   EXPECT_EQ(audio_queue_->size(), 0u);
+}
+
+TEST_F(ReadAloudDecoderSequencerTest, HandlesNullCachedSegmentWithoutStalling) {
+  SetUpTimeline(/*chunk_count=*/2);
+  // Insert null audio buffer for chunk 0 (simulating failed synthesis response)
+  InsertCachedSegment(/*chunk_index=*/0, /*opus_buffer=*/nullptr,
+                      SynthesisResultStatus::kSynthesisError);
+  InsertCachedSegment(/*chunk_index=*/1, CreateDummyBuffer());
+
+  // 1. ReplenishBuffer skips null chunk 0 and begins decoding chunk 1
+  sequencer_.ReplenishBuffer();
+  EXPECT_TRUE(sequencer_.is_decoding());
+  EXPECT_EQ(sequencer_.next_chunk_to_decode(), 1u);
+
+  // 2. Deliver decoded PCM segments for chunk 1
+  scoped_refptr<DecodedAudioSegment> segment1 =
+      base::MakeRefCounted<DecodedAudioSegment>(base::Seconds(2));
+  fake_decoder_.DeliverDecodedSegments({segment1});
+
+  // 3. Sequencer finishes chunk 1, advances cursor to 2u, and pushes to queue
+  EXPECT_FALSE(sequencer_.is_decoding());
+  EXPECT_EQ(sequencer_.next_chunk_to_decode(), 2u);
+  EXPECT_EQ(audio_queue_->size(), 1u);
+}
+
+TEST_F(ReadAloudDecoderSequencerTest, SkipsCorruptDataSegmentWithoutStalling) {
+  SetUpTimeline(/*chunk_count=*/2);
+  scoped_refptr<media::DecoderBuffer> corrupt_buffer =
+      media::DecoderBuffer::CopyFrom(std::vector<uint8_t>{0xff, 0xff});
+  InsertCachedSegment(/*chunk_index=*/0, corrupt_buffer,
+                      SynthesisResultStatus::kCorruptData);
+  InsertCachedSegment(/*chunk_index=*/1, CreateDummyBuffer());
+
+  // ReplenishBuffer logs warning, skips corrupt chunk 0, and begins decoding
+  // chunk 1
+  sequencer_.ReplenishBuffer();
+  EXPECT_TRUE(sequencer_.is_decoding());
+  EXPECT_EQ(sequencer_.next_chunk_to_decode(), 1u);
+}
+
+TEST_F(ReadAloudDecoderSequencerTest,
+       ReplenishBufferLookaheadReplenishesOnChunkFailure) {
+  SetUpTimeline(/*chunk_count=*/6);
+  std::vector<uint32_t> dispatched_indices;
+  prefetch_manager_.SetRequestSynthesisCallback(base::BindRepeating(
+      [](std::vector<uint32_t>* out, uint32_t chunk_index,
+         std::u16string_view text) { out->push_back(chunk_index); },
+      &dispatched_indices));
+
+  // Insert failed synthesis response for chunk 0 and valid buffer for chunk 1
+  InsertCachedSegment(/*chunk_index=*/0, /*opus_buffer=*/nullptr,
+                      SynthesisResultStatus::kSynthesisError);
+  InsertCachedSegment(/*chunk_index=*/1, CreateDummyBuffer());
+
+  sequencer_.ReplenishBuffer();
+  // Cursor advances to 1u, decoding starts on chunk 1, and lookahead extends to
+  // chunk 5 (queued in pending_requests_)
+  EXPECT_EQ(sequencer_.next_chunk_to_decode(), 1u);
+  EXPECT_TRUE(sequencer_.is_decoding());
+
+  // Completing chunk 2 frees an in-flight slot and dispatches chunk 5 from
+  // pending queue
+  uint64_t seq_id = prefetch_manager_.GetCurrentSequenceId();
+  prefetch_manager_.OnSynthesisResponse(seq_id, 2, CreateDummyBuffer(), {});
+  EXPECT_FALSE(dispatched_indices.empty());
+  EXPECT_EQ(dispatched_indices.back(), 5u);
+}
+
+TEST_F(ReadAloudDecoderSequencerTest, ReentrancyGuardPreventsRecursiveReplenish) {
+  SetUpTimeline(/*chunk_count=*/2);
+  InsertCachedSegment(/*chunk_index=*/0, CreateDummyBuffer());
+
+  // Trigger ReplenishBuffer
+  sequencer_.ReplenishBuffer();
+  EXPECT_TRUE(sequencer_.is_decoding());
+
+  // Additional call to ReplenishBuffer while is_decoding is true should return early
+  sequencer_.ReplenishBuffer();
+  EXPECT_EQ(fake_decoder_.decode_call_count(), 1u);
 }
 
 }  // namespace readaloud

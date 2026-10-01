@@ -71,3 +71,4 @@ def CheckPatchFormatted(input_api, output_api):
         result_factory=output_api.PresubmitError,
         bypass_warnings=False,
     )
+

@@ -12,8 +12,12 @@ import android.view.View;
 import android.widget.LinearLayout;
 
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.junit.MockitoJUnit;
+import org.mockito.junit.MockitoRule;
+import org.mockito.quality.Strictness;
 
 import org.chromium.base.ContextUtils;
 import org.chromium.base.test.BaseRobolectricTestRunner;
@@ -27,6 +31,9 @@ import org.chromium.ui.modelutil.PropertyModelChangeProcessor;
 /** Tests for {@link AnswerSuggestionViewBinder}. */
 @RunWith(BaseRobolectricTestRunner.class)
 public class AnswerSuggestionViewBinderUnitTest {
+    @Rule
+    public final MockitoRule mMockitoRule = MockitoJUnit.rule().strictness(Strictness.STRICT_STUBS);
+
     private Context mContext;
     private PropertyModel mModel;
     private BaseSuggestionView<View> mBaseView;
@@ -35,10 +42,12 @@ public class AnswerSuggestionViewBinderUnitTest {
     public void setUp() {
         mContext = ContextUtils.getApplicationContext();
         mBaseView = spy(new BaseSuggestionView<>(new LinearLayout(mContext)));
-        mModel = new PropertyModel(AnswerSuggestionViewProperties.ALL_KEYS);
         OmniboxResourceProvider resourceProvider =
                 new OmniboxResourceProvider(mContext, BrandedColorScheme.APP_DEFAULT);
-        mModel.set(SuggestionCommonProperties.RESOURCE_PROVIDER, resourceProvider);
+        mModel =
+                new PropertyModel.Builder(AnswerSuggestionViewProperties.ALL_KEYS)
+                        .with(SuggestionCommonProperties.RESOURCE_PROVIDER, resourceProvider)
+                        .build();
         PropertyModelChangeProcessor.create(mModel, mBaseView, new AnswerSuggestionViewBinder());
     }
 

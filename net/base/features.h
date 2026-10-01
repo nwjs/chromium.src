@@ -32,9 +32,6 @@ NET_EXPORT BASE_DECLARE_FEATURE(kAlpsForHttp2);
 // asynchronous (yielding to the message loop) after many attempts.
 NET_EXPORT BASE_DECLARE_FEATURE(kAsyncRetryOnTooManyConnectionErrors);
 
-// Disable H2 reprioritization, in order to measure its impact.
-NET_EXPORT BASE_DECLARE_FEATURE(kAvoidH2Reprioritization);
-
 // Derives Android connection type from NetworkCapabilities inside
 // NetworkCallbacks instead of calling synchronous ConnectivityManager methods.
 NET_EXPORT BASE_DECLARE_FEATURE(kDeriveConnectionTypeFromCapabilities);
@@ -46,6 +43,9 @@ NET_EXPORT BASE_DECLARE_FEATURE(kAsyncDns);
 NET_EXPORT BASE_DECLARE_FEATURE(kOptimisticDnsForTcp);
 NET_EXPORT extern const base::FeatureParam<bool>
     kUseStaleConnectorsForOptimisticDns;
+
+// Enables optimistic DNS for QUIC.
+NET_EXPORT BASE_DECLARE_FEATURE(kOptimisticDnsForQuic);
 
 // Caches UDP connect() results in AddressSorterPosix.
 NET_EXPORT BASE_DECLARE_FEATURE(kAddressSorterConnectCache);
@@ -77,6 +77,11 @@ NET_EXPORT extern const base::FeatureParam<bool>
 // and may be used to affect connection behavior. Whether or not those results
 // are used (e.g. to connect via ECH) may be controlled by separate features.
 NET_EXPORT BASE_DECLARE_FEATURE(kUseDnsHttpsSvcb);
+
+// If enabled, HostResolver carries address hints (ipv4hint/ipv6hint) from
+// HTTPS DNS records in its results for consumption by the
+// ServiceEndpointRequest path.
+NET_EXPORT BASE_DECLARE_FEATURE(kUseDnsHttpsSvcbAddressHints);
 
 // Enables partial support for Structured DNS Errors
 // (draft-ietf-dnsop-structured-dns-error). When enabled, the Chrome DNS
@@ -149,6 +154,9 @@ NET_EXPORT BASE_DECLARE_FEATURE(kHappyEyeballsV3);
 // Note: If kHappyEyeballsV3 is enabled, this behavior is automatically active
 // regardless of this flag's state.
 NET_EXPORT BASE_DECLARE_FEATURE(kEnableIntermediateDnsResults);
+NET_EXPORT BASE_DECLARE_FEATURE_PARAM(
+    bool,
+    kEnableIntermediateDnsResultsSortTransactionsIndividually);
 
 // Feature to control the Happy Eyeballs slow timer (IPv6 fallback time).
 NET_EXPORT BASE_DECLARE_FEATURE(kAdjustIPv6FallbackTime);
@@ -352,12 +360,6 @@ NET_EXPORT extern const base::FeatureParam<base::TimeDelta>
 // See spec changes in https://github.com/httpwg/http-extensions/pull/1348
 NET_EXPORT BASE_DECLARE_FEATURE(kCookieSameSiteConsidersRedirectChain);
 
-// When this feature is enabled, servers can include an
-// allow-same-site-none-cookies value that notifies the browser that same-site
-// SameSite=None cookies should be allowed in sandboxed contexts with 3PC
-// restrictions.
-NET_EXPORT BASE_DECLARE_FEATURE(kAllowSameSiteNoneCookiesInSandbox);
-
 // Controls whether static key pinning is enforced.
 NET_EXPORT BASE_DECLARE_FEATURE(kStaticKeyPinningEnforcement);
 
@@ -409,8 +411,11 @@ NET_EXPORT BASE_DECLARE_FEATURE(kDeferConnectionTypeAtStartup);
 NET_EXPORT BASE_DECLARE_FEATURE(kTcpPortRandomizationMac);
 // How long (in seconds) to avoid reusing a recently-used ephemeral port for
 // the same peer. Defaults to 120 to match common NAT timeout values.
-NET_EXPORT extern const base::FeatureParam<int>
-    kTcpPortRandomizationReuseDelaySec;
+NET_EXPORT BASE_DECLARE_FEATURE_PARAM(int, kTcpPortRandomizationReuseDelaySec);
+// If enabled, port randomization applies even where the remote address is
+// the loopback address. See https://crbug.com/546919930 for context.
+NET_EXPORT BASE_DECLARE_FEATURE_PARAM(bool,
+                                      kTcpPortRandomizationMacForLoopback);
 #endif
 
 // Avoid creating cache entries for transactions that are most likely no-store.
@@ -428,6 +433,9 @@ NET_EXPORT BASE_DECLARE_FEATURE(kAsyncDnsQuicJob);
 // Whether AsyncDnsJob notifies waiting requests immediately on the first
 // attempt's session creation failure instead of holding the error.
 NET_EXPORT BASE_DECLARE_FEATURE_PARAM(bool, kAsyncDnsQuicJobFastFail);
+NET_EXPORT BASE_DECLARE_FEATURE_PARAM(
+    bool,
+    kAsyncDnsQuicJobSortTransactionsIndividually);
 
 // Makes the QUIC slow timer delay configurable.
 // How long to wait before starting a second connection attempt
@@ -553,6 +561,10 @@ NET_EXPORT BASE_DECLARE_FEATURE(kDeviceBoundSessionsForSingleSignOn);
 // Controls whether a session's expiry timestamp is updated in memory and
 // persisted to disk when a network refresh finishes with NoSessionConfigChange.
 NET_EXPORT BASE_DECLARE_FEATURE(kDeviceBoundSessionsPersistExpiryOnRefresh);
+
+// Controls whether DBSC includes the 'aud' (audience) claim in registration
+// and refresh JWT payloads.
+NET_EXPORT BASE_DECLARE_FEATURE(kDeviceBoundSessionsIncludeAudienceClaim);
 
 // Enables more checks when creating a SpdySession for proxy. These checks are
 // already applied to non-proxy SpdySession creations.
@@ -1046,6 +1058,15 @@ NET_EXPORT BASE_DECLARE_FEATURE_PARAM(
 NET_EXPORT BASE_DECLARE_FEATURE(kEnableWindowsTcpLoopbackFastFail);
 #endif
 
+// Controls the socket send buffer size for QUIC client sockets.
+// If the feature is enabled:
+// - If the parameter is -1, SetSendBufferSize() is not called at all.
+// - If the parameter is > 0, SetSendBufferSize() is called with this value.
+// If the feature is disabled, the default behavior (20 packets) is used.
+NET_EXPORT BASE_DECLARE_FEATURE(kQuicSocketSendBufferSize);
+NET_EXPORT BASE_DECLARE_FEATURE_PARAM(int, kQuicSocketSendBufferSizeParam);
+
 }  // namespace net::features
 
 #endif  // NET_BASE_FEATURES_H_
+

@@ -497,7 +497,7 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
   { key::kVoiceTypingSettings,
     prefs::kVoiceTypingSettings,
     base::Value::Type::INTEGER },
-  { key::kIndigo,
+  { key::kTryOnYouSettings,
     indigo::prefs::kIndigoPolicy,
     base::Value::Type::INTEGER },
 #endif
@@ -546,6 +546,9 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
   { key::kWebHidBlockedForUrls,
     prefs::kManagedWebHidBlockedForUrls,
     base::Value::Type::LIST },
+  { key::kRemoteDebuggingAllowed,
+    prefs::kDevToolsRemoteDebuggingAllowed,
+    base::Value::Type::BOOLEAN },
 // Policies for all platforms - End
 #if BUILDFLAG(IS_ANDROID)
   { key::kAccessibilityPerformanceFilteringAllowed,
@@ -789,9 +792,6 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
   { key::kNTPCardsVisible,
     prefs::kNtpModulesVisible,
     base::Value::Type::BOOLEAN },
-  { key::kNTPMiddleSlotAnnouncementVisible,
-    prefs::kNtpPromoVisible,
-    base::Value::Type::BOOLEAN },
   { key::kNTPOutlookCardVisible,
     prefs::kNtpOutlookModuleVisible,
     base::Value::Type::BOOLEAN },
@@ -866,9 +866,6 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
   { key::kRelaunchFastIfOutdated,
     prefs::kRelaunchFastIfOutdated,
     base::Value::Type::INTEGER },
-  { key::kRemoteDebuggingAllowed,
-    prefs::kDevToolsRemoteDebuggingAllowed,
-    base::Value::Type::BOOLEAN },
   { key::kRestoreOnStartupURLs,
     prefs::kURLsToRestoreOnStartup,
     base::Value::Type::LIST },
@@ -1333,6 +1330,9 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
     base::Value::Type::STRING },
   { key::kShowAccessibilityOptionsInSystemTrayMenu,
     ash::prefs::kShouldAlwaysShowAccessibilityMenu,
+    base::Value::Type::BOOLEAN },
+  { key::kShowInputOptionsInShelfEnabled,
+    ash::prefs::kLanguageImeMenuActivated,
     base::Value::Type::BOOLEAN },
   { key::kFloatingAccessibilityMenuEnabled,
     ash::prefs::kAccessibilityFloatingMenuEnabled,
@@ -2274,6 +2274,9 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
   { key::kExtensionDOMActivityLoggingEnabled,
     prefs::kExtensionDOMActivityLoggingEnabled,
     base::Value::Type::BOOLEAN },
+  { key::kExtensionReviewPromptsEnabled,
+    prefs::kExtensionReviewPromptsAllowed,
+    base::Value::Type::BOOLEAN },
 #endif // BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
@@ -2341,6 +2344,9 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
     base::Value::Type::LIST },
   { key::kForceForegroundPriorityForAllTabs,
     performance_manager::user_tuning::prefs::kForceForegroundPriorityForAllTabs,
+    base::Value::Type::BOOLEAN },
+  { key::kBackgroundTabFreezingEnabled,
+    performance_manager::user_tuning::prefs::kTabFreezingEnabled,
     base::Value::Type::BOOLEAN },
 #endif  // BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX) || BUILDFLAG(IS_CHROMEOS)
   { key::kStrictMimetypeCheckForWorkerScriptsEnabled,
@@ -3677,7 +3683,7 @@ std::unique_ptr<ConfigurationPolicyHandlerList> BuildHandlerList(
 #if !BUILDFLAG(IS_ANDROID)
   gen_ai_default_policies.emplace_back(key::kVoiceTypingSettings,
                                        prefs::kVoiceTypingSettings);
-  gen_ai_default_policies.emplace_back(key::kIndigo,
+  gen_ai_default_policies.emplace_back(key::kTryOnYouSettings,
                                        indigo::prefs::kIndigoPolicy);
 #endif
   // Default value for SearchContentSharingSettings is 0 if

@@ -31,6 +31,7 @@
 #include "chrome/browser/contextual_tasks/contextual_tasks_page_handler.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_panel_controller.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_service_factory.h"
+#include "chrome/browser/contextual_tasks/contextual_tasks_ui_post_rearchitecture.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_ui_service.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_ui_service_factory.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_utils.h"
@@ -59,6 +60,7 @@
 #include "chrome/grit/generated_resources.h"
 #include "chrome/grit/theme_resources.h"
 #include "components/contextual_search/contextual_search_metrics_recorder.h"
+#include "components/contextual_search/contextual_search_service.h"
 #include "components/contextual_tasks/public/context_decoration_params.h"
 #include "components/contextual_tasks/public/contextual_task.h"
 #include "components/contextual_tasks/public/features.h"
@@ -88,6 +90,7 @@
 #include "content/public/browser/web_ui.h"
 #include "content/public/browser/web_ui_data_source.h"
 #include "content/public/common/content_features.h"
+#include "extensions/buildflags/buildflags.h"
 #include "google_apis/gaia/gaia_constants.h"
 #include "google_apis/gaia/google_service_auth_error.h"
 #include "net/base/backoff_entry.h"
@@ -99,6 +102,7 @@
 #include "ui/base/device_form_factor.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/ui_base_features.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/color/color_provider_key.h"
 #include "ui/webui/buildflags.h"
 #include "ui/webui/tracked_element/tracked_element_handler_document_singleton.h"
@@ -403,9 +407,11 @@ ContextualTasksUI::ContextualTasksUI(content::WebUI* web_ui)
 #if !BUILDFLAG(IS_ANDROID)
   std::optional<lens::LensOverlayInvocationSource> invocation_source;
   if (auto* browser = GetBrowser()) {
-    if (auto* controller = LensSearchController::FromTabWebContents(
-            browser->GetTabStripModel()->GetActiveWebContents())) {
-      invocation_source = controller->invocation_source();
+    if (auto* active_tab = browser->GetActiveTabInterface()) {
+      if (auto* controller = LensSearchController::FromTabWebContents(
+              active_tab->GetContents())) {
+        invocation_source = controller->invocation_source();
+      }
     }
   }
   source->AddBoolean("clearAllInputsWhenSubmittingQuery",
@@ -454,6 +460,12 @@ content::WebUIDataSource* ContextualTasksUI::RegisterWebUIDataSource(
   content::WebUIDataSource* source =
       contextual_tasks::ContextualTasksUIBase::RegisterWebUIDataSource(profile);
   source->AddLocalizedStrings(GetContextualTasksLoadTimeData(profile));
+
+#if !BUILDFLAG(IS_ANDROID)
+  // Exposes shared components under "shared/*" (e.g.,
+  // shared/permission_chip.js)
+  source->AddResourcePaths(kWebuiToolbarSharedResources);
+#endif
 
   return source;
 }
@@ -659,6 +671,8 @@ base::DictValue ContextualTasksUI::GetContextualTasksLoadTimeData(
   dict.Set("composeboxContextMenuEnableMultiTabSelection", true);
   dict.Set("composeboxContextMenuEnableTabDeselection",
            omnibox::IsTabDeselectionInComposeboxEnabled());
+  dict.Set("composeboxContextMenuTooltipsEnabled",
+           omnibox::IsContextMenuTooltipsInComposeboxEnabled());
   dict.Set("enableGhostLoader", contextual_tasks::GetIsGhostLoaderEnabled());
   dict.Set("forceBasicModeIfOpeningThreadHistory",
            contextual_tasks::ShouldForceBasicModeIfOpeningThreadHistory());
@@ -1472,6 +1486,14 @@ void ContextualTasksUI::SyncAutoSuggestedTabContext() {
   if (composebox_handler_ && auto_suggestion_manager_) {
     composebox_handler_->UpdateSuggestedTabContext(
         auto_suggestion_manager_->GetCurrentSuggestion());
+  }
+}
+
+void ContextualTasksUI::ResetForNewThread(const base::Uuid& task_id,
+                                          const GURL& url) {
+  SetTaskId(task_id);
+  if (page_) {
+    page_->ResetForNewThread(task_id, url);
   }
 }
 

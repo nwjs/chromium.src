@@ -555,6 +555,12 @@ class CONTENT_EXPORT RenderWidgetHostImpl
   // but it failed, thus HasFocus() returns false.
   bool is_focused() const { return is_focused_; }
 
+  // Sets and returns whether DevTools emulates focus for the renderer page.
+  void SetFocusEmulationEnabled(bool enabled) {
+    focus_emulation_enabled_ = enabled;
+  }
+  bool IsFocusEmulationEnabled() const { return focus_emulation_enabled_; }
+
   // Support for focus tracking on multi-FrameTree cases. This will notify all
   // descendants (including nested FrameTrees) to distribute a "page focus"
   // update. Users other than WebContents and RenderWidgetHost should use
@@ -1345,7 +1351,7 @@ class CONTENT_EXPORT RenderWidgetHostImpl
 
   // Our delegate, which wants to know mainly about keyboard events.
   // It will remain non-null until DetachDelegate() is called.
-  raw_ptr<RenderWidgetHostDelegate, FlakyDanglingUntriaged> delegate_;
+  raw_ptr<RenderWidgetHostDelegate> delegate_;
 
   // The delegate of the owner of this object.
   // This member is non-null if and only if this RenderWidgetHost is associated
@@ -1569,6 +1575,8 @@ class CONTENT_EXPORT RenderWidgetHostImpl
   // RenderWidgetHostView::HasFocus in that in that the focus request may fail,
   // causing HasFocus to return false when is_focused_ is true.
   bool is_focused_ = false;
+
+  bool focus_emulation_enabled_ = false;
 
   // Indicates whether what the last focus active state that was sent to the
   // renderer.

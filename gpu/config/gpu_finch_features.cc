@@ -316,10 +316,6 @@ const base::FeatureParam<std::string> kWebGPUEnabledToggles{
 // Note that the comma should be URL-encoded.
 const base::FeatureParam<std::string> kWebGPUUnsafeFeatures{
     &kWebGPUService, "UnsafeFeatures", ""};
-// Whether to enable Dawn's spontaneous wire mode on the server side for faster
-// async resolution and timed wait any on the client side.
-const base::FeatureParam<bool> kWebGPUSpontaneousWireServer{
-    &kWebGPUService, "DawnSpontaneousWireServer", true};
 // List of WGSL feature names, delimited by ,
 // The FeatureParam may be overridden via Finch config, or via the command line
 // For example:
@@ -336,7 +332,7 @@ BASE_FEATURE(kWebGPUUseSpirv14, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kWebGPUDecomposeUniformBuffers, base::FEATURE_ENABLED_BY_DEFAULT);
 
-BASE_FEATURE(kWebGPUUseHLSL2021, base::FEATURE_DISABLED_BY_DEFAULT);
+BASE_FEATURE(kWebGPUUseHLSL2021, base::FEATURE_ENABLED_BY_DEFAULT);
 
 BASE_FEATURE(kWebGPUUseSpirvReconvergenceMode,
              base::FEATURE_DISABLED_BY_DEFAULT);
@@ -580,16 +576,9 @@ bool NeedThreadSafeAndroidMedia() {
 }
 
 namespace {
-bool IsSkiaGraphiteSupportedByDevice(const base::CommandLine* command_line) {
+bool IsSkiaGraphiteSupportedByDevice() {
 #if BUILDFLAG(IS_APPLE)
-  // Graphite only works well with ANGLE Metal on Mac or iOS.
-  // TODO(https://crbug.com/40063538): Remove this after ANGLE Metal launches
-  // fully.
-  const bool is_angle_metal_selected =
-      base::FeatureList::IsEnabled(features::kDefaultANGLEMetal) ||
-      command_line->GetSwitchValueASCII(switches::kUseANGLE) ==
-          gl::kANGLEImplementationMetalName;
-  return UsePassthroughCommandDecoder() && is_angle_metal_selected;
+  return UsePassthroughCommandDecoder();
 #elif BUILDFLAG(IS_ANDROID)
   // Desktop Android isn't ready to pick up the fieldtrial_testing_config.json
   // change that enables graphite. However, it's the same platform as regular
@@ -602,8 +591,8 @@ bool IsSkiaGraphiteSupportedByDevice(const base::CommandLine* command_line) {
   // device would already be using Ganesh/Vulkan.
   return IsUsingVulkan();
 #elif BUILDFLAG(IS_CHROMEOS)
-  // Graphite on ChromeOS uses the Dawn Vulkan backend. Only enable Graphite if
-  // device would already be using Ganesh/Vulkan.
+  // Graphite on ChromeOS uses the Dawn Vulkan backend. Only enable Graphite
+  // if device would already be using Ganesh/Vulkan.
   return IsUsingVulkan();
 #elif BUILDFLAG(IS_WIN) && defined(ARCH_CPU_ARM64)
   // Graphite on Windows ARM requires further research.
@@ -612,9 +601,9 @@ bool IsSkiaGraphiteSupportedByDevice(const base::CommandLine* command_line) {
   return true;
 #else
   // Disallow Graphite from being enabled via the base::Feature on
-  // not-yet-supported platforms to avoid users experiencing undefined behavior,
-  // including behavior that might prevent them from being able to return to
-  // chrome://flags to disable the feature.
+  // not-yet-supported platforms to avoid users experiencing undefined
+  // behavior, including behavior that might prevent them from being able to
+  // return to chrome://flags to disable the feature.
   if (base::FeatureList::IsEnabled(features::kSkiaGraphite)) {
     LOG(ERROR) << "Enabling Graphite on a not-yet-supported platform is "
                   "disallowed for safety";
@@ -638,7 +627,7 @@ bool IsSkiaGraphiteEnabled(const base::CommandLine* command_line) {
     return true;
   }
 
-  if (!IsSkiaGraphiteSupportedByDevice(command_line)) {
+  if (!IsSkiaGraphiteSupportedByDevice()) {
     // Return early before checking "SkiaGraphite" feature so that devices
     // which don't support graphite are not included in the finch study.
     return false;
@@ -890,6 +879,9 @@ bool IsGraphiteContextThreadSafe() {
 }
 
 BASE_FEATURE(kWebGPUCompatibilityMode, base::FEATURE_ENABLED_BY_DEFAULT);
+
+BASE_FEATURE(kWebGLDeleteBuffersInBackground,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 BASE_FEATURE(kWebGPUAndroidOpenGLES, base::FEATURE_ENABLED_BY_DEFAULT);
 

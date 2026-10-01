@@ -53,6 +53,7 @@
 #include "components/omnibox/common/omnibox_feature_configs.h"
 #include "components/omnibox/common/omnibox_features.h"
 #include "components/omnibox/common/omnibox_focus_state.h"
+#include "components/sessions/core/session_id.h"
 #include "components/sync_preferences/testing_pref_service_syncable.h"
 #include "components/url_formatter/url_fixer.h"
 #include "content/public/test/browser_task_environment.h"
@@ -323,6 +324,20 @@ TEST_F(OmniboxEditModelTest, RevertZeroSuggestTemporaryText) {
   EXPECT_EQ(u"https://www.example.com/", view()->GetText());
   EXPECT_FALSE(model()->user_input_in_progress());
   EXPECT_TRUE(view()->IsSelectAll());
+}
+
+TEST_F(OmniboxEditModelTest, FullWebUISuppressesZeroSuggestRequest) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitAndEnableFeature(omnibox::kWebUIOmniboxFullPopup);
+  location_bar_model()->set_url(GURL("https://www.example.com/"));
+  location_bar_model()->set_url_for_display(u"https://www.example.com/");
+  EXPECT_TRUE(model()->ResetDisplayTexts());
+  model()->Revert();
+
+  // In Full WebUI mode, native OmniboxEditModel::StartZeroSuggestRequest early-
+  // returns so WebUI can exclusively manage autocomplete queries.
+  model()->StartZeroSuggestRequest();
+  EXPECT_TRUE(controller()->autocomplete_controller()->done());
 }
 
 // This verifies the fix for a bug where calling OpenMatch() with a valid

@@ -123,7 +123,6 @@ public class TabBottomSheetManagerTest {
                     TabbedRootUiCoordinator tabbedRootUiCoordinator =
                             (TabbedRootUiCoordinator) mActivity.getRootUiCoordinatorForTesting();
                     mBottomSheetController = tabbedRootUiCoordinator.getBottomSheetController();
-                    var compositorViewHolder = mActivity.getCompositorViewHolderSupplier().get();
                     View rootView =
                             LayoutInflater.from(mActivity).inflate(R.layout.tab_bottom_sheet, null);
                     mCoBrowseViews =
@@ -293,6 +292,7 @@ public class TabBottomSheetManagerTest {
                                 CoBrowseViewFactory.buildCoBrowseViews(
                                         mWindowAndroid,
                                         webContents,
+                                        /* backgroundColor= */ Color.WHITE,
                                         TabBottomSheetClientType.UNKNOWN,
                                         CoBrowseContainerType.BOTTOM_SHEET,
                                         /* requestFocus= */ false,
@@ -347,6 +347,7 @@ public class TabBottomSheetManagerTest {
                                 CoBrowseViewFactory.buildCoBrowseViews(
                                         mWindowAndroid,
                                         webContents,
+                                        /* backgroundColor= */ Color.WHITE,
                                         TabBottomSheetClientType.UNKNOWN,
                                         CoBrowseContainerType.BOTTOM_SHEET,
                                         /* requestFocus= */ false,

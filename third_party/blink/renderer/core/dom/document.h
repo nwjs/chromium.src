@@ -156,6 +156,7 @@ class AnchorElementInteractionTracker;
 class AnimationClock;
 class AriaNotificationOptions;
 class Attr;
+class BeforeUnloadEvent;
 class BeforeUnloadEventListener;
 class BoxQuadOptions;
 class ViewTransitionSupplement;
@@ -273,6 +274,7 @@ class Text;
 class TransformSource;
 class TreeWalker;
 class TrustedHTML;
+class TrustedHTMLParserOptions;
 class V8DocumentReadyState;
 class V8NodeFilter;
 class V8UnionCSSPseudoElementOrDocumentOrElementOrText;
@@ -946,6 +948,7 @@ class CORE_EXPORT Document : public ContainerNode,
       bool& did_allow_navigation,
       base::TimeTicks& out_before_unload_dialog_opened_time,
       base::TimeTicks& out_before_unload_dialog_closed_time);
+  void DefaultBeforeUnloadEventHandler(BeforeUnloadEvent&);
 
   // Dispatches "pagehide", "visibilitychange" and "unload" events, if not
   // dispatched already. Fills `unload_timing_info` if present.
@@ -1158,7 +1161,8 @@ class CORE_EXPORT Document : public ContainerNode,
   void SetLastFocusType(mojom::blink::FocusType last_focus_type);
   mojom::blink::FocusType LastFocusType() const { return last_focus_type_; }
   bool SetFocusedElement(Element*, const FocusParams&);
-  void ClearFocusedElement(bool omit_blur_events = false);
+  void ClearFocusedElement(
+      BlurEventBehavior blur_event_behavior = BlurEventBehavior::kFire);
   Element* FocusedElement() const { return focused_element_.Get(); }
   const FocusOptions* GetFocusOptions() const { return focus_options_.Get(); }
   void ClearFocusedElementIfNeeded();
@@ -1291,10 +1295,12 @@ class CORE_EXPORT Document : public ContainerNode,
   void DidRemoveEventListeners(uint32_t count);
   bool HasAnyNodeWithEventListeners() const { return event_listener_counts_; }
 
-  bool HasMutationObserversOfType(MutationType type) const {
+  // Only ever OR'd in, never cleared, so this can stay true after the
+  // last observer disconnects.
+  bool MayHaveMutationObserversOfType(MutationType type) const {
     return mutation_observer_types_ & type;
   }
-  bool HasMutationObservers() const { return mutation_observer_types_; }
+  bool MayHaveMutationObservers() const { return mutation_observer_types_; }
   void AddMutationObserverTypes(MutationType types) {
     mutation_observer_types_ |= types;
   }
@@ -1577,7 +1583,7 @@ class CORE_EXPORT Document : public ContainerNode,
   bool AllowInlineEventHandler(Node*,
                                EventListener*,
                                const String& context_url,
-                               const OrdinalNumber& context_line);
+                               const TextPosition& context_position);
 
   void StatePopped(scoped_refptr<SerializedScriptValue>);
 
@@ -2265,7 +2271,7 @@ class CORE_EXPORT Document : public ContainerNode,
                                    ExceptionState& exception_state);
   static Document* parseHTMLUnsafe(ExecutionContext* context,
                                    const V8UnionStringOrTrustedHTML* html,
-                                   TrustedParserOptions* options,
+                                   TrustedHTMLParserOptions* options,
                                    ExceptionState& exception_state);
   static Document* parseHTML(ExecutionContext* context,
                              const String& html,

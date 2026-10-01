@@ -44,9 +44,11 @@ class ReverbAccumulationBuffer final {
   DISALLOW_NEW();
 
  public:
-  explicit ReverbAccumulationBuffer(uint32_t length);
+  ReverbAccumulationBuffer() = default;
   ReverbAccumulationBuffer(const ReverbAccumulationBuffer&) = delete;
   ReverbAccumulationBuffer& operator=(const ReverbAccumulationBuffer&) = delete;
+
+  bool TryAllocate(uint32_t length);
 
   // This will read from, then clear-out numberOfFrames
   void ReadAndClear(base::span<float> destination);
@@ -67,7 +69,7 @@ class ReverbAccumulationBuffer final {
 
  private:
   AudioFloatArray buffer_;
-  uint32_t read_index_;
+  uint32_t read_index_ = 0;
 };
 
 }  // namespace blink

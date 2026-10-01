@@ -46,6 +46,7 @@
 #include "components/lens/lens_overlay_metrics.h"
 #include "components/prefs/pref_service.h"
 #include "components/sessions/content/session_tab_helper.h"
+#include "components/sessions/core/session_id.h"
 #include "components/signin/public/identity_manager/identity_test_environment.h"
 #include "components/signin/public/identity_manager/identity_test_utils.h"
 #include "content/public/test/browser_test.h"
@@ -155,7 +156,7 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksLensOverlayControllerInteractiveUiTest,
   DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kOverlayId);
   DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kFirstTab);
 
-  browser()->GetFeatures().side_panel_ui()->DisableAnimationsForTesting();
+  SidePanelUI::From(browser())->DisableAnimationsForTesting();
   contextual_tasks::ContextualTasksPanelController* controller =
       contextual_tasks::ContextualTasksPanelController::From(browser());
 
@@ -181,7 +182,7 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksLensOverlayControllerInteractiveUiTest,
   DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kOverlayId);
   DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kFirstTab);
 
-  browser()->GetFeatures().side_panel_ui()->DisableAnimationsForTesting();
+  SidePanelUI::From(browser())->DisableAnimationsForTesting();
   contextual_tasks::ContextualTasksPanelController* controller =
       contextual_tasks::ContextualTasksPanelController::From(browser());
   contextual_tasks::ContextualTasksService* contextual_tasks_service =
@@ -227,7 +228,7 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksLensOverlayControllerInteractiveUiTest,
   DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kFirstTab);
   DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kSecondTab);
 
-  browser()->GetFeatures().side_panel_ui()->DisableAnimationsForTesting();
+  SidePanelUI::From(browser())->DisableAnimationsForTesting();
   contextual_tasks::ContextualTasksPanelController* controller =
       contextual_tasks::ContextualTasksPanelController::From(browser());
 
@@ -277,7 +278,7 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksLensOverlayControllerInteractiveUiTest,
   const DeepQuery kPathToToolbarTitle{"contextual-tasks-app", "top-toolbar",
                                       ".top-toolbar-title"};
 
-  browser()->GetFeatures().side_panel_ui()->DisableAnimationsForTesting();
+  SidePanelUI::From(browser())->DisableAnimationsForTesting();
   contextual_tasks::ContextualTasksPanelController* controller =
       contextual_tasks::ContextualTasksPanelController::From(browser());
 
@@ -464,7 +465,7 @@ IN_PROC_BROWSER_TEST_F(ContextualTasksLensOverlayControllerInteractiveUiTest,
                                     "contextual-tasks-composebox",
                                     "#composebox", "#lensIcon"};
 
-  browser()->GetFeatures().side_panel_ui()->DisableAnimationsForTesting();
+  SidePanelUI::From(browser())->DisableAnimationsForTesting();
 
   auto* const browser_view = BrowserView::GetBrowserViewForBrowser(browser());
   auto off_center_point = base::BindLambdaForTesting([browser_view]() {
@@ -656,7 +657,7 @@ IN_PROC_BROWSER_TEST_P(
   DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kOverlayId);
   DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kFirstTab);
 
-  browser()->GetFeatures().side_panel_ui()->DisableAnimationsForTesting();
+  SidePanelUI::From(browser())->DisableAnimationsForTesting();
 
   auto* const browser_view = BrowserView::GetBrowserViewForBrowser(browser());
   auto off_center_point = base::BindLambdaForTesting([browser_view]() {

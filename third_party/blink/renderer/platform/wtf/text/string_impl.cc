@@ -59,7 +59,7 @@ namespace {
 
 struct SameSizeAsStringImpl {
 #if DCHECK_IS_ON()
-  unsigned int ref_count_change_count;
+  wtf_size_t ref_count_change_count;
 #endif
   int fields[3];
 };
@@ -167,7 +167,7 @@ void StringImpl::DestroyIfNeeded() {
   }
 }
 
-unsigned StringImpl::ComputeAsciiFlags() const {
+uint32_t StringImpl::ComputeAsciiFlags() const {
   AsciiStringAttributes ascii_attributes = VisitCharacters(
       *this, [](auto chars) { return CharacterAttributes(chars); });
   uint32_t new_flags = AsciiStringAttributesToFlags(ascii_attributes);
@@ -272,8 +272,7 @@ StringImpl* StringImpl::CreateStatic(base::span<const char> string) {
   DCHECK(!string.empty());
   DCHECK(string.data());
 
-  unsigned hash =
-      StringHasher::ComputeHashAndMaskTop8Bits(string.data(), string.size());
+  uint32_t hash = HashString24(base::as_bytes(string));
 
   StaticStringsTable::const_iterator it = StaticStrings().find(hash);
   if (it != StaticStrings().end()) {
@@ -467,21 +466,12 @@ scoped_refptr<StringImpl> StringImpl::FoldCase() {
     scoped_refptr<StringImpl> new_impl =
         StringImpl::CreateUninitialized(source16.size(), data16);
 
-    bool error;
-    const int32_t real_length = unicode::FoldCase(
-        data16.data(), static_cast<int32_t>(data16.size()), source16.data(),
-        static_cast<int32_t>(source16.size()), &error);
-    if (!error && real_length == static_cast<int32_t>(data16.size())) {
-      return new_impl;
+    std::optional<size_t> real_length = unicode::FoldCase(source16, data16);
+    if (real_length && *real_length != data16.size()) {
+      new_impl = StringImpl::CreateUninitialized(*real_length, data16);
+      real_length = unicode::FoldCase(source16, data16);
     }
-    new_impl = StringImpl::CreateUninitialized(real_length, data16);
-    unicode::FoldCase(data16.data(), static_cast<int32_t>(data16.size()),
-                      source16.data(), static_cast<int32_t>(source16.size()),
-                      &error);
-    if (error) {
-      return original_string;
-    }
-    return new_impl;
+    return real_length ? new_impl : original_string;
   };
 
   const bool is_ascii = ContainsOnlyAsciiOrEmpty();

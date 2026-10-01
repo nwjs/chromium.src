@@ -34,7 +34,7 @@ chromium-metrics-reviews@google.com.
 </variants>
 
 <histogram name="MessagePumpEpoll.WatchedFileDescriptors"
-    units="FileDescriptors" expires_after="2026-12-27">
+    units="FileDescriptors" expires_after="2027-02-28">
   <owner>mthiesse@chromium.org</owner>
   <owner>lizeb@chromium.org</owner>
   <summary>
@@ -196,6 +196,10 @@ chromium-metrics-reviews@google.com.
     Also excludes samples for 'synthetic wakeups', such as when an event is
     discovered by BusyWaitOnEvent. In Finch experiments, enabling busy waiting
     should directly reduce the volume of recorded wakeups.
+
+    Note: The recording of this metric may be inhibited on x86_64 macOS by the
+    InhibitMessagePumpWakeupCounter experiment to measure its performance
+    impact.
   </summary>
   <token key="ThreadName">
     <variant name="BrowserIO"/>
@@ -285,7 +289,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Scheduling.MessagePumpTimeKeeper.{NamedThread}"
-    enum="MessagePumpPhases" expires_after="2026-12-20">
+    enum="MessagePumpPhases" expires_after="2027-02-28">
   <owner>gab@chromium.org</owner>
   <owner>fdoray@chromium.org</owner>
   <owner>spvm@chromium.org</owner>
@@ -560,7 +564,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Scheduling.ThreadPriority.Browser.{ThreadName}" units="int"
-    expires_after="2027-01-03">
+    expires_after="2027-03-07">
   <owner>anandrv@google.com</owner>
   <owner>clank-performance-team@google.com</owner>
   <summary>
@@ -580,7 +584,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Scheduling.ThreadPriority.GPUProcess.{ThreadName}" units="int"
-    expires_after="2027-01-03">
+    expires_after="2027-03-07">
   <owner>anandrv@google.com</owner>
   <owner>clank-performance-team@google.com</owner>
   <summary>
@@ -600,7 +604,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Scheduling.ThreadPriority.Renderer.{ThreadName}" units="int"
-    expires_after="2027-01-03">
+    expires_after="2027-03-07">
   <owner>anandrv@google.com</owner>
   <owner>clank-performance-team@google.com</owner>
   <summary>

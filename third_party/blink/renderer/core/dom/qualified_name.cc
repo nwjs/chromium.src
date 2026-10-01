@@ -36,6 +36,7 @@ namespace blink {
 struct SameSizeAsQualifiedNameImpl
     : public RefCounted<SameSizeAsQualifiedNameImpl> {
   unsigned bitfield;
+  uint32_t bloom_filter;
   void* pointers[4];
 };
 
@@ -51,7 +52,7 @@ static QualifiedNameCache& GetQualifiedNameCache() {
 }
 
 struct QNameComponentsTranslator {
-  static unsigned GetHash(const QualifiedNameData& data) {
+  static uint32_t GetHash(const QualifiedNameData& data) {
     return HashComponents(data.components_);
   }
   static bool Equal(QualifiedNameImpl* name, const QualifiedNameData& data) {
@@ -132,7 +133,12 @@ const AtomicString& QualifiedName::LocalNameUpperSlow() const {
   return impl_->local_name_upper_;
 }
 
-unsigned QualifiedNameImpl::ComputeHash() const {
+uint32_t QualifiedName::BloomFilterSlow() const {
+  impl_->bloom_filter_ = Element::FilterForString(LocalNameUpper());
+  return impl_->bloom_filter_;
+}
+
+uint32_t QualifiedNameImpl::ComputeHash() const {
   QualifiedNameComponents components = {prefix_.Impl(), local_name_.Impl(),
                                         namespace_.Impl()};
   return HashComponents(components);
@@ -175,6 +181,6 @@ QualifiedNameWithHash::QualifiedNameWithHash(const AtomicString& prefix,
                                              const AtomicString& namespace_uri,
                                              bool is_static)
     : QualifiedName(prefix, local_name, namespace_uri, is_static),
-      bloom_filter(Element::FilterForAttribute(*this)) {}
+      bloom_filter(BloomFilter()) {}
 
 }  // namespace blink

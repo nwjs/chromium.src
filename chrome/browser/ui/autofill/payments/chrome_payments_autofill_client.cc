@@ -80,6 +80,8 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
+#include "ui/base/page_transition_types.h"
+#include "ui/base/window_open_disposition.h"
 #include "url/gurl.h"
 
 #if BUILDFLAG(IS_ANDROID)
@@ -914,10 +916,9 @@ ChromePaymentsAutofillClient::GetMerchantPromoCodeManager() {
 void ChromePaymentsAutofillClient::OpenPromoCodeOfferDetailsURL(
     const GURL& url) {
   web_contents()->OpenURL(
-      content::OpenURLParams(url, content::Referrer(),
-                             WindowOpenDisposition::NEW_FOREGROUND_TAB,
-                             ui::PageTransition::PAGE_TRANSITION_AUTO_TOPLEVEL,
-                             /*is_renderer_initiated=*/false),
+      content::OpenURLParams::CreateBrowserInitiated(
+          url, WindowOpenDisposition::NEW_FOREGROUND_TAB,
+          ui::PageTransition::PAGE_TRANSITION_AUTO_TOPLEVEL),
       /*navigation_handle_callback=*/{});
 }
 

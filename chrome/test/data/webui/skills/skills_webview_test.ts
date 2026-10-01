@@ -8,8 +8,9 @@ import {loadTimeData} from '//resources/js/load_time_data.js';
 import {ErrorType} from 'chrome://skills/error_page.js';
 import {SkillsDialogType} from 'chrome://skills/skill.mojom-webui.js';
 import {SkillsWebview} from 'chrome://skills/v2/skills_webview.js';
+import type {SkillsWebviewBridge} from 'chrome://skills/v2/skills_webview_bridge.js';
 import {IS_SAVING_GEMINI_QUERY_PARAMETER, SkillSource, SOURCE_QUERY_PARAMETER} from 'chrome://skills/v2/skills_webview_bridge_constants.js';
-import {assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
+import {assertEquals, assertFalse, assertNull, assertTrue} from 'chrome://webui-test/chai_assert.js';
 
 class TestSkillsWebview extends SkillsWebview {
   getRemoteUrlForTesting(): string {
@@ -116,6 +117,9 @@ suite('SkillsWebviewTest', () => {
     const webview = document.createElement('webview');
     webview.id = 'webview';
     webview.setAttribute('hidden', '');
+    webview.setAttribute('autosize', 'on');
+    webview.setAttribute('minheight', '200');
+    webview.setAttribute('maxheight', '710');
     const loadingPage = document.createElement('loading-page');
     loadingPage.id = 'loading-page';
     const errorPage = document.createElement('error-page');
@@ -140,6 +144,11 @@ suite('SkillsWebviewTest', () => {
     document.body.innerHTML = window.trustedTypes!.emptyHTML;
     const webview = document.createElement('webview');
     webview.id = 'webview';
+    webview.setAttribute('autosize', 'on');
+    webview.setAttribute('minwidth', '512');
+    webview.setAttribute('minheight', '200');
+    webview.setAttribute('maxwidth', '512');
+    webview.setAttribute('maxheight', '710');
     const loadingPage = document.createElement('loading-page');
     loadingPage.id = 'loading-page';
     const errorPage = document.createElement('error-page');
@@ -189,4 +198,62 @@ suite('SkillsWebviewTest', () => {
     assertTrue(
         !!loadingPage.shadowRoot?.querySelector('.skeleton-editor-card'));
   });
+
+  test('SkillsWebview_OnUserSkillsUpdated_CallsBridge', () => {
+    class BridgeMockSkillsWebview extends SkillsWebview {
+      sentSkillsUpdated = false;
+      override bridge = {
+        sendSkillsUpdated: () => {
+          this.sentSkillsUpdated = true;
+        },
+      } as unknown as SkillsWebviewBridge;
+    }
+
+    const webviewApp = new BridgeMockSkillsWebview();
+    webviewApp.onUserSkillsUpdated();
+    assertTrue(webviewApp.sentSkillsUpdated);
+  });
+
+  test('ErrorPage_DoesNotRenderCancelButtonByDefault', async () => {
+    document.body.innerHTML = window.trustedTypes!.emptyHTML;
+    const errorPage = document.createElement('error-page');
+    document.body.appendChild(errorPage);
+    await errorPage.updateComplete;
+
+    assertNull(errorPage.shadowRoot?.querySelector('#cancelButton'));
+  });
+
+  test('ErrorPage_RendersCancelButtonWhenDialogIsTrue', async () => {
+    document.body.innerHTML = window.trustedTypes!.emptyHTML;
+    const errorPage = document.createElement('error-page');
+    errorPage.dialog = true;
+    document.body.appendChild(errorPage);
+    await errorPage.updateComplete;
+
+    assertTrue(!!errorPage.shadowRoot?.querySelector('#cancelButton'));
+  });
+
+  test('ErrorPage_RendersSignInButtonWhenDialogAndGlicNotEnabled', async () => {
+    document.body.innerHTML = window.trustedTypes!.emptyHTML;
+    const errorPage = document.createElement('error-page');
+    errorPage.dialog = true;
+    errorPage.errorType = ErrorType.GLIC_NOT_ENABLED;
+    document.body.appendChild(errorPage);
+    await errorPage.updateComplete;
+
+    assertTrue(!!errorPage.shadowRoot?.querySelector('#signInButton'));
+  });
+
+  test(
+      'ErrorPage_DoesNotRenderSignInButtonWhenDialogAndSkillsDisabled',
+      async () => {
+        document.body.innerHTML = window.trustedTypes!.emptyHTML;
+        const errorPage = document.createElement('error-page');
+        errorPage.dialog = true;
+        errorPage.errorType = ErrorType.SKILLS_DISABLED;
+        document.body.appendChild(errorPage);
+        await errorPage.updateComplete;
+
+        assertNull(errorPage.shadowRoot?.querySelector('#signInButton'));
+      });
 });

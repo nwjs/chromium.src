@@ -21,6 +21,10 @@
 #include "base/trace_event/trace_event.h"
 #include "chrome/browser/android/resource_mapper.h"
 #include "chrome/browser/ui/autofill/autofill_keyboard_accessory_controller.h"
+#include "components/autofill/content/browser/content_autofill_client.h"
+#include "components/autofill/core/browser/data_manager/payments/payments_data_manager.h"
+#include "components/autofill/core/browser/data_manager/personal_data_manager.h"
+#include "components/autofill/core/browser/metrics/autofill_metrics.h"
 #include "components/autofill/core/browser/suggestions/suggestion.h"
 #include "components/autofill/core/browser/suggestions/suggestion_type.h"
 #include "components/autofill/core/browser/ui/autofill_resource_util.h"
@@ -178,6 +182,19 @@ void AutofillKeyboardAccessoryViewImpl::Show() {
     if (!IsSuggestionTypeEligibleForKeyboardAccessory(suggestion.type)) {
       continue;
     }
+    if (suggestion.type == SuggestionType::kScanCreditCard) {
+      bool is_new_user = true;
+      if (auto* client = ContentAutofillClient::FromWebContents(
+              controller_->GetWebContents())) {
+        is_new_user = client->GetPersonalDataManager()
+                          .payments_data_manager()
+                          .GetCreditCards()
+                          .empty();
+      }
+      AutofillMetrics::LogScanCreditCardPromptShown(
+          AutofillMetrics::ScanCreditCardPromptEntryPoint::kKeyboardAccessory,
+          is_new_user);
+    }
     int android_icon_id = 0;
     if (suggestion.icon != Suggestion::Icon::kNoIcon) {
       android_icon_id = ResourceMapper::MapToJavaDrawableId(
@@ -215,6 +232,10 @@ void AutofillKeyboardAccessoryViewImpl::Show() {
                    std::get_if<Suggestion::AutofillAiPayload>(
                        &suggestion.payload)) {
       payload = ai_payload->CreateJavaObject();
+    } else if (const auto* at_memory_payload =
+                   std::get_if<Suggestion::AtMemoryPayload>(
+                       &suggestion.payload)) {
+      payload = at_memory_payload->CreateJavaObject();
     }
 
     auto* custom_icon_url =
@@ -246,18 +267,46 @@ void AutofillKeyboardAccessoryViewImpl::ConfirmDeletion(
     const std::u16string& confirmation_title,
     const std::u16string& confirmation_body,
     const std::u16string& confirmation_body_link,
-    const std::u16string& confirmation_button_text,
+    const std::u16string& confirm_button_text,
     base::OnceCallback<void(bool)> deletion_callback) {
   JNIEnv* env = base::android::AttachCurrentThread();
   deletion_callback_ = std::move(deletion_callback);
   Java_AutofillKeyboardAccessoryViewBridge_confirmDeletion(
       env, java_object_, confirmation_title, confirmation_body,
-      confirmation_body_link, confirmation_button_text);
+      confirmation_body_link, confirm_button_text);
+}
+
+void AutofillKeyboardAccessoryViewImpl::ShowAutofillAiSuggestionDetails(
+    const std::u16string& title,
+    const std::u16string& body,
+    const std::u16string& confirm_button_text,
+    const std::u16string& primary_button_text,
+    base::OnceCallback<void(bool)> suppression_callback) {
+  JNIEnv* env = base::android::AttachCurrentThread();
+  autofill_ai_suppression_callback_ = std::move(suppression_callback);
+  Java_AutofillKeyboardAccessoryViewBridge_showAutofillAiSuggestionDetails(
+      env, java_object_, title, body, confirm_button_text, primary_button_text);
 }
 
 void AutofillKeyboardAccessoryViewImpl::SuggestionAccepted(JNIEnv* env,
                                                            int32_t list_index) {
   if (controller_) {
+    if (list_index >= 0 && list_index < controller_->GetLineCount()) {
+      const Suggestion& suggestion = controller_->GetSuggestionAt(list_index);
+      if (suggestion.type == SuggestionType::kScanCreditCard) {
+        bool is_new_user = true;
+        if (auto* client = ContentAutofillClient::FromWebContents(
+                controller_->GetWebContents())) {
+          is_new_user = client->GetPersonalDataManager()
+                            .payments_data_manager()
+                            .GetCreditCards()
+                            .empty();
+        }
+        AutofillMetrics::LogScanCreditCardPromptSelected(
+            AutofillMetrics::ScanCreditCardPromptEntryPoint::kKeyboardAccessory,
+            is_new_user);
+      }
+    }
     controller_->AcceptSuggestion(
         list_index, AutofillMetrics::SuggestionAcceptedMethod::kTap);
   }
@@ -280,9 +329,7 @@ void AutofillKeyboardAccessoryViewImpl::SuggestionSelectionStateChanged(
 void AutofillKeyboardAccessoryViewImpl::DeletionRequested(JNIEnv* env,
                                                           int32_t list_index) {
   if (controller_) {
-    controller_->RemoveSuggestion(
-        list_index,
-        AutofillMetrics::SingleEntryRemovalMethod::kKeyboardAccessory);
+    controller_->RemoveSuggestion(list_index);
   }
 }
 
@@ -293,6 +340,26 @@ void AutofillKeyboardAccessoryViewImpl::OnDeletionDialogClosed(JNIEnv* env,
     return;
   }
   std::move(deletion_callback_).Run(confirmed);
+}
+
+void AutofillKeyboardAccessoryViewImpl::AutofillAiSuggestionDetailsRequested(
+    JNIEnv* env,
+    int32_t list_index) {
+  if (controller_ && list_index >= 0) {
+    controller_->ShowAutofillAiSuggestionDetails(
+        base::checked_cast<size_t>(list_index));
+  }
+}
+
+void AutofillKeyboardAccessoryViewImpl::OnAutofillAiSuppressionDialogClosed(
+    JNIEnv* env,
+    bool confirmed) {
+  if (autofill_ai_suppression_callback_.is_null()) {
+    LOG(DFATAL) << "OnAutofillAiSuppressionDialogClosed called but no dialog "
+                   "is pending!";
+    return;
+  }
+  std::move(autofill_ai_suppression_callback_).Run(confirmed);
 }
 
 void AutofillKeyboardAccessoryViewImpl::ViewDismissed(JNIEnv* env) {

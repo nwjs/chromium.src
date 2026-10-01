@@ -54,8 +54,6 @@ BASE_DECLARE_FEATURE(kInStockNotification);
 // Feature flag for showing discounts on checkout autofill.
 BASE_DECLARE_FEATURE(kDiscountAutofill);
 
-BASE_DECLARE_FEATURE(kShoppingAlternateServer);
-
 // Feature flag for Discounts on navigation.
 enum class DiscountDialogAutoPopupBehavior {
   // Only popup for the first time
@@ -78,7 +76,6 @@ extern const base::FeatureParam<bool> kDiscountOnShoppyPage;
 BASE_DECLARE_FEATURE(kDiscountsUiRefactor);
 
 BASE_DECLARE_FEATURE(kRetailCoupons);
-BASE_DECLARE_FEATURE(kCommerceDeveloper);
 // Parameter for enabling feature variation of coupons with code.
 extern const char kRetailCouponsWithCodeParam[];
 

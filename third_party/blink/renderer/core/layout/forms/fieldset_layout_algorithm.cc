@@ -249,7 +249,7 @@ void FieldsetLayoutAlgorithm::LayoutLegend(BlockNode& legend) {
 
   auto legend_space = CreateConstraintSpaceForLegend(
       legend, ChildAvailableSize(), percentage_size);
-  const LayoutResult* result = legend.Layout(legend_space, GetBreakToken());
+  const LayoutResult* result = legend.Layout(legend_space);
 
   // Legends are monolithic, so abortions are not expected.
   DCHECK_EQ(result->Status(), LayoutResult::kSuccess);
@@ -443,7 +443,7 @@ void FieldsetLayoutAlgorithm::ConsumeRemainingFragmentainerSpace() {
 }
 
 MinMaxSizesResult FieldsetLayoutAlgorithm::ComputeMinMaxSizes(
-    const MinMaxSizesFloatInput&) {
+    const MinMaxSizesInput& input) {
   MinMaxSizesResult result;
 
   bool has_inline_size_containment = Node().ShouldApplyInlineSizeContainment();
@@ -466,7 +466,8 @@ MinMaxSizesResult FieldsetLayoutAlgorithm::ComputeMinMaxSizes(
       builder.SetAvailableBlockSize(kIndefiniteSize);
       const auto space = builder.ToConstraintSpace();
 
-      result = ComputeMinAndMaxContentContribution(Style(), legend, space);
+      result =
+          ComputeMinAndMaxContentContribution(Style(), legend, space, input);
       result.sizes +=
           ComputeMarginsFor(space, legend.Style(), GetConstraintSpace())
               .InlineSum();
@@ -488,7 +489,7 @@ MinMaxSizesResult FieldsetLayoutAlgorithm::ComputeMinMaxSizes(
     const auto space = builder.ToConstraintSpace();
 
     MinMaxSizesResult content_result =
-        ComputeMinAndMaxContentContribution(Style(), content, space);
+        ComputeMinAndMaxContentContribution(Style(), content, space, input);
     content_result.sizes +=
         ComputeMarginsFor(space, content.Style(), GetConstraintSpace())
             .InlineSum();

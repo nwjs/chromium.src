@@ -38,16 +38,23 @@ const AudioProcessingProperties& AudioProcessingProperties::Disabled() {
   return kDisabledProperties;
 }
 
-bool AudioProcessingProperties::HasSameReconfigurableSettings(
+bool AudioProcessingProperties::HasSameSessionIdentityProperties(
     const AudioProcessingProperties& other) const {
-  return echo_cancellation_mode == other.echo_cancellation_mode;
+  return echo_cancellation_mode == other.echo_cancellation_mode
+#if BUILDFLAG(CHROME_WIDE_ECHO_CANCELLATION)
+         && voice_isolation == other.voice_isolation
+#endif
+      ;
 }
 
-bool AudioProcessingProperties::HasSameNonReconfigurableSettings(
+bool AudioProcessingProperties::HasSameInterlockingProperties(
     const AudioProcessingProperties& other) const {
   return auto_gain_control == other.auto_gain_control &&
-         noise_suppression == other.noise_suppression &&
-         voice_isolation == other.voice_isolation;
+         noise_suppression == other.noise_suppression
+#if !BUILDFLAG(CHROME_WIDE_ECHO_CANCELLATION)
+         && voice_isolation == other.voice_isolation
+#endif
+      ;
 }
 
 std::string AudioProcessingProperties::ToString() const {

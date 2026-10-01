@@ -116,9 +116,9 @@ public class MediaCaptureDevicesDispatcherAndroidTest {
 
     @Test
     public void testNotifyTabCapturingStopped_WithActiveBridge() {
-        TabSharingUIManager manager = new TabSharingUIManager();
-        TabSharingUIManager.setInstanceForTesting(manager);
-        TabSharingUIBridge bridge = mock(TabSharingUIBridge.class);
+        TabSharingUiManager manager = new TabSharingUiManager();
+        TabSharingUiManager.setInstanceForTesting(manager);
+        TabSharingUiBridge bridge = mock(TabSharingUiBridge.class);
         when(bridge.getCapturer()).thenReturn(mWebContents);
         manager.addBridge(bridge);
 
@@ -130,8 +130,8 @@ public class MediaCaptureDevicesDispatcherAndroidTest {
 
     @Test
     public void testNotifyTabCapturingStopped_FallbackWithoutBridge() {
-        TabSharingUIManager manager = new TabSharingUIManager();
-        TabSharingUIManager.setInstanceForTesting(manager);
+        TabSharingUiManager manager = new TabSharingUiManager();
+        TabSharingUiManager.setInstanceForTesting(manager);
 
         MediaCaptureDevicesDispatcherAndroid.notifyTabCapturingStopped(mWebContents);
 

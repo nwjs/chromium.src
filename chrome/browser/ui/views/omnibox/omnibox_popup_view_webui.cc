@@ -24,6 +24,7 @@
 #include "chrome/browser/ui/webui/top_chrome/webui_contents_preload_manager.h"
 #include "components/omnibox/common/omnibox_features.h"
 #include "ui/accessibility/ax_node_data.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/views/widget/widget.h"
 
 OmniboxPopupViewWebUI::OmniboxPopupViewWebUI(
@@ -81,8 +82,7 @@ void OmniboxPopupViewWebUI::UpdatePopupAppearance() {
       controller()->autocomplete_controller()->result().has_contextual_chips();
   const bool contextual_chips_feature_enabled =
       omnibox::IsAimPopupEnabled(location_bar_->GetProfile()) &&
-      (omnibox::kShowLensSearchChip.Get() ||
-       omnibox::kAskGShowChip.Get());
+      omnibox::kAskGShowChip.Get();
   const bool has_results_or_chips =
       has_results || (contextual_chips_feature_enabled && has_contextual_chips);
   const bool should_be_visible =

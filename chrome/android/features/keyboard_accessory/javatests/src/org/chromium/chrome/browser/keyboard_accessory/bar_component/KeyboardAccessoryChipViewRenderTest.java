@@ -11,7 +11,6 @@ import static org.chromium.base.test.util.ApplicationTestUtils.finishActivity;
 import static org.chromium.chrome.browser.keyboard_accessory.AccessoryAction.AUTOFILL_SUGGESTION;
 import static org.chromium.chrome.browser.keyboard_accessory.AccessoryAction.CREDMAN_CONDITIONAL_UI_REENTRY;
 import static org.chromium.chrome.browser.keyboard_accessory.AccessoryAction.GENERATE_PASSWORD_AUTOMATIC;
-import static org.chromium.ui.base.LocalizationUtils.setRtlForTesting;
 
 import android.app.Activity;
 import android.graphics.Color;
@@ -52,7 +51,7 @@ import org.chromium.chrome.browser.keyboard_accessory.bar_component.KeyboardAcce
 import org.chromium.chrome.browser.keyboard_accessory.bar_component.KeyboardAccessoryProperties.DismissBarItem;
 import org.chromium.chrome.browser.keyboard_accessory.bar_component.KeyboardAccessoryViewBinder.BarItemViewHolder;
 import org.chromium.chrome.browser.keyboard_accessory.data.KeyboardAccessoryData.Action;
-import org.chromium.chrome.browser.profiles.Profile;
+import org.chromium.chrome.browser.profiles.TestProfile;
 import org.chromium.chrome.test.ChromeJUnit4RunnerDelegate;
 import org.chromium.components.autofill.AutofillProfile;
 import org.chromium.components.autofill.AutofillProfilePayload;
@@ -103,20 +102,22 @@ public class KeyboardAccessoryChipViewRenderTest {
     public final RenderTestRule mRenderTestRule =
             RenderTestRule.Builder.withPublicCorpus()
                     .setBugComponent(Component.UI_BROWSER_AUTOFILL)
-                    .setRevision(7)
+                    .setRevision(8)
                     .build();
+
+    private final TestProfile mProfile = TestProfile.createRegular();
 
     @Mock private KeyboardAccessoryView mKeyboardAccessoryView;
     @Mock private AutofillImageFetcher mMockImageFetcher;
     @Mock private FillingProductBridgeJni mMockFillingProductBridgeJni;
-    @Mock private Profile mMockProfile;
     @Mock private PersonalDataManager mMockPersonalDataManager;
 
+    private final boolean mUseRtlLayout;
     private ViewGroup mContentView;
     private KeyboardAccessoryViewBinder.UiConfiguration mUiConfiguration;
 
     public KeyboardAccessoryChipViewRenderTest(boolean nightModeEnabled, boolean useRtlLayout) {
-        setRtlForTesting(useRtlLayout);
+        mUseRtlLayout = useRtlLayout;
         NightModeTestUtils.setUpNightModeForBlankUiTestActivity(nightModeEnabled);
         mRenderTestRule.setNightModeEnabled(nightModeEnabled);
         mRenderTestRule.setVariantPrefix(useRtlLayout ? "RTL" : "LTR");
@@ -144,6 +145,9 @@ public class KeyboardAccessoryChipViewRenderTest {
                             LinearLayout contentView = new LinearLayout(activity);
                             contentView.setOrientation(LinearLayout.VERTICAL);
                             contentView.setBackgroundColor(Color.WHITE);
+                            if (mUseRtlLayout) {
+                                contentView.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
+                            }
 
                             activity.setContentView(
                                     contentView,
@@ -158,7 +162,6 @@ public class KeyboardAccessoryChipViewRenderTest {
     @After
     public void tearDown() throws Exception {
         runOnUiThreadBlocking(NightModeTestUtils::tearDownNightModeForBlankUiTestActivity);
-        setRtlForTesting(false);
         try {
             finishActivity(mActivityTestRule.getActivity());
         } catch (Exception e) {
@@ -295,9 +298,9 @@ public class KeyboardAccessoryChipViewRenderTest {
                         mKeyboardAccessoryView,
                         mUiConfiguration,
                         mContentView,
-                        AutofillBarItem.getBarItemType(suggestion, mMockProfile));
+                        AutofillBarItem.getBarItemType(suggestion, mProfile));
         ChipView chipView = (ChipView) viewHolder.itemView;
-        AutofillBarItem item = new AutofillBarItem(suggestion, action, mMockProfile);
+        AutofillBarItem item = new AutofillBarItem(suggestion, action, mProfile);
         item.setEnabled(enabled);
         viewHolder.bind(item, chipView);
         chipView.setLayoutParams(

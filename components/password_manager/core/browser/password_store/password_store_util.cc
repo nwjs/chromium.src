@@ -5,22 +5,25 @@
 #include "components/password_manager/core/browser/password_store/password_store_util.h"
 
 #include <algorithm>
-#include <variant>
 
+#include "base/types/expected.h"
 #include "components/password_manager/core/browser/password_store/password_store_interface.h"
 
 namespace password_manager {
 
-PasswordChangesOrError JoinPasswordStoreChanges(
-    const std::vector<PasswordChangesOrError>& changes_to_join) {
+base::expected<std::optional<PasswordStoreChangeList>,
+               PasswordStoreBackendError>
+JoinPasswordStoreChanges(
+    const std::vector<base::expected<std::optional<PasswordStoreChangeList>,
+                                     PasswordStoreBackendError>>&
+        changes_to_join) {
   PasswordStoreChangeList joined_changes;
   for (const auto& changes_or_error : changes_to_join) {
-    if (std::holds_alternative<PasswordStoreBackendError>(changes_or_error)) {
-      return std::get<PasswordStoreBackendError>(changes_or_error);
+    if (!changes_or_error.has_value()) {
+      return base::unexpected(changes_or_error.error());
     }
-    const PasswordChanges& changes =
-        std::get<PasswordChanges>(changes_or_error);
-    if (!changes.has_value()) {
+    const std::optional<PasswordStoreChangeList>& changes = *changes_or_error;
+    if (!changes) {
       return std::nullopt;
     }
     std::ranges::copy(*changes, std::back_inserter(joined_changes));
@@ -28,11 +31,10 @@ PasswordChangesOrError JoinPasswordStoreChanges(
   return joined_changes;
 }
 
-LoginsResult GetLoginsOrEmptyListOnFailure(LoginsResultOrError result) {
-  if (std::holds_alternative<PasswordStoreBackendError>(result)) {
-    return {};
-  }
-  return std::move(std::get<LoginsResult>(result));
+std::vector<StoredCredential> GetLoginsOrEmptyListOnFailure(
+    base::expected<std::vector<StoredCredential>, PasswordStoreBackendError>
+        result) {
+  return std::move(result).value_or({});
 }
 
 std::vector<std::unique_ptr<PasswordForm>> ConvertPasswordToUniquePtr(

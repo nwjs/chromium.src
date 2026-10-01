@@ -26,6 +26,7 @@ import org.junit.runners.Parameterized.UseParametersRunnerFactory;
 
 import org.chromium.android_webview.AwBrowserProcess;
 import org.chromium.android_webview.AwContents;
+import org.chromium.android_webview.AwMinidumpUploader;
 import org.chromium.android_webview.AwWindowCoverageTracker;
 import org.chromium.android_webview.common.AwFeatureMap;
 import org.chromium.android_webview.common.AwFeatures;
@@ -87,10 +88,11 @@ public class AwMetricsIntegrationTest extends AwParameterizedTest {
 
     @Before
     public void setUp() throws Exception {
-        // Kick off the metrics consent-fetching process. MetricsTestPlatformServiceBridge mocks out
-        // user consent for when we query it with
-        // AwBrowserProcess.handleMinidumpsAndSetMetricsConsent(), so metrics consent is guaranteed
-        // to be granted.
+        // Kick off the metrics consent-fetching process.
+        // MetricsTestPlatformServiceBridge mocks out user consent for when we
+        // query it with
+        // AwMinidumpUploader.handleMinidumpsAndSetMetricsConsent(), so metrics
+        // consent is guaranteed to be granted.
         mPlatformServiceBridge = new MetricsTestPlatformServiceBridge();
         PlatformServiceBridge.injectInstance(mPlatformServiceBridge);
         ThreadUtils.runOnUiThreadBlocking(
@@ -133,7 +135,7 @@ public class AwMetricsIntegrationTest extends AwParameterizedTest {
                     AwMetricsServiceClient.setFastStartupForTesting(true);
                     AwMetricsServiceClient.setUploadIntervalForTesting(UPLOAD_INTERVAL_MS);
 
-                    AwBrowserProcess.handleMinidumpsAndSetMetricsConsent(
+                    AwMinidumpUploader.handleMinidumpsAndSetMetricsConsent(
                             /* updateMetricsConsent= */ true);
                 });
 
@@ -328,20 +330,34 @@ public class AwMetricsIntegrationTest extends AwParameterizedTest {
     @Test
     @MediumTest
     @Feature({"AndroidWebView"})
+    @OnlyRunIn(MULTI_PROCESS)
     public void testMetadata_stability_rendererLaunchCount() throws Throwable {
         EmbeddedTestServer embeddedTestServer =
                 EmbeddedTestServer.createAndStartServer(
                         InstrumentationRegistry.getInstrumentation().getContext());
-        // Load a page to ensure the renderer process is created.
+
+        // Load a regular page to ensure the initial (or spare) renderer process is used.
         mRule.loadUrlSync(
                 mAwContents,
                 mContentsClient.getOnPageFinishedHelper(),
                 embeddedTestServer.getURL("/android_webview/test/data/hello_world.html"));
-        assertEquals(
-                "Should have correct stability histogram kRendererLaunch count",
-                1,
+
+        int countBeforeWebUi =
                 RecordHistogram.getHistogramValueCountForTesting(
-                        "Stability.Counts2", StabilityEventType.RENDERER_LAUNCH));
+                        "Stability.Counts2", StabilityEventType.RENDERER_LAUNCH);
+
+        // Load chrome://histograms. WebUI cannot share a process with web content, so this will
+        // launch a new renderer process.
+        mRule.loadUrlSync(
+                mAwContents, mContentsClient.getOnPageFinishedHelper(), "chrome://histograms");
+
+        int countAfterWebUi =
+                RecordHistogram.getHistogramValueCountForTesting(
+                        "Stability.Counts2", StabilityEventType.RENDERER_LAUNCH);
+        assertEquals(
+                "Should have incremented stability histogram kRendererLaunch count",
+                countBeforeWebUi + 1,
+                countAfterWebUi);
     }
 
     @Test

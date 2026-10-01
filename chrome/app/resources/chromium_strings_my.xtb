@@ -39,7 +39,6 @@
 <translation id="1330562121671411446">ဘာသာစကား ရှာရန်</translation>
 <translation id="1342274909142618978">Chromium (<ph name="URL" />) မှဒေတာကိုလည်း ဖျက်ရန်</translation>
 <translation id="1345251407431278948">ပင်ထိုးထားသည်။ ‘ပုံဖြင့်ရှာဖွေမှု’ ကို ကိရိယာဘားပေါ်ရှိ ခလုတ်အသစ်မှတစ်ဆင့် ထပ်သုံးနိုင်သည်</translation>
-<translation id="1356661055722410047">အသစ်။ စခရင်ရှိ စာသားနှင့်ပုံ နှစ်မျိုးစလုံးကို ဘာသာပြန်နိုင်သည်</translation>
 <translation id="1383876407941801731">ရှာဖွေမှု</translation>
 <translation id="1388276868779258475">သွားရင်းလာရင်း ဘရောက်စ်လုပ်ရန် Chromium အက်ပ်ကို သုံးပါ</translation>
 <translation id="141901961143729572">သင့်ထင်မြင်ချက်များ မျှဝေပါ</translation>
@@ -71,6 +70,7 @@
 <translation id="1793486931176048546">Chromium ကို Taskbar တွင် ပင်ထိုးပြီး အမြန်သုံးနိုင်ရန်အတွက် Windows အကြောင်းကြားချက်ရှိ <ph name="BEGIN_BOLD" />Yes<ph name="END_BOLD" /> ကို နှိပ်ပါ</translation>
 <translation id="1808667845054772817">Chromium ကို ပြန်လည်တပ်ဆင်ရန်</translation>
 <translation id="1820835682567584003">Chromium လုပ်ဆောင်နေသည်မှာ <ph name="AUTHENTICATION_PURPOSE" /></translation>
+<translation id="1828328511398219809"><ph name="EXISTING_USER" /> သည် လက်မှတ်ထိုးဝင်ပြီးဖြစ်သည်။ သင်၏ ဘရောက်စ်လုပ်ခြင်းကို ခွဲခြားထားရန်အတွက် သင့်ကိုယ်ပိုင်ပရိုဖိုင်တွင် <ph name="USER_EMAIL_ADDRESS" /> အဖြစ် Chromium သို့ လက်မှတ်ထိုးဝင်ပါ။ <ph name="DEVICE" /> မှ နောက်ဆက်တွဲနှင့် အခြားအရာများကိုလည်း ရရှိပါမည်။</translation>
 <translation id="183031085822326697">နောက်တစ်ကြိမ်တွင် သင်၏ <ph name="DEVICE_TYPE" /> ၌ Chromium ကို ဖွင့်သောအခါ Google Password Manager သုံးရန် တိုက်တွန်းချက်ကို မြင်ရပါမည်။</translation>
 <translation id="1838374766361614909">ရှာဖွေမှုကို ရှင်းပါ</translation>
 <translation id="18552579716432081">ဖွင့်ကြည့်ထားသည့်မှတ်တမ်းဒေတာကို ဤစက်မှသာ ဖျက်ပြီး သင့် Google Account တွင် သိမ်းထားရန် <ph name="BEGIN_LINK" />Chromium မှ အကောင့်ထွက်ပါ<ph name="END_LINK" />။</translation>
@@ -150,6 +150,7 @@
 <translation id="2575822587468774919">‘ပုံဖြင့်ရှာဖွေမှု’ ဖြင့် ရှာရန် တစ်ခုခုရွေးပါ</translation>
 <translation id="2576118232315942160">သင့်စက်အားလုံးတွင် စကားဝှက်နှင့် အခြားအရာများရယူရန် Chromium သို့ လက်မှတ်ထိုးဝင်ပါ</translation>
 <translation id="2587622539943955767">Chromium ဒေါင်းလုဒ်လုပ်ရန်နှင့် သင့် Google Account သို့ လက်မှတ်ထိုးဝင်ရန် QR ကုဒ်ကို ဖုန်းဖြင့် စကင်ဖတ်ပါ။</translation>
+<translation id="2587885422541096572">Chromium ဖြင့် ရှာရန်။</translation>
 <translation id="2592940277904433508">Chromium ဆက်သုံးရန်</translation>
 <translation id="259935314519650377">ဒေါင်းလုဒ်လုပ်ထားသော ထည့်သွင်းသည့်ဖိုင်ကို ကက်ရှ်လုပ်၍မရပါ။ အမှား- <ph name="UNPACK_CACHING_ERROR_CODE" />။</translation>
 <translation id="2620436844016719705">စနစ်</translation>
@@ -194,6 +195,7 @@
 <translation id="3038232873781883849">ထည့်သွင်းရန်စောင့်နေသည်…</translation>
 <translation id="3045032126857188731">ပြန်ဆိုထားသော ဘာသာစကား- <ph name="LANGUAGE" /></translation>
 <translation id="3047590466164881923">အကြံပြုချက် ဒိုင်ယာလော့ ပိတ်ရန်</translation>
+<translation id="3064717200427679322"><ph name="EXISTING_USER" /> သည် လက်မှတ်ထိုးဝင်ပြီးဖြစ်သည်။ သင်၏ ဘရောက်စ်လုပ်ခြင်းကို ခွဲခြားထားရန်အတွက် သင့်ကိုယ်ပိုင်ပရိုဖိုင်တွင် <ph name="USER_EMAIL_ADDRESS" /> အဖြစ် Chromium သို့ လက်မှတ်ထိုးဝင်ပါ။ <ph name="DEVICE" /> မှ ဖတ်ရန်စာရင်းနှင့် အခြားအရာများကိုလည်း ရရှိပါမည်။</translation>
 <translation id="3068187312562070417">အခြား Chromium ပရိုဖိုင်များ</translation>
 <translation id="3068290154869370196">နောက်ဆက်တွဲများသည် Chromium ကို စိတ်ကြိုက်ပြင်ဆင်ခွင့်ပြုသည့် အပိုပရိုဂရမ်များဖြစ်သည်။ စနစ်တကျဖြစ်စေရန် စီစဉ်ခြင်းမှ နေ့စဉ်လုပ်ဆောင်စရာများကို လွယ်ကူစေခြင်းအထိ နောက်ဆက်တွဲများသည် Chromium ကို သင့်ကိုယ်ပိုင်ဖြစ်အောင် ကူညီပေးသည်။</translation>
 <translation id="3068515742935458733"><ph name="UMA_LINK" /> နှင့် ပျက်စီးမှု အစီရင်ခံချက်များကို Google သို့ပို့ခြင်းဖြင့် Chromium အားကူညီကာ ပိုမိုကောင်းမွန်စေပါ။</translation>
@@ -295,6 +297,7 @@
 <translation id="4147856324248078748">သင့် Chromium ကို စိတ်ကြိုက်လုပ်ရန်</translation>
 <translation id="4148957013307229264">တပ်ဆင်နေ...</translation>
 <translation id="419998258129752635"><ph name="PAGE_TITLE" /> - ကွန်ရက် လက်မှတ်ထိုးဝင်ခြင်း - Chromium</translation>
+<translation id="4208652172235621272"><ph name="EXISTING_USER" /> သည် လက်မှတ်ထိုးဝင်ပြီးဖြစ်သည်။ သင်၏ ဘရောက်စ်လုပ်ခြင်းကို ခွဲခြားထားရန်အတွက် သင့်ကိုယ်ပိုင်ပရိုဖိုင်တွင် <ph name="USER_EMAIL_ADDRESS" /> အဖြစ် Chromium သို့ လက်မှတ်ထိုးဝင်ပါ။ သင့်စက်အားလုံးတွင် ဖတ်ရန်စာရင်းနှင့် အခြားအရာများကိုလည်း ရရှိပါမည်။</translation>
 <translation id="421369550622382712">Chromium အတွက် ကောင်းသော အက်ပ် များ၊ ဂိမ်းများ၊ တိုးချဲ့လိုင်းများနှင့် အပြင်အဆင်များအား ရှာဖွေလေ့လာပါ။</translation>
 <translation id="4217080900579554343">ကွန်ပျူတာအားလုံးတွင် ဤနောက်ဆက်တွဲနှင့် အခြားအရာများ ရယူရန် Chromium သို့ လက်မှတ်ထိုးဝင်ပါ</translation>
 <translation id="4217972271355023382">သင့်မိဘ၏ ရွေးချယ်မှုများဖြင့် အွန်လိုင်းတွင် ပိုမိုဘေးကင်းစေရန် <ph name="USER_EMAIL_ADDRESS" /> အဖြစ် သင်လက်မှတ်ထိုးဝင်ပြီးဖြစ်သည့် Chromium ပရိုဖိုင်သို့ ပြောင်းပါ</translation>
@@ -309,7 +312,6 @@
 <translation id="4298125729853015961">Chromium မှ စကားဝှက်များကို ထုတ်ယူခြင်း</translation>
 <translation id="4304713468139749426">စကားဝှက်မန်နေဂျာ</translation>
 <translation id="4334241893986177674">ဤဖန်သားပြင်ဓာတ်ပုံကို ရှာရန်</translation>
-<translation id="4368547723231502008">Chromium ကို ချုံ့ထားလျှင်ပင် မည်သည့်နေရာမှမဆို ရှာနိုင်၊ မေးခွန်းမေးနိုင်သည်</translation>
 <translation id="4384331407722351213">Windows စတင်သောအခါ Chromium စတင်ရန်</translation>
 <translation id="4400772909124543403">အပ်ဒိတ် မရနိုင်ပါ</translation>
 <translation id="4407044323746248786">မည်သို့ပင်ဖြစ်စေ Chromium မှ ထွက်လိုပါသလား။</translation>
@@ -340,6 +342,7 @@
 <translation id="4621240073146040695">အပ်ဒိတ်ပြီးရန် အနည်းငယ်သာလိုပါသည်။ အပ်ဒိတ်လုပ်ခြင်းကို အဆုံးသတ်ရန် Chromium ကို ပြန်ဖွင့်ပါ။</translation>
 <translation id="4625064703209785397">Chromium ၏ V8 အင်ဂျင်ဖြင့် ဝဘ်ဆိုက်များကို အရှိန်မြှင့်တင်ထားသော်လည်း တိုက်ခိုက်မှုများ ခုခံနိုင်စွမ်း အနည်းငယ်လျော့သွားအောင် Chromium ကို ပြုလုပ်ထားသည်</translation>
 <translation id="4626321472657185181">‘Chromium ဖြင့် ရှာခြင်း’ ဖွင့်ရန်</translation>
+<translation id="4654639495249754755">Chromium ပရိုဖိုင်</translation>
 <translation id="4665829708273112819">သတိပေးချက်- Chromium သည် နောက်ဆက်တွဲများက သင်၏ကြည့်ရှုခြင်းမှတ်တမ်းကို မှတ်သားမထားရန် တားမြစ်၍မရပါ။ ရုပ်ဖျက်မုဒ်တွင် ဤနောက်ဆက်တွဲကို ပိတ်ရန်အတွက် ဤရွေးချယ်မှုကို ပြန်ဖြုတ်ပါ။</translation>
 <translation id="4673151026126227699">Chromium အသုံးပြမှုအစီရင်ခံစာများ မျှဝေပါကလည်း ထိုအစီရင်ခံစာများတွင် သင်ဝင်ကြည့်သော URL များ ပါဝင်သည်</translation>
 <translation id="4673710618874938871"><ph name="USER_NAME" /> အဖြစ် လက်မှတ်ထိုးဝင်ထားသည်။ စာရင်းသွင်းမှု။ အကောင့်မီနူး ဖွင့်ရန်</translation>
@@ -396,6 +399,7 @@
 <translation id="5382964351116519680">‘Chromium ဖြင့် ရှာခြင်း’ ဖွင့်ရန်</translation>
 <translation id="5383439451358640070">ဖိုင်အချို့ကို Chromium က ဘာကြောင့်ပိတ်ထားကြောင်း လေ့လာရန်</translation>
 <translation id="5386450000063123300">Chromium ကို အပ်ဒိတ်လုပ်နေသည် (<ph name="PROGRESS_PERCENT" />)</translation>
+<translation id="5387586787134731891"><ph name="EXISTING_USER" /> သည် လက်မှတ်ထိုးဝင်ပြီးဖြစ်သည်။ သင်၏ ဘရောက်စ်လုပ်ခြင်းကို ခွဲခြားထားရန်အတွက် သင့်ကိုယ်ပိုင်ပရိုဖိုင်တွင် <ph name="USER_EMAIL_ADDRESS" /> အဖြစ် Chromium သို့ လက်မှတ်ထိုးဝင်ပါ။ သင့်စက်အားလုံးတွင် နောက်ဆက်တွဲနှင့် အခြားအရာများကိုလည်း ရရှိပါမည်။</translation>
 <translation id="538767207339317086">Chromium သို့ လက်မှတ်ထိုးဝင်ခွင့် ပေးပါ</translation>
 <translation id="5405650547142096840">Chromium ထဲမှ ဖယ်ရှားရန်</translation>
 <translation id="5424544524441439284">စွမ်းဆောင်ရည် လျှော့ချထားသော်လည်း တိုက်ခိုက်မှုများ ခုခံနိုင်စွမ်း တိုးလာအောင် Chromium ကို ပြုလုပ်ထားသည်</translation>
@@ -472,6 +476,7 @@
 <translation id="6174920971222007286">ဤဖိုင်သည် အန္တရာယ်ရှိနိုင်သည်<ph name="LINE_BREAK" />သင်စကားဝှက်ပေးပါက Chromium သည် သင့်အတွက် ဤဒေါင်းလုဒ်ကို စစ်ပေးနိုင်သည်။ ဖိုင်နှင့်ပတ်သက်သော အချက်အလက်ကို ‘Google လုံခြုံစွာ ကြည့်ရှုခြင်း’ သို့ ပို့သော်လည်း ဖိုင်အကြောင်းအရာနှင့် စကားဝှက်သည် သင့်စက်တွင်သာ ရှိသည်။</translation>
 <translation id="6182736845697986886">အပ်ဒိတ်ဆာဗာတွင် အတွင်းပိုင်းအမှားဖြစ်သွားသောကြောင့် ထည့်သွင်းမှုမအောင်မြင်ပါ။</translation>
 <translation id="6183079672144801177">သင်၏ <ph name="TARGET_DEVICE_NAME" /> တွင် Chromium သို့ လက်မှတ်ထိုးဝင်ထားကြောင်း သေချာစေပြီး ထပ်ပို့ကြည့်ပါ။</translation>
+<translation id="6192070012454216182">Chromium ကို ချုံ့ထားသည့်တိုင် မည်သည့်နေရာမှမဆို ရှာဖွေနိုင်၊ မေးခွန်းမေးနိုင်သည်။ Chromium ကို နောက်ခံတွင် လုပ်ဆောင်ခွင့်ပြုသည်။</translation>
 <translation id="6212496753309875659">ဒီကွန်ပျူတာ ထဲမှာ ပိုပြီး နောက်ကျသော Chromium  ဗားရှင်း ရှိနေပါပြီ။ ဆော့ဝဲ အလုပ်မလုပ်လျှင်၊ ကျေးဇူးပြုပြီး Chromium ကို ဖြုတ်လိုက်ပြီး ထပ်စမ်းကြည့်ပါ။</translation>
 <translation id="6219195342503754812">{0,plural, =0{Chromium ကို ယခု ပြန်လည်စတင်ပါမည်}=1{Chromium ကို ၁ စက္ကန့်အကြာတွင် ပြန်လည်စတင်ပါမည်}other{Chromium ကို # စက္ကန့်အကြာတွင် ပြန်လည်စတင်ပါမည်}}</translation>
 <translation id="6241367896540709610">Chromium သည် ဖိုင်များဒေါင်းလုဒ်လုပ်ရန် သိုလှောင်ခန်းအသုံးပြုခွင့် လိုအပ်သည်</translation>
@@ -598,6 +603,7 @@
 <translation id="7288567540154601580">တဘ်များနှင့် နောက်ဆက်တွဲများ</translation>
 <translation id="7295544978856094497">{NUM_EXTENSIONS,plural, =1{၎င်းကို ဖယ်ရှားရန် Chromium က အကြံပြုပါသည်}other{၎င်းတို့ကို ဖယ်ရှားရန် Chromium က အကြံပြုပါသည်}}</translation>
 <translation id="7296334833518879294">စနစ်အသံကို မျှဝေရန်အတွက် ‘စနစ်ဆက်တင်များ’ ကို ဖွင့်ပြီး Chromium အတွက် ‘စနစ်အသံဖမ်းယူခြင်းသီးသန့်’ ကို ခွင့်ပြုပါ။ ပြီးလျှင် Chromium ကို ပြန်စရမည်။</translation>
+<translation id="7299899569525778554">ဒက်စ်တော့မှ ရှာဖွေခြင်း</translation>
 <translation id="731795002583552498">Chromium ကို အပ်ဒိတ်လုပ်နေသည်</translation>
 <translation id="7318036098707714271">သင့်စိတ်ကြိုက်ဖိုင်သည် ပျက်စီးသွားသည် သို့မဟုတ် မမှန်ကန်ပါ။
 
@@ -652,6 +658,7 @@ Chromium သည်သင့်ကြိုတင်ချိန်ညှိခ�
 <translation id="7790626492778995050"><ph name="PAGE_TITLE" /> - Chromium Canary</translation>
 <translation id="7803986347287457849">သင်မည်သည့်ဝဘ်ဆိုက်များ ဝင်ကြည့်ကြောင်း သင့်အင်တာနက် ဒေတာစီးဆင်းမှုကို သုံးခွင့်ရှိသူများ မြင်နိုင်ရန် ခက်ခဲစေသည်။ Chromium သည် DNS (ဒိုမိန်းအမည်ပေးစနစ်) အတွင်းရှိ ဝဘ်ဆိုက်တစ်ခု၏ IP လိပ်စာကို ရှာရာတွင် လုံခြုံသော ချိတ်ဆက်မှု အသုံးပြုသည်။</translation>
 <translation id="7810005234485217901">‘ပုံဖြင့်ရှာဖွေမှု’ ကို အလွယ်သုံးရန် ပင်ထိုးနိုင်သည်</translation>
+<translation id="7813626943009612327">သင်ဖွင့်ထားသော အခြားအက်ပ် (သို့) ဖိုင်ကဲ့သို့ Chromium ပြင်ပရှိ အကြောင်းအရာအကြောင်း မေးနိုင်သည်</translation>
 <translation id="7828527096541974699">Chromium နှင့် မျှဝေလိုသည်များကို ရွေးရန်</translation>
 <translation id="7828947555739565424">ယခုစက်တွင် ဤအကောင့်သုံးထားသော Chromium ပရိုဖိုင် ရှိနှင့်ပြီးဖြစ်သည်</translation>
 <translation id="7845233973568007926">ထည့်သွင်းသည့်အတွက် ကျေးဇူးတင်ပါသည်။ <ph name="BUNDLE_NAME" /> အသုံးမပြုမီ သင့်ကွန်ပျူတာကို ပြန်စရမည်။</translation>
@@ -739,10 +746,10 @@ Chromium သည်သင့်ကြိုတင်ချိန်ညှိခ�
 <translation id="856656450041460113">ဘာသာစကား စာရင်းကို ရှာရန်</translation>
 <translation id="8576826849825683917">အဖွဲ့အစည်းမျိုးစုံက Chromium ကို စီမံသည်</translation>
 <translation id="8586442755830160949">မူပိုင်ခွင့် <ph name="YEAR" /> The Chromium ပြုစုသူများ။ မူပိုင်ခွင့်များ အားလုံးကို ချုပ်ထိန်းထားသည်။</translation>
-<translation id="8601359445272098721">အသစ်။ “စခရင်ကို ဘာသာပြန်ရန်” ခလုတ်ကိုရွေးခြင်းဖြင့် ခစခရင်ရှိ စာသားနှင့်ပုံ နှစ်မျိုးစလုံးကို ဘာသာပြန်နိုင်သည်</translation>
 <translation id="8619360774459241877">Chromium ကို ဖွင့်နေသည်...</translation>
 <translation id="8624541899164515475">ဆက်တင်များ၊ တဘ်အသစ်တွင် ဖွင့်သည်။</translation>
 <translation id="8648201657708811153">Google Chrome for Testing ကို သင့်မူရင်းဘရောင်ဇာအဖြစ် မပြုလုပ်နိုင်ပါ။</translation>
+<translation id="8676101123715131330">Chromium ဖြင့် မည်သည့်နေရာမှမဆို ရှာဖွေခြင်း</translation>
 <translation id="8697124171261953979">It also controls what page is shown when you start Chromium or search from the Omnibox.</translation>
 <translation id="8704119203788522458">ဒါဟာ သင်၏ Chromium ပါ</translation>
 <translation id="8712637175834984815">ရပါပြီ!</translation>
@@ -776,6 +783,7 @@ Chromium သည်သင့်ကြိုတင်ချိန်ညှိခ�
 <translation id="897581876605952338">Chromium Enterprise အမှတ်တံဆိပ်</translation>
 <translation id="8980139959902937527">သင့် <ph name="DEVICE_TYPE" /> တွင် Chromium အက်ပ်ဖြင့် Google ၏ လုံခြုံမှုကို သွားရင်းလာရင်း ရယူပါ</translation>
 <translation id="8981150672034878610">သင့်ပရိုဖိုင်ကို ဖွင့်ချိန်တွင် တစ်ခုခုမှားသွားသဖြင့် Chromium ကို စတင်၍မရပါ။ Chromium ကို ပြန်စကြည့်ပါ။</translation>
+<translation id="8981886272598860786">Chromium ဖြင့် ရှာရန် (သို့) <ph name="BEGIN_LINK" />ဆက်တင်များ<ph name="END_LINK" /> တွင် စိတ်ကြိုက်လုပ်ရန်</translation>
 <translation id="8988036198400390003">Chromium ပရိုဖိုင်များ စီမံရန်</translation>
 <translation id="8993855408334954620">Chromium ရှိ Gemini နှင့် သင်ဖွင့်ထားသောတဘ်အကြား ရွှေ့ကြည့်ရန် ကီးဘုတ်သုံးပါ။</translation>
 <translation id="9018218886431812662">ထည့်ပြီးပါပြီ</translation>

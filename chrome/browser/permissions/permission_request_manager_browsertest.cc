@@ -54,6 +54,7 @@
 #include "components/permissions/test/mock_permission_request.h"
 #include "components/permissions/test/mock_permission_ui_selector.h"
 #include "components/permissions/test/permission_request_observer.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/permission_controller.h"
 #include "content/public/browser/permission_descriptor_util.h"
 #include "content/public/browser/permission_result.h"
@@ -75,6 +76,8 @@
 #include "services/device/public/cpp/test/scoped_geolocation_overrider.h"
 #include "third_party/blink/public/common/permissions/permission_utils.h"
 #include "third_party/blink/public/mojom/permissions/permission_status.mojom-shared.h"
+#include "ui/base/page_transition_types.h"
+#include "ui/base/window_open_disposition.h"
 #include "url/gurl.h"
 #include "url/origin.h"
 
@@ -1781,7 +1784,7 @@ IN_PROC_BROWSER_TEST_F(PermissionRequestManagerWithFencedFrameTest,
          const content::WebContentsConsoleObserver::Message& message) {
         return message.source_frame == render_frame_host;
       },
-      fenced_frame_host->GetOutermostMainFrame()));
+      fenced_frame_host));
   console_observer.SetPattern(kExpectedConsolePattern);
 
   EXPECT_EQ(

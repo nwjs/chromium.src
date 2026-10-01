@@ -53,7 +53,6 @@
 #import "ios/chrome/browser/content_suggestions/coordinator/content_suggestions_delegate.h"
 #import "ios/chrome/browser/content_suggestions/coordinator/content_suggestions_mediator.h"
 #import "ios/chrome/browser/content_suggestions/magic_stack/ui/magic_stack_collection_view.h"
-#import "ios/chrome/browser/content_suggestions/magic_stack/ui/magic_stack_smart_stack_layout.h"
 #import "ios/chrome/browser/content_suggestions/most_visited_tiles/coordinator/most_visited_tiles_mediator.h"
 #import "ios/chrome/browser/content_suggestions/ui/content_suggestions_collection_utils.h"
 #import "ios/chrome/browser/content_suggestions/ui/content_suggestions_commands.h"
@@ -546,6 +545,9 @@
 }
 
 - (BOOL)isScrolledToTop {
+  if (IsNTPRedesignEnabled()) {
+    return [self.NTPRedesignViewController isScrolledToTop];
+  }
   if (!self.webState) {
     return YES;
   }
@@ -555,9 +557,11 @@
 }
 
 - (void)scrollToTop {
-  if (!IsNTPRedesignEnabled()) {
-    [self.NTPViewController setContentOffsetToTop];
+  if (IsNTPRedesignEnabled()) {
+    [self.NTPRedesignViewController scrollToTopAnimated:YES];
+    return;
   }
+  [self.NTPViewController setContentOffsetToTop];
 }
 
 - (void)willUpdateSnapshot {
@@ -972,10 +976,6 @@
     self.NTPRedesignViewController.feedViewController = self.feedViewController;
     self.NTPRedesignViewController.magicStackViewController =
         self.contentSuggestionsCoordinator.magicStackCollectionView;
-    MagicStackSmartStackLayout* customLayout =
-        [[MagicStackSmartStackLayout alloc] init];
-    [self.contentSuggestionsCoordinator.magicStackCollectionView
-        updateCollectionViewLayout:customLayout];
     self.NTPRedesignViewController.NTPShortcutsHandler = self;
     feature_engagement::Tracker* tracker =
         feature_engagement::TrackerFactory::GetForProfile(self.profile);
@@ -983,6 +983,12 @@
         tracker && tracker->ShouldTriggerHelpUI(
                        feature_engagement::kIPHiOSHomepageLensNewBadge);
     self.NTPRedesignViewController.useNewBadgeForLensButton = showLensBadge;
+    BOOL showCustomizationBadge =
+        tracker &&
+        tracker->ShouldTriggerHelpUI(
+            feature_engagement::kIPHiOSHomepageCustomizationNewBadge);
+    self.NTPRedesignViewController.useNewBadgeForCustomizationMenu =
+        showCustomizationBadge;
     self.NTPRedesignViewController.layoutGuideCenter =
         LayoutGuideCenterForBrowser(self.browser);
     [self configureMainViewControllerUsing:self.NTPRedesignViewController];
@@ -1491,9 +1497,11 @@
 }
 
 - (void)setContentOffsetToTop {
-  if (!IsNTPRedesignEnabled()) {
-    [self.NTPViewController setContentOffsetToTop];
+  if (IsNTPRedesignEnabled()) {
+    [self.NTPRedesignViewController scrollToTopAnimated:NO];
+    return;
   }
+  [self.NTPViewController setContentOffsetToTop];
 }
 
 - (BOOL)isGoogleDefaultSearchEngine {
@@ -2208,7 +2216,7 @@
 - (void)openAIM {
   RecordHomeAction(IOSHomeActionType::kQuickActionAIM, [self isStartSurface]);
   [self.NTPMetricsRecorder recordAIMButtonTapped];
-  if (!IsDisableComposeboxFromAIMNTPEnabled() && !IsComposeboxAIMDisabled() &&
+  if (!IsDisableComposeboxFromAIMNTPEnabled() &&
       _aimEligibilityService->IsFuseboxEligible() &&
       MaybeShowComposebox(self.browser, ComposeboxEntrypoint::kNTPAIMButton)) {
     return;
@@ -2258,8 +2266,7 @@
 
   // Fallback to opening AIM if eligibility changed in the meantime and the NTP
   // was not reloaded since.
-  if (IsComposeboxAIMDisabled() ||
-      !_aimEligibilityService->IsFuseboxEligible()) {
+  if (!_aimEligibilityService->IsFuseboxEligible()) {
     [self openAIMWeb];
   }
   [HandlerForProtocol(self.browser->GetCommandDispatcher(),

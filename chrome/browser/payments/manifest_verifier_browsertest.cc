@@ -12,7 +12,6 @@
 #include "base/run_loop.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "components/payments/content/test_payment_manifest_downloader.h"
@@ -451,7 +450,7 @@ IN_PROC_BROWSER_TEST_F(ManifestVerifierBrowserTest,
                        SinglePaymentMethodName404) {
   std::string expected_pattern =
       "Unable to download payment manifest "
-      "\"https://127.0.0.1:\\d+/404.test/webpay\". HTTP 404 Not Found.";
+      "\"https://127.0.0.1:\\d+/404.test/webpay\".";
   {
     content::InstalledPaymentAppsFinder::PaymentApps apps;
     apps[0] = std::make_unique<content::StoredPaymentApp>();
@@ -490,8 +489,7 @@ IN_PROC_BROWSER_TEST_F(ManifestVerifierBrowserTest,
                        MultiplePaymentMethodName404) {
   std::string expected_pattern =
       "Unable to download payment manifest "
-      "\"https://127.0.0.1:\\d+/404(aswell)?.test/webpay\". HTTP 404 Not "
-      "Found.";
+      "\"https://127.0.0.1:\\d+/404(aswell)?.test/webpay\".";
   {
     content::InstalledPaymentAppsFinder::PaymentApps apps;
     apps[0] = std::make_unique<content::StoredPaymentApp>();

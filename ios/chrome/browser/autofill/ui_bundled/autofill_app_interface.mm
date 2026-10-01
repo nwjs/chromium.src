@@ -43,7 +43,6 @@
 #import "components/password_manager/core/browser/password_store/password_store_consumer.h"
 #import "components/password_manager/core/browser/password_store/password_store_interface.h"
 #import "components/password_manager/core/browser/password_string.h"
-#import "ios/chrome/browser/autofill/atmemory/public/at_memory_commands.h"
 #import "ios/chrome/browser/autofill/model/personal_data_manager_factory.h"
 #import "ios/chrome/browser/autofill/ui_bundled/chrome_autofill_client_ios.h"
 #import "ios/chrome/browser/passwords/model/ios_chrome_profile_password_store_factory.h"
@@ -86,15 +85,11 @@ class TestStoreConsumer : public password_manager::PasswordStoreConsumer {
  public:
   void OnGetPasswordStoreResultsOrErrorFrom(
       password_manager::PasswordStoreInterface* store,
-      password_manager::LoginsResultOrError results_or_error) override {
-    if (std::holds_alternative<password_manager::PasswordStoreBackendError>(
-            results_or_error)) {
-      obtained_ = std::vector<password_manager::PasswordForm>();
-    } else {
-      obtained_ = password_manager::ToPasswordForms(
-          std::get<password_manager::LoginsResult>(
-              std::move(results_or_error)));
-    }
+      base::expected<std::vector<password_manager::StoredCredential>,
+                     password_manager::PasswordStoreBackendError>
+          results_or_error) override {
+    obtained_ = password_manager::ToPasswordForms(
+        std::move(results_or_error).value_or({}));
   }
 
   const std::vector<password_manager::PasswordForm>& GetStoreResults() {
@@ -838,12 +833,6 @@ class FakeCreditCardServer : public CreditCardSaveManager::ObserverForTest {
   }
 }
 
-+ (void)showAtMemoryUI {
-  id<AtMemoryCommands> atMemoryHandler = HandlerForProtocol(
-      chrome_test_util::GetMainBrowser()->GetCommandDispatcher(),
-      AtMemoryCommands);
-  [atMemoryHandler showAtMemory];
-}
 
 + (autofill::EntityDataManager*)entityDataManager {
   return autofill::FakeCreditCardServer::GetAutofillClient()

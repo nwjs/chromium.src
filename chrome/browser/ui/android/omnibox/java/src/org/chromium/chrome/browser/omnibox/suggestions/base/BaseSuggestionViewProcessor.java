@@ -30,6 +30,7 @@ import org.chromium.chrome.browser.omnibox.R;
 import org.chromium.chrome.browser.omnibox.styles.OmniboxDrawableState;
 import org.chromium.chrome.browser.omnibox.styles.OmniboxImageSupplier;
 import org.chromium.chrome.browser.omnibox.suggestions.AutocompleteUIContext;
+import org.chromium.chrome.browser.omnibox.suggestions.SuggestionCommonProperties;
 import org.chromium.chrome.browser.omnibox.suggestions.SuggestionHost;
 import org.chromium.chrome.browser.omnibox.suggestions.SuggestionProcessor;
 import org.chromium.chrome.browser.omnibox.suggestions.base.BaseSuggestionViewProperties.Action;
@@ -40,6 +41,7 @@ import org.chromium.components.omnibox.OmniboxCapabilities;
 import org.chromium.components.omnibox.OmniboxFeatures;
 import org.chromium.components.omnibox.PageClassificationUtils;
 import org.chromium.components.omnibox.action.ActionPresentationMode;
+import org.chromium.ui.modelutil.PropertyKey;
 import org.chromium.ui.modelutil.PropertyModel;
 import org.chromium.url.GURL;
 
@@ -93,7 +95,7 @@ public abstract class BaseSuggestionViewProcessor implements SuggestionProcessor
         return mDecorationImageSizePx;
     }
 
-    /** Return whether this suggestion can host OmniboxAction chips. */
+    /** Returns whether this suggestion can host OmniboxAction chips. */
     protected boolean allowOmniboxActions() {
         return true;
     }
@@ -104,10 +106,10 @@ public abstract class BaseSuggestionViewProcessor implements SuggestionProcessor
     }
 
     /**
-     * Retrieve fallback icon for a given suggestion. Must be completed synchromously.
+     * Retrieves the fallback icon for a given suggestion. Must be completed synchronously.
      *
-     * @param match AutocompleteMatch instance to retrieve fallback icon for
-     * @return OmniboxDrawableState that can be immediately applied to suggestion view
+     * @param match AutocompleteMatch instance to retrieve fallback icon for.
+     * @return OmniboxDrawableState that can be immediately applied to suggestion view.
      */
     protected OmniboxDrawableState getFallbackIcon(AutocompleteMatch match) {
         int icon =
@@ -118,10 +120,10 @@ public abstract class BaseSuggestionViewProcessor implements SuggestionProcessor
     }
 
     /**
-     * Specify OmniboxDrawableState for suggestion decoration.
+     * Specifies the OmniboxDrawableState for suggestion decoration.
      *
-     * @param model the PropertyModel to apply the decoration to
-     * @param decoration the OmniboxDrawableState to apply
+     * @param model The PropertyModel to apply the decoration to.
+     * @param decoration The OmniboxDrawableState to apply.
      */
     protected void setOmniboxDrawableState(
             PropertyModel model, @Nullable OmniboxDrawableState decoration) {
@@ -129,7 +131,7 @@ public abstract class BaseSuggestionViewProcessor implements SuggestionProcessor
     }
 
     /**
-     * Specify OmniboxDrawableState for action button.
+     * Specifies the OmniboxDrawableState for action button.
      *
      * @param model Property model to update.
      * @param actions List of actions for the suggestion.
@@ -139,7 +141,7 @@ public abstract class BaseSuggestionViewProcessor implements SuggestionProcessor
     }
 
     /**
-     * Setup action icon as query build arrow.
+     * Sets up action icon as query build arrow.
      *
      * @param model Property model to update.
      * @param input The input to produce this suggestion.
@@ -254,7 +256,7 @@ public abstract class BaseSuggestionViewProcessor implements SuggestionProcessor
      * Process the touch down event. Only handles search suggestions.
      *
      * @param suggestion Selected suggestion.
-     * @param position Position of the suggesiton on the list.
+     * @param position Position of the suggestion on the list.
      * @param eventTime Uptime of the touch down event in milliseconds.
      */
     protected void onSuggestionTouchDownEvent(
@@ -410,11 +412,11 @@ public abstract class BaseSuggestionViewProcessor implements SuggestionProcessor
     }
 
     /**
-     * Fetch suggestion image. Updates icon decoration in supplied |model| if |imageUrl| is valid,
+     * Fetches suggestion image. Updates icon decoration in supplied |model| if |imageUrl| is valid,
      * points to an image, and was successfully retrieved and decompressed.
      *
-     * @param model the PropertyModel to update with retrieved image
-     * @param imageUrl the URL of the image to retrieve and decode
+     * @param model The PropertyModel to update with retrieved image.
+     * @param imageUrl The URL of the image to retrieve and decode.
      */
     protected void fetchImage(PropertyModel model, GURL imageUrl) {
         if (mImageSupplier != null) {
@@ -442,5 +444,12 @@ public abstract class BaseSuggestionViewProcessor implements SuggestionProcessor
                 /* start= */ 0,
                 /* end= */ text.length(),
                 Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+    }
+
+    /** Create a PropertyModel for suggestion views. */
+    protected PropertyModel createPropertyModel(PropertyKey[] keys) {
+        return new PropertyModel.Builder(keys)
+                .with(SuggestionCommonProperties.RESOURCE_PROVIDER, mUiContext.resourceProvider)
+                .build();
     }
 }

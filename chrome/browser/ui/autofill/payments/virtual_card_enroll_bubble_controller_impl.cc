@@ -15,6 +15,8 @@
 #include "components/autofill/core/common/autofill_payments_features.h"
 #include "components/strings/grit/components_strings.h"
 #include "content/public/browser/visibility.h"
+#include "ui/base/page_transition_types.h"
+#include "ui/base/window_open_disposition.h"
 
 #if BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/ui/android/autofill/autofill_vcn_enroll_bottom_sheet_bridge.h"
@@ -205,11 +207,10 @@ void VirtualCardEnrollBubbleControllerImpl::OnLinkClicked(
   bubble_state_ = BubbleState::kShowingIconAndBubble;
 #endif
 
-  web_contents()->OpenURL(
-      content::OpenURLParams(url, content::Referrer(),
-                             WindowOpenDisposition::NEW_FOREGROUND_TAB,
-                             ui::PAGE_TRANSITION_LINK, false),
-      /*navigation_handle_callback=*/{});
+  web_contents()->OpenURL(content::OpenURLParams::CreateBrowserInitiated(
+                              url, WindowOpenDisposition::NEW_FOREGROUND_TAB,
+                              ui::PAGE_TRANSITION_LINK),
+                          /*navigation_handle_callback=*/{});
 }
 
 void VirtualCardEnrollBubbleControllerImpl::OnBubbleDiscarded() {

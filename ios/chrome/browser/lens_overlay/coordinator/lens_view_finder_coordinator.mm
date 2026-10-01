@@ -367,7 +367,8 @@ LensViewFinderTransition TransitionFromPresentationStyle(
       GetApplicationContext()->GetLocalState()->GetBoolean(
           prefs::kLensCameraAssistedSearchPolicyAllowed) &&
       !base::FeatureList::IsEnabled(kDisableLensCamera) &&
-      ui::GetDeviceFormFactor() != ui::DEVICE_FORM_FACTOR_TABLET;
+      (ui::GetDeviceFormFactor() != ui::DEVICE_FORM_FACTOR_TABLET ||
+       base::FeatureList::IsEnabled(kEnableLensOnIPad));
   [sharedDefaults setBool:enableLensInWidget forKey:enableLensInWidgetKey];
 }
 
@@ -398,13 +399,13 @@ LensViewFinderTransition TransitionFromPresentationStyle(
     shortcutTitle = l10n_util::GetNSStringWithFixup(
         IDS_IOS_APPLICATION_SHORTCUT_LENS_TITLE);
     shortcutIcon =
-        [UIApplicationShortcutIcon iconWithTemplateImageName:kCameraLensSymbol];
+        [UIApplicationShortcutIcon iconWithTemplateImageName:@"camera_lens"];
   } else {
     shortcutType = kShortcutQRScanner;
     shortcutTitle = l10n_util::GetNSStringWithFixup(
         IDS_IOS_APPLICATION_SHORTCUT_QR_SCANNER_TITLE);
     shortcutIcon =
-        [UIApplicationShortcutIcon iconWithSystemImageName:kQRCodeSymbol];
+        [UIApplicationShortcutIcon iconWithSystemImageName:@"qrcode"];
   }
   UIApplicationShortcutItem* item =
       [[UIApplicationShortcutItem alloc] initWithType:shortcutType

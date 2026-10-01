@@ -70,6 +70,7 @@ namespace gpu {
 class DisplayCompositorMemoryAndTaskControllerOnGpu;
 class SharedImageRepresentationFactory;
 class SharedImageFactory;
+class VulkanContextProvider;
 }  // namespace gpu
 
 namespace skgpu::graphite {
@@ -87,8 +88,8 @@ namespace viz {
 class AsyncReadResultHelper;
 class AsyncReadResultLock;
 class ImageContextImpl;
+class ReadbackContextTexture;
 class SkiaOutputSurfaceDependency;
-class VulkanContextProvider;
 
 namespace copy_output {
 struct RenderPassGeometry;
@@ -429,6 +430,17 @@ class SkiaOutputSurfaceImplOnGpu
       skgpu::graphite::GpuFinishedProc graphite_finished_proc = nullptr,
       void* finished_context = nullptr);
 
+  // Flushes and submits copy output writes, then marks `representation`
+  // cleared. If `readback_context` is provided, it sends the notification when
+  // readback completes.
+  bool FlushAndSubmitCopyOutput(
+      std::string_view copy_output_type,
+      SkSurface* surface,
+      std::vector<GrBackendSemaphore>& end_semaphores,
+      gpu::SkiaImageRepresentation* representation,
+      gpu::SkiaImageRepresentation::ScopedWriteAccess* scoped_write_access,
+      std::unique_ptr<ReadbackContextTexture> readback_context = nullptr);
+
   // Begins access to the CopyOutputRequest destination shared image. If request
   // has `BlitRequest` then specified mailbox will be accessed. Otherwise a new
   // shared image to store the result will be allocated. `mailbox_access_data`
@@ -498,7 +510,7 @@ class SkiaOutputSurfaceImplOnGpu
   std::unique_ptr<gpu::SharedImageFactory> shared_image_factory_;
   std::unique_ptr<gpu::SharedImageRepresentationFactory>
       shared_image_representation_factory_;
-  const raw_ptr<VulkanContextProvider> vulkan_context_provider_;
+  const raw_ptr<gpu::VulkanContextProvider> vulkan_context_provider_;
   const RendererSettings renderer_settings_;
 
   // Should only be run on the client thread with PostTaskToClientThread().

@@ -8,31 +8,32 @@
 #include "build/build_config.h"
 #include "third_party/blink/renderer/platform/storage/blink_storage_key.h"
 #include "third_party/blink/renderer/platform/weborigin/security_origin.h"
+#include "third_party/blink/renderer/platform/wtf/hash_functions_memory.h"
 
 namespace blink {
 
 struct BlinkStorageKeyHashTraits
     : GenericHashTraits<std::unique_ptr<const BlinkStorageKey>> {
-  static unsigned GetHash(const BlinkStorageKey* storage_key) {
+  static uint32_t GetHash(const BlinkStorageKey* storage_key) {
     std::optional<base::UnguessableToken> nonce = storage_key->GetNonce();
     size_t nonce_hash = nonce ? base::UnguessableTokenHash()(*nonce) : 0;
-    unsigned hash_codes[] = {
+    uint32_t hash_codes[] = {
         blink::GetHash(storage_key->GetSecurityOrigin()),
         blink::GetHash(storage_key->GetTopLevelSite()),
-        static_cast<unsigned>(storage_key->GetAncestorChainBit()),
+        static_cast<uint32_t>(storage_key->GetAncestorChainBit()),
 #if ARCH_CPU_32_BITS
         nonce_hash,
 #elif ARCH_CPU_64_BITS
-        static_cast<unsigned>(nonce_hash),
-        static_cast<unsigned>(nonce_hash >> 32),
+        static_cast<uint32_t>(nonce_hash),
+        static_cast<uint32_t>(nonce_hash >> 32),
 #else
 #error "Unknown bits"
 #endif
     };
-    return StringHasher::HashMemory32(base::as_byte_span(hash_codes));
+    return HashMemory32(base::as_byte_span(hash_codes));
   }
 
-  static unsigned GetHash(
+  static uint32_t GetHash(
       const std::unique_ptr<const BlinkStorageKey>& storage_key) {
     return GetHash(storage_key.get());
   }

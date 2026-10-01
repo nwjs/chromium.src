@@ -32,10 +32,10 @@ import org.chromium.chrome.browser.ChromeTabbedActivity;
 import org.chromium.chrome.browser.layouts.LayoutType;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab_ui.RecyclerViewPosition;
-import org.chromium.chrome.browser.tab_ui.TabListMode;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tasks.tab_management.TabListEditorCoordinator.CreationMode;
+import org.chromium.chrome.browser.tasks.tab_management.TabListMediator.TabListLayoutType;
 import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeController;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
@@ -97,8 +97,7 @@ public class ClosableTabListEditorTest {
                                     currentTabModelSupplier,
                                     mActivityTestRule.getActivity().getTabContentManager(),
                                     mSetRecyclerViewPosition,
-                                    TabListMode.GRID,
-                                    /* displayGroups= */ true,
+                                    TabListLayoutType.GROUPED,
                                     mSnackbarManager,
                                     /* bottomSheetController= */ null,
                                     TabProperties.TabActionState.CLOSABLE,

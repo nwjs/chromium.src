@@ -30,6 +30,7 @@
 #include "components/bookmarks/browser/bookmark_utils.h"
 #include "components/profile_metrics/browser_profile_type.h"
 #import "ui/base/cocoa/cocoa_base_utils.h"
+#include "ui/base/page_transition_types.h"
 #include "ui/base/window_open_disposition.h"
 #import "ui/menus/cocoa/menu_controller.h"
 
@@ -74,8 +75,8 @@ void DoOpenBookmark(Profile* profile,
   if (!browser) {
     browser = CreateBrowserWindow(BrowserWindowCreateParams(profile, true));
   }
-  OpenURLParams params(node->url(), Referrer(), disposition,
-                       ui::PAGE_TRANSITION_AUTO_BOOKMARK, false);
+  OpenURLParams params = OpenURLParams::CreateBrowserInitiated(
+      node->url(), disposition, ui::PAGE_TRANSITION_AUTO_BOOKMARK);
   browser->OpenURL(params, /*navigation_handle_callback=*/{});
   RecordBookmarkLaunch(BookmarkLaunchLocation::kTopMenu,
                        profile_metrics::GetBrowserProfileType(profile));

@@ -16,6 +16,7 @@
 #include "third_party/blink/renderer/core/core_export.h"
 #include "third_party/blink/renderer/platform/weborigin/security_origin.h"
 #include "third_party/blink/renderer/platform/wtf/allocator/allocator.h"
+#include "third_party/blink/renderer/platform/wtf/hash_functions_memory.h"
 #include "third_party/blink/renderer/platform/wtf/hash_traits.h"
 
 namespace blink {
@@ -153,8 +154,8 @@ class CORE_EXPORT AgentClusterKey {
 template <>
 struct HashTraits<AgentClusterKey> : GenericHashTraits<AgentClusterKey> {
   using PassKey = base::PassKey<HashTraits<AgentClusterKey>>;
-  static unsigned GetHash(const AgentClusterKey& agent_cluster_key) {
-    unsigned cross_origin_isolation_mode = 0;
+  static uint32_t GetHash(const AgentClusterKey& agent_cluster_key) {
+    uint32_t cross_origin_isolation_mode = 0;
     if (agent_cluster_key.GetCrossOriginIsolationKey()) {
       switch (agent_cluster_key.GetCrossOriginIsolationKey()->mode) {
         case mojom::blink::CrossOriginIsolationMode::kLogical:
@@ -166,7 +167,7 @@ struct HashTraits<AgentClusterKey> : GenericHashTraits<AgentClusterKey> {
           NOTREACHED();
       }
     }
-    unsigned key_status = 0;
+    uint32_t key_status = 0;
     if (agent_cluster_key.IsOriginKeyed()) {
       key_status = 1;
     }
@@ -179,7 +180,7 @@ struct HashTraits<AgentClusterKey> : GenericHashTraits<AgentClusterKey> {
     if (agent_cluster_key.IsUniversalFileAgent()) {
       key_status |= (1 << 3);
     }
-    unsigned hash_codes[] = {
+    uint32_t hash_codes[] = {
         key_status,
         agent_cluster_key.IsOriginKeyed()
             ? HashTraits<scoped_refptr<const SecurityOrigin>>::GetHash(
@@ -194,7 +195,7 @@ struct HashTraits<AgentClusterKey> : GenericHashTraits<AgentClusterKey> {
             : 0,
         cross_origin_isolation_mode,
     };
-    return StringHasher::HashMemory32(base::as_byte_span(hash_codes));
+    return HashMemory32(base::as_byte_span(hash_codes));
   }
 
   static AgentClusterKey& EmptyValue() {

@@ -3,47 +3,43 @@
 // found in the LICENSE file.
 
 // clang-format off
-import {flush} from 'chrome://resources/polymer/v3_0/polymer/polymer_bundled.min.js';
-import type {SettingsClearBrowsingDataTimePicker} from 'chrome://settings/lazy_load.js';
+import type {SettingsClearBrowsingDataTimePickerElement} from 'chrome://settings/lazy_load.js';
 import {getTimePeriodString, TimePeriod} from 'chrome://settings/lazy_load.js';
-import type {SettingsPrefsElement} from 'chrome://settings/settings.js';
-import {CrSettingsPrefs, MetricsBrowserProxyImpl} from 'chrome://settings/settings.js';
+import {MetricsBrowserProxyImpl, PrefService} from 'chrome://settings/settings.js';
 import {assertEquals, assertFalse, assertTrue} from 'chrome://webui-test/chai_assert.js';
-import {flushTasks} from 'chrome://webui-test/polymer_test_util.js';
-import {isVisible} from 'chrome://webui-test/test_util.js';
+import {isVisible, microtasksFinished} from 'chrome://webui-test/test_util.js';
 
 import {TestMetricsBrowserProxy} from './test_metrics_browser_proxy.js';
 
 // clang-format on
 
 suite('DeleteBrowsingDataTimePicker', function() {
-  let timePicker: SettingsClearBrowsingDataTimePicker;
+  let timePicker: SettingsClearBrowsingDataTimePickerElement;
   let testMetricsBrowserProxy: TestMetricsBrowserProxy;
-  let settingsPrefs: SettingsPrefsElement;
+  let prefService: PrefService;
 
-  suiteSetup(function() {
-    settingsPrefs = document.createElement('settings-prefs');
-    return CrSettingsPrefs.initialized;
+  suiteSetup(async function() {
+    prefService = PrefService.getInstance();
+    await prefService.whenInitialized();
   });
 
-  setup(function() {
+  setup(async function() {
     document.body.innerHTML = window.trustedTypes!.emptyHTML;
+    await prefService.setPrefValue(
+        'browser.clear_data.time_period', TimePeriod.LAST_HOUR);
     timePicker =
         document.createElement('settings-clear-browsing-data-time-picker');
-    timePicker.prefs = settingsPrefs.prefs!;
-    timePicker.setPrefValue(
-        'browser.clear_data.time_period', TimePeriod.LAST_HOUR);
     testMetricsBrowserProxy = new TestMetricsBrowserProxy();
     MetricsBrowserProxyImpl.setInstance(testMetricsBrowserProxy);
 
     document.body.appendChild(timePicker);
-    return flushTasks();
+    // Wait for computed expanded options to be available in the DOM.
+    await microtasksFinished();
   });
 
   function getChipForTimePeriod(timePeriod: TimePeriod): HTMLElement|undefined {
     const visibleOptions =
-        timePicker.shadowRoot!.querySelectorAll<HTMLElement>('cr-chip');
-    assertTrue(!!visibleOptions);
+        timePicker.shadowRoot.querySelectorAll<HTMLElement>('cr-chip');
 
     for (const option of visibleOptions) {
       if (option.textContent.trim() === getTimePeriodString(timePeriod)) {
@@ -57,10 +53,9 @@ suite('DeleteBrowsingDataTimePicker', function() {
       undefined {
     // Open the 'More' dropdown menu.
     timePicker.$.moreButton.click();
-    flush();
 
     const menuItems =
-        timePicker.shadowRoot!.querySelectorAll<HTMLElement>('.dropdown-item');
+        timePicker.shadowRoot.querySelectorAll<HTMLElement>('.dropdown-item');
     assertTrue(!!menuItems);
 
     for (const item of menuItems) {
@@ -72,7 +67,7 @@ suite('DeleteBrowsingDataTimePicker', function() {
   }
 
   function getSelectedChip(): HTMLElement|undefined {
-    const selectedChips = timePicker.shadowRoot!.querySelectorAll<HTMLElement>(
+    const selectedChips = timePicker.shadowRoot.querySelectorAll<HTMLElement>(
         'cr-chip[selected]');
     assertTrue(!!selectedChips);
 
@@ -86,9 +81,8 @@ suite('DeleteBrowsingDataTimePicker', function() {
   }
 
   function verifyChipsExistForTimePeriods(timePeriods: TimePeriod[]) {
-    const timePeriodChips =
-        timePicker.shadowRoot!.querySelectorAll<HTMLElement>(
-            'cr-chip.time-period-chip');
+    const timePeriodChips = timePicker.shadowRoot.querySelectorAll<HTMLElement>(
+        'cr-chip.time-period-chip');
     assertTrue(!!timePeriodChips);
     assertEquals(timePeriodChips.length, timePeriods.length);
 
@@ -102,10 +96,9 @@ suite('DeleteBrowsingDataTimePicker', function() {
   function verifyMenuItemsExistForTimePeriods(timePeriods: TimePeriod[]) {
     // Open the 'More' dropdown menu.
     timePicker.$.moreButton.click();
-    flush();
 
     const menuItems =
-        timePicker.shadowRoot!.querySelectorAll<HTMLElement>('.dropdown-item');
+        timePicker.shadowRoot.querySelectorAll<HTMLElement>('.dropdown-item');
     assertTrue(!!menuItems);
     assertEquals(menuItems.length, timePeriods.length);
 
@@ -121,7 +114,7 @@ suite('DeleteBrowsingDataTimePicker', function() {
     const targetChip = getChipForTimePeriod(TimePeriod.LAST_15_MINUTES);
     assertTrue(!!targetChip);
     targetChip.click();
-    await flushTasks();
+    await microtasksFinished();
 
     // LAST_15_MINUTES chip should be selected.
     const selectedChip = getSelectedChip();
@@ -139,7 +132,7 @@ suite('DeleteBrowsingDataTimePicker', function() {
     // Verify the pref value was not modified during selection.
     assertEquals(
         TimePeriod.LAST_HOUR,
-        timePicker.getPref('browser.clear_data.time_period').value);
+        prefService.getPref('browser.clear_data.time_period').value);
   });
 
   test('SelectTimePeriodFromMenu', async function() {
@@ -147,7 +140,7 @@ suite('DeleteBrowsingDataTimePicker', function() {
     const targetMenuItem = getMenuItemForTimePeriod(TimePeriod.ALL_TIME);
     assertTrue(!!targetMenuItem);
     targetMenuItem.click();
-    await flushTasks();
+    await microtasksFinished();
 
     // ALL_TIME chip should be selected.
     const selectedTimePeriodChip = getSelectedChip();
@@ -168,13 +161,13 @@ suite('DeleteBrowsingDataTimePicker', function() {
     // Verify the pref value was not modified during selection.
     assertEquals(
         TimePeriod.LAST_HOUR,
-        timePicker.getPref('browser.clear_data.time_period').value);
+        prefService.getPref('browser.clear_data.time_period').value);
   });
 
   test('PrefChangesUpdatesSelectedChip', async function() {
-    timePicker.setPrefValue(
+    await prefService.setPrefValue(
         'browser.clear_data.time_period', TimePeriod.FOUR_WEEKS);
-    await flushTasks();
+    await microtasksFinished();
 
     const selectedChip = getSelectedChip();
     assertTrue(!!selectedChip);
@@ -205,7 +198,7 @@ suite('DeleteBrowsingDataTimePicker', function() {
     const lastHourChip = getChipForTimePeriod(TimePeriod.LAST_HOUR);
     assertTrue(!!lastHourChip);
     lastHourChip.click();
-    await flushTasks();
+    await microtasksFinished();
     // Change event should not be fired if the time period does not change.
     assertEquals(0, timePeriodChangeCallCount);
 
@@ -213,7 +206,7 @@ suite('DeleteBrowsingDataTimePicker', function() {
     const last15minChip = getChipForTimePeriod(TimePeriod.LAST_15_MINUTES);
     assertTrue(!!last15minChip);
     last15minChip.click();
-    await flushTasks();
+    await microtasksFinished();
     assertEquals(
         TimePeriod.LAST_15_MINUTES, timePicker.getSelectedTimePeriod());
     // Change event should be fired on time period selection from chips.
@@ -223,23 +216,23 @@ suite('DeleteBrowsingDataTimePicker', function() {
     const allTimeMenuItem = getMenuItemForTimePeriod(TimePeriod.ALL_TIME);
     assertTrue(!!allTimeMenuItem);
     allTimeMenuItem.click();
-    await flushTasks();
+    await microtasksFinished();
     assertEquals(TimePeriod.ALL_TIME, timePicker.getSelectedTimePeriod());
     // Change event should be fired on time period selection from menu items.
     assertEquals(2, timePeriodChangeCallCount);
 
     // Update pref to FOUR_WEEKS.
-    timePicker.setPrefValue(
+    await prefService.setPrefValue(
         'browser.clear_data.time_period', TimePeriod.FOUR_WEEKS);
-    await flushTasks();
+    await microtasksFinished();
     assertEquals(TimePeriod.FOUR_WEEKS, timePicker.getSelectedTimePeriod());
     // Change event should be fired on pref changes.
     assertEquals(3, timePeriodChangeCallCount);
 
     // Update pref to FOUR_WEEKS again.
-    timePicker.setPrefValue(
+    await prefService.setPrefValue(
         'browser.clear_data.time_period', TimePeriod.FOUR_WEEKS);
-    await flushTasks();
+    await microtasksFinished();
     // Change event should not be fired if the pref does not change.
     assertEquals(3, timePeriodChangeCallCount);
   });
@@ -248,25 +241,24 @@ suite('DeleteBrowsingDataTimePicker', function() {
     // Initially, the TimePeriod should be set to LAST_HOUR.
     assertEquals(
         TimePeriod.LAST_HOUR,
-        timePicker.getPref('browser.clear_data.time_period').value);
+        prefService.getPref('browser.clear_data.time_period').value);
 
     // Select the LAST_DAY chip.
     const timePeriod = getChipForTimePeriod(TimePeriod.LAST_DAY);
     assertTrue(!!timePeriod);
     timePeriod.click();
-    await flushTasks();
+    await microtasksFinished();
 
     timePicker.sendPrefChange();
     // Verify the pref was updated to LAST_DAY.
     assertEquals(
         TimePeriod.LAST_DAY,
-        timePicker.getPref('browser.clear_data.time_period').value);
+        prefService.getPref('browser.clear_data.time_period').value);
   });
 
   test('MetricsTimePickerMoreClick', async function() {
     // Open the 'More' dropdown menu.
     timePicker.$.moreButton.click();
-    flush();
 
     assertEquals(
         'Settings.DeleteBrowsingData.TimePickerMoreClick',

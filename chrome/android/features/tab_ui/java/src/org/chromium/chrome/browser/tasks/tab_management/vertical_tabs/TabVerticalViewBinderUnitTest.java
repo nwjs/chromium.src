@@ -55,7 +55,6 @@ import org.chromium.base.test.util.UserActionTester;
 import org.chromium.chrome.browser.actor.ui.ActorUiTabController.UiTabState;
 import org.chromium.chrome.browser.actor.ui.TabIndicatorStatus;
 import org.chromium.chrome.browser.incognito.IncognitoUtils;
-import org.chromium.chrome.browser.tab.MediaState;
 import org.chromium.chrome.browser.tab_ui.TabListFaviconProvider.TabFavicon;
 import org.chromium.chrome.browser.tab_ui.TabListFaviconProvider.TabFaviconFetcher;
 import org.chromium.chrome.browser.tasks.tab_management.TabActionButtonData;
@@ -63,7 +62,7 @@ import org.chromium.chrome.browser.tasks.tab_management.TabActionButtonData.TabA
 import org.chromium.chrome.browser.tasks.tab_management.TabActionListener;
 import org.chromium.chrome.browser.tasks.tab_management.TabProperties;
 import org.chromium.chrome.browser.tasks.tab_management.TabUiThemeUtil;
-import org.chromium.chrome.browser.tasks.tab_management.vertical_tabs.VerticalTabHoverCardController.TabHoverCardListener;
+import org.chromium.chrome.browser.tasks.tab_management.vertical_tabs.VerticalTabHoverController.TabHoverListener;
 import org.chromium.chrome.browser.tasks.tab_management.vertical_tabs.VerticalTabListProperties.RailCollapseState;
 import org.chromium.chrome.browser.ui.vertical_tabs.VerticalTabUtils;
 import org.chromium.chrome.tab_ui.R;
@@ -73,6 +72,7 @@ import org.chromium.components.browser_ui.util.TextResolver;
 import org.chromium.components.tab_groups.TabGroupColorId;
 import org.chromium.components.tab_groups.TabGroupColorPickerUtils;
 import org.chromium.components.tab_groups.TabGroupsFeatureMap;
+import org.chromium.components.tabs.TabAlert;
 import org.chromium.ui.modelutil.PropertyModel;
 
 import java.util.concurrent.TimeUnit;
@@ -100,13 +100,13 @@ public class TabVerticalViewBinderUnitTest {
     @Mock private TabFaviconFetcher mFaviconFetcher;
     @Mock private TabFaviconFetcher mFaviconFetcher1;
     @Mock private TabFaviconFetcher mFaviconFetcher2;
-    @Mock private TabHoverCardListener mTabHoverCardListener;
+    @Mock private TabHoverListener mTabHoverListener;
 
     private ViewGroup mItemView;
     private TextView mTitleView;
     private ImageView mFaviconView;
     private ImageView mCloseButton;
-    private ImageView mMediaIndicatorView;
+    private ImageView mAlertIndicatorView;
     private View mIndicatorView;
     private ImageView mActuationSparkView;
     private ImageView mActuationSpinnerView;
@@ -131,7 +131,7 @@ public class TabVerticalViewBinderUnitTest {
         mTitleView = mItemView.findViewById(R.id.tab_title);
         mFaviconView = mItemView.findViewById(R.id.tab_favicon);
         mCloseButton = mItemView.findViewById(R.id.action_button);
-        mMediaIndicatorView = mItemView.findViewById(R.id.media_indicator_icon);
+        mAlertIndicatorView = mItemView.findViewById(R.id.alert_indicator_icon);
         mIndicatorView = mItemView.findViewById(R.id.ai_indicator);
         mActuationSparkView = mItemView.findViewById(R.id.actuation_spark);
         mActuationSpinnerView = mItemView.findViewById(R.id.actuation_spinner);
@@ -152,6 +152,7 @@ public class TabVerticalViewBinderUnitTest {
         mModel =
                 new PropertyModel.Builder(TabProperties.ALL_KEYS_VERTICAL_TAB)
                         .with(TabProperties.IS_INCOGNITO, false)
+                        .with(TabProperties.ALERT_STATE, TabAlert.NONE)
                         .build();
     }
 
@@ -275,48 +276,48 @@ public class TabVerticalViewBinderUnitTest {
 
     @Test
     @SmallTest
-    public void testBindContentDescription_MediaStates() {
+    public void testBindContentDescription_AlertStates() {
         mModel.set(TabProperties.TITLE, TEST_TITLE);
 
         // Produces: "Google Website, Muted Tab".
-        mModel.set(TabProperties.MEDIA_INDICATOR, MediaState.MUTED);
-        TabVerticalViewBinder.bindTab(mModel, mItemView, TabProperties.MEDIA_INDICATOR);
+        mModel.set(TabProperties.ALERT_STATE, TabAlert.AUDIO_MUTING);
+        TabVerticalViewBinder.bindTab(mModel, mItemView, TabProperties.ALERT_STATE);
         assertEquals(
                 mActivity.getString(R.string.accessibility_tabstrip_tab_muted, TEST_TITLE),
                 mItemView.getContentDescription());
 
         // Produces: "Google Website, Audible Tab".
-        mModel.set(TabProperties.MEDIA_INDICATOR, MediaState.AUDIBLE);
-        TabVerticalViewBinder.bindTab(mModel, mItemView, TabProperties.MEDIA_INDICATOR);
+        mModel.set(TabProperties.ALERT_STATE, TabAlert.AUDIO_PLAYING);
+        TabVerticalViewBinder.bindTab(mModel, mItemView, TabProperties.ALERT_STATE);
         assertEquals(
                 mActivity.getString(R.string.accessibility_tabstrip_tab_audible, TEST_TITLE),
                 mItemView.getContentDescription());
 
         // Produces: "Google Website, Recording Tab".
-        mModel.set(TabProperties.MEDIA_INDICATOR, MediaState.RECORDING);
-        TabVerticalViewBinder.bindTab(mModel, mItemView, TabProperties.MEDIA_INDICATOR);
+        mModel.set(TabProperties.ALERT_STATE, TabAlert.MEDIA_RECORDING);
+        TabVerticalViewBinder.bindTab(mModel, mItemView, TabProperties.ALERT_STATE);
         assertEquals(
                 mActivity.getString(R.string.accessibility_tabstrip_tab_recording, TEST_TITLE),
                 mItemView.getContentDescription());
 
         // Produces: "Google Website, Sharing Tab".
-        mModel.set(TabProperties.MEDIA_INDICATOR, MediaState.SHARING);
-        TabVerticalViewBinder.bindTab(mModel, mItemView, TabProperties.MEDIA_INDICATOR);
+        mModel.set(TabProperties.ALERT_STATE, TabAlert.TAB_CAPTURING);
+        TabVerticalViewBinder.bindTab(mModel, mItemView, TabProperties.ALERT_STATE);
         assertEquals(
                 mActivity.getString(R.string.accessibility_tabstrip_tab_sharing, TEST_TITLE),
                 mItemView.getContentDescription());
 
         // Produces: "Google Website, Picture-in-Picture Tab".
-        mModel.set(TabProperties.MEDIA_INDICATOR, MediaState.PICTURE_IN_PICTURE);
-        TabVerticalViewBinder.bindTab(mModel, mItemView, TabProperties.MEDIA_INDICATOR);
+        mModel.set(TabProperties.ALERT_STATE, TabAlert.PIP_PLAYING);
+        TabVerticalViewBinder.bindTab(mModel, mItemView, TabProperties.ALERT_STATE);
         assertEquals(
                 mActivity.getString(
                         R.string.accessibility_tabstrip_tab_picture_in_picture, TEST_TITLE),
                 mItemView.getContentDescription());
 
         // Produces: "Google Website, Tab".
-        mModel.set(TabProperties.MEDIA_INDICATOR, MediaState.NONE);
-        TabVerticalViewBinder.bindTab(mModel, mItemView, TabProperties.MEDIA_INDICATOR);
+        mModel.set(TabProperties.ALERT_STATE, TabAlert.NONE);
+        TabVerticalViewBinder.bindTab(mModel, mItemView, TabProperties.ALERT_STATE);
         assertEquals(
                 mActivity.getString(R.string.accessibility_tabstrip_tab, TEST_TITLE),
                 mItemView.getContentDescription());
@@ -341,15 +342,15 @@ public class TabVerticalViewBinderUnitTest {
 
     @Test
     @SmallTest
-    public void testBindContentDescription_ActorActive_WithMedia() {
+    public void testBindContentDescription_ActorActive_WithAlert() {
         mModel.set(TabProperties.TITLE, TEST_TITLE);
         mModel.set(
                 TabProperties.ACTOR_UI_STATE,
                 new UiTabState(0, null, null, TabIndicatorStatus.DYNAMIC, false));
-        mModel.set(TabProperties.MEDIA_INDICATOR, MediaState.MUTED);
+        mModel.set(TabProperties.ALERT_STATE, TabAlert.AUDIO_MUTING);
 
         TabVerticalViewBinder.bindTab(mModel, mItemView, TabProperties.ACTOR_UI_STATE);
-        TabVerticalViewBinder.bindTab(mModel, mItemView, TabProperties.MEDIA_INDICATOR);
+        TabVerticalViewBinder.bindTab(mModel, mItemView, TabProperties.ALERT_STATE);
 
         // Produces: "Google Website - Gemini is working on your task..., Muted Tab".
         String expectedActorTitle =
@@ -467,16 +468,16 @@ public class TabVerticalViewBinderUnitTest {
 
     @Test
     @SmallTest
-    public void testBindMediaIndicator() {
+    public void testBindAlertState() {
         mModel.set(TabProperties.IS_SELECTED, false);
 
-        mModel.set(TabProperties.MEDIA_INDICATOR, MediaState.AUDIBLE);
-        TabVerticalViewBinder.bindTab(mModel, mItemView, TabProperties.MEDIA_INDICATOR);
+        mModel.set(TabProperties.ALERT_STATE, TabAlert.AUDIO_PLAYING);
+        TabVerticalViewBinder.bindTab(mModel, mItemView, TabProperties.ALERT_STATE);
 
-        assertEquals(View.VISIBLE, mMediaIndicatorView.getVisibility());
+        assertEquals(View.VISIBLE, mAlertIndicatorView.getVisibility());
 
         // 1. Assert unselected baseline tint uses secondary icon color
-        ColorStateList tintList = mMediaIndicatorView.getImageTintList();
+        ColorStateList tintList = mAlertIndicatorView.getImageTintList();
         assertNotNull(tintList);
         assertEquals(
                 SemanticColorUtils.getDefaultIconColorSecondary(mActivity),
@@ -485,17 +486,17 @@ public class TabVerticalViewBinderUnitTest {
         // 2. Select it and assert the tint brightens to primary icon color.
         mModel.set(TabProperties.IS_SELECTED, true);
         TabVerticalViewBinder.bindTab(mModel, mItemView, TabProperties.IS_SELECTED);
-        TabVerticalViewBinder.bindTab(mModel, mItemView, TabProperties.MEDIA_INDICATOR);
+        TabVerticalViewBinder.bindTab(mModel, mItemView, TabProperties.ALERT_STATE);
 
-        tintList = mMediaIndicatorView.getImageTintList();
+        tintList = mAlertIndicatorView.getImageTintList();
         assertNotNull(tintList);
         assertEquals(SemanticColorUtils.getDefaultIconColor(mActivity), tintList.getDefaultColor());
 
         // 3. Assert hiding behavior
-        mModel.set(TabProperties.MEDIA_INDICATOR, MediaState.NONE);
-        TabVerticalViewBinder.bindTab(mModel, mItemView, TabProperties.MEDIA_INDICATOR);
+        mModel.set(TabProperties.ALERT_STATE, TabAlert.NONE);
+        TabVerticalViewBinder.bindTab(mModel, mItemView, TabProperties.ALERT_STATE);
 
-        assertEquals(View.GONE, mMediaIndicatorView.getVisibility());
+        assertEquals(View.GONE, mAlertIndicatorView.getVisibility());
     }
 
     @Test
@@ -713,10 +714,10 @@ public class TabVerticalViewBinderUnitTest {
     @SmallTest
     public void testTabHover_SuppressedWhenContextMenuOrScrolling() {
         mModel.set(TabProperties.IS_SELECTED, false);
-        mModel.set(TabProperties.TAB_HOVER_CARD_LISTENER, mTabHoverCardListener);
+        mModel.set(TabProperties.TAB_HOVER_LISTENER, mTabHoverListener);
         TabVerticalViewBinder.bindTab(mModel, mItemView, TabProperties.IS_SELECTED);
 
-        when(mTabHoverCardListener.isContextMenuShowing()).thenReturn(true);
+        when(mTabHoverListener.isContextMenuShowing()).thenReturn(true);
 
         MotionEvent hoverEnterEvent =
                 MotionEvent.obtain(0, 0, MotionEvent.ACTION_HOVER_ENTER, 0f, 0f, 0);
@@ -727,8 +728,8 @@ public class TabVerticalViewBinderUnitTest {
         assertNotNull(bgTint);
         assertEquals(Color.TRANSPARENT, bgTint.getDefaultColor());
 
-        when(mTabHoverCardListener.isContextMenuShowing()).thenReturn(false);
-        when(mTabHoverCardListener.isScrolling()).thenReturn(true);
+        when(mTabHoverListener.isContextMenuShowing()).thenReturn(false);
+        when(mTabHoverListener.isScrolling()).thenReturn(true);
 
         mItemView.dispatchGenericMotionEvent(hoverEnterEvent);
 
@@ -1121,43 +1122,43 @@ public class TabVerticalViewBinderUnitTest {
 
     @Test
     @SmallTest
-    public void testBindPinnedTab_ContentDescription_MediaStates() {
+    public void testBindPinnedTab_ContentDescription_AlertStates() {
         ViewGroup pinnedView = inflatePinnedTabView();
         mModel.set(TabProperties.IS_PINNED, true);
         mModel.set(TabProperties.TITLE, TEST_TITLE);
 
         // Produces: "Google Website, Pinned Muted Tab".
-        mModel.set(TabProperties.MEDIA_INDICATOR, MediaState.MUTED);
-        TabVerticalViewBinder.bindPinnedTab(mModel, pinnedView, TabProperties.MEDIA_INDICATOR);
+        mModel.set(TabProperties.ALERT_STATE, TabAlert.AUDIO_MUTING);
+        TabVerticalViewBinder.bindPinnedTab(mModel, pinnedView, TabProperties.ALERT_STATE);
         assertEquals(
                 mActivity.getString(R.string.accessibility_tabstrip_tab_pinned_muted, TEST_TITLE),
                 pinnedView.getContentDescription());
 
         // Produces: "Google Website, Pinned Audible Tab".
-        mModel.set(TabProperties.MEDIA_INDICATOR, MediaState.AUDIBLE);
-        TabVerticalViewBinder.bindPinnedTab(mModel, pinnedView, TabProperties.MEDIA_INDICATOR);
+        mModel.set(TabProperties.ALERT_STATE, TabAlert.AUDIO_PLAYING);
+        TabVerticalViewBinder.bindPinnedTab(mModel, pinnedView, TabProperties.ALERT_STATE);
         assertEquals(
                 mActivity.getString(R.string.accessibility_tabstrip_tab_pinned_audible, TEST_TITLE),
                 pinnedView.getContentDescription());
 
         // Produces: "Google Website, Pinned Recording Tab".
-        mModel.set(TabProperties.MEDIA_INDICATOR, MediaState.RECORDING);
-        TabVerticalViewBinder.bindPinnedTab(mModel, pinnedView, TabProperties.MEDIA_INDICATOR);
+        mModel.set(TabProperties.ALERT_STATE, TabAlert.MEDIA_RECORDING);
+        TabVerticalViewBinder.bindPinnedTab(mModel, pinnedView, TabProperties.ALERT_STATE);
         assertEquals(
                 mActivity.getString(
                         R.string.accessibility_tabstrip_tab_pinned_recording, TEST_TITLE),
                 pinnedView.getContentDescription());
 
         // Produces: "Google Website, Pinned Sharing Tab".
-        mModel.set(TabProperties.MEDIA_INDICATOR, MediaState.SHARING);
-        TabVerticalViewBinder.bindPinnedTab(mModel, pinnedView, TabProperties.MEDIA_INDICATOR);
+        mModel.set(TabProperties.ALERT_STATE, TabAlert.TAB_CAPTURING);
+        TabVerticalViewBinder.bindPinnedTab(mModel, pinnedView, TabProperties.ALERT_STATE);
         assertEquals(
                 mActivity.getString(R.string.accessibility_tabstrip_tab_pinned_sharing, TEST_TITLE),
                 pinnedView.getContentDescription());
 
         // Produces: "Google Website, Pinned Picture-in-Picture Tab".
-        mModel.set(TabProperties.MEDIA_INDICATOR, MediaState.PICTURE_IN_PICTURE);
-        TabVerticalViewBinder.bindPinnedTab(mModel, pinnedView, TabProperties.MEDIA_INDICATOR);
+        mModel.set(TabProperties.ALERT_STATE, TabAlert.PIP_PLAYING);
+        TabVerticalViewBinder.bindPinnedTab(mModel, pinnedView, TabProperties.ALERT_STATE);
         assertEquals(
                 mActivity.getString(
                         R.string.accessibility_tabstrip_tab_pinned_picture_in_picture, TEST_TITLE),
@@ -1166,17 +1167,17 @@ public class TabVerticalViewBinderUnitTest {
 
     @Test
     @SmallTest
-    public void testBindPinnedTab_ContentDescription_ActorActive_WithMedia() {
+    public void testBindPinnedTab_ContentDescription_ActorActive_WithAlert() {
         ViewGroup pinnedView = inflatePinnedTabView();
         mModel.set(TabProperties.IS_PINNED, true);
         mModel.set(TabProperties.TITLE, TEST_TITLE);
         mModel.set(
                 TabProperties.ACTOR_UI_STATE,
                 new UiTabState(0, null, null, TabIndicatorStatus.DYNAMIC, false));
-        mModel.set(TabProperties.MEDIA_INDICATOR, MediaState.MUTED);
+        mModel.set(TabProperties.ALERT_STATE, TabAlert.AUDIO_MUTING);
 
         TabVerticalViewBinder.bindPinnedTab(mModel, pinnedView, TabProperties.ACTOR_UI_STATE);
-        TabVerticalViewBinder.bindPinnedTab(mModel, pinnedView, TabProperties.MEDIA_INDICATOR);
+        TabVerticalViewBinder.bindPinnedTab(mModel, pinnedView, TabProperties.ALERT_STATE);
 
         // Produces: "Google Website - Gemini is working on your task..., Pinned Muted Tab".
         String expectedActorTitle =
@@ -1520,11 +1521,11 @@ public class TabVerticalViewBinderUnitTest {
 
     @Test
     @SmallTest
-    public void testBindTabGroupHeader_HoverCardListener() {
+    public void testBindTabGroupHeader_HoverListener() {
         ViewGroup headerView = inflateGroupHeaderView();
         mModel.set(TabProperties.TAB_ID, TEST_HEADER_TAB_ID);
         mModel.set(TabProperties.TAB_GROUP_HEADER_ID, TEST_TAB_GROUP_ID);
-        mModel.set(TabProperties.TAB_HOVER_CARD_LISTENER, mTabHoverCardListener);
+        mModel.set(TabProperties.TAB_HOVER_LISTENER, mTabHoverListener);
         TabActionButtonData actionButtonData =
                 new TabActionButtonData(TabActionButtonType.CLOSE, mCloseListener);
         mModel.set(TabProperties.TAB_ACTION_BUTTON_DATA, actionButtonData);
@@ -1545,8 +1546,8 @@ public class TabVerticalViewBinderUnitTest {
                         /* metaState= */ 0);
         enterEvent.setSource(InputDevice.SOURCE_MOUSE);
         headerView.dispatchGenericMotionEvent(enterEvent);
-        verify(mTabHoverCardListener)
-                .onTabGroupHoverCardStateChanged(
+        verify(mTabHoverListener)
+                .onTabGroupHoverStateChanged(
                         TEST_HEADER_TAB_ID, TEST_TAB_GROUP_ID, headerView, /* isHovered= */ true);
         assertTrue(
                 userActionTester.getActions().contains("Android.VerticalTabs.GroupHeaderHovered"));
@@ -1563,8 +1564,8 @@ public class TabVerticalViewBinderUnitTest {
                         /* metaState= */ 0);
         exitEvent.setSource(InputDevice.SOURCE_MOUSE);
         headerView.dispatchGenericMotionEvent(exitEvent);
-        verify(mTabHoverCardListener)
-                .onTabGroupHoverCardStateChanged(
+        verify(mTabHoverListener)
+                .onTabGroupHoverStateChanged(
                         TEST_HEADER_TAB_ID, TEST_TAB_GROUP_ID, headerView, /* isHovered= */ false);
         exitEvent.recycle();
     }
@@ -1602,50 +1603,50 @@ public class TabVerticalViewBinderUnitTest {
 
     @Test
     @SmallTest
-    public void testBindTab_Focus_NotifiesHoverCardListener() {
+    public void testBindTab_Focus_NotifiesHoverListener() {
         mModel.set(TabProperties.TAB_ID, TEST_HEADER_TAB_ID);
-        mModel.set(TabProperties.TAB_HOVER_CARD_LISTENER, mTabHoverCardListener);
+        mModel.set(TabProperties.TAB_HOVER_LISTENER, mTabHoverListener);
         mModel.set(TabProperties.IS_SELECTED, false);
         TabVerticalViewBinder.bindTab(mModel, mItemView, TabProperties.IS_SELECTED);
 
         // Focus gain
         mItemView.getOnFocusChangeListener().onFocusChange(mItemView, true);
-        verify(mTabHoverCardListener)
-                .onTabHoverCardStateChanged(TEST_HEADER_TAB_ID, mItemView, /* isHovered= */ true);
+        verify(mTabHoverListener)
+                .onTabHoverStateChanged(TEST_HEADER_TAB_ID, mItemView, /* isHovered= */ true);
 
         // Focus loss
         mItemView.getOnFocusChangeListener().onFocusChange(mItemView, false);
-        verify(mTabHoverCardListener)
-                .onTabHoverCardStateChanged(TEST_HEADER_TAB_ID, mItemView, /* isHovered= */ false);
+        verify(mTabHoverListener)
+                .onTabHoverStateChanged(TEST_HEADER_TAB_ID, mItemView, /* isHovered= */ false);
     }
 
     @Test
     @SmallTest
-    public void testBindPinnedTab_Focus_NotifiesHoverCardListener() {
+    public void testBindPinnedTab_Focus_NotifiesHoverListener() {
         ViewGroup pinnedView = inflatePinnedTabView();
         mModel.set(TabProperties.TAB_ID, TEST_HEADER_TAB_ID);
-        mModel.set(TabProperties.TAB_HOVER_CARD_LISTENER, mTabHoverCardListener);
+        mModel.set(TabProperties.TAB_HOVER_LISTENER, mTabHoverListener);
         mModel.set(TabProperties.IS_SELECTED, false);
         TabVerticalViewBinder.bindPinnedTab(mModel, pinnedView, TabProperties.IS_SELECTED);
 
         // Focus gain
         pinnedView.getOnFocusChangeListener().onFocusChange(pinnedView, true);
-        verify(mTabHoverCardListener)
-                .onTabHoverCardStateChanged(TEST_HEADER_TAB_ID, pinnedView, /* isHovered= */ true);
+        verify(mTabHoverListener)
+                .onTabHoverStateChanged(TEST_HEADER_TAB_ID, pinnedView, /* isHovered= */ true);
 
         // Focus loss
         pinnedView.getOnFocusChangeListener().onFocusChange(pinnedView, false);
-        verify(mTabHoverCardListener)
-                .onTabHoverCardStateChanged(TEST_HEADER_TAB_ID, pinnedView, /* isHovered= */ false);
+        verify(mTabHoverListener)
+                .onTabHoverStateChanged(TEST_HEADER_TAB_ID, pinnedView, /* isHovered= */ false);
     }
 
     @Test
     @SmallTest
-    public void testBindTabGroupHeader_Focus_NotifiesHoverCardListener() {
+    public void testBindTabGroupHeader_Focus_NotifiesHoverListener() {
         ViewGroup headerView = inflateGroupHeaderView();
         mModel.set(TabProperties.TAB_ID, TEST_HEADER_TAB_ID);
         mModel.set(TabProperties.TAB_GROUP_HEADER_ID, TEST_TAB_GROUP_ID);
-        mModel.set(TabProperties.TAB_HOVER_CARD_LISTENER, mTabHoverCardListener);
+        mModel.set(TabProperties.TAB_HOVER_LISTENER, mTabHoverListener);
         TabActionButtonData actionButtonData =
                 new TabActionButtonData(TabActionButtonType.CLOSE, mCloseListener);
         mModel.set(TabProperties.TAB_ACTION_BUTTON_DATA, actionButtonData);
@@ -1654,14 +1655,14 @@ public class TabVerticalViewBinderUnitTest {
 
         // Focus gain
         headerView.getOnFocusChangeListener().onFocusChange(headerView, true);
-        verify(mTabHoverCardListener)
-                .onTabGroupHoverCardStateChanged(
+        verify(mTabHoverListener)
+                .onTabGroupHoverStateChanged(
                         TEST_HEADER_TAB_ID, TEST_TAB_GROUP_ID, headerView, /* isHovered= */ true);
 
         // Focus loss
         headerView.getOnFocusChangeListener().onFocusChange(headerView, false);
-        verify(mTabHoverCardListener)
-                .onTabGroupHoverCardStateChanged(
+        verify(mTabHoverListener)
+                .onTabGroupHoverStateChanged(
                         TEST_HEADER_TAB_ID, TEST_TAB_GROUP_ID, headerView, /* isHovered= */ false);
     }
 
@@ -1962,7 +1963,7 @@ public class TabVerticalViewBinderUnitTest {
         assertNotEquals(View.VISIBLE, mTitleView.getVisibility());
         assertEquals("Google", mItemView.getContentDescription());
         assertNotEquals(View.VISIBLE, mCloseButton.getVisibility());
-        assertNotEquals(View.VISIBLE, mMediaIndicatorView.getVisibility());
+        assertNotEquals(View.VISIBLE, mAlertIndicatorView.getVisibility());
         assertNotEquals(View.VISIBLE, mIndicatorView.getVisibility());
 
         // Verify padding is collapsed margin
@@ -2185,7 +2186,7 @@ public class TabVerticalViewBinderUnitTest {
 
         // Setup all other icons to be active
         mModel.set(TabProperties.IS_LOADING, true);
-        mModel.set(TabProperties.MEDIA_INDICATOR, MediaState.RECORDING);
+        mModel.set(TabProperties.ALERT_STATE, TabAlert.MEDIA_RECORDING);
         mModel.set(
                 TabProperties.ACTOR_UI_STATE,
                 new UiTabState(0, null, null, TabIndicatorStatus.DYNAMIC, false));
@@ -2199,7 +2200,7 @@ public class TabVerticalViewBinderUnitTest {
         TabVerticalViewBinder.bindTab(mModel, mItemView, TabProperties.RAIL_COLLAPSE_STATE);
         TabVerticalViewBinder.bindTab(mModel, mItemView, TabProperties.FAVICON_FETCHER);
         TabVerticalViewBinder.bindTab(mModel, mItemView, TabProperties.IS_LOADING);
-        TabVerticalViewBinder.bindTab(mModel, mItemView, TabProperties.MEDIA_INDICATOR);
+        TabVerticalViewBinder.bindTab(mModel, mItemView, TabProperties.ALERT_STATE);
         TabVerticalViewBinder.bindTab(mModel, mItemView, TabProperties.ACTOR_UI_STATE);
         TabVerticalViewBinder.bindTab(mModel, mItemView, TabProperties.TAB_ACTION_BUTTON_DATA);
         TabVerticalViewBinder.bindTab(mModel, mItemView, TabProperties.IS_SELECTED);
@@ -2215,11 +2216,11 @@ public class TabVerticalViewBinderUnitTest {
         // --- Priority 1: Action Button ---
         assertEquals(View.VISIBLE, mCloseButton.getVisibility());
         assertNotEquals(View.VISIBLE, mActuationSparkView.getVisibility());
-        assertNotEquals(View.VISIBLE, mMediaIndicatorView.getVisibility());
+        assertNotEquals(View.VISIBLE, mAlertIndicatorView.getVisibility());
         assertNotEquals(View.VISIBLE, spinner.getVisibility());
         assertNotEquals(View.VISIBLE, mFaviconView.getVisibility());
 
-        // --- Priority 2: Recording/Sharing Media Indicator ---
+        // --- Priority 2: Recording/Sharing Alert Indicator ---
         // Un-hover to hide close button
         MotionEvent hoverExitEvent =
                 MotionEvent.obtain(0, 0, MotionEvent.ACTION_HOVER_EXIT, 0f, 0f, 0);
@@ -2228,22 +2229,22 @@ public class TabVerticalViewBinderUnitTest {
 
         assertNotEquals(View.VISIBLE, mCloseButton.getVisibility());
         assertNotEquals(View.VISIBLE, mActuationSparkView.getVisibility());
-        assertEquals(View.VISIBLE, mMediaIndicatorView.getVisibility());
+        assertEquals(View.VISIBLE, mAlertIndicatorView.getVisibility());
         assertNotEquals(View.VISIBLE, spinner.getVisibility());
         assertNotEquals(View.VISIBLE, mFaviconView.getVisibility());
 
         // --- Priority 3: AI Actuation Indicator ---
-        // Change Media to Standard (Audible) so AI actuation takes priority
-        mModel.set(TabProperties.MEDIA_INDICATOR, MediaState.AUDIBLE);
-        TabVerticalViewBinder.bindTab(mModel, mItemView, TabProperties.MEDIA_INDICATOR);
+        // Change Alert to Standard (Audible) so AI actuation takes priority
+        mModel.set(TabProperties.ALERT_STATE, TabAlert.AUDIO_PLAYING);
+        TabVerticalViewBinder.bindTab(mModel, mItemView, TabProperties.ALERT_STATE);
 
         assertNotEquals(View.VISIBLE, mCloseButton.getVisibility());
         assertEquals(View.VISIBLE, mActuationSparkView.getVisibility());
-        assertNotEquals(View.VISIBLE, mMediaIndicatorView.getVisibility());
+        assertNotEquals(View.VISIBLE, mAlertIndicatorView.getVisibility());
         assertNotEquals(View.VISIBLE, spinner.getVisibility());
         assertNotEquals(View.VISIBLE, mFaviconView.getVisibility());
 
-        // --- Priority 4: Standard Media Indicator ---
+        // --- Priority 4: Standard Alert Indicator ---
         // Disable AI actuation
         mModel.set(
                 TabProperties.ACTOR_UI_STATE,
@@ -2252,18 +2253,18 @@ public class TabVerticalViewBinderUnitTest {
 
         assertNotEquals(View.VISIBLE, mCloseButton.getVisibility());
         assertNotEquals(View.VISIBLE, mActuationSparkView.getVisibility());
-        assertEquals(View.VISIBLE, mMediaIndicatorView.getVisibility());
+        assertEquals(View.VISIBLE, mAlertIndicatorView.getVisibility());
         assertNotEquals(View.VISIBLE, spinner.getVisibility());
         assertNotEquals(View.VISIBLE, mFaviconView.getVisibility());
 
         // --- Priority 5: Loading Spinner ---
-        // Disable Media
-        mModel.set(TabProperties.MEDIA_INDICATOR, MediaState.NONE);
-        TabVerticalViewBinder.bindTab(mModel, mItemView, TabProperties.MEDIA_INDICATOR);
+        // Disable Alert
+        mModel.set(TabProperties.ALERT_STATE, TabAlert.NONE);
+        TabVerticalViewBinder.bindTab(mModel, mItemView, TabProperties.ALERT_STATE);
 
         assertNotEquals(View.VISIBLE, mCloseButton.getVisibility());
         assertNotEquals(View.VISIBLE, mActuationSparkView.getVisibility());
-        assertNotEquals(View.VISIBLE, mMediaIndicatorView.getVisibility());
+        assertNotEquals(View.VISIBLE, mAlertIndicatorView.getVisibility());
         assertEquals(View.VISIBLE, spinner.getVisibility());
         assertNotEquals(View.VISIBLE, mFaviconView.getVisibility());
 
@@ -2274,7 +2275,7 @@ public class TabVerticalViewBinderUnitTest {
 
         assertNotEquals(View.VISIBLE, mCloseButton.getVisibility());
         assertNotEquals(View.VISIBLE, mActuationSparkView.getVisibility());
-        assertNotEquals(View.VISIBLE, mMediaIndicatorView.getVisibility());
+        assertNotEquals(View.VISIBLE, mAlertIndicatorView.getVisibility());
         assertNotEquals(View.VISIBLE, spinner.getVisibility());
         assertEquals(View.VISIBLE, mFaviconView.getVisibility());
     }
@@ -2290,7 +2291,7 @@ public class TabVerticalViewBinderUnitTest {
 
         // Setup all other icons to be active.
         mModel.set(TabProperties.IS_LOADING, true);
-        mModel.set(TabProperties.MEDIA_INDICATOR, MediaState.RECORDING);
+        mModel.set(TabProperties.ALERT_STATE, TabAlert.MEDIA_RECORDING);
         mModel.set(
                 TabProperties.ACTOR_UI_STATE,
                 new UiTabState(0, null, null, TabIndicatorStatus.DYNAMIC, false));
@@ -2299,32 +2300,32 @@ public class TabVerticalViewBinderUnitTest {
         // Bind all properties.
         TabVerticalViewBinder.bindPinnedTab(mModel, pinnedView, TabProperties.FAVICON_FETCHER);
         TabVerticalViewBinder.bindPinnedTab(mModel, pinnedView, TabProperties.IS_LOADING);
-        TabVerticalViewBinder.bindPinnedTab(mModel, pinnedView, TabProperties.MEDIA_INDICATOR);
+        TabVerticalViewBinder.bindPinnedTab(mModel, pinnedView, TabProperties.ALERT_STATE);
         TabVerticalViewBinder.bindPinnedTab(mModel, pinnedView, TabProperties.ACTOR_UI_STATE);
         TabVerticalViewBinder.bindPinnedTab(mModel, pinnedView, TabProperties.IS_SELECTED);
 
         View spinner = pinnedView.findViewById(R.id.tab_loading_spinner);
         View faviconView = pinnedView.findViewById(R.id.tab_favicon);
-        View mediaIndicatorView = pinnedView.findViewById(R.id.media_indicator_icon);
+        View alertIndicatorView = pinnedView.findViewById(R.id.alert_indicator_icon);
         View actuationSparkView = pinnedView.findViewById(R.id.actuation_spark);
 
-        // --- Priority 1: Recording/Sharing Media Indicator ---
+        // --- Priority 1: Recording/Sharing Alert Indicator ---
         assertEquals(View.GONE, actuationSparkView.getVisibility());
-        assertEquals(View.VISIBLE, mediaIndicatorView.getVisibility());
+        assertEquals(View.VISIBLE, alertIndicatorView.getVisibility());
         assertEquals(View.GONE, spinner.getVisibility());
         assertEquals(View.GONE, faviconView.getVisibility());
 
         // --- Priority 2: AI Actuation Indicator ---
-        // Change Media to Standard (Audible) so AI actuation takes priority.
-        mModel.set(TabProperties.MEDIA_INDICATOR, MediaState.AUDIBLE);
-        TabVerticalViewBinder.bindPinnedTab(mModel, pinnedView, TabProperties.MEDIA_INDICATOR);
+        // Change Alert to Standard (Audible) so AI actuation takes priority.
+        mModel.set(TabProperties.ALERT_STATE, TabAlert.AUDIO_PLAYING);
+        TabVerticalViewBinder.bindPinnedTab(mModel, pinnedView, TabProperties.ALERT_STATE);
 
         assertEquals(View.VISIBLE, actuationSparkView.getVisibility());
-        assertEquals(View.GONE, mediaIndicatorView.getVisibility());
+        assertEquals(View.GONE, alertIndicatorView.getVisibility());
         assertEquals(View.GONE, spinner.getVisibility());
         assertEquals(View.GONE, faviconView.getVisibility());
 
-        // --- Priority 3: Standard Media Indicator ---
+        // --- Priority 3: Standard Alert Indicator ---
         // Disable AI actuation.
         mModel.set(
                 TabProperties.ACTOR_UI_STATE,
@@ -2332,17 +2333,17 @@ public class TabVerticalViewBinderUnitTest {
         TabVerticalViewBinder.bindPinnedTab(mModel, pinnedView, TabProperties.ACTOR_UI_STATE);
 
         assertEquals(View.GONE, actuationSparkView.getVisibility());
-        assertEquals(View.VISIBLE, mediaIndicatorView.getVisibility());
+        assertEquals(View.VISIBLE, alertIndicatorView.getVisibility());
         assertEquals(View.GONE, spinner.getVisibility());
         assertEquals(View.GONE, faviconView.getVisibility());
 
         // --- Priority 4: Loading Spinner ---
-        // Disable Media.
-        mModel.set(TabProperties.MEDIA_INDICATOR, MediaState.NONE);
-        TabVerticalViewBinder.bindPinnedTab(mModel, pinnedView, TabProperties.MEDIA_INDICATOR);
+        // Disable Alert.
+        mModel.set(TabProperties.ALERT_STATE, TabAlert.NONE);
+        TabVerticalViewBinder.bindPinnedTab(mModel, pinnedView, TabProperties.ALERT_STATE);
 
         assertEquals(View.GONE, actuationSparkView.getVisibility());
-        assertEquals(View.GONE, mediaIndicatorView.getVisibility());
+        assertEquals(View.GONE, alertIndicatorView.getVisibility());
         assertEquals(View.VISIBLE, spinner.getVisibility());
         assertEquals(View.GONE, faviconView.getVisibility());
 
@@ -2352,7 +2353,7 @@ public class TabVerticalViewBinderUnitTest {
         TabVerticalViewBinder.bindPinnedTab(mModel, pinnedView, TabProperties.IS_LOADING);
 
         assertEquals(View.GONE, actuationSparkView.getVisibility());
-        assertEquals(View.GONE, mediaIndicatorView.getVisibility());
+        assertEquals(View.GONE, alertIndicatorView.getVisibility());
         assertEquals(View.GONE, spinner.getVisibility());
         assertEquals(View.VISIBLE, faviconView.getVisibility());
     }

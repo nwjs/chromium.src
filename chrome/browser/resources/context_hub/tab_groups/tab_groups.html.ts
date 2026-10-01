@@ -7,6 +7,7 @@ import {html} from '//resources/lit/v3_0/lit.rollup.js';
 import {ChatRole} from '../context_hub.mojom-webui.js';
 import type {TabInfo} from '../context_hub.mojom-webui.js';
 
+import {DEFECT_CATEGORIES} from './tab_groups.js';
 import type {TabGroupsElement} from './tab_groups.js';
 
 export function getHtml(this: TabGroupsElement) {
@@ -54,8 +55,9 @@ export function getHtml(this: TabGroupsElement) {
                         <div class="spinner"></div>
                         <span>Clustering tabs with Gemini...</span>
                     </div>
-                ` : (this.isGrouped_ ? html`
-                    <div class="unconfirmed-groups-section">
+                ` : html`
+                    ${this.isGrouped_ ? html`
+                      <div class="unconfirmed-groups-section">
                         <div class="unconfirmed-groups-header-row">
                             <h2>Suggested Groups</h2>
                         </div>
@@ -100,24 +102,24 @@ export function getHtml(this: TabGroupsElement) {
                                 @click="${this.onCanvasThumbsDownClick_}">
                             </cr-icon-button>
                         </div>
-                    </div>
+                      </div>
 
-                    ${this.ungroupedTabs_.length > 0 ? html`
-                        <div class="ungrouped-section">
-                            <h2>Ungrouped tabs</h2>
-                            <div class="grid">
-                                ${this.ungroupedTabs_.map(tab => html`
-                                    <div class="tab-card"
-                                        data-id="${tab.id}"
-                                        @click="${this.onTabClick_}">
-                                        <div class="tab-title">${tab.title}</div>
-                                    </div>
-                                `)}
-                            </div>
-                        </div>
-                    ` : ''}
-                ` : html`
-                    <div class="grid">
+                      ${this.ungroupedTabs_.length > 0 ? html`
+                          <div class="ungrouped-section">
+                              <h2>Ungrouped tabs</h2>
+                              <div class="grid">
+                                  ${this.ungroupedTabs_.map(tab => html`
+                                      <div class="tab-card"
+                                          data-id="${tab.id}"
+                                          @click="${this.onTabClick_}">
+                                          <div class="tab-title">${tab.title}</div>
+                                      </div>
+                                  `)}
+                              </div>
+                          </div>
+                      ` : ''}
+                    ` : html`
+                      <div class="grid">
                         ${this.tabs_.map(tab => html`
                             <div class="tab-card"
                                         data-id="${tab.id}"
@@ -125,8 +127,9 @@ export function getHtml(this: TabGroupsElement) {
                                 <div class="tab-title">${tab.title}</div>
                             </div>
                         `)}
-                    </div>
-                `)}
+                      </div>
+                    `}
+                `}
                 ${this.confirmedGroupSummaries_.length > 0 ? html`
                     <div class="saved-groups-section">
                         <div class="saved-groups-header-row">
@@ -241,6 +244,100 @@ export function getHtml(this: TabGroupsElement) {
             </div>
         </div>
     </main>
+
+    ${this.feedbackDialogOpen_ ? html`
+      <cr-dialog id="feedback-dialog"
+          @close="${this.onFeedbackDialogClose_}"
+          show-on-attach>
+        <div slot="title" class="feedback-dialog-title">
+          <span>Evaluate Tab Grouping</span>
+          <span class="dialog-subtitle">
+            (${this.feedbackLiked_ ? 'Positive Experience' :
+                'Needs Improvement'})
+          </span>
+        </div>
+        <div slot="body" class="feedback-dialog-body">
+          <div class="feedback-section">
+            <div class="feedback-section-header">
+              <span class="feedback-section-label">
+                Quality Score (1–10): ${this.feedbackRating_ ?? 10}
+              </span>
+            </div>
+            <cr-slider min="1" max="10" snaps="true"
+                marker-count="10" pin="true"
+                .value="${this.feedbackRating_ ?? 10}"
+                @cr-slider-value-changed="${
+                    this.onRatingCrSliderValueChanged_}">
+            </cr-slider>
+          </div>
+
+          <div class="feedback-section">
+            <div class="feedback-section-header">
+              <span class="feedback-section-label">
+                Defect Category
+                ${!this.feedbackLiked_ ?
+                    html`<span class="required-indicator">*</span>` : ''}
+              </span>
+            </div>
+            <select class="defect-select"
+                aria-label="Defect Category"
+                .value="${this.feedbackDefect_}"
+                @change="${this.onDefectChange_}">
+              <option value="" disabled ?selected="${!this.feedbackDefect_}">
+                -- Select Defect Category --
+              </option>
+              ${DEFECT_CATEGORIES.map(item => html`
+                <option value="${item}"
+                    ?selected="${this.feedbackDefect_ === item}">
+                  ${item}
+                </option>
+              `)}
+            </select>
+          </div>
+
+          <div class="feedback-section">
+            <cr-textarea id="feedback-comments"
+                label="Notes & Observations (Optional)"
+                placeholder="Explain what worked well or what was incorrect..."
+                .value="${this.feedbackComments_}"
+                @value-changed="${this.onFeedbackCommentsValueChanged_}">
+            </cr-textarea>
+          </div>
+
+          <div class="feedback-section">
+            <cr-input id="rater-input"
+                label="Rater / Evaluator (Optional LDAP or Name)"
+                placeholder="e.g. username"
+                .value="${this.raterName_}"
+                @value-changed="${this.onRaterNameValueChanged_}">
+            </cr-input>
+          </div>
+
+          <div class="sheet-paste-hint">
+            Click <strong>Copy Row for Sheet</strong>, then press
+            <code>Paste</code> in Column A of the Google Sheet.
+          </div>
+        </div>
+        <div slot="button-container">
+          ${this.copiedRowSuccess_ ? html`
+            <span class="copy-success-pill">
+              ✓ Copied row for Sheet!
+            </span>
+          ` : ''}
+          <cr-button class="cancel-button"
+              @click="${this.onCloseFeedbackDialogClick_}">
+            ${this.copiedRowSuccess_ ? 'Done' : 'Cancel'}
+          </cr-button>
+          <cr-button class="action-button"
+              id="copy-row-button"
+              ?disabled="${!this.canSubmitFeedback_()}"
+              @click="${this.onCopyForSheetClick_}">
+            ${this.copiedRowSuccess_ ? 'Copy Row Again' :
+                'Copy Row for Sheet'}
+          </cr-button>
+        </div>
+      </cr-dialog>
+    ` : ''}
   `;
   // clang-format on
 }

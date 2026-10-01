@@ -51,6 +51,8 @@
 #include "net/test/embedded_test_server/embedded_test_server.h"
 #include "net/test/embedded_test_server/install_default_websocket_handlers.h"
 #include "third_party/blink/public/common/features.h"
+#include "ui/base/page_transition_types.h"
+#include "ui/base/window_open_disposition.h"
 
 // Turn these tests off on Mac while we collect data on windows server crashes
 // on mac chromium builders.
@@ -511,9 +513,9 @@ IN_PROC_BROWSER_TEST_F(WebUIWebViewBrowserTest,
   g_browser_process->local_state()->SetBoolean(
       chrome_urls::kInternalOnlyUisEnabled, true);
   content::WebContents* target_webui_window = browser()->OpenURL(
-      content::OpenURLParams(
-          GURL(chrome::kChromeUIWebUIJsErrorURL), content::Referrer(),
-          WindowOpenDisposition::NEW_WINDOW, ui::PAGE_TRANSITION_TYPED, false),
+      content::OpenURLParams::CreateBrowserInitiated(
+          GURL(chrome::kChromeUIWebUIJsErrorURL),
+          WindowOpenDisposition::NEW_WINDOW, ui::PAGE_TRANSITION_TYPED),
       /*navigation_handle_callback=*/{});
   content::WaitForLoadStop(target_webui_window);
 

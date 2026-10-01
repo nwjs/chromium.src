@@ -473,6 +473,7 @@ bool PopupViewViews::Show(
   MaybeAnnounceCurrentTabAndFootnote();
   MaybeAnnouncePasswordRecoveryPopup();
   MaybeAnnounceLoadingState();
+  MaybeAnnounceA11yOverride();
   if (!MaybeA11yFocusInformationalSuggestion()) {
     return false;
   }
@@ -935,9 +936,7 @@ bool PopupViewViews::RemoveSelectedCell() {
     return false;
   }
 
-  if (!controller_->RemoveSuggestion(index->first,
-                                     AutofillMetrics::SingleEntryRemovalMethod::
-                                         kKeyboardShiftDeletePressed)) {
+  if (!controller_->RemoveSuggestion(index->first)) {
     return false;
   }
 
@@ -962,6 +961,7 @@ void PopupViewViews::OnSuggestionsChanged(bool prefer_prev_arrow_side) {
 
   MaybeAnnouncePasswordRecoveryPopup();
   MaybeAnnounceLoadingState();
+  MaybeAnnounceA11yOverride();
   if (!MaybeA11yFocusInformationalSuggestion()) {
     return;
   }
@@ -1209,6 +1209,18 @@ void PopupViewViews::MaybeAnnounceLoadingState() {
   }
 }
 
+void PopupViewViews::MaybeAnnounceA11yOverride() {
+  if (!controller_) {
+    return;
+  }
+  for (const Suggestion& suggestion : controller_->GetSuggestions()) {
+    if (suggestion.a11y_announcement) {
+      a11y_announcer_.Run(*suggestion.a11y_announcement, /*polite=*/true);
+      break;
+    }
+  }
+}
+
 void PopupViewViews::MaybeAnnounceCurrentTabAndFootnote() {
   std::u16string announcement;
 
@@ -1284,7 +1296,6 @@ void PopupViewViews::InitViews() {
     search_bar_ = AddChildView(std::make_unique<PopupSearchBarView>(
         search_bar_config_->placeholder, search_bar_config_->initial_value,
         *this,
-        /*show_indicator=*/is_at_memory,
         /*show_search_icon_sparkle=*/is_at_memory,
         /*debounce_delay=*/
         is_at_memory ? base::TimeDelta()

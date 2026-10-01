@@ -81,6 +81,7 @@ by a child template that "extends" this file.
     <!-- TODO(crbug.com/40259231): Remove this tools:ignore attribute once it's no longer necessary. -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" tools:ignore="SystemPermissionTypo" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" tools:ignore="SystemPermissionTypo" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SHORT_SERVICE" tools:ignore="SystemPermissionTypo" />
     <uses-permission android:name="android.permission.RUN_USER_INITIATED_JOBS" />
 
     <uses-permission android:name="android.permission.GET_ACCOUNTS"/>
@@ -271,7 +272,7 @@ by a child template that "extends" this file.
                  user. Caller needs to be a trusted google app and need to use
                  startActivityForResult. -->
             <intent-filter>
-                <action android:name="org.chromium.chrome.browser.actor.START_ACTOR_FOREGROUND_SERVICE" />
+                <action android:name="org.chromium.chrome.browser.glic.EXTERNAL_TRIGGERING" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
             {% endif %}
@@ -398,6 +399,19 @@ by a child template that "extends" this file.
             </intent-filter>
             <meta-data android:name="android.app.searchable"
                 android:resource="@xml/searchable" />
+        </activity-alias>
+
+        <!-- PDF viewing support. -->
+        <activity-alias android:name="org.chromium.chrome.browser.document.PdfLauncherActivityAlias"
+            android:targetActivity="org.chromium.chrome.browser.document.ChromeLauncherActivity"
+            android:exported="true"
+            android:enabled="false"><!-- This will be selectively enabled at runtime. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/pdf" />
+                <data android:scheme="content" />
+            </intent-filter>
         </activity-alias>
 
         <activity android:name="org.chromium.chrome.browser.media.MediaLauncherActivity"
@@ -922,6 +936,7 @@ by a child template that "extends" this file.
                 <data android:scheme="package" />
                 <action android:name="android.intent.action.PACKAGE_FULLY_REMOVED" />
                 <action android:name="android.intent.action.PACKAGE_DATA_CLEARED" />
+                <action android:name="android.intent.action.PACKAGE_REMOVED" />
             </intent-filter>
             {% if channel in ['default'] %}
             <intent-filter>

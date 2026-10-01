@@ -40,8 +40,9 @@
 #include "chrome/browser/ash/policy/skyvault/local_files_migration_manager.h"
 #include "chrome/browser/ash/policy/skyvault/policy_utils.h"
 #include "chrome/browser/ash/profiles/profile_helper.h"
+#include "chrome/browser/ash/smb_client/smb_service.h"
+#include "chrome/browser/ash/smb_client/smb_service_factory.h"
 #include "chrome/browser/media_galleries/fileapi/mtp_device_map_service.h"
-#include "chrome/common/chrome_features.h"
 #include "chromeos/ash/components/policy/external_storage/device_id.h"
 #include "chromeos/ash/components/policy/external_storage/external_storage_policy_controller.h"
 #include "chromeos/ash/experiences/arc/arc_util.h"
@@ -238,6 +239,37 @@ bool IsSkyVaultV2Enabled() {
 
 }  // namespace
 
+class VolumeManager::SmbObserver
+    : public ash::smb_client::SmbService::Observer {
+ public:
+  explicit SmbObserver(VolumeManager* volume_manager)
+      : volume_manager_(volume_manager) {}
+  ~SmbObserver() override = default;
+
+  void Observe(ash::smb_client::SmbService* smb_service) {
+    observation_.Reset();
+    if (smb_service) {
+      observation_.Observe(smb_service);
+    }
+  }
+
+  // ash::smb_client::SmbService::Observer:
+  void OnSmbFsMounted(const base::FilePath& mount_point,
+                      const std::string& display_name) override {
+    volume_manager_->AddSmbFsVolume(mount_point, display_name);
+  }
+
+  void OnSmbFsUnmounted(const base::FilePath& mount_point) override {
+    volume_manager_->RemoveSmbFsVolume(mount_point);
+  }
+
+ private:
+  const raw_ptr<VolumeManager> volume_manager_;
+  base::ScopedObservation<ash::smb_client::SmbService,
+                          ash::smb_client::SmbService::Observer>
+      observation_{this};
+};
+
 int VolumeManager::counter_ = 0;
 
 VolumeManager::VolumeManager(
@@ -336,6 +368,13 @@ void VolumeManager::Initialize() {
     }
   }
 
+  // Subscribe to SmbService for SMB share mount/unmount events.
+  if (ash::smb_client::SmbService* const smb_service =
+          ash::smb_client::SmbServiceFactory::Get(profile_)) {
+    smb_observer_ = std::make_unique<SmbObserver>(this);
+    smb_observer_->Observe(smb_service);
+  }
+
   // Subscribe to Profile Preference change.
   pref_change_registrar_.Init(profile_->GetPrefs());
   pref_change_registrar_.Add(
@@ -394,6 +433,7 @@ void VolumeManager::Shutdown() {
   }
 
   drive_observation_.Reset();
+  smb_observer_.reset();
 
   if (file_system_provider_service_) {
     file_system_provider_service_->RemoveObserver(this);
@@ -811,46 +851,6 @@ void VolumeManager::OnFormatEvent(
   NOTREACHED() << "Unexpected FormatEvent " << event;
 }
 
-void VolumeManager::OnPartitionEvent(
-    ash::disks::DiskMountManager::PartitionEvent event,
-    ash::PartitionError error,
-    const std::string& device_path,
-    const std::string& device_label) {
-  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
-  DVLOG(1) << "OnPartitionEvent: " << event << ", error = " << error
-           << ", device_path = " << device_path;
-
-  switch (event) {
-    case ash::disks::DiskMountManager::PARTITION_STARTED:
-      for (auto& observer : observers_) {
-        observer.OnPartitionStarted(device_path, device_label,
-                                    error == ash::PartitionError::kSuccess);
-      }
-      return;
-
-    case ash::disks::DiskMountManager::PARTITION_COMPLETED:
-      // If partitioning failed, try to mount the device so the user can retry.
-      // MountPath auto-detects filesystem format if second argument is
-      // empty. The third argument (mount label) is not used in a disk mount
-      // operation.
-      if (error != ash::PartitionError::kSuccess) {
-        disk_mount_manager_->MountPath(
-            device_path, {}, {}, {}, ash::MountType::kDevice,
-            GetExternalStorageAccessMode(
-                profile_, GetDeviceIdFromDevicePath(device_path)),
-            base::DoNothing());
-      }
-
-      for (auto& observer : observers_) {
-        observer.OnPartitionCompleted(device_path, device_label,
-                                      error == ash::PartitionError::kSuccess);
-      }
-      return;
-  }
-
-  NOTREACHED() << "Unexpected PartitionEvent " << event;
-}
-
 void VolumeManager::OnRenameEvent(
     ash::disks::DiskMountManager::RenameEvent event,
     ash::RenameError error,
@@ -992,7 +992,7 @@ void VolumeManager::ConvertFuseBoxFSPVolumeIdToFSPIfNeeded(
 
 // TODO(aidazolic): Figure out why it's called twice for every update.
 void VolumeManager::OnLocalUserFilesPolicyChanged() {
-  if (!base::FeatureList::IsEnabled(features::kSkyVault)) {
+  if (!base::FeatureList::IsEnabled(ash::features::kSkyVault)) {
     return;
   }
 

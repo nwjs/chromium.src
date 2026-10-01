@@ -36,6 +36,7 @@
 #include "components/javascript_dialogs/app_modal_dialog_view.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/render_frame_host.h"
@@ -57,6 +58,8 @@
 #include "pdf/buildflags.h"
 #include "third_party/blink/public/common/input/web_gesture_event.h"
 #include "third_party/blink/public/common/input/web_input_event.h"
+#include "ui/base/page_transition_types.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/display/display_switches.h"
 #include "ui/events/base_event_utils.h"
 #include "ui/gfx/geometry/point.h"
@@ -457,6 +460,45 @@ IN_PROC_BROWSER_TEST_F(ChromeSitePerProcessOopifPDFTest,
   EXPECT_EQ(base::Value(), content::EvalJs(pdf_frame, "window.sessionStorage"));
   EXPECT_TRUE(pdf_frame->IsRenderFrameLive());
 }
+
+// Check that navigating to a PDF and then trying to create a dedicated worker
+// in the context of the PDF document fails gracefully and doesn't lead to a
+// renderer kill. PDF documents don't need dedicated workers, but the creation
+// could still be attempted via DevTools. See https://crbug.com/553118313.
+IN_PROC_BROWSER_TEST_F(ChromeSitePerProcessOopifPDFTest,
+                       DedicatedWorkersInPDFDocument) {
+  GURL pdf_url = embedded_test_server()->GetURL("/pdf/test.pdf");
+  ASSERT_TRUE(ui_test_utils::NavigateToURL(browser(), pdf_url));
+  content::WebContents* web_contents =
+      browser()->GetTabStripModel()->GetActiveWebContents();
+  EXPECT_EQ(pdf_url, web_contents->GetLastCommittedURL());
+  ASSERT_TRUE(GetTestMimeHandlerStreamManager()->WaitUntilPdfLoaded(
+      web_contents->GetPrimaryMainFrame()));
+
+  // The PDF document should be in the grandchild frame, embedded in the PDF
+  // viewer extension frame.
+  content::RenderFrameHost* pdf_extension_frame =
+      content::ChildFrameAt(web_contents->GetPrimaryMainFrame(), 0);
+  ASSERT_TRUE(pdf_extension_frame);
+  content::RenderFrameHost* pdf_frame =
+      content::ChildFrameAt(pdf_extension_frame, 0);
+  ASSERT_TRUE(pdf_frame);
+  EXPECT_TRUE(pdf_frame->GetProcess()->IsPdf());
+
+  // Attempting to create a dedicated worker from the PDF frame should throw
+  // a SecurityError DOMException and not lead to a renderer kill.
+  EXPECT_EQ("SecurityError",
+            content::EvalJs(pdf_frame,
+                            "(() => {"
+                            "  try {"
+                            "    new Worker('data:text/javascript,');"
+                            "    return 'Success';"
+                            "  } catch (e) {"
+                            "    return e.name;"
+                            "  }"
+                            "})()"));
+  EXPECT_TRUE(pdf_frame->IsRenderFrameLive());
+}
 #endif  // BUILDFLAG(ENABLE_PDF)
 
 // A helper class to verify that a "mailto:" external protocol request succeeds.
@@ -655,9 +697,9 @@ IN_PROC_BROWSER_TEST_F(ChromeSitePerProcessTest,
   GURL dest_url(embedded_test_server()->GetURL("b.com", "/title1.html"));
   GURL redirect_url(embedded_test_server()->GetURL(
       "c.com", "/server-redirect?" + dest_url.spec()));
-  browser()->OpenURL(content::OpenURLParams(redirect_url, content::Referrer(),
-                                            WindowOpenDisposition::CURRENT_TAB,
-                                            ui::PAGE_TRANSITION_TYPED, false),
+  browser()->OpenURL(content::OpenURLParams::CreateBrowserInitiated(
+                         redirect_url, WindowOpenDisposition::CURRENT_TAB,
+                         ui::PAGE_TRANSITION_TYPED),
                      /*navigation_handle_callback=*/{});
   javascript_dialogs::AppModalDialogController* alert =
       ui_test_utils::WaitForAppModalDialog();

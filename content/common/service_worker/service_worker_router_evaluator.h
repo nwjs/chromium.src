@@ -35,7 +35,8 @@ enum class ServiceWorkerRouterEvaluatorErrorEnums {
 namespace content {
 
 // Used for DevTools to serialize URLPatternCondition.
-std::string SafeURLPatternToJsonString(const blink::SafeUrlPattern& pattern);
+CONTENT_EXPORT std::string SafeURLPatternToString(
+    const blink::SafeUrlPattern& pattern);
 
 // Another version of `blink::ServiceWorkerRouterRule` that has the internal ID
 // assigned by the browser.
@@ -78,7 +79,6 @@ class CONTENT_EXPORT ServiceWorkerRouterEvaluator {
   bool has_non_fetch_event_source() const {
     return has_non_fetch_event_source_;
   }
-  bool has_nested_conditions() const { return max_rule_depth_ != 0; }
 
   base::Value ToValue() const;
   std::string ToString() const;
@@ -105,8 +105,8 @@ class CONTENT_EXPORT ServiceWorkerRouterEvaluator {
   bool require_fetch_handler_ = false;
   bool has_non_fetch_event_source_ = false;
   std::optional<ServiceWorkerRouterEvaluatorErrorEnums> invalid_error_code_;
-  size_t max_rule_depth_ = 0;
   // Used only for testing purposes.
+  size_t max_rule_depth_ = 0;
   size_t max_rule_width_ = 0;
 };
 

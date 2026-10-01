@@ -17,6 +17,7 @@
 #import "base/strings/sys_string_conversions.h"
 #import "base/task/thread_pool.h"
 #import "base/timer/timer.h"
+#import "components/enterprise/net/core/features.h"
 #import "components/security_interstitials/core/insecure_form_util.h"
 #import "ios/components/security_interstitials/https_only_mode/feature.h"
 #import "ios/net/protocol_handler_util.h"
@@ -67,6 +68,13 @@ namespace {
 // Cache holds errors only for pending navigations, so the actual number of
 // stored errors is not expected to be high.
 const web::CertVerificationErrorsCacheType::size_type kMaxCertErrorsCount = 100;
+
+// Maximum number of previous proxy authentication failures allowed before
+// cancelling authentication. This guards against unbounded retries for
+// unsuccessful authentication attempts when credentials are supplied
+// programmatically. Although WebKit appears to stop after ~60 retries, this
+// check provides an extra safety guard.
+constexpr NSInteger kMaxProxyAuthFailureCount = 100;
 
 // Returns true if the navigation was upgraded to HTTPS but failed due to an
 // SSL or net error. This can happen when HTTPS-Only Mode feature automatically
@@ -177,6 +185,14 @@ void LogPresentingErrorPageFailedWithError(NSError* error) {
   // Stores navigation policy state of download task to indicate if a download
   // should be performed.
   BOOL _shouldPerformDownload;
+
+  // The URL of the failed navigation for which the browser last displayed an
+  // error page in the web view, recorded by `displayErrorPageWithError:`. The
+  // document URL taking the shape of an error page file URL is not sufficient
+  // on its own to establish that the browser presented an error page, as the
+  // web view URL is also updated from URL changes reported by the web content
+  // process outside of any policy-checked navigation.
+  GURL _displayedErrorPageFailedNavigationURL;
 }
 
 @property(nonatomic, weak) id<CRWWKNavigationHandlerDelegate> delegate;
@@ -345,17 +361,44 @@ void LogPresentingErrorPageFailedWithError(NSError* error) {
   // If this is an error navigation, pass through only if initiated by the
   // browser, or if it is a back/forward or reload of an already committed page.
   if ([CRWErrorPageHelper isErrorPageFileURL:requestURL]) {
-    BOOL isHistoryOrReloadOrRestore =
-        action.navigationType == WKNavigationTypeBackForward ||
-        action.navigationType == WKNavigationTypeReload ||
-        self.navigationManagerImpl->IsRestoreSessionInProgress();
+    // Error pages must never load in subframes.
+    if (!action.targetFrame.mainFrame) {
+      decisionHandler(WKNavigationActionPolicyCancel);
+      return;
+    }
+    // Browser-initiated error page load (one-shot token).
     BOOL isExpectedErrorPage =
         allowedErrorPageFileURL &&
         requestURL == net::GURLWithNSURL(allowedErrorPageFileURL);
-    if ((isExpectedErrorPage && action.targetFrame.mainFrame) ||
-        isHistoryOrReloadOrRestore) {
+    if (isExpectedErrorPage) {
       decisionHandler(WKNavigationActionPolicyAllow);
       return;
+    }
+    // Tab/Session restore in progress.
+    if (self.navigationManagerImpl->IsRestoreSessionInProgress()) {
+      decisionHandler(WKNavigationActionPolicyAllow);
+      return;
+    }
+    // Reload or Back/Forward is only valid if this exact error-page URL is
+    // currently active in the session history, i.e. it was previously committed
+    // via a browser-initiated loadFileURL:. Note that for back/forward
+    // navigations, WebKit updates `currentItem` to the destination item before
+    // calling this delegate method.
+    // Check against NavigationItem in case history.replaceState altered
+    // currentItem.
+    WKBackForwardListItem* currentItem = webView.backForwardList.currentItem;
+    if (currentItem && (action.navigationType == WKNavigationTypeReload ||
+                        action.navigationType == WKNavigationTypeBackForward)) {
+      if (requestURL == net::GURLWithNSURL(currentItem.URL)) {
+        web::NavigationItem* item = [[CRWNavigationItemHolder
+            holderForBackForwardListItem:currentItem] navigationItem];
+        GURL failedURL = [CRWErrorPageHelper
+            failedNavigationURLFromErrorPageFileURL:requestURL];
+        if (item && item->GetVirtualURL() == failedURL) {
+          decisionHandler(WKNavigationActionPolicyAllow);
+          return;
+        }
+      }
     }
     decisionHandler(WKNavigationActionPolicyCancel);
     return;
@@ -1506,10 +1549,14 @@ void LogPresentingErrorPageFailedWithError(NSError* error) {
 
   // Allow navigation from an error page to the failed URL it represents so
   // that error pages for app-specific URLs can retry the original navigation.
+  // Only honor the retry if the browser displayed an error page for that URL,
+  // as the document URL alone can take the shape of an error page file URL
+  // without any error page having been presented by the browser.
   if ([CRWErrorPageHelper isErrorPageFileURL:self.documentURL]) {
-    return requestURL ==
-           [CRWErrorPageHelper
-               failedNavigationURLFromErrorPageFileURL:self.documentURL];
+    const GURL failedNavigationURL = [CRWErrorPageHelper
+        failedNavigationURLFromErrorPageFileURL:self.documentURL];
+    return requestURL == failedNavigationURL &&
+           failedNavigationURL == _displayedErrorPageFailedNavigationURL;
   }
 
   if (!action.sourceFrame.mainFrame) {
@@ -1875,6 +1922,32 @@ void LogPresentingErrorPageFailedWithError(NSError* error) {
          [space.authenticationMethod
              isEqualToString:NSURLAuthenticationMethodHTTPDigest]);
 
+  if (@available(iOS 18.1, *)) {
+    if (space.isProxy && base::FeatureList::IsEnabled(
+                             enterprise_net::kEnableDynamicRouteFetching)) {
+      if (challenge.previousFailureCount >= kMaxProxyAuthFailureCount) {
+        completionHandler(
+            NSURLSessionAuthChallengeCancelAuthenticationChallenge, nil);
+        return;
+      }
+
+      __weak CRWWKNavigationHandler* weakSelf = self;
+      auto callback =
+          base::BindOnce(^(NSString* user, NSString* password, NSError* error) {
+            [CRWWKNavigationHandler processProxyAuthForUser:user
+                                                   password:password
+                                                      error:error
+                                          navigationHandler:weakSelf
+                                          completionHandler:completionHandler];
+          });
+
+      self.webStateImpl->OnProxyAuthChallenge(
+          space, challenge.proposedCredential, challenge.failureResponse,
+          std::move(callback));
+      return;
+    }
+  }
+
   self.webStateImpl->OnAuthRequired(
       space, challenge.proposedCredential,
       base::BindRepeating(^(NSString* user, NSString* password) {
@@ -1882,6 +1955,26 @@ void LogPresentingErrorPageFailedWithError(NSError* error) {
                                               password:password
                                      completionHandler:completionHandler];
       }));
+}
+
+// Used in webView:didReceiveAuthenticationChallenge:completionHandler: to reply
+// with NSURLSessionAuthChallengeDisposition and credentials, or cancel with
+// `error` if non-nil.
++ (void)processProxyAuthForUser:(NSString*)user
+                       password:(NSString*)password
+                          error:(NSError*)error
+              navigationHandler:(CRWWKNavigationHandler*)navigationHandler
+              completionHandler:(void (^)(NSURLSessionAuthChallengeDisposition,
+                                          NSURLCredential*))completionHandler {
+  if (error) {
+    navigationHandler.pendingNavigationInfo.cancellationError = error;
+    completionHandler(NSURLSessionAuthChallengeCancelAuthenticationChallenge,
+                      nil);
+    return;
+  }
+  [CRWWKNavigationHandler processHTTPAuthForUser:user
+                                        password:password
+                               completionHandler:completionHandler];
 }
 
 // Used in webView:didReceiveAuthenticationChallenge:completionHandler: to reply
@@ -2143,12 +2236,14 @@ void LogPresentingErrorPageFailedWithError(NSError* error) {
                          isProvisionalLoad:(BOOL)provisionalLoad {
   CRWErrorPageHelper* errorPage =
       [[CRWErrorPageHelper alloc] initWithError:error];
+  _displayedErrorPageFailedNavigationURL =
+      net::GURLWithNSURL(errorPage.failedNavigationURL);
   WKBackForwardListItem* backForwardItem = webView.backForwardList.currentItem;
   GURL backForwardGURL = net::GURLWithNSURL(backForwardItem.URL);
   GURL failedURL = [CRWErrorPageHelper
       failedNavigationURLFromErrorPageFileURL:backForwardGURL];
   bool isSameURLFromWebClient = web::GetWebClient()->IsPointingToSameDocument(
-      failedURL, net::GURLWithNSURL(errorPage.failedNavigationURL));
+      failedURL, _displayedErrorPageFailedNavigationURL);
   // There are 3 possible scenarios here:
   //   1. Current nav item is an error page for failed URL;
   //   2. Current nav item has a failed URL. This may happen when
@@ -2170,8 +2265,21 @@ void LogPresentingErrorPageFailedWithError(NSError* error) {
     errorNavigation = [webView loadFileURL:errorPage.errorPageFileURL
                    allowingReadAccessToURL:errorPage.errorPageFileURL];
   } else {
-    errorNavigation = [webView loadHTMLString:@""
-                                      baseURL:errorPage.failedNavigationURL];
+    // SECURITY: Use the error page file URL as the `baseURL` so the committed
+    // error page document gets a `file:` origin instead of the web origin of
+    // the failed URL. Committing the document at `failedNavigationURL` lets a
+    // same-origin window (e.g. an opener) script the interstitial document,
+    // intercept/suppress the injected warning HTML, and post
+    // `IOSInterstitialMessage` commands (e.g. `CMD_PROCEED`) with no user
+    // interaction.
+    // Use `errorPageFileURLWithoutDontLoad` without `dontLoad` so that if this
+    // error page is later restored from session history,
+    // `error_page_loaded.html` will immediately reload the failed navigation
+    // URL.
+    self.allowedErrorPageFileURL = errorPage.errorPageFileURLWithoutDontLoad;
+    errorNavigation =
+        [webView loadHTMLString:@""
+                        baseURL:errorPage.errorPageFileURLWithoutDontLoad];
   }
   [self.navigationStates setState:web::WKNavigationState::REQUESTED
                     forNavigation:errorNavigation];

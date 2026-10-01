@@ -48,6 +48,7 @@ export interface LensOverlayAppElement {
     closeButton: CrIconButtonElement,
     cursorTooltip: CursorTooltipElement,
     initialGradient: InitialGradientElement,
+    moreOptions: HTMLElement,
     moreOptionsButton: CrIconButtonElement,
     moreOptionsMenu: HTMLElement,
     privacyNotice: HTMLElement,
@@ -386,10 +387,12 @@ export class LensOverlayAppElement extends LensOverlayAppElementBase {
           this.onNotifyResultsPanelOpened.bind(this)),
       callbackRouter.notifyOverlayClosing.addListener(() => {
         this.isClosing = true;
+        this.moreOptionsMenuVisible = false;
         this.performanceTracker.endSession();
       }),
       callbackRouter.onOverlayReshown.addListener(() => {
         this.isClosing = false;
+        this.moreOptionsMenuVisible = false;
         this.sidePanelOpened = true;
         this.overlayReshowInProgress = true;
         this.hasPermissionsForSession = true;
@@ -416,15 +419,6 @@ export class LensOverlayAppElement extends LensOverlayAppElementBase {
     this.eventTracker_.add(document, 'copied-as-image', () => {
       this.showToast(this.i18n('copyAsImageToastMessage'));
     });
-    this.eventTracker_.add(
-        this.$.translateButtonContainer, 'transitionend', () => {
-          this.registerHelpBubble(
-              'kLensOverlayTranslateButtonElementId',
-              this.$.translateButton.getTranslateEnableButton());
-          this.browserProxy.handler.maybeShowTranslateFeaturePromo();
-          this.eventTracker_.remove(
-              this.$.translateButtonContainer, 'transitionend');
-        });
     this.eventTracker_.add(document, 'language-picker-closed', () => {
       this.handleLanguagePickerClosed();
     });
@@ -448,6 +442,8 @@ export class LensOverlayAppElement extends LensOverlayAppElementBase {
           this.overlayReshowInProgress = false;
           this.browserProxy.handler.finishReshowOverlay();
         });
+    this.eventTracker_.add(
+        this.$.moreOptions, 'focusout', this.onMoreOptionsFocusout.bind(this));
 
     this.performanceTracker.startSession();
   }
@@ -662,13 +658,22 @@ export class LensOverlayAppElement extends LensOverlayAppElementBase {
   }
 
   private onMoreOptionsButtonClick() {
-    if (this.isTranslateButtonEnabled) {
-      // Try to close the translate feature promo if it is currently active.
-      // No-op if it is not active.
-      this.browserProxy.handler.maybeCloseTranslateFeaturePromo(
-          /*featureEngaged=*/ false);
-    }
     this.moreOptionsMenuVisible = !this.moreOptionsMenuVisible;
+  }
+
+  private onMoreOptionsFocusout(event: FocusEvent) {
+    if (!this.moreOptionsMenuVisible) {
+      return;
+    }
+
+    // `relatedTarget` is null when focus leaves the document entirely, which is
+    // what happens when the user clicks outside of the overlay's WebContents
+    // (e.g. on a side panel search result).
+    const targetWithFocus = event.relatedTarget;
+    if (!targetWithFocus || !(targetWithFocus instanceof Node) ||
+        !this.$.moreOptions.contains(targetWithFocus)) {
+      this.moreOptionsMenuVisible = false;
+    }
   }
 
   private onMyActivityClick(event: MouseEvent|KeyboardEvent) {
@@ -705,6 +710,7 @@ export class LensOverlayAppElement extends LensOverlayAppElementBase {
 
   private onNotifyResultsPanelOpened() {
     this.sidePanelOpened = true;
+    this.moreOptionsMenuVisible = false;
     this.updatePrivacyNoticePosition(window.innerWidth, window.innerHeight);
   }
 
@@ -881,6 +887,10 @@ export class LensOverlayAppElement extends LensOverlayAppElementBase {
 
   getOverlayReshowInProgressForTesting(): boolean {
     return this.overlayReshowInProgress;
+  }
+
+  getMoreOptionsMenuVisibleForTesting(): boolean {
+    return this.moreOptionsMenuVisible;
   }
 
   private handleResize(entries: ResizeObserverEntry[]) {

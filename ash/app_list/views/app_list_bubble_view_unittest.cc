@@ -32,10 +32,9 @@
 #include "ash/constants/web_app_id_constants.h"
 #include "ash/controls/scroll_view_gradient_helper.h"
 #include "ash/public/cpp/app_list/app_list_features.h"
-#include "ash/public/cpp/style/color_provider.h"
 #include "ash/session/session_controller_impl.h"
 #include "ash/shell.h"
-#include "ash/style/ash_color_provider.h"
+#include "ash/style/style_util.h"
 #include "ash/system/notification_center/notification_center_tray.h"
 #include "ash/system/tray/tray_constants.h"
 #include "ash/system/unified/unified_system_tray.h"
@@ -206,7 +205,7 @@ TEST_F(AppListBubbleViewTest, LayerConfiguration) {
   ASSERT_TRUE(layer);
   EXPECT_FALSE(layer->fills_bounds_opaquely());
   EXPECT_TRUE(layer->is_fast_rounded_corner());
-  EXPECT_EQ(layer->background_blur(), ColorProvider::kBackgroundBlurSigma);
+  EXPECT_EQ(layer->background_blur(), StyleUtil::kBackgroundBlurSigma);
 }
 
 // Tests some basic layout coordinates, because we don't have screenshot tests.
@@ -576,8 +575,9 @@ TEST_F(AppListBubbleViewTest, SearchBoxTextUsesPrimaryTextColor) {
   ShowAppList();
 
   views::Textfield* search_box = GetSearchBoxView()->search_box();
-  EXPECT_EQ(search_box->GetTextColor(),
-            AshColorProvider::Get()->GetColor(cros_tokens::kTextColorPrimary));
+  EXPECT_EQ(
+      search_box->GetTextColor(),
+      search_box->GetColorProvider()->GetColor(cros_tokens::kTextColorPrimary));
 }
 
 TEST_F(AppListBubbleViewTest, SearchBoxCloseButton) {

@@ -15,6 +15,7 @@
 #include "chrome/browser/sessions/tab_restore_service_factory.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/sync/sync_service_factory.h"
+#include "chrome/common/chrome_features.h"
 #include "components/commerce/content/browser/commerce_tab_helper.h"
 #include "components/commerce/content/browser/web_extractor_impl.h"
 #include "components/commerce/core/commerce_feature_list.h"
@@ -27,7 +28,6 @@
 #include "content/public/browser/storage_partition.h"
 
 #if !BUILDFLAG(IS_ANDROID)
-#include "chrome/browser/ui/browser.h"
 #include "components/commerce/core/proto/cart_db_content.pb.h"  // nogncheck
 #include "components/commerce/core/proto/discounts_db_content.pb.h"  // nogncheck
 #endif
@@ -124,6 +124,11 @@ ShoppingServiceFactory::BuildServiceInstanceForBrowserContext(
 }
 
 bool ShoppingServiceFactory::ServiceIsCreatedWithBrowserContext() const {
+  if (base::FeatureList::IsEnabled(
+          ::features::kLazyKeyedServiceInstantiation) &&
+      ::features::kLazyKeyedServiceInstantiationCommerceAndUI.Get()) {
+    return false;
+  }
   return true;
 }
 

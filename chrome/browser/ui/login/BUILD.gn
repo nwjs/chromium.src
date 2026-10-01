@@ -15,6 +15,7 @@ source_set("login") {
   ]
   public_deps = [
     "//base",
+    "//components/enterprise/net/core",
     "//components/password_manager/core/browser",
     "//components/password_manager/core/browser:password_form",
     "//content/public/browser",
@@ -40,6 +41,7 @@ source_set("impl") {
     "//components/enterprise/net/content",
     "//components/no_state_prefetch/browser",
     "//components/strings:components_strings",
+    "//components/tabs:public",
     "//components/url_formatter",
     "//extensions/buildflags",
     "//services/network/public/cpp",
@@ -55,7 +57,13 @@ source_set("impl") {
       "//extensions/common:mojom",
     ]
   }
-  if (!is_android) {
+  if (is_android) {
+    deps += [
+      "//chrome/browser/android:tabs_public",
+      "//chrome/browser/signin",
+      "//components/signin/public/identity_manager",
+    ]
+  } else {
     deps += [ "//components/web_modal" ]
   }
 

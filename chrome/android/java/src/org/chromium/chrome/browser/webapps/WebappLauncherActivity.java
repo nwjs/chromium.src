@@ -42,6 +42,7 @@ import org.chromium.chrome.browser.document.ChromeLauncherActivity;
 import org.chromium.chrome.browser.firstrun.FirstRunFlowSequencer;
 import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.intents.BrowserIntentUtils;
+import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.components.webapk.lib.client.WebApkValidator;
 import org.chromium.components.webapps.ShortcutSource;
 import org.chromium.webapk.lib.common.WebApkConstants;
@@ -273,7 +274,12 @@ public class WebappLauncherActivity extends Activity {
         if (webappMac == null) {
             return false;
         }
-        byte[] macBytes = Base64.decode(webappMac, Base64.DEFAULT);
+        byte[] macBytes;
+        try {
+            macBytes = Base64.decode(webappMac, Base64.DEFAULT);
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
         String encodedIcon = IntentUtils.safeGetStringExtra(intent, WebappConstants.EXTRA_ICON);
 
         int verificationResult =
@@ -364,14 +370,13 @@ public class WebappLauncherActivity extends Activity {
     }
 
     /**
-     * Checks whether or not the MAC is present and valid for the web app shortcut.
+     * Checks whether or not the intent was sent by Chrome.
      *
-     * <p>The MAC is used to prevent malicious apps from launching Chrome into a full screen
-     * Activity for phishing attacks (among other reasons).
+     * <p>The intent verification is used to confirm that the request to launch Chrome into a full
+     * screen Activity was initiated by Chrome.
      *
-     * @param url The URL for the web app.
-     * @param mac MAC to compare the URL against. See {@link WebappAuthenticator}.
-     * @return Whether the MAC is valid for the URL.
+     * @param intent The intent to verify.
+     * @return Whether the intent sender was Chrome.
      */
     private static boolean wasIntentFromChrome(Intent intent) {
         return IntentHandler.wasIntentSenderChrome(intent);
@@ -398,6 +403,12 @@ public class WebappLauncherActivity extends Activity {
 
         if (launchData.isForWebApk) {
             WebappIntentUtils.copyWebApkLaunchIntentExtras(intent, launchIntent);
+            int reparentTabId =
+                    WebApkReparentingHandler.getInstance().detachAndRegisterTabAndClear(intent);
+            if (reparentTabId != Tab.INVALID_TAB_ID) {
+                IntentHandler.setTabId(launchIntent, reparentTabId);
+                IntentUtils.addTrustedIntentExtras(launchIntent);
+            }
         } else {
             WebappIntentUtils.copyWebappLaunchIntentExtras(intent, launchIntent);
             launchIntent.putExtra(WebappConstants.EXTRA_IS_ICON_TRUSTED, launchData.isIconTrusted);

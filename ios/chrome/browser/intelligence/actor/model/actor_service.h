@@ -15,11 +15,14 @@
 #import "base/memory/weak_ptr.h"
 #import "components/keyed_service/core/keyed_service.h"
 #import "components/optimization_guide/proto/features/actions_data.pb.h"
+#import "components/origin_gating/core/origin_gating_checker.h"
+#import "ios/chrome/app/background_mode_buildflags.h"
+#import "ios/chrome/browser/intelligence/actor/model/actor_origin_gating_checker_delegate_ios.h"
 #import "ios/chrome/browser/intelligence/actor/public/actor_types.h"
 #import "ios/web/public/web_state_id.h"
 
 @class PageContextWrapper;
-@class SnackbarActorTaskUpdatesObserver;
+@protocol ActorTaskUpdatesObserver;
 class ProfileIOS;
 
 namespace web {
@@ -89,6 +92,12 @@ class ActorService : public KeyedService {
   // Returns the aggregated journal for this service.
   AggregatedJournal* GetJournal() { return journal_.get(); }
 
+  // Registers an observer for task updates.
+  void AddTaskUpdatesObserver(id<ActorTaskUpdatesObserver> observer);
+
+  // Removes a registered observer for task updates.
+  void RemoveTaskUpdatesObserver(id<ActorTaskUpdatesObserver> observer);
+
   // Returns the execution state of the currently active task, or `std::nullopt`
   // if there are no active tasks.
   std::optional<ActorTaskState> GetActiveTaskState() const;
@@ -107,6 +116,9 @@ class ActorService : public KeyedService {
     return weak_ptr_factory_.GetWeakPtr();
   }
 
+  // Returns the OriginGatingChecker instance for gating navigation actions.
+  origin_gating::OriginGatingChecker* GetOriginGatingChecker();
+
  private:
   friend class ActorServiceTest;
 
@@ -123,9 +135,8 @@ class ActorService : public KeyedService {
   // Map of active tasks, keyed by their task ID.
   std::map<ActorTaskId, std::unique_ptr<ActorTask>> active_tasks_;
 
-  // TODO(crbug.com/512521102): Cleanup observers lifecycle.
-  // Task observer for the latest task.
-  __strong SnackbarActorTaskUpdatesObserver* task_observer_;
+  // Observers for task updates.
+  std::vector<__weak id<ActorTaskUpdatesObserver>> task_observers_;
 
   // Map of pending PageContext extractions ("observations"). Used to keep the
   // wrapper alive while the extraction is in progress.
@@ -153,8 +164,23 @@ class ActorService : public KeyedService {
   web::WebState* GetWebState(web::WebStateID web_state_id,
                              bool allows_incognito);
 
+#if BUILDFLAG(IOS_BACKGROUND_CONTINUED_PROCESSING_ENABLED)
+  // Creates and registers a background continued processing task with the
+  // system for `task`, and sets the context on `task` if available. Returns
+  // whether registration was successful (does not guarantee the task will be
+  // executed by the system).
+  bool RegisterBackgroundTask(ActorTask* task);
+#endif  // BUILDFLAG(IOS_BACKGROUND_CONTINUED_PROCESSING_ENABLED)
+
   // Generator for unique task IDs.
   ActorTaskId::Generator next_task_id_;
+
+  // Helper to build the configuration and custom predicates for the checker.
+  static origin_gating::OriginGatingConfiguration CreateOriginGatingConfig();
+
+  // Delegate and checker for origin gating.
+  ActorOriginGatingCheckerDelegateIOS origin_gating_delegate_;
+  std::unique_ptr<origin_gating::OriginGatingChecker> origin_gating_checker_;
 
   // Weak pointer factory.
   base::WeakPtrFactory<ActorService> weak_ptr_factory_{this};

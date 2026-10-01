@@ -33,14 +33,20 @@
 #include "components/contextual_tasks/public/mock_contextual_tasks_service.h"
 #include "components/prefs/pref_service.h"
 #include "components/sessions/content/session_tab_helper.h"
+#include "components/sessions/core/session_id.h"
 #include "components/tabs/public/mock_tab_interface.h"
 #include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/test/browser_task_environment.h"
 #include "content/public/test/test_renderer_host.h"
 #include "content/public/test/web_contents_tester.h"
+#include "extensions/buildflags/buildflags.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+#include "chrome/browser/extensions/tab_helper.h"
+#endif
 
 #if !BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/ui/actions/chrome_action_id.h"
@@ -297,6 +303,16 @@ class ContextualTasksSidePanelCoordinatorTest : public testing::Test {
     mock_controller_ = mock.get();
     return mock;
   }
+
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE) && !BUILDFLAG(IS_ANDROID)
+  void TriggerOnSeeExtensionsClicked() {
+    coordinator_->OnSeeExtensionsClicked();
+  }
+
+  ContextualTasksExtensionsContainer* GetExtensionsContainer() {
+    return coordinator_->extensions_container_.get();
+  }
+#endif
 
  protected:
   content::BrowserTaskEnvironment task_environment_;
@@ -1282,6 +1298,40 @@ TEST_F(ContextualTasksSidePanelCoordinatorTest,
       "https://www.google.com/search?udm=50&q=test&cs=0&gsc=2&hl=en");
   EXPECT_EQ(cached_wc->GetVisibleURL(), expected_url);
 }
+
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+// The extensions menu dereferences extensions::TabHelper::FromWebContents()
+// without a null check, so the side panel's WebContents must have one attached
+// even though it is not a tab.
+TEST_F(ContextualTasksSidePanelCoordinatorTest,
+       PanelWebContentsHasExtensionsTabHelper) {
+  base::test::ScopedFeatureList local_feature_list;
+  local_feature_list.InitAndEnableFeature(
+      kContextualTasksSidePanelRearchitecture);
+
+  ContextualTask expected_task(base::Uuid::GenerateRandomV4());
+  ON_CALL(*mock_controller_, GetContextualTaskForTab(_))
+      .WillByDefault(Return(expected_task));
+
+  coordinator_->Show(
+      /*transition_from_tab=*/false,
+      omnibox::ChromeAimEntryPoint::UNKNOWN_AIM_ENTRY_POINT,
+      /*use_no_animation=*/true);
+
+  content::WebContents* panel_contents =
+      GetWebContentsForTaskForTesting(expected_task.GetTaskId());
+  ASSERT_TRUE(panel_contents);
+  EXPECT_TRUE(extensions::TabHelper::FromWebContents(panel_contents));
+}
+#endif  // BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+
+#if BUILDFLAG(ENABLE_EXTENSIONS_CORE) && !BUILDFLAG(IS_ANDROID)
+TEST_F(ContextualTasksSidePanelCoordinatorTest,
+       OnSeeExtensionsClicked_NoActiveContents) {
+  TriggerOnSeeExtensionsClicked();
+  EXPECT_EQ(GetExtensionsContainer(), nullptr);
+}
+#endif
 
 }  // namespace contextual_tasks
 

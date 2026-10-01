@@ -842,7 +842,7 @@ TEST_F(NavigationControllerTest, CrossOriginRedirectRemovesHeaders) {
   NavigationControllerImpl& controller = controller_impl();
   const GURL url1("http://foo1.com/foo");
   const GURL url2("http://foo2.com/bar");
-  const std::string kExtraHeaders = "Foo: Bar\nBaz: Qux";
+  const std::string kExtraHeaders = "Foo: Bar\nBaz: Qux\nX-Geo: w CgwI";
   std::string kExtraHeadersCRLF;
   base::ReplaceChars(kExtraHeaders, "\n", "\r\n", &kExtraHeadersCRLF);
 
@@ -2154,7 +2154,7 @@ TEST_F(NavigationControllerTest, AutoSubframe) {
       TestRenderFrameHost::CreateStubAssociatedInterfaceProviderReceiver(),
       blink::mojom::TreeScopeType::kDocument, std::string(), unique_name0,
       false, blink::LocalFrameToken(), base::UnguessableToken::Create(),
-      blink::DocumentToken(), base::UnguessableToken::Create(),
+      blink::DocumentToken(), blink::InitiatorStateToken(),
       blink::FramePolicy(), blink::mojom::FrameOwnerProperties(), kOwnerType,
       ukm::kInvalidSourceId);
   TestRenderFrameHost* subframe =
@@ -2200,7 +2200,7 @@ TEST_F(NavigationControllerTest, AutoSubframe) {
       TestRenderFrameHost::CreateStubAssociatedInterfaceProviderReceiver(),
       blink::mojom::TreeScopeType::kDocument, std::string(), unique_name1,
       false, blink::LocalFrameToken(), base::UnguessableToken::Create(),
-      blink::DocumentToken(), base::UnguessableToken::Create(),
+      blink::DocumentToken(), blink::InitiatorStateToken(),
       blink::FramePolicy(), blink::mojom::FrameOwnerProperties(), kOwnerType,
       ukm::kInvalidSourceId);
   TestRenderFrameHost* subframe2 =
@@ -2246,7 +2246,7 @@ TEST_F(NavigationControllerTest, AutoSubframe) {
       TestRenderFrameHost::CreateStubAssociatedInterfaceProviderReceiver(),
       blink::mojom::TreeScopeType::kDocument, std::string(), unique_name2,
       false, blink::LocalFrameToken(), base::UnguessableToken::Create(),
-      blink::DocumentToken(), base::UnguessableToken::Create(),
+      blink::DocumentToken(), blink::InitiatorStateToken(),
       blink::FramePolicy(), blink::mojom::FrameOwnerProperties(), kOwnerType,
       ukm::kInvalidSourceId);
   TestRenderFrameHost* subframe3 =
@@ -2306,7 +2306,7 @@ TEST_F(NavigationControllerTest, BackSubframe) {
       TestRenderFrameHost::CreateStubAssociatedInterfaceProviderReceiver(),
       blink::mojom::TreeScopeType::kDocument, std::string(), unique_name, false,
       blink::LocalFrameToken(), base::UnguessableToken::Create(),
-      blink::DocumentToken(), base::UnguessableToken::Create(),
+      blink::DocumentToken(), blink::InitiatorStateToken(),
       blink::FramePolicy(), blink::mojom::FrameOwnerProperties(),
       blink::FrameOwnerElementType::kIframe, ukm::kInvalidSourceId);
   FrameTreeNode* subframe =
@@ -3141,7 +3141,7 @@ TEST_F(NavigationControllerTest, SameSubframe) {
       TestRenderFrameHost::CreateStubAssociatedInterfaceProviderReceiver(),
       blink::mojom::TreeScopeType::kDocument, std::string(), unique_name, false,
       blink::LocalFrameToken(), base::UnguessableToken::Create(),
-      blink::DocumentToken(), base::UnguessableToken::Create(),
+      blink::DocumentToken(), blink::InitiatorStateToken(),
       blink::FramePolicy(), blink::mojom::FrameOwnerProperties(),
       blink::FrameOwnerElementType::kIframe, ukm::kInvalidSourceId);
   TestRenderFrameHost* subframe =
@@ -3299,7 +3299,7 @@ TEST_F(NavigationControllerTest, SubframeWhilePending) {
       TestRenderFrameHost::CreateStubAssociatedInterfaceProviderReceiver(),
       blink::mojom::TreeScopeType::kDocument, std::string(), unique_name, false,
       blink::LocalFrameToken(), base::UnguessableToken::Create(),
-      blink::DocumentToken(), base::UnguessableToken::Create(),
+      blink::DocumentToken(), blink::InitiatorStateToken(),
       blink::FramePolicy(), blink::mojom::FrameOwnerProperties(),
       blink::FrameOwnerElementType::kIframe, ukm::kInvalidSourceId);
   TestRenderFrameHost* subframe =
@@ -3375,14 +3375,14 @@ TEST_F(NavigationControllerTest, CopyStateFrom) {
   EXPECT_EQ(url1, other_controller.GetEntryAtIndex(0)->GetURL());
   EXPECT_EQ(url2, other_controller.GetEntryAtIndex(1)->GetURL());
 
-  // Ensure the SessionStorageNamespaceMaps are the same size and have
+  // Ensure the SessionStorageNamespaceHandleMaps are the same size and have
   // the same partitons loaded.
   //
   // TODO(ajwong): We should load a url from a different partition earlier
   // to make sure this map has more than one entry.
-  const SessionStorageNamespaceMap& session_storage_namespace_map =
+  const SessionStorageNamespaceHandleMap& session_storage_namespace_map =
       controller.GetSessionStorageNamespaceMap();
-  const SessionStorageNamespaceMap& other_session_storage_namespace_map =
+  const SessionStorageNamespaceHandleMap& other_session_storage_namespace_map =
       other_controller.GetSessionStorageNamespaceMap();
   EXPECT_EQ(session_storage_namespace_map.size(),
             other_session_storage_namespace_map.size());
@@ -3962,7 +3962,7 @@ TEST_F(NavigationControllerTest, SubFrameNavigationUIData) {
       TestRenderFrameHost::CreateStubAssociatedInterfaceProviderReceiver(),
       blink::mojom::TreeScopeType::kDocument, std::string(), unique_name, false,
       blink::LocalFrameToken(), base::UnguessableToken::Create(),
-      blink::DocumentToken(), base::UnguessableToken::Create(),
+      blink::DocumentToken(), blink::InitiatorStateToken(),
       blink::FramePolicy(), blink::mojom::FrameOwnerProperties(),
       blink::FrameOwnerElementType::kIframe, ukm::kInvalidSourceId);
   TestRenderFrameHost* subframe =
@@ -4021,7 +4021,7 @@ TEST_F(NavigationControllerTest, NoURLRewriteForSubframes) {
       nullptr /* initiator_frame_token */,
       ChildProcessId() /* initiator_process_id */, url::Origin::Create(kUrl2),
       /* initiator_base_url= */ std::nullopt, true /* is_renderer_initiated */,
-      main_test_rfh()->CreateInitiatorStateFromCurrentFrame(), Referrer(),
+      main_test_rfh()->GetCurrentInitiatorNavigationState(), Referrer(),
       ui::PAGE_TRANSITION_LINK, false /* should_replace_current_entry */,
       blink::NavigationDownloadPolicy(), "GET", nullptr, "",
       network::mojom::SourceLocation::New(), nullptr,
@@ -4066,7 +4066,7 @@ TEST_F(NavigationControllerTest,
       ChildProcessId() /* initiator_process_id */,
       url::Origin::Create(main_url), /* initiator_base_url= */ std::nullopt,
       true /* is_renderer_initiated */,
-      main_test_rfh()->CreateInitiatorStateFromCurrentFrame(), Referrer(),
+      main_test_rfh()->GetCurrentInitiatorNavigationState(), Referrer(),
       ui::PAGE_TRANSITION_LINK, should_replace_current_entry,
       blink::NavigationDownloadPolicy(), "GET", nullptr, "",
       network::mojom::SourceLocation::New(), nullptr,
@@ -4451,7 +4451,7 @@ TEST_F(NavigationControllerFencedFrameTest, NoURLRewriteForFencedFrames) {
       nullptr /* initiator_frame_token */,
       ChildProcessId() /* initiator_process_id */, url::Origin::Create(kUrl2),
       /* initiator_base_url= */ std::nullopt, true /* is_renderer_initiated */,
-      main_test_rfh()->CreateInitiatorStateFromCurrentFrame(), Referrer(),
+      main_test_rfh()->GetCurrentInitiatorNavigationState(), Referrer(),
       ui::PAGE_TRANSITION_LINK, false /* should_replace_current_entry */,
       blink::NavigationDownloadPolicy(), "GET", nullptr, "",
       network::mojom::SourceLocation::New(), nullptr,

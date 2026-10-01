@@ -158,6 +158,7 @@ class ChromeAutofillClient : public ContentAutofillClient {
   EntityDataManager* GetEntityDataManager() final;
   WalletPassAccessManager* GetWalletPassAccessManager() final;
   SingleFieldFillRouter& GetSingleFieldFillRouter() final;
+  affiliations::AffiliationService* GetAffiliationService() final;
   personal_context::PersonalContextFirstRunService*
   GetPersonalContextFirstRunService() override;
   AutocompleteHistoryManager* GetAutocompleteHistoryManager() final;
@@ -210,6 +211,7 @@ class ChromeAutofillClient : public ContentAutofillClient {
       const PopupOpenArgs& open_args,
       base::WeakPtr<AutofillSuggestionDelegate> delegate) override;
   void UpdateAutofillDataListValues(
+      const LocalFrameToken& frame_token,
       base::span<const SelectOption> datalist) final;
   base::span<const Suggestion> GetAutofillSuggestions() const final;
   std::optional<SuggestionUiSessionId>

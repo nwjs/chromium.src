@@ -52,6 +52,8 @@ class MockToolbarUIObserver : public toolbar_ui_api::mojom::ToolbarUIObserver {
               (toolbar_ui_api::mojom::FocusRequestTarget target),
               (override));
 
+  MOCK_METHOD(void, ShowSplitTabsContextMenu, (), (override));
+
  private:
   mojo::Receiver<toolbar_ui_api::mojom::ToolbarUIObserver> receiver_{this};
 };
@@ -67,7 +69,8 @@ class MockToolbarUIServiceDelegate
               HandleContextMenu,
               (toolbar_ui_api::mojom::ContextMenuType,
                const gfx::RectF&,
-               ui::mojom::MenuSourceType),
+               ui::mojom::MenuSourceType,
+               std::optional<uint32_t>),
               (override));
   MOCK_METHOD(
       void,
@@ -176,7 +179,14 @@ class MockToolbarUIServiceDelegate
   MOCK_METHOD(void, SetAvatarButtonFocused, (bool), (override));
   MOCK_METHOD(void, SetAvatarButtonIPHPromoShowing, (bool), (override));
   MOCK_METHOD(void, OnAppMenuFocusChanged, (bool), (override));
-  MOCK_METHOD(void, ExecuteExtensionAction, (const std::string&), (override));
+  MOCK_METHOD(void,
+              ExecuteExtensionAction,
+              (const std::string&, bool),
+              (override));
+  MOCK_METHOD(void,
+              OnExtensionActionPointerDown,
+              (const std::string&),
+              (override));
   MOCK_METHOD(void,
               ShowExtensionContextMenu,
               (const std::string&, ui::mojom::MenuSourceType),
@@ -195,6 +205,11 @@ class MockToolbarUIServiceDelegate
               OnPerformanceInterventionButtonMousePressed,
               (),
               (override));
+  MOCK_METHOD(void,
+              OnMediaButtonClicked,
+              (bool is_mouse_interaction),
+              (override));
+  MOCK_METHOD(void, OnMediaButtonMousePressed, (), (override));
 };
 
 class MockBrowserControlsServiceDelegate

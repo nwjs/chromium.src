@@ -5,6 +5,8 @@
 #ifndef CHROME_BROWSER_GLIC_SELECTION_SELECTION_OVERLAY_CONTROLLER_H_
 #define CHROME_BROWSER_GLIC_SELECTION_SELECTION_OVERLAY_CONTROLLER_H_
 
+#include <string>
+
 #include "base/containers/flat_map.h"
 #include "base/memory/weak_ptr.h"
 #include "base/unguessable_token.h"
@@ -19,6 +21,7 @@
 #include "mojo/public/cpp/bindings/receiver.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "ui/base/unowned_user_data/scoped_unowned_user_data.h"
+#include "ui/gfx/geometry/rect.h"
 #include "ui/views/controls/webview/unhandled_keyboard_event_handler.h"
 
 namespace content {
@@ -80,6 +83,9 @@ class SelectionOverlayController
       mojom::TabContextOptionsPtr options);
 
   void Show(mojom::TabContextOptionsPtr options);
+  // Shows the overlay with a region pre-selected around `selection_bounds`,
+  // which is in screen coordinates.
+  void ShowWithSelection(const gfx::Rect& selection_bounds);
   void Close();
 
   // `selection::SelectionOverlayPageHandler`:
@@ -133,6 +139,11 @@ class SelectionOverlayController
   void ClosePreselectionBubble() override;
   void AddBackgroundBlur() override;
   void SetLiveBlur(bool enabled) override;
+  void SubmitPrompt(const std::string& prompt) override;
+  void GetSuggestedActions(
+      mojo::PendingRemote<selection::SuggestedActionsListener> listener)
+      override;
+  void ExecuteSuggestedAction(const base::UnguessableToken& action_id) override;
 
  private:
   void OnScreenshotTaken(const SkBitmap& bitmap);
@@ -148,6 +159,7 @@ class SelectionOverlayController
   void RenderRegions(bool should_focus_panel);
 
   void Reset();
+  std::vector<selection::SuggestedActionPtr> GetDefaultSuggestedActions();
   glic::mojom::AdditionalContextPtr CreateAdditionalContext(
       std::vector<std::pair<base::UnguessableToken,
                             glic::mojom::CapturedRegionPtr>> regions);
@@ -173,6 +185,9 @@ class SelectionOverlayController
   // `initial_screenshot_`.
   base::flat_map<base::UnguessableToken, selection::SelectedRegionPtr>
       selected_regions_;
+  // Maps suggested action IDs to prompt strings.
+  base::flat_map<base::UnguessableToken, std::string> suggested_actions_;
+  mojo::Remote<selection::SuggestedActionsListener> suggested_actions_listener_;
 
   ui::ScopedUnownedUserData<SelectionOverlayController>
       scoped_unowned_user_data_;

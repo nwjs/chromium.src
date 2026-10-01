@@ -120,6 +120,11 @@ class ContextualSearchSessionHandle {
     return invocation_source_;
   }
 
+  void set_invocation_source(
+      std::optional<lens::LensOverlayInvocationSource> invocation_source) {
+    invocation_source_ = invocation_source;
+  }
+
   bool is_contextual_lens_session() const {
     return is_contextual_lens_session_;
   }
@@ -207,6 +212,10 @@ class ContextualSearchSessionHandle {
   // and deleted.
   bool DeleteFile(const base::UnguessableToken& file_token);
 
+  // Removes the token from the list of uploaded context tokens. Returns true if
+  // the token was found and removed.
+  bool RemoveUploadedContextToken(const base::UnguessableToken& file_token);
+
   using DeselectedTabsMap = std::map<SessionID, std::pair<GURL, std::string>>;
 
   const DeselectedTabsMap& deselected_tabs_urls() const {
@@ -292,6 +301,11 @@ class ContextualSearchSessionHandle {
   // Returns true if any context tokens were submitted in any query in this
   // session.
   bool has_submitted_context() const { return has_submitted_context_; }
+
+  // The multi-login account index for this session, received from the
+  // AIM/Search handshake response.
+  size_t auth_user_index() const { return auth_user_index_; }
+  void set_auth_user_index(size_t auth_user_index);
 
   // Clears the list of submitted context tokens for this particular instance of
   // the session. This is intended to be invoked when the server has responded
@@ -396,7 +410,7 @@ class ContextualSearchSessionHandle {
   const base::UnguessableToken session_id_;
 
   // The invocation source to send with generated search URLs or query payloads.
-  const std::optional<lens::LensOverlayInvocationSource> invocation_source_;
+  std::optional<lens::LensOverlayInvocationSource> invocation_source_;
 
   // Whether this session was initiated by a contextual Lens query. This could
   // apply to entrypoints like contextual suggestions in the Omnibox or the
@@ -420,6 +434,9 @@ class ContextualSearchSessionHandle {
   // Sharing was toggled, to be sent to AIM via `removed_contexts` on the next
   // query submission turn.
   std::vector<lens::LensOverlayRequestId> sts_toggled_removed_contexts_;
+
+  // The multi-login account index for this session.
+  size_t auth_user_index_ = 0;
 
   // This needs to be the last member to ensure all outstanding WeakPtrs are
   // invalidated before the rest of the members.

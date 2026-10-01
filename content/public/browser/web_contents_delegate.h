@@ -114,7 +114,7 @@ class FileSelectListener;
 class JavaScriptDialogManager;
 class RenderFrameHost;
 class RenderWidgetHost;
-class SessionStorageNamespace;
+class SessionStorageNamespaceHandle;
 class SiteInstance;
 class WebContents;
 struct ContextMenuParams;
@@ -407,7 +407,7 @@ class CONTENT_EXPORT WebContentsDelegate {
       WindowOpenDisposition disposition,
       const blink::mojom::WindowFeatures& window_features,
       const StoragePartitionConfig& partition_config,
-      SessionStorageNamespace* session_storage_namespace);
+      SessionStorageNamespaceHandle* session_storage_namespace);
 
   // Notifies the delegate about the creation of a new WebContents. This
   // typically happens when popups are created.
@@ -908,11 +908,13 @@ class CONTENT_EXPORT WebContentsDelegate {
       base::OnceCallback<void(const SkBitmap&)> callback);
 
   // Gets the page content annotations for the given WebContents.
-  // The callback gets a serialized AnnotatedPageContent proto.
+  // The callback gets a serialized AnnotatedPageContent proto or an error
+  // message string if extraction failed or is unsupported by the embedder.
   virtual void GetAIPageContent(
       WebContents* web_contents,
       bool include_actionable_elements,
-      base::OnceCallback<void(const std::string&)> callback);
+      base::OnceCallback<void(base::expected<std::string, std::string>)>
+          callback);
 
 #if BUILDFLAG(IS_ANDROID)
   // Allow delegate to override how to take a snapshot of this WebContents into

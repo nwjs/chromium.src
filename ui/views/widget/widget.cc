@@ -58,7 +58,6 @@
 #include "ui/views/input_protection/default_input_protection_policy.h"
 #include "ui/views/input_protection/input_protection_event_handler.h"
 #include "ui/views/input_protection/occluded_widget_input_protector.h"
-#include "ui/views/input_protection/occlusion_aware_input_protection_policy.h"
 #include "ui/views/input_protection/window_activation_input_protection_policy.h"
 #include "ui/views/views_delegate.h"
 #include "ui/views/views_features.h"
@@ -91,9 +90,7 @@ namespace {
 class ParentThemeObserver : public ui::ColorProviderSourceObserver {
  public:
   ParentThemeObserver(Widget* widget, ui::ColorProviderSource* parent)
-      : widget_(widget) {
-    parent_theme_observation_.Observe(parent);
-  }
+      : ColorProviderSourceObserver(parent), widget_(widget) {}
   ~ParentThemeObserver() override = default;
 
   void OnColorProviderChanged() override {
@@ -103,9 +100,6 @@ class ParentThemeObserver : public ui::ColorProviderSourceObserver {
 
  private:
   raw_ptr<Widget> widget_;
-  base::ScopedObservation<ui::ColorProviderSource,
-                          ui::ColorProviderSourceObserver>
-      parent_theme_observation_{this};
 };
 
 // If `view` has a layer the layer is added to `layers`. Else this recurses
@@ -1411,8 +1405,6 @@ void Widget::EnableInputEventActivationProtection(
   input_protector_ = std::make_unique<InputEventActivationProtector>(
       std::make_unique<DefaultInputProtectionPolicy>(GetRootView()));
   input_protector_->AddPolicy(
-      std::make_unique<OcclusionAwareInputProtectionPolicy>());
-  input_protector_->AddPolicy(
       std::make_unique<WindowActivationInputProtectionPolicy>(this));
 }
 
@@ -1864,14 +1856,21 @@ base::CallbackListSubscription Widget::RegisterPaintAsActiveChangedCallback(
 std::unique_ptr<Widget::PaintAsActiveLock> Widget::LockPaintAsActive() {
   const bool was_paint_as_active = ShouldPaintAsActive();
   ++paint_as_active_refcount_;
+  auto weak_this = weak_ptr_factory_.GetWeakPtr();
   if (ShouldPaintAsActive() != was_paint_as_active) {
     NotifyPaintAsActiveChanged();
+    if (!weak_this) {
+      return nullptr;
+    }
     if (parent() && !parent_paint_as_active_lock_) {
-      parent_paint_as_active_lock_ = parent()->LockPaintAsActive();
+      auto lock = parent()->LockPaintAsActive();
+      if (!weak_this) {
+        return nullptr;
+      }
+      parent_paint_as_active_lock_ = std::move(lock);
     }
   }
-  return std::make_unique<PaintAsActiveLockImpl>(
-      weak_ptr_factory_.GetWeakPtr());
+  return std::make_unique<PaintAsActiveLockImpl>(std::move(weak_this));
 }
 
 base::WeakPtr<Widget> Widget::GetWeakPtr() {
@@ -2090,13 +2089,21 @@ bool Widget::OnNativeWidgetActivationChanged(bool active) {
   // native widget to destroy this widget we ensure that resetting the paint
   // lock happens synchronously with the activation the next widget (see
   // crbug/1303549).
+  base::WeakPtr<Widget> weak_this = GetWeakPtr();
   if (active) {
     if (parent() && !parent_paint_as_active_lock_) {
-      parent_paint_as_active_lock_ = parent()->LockPaintAsActive();
+      auto new_lock = parent()->LockPaintAsActive();
+      if (!weak_this) {
+        return false;
+      }
+      parent_paint_as_active_lock_ = std::move(new_lock);
     }
   } else {
     if (!paint_as_active_refcount_ && !widget_closed_) {
       parent_paint_as_active_lock_.reset();
+      if (!weak_this) {
+        return false;
+      }
     }
   }
 
@@ -2947,15 +2954,26 @@ void Widget::HandleNativeWidgetReparented(Widget* parent) {
   CHECK(!is_traversing_widget_tree_);
   parent_ = parent ? parent->GetWeakPtr() : nullptr;
 
+  // A number of operations in this method can cause callbacks that could
+  // (theoretically) delete `this`.
+  auto weak_this = GetWeakPtr();
+
   // Release the paint-as-active lock on the old parent.
   bool has_lock_on_parent = !!parent_paint_as_active_lock_;
   parent_paint_as_active_lock_.reset();
+  if (!weak_this) {
+    return;
+  }
   parent_paint_as_active_subscription_ = base::CallbackListSubscription();
 
   // Lock and subscribe to parent's paint-as-active and theme changes.
-  if (parent) {
+  if (parent_) {
     if (has_lock_on_parent || native_widget_active_) {
-      parent_paint_as_active_lock_ = parent->LockPaintAsActive();
+      auto lock = parent->LockPaintAsActive();
+      if (!weak_this) {
+        return;
+      }
+      parent_paint_as_active_lock_ = std::move(lock);
     }
     parent_paint_as_active_subscription_ =
         parent->RegisterPaintAsActiveChangedCallback(
@@ -2973,9 +2991,15 @@ void Widget::HandleNativeWidgetReparented(Widget* parent) {
 
   if (old_parent) {
     old_parent->OnChildRemoved(this);
+    if (!weak_this) {
+      return;
+    }
   }
-  if (parent) {
-    parent->OnChildAdded(this);
+  if (parent_) {
+    parent_->OnChildAdded(this);
+    if (!weak_this) {
+      return;
+    }
   }
 }
 
@@ -3019,7 +3043,11 @@ void Widget::UnlockPaintAsActive() {
   --paint_as_active_refcount_;
 
   if (!paint_as_active_refcount_ && !native_widget_active_) {
+    auto weak_this = GetWeakPtr();
     parent_paint_as_active_lock_.reset();
+    if (!weak_this) {
+      return;
+    }
   }
 
   if (ShouldPaintAsActive() != was_paint_as_active) {

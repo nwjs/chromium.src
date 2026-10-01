@@ -16,7 +16,6 @@ import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
 import org.chromium.chrome.browser.tab_ui.TabContentManager;
-import org.chromium.chrome.browser.tab_ui.TabListMode;
 import org.chromium.chrome.browser.tab_ui.TabSwitcher;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tasks.tab_management.TabListEditorAction.ButtonType;
@@ -24,6 +23,7 @@ import org.chromium.chrome.browser.tasks.tab_management.TabListEditorAction.Icon
 import org.chromium.chrome.browser.tasks.tab_management.TabListEditorAction.ShowMode;
 import org.chromium.chrome.browser.tasks.tab_management.TabListEditorCoordinator.CreationMode;
 import org.chromium.chrome.browser.tasks.tab_management.TabListEditorCoordinator.TabListEditorController;
+import org.chromium.chrome.browser.tasks.tab_management.TabListMediator.TabListLayoutType;
 import org.chromium.chrome.browser.tasks.tab_management.TabUiMetricsHelper.TabListEditorOpenMetricGroups;
 import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeController;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
@@ -43,13 +43,12 @@ public class TabListEditorManager {
     private final Activity mActivity;
     private final ModalDialogManager mModalDialogManager;
     private final ViewGroup mCoordinatorView;
-    private final @Nullable SnackbarManager mSnackbarManager;
+    private final SnackbarManager mSnackbarManager;
     private final @Nullable BottomSheetController mBottomSheetController;
     private final BrowserControlsStateProvider mBrowserControlsStateProvider;
     private final MonotonicObservableSupplier<TabModel> mCurrentTabModelSupplier;
     private final TabContentManager mTabContentManager;
     private final TabListCoordinator mTabListCoordinator;
-    private final @TabListMode int mMode;
     private final SettableMonotonicObservableSupplier<TabListEditorController> mControllerSupplier =
             ObservableSuppliers.createMonotonic();
     private final TabGroupCreationDialogManager mTabGroupCreationDialogManager;
@@ -63,12 +62,11 @@ public class TabListEditorManager {
      * @param activity The current activity.
      * @param modalDialogManager The modal dialog manager for the activity.
      * @param coordinatorView The overlay view to attach the editor to.
-     * @param rootView The root view to attach the snackbar to.
+     * @param snackbarManager The activity-level {@link SnackbarManager}.
      * @param browserControlsStateProvider The browser controls state provider.
      * @param currentTabModelSupplier The supplier of the current {@link TabModel}.
      * @param tabContentManager The {@link TabContentManager} for thumbnails.
      * @param tabListCoordinator The parent {@link TabListCoordinator}.
-     * @param mode The {@link TabListMode} of the tab list (grid, list, etc.).
      * @param onTabGroupCreation Should be run when the UI is used to create a tab group.
      * @param edgeToEdgeSupplier Supplier to the {@link EdgeToEdgeController} instance.
      */
@@ -76,38 +74,27 @@ public class TabListEditorManager {
             Activity activity,
             ModalDialogManager modalDialogManager,
             ViewGroup coordinatorView,
-            ViewGroup rootView,
+            SnackbarManager snackbarManager,
             BrowserControlsStateProvider browserControlsStateProvider,
             MonotonicObservableSupplier<TabModel> currentTabModelSupplier,
             TabContentManager tabContentManager,
             TabListCoordinator tabListCoordinator,
-            BottomSheetController bottomSheetController,
-            @TabListMode int mode,
+            @Nullable BottomSheetController bottomSheetController,
             @Nullable Runnable onTabGroupCreation,
             @Nullable DesktopWindowStateManager desktopWindowStateManager,
             MonotonicObservableSupplier<EdgeToEdgeController> edgeToEdgeSupplier) {
         mActivity = activity;
         mModalDialogManager = modalDialogManager;
         mCoordinatorView = coordinatorView;
+        mSnackbarManager = snackbarManager;
         mCurrentTabModelSupplier = currentTabModelSupplier;
         mBrowserControlsStateProvider = browserControlsStateProvider;
         mTabContentManager = tabContentManager;
         mTabListCoordinator = tabListCoordinator;
         mBottomSheetController = bottomSheetController;
-        mMode = mode;
         mTabGroupCreationDialogManager =
                 new TabGroupCreationDialogManager(activity, modalDialogManager, onTabGroupCreation);
         mDesktopWindowStateManager = desktopWindowStateManager;
-
-        // The snackbarManager used by mTabListEditorCoordinator. The rootView is the default
-        // default parent view of the snackbar. When shown this will be re-parented inside the
-        // TabListCoordinator's SelectableListLayout.
-        if (!activity.isDestroyed() && !activity.isFinishing()) {
-            mSnackbarManager =
-                    new SnackbarManager(activity, rootView, null, null, modalDialogManager);
-        } else {
-            mSnackbarManager = null;
-        }
         mEdgeToEdgeSupplier = edgeToEdgeSupplier;
     }
 
@@ -116,9 +103,6 @@ public class TabListEditorManager {
         if (mTabListEditorCoordinator != null) {
             mTabListEditorCoordinator.destroy();
         }
-        if (mSnackbarManager != null) {
-            mSnackbarManager.destroy();
-        }
     }
 
     /** Initializes the tab list editor. */
@@ -126,9 +110,6 @@ public class TabListEditorManager {
         // TODO(crbug.com/40945154): Permit a method of switching between selectable and closable
         // modes (or create separate instances).
         if (mTabListEditorCoordinator == null) {
-            assert mSnackbarManager != null
-                    : "SnackbarManager should have been created or the activity was already"
-                            + " finishing.";
             mTabListEditorCoordinator =
                     new TabListEditorCoordinator(
                             mActivity,
@@ -138,8 +119,7 @@ public class TabListEditorManager {
                             mCurrentTabModelSupplier,
                             mTabContentManager,
                             mTabListCoordinator::setRecyclerViewPosition,
-                            mMode,
-                            /* displayGroups= */ true,
+                            TabListLayoutType.GROUPED,
                             mSnackbarManager,
                             mBottomSheetController,
                             TabProperties.TabActionState.SELECTABLE,

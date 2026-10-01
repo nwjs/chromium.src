@@ -22,7 +22,6 @@
 #include "chrome/browser/ash/file_system_provider/service_worker_lifetime_manager.h"
 #include "chrome/browser/ash/file_system_provider/throttled_file_system.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/common/chrome_features.h"
 #include "chromeos/constants/chromeos_features.h"
 #include "components/services/app_service/public/cpp/app_types.h"
 #include "extensions/browser/event_router.h"
@@ -38,9 +37,6 @@ constexpr base::TimeDelta kDefaultMountTimeout = base::Minutes(10);
 
 ServiceWorkerLifetimeManager* GetServiceWorkerLifetimeManager(
     Profile* profile) {
-  if (!chromeos::features::IsUploadOfficeToCloudEnabled()) {
-    return nullptr;
-  }
   return ServiceWorkerLifetimeManager::Get(profile);
 }
 
@@ -171,14 +167,12 @@ ExtensionProvider::ExtensionProvider(Profile* profile,
   request_dispatcher_ = std::make_unique<RequestDispatcherImpl>(
       provider_id_.GetExtensionId(), extensions::EventRouter::Get(profile),
       GetServiceWorkerLifetimeManager(profile));
-  if (chromeos::features::IsUploadOfficeToCloudEnabled() &&
-      provider_id_.GetExtensionId() == extension_misc::kODFSExtensionId) {
+  if (provider_id_.GetExtensionId() == extension_misc::kODFSExtensionId) {
     odfs_metrics_ = std::make_unique<ODFSMetrics>();
   }
   request_manager_ = std::make_unique<RequestManager>(
       profile, /*notification_manager=*/nullptr, kDefaultMountTimeout);
-  if (chromeos::features::IsUploadOfficeToCloudEnabled() &&
-      provider_id_.GetExtensionId() == extension_misc::kODFSExtensionId) {
+  if (provider_id_.GetExtensionId() == extension_misc::kODFSExtensionId) {
     request_manager_->AddObserver(odfs_metrics_.get());
   }
   ObserveAppServiceForIcons(profile);

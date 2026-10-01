@@ -564,10 +564,15 @@ BASE_FEATURE_PARAM(base::TimeDelta,
 BASE_FEATURE(kAutofillAtMemoryInactivityNudge,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// Kill switch: If enabled, AtMemory fills by simulating a paste. If disabled,
+// AtMemory uses ExtendSelectionAndReplace().
+// TODO(crbug.com/553143213): Clean up when PasteText() has proved robust.
+BASE_FEATURE(kAutofillAtMemoryPasteText, base::FEATURE_ENABLED_BY_DEFAULT);
+
 // Controls whether the previously filled suggestions from AtMemory are shown.
 // Takes no effect when `kAutofillAtMemorySearchStatefulness` is disabled.
 BASE_FEATURE(kAutofillAtMemoryPreviouslyFilled,
-             base::FEATURE_DISABLED_BY_DEFAULT);
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // When enabled, preserves the active AtMemory search query and fetched
 // suggestions when the popup is dismissed, restoring them if the user reopens
@@ -645,6 +650,7 @@ BASE_FEATURE(kAutofillDisallowMoreHyphenLikeLabels,
 // Controls an ablation study in which autofill for addresses and payment data
 // can be suppressed.
 BASE_FEATURE(kAutofillEnableAblationStudy, base::FEATURE_DISABLED_BY_DEFAULT);
+
 // The following parameters are only effective if the study is enabled.
 // If "enabled_for_addresses" is true this means that the ablation study is
 // enabled for addresses meaning that autofill may be disabled on some forms.
@@ -720,12 +726,6 @@ BASE_FEATURE(kAutofillEnableAddressFieldParserNG,
 BASE_FEATURE(kAutofillEnableAutofillSettingsEnterprisePolicy,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
-// Controls whether the deduplication process for Autofill profiles is run on a
-// background thread to avoid blocking the UI thread.
-// TODO(crbug.com/496889243): Remove when launched.
-BASE_FEATURE(kAutofillEnableDeduplicationOnBackgroundThread,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
 // When enabled, the height of the autofill popup is limited to show a fixed
 // maximum number of entries.
 BASE_FEATURE(kAutofillEnableEntryLimitInPopup,
@@ -796,10 +796,20 @@ BASE_FEATURE(kAutofillEnableSkippingUnrecognizedAttribute,
 BASE_FEATURE(kAutofillEnableStreetAddressMergeModes,
              base::FEATURE_DISABLED_BY_DEFAULT);
 
+// When enabled, shows the Wallet Disclosure Notice after submitting a form with
+// a public pass.
+BASE_FEATURE(kAutofillEnableWalletDisclosureNoticePublicPass,
+             base::FEATURE_DISABLED_BY_DEFAULT);
+
 // When enabled, shows the Wallet Reminder Notice after submitting a form with a
 // non-private (public) pass.
 BASE_FEATURE(kAutofillEnableWalletReminderNoticePublicPass,
              base::FEATURE_DISABLED_BY_DEFAULT);
+
+// Controls whether Autofill clears format strings assigned to a field where
+// none of the assigned field types are compatible with it.
+BASE_FEATURE(kAutofillEnforceFormatStringCompatibility,
+             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables extended zip code validation.
 // TODO(crbug.com/434140055): Clean up when launched.
@@ -814,12 +824,6 @@ BASE_FEATURE(kAutofillExtendZipCodeValidation,
 // TODO(crbug.com/40196220): Remove once launched.
 BASE_FEATURE(kAutofillExtractOnlyNonAdFrames,
              base::FEATURE_DISABLED_BY_DEFAULT);
-
-// If enabled, removes address field values that contain words "select",
-// "choose", or "optional" during profile import.
-// TODO(crbug.com/485170688): Remove when launched.
-BASE_FEATURE(kAutofillFilterPlaceholderValuesOnImport,
-             base::FEATURE_ENABLED_BY_DEFAULT);
 
 // When enabled, iframes are associated with the outermost ancestor form
 // (analogous to form control ownership) rather than the closest ancestor form
@@ -842,8 +846,9 @@ BASE_FEATURE(kAutofillFixRewriterRules, base::FEATURE_ENABLED_BY_DEFAULT);
 BASE_FEATURE(kAutofillFixStateCountryMisclassification,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// Enables retrieval and filling of one-time passwords (OTPs) received in Gmail.
-BASE_FEATURE(kAutofillGmailOtp, base::FEATURE_DISABLED_BY_DEFAULT);
+// Enables pre-launch metrics for one-time passwords (OTPs) received in Gmail.
+BASE_FEATURE(kAutofillGmailOtpPreLaunchMetrics,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // When enabled, Greek regexes are used for parsing in branded builds.
 BASE_FEATURE(kAutofillGreekRegexes, base::FEATURE_ENABLED_BY_DEFAULT);
@@ -853,6 +858,12 @@ BASE_FEATURE(kAutofillGreekRegexes, base::FEATURE_ENABLED_BY_DEFAULT);
 // TODO(crbug.com/545556982): Remove after confirming there is no regression.
 BASE_FEATURE(kAutofillIgnoreUnchangedFrameResizes,
              base::FEATURE_ENABLED_BY_DEFAULT);
+
+// When enabled, corrects missclassification of NAME_LAST as NAME_LAST_SECOND in
+// an absence of NAME_LAST_FIRST.
+// TODO(crbug.com/400995432): Clean-up when launched.
+BASE_FEATURE(kAutofillImproveClassificationForTwoWordLastNames,
+             base::FEATURE_DISABLED_BY_DEFAULT);
 
 // If enabled, global rules are applied to rewrite empty string values like
 // "null" to an empty string. These rules are applied for all types during
@@ -985,12 +996,6 @@ BASE_FEATURE(kAutofillRestrictOtpToSameTldPlusOne,
 // TODO(crbug.com/435646513) - Clean-up after feature lands at 100% Stable.
 // Enables the new experimental server-side signatures for evaluation purposes.
 BASE_FEATURE(kAutofillServerExperimentalSignatures,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-
-// TODO(crbug.com/470949499) - Clean-up after feature lands at 100% Stable.
-// Enables querying the server for predictions before the form has been parsed
-// locally.
-BASE_FEATURE(kAutofillServerQueryPredictionsEarly,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 // Enables uploading of more data to the Autofill server to use for computing

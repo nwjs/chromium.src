@@ -8,6 +8,7 @@ import static org.chromium.build.NullUtil.assumeNonNull;
 
 import android.content.Context;
 import android.os.Bundle;
+import android.text.TextUtils;
 
 import androidx.annotation.VisibleForTesting;
 import androidx.fragment.app.Fragment;
@@ -39,6 +40,7 @@ import org.chromium.components.autofill.ImageSize;
 import org.chromium.components.autofill.payments.AccountType;
 import org.chromium.components.autofill.payments.BankAccount;
 import org.chromium.components.autofill.payments.Ewallet;
+import org.chromium.components.browser_ui.settings.ChromeBasePreference;
 import org.chromium.components.browser_ui.settings.ChromeSwitchPreference;
 import org.chromium.components.browser_ui.settings.SettingsFragment;
 import org.chromium.components.browser_ui.settings.search.SettingsIndexData;
@@ -83,6 +85,14 @@ public class FinancialAccountsManagementFragment extends ChromeBaseSettingsFragm
         String title = "";
         if (extras != null) {
             title = extras.getString(TITLE_KEY, "");
+        }
+        if (TextUtils.isEmpty(title)
+                && (shouldShowEwalletPref(getProfile()) || shouldShowPixPref(getProfile()))) {
+            title =
+                    AutofillPaymentMethodsFragment.getFacilitatedPaymentsTitleString(
+                            getStyledContext(),
+                            shouldShowEwalletPref(getProfile()),
+                            shouldShowPixPref(getProfile()));
         }
         mPageTitle.set(title);
 
@@ -134,7 +144,7 @@ public class FinancialAccountsManagementFragment extends ChromeBaseSettingsFragm
 
         mEwallets = mPersonalDataManager.getEwallets();
         mBankAccounts = mPersonalDataManager.getMaskedBankAccounts();
-        if (mEwallets.length == 0 && mBankAccounts.length == 0) {
+        if (!shouldShowEwalletPref(getProfile()) && !shouldShowPixPref(getProfile())) {
             return;
         }
         boolean isFacilitatedPaymentsEwalletEnabled =
@@ -181,7 +191,10 @@ public class FinancialAccountsManagementFragment extends ChromeBaseSettingsFragm
 
     private static boolean shouldShowPixPref(Profile profile) {
         var personalDataManager = PersonalDataManagerFactory.getForProfile(profile);
-        return personalDataManager.getMaskedBankAccounts().length > 0;
+        // TODO(crbug.com/565380501): Show Pix preference only if the user has copied a Pix code
+        // rather than whenever the experiment is enabled.
+        return personalDataManager.getMaskedBankAccounts().length > 0
+                || ChromeFeatureList.isEnabled(ChromeFeatureList.ENABLE_PIX_ACCOUNT_LINKING_NATIVE);
     }
 
     private void addPixAccountPreferences() {
@@ -197,7 +210,7 @@ public class FinancialAccountsManagementFragment extends ChromeBaseSettingsFragm
     }
 
     private Preference getPreferenceForBankAccount(BankAccount bankAccount) {
-        Preference bankAccountPref = new Preference(getStyledContext());
+        Preference bankAccountPref = new ChromeBasePreference(getStyledContext());
 
         bankAccountPref.setTitle(bankAccount.getBankName());
         bankAccountPref.setKey(
@@ -224,7 +237,7 @@ public class FinancialAccountsManagementFragment extends ChromeBaseSettingsFragm
     }
 
     private Preference getEwalletRowItem(Ewallet eWallet) {
-        Preference eWalletPref = new Preference(getStyledContext());
+        Preference eWalletPref = new ChromeBasePreference(getStyledContext());
 
         eWalletPref.setTitle(eWallet.getEwalletName());
         eWalletPref.setKey(
@@ -336,7 +349,10 @@ public class FinancialAccountsManagementFragment extends ChromeBaseSettingsFragm
                                 /* summaryId= */ 0,
                                 extras);
                     }
-                    if (shouldShowPixPref(profile)) {
+                    // Only index the Pix preference for users who have a Pix bank account and not
+                    // for users linking a Pix bank account for the first time.
+                    if (AutofillPaymentMethodsFragment.hasPixAccounts(
+                            PersonalDataManagerFactory.getForProfile(profile))) {
                         indexData.addEntryForKey(
                                 frag,
                                 PREFERENCE_KEY_PIX,

@@ -425,7 +425,7 @@ LocalFrame* LocalFrame::FromFrameToken(const LocalFrameToken& frame_token) {
 void LocalFrame::Init(
     Frame* opener,
     const DocumentToken& document_token,
-    const base::UnguessableToken& initiator_state_token,
+    const InitiatorStateToken& initiator_state_token,
     std::unique_ptr<PolicyContainer> policy_container,
     const StorageKey& storage_key,
     ukm::SourceId document_ukm_source_id,
@@ -3398,7 +3398,7 @@ void LocalFrame::RequestExecuteScript(
     BackForwardCacheAware back_forward_cache_aware,
     mojom::blink::WantResultOption want_result_option,
     mojom::blink::PromiseResultOption promise_behavior,
-    bool is_injected_extension_script) {
+    const String& script_injector_id) {
   DOMWrapperWorld* world;
   ExecuteScriptPolicy execute_script_policy;
   CHECK(!IsProvisional());
@@ -3454,7 +3454,7 @@ void LocalFrame::RequestExecuteScript(
   PausableScriptExecutor::CreateAndRun(
       script_state, std::move(script_sources), execute_script_policy,
       user_gesture, evaluation_timing, blocking_option, want_result_option,
-      promise_behavior, std::move(callback), is_injected_extension_script);
+      promise_behavior, std::move(callback), script_injector_id);
 }
 
 void LocalFrame::SetEvictCachedSessionStorageOnFreezeOrUnload() {
@@ -3465,10 +3465,7 @@ LocalFrameToken LocalFrame::GetLocalFrameToken() const {
   return GetFrameToken().GetAs<LocalFrameToken>();
 }
 
-const base::UnguessableToken& LocalFrame::GetInitiatorStateToken() const {
-  // A frame's LocalDOMWindow should always have a valid
-  // `initiator_state_token`.
-  CHECK(!DomWindow()->GetInitiatorStateToken().is_empty());
+const InitiatorStateToken& LocalFrame::GetInitiatorStateToken() const {
   return DomWindow()->GetInitiatorStateToken();
 }
 
@@ -3647,7 +3644,7 @@ SystemClipboard* LocalFrame::GetSystemClipboard() {
   }
 
   if (!system_clipboard_) {
-    system_clipboard_ = MakeGarbageCollected<SystemClipboard>(this);
+    system_clipboard_ = MakeGarbageCollected<SystemClipboard>(DomWindow());
   }
 
   return system_clipboard_.Get();
@@ -4502,7 +4499,8 @@ LocalFrame::IssueKeepAliveHandle() {
   mojo::PendingRemote<mojom::blink::NavigationStateKeepAliveHandle>
       keep_alive_remote;
   GetLocalFrameHostRemote().IssueKeepAliveHandle(
-      keep_alive_remote.InitWithNewPipeAndPassReceiver());
+      keep_alive_remote.InitWithNewPipeAndPassReceiver(),
+      GetInitiatorStateToken());
   return keep_alive_remote;
 }
 

@@ -9,6 +9,8 @@
 
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/task_environment.h"
+#include "base/types/expected.h"
+#include "components/affiliations/core/browser/match_type.h"
 #include "components/password_manager/core/browser/password_form.h"
 #include "components/password_manager/core/browser/password_manager_test_utils.h"
 #include "components/password_manager/core/browser/password_store/mock_password_store_interface.h"
@@ -43,7 +45,7 @@ PasswordForm CreateTestForm() {
   form.action = GURL("https://example.org/action.html");
   form.username_value = u"user";
   form.password_value = PasswordString(u"password");
-  form.match_type = PasswordForm::MatchType::kExact;
+  form.match_type = affiliations::MatchType::kExact;
   return form;
 }
 
@@ -55,7 +57,7 @@ PasswordForm CreateTestPSLForm() {
   form.action = GURL(kTestSubdomainHttpURL);
   form.username_value = u"user2";
   form.password_value = PasswordString(u"password2");
-  form.match_type = PasswordForm::MatchType::kPSL;
+  form.match_type = affiliations::MatchType::kPSL;
   return form;
 }
 
@@ -67,7 +69,7 @@ PasswordForm CreateAndroidCredential() {
   form.signon_realm = "android://hash@com.example.android/";
   form.url = GURL(form.signon_realm);
   form.action = GURL();
-  form.match_type = PasswordForm::MatchType::kPSL;
+  form.match_type = affiliations::MatchType::kPSL;
   return form;
 }
 
@@ -80,7 +82,7 @@ PasswordForm CreateLocalFederatedCredential() {
   form.action = GURL("http://localhost/");
   form.federation_origin =
       url::SchemeHostPort(GURL("https://federation.example.com"));
-  form.match_type = PasswordForm::MatchType::kExact;
+  form.match_type = affiliations::MatchType::kExact;
   return form;
 }
 
@@ -161,7 +163,9 @@ void HttpPasswordStoreMigratorTest::TestEmptyStore(bool is_hsts) {
                                      &consumer());
 
   EXPECT_CALL(consumer(), ProcessMigratedForms(IsEmpty()));
-  migrator.OnGetPasswordStoreResultsOrErrorFrom(nullptr, LoginsResultOrError());
+  migrator.OnGetPasswordStoreResultsOrErrorFrom(
+      nullptr, base::expected<std::vector<StoredCredential>,
+                              PasswordStoreBackendError>());
 }
 
 void HttpPasswordStoreMigratorTest::TestFullStore(bool is_hsts) {
@@ -237,8 +241,9 @@ void HttpPasswordStoreMigratorTest::TestMigratorDeletionByConsumer(
   EXPECT_CALL(consumer(), ProcessMigratedForms(_))
       .WillOnce([&migrator](Unused) { migrator.reset(); });
 
-  migrator->OnGetPasswordStoreResultsOrErrorFrom(nullptr,
-                                                 LoginsResultOrError());
+  migrator->OnGetPasswordStoreResultsOrErrorFrom(
+      nullptr, base::expected<std::vector<StoredCredential>,
+                              PasswordStoreBackendError>());
 }
 
 void HttpPasswordStoreMigratorTest::TestMigratorReceivesBackendError(
@@ -263,9 +268,9 @@ void HttpPasswordStoreMigratorTest::TestMigratorReceivesBackendError(
                                      &consumer());
 
   EXPECT_CALL(consumer(), ProcessMigratedForms(IsEmpty()));
-  PasswordStoreBackendError error_results = PasswordStoreBackendError(
-      PasswordStoreBackendErrorType::kAuthErrorResolvable);
-  migrator.OnGetPasswordStoreResultsOrErrorFrom(nullptr, error_results);
+  migrator.OnGetPasswordStoreResultsOrErrorFrom(
+      nullptr, base::unexpected(PasswordStoreBackendError(
+                   PasswordStoreBackendErrorType::kAuthErrorResolvable)));
 }
 
 TEST_F(HttpPasswordStoreMigratorTest, EmptyStoreWithHSTS) {

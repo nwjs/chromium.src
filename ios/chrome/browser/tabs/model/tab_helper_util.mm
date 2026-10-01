@@ -50,8 +50,8 @@
 #import "ios/chrome/browser/download/model/safari_download_tab_helper.h"
 #import "ios/chrome/browser/download/model/vcard_tab_helper.h"
 #import "ios/chrome/browser/drive/model/drive_tab_helper.h"
-#import "ios/chrome/browser/enterprise/connectors/device_trust/device_trust_challenge_tab_helper.h"
 #import "ios/chrome/browser/enterprise/connectors/device_trust/features.h"
+#import "ios/chrome/browser/enterprise/connectors/device_trust/model/device_trust_challenge_tab_helper.h"
 #import "ios/chrome/browser/enterprise/data_controls/model/data_controls_tab_helper.h"
 #import "ios/chrome/browser/enterprise/data_protection/model/data_protection_tab_helper.h"
 #import "ios/chrome/browser/favicon/model/favicon_service_factory.h"
@@ -376,10 +376,8 @@ void AttachTabHelpers(web::WebState* web_state, TabHelperFilter filter_flags) {
 
   attacher.Create<EditMenuTabHelper>();
 
-  attacher.CreateWhen<MiniMapTabHelper>(
-      (IsMiniMapUniversalLinkEnabled() ||
-       base::FeatureList::IsEnabled(kIOSMiniMapUniversalLinkCounterfactual)) &&
-      attacher.IsNotInTabHelperFilter());
+  attacher.CreateWhen<MiniMapTabHelper>(IsMiniMapUniversalLinkEnabled() &&
+                                        attacher.IsNotInTabHelperFilter());
 
   if (IsAimCobrowseEnabled()) {
     attacher.CreateWhen<CobrowseTabHelper>(
@@ -388,10 +386,8 @@ void AttachTabHelpers(web::WebState* web_state, TabHelperFilter filter_flags) {
     attacher.CreateWhen<AssistantAimTabHelper>(attacher.IsForAssistantAim());
   }
 
-  if (IsComposeboxIOSEnabled()) {
-    attacher.CreateWhen<AimTabHelper>(!attacher.IsForPrerender() &&
-                                      !attacher.IsForReaderMode());
-  }
+  attacher.CreateWhen<AimTabHelper>(!attacher.IsForPrerender() &&
+                                    !attacher.IsForReaderMode());
 
   attacher.CreateWhen<GeminiTabHelper>(!attacher.IsOffTheRecord() &&
                                        !attacher.IsForPrerender() &&

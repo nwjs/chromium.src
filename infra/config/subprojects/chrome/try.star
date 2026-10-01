@@ -33,6 +33,7 @@ def chrome_internal_verifier(
             cancel_stale = cq_settings.cancel_stale,
             cq_group = "cq",
             disable_reuse = cq_settings.disable_reuse,
+            reuse_max_commit_distance = cq_settings.reuse_max_commit_distance,
             experiment_percentage = cq_settings.experiment_percentage,
             location_filters = location_filters,
             mode_allowlist = cq_settings.custom_cq_run_modes,
@@ -235,7 +236,8 @@ chrome_internal_verifier(
     builder = "cronet-arm64-gn2bp-debug",
     cq_settings = try_.cq_settings(
         location_filters = [
-            "components/cronet/gn2bp/.+",
+            "components/cronet/.+",
+            "third_party/protobuf/.+",
         ],
     ),
     # The limited traffic to the location_filters specified below makes this

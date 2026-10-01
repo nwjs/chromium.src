@@ -94,8 +94,7 @@ void HttpEquiv::ProcessHttpEquivContentSecurityPolicy(
 
     // Generate a new initiator state token to pass to the browser process and
     // to update `window`.
-    base::UnguessableToken new_initiator_state_token =
-        base::UnguessableToken::Create();
+    InitiatorStateToken new_initiator_state_token;
     window->GetPolicyContainer()->AddContentSecurityPolicies(
         std::move(parsed), new_initiator_state_token);
     window->SetInitiatorStateToken(new_initiator_state_token);
@@ -152,7 +151,8 @@ void HttpEquiv::ProcessHttpEquivRefresh(LocalDOMWindow* window,
   UseCounter::Count(window, WebFeature::kMetaRefresh);
   if (!window->GetContentSecurityPolicy()->AllowInline(
           ContentSecurityPolicy::InlineType::kScript, element, "" /* content */,
-          "" /* nonce */, NullUrl(), OrdinalNumber::First(),
+          "" /* nonce */, NullUrl(),
+          TextPosition(OrdinalNumber::First(), OrdinalNumber::BeforeFirst()),
           ReportingDisposition::kSuppressReporting)) {
     UseCounter::Count(window,
                       WebFeature::kMetaRefreshWhenCSPBlocksInlineScript);

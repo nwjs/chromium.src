@@ -142,6 +142,7 @@ ci.builder(
         ],
     ),
     os = os.LINUX_DEFAULT,
+    ssd = None,
     console_view_entry = consoles.console_view_entry(
         category = "viz",
     ),
@@ -196,6 +197,7 @@ ci.builder(
         ],
     ),
     os = os.LINUX_DEFAULT,
+    ssd = None,
     console_view_entry = consoles.console_view_entry(
         category = "site_isolation",
     ),
@@ -229,6 +231,7 @@ ci.builder(
         ],
     ),
     os = os.LINUX_DEFAULT,
+    ssd = None,
     console_view_entry = consoles.console_view_entry(
         category = "network|traffic|annotations",
         short_name = "lnx",
@@ -274,6 +277,7 @@ ci.builder(
     ),
     builderless = True,
     os = os.LINUX_DEFAULT,
+    ssd = None,
     console_view_entry = consoles.console_view_entry(
         category = "release",
         short_name = "rel",
@@ -338,6 +342,7 @@ ci.builder(
         },
     ),
     os = os.LINUX_DEFAULT,
+    ssd = None,
     console_view_entry = consoles.console_view_entry(
         category = "linux|blink",
         short_name = "BIr",
@@ -382,6 +387,7 @@ ci.builder(
         ],
     ),
     os = os.LINUX_DEFAULT,
+    ssd = None,
     console_view_entry = consoles.console_view_entry(
         category = "linux",
         short_name = "se",
@@ -421,6 +427,7 @@ ci.builder(
         ],
     ),
     os = os.LINUX_DEFAULT,
+    ssd = None,
     console_view_entry = consoles.console_view_entry(
         category = "linux|blink",
         short_name = "VF",
@@ -459,6 +466,7 @@ ci.builder(
         ],
     ),
     os = os.LINUX_DEFAULT,
+    ssd = None,
     console_view_entry = consoles.console_view_entry(
         category = "linux",
     ),
@@ -491,6 +499,7 @@ ci.thin_tester(
             "mac_default_arm64",
         ],
     ),
+    ssd = None,
     console_view_entry = consoles.console_view_entry(
         category = "mac",
     ),
@@ -535,6 +544,7 @@ ci.builder(
     ),
     builderless = True,
     os = os.LINUX_DEFAULT,
+    ssd = None,
     console_view_entry = consoles.console_view_entry(
         category = "mulitscreen",
     ),
@@ -574,7 +584,7 @@ ci.builder(
             "x64",
             "strip_debug_info",
             "android_fastbuild",
-            "webview_trichrome",
+            "webview_debug_package_name",
             "webview_shell",
         ],
     ),
@@ -703,6 +713,7 @@ ci.builder(
     ),
     builderless = True,
     os = os.LINUX_DEFAULT,
+    ssd = None,
     console_view_entry = consoles.console_view_entry(
         category = "android",
     ),
@@ -741,6 +752,7 @@ ci.builder(
         ],
     ),
     os = os.LINUX_DEFAULT,
+    ssd = None,
     console_view_entry = consoles.console_view_entry(
         category = "linux",
     ),
@@ -949,6 +961,7 @@ ci.builder(
         },
     ),
     os = os.LINUX_DEFAULT,
+    ssd = None,
     console_view_entry = consoles.console_view_entry(
         category = "linux",
     ),
@@ -1004,6 +1017,7 @@ ci.builder(
         },
     ),
     os = os.LINUX_DEFAULT,
+    ssd = None,
     console_view_entry = consoles.console_view_entry(
         category = "linux|blink",
         short_name = "trace",
@@ -1098,6 +1112,7 @@ ci.builder(
         ],
     ),
     os = os.LINUX_DEFAULT,
+    ssd = None,
     console_view_entry = consoles.console_view_entry(
         category = "linux",
         short_name = "hdls",
@@ -1352,6 +1367,7 @@ ci.builder(
         os_type = targets.os_type.LINUX,
     ),
     os = os.LINUX_DEFAULT,
+    ssd = None,
     console_view_entry = consoles.console_view_entry(
         category = "linux|arm64",
         short_name = "rel",
@@ -1436,6 +1452,7 @@ ci.builder(
         os_type = targets.os_type.LINUX,
     ),
     os = os.LINUX_DEFAULT,
+    ssd = None,
     console_view_entry = consoles.console_view_entry(
         category = "linux|arm64",
         short_name = "wl",
@@ -1476,6 +1493,7 @@ ci.builder(
         use_swarming = False,
     ),
     os = os.LINUX_DEFAULT,
+    ssd = None,
     console_view_entry = consoles.console_view_entry(
         category = "perfetto",
         short_name = "lnx",
@@ -2590,6 +2608,7 @@ ci.builder(
         },
     ),
     os = os.LINUX_DEFAULT,
+    ssd = None,
     console_view_entry = [
         consoles.console_view_entry(
             category = "treesinviz",
@@ -2743,6 +2762,7 @@ ci.builder(
         },
     ),
     os = os.LINUX_DEFAULT,
+    ssd = None,
     console_view_entry = [
         consoles.console_view_entry(
             category = "treesinviz",
@@ -2868,6 +2888,68 @@ ci.builder(
 )
 
 ci.builder(
+    name = "mac-webdriver-bidi-rel",
+    description_html = "Builder for WebDriver BiDi implementation",
+    schedule = "triggered",
+    triggered_by = [],
+    builder_spec = builder_config.copy_from("ci/mac-arm64-rel"),
+    gn_args = "ci/mac-arm64-rel",
+    targets = targets.bundle(
+        targets = [
+            "webdriver_bidi_e2e_tests",
+            "webdriver_bidi_unittests",
+        ],
+        mixins = [
+            "mac_default_arm64",
+        ],
+        per_test_modifications = {
+            "webdriver_bidi_e2e_tests": targets.mixin(
+                swarming = targets.swarming(
+                    shards = 8,
+                ),
+            ),
+        },
+    ),
+    cores = None,
+    os = os.MAC_DEFAULT,
+    cpu = cpu.ARM64,
+    console_view_entry = consoles.console_view_entry(
+        category = "webdriver",
+    ),
+    contact_team_email = "chrome-devtools@google.com",
+)
+
+ci.builder(
+    name = "win-webdriver-bidi-rel",
+    description_html = "Builder for WebDriver BiDi implementation",
+    schedule = "triggered",
+    triggered_by = [],
+    builder_spec = builder_config.copy_from("ci/Win x64 Builder"),
+    gn_args = "ci/Win x64 Builder",
+    targets = targets.bundle(
+        targets = [
+            "webdriver_bidi_e2e_tests",
+            "webdriver_bidi_unittests",
+        ],
+        mixins = [
+            "win10",
+        ],
+        per_test_modifications = {
+            "webdriver_bidi_e2e_tests": targets.mixin(
+                swarming = targets.swarming(
+                    shards = 8,
+                ),
+            ),
+        },
+    ),
+    os = os.WINDOWS_DEFAULT,
+    console_view_entry = consoles.console_view_entry(
+        category = "webdriver",
+    ),
+    contact_team_email = "chrome-devtools@google.com",
+)
+
+ci.builder(
     name = "win-separate-renderer-fyi-rel",
     description_html = "Windows Release build and test with enable_separate_renderer_binary=true.",
     schedule = "with 6h interval",
@@ -2960,6 +3042,7 @@ ci.builder(
         },
     ),
     os = os.LINUX_DEFAULT,
+    ssd = None,
     console_view_entry = consoles.console_view_entry(
         category = "linux|separate-renderer",
         short_name = "tst",

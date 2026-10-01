@@ -87,7 +87,7 @@ class IntWrapper : public GarbageCollected<IntWrapper> {
     return other.Value() == Value();
   }
 
-  unsigned GetHash() { return blink::GetHash(x_); }
+  uint32_t GetHash() { return blink::GetHash(x_); }
 
   IntWrapper(int x) : x_(x) {}
 
@@ -98,7 +98,7 @@ class IntWrapper : public GarbageCollected<IntWrapper> {
 std::atomic_int IntWrapper::destructor_calls_{0};
 
 struct IntWrapperHashTraits : GenericHashTraits<IntWrapper> {
-  static unsigned GetHash(const IntWrapper& key) {
+  static uint32_t GetHash(const IntWrapper& key) {
     return HashInt(static_cast<uint32_t>(key.Value()));
   }
 };
@@ -487,8 +487,8 @@ class ThreadMarker {
 // ThreadMarkerHash is the default hash for ThreadMarker
 template <>
 struct HashTraits<ThreadMarker> : SimpleClassHashTraits<ThreadMarker> {
-  static unsigned GetHash(const ThreadMarker& key) {
-    return static_cast<unsigned>(
+  static uint32_t GetHash(const ThreadMarker& key) {
+    return static_cast<uint32_t>(
         reinterpret_cast<uintptr_t>(key.creating_thread_) + key.num_);
   }
   static constexpr bool kSafeToCompareToEmptyOrDeleted = false;
@@ -1631,6 +1631,31 @@ TEST_F(HeapTest, ClearInWeakProcessing) {
   ClearInWeakProcessingHelper<HeapLinkedHashSet<WeakMember<IntWrapper>>>();
 }
 
+TEST_F(HeapTest, HeapHashMapWithHeapLinkedHashSetValue) {
+  // HeapLinkedHashSet may be used as the inline value type of a HeapHashMap.
+  // Empty buckets in the map's backing are not visited during tracing, so a
+  // default-constructed value must not own any out-of-line allocations.
+  ClearOutOldGarbage();
+
+  using InnerSet = HeapLinkedHashSet<Member<IntWrapper>>;
+  using Map = GCedHeapHashMap<Member<IntWrapper>, InnerSet>;
+  Persistent<Map> map = MakeGarbageCollected<Map>();
+  Persistent<IntWrapper> key1 = MakeGarbageCollected<IntWrapper>(1);
+  Persistent<IntWrapper> key2 = MakeGarbageCollected<IntWrapper>(2);
+
+  map->ReserveCapacityForSize(8);
+  PreciselyCollectGarbage();
+
+  map->insert(key1.Get(), InnerSet()).stored_value->value.insert(key1.Get());
+  PreciselyCollectGarbage();
+  map->insert(key2.Get(), InnerSet()).stored_value->value.insert(key2.Get());
+  PreciselyCollectGarbage();
+
+  EXPECT_EQ(2u, map->size());
+  EXPECT_TRUE(map->find(key1.Get())->value.Contains(key1.Get()));
+  EXPECT_TRUE(map->find(key2.Get())->value.Contains(key2.Get()));
+}
+
 namespace {
 class ThingWithDestructor {
   DISALLOW_NEW();
@@ -1651,7 +1676,7 @@ class ThingWithDestructor {
 
   static int live_things_with_destructor_;
 
-  unsigned GetHash() { return blink::GetHash(x_); }
+  uint32_t GetHash() { return blink::GetHash(x_); }
 
  private:
   static const int kEmptyValue = 0;
@@ -2611,7 +2636,7 @@ class OffHeapInt : public RefCounted<OffHeapInt> {
     return other.Value() == Value();
   }
 
-  unsigned GetHash() { return blink::GetHash(x_); }
+  uint32_t GetHash() { return blink::GetHash(x_); }
   void VoidFunction() {}
 
   OffHeapInt() = delete;
@@ -3127,7 +3152,7 @@ class KeyWithCopyingMoveConstructor final {
   DISALLOW_NEW();
 
  public:
-  unsigned GetHash() const { return hash_; }
+  uint32_t GetHash() const { return hash_; }
 
   KeyWithCopyingMoveConstructor() = default;
   explicit KeyWithCopyingMoveConstructor(HashTableDeletedValueType)

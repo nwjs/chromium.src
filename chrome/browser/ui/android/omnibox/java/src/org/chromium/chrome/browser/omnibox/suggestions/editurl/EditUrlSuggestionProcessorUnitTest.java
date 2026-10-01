@@ -12,7 +12,7 @@ import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.argThat;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.eq;
-import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
@@ -32,6 +32,7 @@ import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
+import org.mockito.quality.Strictness;
 
 import org.chromium.base.ContextUtils;
 import org.chromium.base.UserDataHost;
@@ -89,7 +90,8 @@ public final class EditUrlSuggestionProcessorUnitTest {
     public static final GURL ESCAPED_PATH_URL =
             new GURL("https://pl.wikipedia.org/wiki/G%C5%BCeg%C5%BC%C3%B3%C5%82ka");
 
-    @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
+    @Rule
+    public final MockitoRule mMockitoRule = MockitoJUnit.rule().strictness(Strictness.STRICT_STUBS);
 
     @Mock private ShareDelegate mShareDelegate;
     @Mock private Tab mTab;
@@ -101,11 +103,11 @@ public final class EditUrlSuggestionProcessorUnitTest {
     @Mock private BookmarkState mBookmarkState;
     @Mock private OmniboxActionDelegate mActionDelegate;
     @Mock private UkmRecorder.Natives mUkmRecorderJniMock;
-    @Mock private AutocompleteInput mInput;
     @Mock private DomDistillerUrlUtilsJni mDomDistillerUrlUtilsJni;
     @Mock private SadTab mSadTab;
     @Captor private ArgumentCaptor<ClipData> mClipDataCaptor;
 
+    private final AutocompleteInput mInput = new AutocompleteInput();
     private final UserDataHost mTabUserData = new UserDataHost();
     private final Supplier<Tab> mTabSupplier = () -> mTab;
     private final Supplier<ShareDelegate> mShareDelegateSupplier = () -> mShareDelegate;
@@ -157,12 +159,13 @@ public final class EditUrlSuggestionProcessorUnitTest {
         mProcessor = new EditUrlSuggestionProcessor(uiContext);
         mModel = mProcessor.createModel();
 
-        doReturn(SEARCH_URL_1).when(mTab).getUrl();
-        doReturn(TAB_TITLE).when(mTab).getTitle();
-        doReturn(mTabUserData).when(mTab).getUserDataHost();
-        doReturn(true).when(mTab).isInitialized();
+        lenient().doReturn(SEARCH_URL_1).when(mTab).getUrl();
+        lenient().doReturn(TAB_TITLE).when(mTab).getTitle();
+        lenient().doReturn(mTabUserData).when(mTab).getUserDataHost();
+        lenient().doReturn(true).when(mTab).isInitialized();
         DomDistillerUrlUtilsJni.setInstanceForTesting(mDomDistillerUrlUtilsJni);
-        when(mDomDistillerUrlUtilsJni.getOriginalUrlFromDistillerUrl(anyString()))
+        lenient()
+                .when(mDomDistillerUrlUtilsJni.getOriginalUrlFromDistillerUrl(anyString()))
                 .thenReturn(SEARCH_URL_1);
 
         mProcessor.onOmniboxSessionStateChange(true);
@@ -316,8 +319,7 @@ public final class EditUrlSuggestionProcessorUnitTest {
         var monitor = new UserActionTester();
         mModel.get(BaseSuggestionViewProperties.ACTION_BUTTONS).get(ACTION_SHARE).callback.run();
         verify(mSuggestionHost).finishInteraction();
-        verify(mShareDelegate, times(1))
-                .share(mTab, /* shareDirectly= */ false, ShareOrigin.EDIT_URL);
+        verify(mShareDelegate).share(mTab, /* shareDirectly= */ false, ShareOrigin.EDIT_URL);
         // Note: UkmRecorder requires WebContents to report metrics.
         // In the even WebContents is not available, we should not interact with UkmRecorder.
         verifyNoMoreInteractions(mUkmRecorderJniMock);
@@ -367,7 +369,7 @@ public final class EditUrlSuggestionProcessorUnitTest {
         var monitor = new UserActionTester();
         mModel.get(BaseSuggestionViewProperties.ACTION_BUTTONS).get(ACTION_COPY).callback.run();
 
-        verify(mClipboardManager, times(1)).setPrimaryClip(mClipDataCaptor.capture());
+        verify(mClipboardManager).setPrimaryClip(mClipDataCaptor.capture());
 
         // ClipData doesn't implement equals, but their string representations matching should be
         // good enough.
@@ -393,7 +395,7 @@ public final class EditUrlSuggestionProcessorUnitTest {
         var monitor = new UserActionTester();
         mModel.get(BaseSuggestionViewProperties.ACTION_BUTTONS).get(ACTION_COPY).callback.run();
 
-        verify(mClipboardManager, times(1)).setPrimaryClip(mClipDataCaptor.capture());
+        verify(mClipboardManager).setPrimaryClip(mClipDataCaptor.capture());
 
         // ClipData doesn't implement equals, but their string representations matching should be
         // good enough.

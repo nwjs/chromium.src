@@ -9,6 +9,9 @@
 
 #include <stdint.h>
 
+#include <optional>
+#include <string_view>
+
 #include "rlz/lib/rlz_enums.h"
 
 namespace rlz_lib {
@@ -86,14 +89,14 @@ extern const char* kFinancialPingResponseObjects[];
 // The names for AccessPoints and Events that we use MUST be the same
 // as those used/understood by the server.
 //
-const char* GetAccessPointName(AccessPoint point);
-bool GetAccessPointFromName(const char* name, AccessPoint* point);
+std::string_view GetAccessPointName(AccessPoint point);
+std::optional<AccessPoint> GetAccessPointFromName(std::string_view name);
 
-const char* GetEventName(Event event);
-bool GetEventFromName(const char* name, Event* event);
+std::string_view GetEventName(Event event);
+std::optional<Event> GetEventFromName(std::string_view name);
 
 // The names for products are used only client-side.
-const char* GetProductName(Product product);
+std::string_view GetProductName(Product product);
 
 }  // namespace rlz_lib
 

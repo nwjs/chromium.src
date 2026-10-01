@@ -10,8 +10,6 @@
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "build/build_config.h"
-#include "chrome/browser/apps/app_service/app_service_proxy.h"
-#include "chrome/browser/apps/app_service/app_service_proxy_factory.h"
 #include "chrome/browser/extensions/api/notifications/extension_notification_display_helper.h"
 #include "chrome/browser/extensions/api/notifications/extension_notification_display_helper_factory.h"
 #include "chrome/browser/extensions/api/notifications/extension_notification_handler.h"
@@ -39,6 +37,7 @@
 #include "extensions/common/mojom/view_type.mojom.h"
 #include "extensions/test/extension_test_message_listener.h"
 #include "extensions/test/result_catcher.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/message_center/public/cpp/notification.h"
 #include "ui/message_center/public/cpp/notifier_id.h"
 
@@ -55,6 +54,8 @@
 #endif
 
 #if BUILDFLAG(ENABLE_PLATFORM_APPS)
+#include "chrome/browser/apps/app_service/app_service_proxy.h"
+#include "chrome/browser/apps/app_service/app_service_proxy_factory.h"
 #include "chrome/browser/apps/platform_apps/app_browsertest_util.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/test/base/interactive_test_utils.h"

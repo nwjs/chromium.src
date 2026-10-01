@@ -24,6 +24,7 @@
 #include "components/supervised_user/core/browser/supervised_user_utils.h"
 #include "components/supervised_user/core/common/pref_names.h"
 #include "components/supervised_user/core/common/supervised_user_constants.h"
+#include "extensions/buildflags/buildflags.h"
 
 namespace supervised_user_test_util {
 
@@ -124,15 +125,6 @@ void SetManualFilterForHost(Profile* profile,
                             bool allowlist) {
   supervised_user::SupervisedUserTestEnvironment::SetManualFilterForHost(
       host, allowlist,
-      *supervised_user::FamilyLinkSettingsServiceFactory::GetForKey(
-          profile->GetProfileKey()));
-}
-
-void SetManualFilterForUrl(Profile* profile,
-                           std::string_view url,
-                           bool allowlist) {
-  supervised_user::SupervisedUserTestEnvironment::SetManualFilterForUrl(
-      url, allowlist,
       *supervised_user::FamilyLinkSettingsServiceFactory::GetForKey(
           profile->GetProfileKey()));
 }

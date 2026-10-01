@@ -19,9 +19,6 @@
 # https://crbug.com/1307940
 tast.policy.URLCheck.blocklist
 
-# https://crbug.com/1312121
-tast.policy.CookiesBlockedForUrls
-
 # http://crbug.com/1335213
 tast.arc.WindowState.clamshell
 
@@ -43,9 +40,6 @@ tast.crostini.AppAndroidStudio.bookworm_clamshell_stable@octopus
 # b/346793249, b/330290054
 tast.videoconferencing.OpenCLCacher
 
-# b/352703668: tests failing on trogdor.
-tast.security.SELinuxFilesDataDir.arcvm_user@trogdor
-
 # b/384060114
 tast.inputs.InputMethodShelfInputs@reven-vmtest
 tast.inputs.InputMethodShelfInputs@betty
@@ -65,9 +59,6 @@ tast.ui.WebUIJSErrors.field_trial_on
 tast.network.AllowCACertificateManagement
 tast.network.AllowClientCertificateManagement
 
-#b/400849446
-tast.network.ARCCreateWifiInShillByCmd.manual_proxy
-
 # b/408102591
 tast.network.ARCEAPWifiProvisioning.eap_wifi_tls
 
@@ -76,9 +67,6 @@ tast.apps.SystemWebAppsInstallGuest
 tast.peripherals.LaunchAppFromGuestSession.diagnostics
 tast.health.MonitorKeyboardDiagnosticEvent.tablet_mode_form_factors
 tast.health.MonitorKeyboardDiagnosticEvent.non_tablet_mode_form_factors
-
-# b/409349162
-tast.inputs.PhysicalKeyboardKoreanTyping@jacuzzi
 
 # b/422132031
 tast.inputs.VirtualKeyboardHandwriting.docked
@@ -109,7 +97,6 @@ tast.crostini.CommandCd.baguette_stable@betty
 tast.crostini.RestartIcon.baguette_stable@betty
 tast.crostini.ShareDownloads.baguette_stable@betty
 tast.crostini.ShareFolders.baguette_stable@betty
-tast.inputs.VirtualKeyboardOverscroll.clamshell@betty
 
 # https://crbug.com/432304431
 tast.featured.FieldTrialEarlyBoot.active_trial
@@ -127,7 +114,6 @@ tast.inputs.VirtualKeyboardTypingUserMode.guest
 tast.inputs.InputMethodManagement.guest
 
 # b/451624782
-tast.secagentd.NetworkEvents.relaxed_icmp@chromeos-betty-cfi-thin-lto-chrome
 tast.secagentd.NetworkEvents.relaxed_udp@chromeos-betty-cfi-thin-lto-chrome
 
 # b/488388275
@@ -138,5 +124,11 @@ tast.hwsec.CrossVersionChromeLogin.ti50_r112
 tast.hwsec.CrossVersionChromeLogin.ti50_r114
 tast.hwsec.CrossVersionChromeLogin.ti50_r120
 tast.hwsec.CrossVersionChromeLogin.ti50_r125
+
+# b/556069856: This test itself passes but makes the succeeding tests failed.
+tast.arc.MIDIClient.vm
+
+# b/559243046: Consistent failures with no obvious cause
+tast.crostini.AudioPlaybackConfigurations.bookworm_stable@brya
 
 # READ COMMENT AT TOP BEFORE ADDING NEW TESTS HERE.

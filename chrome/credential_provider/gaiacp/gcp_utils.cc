@@ -30,6 +30,7 @@
 #include "base/files/file_enumerator.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
+#include "base/i18n/win/embedded_i18n/language_selector.h"
 #include "base/json/json_reader.h"
 #include "base/json/json_writer.h"
 #include "base/no_destructor.h"
@@ -44,7 +45,6 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/values.h"
 #include "base/win/current_module.h"
-#include "base/win/embedded_i18n/language_selector.h"
 #include "base/win/ntsecapi_shim.h"
 #include "base/win/security_descriptor.h"
 #include "base/win/sid.h"
@@ -141,10 +141,9 @@ constexpr int kHoursToDisableGCPW = 10;
 // L$ prefix means this secret can only be accessed locally.
 constexpr wchar_t kLsaKeyDMTokenPrefix[] = L"L$GCPW-DM-Token-";
 
-constexpr base::win::i18n::LanguageSelector::LangToOffset
-    kLanguageOffsetPairs[] = {
+constexpr base::i18n::LanguageSelector::LangToOffset kLanguageOffsetPairs[] = {
 #define HANDLE_LANGUAGE(l_, o_) {L## #l_, o_},
-        DO_LANGUAGES
+    DO_LANGUAGES
 #undef HANDLE_LANGUAGE
 };
 
@@ -157,8 +156,8 @@ base::FilePath GetStartupSentinelLocation(const std::wstring& version) {
   return sentinel_path.Append(version).AppendASCII(kSentinelFilename);
 }
 
-const base::win::i18n::LanguageSelector& GetLanguageSelector() {
-  static base::NoDestructor<base::win::i18n::LanguageSelector> instance(
+const base::i18n::LanguageSelector& GetLanguageSelector() {
+  static base::NoDestructor<base::i18n::LanguageSelector> instance(
       std::wstring(), kLanguageOffsetPairs);
   return *instance;
 }
@@ -1111,7 +1110,8 @@ std::wstring GetStringResource(UINT base_message_id,
 }
 
 std::wstring GetSelectedLanguage() {
-  return GetLanguageSelector().matched_candidate();
+  return base::ASCIIToWide(
+      GetLanguageSelector().matched_candidate().tag_string());
 }
 
 void SecurelyClearDictionaryValue(base::optional_ref<base::DictValue> dict) {

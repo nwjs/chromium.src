@@ -17,6 +17,7 @@
 #include "base/strings/strcat.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
+#include "chrome/browser/extensions/api/side_panel/side_panel_service.h"
 #include "chrome/browser/extensions/commands/command_service.h"
 #include "chrome/browser/extensions/extension_action_runner.h"
 #include "chrome/browser/extensions/extension_context_menu_model.h"
@@ -29,6 +30,7 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/extensions/extension_action_delegate.h"
 #include "chrome/browser/ui/extensions/extension_popup_types.h"
+#include "chrome/browser/ui/extensions/extension_side_panel_utils.h"
 #include "chrome/browser/ui/extensions/icon_with_badge_image_source.h"
 #include "chrome/browser/ui/toolbar/toolbar_actions_model.h"
 #include "chrome/browser/ui/ui_features.h"
@@ -52,11 +54,6 @@
 #include "ui/gfx/image/image_skia.h"
 #include "ui/gfx/native_ui_types.h"
 #include "ui/native_theme/native_theme.h"
-
-#if BUILDFLAG(ENABLE_EXTENSIONS)
-#include "chrome/browser/extensions/api/side_panel/side_panel_service.h"
-#include "chrome/browser/ui/extensions/extension_side_panel_utils.h"
-#endif  // BUILDFLAG(ENABLE_EXTENSIONS)
 
 static_assert(BUILDFLAG(ENABLE_EXTENSIONS_CORE));
 
@@ -447,8 +444,8 @@ void ExtensionActionViewModel::HidePopup() {
   return delegate_->HidePopup();
 }
 
-gfx::NativeView ExtensionActionViewModel::GetPopupNativeViewForTesting() {
-  return delegate_->GetPopupNativeViewForTesting();
+gfx::NativeView ExtensionActionViewModel::GetPopupNativeView() {
+  return delegate_->GetPopupNativeView();
 }
 
 ui::MenuModel* ExtensionActionViewModel::GetContextMenu(
@@ -533,10 +530,8 @@ void ExtensionActionViewModel::ExecuteUserAction(InvocationSource source) {
     TriggerPopup(PopupShowAction::kShow, kByUser, ShowPopupCallback());
   } else if (action ==
              extensions::ExtensionAction::ShowAction::kToggleSidePanel) {
-#if BUILDFLAG(ENABLE_EXTENSIONS)
     extensions::side_panel_util::ToggleExtensionSidePanel(browser_,
                                                           extension_->id());
-#endif  // BUILDFLAG(ENABLE_EXTENSIONS)
   }
 }
 
@@ -621,6 +616,11 @@ void ExtensionActionViewModel::InspectPopup() {
 }
 
 content::WebContents* ExtensionActionViewModel::GetCurrentWebContents() const {
+  if (delegate_) {
+    if (auto* web_contents = delegate_->GetActiveWebContents()) {
+      return web_contents;
+    }
+  }
   tabs::TabInterface* tab = TabListInterface::From(browser_)->GetActiveTab();
   if (!tab) {
     return nullptr;
@@ -629,7 +629,7 @@ content::WebContents* ExtensionActionViewModel::GetCurrentWebContents() const {
 }
 
 void ExtensionActionViewModel::NotifyIconObservers() {
-  if (!TabListInterface::From(browser_)->GetActiveTab()) {
+  if (!GetCurrentWebContents()) {
     return;
   }
   icon_observers_.Notify();

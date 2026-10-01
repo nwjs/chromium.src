@@ -470,6 +470,50 @@ void ReportParentProcessName() {
   }
 }
 
+void MaybeUpdateIsolationStateFromFieldTrial() {
+  std::string group_name;
+  base::FieldTrial* trial =
+      base::FeatureList::GetFieldTrial(features::kIsolatedProcess);
+  if (trial) {
+    group_name = trial->group_name();
+  }
+
+  const std::string old_group_name =
+      g_browser_process->local_state()->GetString(
+          prefs::kPreviousIsolationState);
+
+  if (group_name == old_group_name) {
+    return;
+  }
+
+  // If an enterprise administrator has set a Mandatory policy,
+  // do not allow a field trial to override it.
+  if (g_browser_process->local_state()->IsManagedPreference(
+          prefs::kProcessIsolationEnabled)) {
+    return;
+  }
+
+  // Only persist `prefs::kPreviousIsolationState` after
+  // `SetIsolationState` completes successfully. Persisting it
+  // before the re-encryption and registry update completes would leave
+  // the profile in an inconsistent state if shutdown or failure
+  // occurs mid-operation, preventing retry on subsequent startups.
+  chrome::SetIsolationState(
+      base::FeatureList::IsEnabled(features::kIsolatedProcess)
+          ? chrome::IsolationState::kProcessIsolation
+          : chrome::IsolationState::kIsolationDisabled,
+      g_browser_process->local_state(),
+      base::BindOnce(
+          [](std::string new_group_name,
+             base::expected<chrome::IsolationState, HRESULT> result) {
+            if (result.has_value()) {
+              g_browser_process->local_state()->SetString(
+                  prefs::kPreviousIsolationState, new_group_name);
+            }
+          },
+          std::move(group_name)));
+}
+
 // This error message is not localized because we failed to load the
 // localization data files.
 const char kMissingLocaleDataTitle[] = "Missing File Error";
@@ -594,10 +638,25 @@ int ChromeBrowserMainPartsWin::PreCreateThreads() {
   return ChromeBrowserMainParts::PreCreateThreads();
 }
 
-void ChromeBrowserMainPartsWin::PostCreateThreads() {
+int ChromeBrowserMainPartsWin::PostCreateThreads() {
+  const base::CommandLine& command_line =
+      *base::CommandLine::ForCurrentProcess();
+
+  // This timing is specific:
+  // - It must occur AFTER the process singleton is acquired in
+  //   ChromeMainDelegate::PostEarlyInitialization.
+  // - The updater's COM task needs to run after the ThreadPool's threads are
+  // released in BrowserMainLoop::CreateThreads()
+  // - It runs BEFORE PostCreateThreadsImpl() can launch child processes, so
+  // that creation of child processes that are doomed to fail don't race with
+  // the rename and shutdown of this browser process.
+  if (upgrade_util::DoUpgradeTasks(command_line)) {
+    return CHROME_RESULT_CODE_NORMAL_EXIT_UPGRADE_RELAUNCHED;
+  }
+
   performance_manager::InitializeDllPrereadPolicy();
 
-  ChromeBrowserMainParts::PostCreateThreads();
+  return ChromeBrowserMainParts::PostCreateThreads();
 }
 
 void ChromeBrowserMainPartsWin::PostMainMessageLoopRun() {
@@ -727,44 +786,24 @@ void ChromeBrowserMainPartsWin::PostBrowserStart() {
   }
 #endif  // GOOGLE_CHROME_BRANDING
 
+  // Record the launch result HRESULT if an attempt to launch an isolated
+  // browser was made during early startup. On launch failure, this records the
+  // failure HRESULT when the process falls through to run unisolated. On launch
+  // success, this records S_OK in the isolated browser process itself, because
+  // the launcher stub process terminates without initializing metrics.
+  if (auto launch_result = chrome::GetIsolatedBrowserLaunchResult()) {
+    base::UmaHistogramSparse("Windows.IsolatedBrowser.LaunchResult",
+                             *launch_result);
+  }
+
   // Record the parent process at a low priority.
   base::ThreadPool::PostTask(
       FROM_HERE, {base::TaskPriority::BEST_EFFORT, base::MayBlock()},
       base::BindOnce(&ReportParentProcessName));
 
   content::GetUIThreadTaskRunner({base::TaskPriority::BEST_EFFORT})
-      ->PostTask(FROM_HERE, base::BindOnce([]() {
-                   std::string group_name;
-                   base::FieldTrial* trial = base::FeatureList::GetFieldTrial(
-                       features::kIsolatedProcess);
-                   if (trial) {
-                     group_name = trial->group_name();
-                   }
-
-                   const std::string old_group_name =
-                       g_browser_process->local_state()->GetString(
-                           prefs::kPreviousIsolationState);
-
-                   if (group_name == old_group_name) {
-                     return;
-                   }
-
-                   // If an enterprise administrator has set a Mandatory policy,
-                   // do not allow a field trial to override it.
-                   if (g_browser_process->local_state()->IsManagedPreference(
-                           prefs::kProcessIsolationEnabled)) {
-                     return;
-                   }
-
-                   g_browser_process->local_state()->SetString(
-                       prefs::kPreviousIsolationState, group_name);
-
-                   chrome::SetIsolationState(
-                       base::FeatureList::IsEnabled(features::kIsolatedProcess)
-                           ? chrome::IsolationState::kProcessIsolation
-                           : chrome::IsolationState::kIsolationDisabled,
-                       g_browser_process->local_state(), base::DoNothing());
-                 }));
+      ->PostTask(FROM_HERE,
+                 base::BindOnce(&MaybeUpdateIsolationStateFromFieldTrial));
 
   base::ImportantFileWriterCleaner::GetInstance().Start();
 }

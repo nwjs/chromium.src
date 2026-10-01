@@ -6,18 +6,21 @@
 #define CHROME_BROWSER_UI_WEBUI_ASH_SETTINGS_PAGES_PRIVACY_PERIPHERAL_DATA_ACCESS_HANDLER_H_
 
 #include "base/callback_list.h"
+#include "base/memory/raw_ref.h"
 #include "base/memory/weak_ptr.h"
 #include "content/public/browser/web_ui_message_handler.h"
 
+class PrefService;
 class Profile;
 
 namespace ash::settings {
 
 class PeripheralDataAccessHandler : public content::WebUIMessageHandler {
  public:
-  static bool GetPrefState();
+  static bool GetPrefState(const PrefService& local_state);
 
-  explicit PeripheralDataAccessHandler(Profile* profile);
+  // `local_state` must be non-null and must outlive `this`.
+  PeripheralDataAccessHandler(PrefService* local_state, Profile* profile);
   ~PeripheralDataAccessHandler() override;
 
   PeripheralDataAccessHandler(const PeripheralDataAccessHandler&) = delete;
@@ -42,7 +45,7 @@ class PeripheralDataAccessHandler : public content::WebUIMessageHandler {
   void OnFilePathChecked(const std::string& callback_id,
                          bool is_thunderbolt_supported);
 
-  void OnLocalStatePrefChanged();
+  const raw_ref<PrefService> local_state_;
 
   base::CallbackListSubscription peripheral_data_access_subscription_;
 

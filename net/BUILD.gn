@@ -581,8 +581,6 @@ component("net") {
     "first_party_sets/first_party_sets_validator.h",
     "first_party_sets/global_first_party_sets.cc",
     "first_party_sets/global_first_party_sets.h",
-    "first_party_sets/local_set_declaration.cc",
-    "first_party_sets/local_set_declaration.h",
     "first_party_sets/sets_mutation.cc",
     "first_party_sets/sets_mutation.h",
     "http/alternative_service.cc",
@@ -912,6 +910,8 @@ component("net") {
     "quic/quic_http_stream.h",
     "quic/quic_http_utils.cc",
     "quic/quic_http_utils.h",
+    "quic/quic_migration_attempt_context.cc",
+    "quic/quic_migration_attempt_context.h",
     "quic/quic_network_connectivity_tracker.cc",
     "quic/quic_network_connectivity_tracker.h",
     "quic/quic_proxy_client_socket.cc",
@@ -1441,7 +1441,6 @@ component("net") {
       "cert/internal/trust_store_mac.h",
       "cert/test_keychain_search_list_mac.cc",
       "cert/test_keychain_search_list_mac.h",
-      "cert/test_root_certs_builtin.cc",
       "proxy_resolution/mac/mac_proxy_resolution_status.h",
       "proxy_resolution/mac/mac_system_proxy_resolution_request.cc",
       "proxy_resolution/mac/mac_system_proxy_resolution_request.h",
@@ -1498,7 +1497,6 @@ component("net") {
       "base/winsock_init.h",
       "base/winsock_util.cc",
       "base/winsock_util.h",
-      "cert/test_root_certs_builtin.cc",
       "cert/x509_util_win.cc",
       "cert/x509_util_win.h",
       "disk_cache/blockfile/file_win.cc",
@@ -1519,6 +1517,7 @@ component("net") {
       "proxy_resolution/win/proxy_config_service_win.h",
       "proxy_resolution/win/proxy_resolver_winhttp.cc",
       "proxy_resolution/win/proxy_resolver_winhttp.h",
+      "proxy_resolution/win/proxy_resolver_winhttp_test_hooks.h",
       "proxy_resolution/win/windows_system_proxy_resolution_request.cc",
       "proxy_resolution/win/windows_system_proxy_resolution_request.h",
       "proxy_resolution/win/windows_system_proxy_resolution_service.cc",
@@ -1620,6 +1619,10 @@ component("net") {
     }
   }
 
+  if (chrome_root_store_only) {
+    sources += [ "cert/test_root_certs_builtin.cc" ]
+  }
+
   if (chrome_root_store_supported) {
     sources += [
       "cert/internal/trust_store_chrome.cc",
@@ -1649,11 +1652,8 @@ component("net") {
 
   if (use_nss_certs) {
     sources += [
-      "cert/internal/trust_store_nss.cc",
-      "cert/internal/trust_store_nss.h",
       "cert/nss_cert_database.cc",
       "cert/nss_cert_database.h",
-      "cert/test_root_certs_builtin.cc",
       "cert/x509_util_nss.cc",
       "cert/x509_util_nss.h",
       "third_party/mozilla_security_manager/nsNSSCertificateDB.cpp",
@@ -1661,8 +1661,21 @@ component("net") {
       "third_party/mozilla_security_manager/nsPKCS12Blob.cpp",
       "third_party/mozilla_security_manager/nsPKCS12Blob.h",
     ]
-    deps += [ "//build:chromeos_buildflags" ]
-    if (!is_castos) {
+
+    # TODO(crbug.com/41467965): This is a public config because
+    # multi_threaded_cert_verifier.h depends on NSS. When the linked bug is
+    # fixed, switch this to a non-public config, so NSS usage must be explicit
+    # in the build.
+    public_configs = [ "//build/config/linux/nss" ]
+
+    if (use_nss_server_certs) {
+      sources += [
+        "cert/internal/trust_store_nss.cc",
+        "cert/internal/trust_store_nss.h",
+      ]
+    }
+
+    if (use_nss_client_certs) {
       sources += [
         "ssl/client_cert_store_nss.cc",
         "ssl/client_cert_store_nss.h",
@@ -1670,12 +1683,6 @@ component("net") {
         "ssl/ssl_platform_key_nss.h",
       ]
     }
-
-    # TODO(crbug.com/41467965): This is a public config because
-    # multi_threaded_cert_verifier.h depends on NSS. When the linked bug is
-    # fixed, switch this to a non-public config, so NSS usage must be explicit
-    # in the build.
-    public_configs = [ "//build/config/linux/nss" ]
   }
 
   if (is_fuchsia) {
@@ -2349,6 +2356,8 @@ static_library("test_support") {
     "test/scoped_mutually_exclusive_feature_list.h",
     "test/ssl_test_util.cc",
     "test/ssl_test_util.h",
+    "test/target_network_test_util.cc",
+    "test/target_network_test_util.h",
     "test/test_certificate_data.h",
     "test/test_connection_cost_observer.cc",
     "test/test_connection_cost_observer.h",
@@ -2412,6 +2421,7 @@ static_library("test_support") {
   deps = [
     ":quic_test_flags_utils",
     ":simple_quic_tools",
+    "//net/http:transport_security_state_pins_unittest_data_default",
     "//net/http:transport_security_state_unittest_data_default",
     "//third_party/zlib",
   ]
@@ -2768,6 +2778,7 @@ if (!is_ios) {
       "//url",
     ]
   }
+
   executable("quic_server") {
     testonly = true
     sources = [
@@ -2978,7 +2989,6 @@ target(_test_target_type, "net_unittests") {
     "first_party_sets/first_party_sets_context_config_unittest.cc",
     "first_party_sets/first_party_sets_validator_unittest.cc",
     "first_party_sets/global_first_party_sets_unittest.cc",
-    "first_party_sets/local_set_declaration_unittest.cc",
     "first_party_sets/sets_mutation_unittest.cc",
     "http/alternative_service_unittest.cc",
     "http/bidirectional_stream_unittest.cc",
@@ -3281,6 +3291,7 @@ target(_test_target_type, "net_unittests") {
       "proxy_resolution/win/dhcp_pac_file_adapter_fetcher_win_unittest.cc",
       "proxy_resolution/win/dhcp_pac_file_fetcher_win_unittest.cc",
       "proxy_resolution/win/proxy_config_service_win_unittest.cc",
+      "proxy_resolution/win/proxy_resolver_winhttp_unittest.cc",
       "proxy_resolution/win/windows_system_proxy_resolution_service_unittest.cc",
       "ssl/client_cert_store_win_unittest.cc",
       "ssl/ssl_platform_key_win_unittest.cc",
@@ -3341,6 +3352,8 @@ target(_test_target_type, "net_unittests") {
     "//net/cert:root_store_proto_lite",
     "//net/dns:tests",
     "//net/dns/public:tests",
+    "//net/http:transport_security_state_pins_unittest_data",
+    "//net/http:transport_security_state_pins_unittest_data_default",
     "//net/http:transport_security_state_unittest_data",
     "//net/http:transport_security_state_unittest_data_default",
     "//net/third_party/quiche:quiche_tests",
@@ -3484,11 +3497,13 @@ target(_test_target_type, "net_unittests") {
 
   if (use_nss_certs) {
     sources += [
-      "cert/internal/trust_store_nss_unittest.cc",
       "cert/nss_cert_database_unittest.cc",
       "cert/x509_util_nss_unittest.cc",
     ]
-    if (!is_castos) {
+    if (use_nss_server_certs) {
+      sources += [ "cert/internal/trust_store_nss_unittest.cc" ]
+    }
+    if (use_nss_client_certs) {
       sources += [
         "ssl/client_cert_store_nss_unittest.cc",
         "ssl/ssl_platform_key_nss_unittest.cc",
@@ -3532,6 +3547,7 @@ target(_test_target_type, "net_unittests") {
       "websockets/websocket_handshake_challenge_test.cc",
       "websockets/websocket_handshake_stream_create_helper_test.cc",
       "websockets/websocket_inflater_test.cc",
+      "websockets/websocket_multinetwork_test.cc",
       "websockets/websocket_stream_cookie_test.cc",
       "websockets/websocket_stream_create_test_base.cc",
       "websockets/websocket_stream_create_test_base.h",

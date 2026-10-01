@@ -11,7 +11,6 @@
 #include "chrome/browser/apps/app_service/app_service_proxy.h"
 #include "chrome/browser/apps/app_service/app_service_proxy_factory.h"
 #include "chrome/browser/extensions/extension_util.h"
-#include "chrome/browser/extensions/install_tracker_factory.h"
 #include "chrome/browser/extensions/launch_util.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chromeos/ash/components/browser_context_helper/browser_context_helper.h"
@@ -29,6 +28,8 @@
 #include "extensions/common/manifest_handlers/options_page_info.h"
 #include "net/base/url_util.h"
 #include "rlz/buildflags/buildflags.h"
+#include "ui/base/page_transition_types.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/gfx/geometry/rect.h"
 
 #if BUILDFLAG(ENABLE_RLZ)

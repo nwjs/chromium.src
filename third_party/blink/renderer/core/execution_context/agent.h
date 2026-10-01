@@ -5,6 +5,8 @@
 #ifndef THIRD_PARTY_BLINK_RENDERER_CORE_EXECUTION_CONTEXT_AGENT_H_
 #define THIRD_PARTY_BLINK_RENDERER_CORE_EXECUTION_CONTEXT_AGENT_H_
 
+#include <memory>
+
 #include "base/dcheck_is_on.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/scoped_refptr.h"
@@ -20,7 +22,6 @@
 
 namespace blink {
 
-class ExecutionContext;
 class RejectedPromises;
 
 // Corresponding spec concept is:
@@ -51,16 +52,13 @@ class CORE_EXPORT Agent : public GarbageCollected<Agent>,
         v8::MicrotaskQueue* microtask_queue = nullptr);
   virtual ~Agent();
 
-  const scoped_refptr<scheduler::EventLoop>& event_loop() const {
-    return event_loop_;
-  }
+  // The returned pointer is never null and will eventually be changed to a
+  // reference.
+  scheduler::EventLoop* event_loop() const { return event_loop_.get(); }
 
   v8::Isolate* isolate() { return isolate_; }
 
   void Trace(Visitor*) const override;
-
-  void AttachContext(ExecutionContext*);
-  void DetachContext(ExecutionContext*);
 
   const base::UnguessableToken& cluster_id() const { return cluster_id_; }
 
@@ -91,7 +89,6 @@ class CORE_EXPORT Agent : public GarbageCollected<Agent>,
   // Returns if this is a Window Agent or not.
   virtual bool IsWindowAgent() const;
 
-  virtual void Dispose();
   virtual void PerformMicrotaskCheckpoint();
 
   RejectedPromises& GetRejectedPromises();
@@ -109,7 +106,7 @@ class CORE_EXPORT Agent : public GarbageCollected<Agent>,
 
   raw_ptr<v8::Isolate, UnprotectedInRelease | DanglingUntriaged> isolate_;
   scoped_refptr<RejectedPromises> rejected_promises_;
-  const scoped_refptr<scheduler::EventLoop> event_loop_;
+  const std::unique_ptr<scheduler::EventLoop> event_loop_;
   const base::UnguessableToken cluster_id_;
   const AgentClusterKey agent_cluster_key_;
   const AgentType agent_type_;

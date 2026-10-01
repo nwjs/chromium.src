@@ -114,6 +114,8 @@ std::string_view ToString(GlicHostApiRequestId request_id) {
       return "SubscribeToPinCandidates";
     case GlicHostApiRequestId::kGetZeroStateSuggestionsForFocusedTab:
       return "GetZeroStateSuggestionsForFocusedTab";
+    case GlicHostApiRequestId::kGetZeroStateSuggestionsAndSubscribe:
+      return "GetZeroStateSuggestionsAndSubscribe";
     case GlicHostApiRequestId::kSetClosedCaptioningSetting:
       return "SetClosedCaptioningSetting";
     case GlicHostApiRequestId::kDropScrollToHighlight:
@@ -204,6 +206,8 @@ std::string_view ToString(GlicHostApiRequestId request_id) {
       return "UpdateActorTaskStepProgress";
     case GlicHostApiRequestId::kOpenPinnedTabPicker:
       return "OpenPinnedTabPicker";
+    case GlicHostApiRequestId::kOpenContactInfoSettingsPage:
+      return "OpenContactInfoSettingsPage";
   }
   return "";
 }

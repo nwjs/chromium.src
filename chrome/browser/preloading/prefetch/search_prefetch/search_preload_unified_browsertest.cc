@@ -46,6 +46,7 @@
 #include "components/search_engines/template_url_data.h"
 #include "components/search_engines/template_url_service.h"
 #include "content/public/browser/browser_thread.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/preloading.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/content_features.h"
@@ -67,6 +68,8 @@
 #include "services/network/public/mojom/url_response_head.mojom.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/features.h"
+#include "ui/base/page_transition_types.h"
+#include "ui/base/window_open_disposition.h"
 
 #if !BUILDFLAG(IS_ANDROID)
 #include "chrome/browser/ui/browser_window.h"
@@ -2453,12 +2456,10 @@ IN_PROC_BROWSER_TEST_F(SearchPreloadUnifiedBrowserTest,
   // when users open a suggestion in another tab. Prerender will be canceled in
   // this case.
   content::WebContents* new_prefetch_tab = GetActiveWebContents()->OpenURL(
-      content::OpenURLParams(
-          expected_prerender_url, content::Referrer(),
-          WindowOpenDisposition::NEW_BACKGROUND_TAB,
+      content::OpenURLParams::CreateBrowserInitiated(
+          expected_prerender_url, WindowOpenDisposition::NEW_BACKGROUND_TAB,
           ui::PageTransitionFromInt(ui::PAGE_TRANSITION_GENERATED |
-                                    ui::PAGE_TRANSITION_FROM_ADDRESS_BAR),
-          /*is_renderer_initiated=*/false),
+                                    ui::PAGE_TRANSITION_FROM_ADDRESS_BAR)),
       /*navigation_handle_callback=*/{});
   WaitUntilStatusChangesTo(GetCanonicalSearchURL(expected_prerender_url), {});
 
@@ -2769,12 +2770,10 @@ IN_PROC_BROWSER_TEST_F(SearchPreloadUnifiedBrowserTest,
           &AttachOmniboxDefaultSearchEngineNavigationHandleUserData);
 
   GetActiveWebContents()->OpenURL(
-      content::OpenURLParams(
-          expected_real_url, content::Referrer(),
-          WindowOpenDisposition::CURRENT_TAB,
+      content::OpenURLParams::CreateBrowserInitiated(
+          expected_real_url, WindowOpenDisposition::CURRENT_TAB,
           ui::PageTransitionFromInt(ui::PAGE_TRANSITION_GENERATED |
-                                    ui::PAGE_TRANSITION_FROM_ADDRESS_BAR),
-          /*is_renderer_initiated=*/false),
+                                    ui::PAGE_TRANSITION_FROM_ADDRESS_BAR)),
       std::move(navigation_handle_callback));
   waiter.Wait();
 
@@ -2895,12 +2894,10 @@ IN_PROC_BROWSER_TEST_F(
           &AttachOmniboxDefaultSearchEngineNavigationHandleUserData);
 
   GetActiveWebContents()->OpenURL(
-      content::OpenURLParams(
-          expected_real_url, content::Referrer(),
-          WindowOpenDisposition::CURRENT_TAB,
+      content::OpenURLParams::CreateBrowserInitiated(
+          expected_real_url, WindowOpenDisposition::CURRENT_TAB,
           ui::PageTransitionFromInt(ui::PAGE_TRANSITION_GENERATED |
-                                    ui::PAGE_TRANSITION_FROM_ADDRESS_BAR),
-          /*is_renderer_initiated=*/false),
+                                    ui::PAGE_TRANSITION_FROM_ADDRESS_BAR)),
       std::move(navigation_handle_callback));
   waiter.Wait();
 
@@ -3022,12 +3019,10 @@ IN_PROC_BROWSER_TEST_F(SearchPreloadUnifiedBrowserTest,
           &AttachOmniboxDefaultSearchEngineNavigationHandleUserData);
 
   GetActiveWebContents()->OpenURL(
-      content::OpenURLParams(
-          expected_prerender_url, content::Referrer(),
-          WindowOpenDisposition::CURRENT_TAB,
+      content::OpenURLParams::CreateBrowserInitiated(
+          expected_prerender_url, WindowOpenDisposition::CURRENT_TAB,
           ui::PageTransitionFromInt(ui::PAGE_TRANSITION_GENERATED |
-                                    ui::PAGE_TRANSITION_FROM_ADDRESS_BAR),
-          /*is_renderer_initiated=*/false),
+                                    ui::PAGE_TRANSITION_FROM_ADDRESS_BAR)),
       std::move(navigation_handle_callback));
   prerender_observer.WaitForActivation();
   waiter.Wait();

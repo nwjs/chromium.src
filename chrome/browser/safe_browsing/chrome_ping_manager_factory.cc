@@ -9,8 +9,8 @@
 #include "build/build_config.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/profiles/profile.h"
+#include "chrome/browser/safe_browsing/chrome_sb_protocol_config_provider.h"
 #include "chrome/browser/safe_browsing/chrome_user_population_helper.h"
-#include "chrome/browser/safe_browsing/chrome_v4_protocol_config_provider.h"
 #include "chrome/browser/safe_browsing/safe_browsing_service.h"
 #include "chrome/browser/signin/identity_manager_factory.h"
 #include "chrome/browser/ui/hats/hats_service_factory.h"
@@ -79,7 +79,7 @@ ChromePingManagerFactory::BuildServiceInstanceForBrowserContext(
       std::make_unique<ChromeSafeBrowsingHatsDelegateDesktop>(profile);
 #endif
   return PingManager::Create(
-      GetV4ProtocolConfig(),
+      GetSBProtocolConfig(),
       g_browser_process->safe_browsing_service()->GetURLLoaderFactory(profile),
       std::make_unique<SafeBrowsingPrimaryAccountTokenFetcher>(
           IdentityManagerFactory::GetForProfile(profile)),

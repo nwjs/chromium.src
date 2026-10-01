@@ -31,6 +31,7 @@
 #include "media/cast/common/openscreen_conversion_helpers.h"
 #include "media/cast/encoding/encoding_support.h"
 #include "media/cast/sender/audio_sender.h"
+#include "media/cast/sender/video_sender.h"
 #include "media/cast/test/openscreen_test_helpers.h"
 #include "media/cast/test/utility/default_config.h"
 #include "media/media_buildflags.h"
@@ -159,6 +160,18 @@ openscreen::cast::SenderStats ConstructDefaultSenderStats() {
       .video_histograms = openscreen::cast::SenderStats::HistogramsList()};
 }
 
+class FakeVideoSender : public media::cast::VideoSender {
+ public:
+  FakeVideoSender() = default;
+  ~FakeVideoSender() override = default;
+
+  int GetFramesDropped() const override { return frames_dropped_; }
+  void set_frames_dropped(int count) { frames_dropped_ = count; }
+
+ private:
+  int frames_dropped_ = 0;
+};
+
 }  // namespace
 
 class OpenscreenSessionHostTest : public mojom::ResourceProvider,
@@ -171,6 +184,10 @@ class OpenscreenSessionHostTest : public mojom::ResourceProvider,
   OpenscreenSessionHostTest(const OpenscreenSessionHostTest&) = delete;
   OpenscreenSessionHostTest& operator=(const OpenscreenSessionHostTest&) =
       delete;
+
+  void SetUp() override {
+    media::cast::encoding_support::ClearHardwareCodecDenyListForTesting();
+  }
 
   void TearDown() override {
     media::cast::encoding_support::ClearHardwareCodecDenyListForTesting();
@@ -188,6 +205,7 @@ class OpenscreenSessionHostTest : public mojom::ResourceProvider,
     if (session_host_) {
       DeleteSessionHost();
     }
+    media::cast::encoding_support::ClearHardwareCodecDenyListForTesting();
   }
 
  protected:
@@ -676,6 +694,42 @@ class OpenscreenSessionHostTest : public mojom::ResourceProvider,
 
   OpenscreenSessionHost& session_host() { return *session_host_; }
 
+  bool IsRefreshTimerRunning() const {
+    return session_host_->refresh_timer_.IsRunning();
+  }
+
+  bool IsExpectingRefreshFrame() const {
+    return session_host_->expecting_a_refresh_frame_;
+  }
+
+  void FireRefreshTimer() { session_host_->OnRefreshTimerFired(); }
+
+  void SetVideoSender(std::unique_ptr<media::cast::VideoSender> video_sender) {
+    session_host_->video_sender_ = std::move(video_sender);
+  }
+
+  void PushGpuFactoryContextLost(const media::cast::FrameSenderConfig& config) {
+    session_host_->OnGpuFactoryContextLost(config);
+  }
+
+  uint32_t GetVideoNetworkBandwidth() const {
+    return session_host_->GetVideoNetworkBandwidth();
+  }
+
+  base::TimeDelta GetAudioTargetPlayoutDelay() const {
+    return session_host_->audio_sender_
+               ? session_host_->audio_sender_->GetTargetPlayoutDelay()
+               : base::TimeDelta();
+  }
+
+  void UpdateBandwidthEstimate(int bandwidth_estimate) {
+    session_host_->UpdateBandwidthEstimate(bandwidth_estimate);
+  }
+
+  void InsertVideoFrame(scoped_refptr<media::VideoFrame> video_frame) {
+    session_host_->InsertVideoFrame(std::move(video_frame));
+  }
+
   const openscreen::cast::SenderMessage& last_sent_offer() const {
     EXPECT_TRUE(last_sent_offer_);
     return *last_sent_offer_;
@@ -952,10 +1006,8 @@ TEST_F(OpenscreenSessionHostTest, ChangeTargetPlayoutDelay) {
   // Currently new delays are ignored due to the playout delay being bounded by
   // the minimum and maximum both being set to the default value.
   session_host().SetTargetPlayoutDelay(base::Milliseconds(300));
-  EXPECT_EQ(session_host().audio_sender_->GetTargetPlayoutDelay(),
-            kDefaultPlayoutDelay);
-  EXPECT_EQ(session_host().audio_sender_->GetTargetPlayoutDelay(),
-            kDefaultPlayoutDelay);
+  EXPECT_EQ(GetAudioTargetPlayoutDelay(), kDefaultPlayoutDelay);
+  EXPECT_EQ(GetAudioTargetPlayoutDelay(), kDefaultPlayoutDelay);
 
   StopSession();
 }
@@ -964,36 +1016,53 @@ TEST_F(OpenscreenSessionHostTest, UpdateBandwidthEstimate) {
   CreateSession(SessionType::VIDEO_ONLY);
   StartSession();
 
+  auto fake_video_sender = std::make_unique<FakeVideoSender>();
+  FakeVideoSender* fake_sender_ptr = fake_video_sender.get();
+  SetVideoSender(std::move(fake_video_sender));
+
   constexpr uint32_t kMinVideoBitrate = 393216;
   constexpr uint32_t kMaxVideoBitrate = 1250000;
   // Default bitrate should match kDefaultBitrate (5 Mbps).
-  EXPECT_EQ(5000000u, session_host().GetVideoNetworkBandwidth());
+  EXPECT_EQ(5000000u, GetVideoNetworkBandwidth());
 
-  // If the estimate is below the minimum, it should stay at the minimum.
-  session_host().forced_bandwidth_estimate_for_testing_ = 1000;
-  session_host().UpdateBandwidthEstimate();
-  EXPECT_EQ(kMinVideoBitrate, session_host().GetVideoNetworkBandwidth());
+  // If the estimate is below the minimum and frames were dropped, it should
+  // stay at the minimum.
+  fake_sender_ptr->set_frames_dropped(1);
+  UpdateBandwidthEstimate(1000);
+  EXPECT_EQ(kMinVideoBitrate, GetVideoNetworkBandwidth());
 
   // It should gradually reach the max bandwidth estimate when raised.
-  session_host().forced_bandwidth_estimate_for_testing_ = 1000000;
-  session_host().UpdateBandwidthEstimate();
-  EXPECT_EQ(432537u, session_host().GetVideoNetworkBandwidth());
+  UpdateBandwidthEstimate(1000000);
+  EXPECT_EQ(432537u, GetVideoNetworkBandwidth());
 
-  session_host().UpdateBandwidthEstimate();
-  EXPECT_EQ(475790u, session_host().GetVideoNetworkBandwidth());
+  UpdateBandwidthEstimate(1000000);
+  EXPECT_EQ(475790u, GetVideoNetworkBandwidth());
   for (int i = 0; i < 20; ++i) {
-    session_host().UpdateBandwidthEstimate();
+    UpdateBandwidthEstimate(1000000);
   }
-  // The max should be 80% of `forced_bandwidth_estimate_for_testing_`.
-  EXPECT_EQ(800000u, session_host().GetVideoNetworkBandwidth());
+  // The max should be 80% of the bandwidth estimate.
+  EXPECT_EQ(800000u, GetVideoNetworkBandwidth());
 
   // The video bitrate should stay saturated at the cap when reached.
-  session_host().forced_bandwidth_estimate_for_testing_ = kMaxVideoBitrate + 1;
   for (int i = 0; i < 20; ++i) {
-    session_host().UpdateBandwidthEstimate();
+    UpdateBandwidthEstimate(kMaxVideoBitrate + 1);
   }
   // The max should be 80% of `kMaxVideoBitrate`.
-  EXPECT_EQ(1000000u, session_host().GetVideoNetworkBandwidth());
+  EXPECT_EQ(1000000u, GetVideoNetworkBandwidth());
+
+  StopSession();
+}
+
+TEST_F(OpenscreenSessionHostTest, PreservesBandwidthWhenNoFramesDropped) {
+  CreateSession(SessionType::VIDEO_ONLY);
+  StartSession();
+
+  EXPECT_EQ(5000000u, GetVideoNetworkBandwidth());
+
+  // Updating bandwidth estimate with a lower estimate but without frame drops
+  // should not reduce the available video bandwidth.
+  UpdateBandwidthEstimate(1000);
+  EXPECT_EQ(5000000u, GetVideoNetworkBandwidth());
 
   StopSession();
 }
@@ -1003,6 +1072,29 @@ TEST_F(OpenscreenSessionHostTest, CanRequestRefresh) {
 
   // We just want to make sure this doesn't result in an error or crash.
   session_host().RequestRefreshFrame();
+}
+
+TEST_F(OpenscreenSessionHostTest, RestartRefreshTimerOnInsertVideoFrame) {
+  CreateSession(SessionType::VIDEO_ONLY);
+  StartSession();
+  ASSERT_TRUE(IsRefreshTimerRunning());
+
+  // Simulate static screen timeout where two refresh timer intervals fire
+  // without receiving a frame, stopping the timer.
+  FireRefreshTimer();
+  EXPECT_TRUE(IsExpectingRefreshFrame());
+  FireRefreshTimer();
+  EXPECT_FALSE(IsRefreshTimerRunning());
+
+  // When motion resumes and a frame is inserted, the refresh timer must
+  // restart.
+  auto frame = media::VideoFrame::CreateBlackFrame(gfx::Size(640, 480));
+  frame->metadata().reference_time = base::TimeTicks::Now();
+  InsertVideoFrame(std::move(frame));
+  EXPECT_TRUE(IsRefreshTimerRunning());
+  EXPECT_FALSE(IsExpectingRefreshFrame());
+
+  StopSession();
 }
 
 TEST_F(OpenscreenSessionHostTest, Vp9CodecEnabledInOffer) {
@@ -1108,6 +1200,39 @@ TEST_F(OpenscreenSessionHostTest,
 
   // This should have forced a renegotiation with hardware DISABLED.
   AssertCodecWasOffered(media::VideoCodec::kVP8, false);
+}
+
+TEST_F(OpenscreenSessionHostTest,
+       ShouldDisableHardwareEncodingIfGpuContextLost) {
+  CreateSession(SessionType::VIDEO_ONLY);
+
+  // Mock the profiles to enable VP9 hardware encode.
+  SetSupportedProfiles(
+      std::vector<media::VideoEncodeAccelerator::SupportedProfile>{
+          media::VideoEncodeAccelerator::SupportedProfile(
+              media::VideoCodecProfile::VP9PROFILE_PROFILE0,
+              gfx::Size{1920, 1080})});
+  base::RunLoop run_loop;
+  set_run_loop_quit_closure(run_loop.QuitClosure());
+  NegotiateMirroring();
+  run_loop.Run();
+
+  // We should have offered VP9 with hardware ENABLED.
+  AssertCodecWasOffered(media::VideoCodec::kVP9, true);
+
+  // GPU context lost occurs.
+  FrameSenderConfig config;
+  config.use_hardware_encoder = true;
+  config.video_codec_params =
+      media::cast::VideoCodecParams{media::VideoCodec::kVP9};
+
+  base::RunLoop renegotiate_loop;
+  set_run_loop_quit_closure(renegotiate_loop.QuitClosure());
+  PushGpuFactoryContextLost(config);
+  renegotiate_loop.Run();
+
+  // This should have forced a renegotiation with hardware DISABLED.
+  AssertCodecWasOffered(media::VideoCodec::kVP9, false);
 }
 
 TEST_F(OpenscreenSessionHostTest, ShouldEnableHardwareH264EncodingIfSupported) {
@@ -1423,8 +1548,9 @@ TEST_F(OpenscreenSessionHostTest, RemotingNegotiationMismatchedCodec) {
   // During Media Remoting, it is expected and normal for the negotiated codec
   // to differ from the offered `kUnknown` codec. This should not crash!
   EXPECT_CALL(remoting_source_, OnStarted());
-  session_host_->OnNegotiated(nullptr, std::move(senders),
-                              openscreen::cast::capture_recommendations::Recommendations{});
+  session_host_->OnNegotiated(
+      nullptr, std::move(senders),
+      openscreen::cast::capture_recommendations::Recommendations{});
   task_environment_.RunUntilIdle();
 
   StopSession();

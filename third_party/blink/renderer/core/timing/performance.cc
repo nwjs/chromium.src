@@ -380,14 +380,10 @@ PerformanceEntryVector Performance::GetEntriesForCurrentFrame(
                                            maybe_name);
   }
 
-  if (RuntimeEnabledFeatures::NavigationIdEnabled(GetExecutionContext())) {
-    entries = MergePerformanceEntryVectors(
-        entries, back_forward_cache_restoration_buffer_, maybe_name);
-  }
+  entries = MergePerformanceEntryVectors(
+      entries, back_forward_cache_restoration_buffer_, maybe_name);
 
-  if (RuntimeEnabledFeatures::SoftNavigationHeuristicsEnabled(
-          GetExecutionContext()) &&
-      soft_navigation_buffer_.size()) {
+  if (soft_navigation_buffer_.size()) {
     UseCounter::Count(GetExecutionContext(),
                       WebFeature::kSoftNavigationHeuristics);
     entries = MergePerformanceEntryVectors(entries, soft_navigation_buffer_,
@@ -473,10 +469,14 @@ PerformanceEntryVector Performance::getEntriesByTypeInternal(
       break;
 
     case PerformanceEntry::kContainer:
+      UseCounter::Count(GetExecutionContext(),
+                        WebFeature::kContainerTimingExplicitlyRequested);
       entries = &container_timing_buffer_;
       break;
 
     case PerformanceEntry::kElement:
+      UseCounter::Count(GetExecutionContext(),
+                        WebFeature::kElementTimingExplicitlyRequested);
       entries = &element_timing_buffer_;
       break;
 
@@ -562,17 +562,15 @@ PerformanceEntryVector Performance::getEntriesByTypeInternal(
       break;
 
     case PerformanceEntry::kBackForwardCacheRestoration:
-      if (RuntimeEnabledFeatures::NavigationIdEnabled(GetExecutionContext()))
-        entries = &back_forward_cache_restoration_buffer_;
+      entries = &back_forward_cache_restoration_buffer_;
       break;
 
     case PerformanceEntry::kSoftNavigation:
-      if (RuntimeEnabledFeatures::SoftNavigationHeuristicsEnabled(
-              GetExecutionContext())) {
-        UseCounter::Count(GetExecutionContext(),
-                          WebFeature::kSoftNavigationHeuristics);
-        entries = &soft_navigation_buffer_;
-      }
+      UseCounter::Count(GetExecutionContext(),
+                        WebFeature::kSoftNavigationHeuristics);
+      UseCounter::Count(GetExecutionContext(),
+                        WebFeature::kSoftNavigationExplicitlyRequested);
+      entries = &soft_navigation_buffer_;
       break;
 
     case PerformanceEntry::kLongAnimationFrame:
@@ -1257,7 +1255,7 @@ void Performance::NotifyObserversOfContainerEntry(
   }
   if (observer_found) {
     UseCounter::Count(GetExecutionContext(),
-                      WebFeature::kContainerTimingObserverReportedEntries);
+                      WebFeature::kContainerTimingObserved);
   }
 }
 

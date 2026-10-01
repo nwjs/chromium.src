@@ -18,9 +18,9 @@
 #include "chrome/browser/ash/login/test/oobe_screens_utils.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/profiles/profile.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
+#include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/exclusive_access/exclusive_access_manager.h"
 #include "chrome/browser/ui/webui/ash/login/guest_tos_screen_handler.h"
 #include "chrome/browser/ui/webui/ash/login/signin_fatal_error_screen_handler.h"
@@ -215,9 +215,7 @@ IN_PROC_BROWSER_TEST_F(GuestLoginTest, PRE_ExitFullscreenOnSuspend) {
 IN_PROC_BROWSER_TEST_F(GuestLoginTest, ExitFullscreenOnSuspend) {
   login_manager_.WaitForActiveSession();
   BrowserWindow* browser_window = BrowserWindow::FromBrowser(browser());
-  browser()
-      ->GetFeatures()
-      .exclusive_access_manager()
+  ExclusiveAccessManager::From(browser())
       ->fullscreen_controller()
       ->ToggleBrowserFullscreenMode(/*user_initiated=*/true);
   EXPECT_TRUE(browser_window->IsFullscreen());

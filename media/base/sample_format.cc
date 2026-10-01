@@ -81,6 +81,12 @@ bool IsInterleaved(SampleFormat sample_format) {
     case kSampleFormatS24:
     case kSampleFormatS32:
     case kSampleFormatF32:
+      return true;
+    case kUnknownSampleFormat:
+    case kSampleFormatPlanarU8:
+    case kSampleFormatPlanarS16:
+    case kSampleFormatPlanarF32:
+    case kSampleFormatPlanarS32:
     case kSampleFormatAc3:
     case kSampleFormatEac3:
     case kSampleFormatMpegHAudio:
@@ -88,12 +94,6 @@ bool IsInterleaved(SampleFormat sample_format) {
     case kSampleFormatDtsxP2:
     case kSampleFormatIECDts:
     case kSampleFormatDtse:
-      return true;
-    case kUnknownSampleFormat:
-    case kSampleFormatPlanarU8:
-    case kSampleFormatPlanarS16:
-    case kSampleFormatPlanarF32:
-    case kSampleFormatPlanarS32:
       return false;
   }
 
@@ -108,6 +108,7 @@ bool IsBitstream(SampleFormat sample_format) {
     case kSampleFormatDts:
     case kSampleFormatDtsxP2:
     case kSampleFormatIECDts:
+    case kSampleFormatDtse:
       // If on-device decoding is required, the sample format will be
       // kSampleFormatS16, so it will return false. If bit-stream passthrough
       // is required, the sample format would already be
@@ -123,7 +124,6 @@ bool IsBitstream(SampleFormat sample_format) {
     case kSampleFormatPlanarS16:
     case kSampleFormatPlanarF32:
     case kSampleFormatPlanarS32:
-    case kSampleFormatDtse:
       return false;
   }
 

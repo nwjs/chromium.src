@@ -14,6 +14,7 @@
 #include "chrome/browser/contextual_tasks/android/contextual_tasks_toast.h"
 #include "chrome/browser/tab_list/tab_list_interface.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/navigator/browser_navigator.h"
 #include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/browser/ui/side_panel/android/side_panel_native_view_android.h"
@@ -22,7 +23,6 @@
 #include "chrome/browser/ui/side_panel/side_panel_enums.h"
 #include "chrome/browser/ui/side_panel/side_panel_registry.h"
 #include "chrome/browser/ui/side_panel/side_panel_ui.h"
-#include "chrome/browser/ui/side_panel/side_panel_ui_provider.h"
 #include "components/input/native_web_keyboard_event.h"
 #include "components/strings/grit/components_strings.h"
 #include "components/tabs/public/tab_interface.h"
@@ -32,6 +32,7 @@
 #include "ui/android/window_android.h"
 #include "ui/base/base_window.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/window_open_disposition.h"
 
 using base::android::AttachCurrentThread;
 
@@ -159,7 +160,7 @@ bool ContextualTasksPanelHostDesktopAndroid::MaybeCreateBridge() {
           context_sharing::TabBottomSheetClientType::kContextualTasks,
           context_sharing::CoBrowseContainerType::kSidePanel,
           /*bottom_sheet_content_provider=*/nullptr,
-          /*enable_pinch_to_zoom=*/true);
+          /*enable_pinch_to_zoom=*/true, kColorSidePanelContentBackground);
   return co_browse_views_bridge_ != nullptr;
 }
 
@@ -242,7 +243,7 @@ void ContextualTasksPanelHostDesktopAndroid::MaybeRegisterEntry() {
 }
 
 SidePanelUI* ContextualTasksPanelHostDesktopAndroid::GetSidePanelUI() const {
-  return SidePanelUIProvider::From(browser_window_);
+  return SidePanelUI::From(browser_window_);
 }
 
 SidePanelNativeView ContextualTasksPanelHostDesktopAndroid::CreateView(

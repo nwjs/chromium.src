@@ -329,7 +329,6 @@ enum class EFillSizeType : unsigned {
   kContain,
   kCover,
   kSizeLength,
-  kSizeNone
 };
 
 // CSS3 Background Position
@@ -442,6 +441,8 @@ enum class ItemPosition : unsigned {
   kCenter,
   kStart,
   kEnd,
+  kFlowStart,
+  kFlowEnd,
   kSelfStart,
   kSelfEnd,
   kFlexStart,
@@ -461,6 +462,8 @@ enum class ContentPosition : unsigned {
   kCenter,
   kStart,
   kEnd,
+  kFlowStart,
+  kFlowEnd,
   kFlexStart,
   kFlexEnd,
   kLeft,

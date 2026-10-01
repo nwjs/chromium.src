@@ -13,6 +13,7 @@ import './pinned_toolbar_actions.js';
 import './extensions.js';
 import './app_menu_button.js';
 import './avatar_button.js';
+import './media_button.js';
 import './overflow_button.js';
 import '/shared/icon_table.js';
 import '/shared/icon_from_table.js';
@@ -30,8 +31,8 @@ import {HelpBubbleMixinLit} from 'chrome://resources/cr_components/help_bubble/h
 
 import {getCss} from './app.css.js';
 import {getHtml} from './app.html.js';
-import {BrowserProxyImpl, EventDispositionFlag, INVALID_NAVIGATION_CONTROLS_STATE_LISTENER_HANDLE} from './browser_proxy.js';
-import type {BrowserProxy, IconUpdate, NavigationControlsState, NavigationControlsStateListenerHandle} from './browser_proxy.js';
+import {BrowserProxyImpl, EventDispositionFlag, INVALID_NAVIGATION_CONTROLS_STATE_LISTENER_HANDLE, INVALID_SHOW_SPLIT_TABS_CONTEXT_MENU_HANDLE} from './browser_proxy.js';
+import type {BrowserProxy, FocusRequestHandle, FocusRequestListener, IconUpdate, NavigationControlsState, NavigationControlsStateListener, NavigationControlsStateListenerHandle, ShowSplitTabsContextMenuHandle, ShowSplitTabsContextMenuListener} from './browser_proxy.js';
 import type {OverflowButtonElement} from './overflow_button.js';
 import type {ResponsiveControl} from './responsive_control.js';
 import {setHasHelpBubble} from './toolbar_button.js';
@@ -40,6 +41,7 @@ import {setHasHelpBubble} from './toolbar_button.js';
 // Helper so tests can find what they needed when optimization is on.
 // Exporting from this file, the rollup file, ensures that we test the
 // same code that we ship in optimized builds.
+import type {BrowserControlsServiceInterface} from '/shared/browser_controls_api.mojom-webui.js';
 import type {IconFromTableElement} from '/shared/icon_from_table.js';
 import {
   AppMenuIconType,
@@ -56,16 +58,18 @@ import {
   PermissionAction,
   PermissionChipTheme,
   PermissionPromptStyle,
+  PinnedToolbarAction,
   SplitTabActiveLocation,
 } from '/shared/toolbar_ui_api_data_model.mojom-webui.js';
 import {IconType} from '/shared/icon_handle.mojom-webui.js';
 import type {OmniboxAction, LocationBarState, PageActionState, PermissionChipState, PermissionDashboardState} from '/shared/toolbar_ui_api_data_model.mojom-webui.js';
-import type {OverflowMenuItem} from '/shared/toolbar_ui_api.mojom-webui.js';
+import type {AdjustOmniboxTextForCopyResult, InitialState, OverflowMenuItem, ToolbarUIServiceInterface} from '/shared/toolbar_ui_api.mojom-webui.js';
 import {PermissionChipElement} from '/shared/permission_chip.js';
 import type {PermissionDashboardElement} from '/shared/permission_dashboard.js';
 
 import {INVALID_FOCUS_REQUEST_HANDLE} from './browser_proxy.js';
 import {AppMenuButtonElement} from './app_menu_button.js';
+import {BatterySaverButtonElement} from './battery_saver_button.js';
 import {ContentSettingIconElement} from './content_setting_icon.js';
 import {ContentSettingsIconsElement} from './content_settings_icons.js';
 import type {ExtensionsElement} from './extensions.js';
@@ -85,10 +89,12 @@ import {ToolbarActionContainerMixin} from './toolbar_action_container_mixin.js';
 import type {KeyedActionState, ToolbarActionContainerMixinInterface} from './toolbar_action_container_mixin.js';
 import {ToolbarActionMixin} from './toolbar_action_mixin.js';
 import type {ToolbarActionMixinInterface} from './toolbar_action_mixin.js';
+import {OverflowableToolbarActionContainerMixin} from './overflowable_toolbar_action_container_mixin.js';
+import type {OverflowableToolbarAction, OverflowableToolbarActionContainer} from './overflowable_toolbar_action_container_mixin.js';
 import {getClickSourceType, getContextMenuSourceType, PressHandler} from './toolbar_button.js';
 import {ToolbarChipButtonElement} from './toolbar_chip_button.js';
-import {CrLazyIconset} from './cr_lazy_iconset.js';
 
+import {CrLazyIconset} from '/shared/cr_lazy_iconset.js';
 import {IconsetMap} from '//resources/cr_elements/cr_icon/iconset_map.js';
 import {getTrustedHTML} from '//resources/js/static_types.js';
 
@@ -98,6 +104,8 @@ export {
   AppMenuButtonElement,
   AppMenuIconType,
   AppMenuSeverity,
+  AvatarToolbarButtonState,
+  BatterySaverButtonElement,
   BrowserProxyImpl,
   ContextMenuType,
   ContentSettingIconElement,
@@ -117,8 +125,8 @@ export {
   IconsetMap,
   INVALID_FOCUS_REQUEST_HANDLE,
   INVALID_NAVIGATION_CONTROLS_STATE_LISTENER_HANDLE,
+  INVALID_SHOW_SPLIT_TABS_CONTEXT_MENU_HANDLE,
   LhsChipIdentifier,
-  SecurityChipRole,
   LocationBarElement,
   LocationIconElement,
   OmniboxTextColor,
@@ -130,21 +138,34 @@ export {
   PermissionChipElement,
   PermissionChipTheme,
   PermissionPromptStyle,
+  PinnedToolbarAction,
   PointerProxyImpl,
   PressHandler,
   ReadonlyOmniboxElement,
   resetInitialStateForTesting,
+  OverflowableToolbarActionContainerMixin,
+  SecurityChipRole,
   ToolbarActionContainerMixin,
   ToolbarActionMixin,
   ToolbarChipButtonElement,
   TrackedElementManager,
 };
 export type {
+  AdjustOmniboxTextForCopyResult,
+  BrowserControlsServiceInterface,
+  BrowserProxy,
   ExtensionsElement,
+  FocusRequestHandle,
+  FocusRequestListener,
   IconFromTableElement,
+  InitialState,
   KeyedActionState,
   LocationBarState,
+  NavigationControlsStateListener,
+  NavigationControlsStateListenerHandle,
   OmniboxAction,
+  OverflowableToolbarAction,
+  OverflowableToolbarActionContainer,
   PageActionState,
   PermissionChipState,
   PermissionDashboardElement,
@@ -152,9 +173,12 @@ export type {
   PinnedToolbarActionElement,
   PinnedToolbarActionsElement,
   PointerProxy,
+  ShowSplitTabsContextMenuHandle,
+  ShowSplitTabsContextMenuListener,
   ToolbarActionContainerMixinInterface,
   ToolbarActionMixinInterface,
   ToolbarFlatStateSchema,
+  ToolbarUIServiceInterface,
 };
 export {SearchboxBrowserProxy} from '//resources/cr_components/searchbox/searchbox_browser_proxy.js';
 // clang-format on
@@ -178,6 +202,7 @@ const TRACKED_ELEMENTS: Array<{selector: string, id: string}> = [
     selector: '#performance-intervention',
     id: 'kToolbarPerformanceInterventionButtonElementId',
   },
+  {selector: '#media', id: 'kToolbarMediaButtonElementId'},
 ];
 
 const AppElementBase = HelpBubbleMixinLit(CrLitElement);
@@ -310,6 +335,7 @@ export class ToolbarAppElement extends AppElementBase {
       isExtensionsContainerEnabled_: {type: Boolean},
       isAvatarButtonEnabled_: {type: Boolean},
       isPerformanceInterventionButtonEnabled_: {type: Boolean},
+      isMediaButtonEnabled_: {type: Boolean},
       isInitialized_: {type: Boolean},
       isInitializedSyncForTesting_: {type: Boolean},
       initialSyncBootSuccess_: {type: Boolean},
@@ -339,6 +365,8 @@ export class ToolbarAppElement extends AppElementBase {
       loadTimeData.getBoolean('enableAvatarButton');
   protected accessor isPerformanceInterventionButtonEnabled_: boolean =
       loadTimeData.getBoolean('enablePerformanceInterventionButton');
+  protected accessor isMediaButtonEnabled_: boolean =
+      loadTimeData.getBoolean('enableMediaButton');
   /**
    * Tracks whether the element has received its first navigation state
    * update from the browser and completed its initial visual render.
@@ -374,6 +402,7 @@ export class ToolbarAppElement extends AppElementBase {
       location: SplitTabActiveLocation.kStart,
       shouldBeShown: false,
       isContextMenuVisible: false,
+      menuOpenToken: 0,
     },
     backForwardControlState: {
       backButtonState: {
@@ -407,8 +436,10 @@ export class ToolbarAppElement extends AppElementBase {
       windowIsMaximizedOrFullscreen: false,
     },
 
-    batterySaverButtonVisible:
-        getTypedBoolean(ToolbarStateKey.BATTERY_SAVER_BUTTON_VISIBLE),
+    batterySaverControlState: {
+      shouldBeShown:
+          getTypedBoolean(ToolbarStateKey.BATTERY_SAVER_BUTTON_VISIBLE),
+    },
     locationBarState: {
       omniboxViewState: {
         browserVersion: 0,
@@ -462,6 +493,14 @@ export class ToolbarAppElement extends AppElementBase {
       enabled: true,
       hasLinearGradientRing: false,
     },
+    overflowButtonControlState: {
+      isContextMenuVisible: false,
+    },
+    mediaControlState: {
+      enabled: true,
+      shouldBeShown: false,
+      isContextMenuVisible: false,
+    },
     layoutConstantsVersion:
         getTypedInteger(ToolbarStateKey.LAYOUT_CONSTANTS_VERSION),
     touchUi: getTypedBoolean(ToolbarStateKey.TOUCH_UI),
@@ -495,6 +534,8 @@ export class ToolbarAppElement extends AppElementBase {
       () => void = () => this.scheduleLayoutIfNeeded_();
   private requestLayoutListener_:
       () => void = () => this.scheduleLayoutResponsiveControls_();
+  private layoutNowListener_:
+      () => void = () => this.layoutResponsiveControls();
 
   private isRtl_: boolean = loadTimeData.getString('textdirection') === 'rtl';
 
@@ -561,6 +602,7 @@ export class ToolbarAppElement extends AppElementBase {
     this.addEventListener('drop', this.dropListener_);
     this.addEventListener('keydown', this.keyDownListener_);
     this.addEventListener('request-layout', this.requestLayoutListener_);
+    this.addEventListener('layout-now', this.layoutNowListener_);
 
     // This ResizeObserver performs a new layout, if needed, when toolbar-app is
     // resized. This is too late in the process to avoid a visible re-layout,
@@ -661,6 +703,7 @@ export class ToolbarAppElement extends AppElementBase {
       '#battery-saver',
       '#performance-intervention',
       '#avatar',
+      '#media',
       '#overflow',
       '#app-menu',
     ];
@@ -687,6 +730,7 @@ export class ToolbarAppElement extends AppElementBase {
     this.removeEventListener('drop', this.dropListener_);
     this.removeEventListener('keydown', this.keyDownListener_);
     this.removeEventListener('request-layout', this.requestLayoutListener_);
+    this.removeEventListener('layout-now', this.layoutNowListener_);
 
     this.resizeObserver_?.disconnect();
     window.removeEventListener('resize', this.windowResizeListener_);
@@ -964,11 +1008,17 @@ export class ToolbarAppElement extends AppElementBase {
           '#split-tabs'),
       this.shadowRoot.querySelector<ResponsiveControl&HTMLElement>('#forward'),
       this.shadowRoot.querySelector<ResponsiveControl&HTMLElement>('#home'),
+      this.shadowRoot.querySelector<ResponsiveControl&HTMLElement>(
+          '#battery-saver'),
     ];
 
+    const groupedControls =
+        [this.shadowRoot.querySelector<ResponsiveControl&HTMLElement>(
+            '#pinnedToolbarActions')];
+
     return (this.omniboxResizingPrioritizationEnabled_ ?
-                [locationBar, ...buttons] :
-                [...buttons, locationBar])
+                [locationBar, ...buttons, ...groupedControls] :
+                [...buttons, locationBar, ...groupedControls])
         .filter((el): el is ResponsiveControl&HTMLElement => el !== null);
   }
 

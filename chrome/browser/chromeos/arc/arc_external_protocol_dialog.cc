@@ -12,8 +12,8 @@
 #include "base/memory/ref_counted.h"
 #include "base/metrics/histogram_functions.h"
 #include "chrome/browser/apps/link_capturing/metrics/intent_handling_metrics.h"
-#include "chrome/browser/ash/browser_delegate/browser_controller.h"
 #include "chrome/browser/chromeos/arc/arc_web_contents_data.h"
+#include "chromeos/ash/components/browser_delegate/browser_controller.h"
 #include "chromeos/ash/experiences/arc/intent_helper/arc_intent_helper_package.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_thread.h"
@@ -126,13 +126,11 @@ void OpenUrlInChrome(base::WeakPtr<WebContents> web_contents, const GURL& url) {
 
   const ui::PageTransition page_transition_type =
       ui::PageTransitionFromInt(ui::PAGE_TRANSITION_LINK);
-  constexpr bool kIsRendererInitiated = false;
-  const content::OpenURLParams params(
-      url,
-      content::Referrer(web_contents->GetLastCommittedURL(),
-                        network::mojom::ReferrerPolicy::kDefault),
-      WindowOpenDisposition::CURRENT_TAB, page_transition_type,
-      kIsRendererInitiated);
+  const content::OpenURLParams params =
+      content::OpenURLParams::CreateBrowserInitiated(
+          url, WindowOpenDisposition::CURRENT_TAB, page_transition_type,
+          content::Referrer(web_contents->GetLastCommittedURL(),
+                            network::mojom::ReferrerPolicy::kDefault));
   web_contents->OpenURL(params, /*navigation_handle_callback=*/{});
 }
 

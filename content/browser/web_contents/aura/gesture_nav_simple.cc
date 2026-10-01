@@ -114,8 +114,12 @@ NavigationDirection GetDirectionFromMode(OverscrollMode mode) {
 // Records UMA histogram and also user action for the cancelled overscroll.
 void RecordGestureOverscrollCancelled(NavigationDirection direction,
                                       OverscrollSource source) {
-  CHECK_NE(direction, NavigationDirection::NONE, base::NotFatalUntil::M158);
-  CHECK_NE(source, OverscrollSource::NONE, base::NotFatalUntil::M158);
+  // TODO(crbug.com/561094257): CHECK-exclusion: Convert to a CHECK once we are
+  // confident it won't be triggered.
+  DCHECK_NE(direction, NavigationDirection::NONE);
+  // TODO(crbug.com/561094257): CHECK-exclusion: Convert to a CHECK once we are
+  // confident it won't be triggered.
+  DCHECK_NE(source, OverscrollSource::NONE);
   if (direction == NavigationDirection::BACK) {
     RecordAction(base::UserMetricsAction("Overscroll_Cancelled.Back"));
   } else if (direction == NavigationDirection::FORWARD) {
@@ -489,7 +493,9 @@ void GestureNavSimple::OnOverscrollComplete(OverscrollMode overscroll_mode) {
     return;
   }
 
-  CHECK_EQ(mode_, overscroll_mode, base::NotFatalUntil::M158);
+  // TODO(crbug.com/560898605): CHECK-exclusion: Convert to a CHECK once we are
+  // confident it won't be triggered.
+  DCHECK_EQ(mode_, overscroll_mode);
 
   mode_ = OVERSCROLL_NONE;
   OverscrollSource overscroll_source = source_;
@@ -555,7 +561,9 @@ void GestureNavSimple::OnOverscrollModeChange(OverscrollMode old_mode,
     return;
   }
 
-  CHECK_EQ(mode_, old_mode, base::NotFatalUntil::M158);
+  // TODO(crbug.com/561284863): CHECK-exclusion: Convert to a CHECK once we are
+  // confident it won't be triggered.
+  DCHECK_EQ(mode_, old_mode);
   if (mode_ == new_mode) {
     return;
   }

@@ -22,6 +22,7 @@
 #include "base/test/test_future.h"
 #include "base/time/time.h"
 #include "components/optimization_guide/core/model_execution/model_execution_fetcher.h"
+#include "components/optimization_guide/core/model_execution/remote_model_execution_common.h"
 #include "components/optimization_guide/core/model_execution/remote_model_executor.h"
 #include "components/optimization_guide/core/model_execution/test/request_builder.h"
 #include "components/optimization_guide/core/model_quality/model_quality_log_entry.h"
@@ -35,6 +36,7 @@
 #include "services/network/public/cpp/data_element.h"
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "services/network/public/cpp/weak_wrapper_shared_url_loader_factory.h"
+#include "services/network/test/test_network_context.h"
 #include "services/network/test/test_url_loader_factory.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
@@ -64,6 +66,10 @@ class MockDelegate : public ModelExecutionManager::Delegate {
  public:
   MOCK_METHOD(std::unique_ptr<ModelExecutionFetcher>,
               CreatePrivateAiFetcher,
+              (),
+              (override));
+  MOCK_METHOD(network::mojom::NetworkContext*,
+              GetNetworkContext,
               (),
               (override));
 };
@@ -137,7 +143,7 @@ class ModelExecutionManagerTest : public testing::Test {
   bool SimulateResponse(const std::string& content,
                         net::HttpStatusCode http_status) {
     return test_url_loader_factory_.SimulateResponseForPendingRequest(
-        GetModelExecutionServiceURL().spec(), content, http_status,
+        GetModelExecutionServiceBaseURL().spec(), content, http_status,
         network::TestURLLoaderFactory::kUrlMatchPrefix);
   }
 
@@ -255,7 +261,7 @@ TEST_F(ModelExecutionManagerTest, MultipleParallelRequestsLimit) {
       /*log_ai_data_request=*/nullptr, ModelExecutionServiceType::kDefault,
       response_holder2.GetCallback());
 
-  test_url_loader_factory()->EraseResponse(GetModelExecutionServiceURL());
+  test_url_loader_factory()->EraseResponse(GetModelExecutionServiceBaseURL());
   EXPECT_TRUE(SimulateSuccessfulResponse());
 
   EXPECT_TRUE(response_holder2.GetFinalStatus());
@@ -324,6 +330,15 @@ TEST_F(ModelExecutionManagerTest, MultipleParallelRequests) {
       "OptimizationGuide.ModelExecution.FetchLatency2.FormsClassifications", 2);
 }
 
+TEST_F(ModelExecutionManagerTest, StartStreamingSessionNoDelegate) {
+  base::test::TestFuture<OptimizationGuideModelStreamingResult>
+      streaming_future;
+  auto session = model_execution_manager()->StartStreamingSession(
+      ModelBasedCapabilityKey::kScamDetection, {},
+      streaming_future.GetRepeatingCallback());
+  EXPECT_EQ(session, nullptr);
+}
+
 class ModelExecutionManagerDelegateTest : public ModelExecutionManagerTest {
  public:
   void SetUp() override {
@@ -384,6 +399,33 @@ TEST_F(ModelExecutionManagerDelegateTest, HandlesNullFetcher) {
   EXPECT_EQ(OptimizationGuideModelExecutionError::ModelExecutionError::
                 kGenericFailure,
             response_holder.error());
+}
+
+TEST_F(ModelExecutionManagerDelegateTest,
+       StartStreamingSessionWithNetworkContext) {
+  network::TestNetworkContext test_network_context;
+  EXPECT_CALL(*delegate(), GetNetworkContext())
+      .WillOnce(testing::Return(&test_network_context));
+
+  base::test::TestFuture<OptimizationGuideModelStreamingResult>
+      streaming_future;
+  auto session = model_execution_manager()->StartStreamingSession(
+      ModelBasedCapabilityKey::kScamDetection, {},
+      streaming_future.GetRepeatingCallback());
+  EXPECT_NE(session, nullptr);
+}
+
+TEST_F(ModelExecutionManagerDelegateTest,
+       StartStreamingSessionNullNetworkContextReturned) {
+  EXPECT_CALL(*delegate(), GetNetworkContext())
+      .WillOnce(testing::Return(nullptr));
+
+  base::test::TestFuture<OptimizationGuideModelStreamingResult>
+      streaming_future;
+  auto session = model_execution_manager()->StartStreamingSession(
+      ModelBasedCapabilityKey::kScamDetection, {},
+      streaming_future.GetRepeatingCallback());
+  EXPECT_EQ(session, nullptr);
 }
 
 }  // namespace

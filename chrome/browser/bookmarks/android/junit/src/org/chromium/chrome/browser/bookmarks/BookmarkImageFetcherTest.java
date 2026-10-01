@@ -33,7 +33,6 @@ import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
-import org.robolectric.annotation.Config;
 
 import org.chromium.base.Callback;
 import org.chromium.base.test.BaseRobolectricTestRunner;
@@ -51,14 +50,12 @@ import org.chromium.components.power_bookmarks.PowerBookmarkMeta;
 import org.chromium.components.power_bookmarks.PowerBookmarkMeta.Image;
 import org.chromium.components.power_bookmarks.ShoppingSpecifics;
 import org.chromium.ui.base.TestActivity;
-import org.chromium.url.GURL;
 import org.chromium.url.JUnitTestGURLs;
 
 import java.util.Arrays;
 
 /** Unit tests for {@link BookmarkImageFetcher}. */
 @RunWith(BaseRobolectricTestRunner.class)
-@Config(manifest = Config.NONE)
 public class BookmarkImageFetcherTest {
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
 
@@ -78,8 +75,6 @@ public class BookmarkImageFetcherTest {
 
     @Captor private ArgumentCaptor<Drawable> mDrawableCaptor;
     @Captor private ArgumentCaptor<Pair<Drawable, Drawable>> mFolderDrawablesCaptor;
-    @Captor private ArgumentCaptor<Callback<GURL>> mGURLCallbackCaptor;
-    @Captor private ArgumentCaptor<Callback<Bitmap>> mBitmapCallbackCaptor;
 
     private final BookmarkId mFolderId = new BookmarkId(/* id= */ 1, BookmarkType.NORMAL);
     private final BookmarkId mBookmarkId1 = new BookmarkId(/* id= */ 2, BookmarkType.NORMAL);

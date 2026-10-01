@@ -13,11 +13,11 @@
 #include "chrome/browser/ui/views/tabs/common/tab_collection_node.h"
 #include "chrome/browser/ui/views/tabs/common/tab_group_header_view.h"
 #include "chrome/browser/ui/views/tabs/common/tab_group_line_view.h"
+#include "chrome/browser/ui/views/tabs/common/tab_group_style.h"
 #include "chrome/browser/ui/views/tabs/common/tab_group_view.h"
 #include "chrome/browser/ui/views/tabs/common/tab_strip_collection_controller.h"
 #include "chrome/browser/ui/views/tabs/common/tab_strip_layout_utils.h"
 #include "chrome/browser/ui/views/tabs/common/tab_view.h"
-#include "chrome/browser/ui/views/tabs/tab_group_style.h"
 #include "components/tabs/public/tab_group.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/size.h"
@@ -109,10 +109,10 @@ views::ProposedLayout TabGroupViewLayout::CalculateVerticalLayout(
     group_line_bounds.set_y(height);
   }
 
-  const std::vector<views::View*> children =
+  const auto children =
       tab_group_view->collection_node_
           ? tab_group_view->collection_node_->GetDirectChildren()
-          : std::vector<views::View*>();
+          : TabCollectionNode::ChildViews();
 
   const bool is_focused = tab_group_view->IsGroupFocused();
 
@@ -197,11 +197,8 @@ views::ProposedLayout TabGroupViewLayout::CalculateHorizontalLayout(
   // Place the group header.
   int header_width = 0;
   if (tab_group_view->group_header_) {
-    const int header_height =
-        GetLayoutConstant(LayoutConstant::kTabHeight) -
-        GetLayoutConstant(LayoutConstant::kTabStripPadding) -
-        GetLayoutConstant(LayoutConstant::kTabstripToolbarOverlap);
-    const int header_y = GetLayoutConstant(LayoutConstant::kTabStripPadding);
+    const int header_height = TabGroupStyle::GetEmptyChipSize();
+    const int header_y = TabGroupStyle::GetTitleChipOffset().y();
     header_width = tab_group_view->group_header_
                        ->GetPreferredSize(views::SizeBounds({}, header_height))
                        .width();

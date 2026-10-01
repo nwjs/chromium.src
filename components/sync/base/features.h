@@ -54,6 +54,9 @@ BASE_DECLARE_FEATURE(kSyncNotebook);
 // Enables syncing history journeys.
 BASE_DECLARE_FEATURE(kSyncJourney);
 
+// Enables syncing entity suppression records for Autofill AI.
+BASE_DECLARE_FEATURE(kSyncAutofillEntitySuppression);
+
 #if !BUILDFLAG(IS_CHROMEOS)
 // Flag that controls Uno fast-follow features which are:
 // On Android:
@@ -171,11 +174,6 @@ inline constexpr base::FeatureParam<double>
     kSyncIncreaseNudgeDelayForSingleClientFactor{
         &kSyncIncreaseNudgeDelayForSingleClient,
         "SyncIncreaseNudgeDelayForSingleClientFactor", 2.0};
-
-#if BUILDFLAG(IS_ANDROID)
-// If enabled, WebAPK data will be synced for Backup&Restore purposes.
-BASE_DECLARE_FEATURE(kWebApkBackupAndRestoreBackend);
-#endif  // BUILDFLAG(IS_ANDROID)
 
 #if BUILDFLAG(IS_ANDROID)
 // Flag to test different alternatives for the passwords sync error message

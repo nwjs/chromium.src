@@ -13,6 +13,7 @@ import android.view.View;
 import android.view.ViewGroup.MarginLayoutParams;
 import android.view.accessibility.AccessibilityNodeInfo;
 import android.widget.ImageView;
+import android.widget.RadioButton;
 import android.widget.TextView;
 
 import androidx.annotation.ColorRes;
@@ -210,6 +211,27 @@ public class ListMenuItemViewBinder {
             } else {
                 textView.setTextAppearance(textAppearanceId);
             }
+        } else if (propertyKey == ListMenuItemProperties.SUBTITLE_TEXT_APPEARANCE_ID) {
+            int subtitleTextAppearanceId =
+                    model.get(ListMenuItemProperties.SUBTITLE_TEXT_APPEARANCE_ID);
+            @Nullable TextView subtitleView = view.findViewById(R.id.menu_item_subtitle);
+            if (subtitleView != null) {
+                if (subtitleTextAppearanceId == Resources.ID_NULL) {
+                    subtitleView.setTextAppearance(R.style.TextAppearance_ListMenuItem_Subtitle);
+                } else {
+                    subtitleView.setTextAppearance(subtitleTextAppearanceId);
+                }
+            }
+        } else if (propertyKey == ListMenuItemProperties.VERTICAL_PADDING) {
+            // When unset in the model, model.get() defaults to 0. On recycled views, this
+            // resets any custom padding from a previous item back to 0. This works because
+            // ListMenuItemStyle has no vertical padding by default (content is centered via
+            // minHeight). However, if an XML layout or theme ever defines non-zero top/bottom
+            // padding in the future, this would become problematic as recycled views would be
+            // reset to 0 instead of their layout default.
+            int verticalPadding = model.get(ListMenuItemProperties.VERTICAL_PADDING);
+            view.setPaddingRelative(
+                    view.getPaddingStart(), verticalPadding, view.getPaddingEnd(), verticalPadding);
         } else if (propertyKey == ListMenuItemProperties.IS_TEXT_ELLIPSIZED_AT_END) {
             if (model.get(ListMenuItemProperties.IS_TEXT_ELLIPSIZED_AT_END)) {
                 textView.setMaxLines(1);
@@ -230,7 +252,8 @@ public class ListMenuItemViewBinder {
             // Not tracked intentionally because it's used by clients to keep track of items. The
             // order field is used to recreate a SelectionMenuItem when an item is clicked.
         } else if (propertyKey == ListMenuItemProperties.CHECKABLE
-                || propertyKey == ListMenuItemProperties.CHECKED) {
+                || propertyKey == ListMenuItemProperties.CHECKED
+                || propertyKey == ListMenuItemProperties.POSITION) {
             view.setAccessibilityDelegate(
                     new View.AccessibilityDelegate() {
                         @Override
@@ -241,6 +264,23 @@ public class ListMenuItemViewBinder {
                             info.setChecked(
                                     model.containsKey(ListMenuItemProperties.CHECKED)
                                             && model.get(ListMenuItemProperties.CHECKED));
+                            // Note: `info.setCheckable` and `info.setChecked` are applied
+                            // to both checkable items and radio buttons.
+                            // We use the presence of the POSITION property to determine if a
+                            // checkable item should identify specifically as a RadioButton.
+                            // A checkable item acts as a RadioButton if and only
+                            // if it provides a POSITION.
+                            if (model.containsKey(ListMenuItemProperties.POSITION)) {
+                                info.setClassName(RadioButton.class.getName());
+                                int position = model.get(ListMenuItemProperties.POSITION);
+                                info.setCollectionItemInfo(
+                                        AccessibilityNodeInfo.CollectionItemInfo.obtain(
+                                                /* rowIndex= */ position,
+                                                /* rowSpan= */ 1,
+                                                /* columnIndex= */ 0,
+                                                /* columnSpan= */ 1,
+                                                /* heading= */ false));
+                            }
                         }
                     });
         } else {

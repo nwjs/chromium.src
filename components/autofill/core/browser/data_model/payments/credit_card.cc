@@ -119,7 +119,7 @@ std::u16string NetworkForFill(const std::string& network) {
 std::u16string GetLastFourDigits(std::u16string_view number) {
   static constexpr size_t kNumLastDigits = 4;
 
-  std::u16string stripped = StripCardNumberSeparators(number);
+  std::u16string stripped = StripSeparatorsAndNormalizeDigits(number);
   if (stripped.size() <= kNumLastDigits) {
     return stripped;
   }
@@ -367,6 +367,7 @@ int CreditCard::IconResourceId(Suggestion::Icon icon) {
     case Suggestion::Icon::kMagic:
     case Suggestion::Icon::kNoIcon:
     case Suggestion::Icon::kOfferTag:
+    case Suggestion::Icon::kOpenInNew:
     case Suggestion::Icon::kOrder:
     case Suggestion::Icon::kOrderSpark:
     case Suggestion::Icon::kPassport:
@@ -626,9 +627,10 @@ void CreditCard::GetMatchingTypes(std::u16string_view text,
   if (!card_number.empty() && IsValidCreditCardNumber(text)) {
     // We only have the last four digits for masked cards, so match against
     // that if |this| is a masked card.
-    bool numbers_match = record_type_ == RecordType::kMaskedServerCard
-                             ? GetLastFourDigits(text) == LastFourDigits()
-                             : StripCardNumberSeparators(text) == card_number;
+    bool numbers_match =
+        record_type_ == RecordType::kMaskedServerCard
+            ? GetLastFourDigits(text) == LastFourDigits()
+            : StripSeparatorsAndNormalizeDigits(text) == card_number;
     if (numbers_match) {
       matching_types->insert(CREDIT_CARD_NUMBER);
     }
@@ -904,8 +906,8 @@ bool CreditCard::HasSameNumberAs(const CreditCard& other) const {
     return LastFourDigits() == other.LastFourDigits();
   }
 
-  return StripCardNumberSeparators(number_) ==
-         StripCardNumberSeparators(other.number_);
+  return StripSeparatorsAndNormalizeDigits(number_) ==
+         StripSeparatorsAndNormalizeDigits(other.number_);
 }
 
 bool CreditCard::HasSameExpirationDateAs(const CreditCard& other) const {
@@ -1203,7 +1205,7 @@ std::u16string CreditCard::GetInfo(const AutofillType& autofill_type,
     if (record_type() == RecordType::kMaskedServerCard) {
       return NetworkAndLastFourDigits();
     }
-    return StripCardNumberSeparators(number_);
+    return StripSeparatorsAndNormalizeDigits(number_);
   }
   return GetRawInfo(type);
 }
@@ -1218,8 +1220,8 @@ bool CreditCard::SetInfoWithVerificationStatus(const AutofillType& type,
   }
 
   if (storable_type == CREDIT_CARD_NUMBER) {
-    SetRawInfoWithVerificationStatus(storable_type,
-                                     StripCardNumberSeparators(value), status);
+    SetRawInfoWithVerificationStatus(
+        storable_type, StripSeparatorsAndNormalizeDigits(value), status);
   } else {
     SetRawInfoWithVerificationStatus(storable_type, value, status);
   }
@@ -1255,7 +1257,7 @@ void CreditCard::SetNumber(std::u16string number) {
   // Set the type based on the card number, but only for full numbers, not
   // when we have masked cards from the server (last 4 digits).
   if (record_type_ != RecordType::kMaskedServerCard) {
-    network_ = GetCardNetwork(StripCardNumberSeparators(number_));
+    network_ = GetCardNetwork(StripSeparatorsAndNormalizeDigits(number_));
   }
 }
 

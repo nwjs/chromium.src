@@ -10,11 +10,9 @@
 #import "base/strings/sys_string_conversions.h"
 #import "base/test/ios/wait_util.h"
 #import "base/test/metrics/histogram_tester.h"
-#import "base/test/scoped_feature_list.h"
 #import "components/prefs/pref_service.h"
 #import "components/signin/internal/identity_manager/account_capabilities_constants.h"
 #import "components/signin/public/base/signin_metrics.h"
-#import "components/signin/public/base/signin_switches.h"
 #import "components/signin/public/identity_manager/account_capabilities.h"
 #import "components/signin/public/identity_manager/account_capabilities_test_mutator.h"
 #import "components/signin/public/identity_manager/identity_test_utils.h"
@@ -43,7 +41,6 @@
 #import "ios/chrome/browser/signin/model/authentication_service_factory.h"
 #import "ios/chrome/browser/signin/model/authentication_service_observer_bridge.h"
 #import "ios/chrome/browser/signin/model/chrome_account_manager_service_factory.h"
-#import "ios/chrome/browser/signin/model/fake_authentication_service_delegate.h"
 #import "ios/chrome/browser/signin/model/fake_system_identity.h"
 #import "ios/chrome/browser/signin/model/fake_system_identity_manager.h"
 #import "ios/chrome/browser/signin/model/identity_manager_factory.h"
@@ -65,9 +62,6 @@
 class SigninAccountCapabilitiesSceneAgentTest : public PlatformTest {
  public:
   SigninAccountCapabilitiesSceneAgentTest() : PlatformTest() {
-    feature_list_.InitAndEnableFeature(
-        switches::kEnforceCanSignInToChromeCapability);
-
     fake_system_identity_manager_ =
         FakeSystemIdentityManager::FromSystemIdentityManager(
             GetApplicationContext()->GetSystemIdentityManager());
@@ -75,8 +69,7 @@ class SigninAccountCapabilitiesSceneAgentTest : public PlatformTest {
     TestProfileIOS::Builder builder;
     builder.AddTestingFactory(
         AuthenticationServiceFactory::GetInstance(),
-        AuthenticationServiceFactory::GetFactoryWithDelegateForTesting(
-            std::make_unique<FakeAuthenticationServiceDelegate>()));
+        AuthenticationServiceFactory::GetDefaultFactory());
     builder.AddTestingFactory(SyncServiceFactory::GetInstance(),
                               SyncServiceFactory::GetDefaultFactory());
     builder.AddTestingFactory(
@@ -154,7 +147,8 @@ class SigninAccountCapabilitiesSceneAgentTest : public PlatformTest {
 
     base::RunLoop run_loop;
     ios::AccountCapabilitiesFetcherIOS fetcher(
-        account, AccountCapabilitiesFetcher::FetchPriority::kForeground,
+        account.GetCoreAccountInfo(),
+        AccountCapabilitiesFetcher::FetchPriority::kForeground,
         account_manager_service,
         base::BindRepeating(^(const CoreAccountId& account_id,
                               const AccountCapabilities& capabilities) {
@@ -176,7 +170,6 @@ class SigninAccountCapabilitiesSceneAgentTest : public PlatformTest {
  protected:
   web::WebTaskEnvironment task_environment_{
       web::WebTaskEnvironment::MainThreadType::IO};
-  base::test::ScopedFeatureList feature_list_;
   IOSChromeScopedTestingLocalState scoped_testing_local_state_;
   TestProfileManagerIOS profile_manager_;
   raw_ptr<TestProfileIOS> profile_;

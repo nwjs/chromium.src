@@ -36,7 +36,6 @@
 #include "components/autofill/core/common/form_field_data.h"
 #include "components/autofill/core/common/mojom/autofill_types.mojom-shared.h"
 #include "components/autofill/core/common/unique_ids.h"
-#include "components/device_reauth/device_authenticator.h"
 
 namespace gfx {
 class Rect;
@@ -78,8 +77,7 @@ class AutofillExternalDelegate : public AutofillSuggestionDelegate {
   std::variant<AutofillDriver*, password_manager::PasswordManagerDriver*>
   GetDriver_DoNotUse() override;
   void OnSuggestionsShown(base::span<const Suggestion> suggestions,
-                          base::optional_ref<const SuggestionMetadata>
-                              parent_suggestion_metadata) override;
+                          const SuggestionUiMetadata& metadata) override;
   void OnSuggestionsHidden(SuggestionHidingReason reason) override;
   bool OnFilterChanged(const std::u16string& filter) override;
   bool OnSearchSubmitted(const std::u16string& filter) override;
@@ -267,9 +265,6 @@ class AutofillExternalDelegate : public AutofillSuggestionDelegate {
 
   // The caret position of the focused field.
   gfx::Rect caret_bounds_;
-
-  // Used to re-authenticate the user before filling.
-  std::unique_ptr<device_reauth::DeviceAuthenticator> authenticator_;
 
   base::WeakPtrFactory<AutofillExternalDelegate> weak_ptr_factory_{this};
 };

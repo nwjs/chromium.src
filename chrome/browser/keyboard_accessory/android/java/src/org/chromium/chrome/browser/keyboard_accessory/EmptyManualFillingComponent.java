@@ -11,6 +11,7 @@ import org.chromium.base.supplier.MonotonicObservableSupplier;
 import org.chromium.base.supplier.NonNullObservableSupplier;
 import org.chromium.base.supplier.ObservableSuppliers;
 import org.chromium.build.annotations.NullMarked;
+import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.back_press.BackPressManager;
 import org.chromium.chrome.browser.keyboard_accessory.data.KeyboardAccessoryData;
 import org.chromium.chrome.browser.keyboard_accessory.data.Provider;
@@ -78,6 +79,14 @@ public class EmptyManualFillingComponent implements ManualFillingComponent {
     public void setSuggestions(List<AutofillSuggestion> suggestions, AutofillDelegate delegate) {}
 
     @Override
+    public void setSelectedSuggestion(@Nullable Integer suggestionIndex) {}
+
+    @Override
+    public boolean navigateSuggestions(@NavigationDirection int direction) {
+        return false;
+    }
+
+    @Override
     public void show(
             boolean waitForKeyboard,
             boolean shouldShowOnLargeFormFactor,
@@ -124,8 +133,18 @@ public class EmptyManualFillingComponent implements ManualFillingComponent {
     @Override
     public void confirmDeletionOperation(
             String title,
-            CharSequence message,
+            String body,
+            String bodyLink,
             String confirmButtonText,
+            Runnable confirmedCallback,
+            Runnable declinedCallback) {}
+
+    @Override
+    public void showAutofillAiSuggestionDetails(
+            String title,
+            String body,
+            String confirmButtonText,
+            String primaryButtonText,
             Runnable confirmedCallback,
             Runnable declinedCallback) {}
 

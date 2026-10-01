@@ -14,18 +14,9 @@
 
 #include "base/functional/callback_forward.h"
 #include "build/build_config.h"
-#include "chrome/browser/lifetime/browser_close_manager.h"
-#include "chrome/browser/signin/chrome_signin_helper.h"
-#include "chrome/browser/ui/bookmarks/bookmark_bar.h"
-#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/browser_window_deleter.h"
-#include "chrome/browser/ui/exclusive_access/exclusive_access_bubble_type.h"
+#include "chrome/browser/ui/download_close_type.h"
 #include "chrome/browser/ui/hats/hats_service.h"
-#include "chrome/browser/ui/page_action/page_action_icon_type.h"
-#include "chrome/browser/ui/translate/partial_translate_bubble_model.h"
-#include "chrome/browser/ui/unload_controller.h"
-#include "chrome/browser/ui/webui/tab_search/tab_search.mojom.h"
-#include "chrome/browser/ui/window_feature_controller/window_feature_controller.h"
 #include "chrome/common/buildflags.h"
 #include "components/apps/link_capturing/intent_picker_info.h"
 #include "components/content_settings/core/common/content_settings_types.h"
@@ -35,6 +26,7 @@
 #include "ui/base/interaction/element_identifier.h"
 #include "ui/base/mojom/window_show_state.mojom-forward.h"
 #include "ui/base/window_open_disposition.h"
+#include "ui/gfx/geometry/point_f.h"
 #include "ui/gfx/native_ui_types.h"
 #include "url/origin.h"
 
@@ -79,6 +71,7 @@ enum class AccessPoint;
 }
 
 namespace ui {
+class AcceleratorProvider;
 class ColorProvider;
 class NativeTheme;
 class ThemeProvider;
@@ -247,7 +240,6 @@ class BrowserWindow : public ui::BaseWindow {
   // if the window is visible.
   virtual void UpdateLoadingAnimations(bool is_visible) = 0;
 
-
   // Called when the active tab changes.  Subclasses which implement
   // TabStripModelObserver should implement this instead of ActiveTabChanged();
   // the Browser will call this method while processing that one.
@@ -284,6 +276,10 @@ class BrowserWindow : public ui::BaseWindow {
 
   // Returns the location bar.
   virtual LocationBar* GetLocationBar() const = 0;
+
+  // Returns the AcceleratorProvider for this window, or null if the window
+  // does not provide accelerators (notably TestBrowserWindow).
+  virtual ui::AcceleratorProvider* GetAcceleratorProvider() = 0;
 
   // Tries to focus the location bar.  Clears the window focus (to avoid
   // inconsistent state) if this fails.
@@ -388,7 +384,6 @@ class BrowserWindow : public ui::BaseWindow {
       translate::TranslateErrors error_type,
       bool is_user_gesture) = 0;
 
-
   // Returns the DownloadBubbleUIController. Returns null if Download Bubble
   // UI is not enabled, or if the download toolbar button does not exist.
   virtual DownloadBubbleUIController* GetDownloadBubbleUIController() = 0;
@@ -398,7 +393,7 @@ class BrowserWindow : public ui::BaseWindow {
   // This method should call |callback| with the user's response.
   virtual void ConfirmBrowserCloseWithPendingDownloads(
       int download_count,
-      UnloadController::DownloadCloseType dialog_type,
+      DownloadCloseType dialog_type,
       base::OnceCallback<void(bool)> callback) = 0;
 
   // Shows the app menu (for accessibility).

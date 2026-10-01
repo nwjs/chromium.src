@@ -6,6 +6,7 @@
 #define IOS_CHROME_BROWSER_SAFE_BROWSING_MODEL_CLIENT_SIDE_DETECTION_CLIENT_SIDE_DETECTION_HOST_IOS_H_
 
 #import <optional>
+#import <string>
 #import <vector>
 
 #import "base/memory/raw_ptr.h"
@@ -18,6 +19,7 @@
 #import "components/safe_browsing/core/common/phishing_classifier/phishing_classifier.h"
 #import "components/safe_browsing/core/common/phishing_classifier/phishing_image_embedder.h"
 #import "components/safe_browsing/core/common/visual_utils.h"
+#import "ios/chrome/browser/safe_browsing/model/client_side_detection/client_side_detection_service.h"
 #import "ios/chrome/browser/web/model/web_performance_metrics/web_performance_metrics_tab_helper.h"
 #import "ios/components/security_interstitials/safe_browsing/safe_browsing_query_manager.h"
 #import "ios/web/public/web_state_observer.h"
@@ -26,6 +28,7 @@
 #import "url/gurl.h"
 
 class PrefService;
+@class PageContextWrapper;
 @class UIImage;
 
 namespace history {
@@ -42,7 +45,6 @@ class NavigationContext;
 
 namespace safe_browsing {
 
-class ClientSideDetectionService;
 class ClientSideDetectionHostIOSTest;
 class VerdictCacheManager;
 
@@ -65,7 +67,8 @@ class ClientSideDetectionHostIOS
     : public ClientSideDetectionHostBase,
       public web::WebStateObserver,
       public SafeBrowsingQueryManager::Observer,
-      public WebPerformanceMetricsTabHelper::Observer {
+      public WebPerformanceMetricsTabHelper::Observer,
+      public ClientSideDetectionService::Observer {
  public:
   // Constructs a host instance managing client-side detection for `web_state`.
   // `service`, `cache_manager`, `pref_service`, `identity_manager`, and
@@ -144,8 +147,15 @@ class ClientSideDetectionHostIOS
       const GURL& url,
       const std::vector<double>& visual_scores);
 
+  // Sets whether the local resource / localhost pre-classification check should
+  // be bypassed for testing.
+  static void SetBypassLocalResourceCheckForTesting(bool bypass);
+
  private:
   friend class ClientSideDetectionHostIOSTest;
+
+  // ClientSideDetectionService::Observer implementation:
+  void OnScorerChanged() override;
 
   // WebPerformanceMetricsTabHelper::Observer implementation:
   void OnFirstContentfulPaint(WebPerformanceMetricsTabHelper* tab_helper,
@@ -234,6 +244,9 @@ class ClientSideDetectionHostIOS
       const safe_browsing::ImageFeatureEmbedding& image_embedding,
       const safe_browsing::VisualFeatures& visual_features);
 
+  // Callback invoked when `PageContextWrapper` completes inner text extraction.
+  void OnInnerTextExtracted(std::string inner_text);
+
   // Associated WebState.
   raw_ptr<web::WebState> web_state_ = nullptr;
 
@@ -242,6 +255,12 @@ class ClientSideDetectionHostIOS
 
   // Reference to the identity manager.
   raw_ptr<signin::IdentityManager> identity_manager_ = nullptr;
+
+  // In-flight callback for inner text extraction.
+  HostInnerTextCallback pending_inner_text_callback_;
+
+  // `PageContextWrapper` for inner text extraction.
+  __strong PageContextWrapper* page_context_wrapper_ = nil;
 
   std::unique_ptr<PhishingClassifier> classifier_;
   std::unique_ptr<PhishingImageEmbedder> image_embedder_;
@@ -265,6 +284,14 @@ class ClientSideDetectionHostIOS
   base::ScopedObservation<SafeBrowsingQueryManager,
                           SafeBrowsingQueryManager::Observer>
       query_manager_observation_{this};
+
+  base::ScopedObservation<ClientSideDetectionService,
+                          ClientSideDetectionService::Observer>
+      scorer_observation_{this};
+
+  // Invalidation factory dedicated to inner text extraction callbacks.
+  base::WeakPtrFactory<ClientSideDetectionHostIOS> inner_text_weak_factory_{
+      this};
 
   base::WeakPtrFactory<ClientSideDetectionHostIOS> weak_ptr_factory_{this};
 };

@@ -8,6 +8,28 @@
 
 import type {AdditionalContextPart, ImageOriginAnnotations, InvocationPayload, Point, Rect, ResponseStopCause} from './glic_api.js';
 
+export enum OpenSignInTabResult {
+  UNKNOWN = 0,
+  // The sign-in tab was opened (or an existing one reactivated).
+  SUCCESS = 1,
+  // No sign-in URL was provided in options.
+  ERROR_NO_URL = 2,
+  // The provided sign-in URL was disallowed.
+  ERROR_DISALLOWED_URL = 3,
+  // Failed to open the tab (e.g. off-the-record profile, no browser window).
+  ERROR_FAILURE = 4,
+}
+
+export enum CloseSignInTabResult {
+  UNKNOWN = 0,
+  // The sign-in tab was found and closed.
+  SUCCESS = 1,
+  // A sign-in tab was previously opened, but had already been closed.
+  ALREADY_CLOSED = 2,
+  // No sign-in tab was open or tracked.
+  NO_SIGN_IN_TAB = 3,
+}
+
 export enum FileUploadPolicyState {
   ENABLED = 0,
   DISABLED = 1,
@@ -459,6 +481,8 @@ export enum HostCapability {
   ENFORCES_PASTE_ELIGIBILITY = 14,
   // Indicates that the host supports autofilling OTPs.
   ATTEMPT_OTP_FILLING = 15,
+  // Indicates that the host supports exposing Chrome-defined tools.
+  CHROME_TOOLS = 16,
 }
 
 // Lists capabilities that the glic web client may support.
@@ -646,6 +670,8 @@ export enum InvocationSource {
   TAB_CONTEXT_MENU = 41,
   // From Web Continuity.
   WEB_CONTINUITY = 42,
+  // From the history page chat linkout.
+  HISTORY_PAGE_CHAT_LINKOUT = 43,
 }
 
 // Target for actuation.
@@ -663,6 +689,16 @@ export enum ActuationTarget {
   // surface is not the foregrounded tab. This option has no effect if the
   // surface does not resolve to a valid tab.
   TARGET_SURFACE = 4,
+}
+
+// Options for opening the sign-in tab.
+export declare interface OpenSignInTabOptions {
+  // The URL to navigate to for sign-in.
+  signinUrl?: string;
+}
+
+// Options for closing the sign-in tab.
+export declare interface CloseSignInTabOptions {
 }
 
 // Settings for Gemini Enterprise.
@@ -861,6 +897,9 @@ export declare interface SkillPreview {
   category?: string;
   // The time when the skill was created.
   creationTime?: Date;
+  // Whether the skill is enabled. If not present, the browser does not support
+  // per-skill enablement.
+  enabled?: boolean;
 }
 
 // A single skill.

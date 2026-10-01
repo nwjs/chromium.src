@@ -15,6 +15,7 @@
 #include "chrome/test/base/testing_profile.h"
 #include "components/browser_actuator/public/features.h"
 #include "components/browser_actuator/test_support/mock_browser_actuator_service.h"
+#include "components/sharing_message/proto/actuator_downstream_message.pb.h"
 #include "components/sharing_message/proto/sharing_message.pb.h"
 #include "content/public/test/browser_task_environment.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -117,6 +118,22 @@ TEST_F(BrowserActuatorMessageHandlerTest, IgnoresMessageWithNoRequest) {
   triggering->set_glic_experimental_triggering_version(1);
 
   EXPECT_CALL(*mock_service_, GetOrCreateSession(testing::_)).Times(0);
+
+  base::test::TestFuture<
+      std::unique_ptr<components_sharing_message::ResponseMessage>>
+      done_future;
+  handler_->OnMessage(std::move(message), done_future.GetCallback());
+  EXPECT_TRUE(done_future.Wait());
+  EXPECT_EQ(done_future.Get(), nullptr);
+}
+
+TEST_F(BrowserActuatorMessageHandlerTest, HandlesActuatorDownstreamMessage) {
+  components_sharing_message::SharingMessage message;
+  browser_actuator::ActuatorDownstreamMessage* bundled =
+      message.mutable_actuator_downstream_message();
+  bundled->set_session_id("bundled_session_123");
+
+  EXPECT_CALL(*mock_service_, GetOrCreateSession("bundled_session_123"));
 
   base::test::TestFuture<
       std::unique_ptr<components_sharing_message::ResponseMessage>>

@@ -7,7 +7,6 @@
 #include <cstddef>
 #include <memory>
 #include <utility>
-#include <variant>
 
 #include "base/check.h"
 #include "base/files/scoped_temp_dir.h"
@@ -16,13 +15,16 @@
 #include "base/functional/callback_helpers.h"
 #include "base/location.h"
 #include "base/memory/scoped_refptr.h"
+#include "base/test/gmock_expected_support.h"
 #include "base/test/metrics/histogram_tester.h"
 #include "base/test/mock_callback.h"
 #include "base/test/task_environment.h"
 #include "base/time/time.h"
+#include "base/types/expected.h"
 #include "base/types/pass_key.h"
 #include "build/build_config.h"
 #include "components/affiliations/core/browser/fake_affiliation_service.h"
+#include "components/affiliations/core/browser/match_type.h"
 #include "components/os_crypt/async/browser/test_utils.h"
 #include "components/os_crypt/async/common/encryptor.h"
 #include "components/password_manager/core/browser/affiliation/affiliated_match_helper.h"
@@ -42,6 +44,8 @@
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 
+using base::test::ErrorIs;
+using base::test::ValueIs;
 using testing::ElementsAre;
 using testing::ElementsAreArray;
 using testing::Field;
@@ -49,7 +53,6 @@ using testing::Optional;
 using testing::Property;
 using testing::Return;
 using testing::UnorderedElementsAreArray;
-using testing::VariantWith;
 
 namespace password_manager {
 
@@ -93,10 +96,13 @@ constexpr const char kTestAndroidIconURL2[] = "https://example.com/icon_2.png";
 
 class MockPasswordStoreBackendTester {
  public:
-  MOCK_METHOD(void, LoginsReceivedConstRef, (const LoginsResult&));
+  MOCK_METHOD(void,
+              LoginsReceivedConstRef,
+              (const std::vector<StoredCredential>&));
 
-  void HandleLoginsOrError(LoginsResultOrError results) {
-    LoginsReceivedConstRef(std::move(std::get<LoginsResult>(results)));
+  void HandleLoginsOrError(base::expected<std::vector<StoredCredential>,
+                                          PasswordStoreBackendError> results) {
+    LoginsReceivedConstRef(std::move(*results));
   }
 };
 
@@ -313,9 +319,9 @@ TEST_P(PasswordStoreBuiltInBackendTest,
       .WillRepeatedly(
           Return(syncer::SyncService::UserActionableError::kSignInNeedsUpdate));
 
-  EXPECT_CALL(mock_remote_changes_callback,
-              Run(VariantWith<PasswordStoreBackendError>(
-                  Field(&PasswordStoreBackendError::type,
+  EXPECT_CALL(
+      mock_remote_changes_callback,
+      Run(ErrorIs(Field(&PasswordStoreBackendError::type,
                         PasswordStoreBackendErrorType::kAuthErrorResolvable))));
   EXPECT_CALL(mock_sync_enabled_or_disabled_cb, Run());
   built_in_backend->OnStateChanged(&mock_sync_service);
@@ -347,9 +353,9 @@ TEST_P(PasswordStoreBuiltInBackendTest,
       .WillRepeatedly(
           Return(syncer::SyncService::UserActionableError::kNeedsPassphrase));
 
-  EXPECT_CALL(mock_remote_changes_callback,
-              Run(VariantWith<PasswordStoreBackendError>(
-                  Field(&PasswordStoreBackendError::type,
+  EXPECT_CALL(
+      mock_remote_changes_callback,
+      Run(ErrorIs(Field(&PasswordStoreBackendError::type,
                         PasswordStoreBackendErrorType::kNeedsPassphrase))));
   EXPECT_CALL(mock_sync_enabled_or_disabled_cb, Run());
   built_in_backend->OnStateChanged(&mock_sync_service);
@@ -383,7 +389,7 @@ TEST_P(PasswordStoreBuiltInBackendTest,
                                  kNeedsTrustedVaultKeyForPasswords));
 
   EXPECT_CALL(mock_remote_changes_callback,
-              Run(VariantWith<PasswordStoreBackendError>(Field(
+              Run(ErrorIs(Field(
                   &PasswordStoreBackendError::type,
                   PasswordStoreBackendErrorType::kKeyRetrievalRequired))));
   EXPECT_CALL(mock_sync_enabled_or_disabled_cb, Run());
@@ -438,10 +444,8 @@ TEST_P(PasswordStoreBuiltInBackendTest, NonASCIIData) {
   backend->AddLoginAsync(FromPasswordForm(expected_form), base::DoNothing());
 
   base::MockCallback<BackendLoginsOrErrorReply> mock_reply;
-  EXPECT_CALL(
-      mock_reply,
-      Run(VariantWith<BackendLoginsResult>(MatchesFormsIgnoringPrimaryKey(
-          std::vector<PasswordForm>{expected_form}))));
+  EXPECT_CALL(mock_reply, Run(ValueIs(MatchesFormsIgnoringPrimaryKey(
+                              std::vector<PasswordForm>{expected_form}))));
   backend->GetAutofillableLoginsAsync(mock_reply.Get());
 
   RunUntilIdle();
@@ -457,9 +461,7 @@ TEST_P(PasswordStoreBuiltInBackendTest, TestAddLoginAsync) {
       PasswordStoreChange::ADD, CloneStoredCredential(cred));
 
   base::MockCallback<PasswordChangesOrErrorReply> mock_reply;
-  EXPECT_CALL(
-      mock_reply,
-      Run(VariantWith<PasswordChanges>(Optional(ElementsAre(add_change)))));
+  EXPECT_CALL(mock_reply, Run(ValueIs(Optional(ElementsAre(add_change)))));
   backend->AddLoginAsync(std::move(cred), mock_reply.Get());
   RunUntilIdle();
 }
@@ -480,9 +482,7 @@ TEST_P(PasswordStoreBuiltInBackendTest, TestUpdateLoginAsync) {
       /*password_changed=*/true);
 
   base::MockCallback<PasswordChangesOrErrorReply> mock_reply;
-  EXPECT_CALL(
-      mock_reply,
-      Run(VariantWith<PasswordChanges>(Optional(ElementsAre(update_change)))));
+  EXPECT_CALL(mock_reply, Run(ValueIs(Optional(ElementsAre(update_change)))));
   backend->UpdateLoginAsync(std::move(cred), mock_reply.Get());
   RunUntilIdle();
 }
@@ -501,9 +501,7 @@ TEST_P(PasswordStoreBuiltInBackendTest, TestRemoveLoginAsync) {
       /*password_changed=*/true);
 
   base::MockCallback<PasswordChangesOrErrorReply> mock_reply;
-  EXPECT_CALL(
-      mock_reply,
-      Run(VariantWith<PasswordChanges>(Optional(ElementsAre(remove_change)))));
+  EXPECT_CALL(mock_reply, Run(ValueIs(Optional(ElementsAre(remove_change)))));
   backend->RemoveLoginAsync(FROM_HERE, std::move(cred), mock_reply.Get());
   RunUntilIdle();
 }
@@ -531,8 +529,7 @@ TEST_P(PasswordStoreBuiltInBackendTest, GetAllLoginsAsync) {
   }
   base::MockCallback<BackendLoginsOrErrorReply> mock_reply;
   EXPECT_CALL(mock_reply,
-              Run(VariantWith<BackendLoginsResult>(
-                  MatchesFormsIgnoringPrimaryKey(expected_results))));
+              Run(ValueIs(MatchesFormsIgnoringPrimaryKey(expected_results))));
   backend->GetAllLoginsAsync(mock_reply.Get());
 
   RunUntilIdle();
@@ -556,9 +553,7 @@ TEST_P(PasswordStoreBuiltInBackendTest, GetAllLoginsAsyncMetrics) {
       PasswordStoreChange::ADD, CloneStoredCredential(cred));
 
   base::MockCallback<PasswordChangesOrErrorReply> mock_reply;
-  EXPECT_CALL(
-      mock_reply,
-      Run(VariantWith<PasswordChanges>(Optional(ElementsAre(add_change)))));
+  EXPECT_CALL(mock_reply, Run(ValueIs(Optional(ElementsAre(add_change)))));
   backend->AddLoginAsync(std::move(cred), mock_reply.Get());
 
   // Get the logins
@@ -618,9 +613,7 @@ TEST_P(PasswordStoreBuiltInBackendTest, GetAutofillableLoginsAsyncMetrics) {
       PasswordStoreChange::ADD, CloneStoredCredential(cred));
 
   base::MockCallback<PasswordChangesOrErrorReply> mock_reply;
-  EXPECT_CALL(
-      mock_reply,
-      Run(VariantWith<PasswordChanges>(Optional(ElementsAre(add_change)))));
+  EXPECT_CALL(mock_reply, Run(ValueIs(Optional(ElementsAre(add_change)))));
   backend->AddLoginAsync(std::move(cred), mock_reply.Get());
 
   // Get the logins
@@ -708,9 +701,7 @@ TEST_P(PasswordStoreBuiltInBackendTest, UpdateLoginAsyncMetrics) {
       /*password_changed=*/true);
 
   base::MockCallback<PasswordChangesOrErrorReply> mock_reply;
-  EXPECT_CALL(
-      mock_reply,
-      Run(VariantWith<PasswordChanges>(Optional(ElementsAre(update_change)))));
+  EXPECT_CALL(mock_reply, Run(ValueIs(Optional(ElementsAre(update_change)))));
   backend->UpdateLoginAsync(std::move(cred), mock_reply.Get());
 
   AdvanceClock(kLatencyDelta);
@@ -1003,13 +994,13 @@ TEST_P(PasswordStoreBuiltInBackendTest, GetLoginsWithAffiliationsAndGroups) {
 
   std::vector<PasswordForm> expected_results;
   expected_results.push_back(*all_credentials[0]);
-  expected_results.back().match_type = PasswordForm::MatchType::kAffiliated;
+  expected_results.back().match_type = affiliations::MatchType::kAffiliated;
   expected_results.push_back(*all_credentials[1]);
-  expected_results.back().match_type = PasswordForm::MatchType::kExact;
+  expected_results.back().match_type = affiliations::MatchType::kExact;
   expected_results.push_back(*all_credentials[2]);
-  expected_results.back().match_type = PasswordForm::MatchType::kPSL;
+  expected_results.back().match_type = affiliations::MatchType::kPSL;
   expected_results.push_back(*all_credentials[3]);
-  expected_results.back().match_type = PasswordForm::MatchType::kGrouped;
+  expected_results.back().match_type = affiliations::MatchType::kGrouped;
 
   PasswordFormDigest observed_form = {PasswordForm::Scheme::kHtml,
                                       kTestWebRealm1, GURL(kTestWebOrigin1)};
@@ -1025,8 +1016,7 @@ TEST_P(PasswordStoreBuiltInBackendTest, GetLoginsWithAffiliationsAndGroups) {
       ->ExpectCallToInjectAffiliationAndBrandingInformation({});
   base::MockCallback<BackendLoginsOrErrorReply> mock_reply;
   EXPECT_CALL(mock_reply,
-              Run(VariantWith<BackendLoginsResult>(
-                  MatchesFormsIgnoringPrimaryKey(expected_results))));
+              Run(ValueIs(MatchesFormsIgnoringPrimaryKey(expected_results))));
 
   backend->GetGroupedMatchingLoginsAsync(observed_form, mock_reply.Get());
   RunUntilIdle();
@@ -1085,8 +1075,8 @@ TEST_P(PasswordStoreBuiltInBackendTest, GetLoginsWithoutAffiliations) {
   PasswordFormDigest observed_form = {PasswordForm::Scheme::kHtml,
                                       kTestWebRealm1, GURL(kTestWebOrigin1)};
 
-  all_credentials[0]->match_type = PasswordForm::MatchType::kExact;
-  all_credentials[1]->match_type = PasswordForm::MatchType::kPSL;
+  all_credentials[0]->match_type = affiliations::MatchType::kExact;
+  all_credentials[1]->match_type = affiliations::MatchType::kPSL;
   std::vector<PasswordForm> expected_results = {*all_credentials[0],
                                                 *all_credentials[1]};
 
@@ -1098,8 +1088,7 @@ TEST_P(PasswordStoreBuiltInBackendTest, GetLoginsWithoutAffiliations) {
 
   base::MockCallback<BackendLoginsOrErrorReply> mock_reply;
   EXPECT_CALL(mock_reply,
-              Run(VariantWith<BackendLoginsResult>(
-                  MatchesFormsIgnoringPrimaryKey(expected_results))));
+              Run(ValueIs(MatchesFormsIgnoringPrimaryKey(expected_results))));
 
   backend->GetGroupedMatchingLoginsAsync(observed_form, mock_reply.Get());
   RunUntilIdle();
@@ -1202,12 +1191,12 @@ TEST_P(PasswordStoreBuiltInBackendTest,
   PasswordFormDigest observed_form = {PasswordForm::Scheme::kHtml,
                                       kTestWebRealm1, GURL(kTestWebOrigin1)};
 
-  all_credentials[0]->match_type = PasswordForm::MatchType::kExact;
-  all_credentials[1]->match_type = PasswordForm::MatchType::kPSL;
-  all_credentials[2]->match_type = PasswordForm::MatchType::kAffiliated;
-  all_credentials[3]->match_type = PasswordForm::MatchType::kAffiliated;
-  all_credentials[5]->match_type = PasswordForm::MatchType::kAffiliated;
-  all_credentials[6]->match_type = PasswordForm::MatchType::kAffiliated;
+  all_credentials[0]->match_type = affiliations::MatchType::kExact;
+  all_credentials[1]->match_type = affiliations::MatchType::kPSL;
+  all_credentials[2]->match_type = affiliations::MatchType::kAffiliated;
+  all_credentials[3]->match_type = affiliations::MatchType::kAffiliated;
+  all_credentials[5]->match_type = affiliations::MatchType::kAffiliated;
+  all_credentials[6]->match_type = affiliations::MatchType::kAffiliated;
   std::vector<PasswordForm> expected_results = {
       *all_credentials[0], *all_credentials[1], *all_credentials[2],
       *all_credentials[3], *all_credentials[5], *all_credentials[6]};
@@ -1227,8 +1216,7 @@ TEST_P(PasswordStoreBuiltInBackendTest,
 
   base::MockCallback<BackendLoginsOrErrorReply> mock_reply;
   EXPECT_CALL(mock_reply,
-              Run(VariantWith<BackendLoginsResult>(
-                  MatchesFormsIgnoringPrimaryKey(expected_results))));
+              Run(ValueIs(MatchesFormsIgnoringPrimaryKey(expected_results))));
 
   backend->GetGroupedMatchingLoginsAsync(observed_form, mock_reply.Get());
   RunUntilIdle();
@@ -1296,13 +1284,13 @@ TEST_P(PasswordStoreBuiltInBackendTest,
   PasswordFormDigest observed_form = {PasswordForm::Scheme::kHtml,
                                       kTestWebRealm1, GURL(kTestWebOrigin1)};
 
-  all_credentials[0]->match_type = PasswordForm::MatchType::kExact;
-  all_credentials[1]->match_type = PasswordForm::MatchType::kPSL;
+  all_credentials[0]->match_type = affiliations::MatchType::kExact;
+  all_credentials[1]->match_type = affiliations::MatchType::kPSL;
   all_credentials[2]->match_type =
-      PasswordForm::MatchType::kAffiliated | PasswordForm::MatchType::kPSL;
-  all_credentials[3]->match_type = PasswordForm::MatchType::kAffiliated;
+      affiliations::MatchType::kAffiliated | affiliations::MatchType::kPSL;
+  all_credentials[3]->match_type = affiliations::MatchType::kAffiliated;
   all_credentials[6]->match_type =
-      PasswordForm::MatchType::kPSL | PasswordForm::MatchType::kGrouped;
+      affiliations::MatchType::kPSL | affiliations::MatchType::kGrouped;
   std::vector<PasswordForm> expected_results = {
       *all_credentials[0], *all_credentials[1], *all_credentials[2],
       *all_credentials[3], *all_credentials[6]};
@@ -1318,8 +1306,7 @@ TEST_P(PasswordStoreBuiltInBackendTest,
 
   base::MockCallback<BackendLoginsOrErrorReply> mock_reply;
   EXPECT_CALL(mock_reply,
-              Run(VariantWith<BackendLoginsResult>(
-                  MatchesFormsIgnoringPrimaryKey(expected_results))));
+              Run(ValueIs(MatchesFormsIgnoringPrimaryKey(expected_results))));
 
   backend->GetGroupedMatchingLoginsAsync(observed_form, mock_reply.Get());
   RunUntilIdle();
@@ -1387,11 +1374,11 @@ TEST_P(PasswordStoreBuiltInBackendTest,
   PasswordFormDigest observed_form = {PasswordForm::Scheme::kHtml,
                                       kTestWebRealm1, GURL(kTestWebOrigin1)};
 
-  all_credentials[0]->match_type = PasswordForm::MatchType::kExact;
-  all_credentials[1]->match_type = PasswordForm::MatchType::kPSL;
+  all_credentials[0]->match_type = affiliations::MatchType::kExact;
+  all_credentials[1]->match_type = affiliations::MatchType::kPSL;
   all_credentials[2]->match_type =
-      PasswordForm::MatchType::kAffiliated | PasswordForm::MatchType::kPSL;
-  all_credentials[3]->match_type = PasswordForm::MatchType::kAffiliated;
+      affiliations::MatchType::kAffiliated | affiliations::MatchType::kPSL;
+  all_credentials[3]->match_type = affiliations::MatchType::kAffiliated;
   std::vector<PasswordForm> expected_results = {
       *all_credentials[0], *all_credentials[1], *all_credentials[2],
       *all_credentials[3]};
@@ -1406,8 +1393,7 @@ TEST_P(PasswordStoreBuiltInBackendTest,
 
   base::MockCallback<BackendLoginsOrErrorReply> mock_reply;
   EXPECT_CALL(mock_reply,
-              Run(VariantWith<BackendLoginsResult>(
-                  MatchesFormsIgnoringPrimaryKey(expected_results))));
+              Run(ValueIs(MatchesFormsIgnoringPrimaryKey(expected_results))));
 
   backend->GetGroupedMatchingLoginsAsync(observed_form, mock_reply.Get());
   RunUntilIdle();
@@ -1471,11 +1457,11 @@ TEST_P(PasswordStoreBuiltInBackendTest, GetLoginsWithWebGroup) {
   PasswordFormDigest observed_form = {PasswordForm::Scheme::kHtml,
                                       kTestWebRealm1, GURL(kTestWebOrigin1)};
 
-  all_credentials[0]->match_type = PasswordForm::MatchType::kExact;
-  all_credentials[1]->match_type = PasswordForm::MatchType::kPSL;
+  all_credentials[0]->match_type = affiliations::MatchType::kExact;
+  all_credentials[1]->match_type = affiliations::MatchType::kPSL;
   all_credentials[2]->match_type =
-      PasswordForm::MatchType::kAffiliated | PasswordForm::MatchType::kPSL;
-  all_credentials[3]->match_type = PasswordForm::MatchType::kGrouped;
+      affiliations::MatchType::kAffiliated | affiliations::MatchType::kPSL;
+  all_credentials[3]->match_type = affiliations::MatchType::kGrouped;
   std::vector<PasswordForm> expected_results = {
       *all_credentials[0], *all_credentials[1], *all_credentials[2],
       *all_credentials[3]};
@@ -1490,8 +1476,7 @@ TEST_P(PasswordStoreBuiltInBackendTest, GetLoginsWithWebGroup) {
 
   base::MockCallback<BackendLoginsOrErrorReply> mock_reply;
   EXPECT_CALL(mock_reply,
-              Run(VariantWith<BackendLoginsResult>(
-                  MatchesFormsIgnoringPrimaryKey(expected_results))));
+              Run(ValueIs(MatchesFormsIgnoringPrimaryKey(expected_results))));
 
   backend->GetGroupedMatchingLoginsAsync(observed_form, mock_reply.Get());
   RunUntilIdle();
@@ -1535,7 +1520,7 @@ TEST_P(PasswordStoreBuiltInBackendTest,
       ->ExpectCallToInjectAffiliationAndBrandingInformation(
           std::move(affiliation_info_for_results));
 
-  credential->match_type = PasswordForm::MatchType::kExact;
+  credential->match_type = affiliations::MatchType::kExact;
   credential->affiliated_web_realm = kTestWebRealm1;
   credential->app_display_name = kTestAndroidName1;
   credential->app_icon_url = GURL(kTestAndroidIconURL1);
@@ -1547,8 +1532,7 @@ TEST_P(PasswordStoreBuiltInBackendTest,
   std::vector<PasswordForm> expected_results = {*credential};
   base::MockCallback<BackendLoginsOrErrorReply> mock_reply;
   EXPECT_CALL(mock_reply,
-              Run(VariantWith<BackendLoginsResult>(
-                  MatchesFormsIgnoringPrimaryKey(expected_results))));
+              Run(ValueIs(MatchesFormsIgnoringPrimaryKey(expected_results))));
 
   backend->GetGroupedMatchingLoginsAsync(observed_form, mock_reply.Get());
   RunUntilIdle();
@@ -1595,7 +1579,7 @@ TEST_P(PasswordStoreBuiltInBackendTest,
       ->ExpectCallToInjectAffiliationAndBrandingInformation(
           std::move(affiliation_info_for_results));
 
-  credential->match_type = PasswordForm::MatchType::kAffiliated;
+  credential->match_type = affiliations::MatchType::kAffiliated;
   credential->affiliated_web_realm = kTestWebRealm1;
   credential->app_display_name = kTestAndroidName1;
   credential->app_icon_url = GURL(kTestAndroidIconURL1);
@@ -1603,8 +1587,7 @@ TEST_P(PasswordStoreBuiltInBackendTest,
   std::vector<PasswordForm> expected_results = {*credential};
   base::MockCallback<BackendLoginsOrErrorReply> mock_reply;
   EXPECT_CALL(mock_reply,
-              Run(VariantWith<BackendLoginsResult>(
-                  MatchesFormsIgnoringPrimaryKey(expected_results))));
+              Run(ValueIs(MatchesFormsIgnoringPrimaryKey(expected_results))));
 
   backend->GetGroupedMatchingLoginsAsync(observed_form, mock_reply.Get());
   RunUntilIdle();
@@ -1658,8 +1641,7 @@ TEST_P(PasswordStoreBuiltInBackendTest,
 
   base::MockCallback<BackendLoginsOrErrorReply> mock_reply;
   EXPECT_CALL(mock_reply,
-              Run(VariantWith<BackendLoginsResult>(
-                  MatchesFormsIgnoringPrimaryKey(expected_results))));
+              Run(ValueIs(MatchesFormsIgnoringPrimaryKey(expected_results))));
 
   backend->GetAllLoginsWithAffiliationAndBrandingAsync(mock_reply.Get());
   RunUntilIdle();

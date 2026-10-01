@@ -30,6 +30,8 @@
 #include "services/device/public/cpp/bluetooth/bluetooth_utils.h"
 #include "services/device/public/mojom/serial.mojom.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/page_transition_types.h"
+#include "ui/base/window_open_disposition.h"
 
 #if BUILDFLAG(IS_CHROMEOS)
 #include "ash/webui/settings/public/constants/routes.mojom.h"
@@ -306,12 +308,11 @@ void SerialChooserController::OpenHelpCenterUrl() const {
     return;
   }
 
-  web_contents->OpenURL(
-      content::OpenURLParams(
-          GURL(chrome::kChooserSerialOverviewUrl), content::Referrer(),
-          WindowOpenDisposition::NEW_FOREGROUND_TAB,
-          ui::PAGE_TRANSITION_AUTO_TOPLEVEL, /*is_renderer_initiated=*/false),
-      /*navigation_handle_callback=*/{});
+  web_contents->OpenURL(content::OpenURLParams::CreateBrowserInitiated(
+                            GURL(chrome::kChooserSerialOverviewUrl),
+                            WindowOpenDisposition::NEW_FOREGROUND_TAB,
+                            ui::PAGE_TRANSITION_AUTO_TOPLEVEL),
+                        /*navigation_handle_callback=*/{});
 }
 
 void SerialChooserController::OpenPermissionPreferences() const {
@@ -529,11 +530,11 @@ void SerialChooserController::OpenBluetoothHelpUrl() const {
       profile, chromeos::settings::mojom::kBluetoothDevicesSubpagePath);
 #else
   // For other operating systems, show a help center page in a tab.
-  content::OpenURLParams open_url_params(
-      GURL(chrome::kBluetoothAdapterOffHelpURL), content::Referrer(),
-      WindowOpenDisposition::NEW_FOREGROUND_TAB,
-      ui::PAGE_TRANSITION_AUTO_TOPLEVEL,
-      /*is_renderer_initiated=*/false);
+  content::OpenURLParams open_url_params =
+      content::OpenURLParams::CreateBrowserInitiated(
+          GURL(chrome::kBluetoothAdapterOffHelpURL),
+          WindowOpenDisposition::NEW_FOREGROUND_TAB,
+          ui::PAGE_TRANSITION_AUTO_TOPLEVEL);
 #if BUILDFLAG(IS_ANDROID)
   auto* rfh = initiator_document_.AsRenderFrameHostIfValid();
   auto* web_contents = rfh && rfh->IsActive()

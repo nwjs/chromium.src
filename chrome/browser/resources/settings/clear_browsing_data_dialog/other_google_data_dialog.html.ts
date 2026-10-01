@@ -1,0 +1,63 @@
+// Copyright 2026 The Chromium Authors
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+import {html} from 'chrome://resources/lit/v3_0/lit.rollup.js';
+
+import type {SettingsOtherGoogleDataDialogElement} from './other_google_data_dialog.js';
+
+export function getHtml(this: SettingsOtherGoogleDataDialogElement) {
+  return html`<!--_html_template_start_-->
+<cr-dialog id="dialog" show-on-attach>
+  <div slot="title">
+    <cr-icon-button class="icon-arrow-back" aria-label="$i18n{back}"
+        @click="${this.onBackOrCancelClick_}" autofocus></cr-icon-button>
+    ${this.computeDialogTitle_()}
+  </div>
+  <div slot="body">
+    <div id="subpageDescription">$i18n{otherDataDescription}
+    </div>
+    <div class="link-rows-block">
+      <cr-link-row id="passwordManagerLink" external using-slotted-label
+          sub-label="$i18n{manageInGooglePasswordManager}"
+          @click="${this.onPasswordManagerClick_}">
+        <div slot="label" class="label">$i18n{passwordsAndPasskeys}</div>
+      </cr-link-row>
+      ${this.shouldShowGoogleSearchHistoryLink_() ? html`
+        <cr-link-row id="googleSearchHistoryLink" external using-slotted-label
+            sub-label="$i18n{manageInYourGoogleAccount}"
+            @click="${this.onGoogleSearchHistoryLinkClick_}">
+          <div slot="label" class="label">$i18n{searchHistory}</div>
+        </cr-link-row>
+      ` : ''}
+      ${this.shouldShowMyActivityLink_() ? html`
+        <cr-link-row id="myActivityLink" external using-slotted-label
+            sub-label="$i18n{manageInYourGoogleAccount}"
+            @click="${this.onMyActivityLinkClick_}">
+          <div slot="label" class="label">$i18n{myActivity}</div>
+        </cr-link-row>
+      ` : ''}
+      ${this.shouldShowGeminiAppsActivityLink_() ? html`
+        <cr-link-row id="geminiAppsActivityLink" external using-slotted-label
+            sub-label="$i18n{manageInYourGeminiAppsActivity}"
+            @click="${this.onGeminiAppsActivityClick_}">
+          <div slot="label" class="label">$i18n{geminiAppsActivity}</div>
+        </cr-link-row>
+      ` : ''}
+      ${!this.isGoogleDse_ ? html`
+        <cr-link-row id="nonGoogleSearchHistoryLink" external
+            using-slotted-label class="hide-icon"
+            sub-label="${this.nonGoogleSearchHistorySubLabel_}">
+          <div slot="label" class="label">$i18n{searchHistory}</div>
+        </cr-link-row>
+      ` : ''}
+    </div>
+  </div>
+  <div slot="button-container">
+    <cr-button class="cancel-button" @click="${this.onBackOrCancelClick_}">
+      $i18n{done}
+    </cr-button>
+  </div>
+</cr-dialog>
+<!--_html_template_end_-->`;
+}

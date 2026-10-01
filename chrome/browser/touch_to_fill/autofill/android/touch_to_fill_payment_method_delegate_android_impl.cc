@@ -16,7 +16,6 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "components/affiliations/core/browser/affiliation_utils.h"
-#include "components/autofill/core/browser/autofill_browser_util.h"
 #include "components/autofill/core/browser/autofill_field.h"
 #include "components/autofill/core/browser/data_manager/payments/payments_data_manager.h"
 #include "components/autofill/core/browser/data_manager/valuables/valuables_data_manager.h"
@@ -312,19 +311,18 @@ bool TouchToFillPaymentMethodDelegateAndroidImpl::TryToShowTouchToFill(
       /*product=*/std::nullopt);
   if (std::get_if<std::vector<CreditCard>>(&dry_run.items_to_suggest)) {
     manager_->DidShowSuggestions({Suggestion(SuggestionType::kCreditCardEntry)},
-                                 /*parent_suggestion_metadata=*/std::nullopt,
-                                 form.global_id(), field.global_id(),
+                                 /*metadata=*/{}, form.global_id(),
+                                 field.global_id(),
                                  /*update_suggestions_callback=*/{});
   } else if (std::get_if<std::vector<LoyaltyCard>>(&dry_run.items_to_suggest)) {
     manager_->DidShowSuggestions(
         {Suggestion(SuggestionType::kLoyaltyCardEntry)},
-        /*parent_suggestion_metadata=*/std::nullopt, form.global_id(),
-        field.global_id(),
+        /*metadata=*/{}, form.global_id(), field.global_id(),
         /*update_suggestions_callback=*/{});
   } else {
     manager_->DidShowSuggestions({Suggestion(SuggestionType::kIbanEntry)},
-                                 /*parent_suggestion_metadata=*/std::nullopt,
-                                 form.global_id(), field.global_id(),
+                                 /*metadata=*/{}, form.global_id(),
+                                 field.global_id(),
                                  /*update_suggestions_callback=*/{});
   }
   return true;
@@ -353,8 +351,8 @@ bool TouchToFillPaymentMethodDelegateAndroidImpl::
       SuggestionHidingReason::kOverlappingWithTouchToFillSurface,
       /*product=*/std::nullopt);
   manager_->DidShowSuggestions({Suggestion(SuggestionType::kLoyaltyCardEntry)},
-                               /*parent_suggestion_metadata=*/std::nullopt,
-                               form.global_id(), field.global_id(),
+                               /*metadata=*/{}, form.global_id(),
+                               field.global_id(),
                                /*update_suggestions_callback=*/{});
   return true;
 }

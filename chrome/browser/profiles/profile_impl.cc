@@ -35,6 +35,7 @@
 #include "base/task/task_traits.h"
 #include "base/task/thread_pool.h"
 #include "base/threading/scoped_blocking_call.h"
+#include "base/threading/thread_restrictions.h"
 #include "base/trace_event/trace_event.h"
 #include "base/version.h"
 #include "build/build_config.h"
@@ -186,6 +187,7 @@
 #include "pdf/buildflags.h"
 #include "printing/buildflags/buildflags.h"
 #include "services/data_decoder/public/cpp/data_decoder.h"
+#include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "services/preferences/public/mojom/preferences.mojom.h"
 #include "services/preferences/public/mojom/tracked_preference_validation_delegate.mojom.h"
 #include "services/service_manager/public/cpp/service.h"
@@ -489,12 +491,9 @@ ProfileImpl::ProfileImpl(
   // In ChromeOS Guest Mode, there can be only three profiles, main guest
   // profile, otr guest profile and sign in profile, and only main and otr ,
   // which are 'user profile', should be the guest
-  bool is_guest_session = path == ProfileManager::GetGuestProfilePath();
-  if (new_guest_profile_impl_) {
-    is_guest_session = base::CommandLine::ForCurrentProcess()->HasSwitch(
-                           ash::switches::kGuestSession) &&
-                       ash::IsUserBrowserContextBaseName(path_.BaseName());
-  }
+  bool is_guest_session = base::CommandLine::ForCurrentProcess()->HasSwitch(
+                              ash::switches::kGuestSession) &&
+                          ash::IsUserBrowserContextBaseName(path_.BaseName());
 #else
   bool is_guest_session = path == ProfileManager::GetGuestProfilePath();
 #endif

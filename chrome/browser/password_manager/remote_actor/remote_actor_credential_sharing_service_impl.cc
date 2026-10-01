@@ -12,6 +12,7 @@
 #include "chrome/browser/password_manager/remote_actor/remote_actor_credential_permission_client.h"
 #include "chrome/browser/password_manager/remote_actor/remote_actor_credential_store_client.h"
 #include "components/signin/public/identity_manager/identity_manager.h"
+#include "services/network/public/cpp/shared_url_loader_factory.h"
 
 namespace password_manager {
 
@@ -38,7 +39,6 @@ void RemoteActorCredentialSharingServiceImpl::SharePassword(
   CHECK(!callback.is_null());
 
   if (params.task_id.empty() || params.web_origin.empty() ||
-      params.password_client_tag_hash.empty() ||
       params.obfuscated_gaia_id.empty()) {
     base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
         FROM_HERE, base::BindOnce(std::move(callback), false));
@@ -46,8 +46,7 @@ void RemoteActorCredentialSharingServiceImpl::SharePassword(
   }
 
   credential_store_->UpdateCredential(
-      params.obfuscated_gaia_id, params.web_origin,
-      params.password_client_tag_hash, params.password_data,
+      params.obfuscated_gaia_id, params.web_origin, params.password_data,
       params.time_to_live,
       base::BindOnce(
           &RemoteActorCredentialSharingServiceImpl::OnPassboxCompleted,
@@ -62,10 +61,11 @@ void RemoteActorCredentialSharingServiceImpl::OnPassboxCompleted(
     std::move(callback).Run(false);
     return;
   }
+
   RemoteActorCredentialPermissionClient::PasswordPermission permission;
   permission.task_id = params.task_id;
   permission.web_origin = params.web_origin;
-  permission.password_client_tag_hash = params.password_client_tag_hash;
+  permission.password_client_tag_hash = params.password_client_tag_hash();
 
   permission_client_->GrantPasswordPermission(permission, std::move(callback));
 }

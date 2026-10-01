@@ -26,7 +26,6 @@
 #include "base/location.h"
 #include "base/memory/weak_ptr.h"
 #include "base/metrics/histogram_functions.h"
-#include "base/metrics/histogram_macros.h"
 #include "base/notreached.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
@@ -506,6 +505,11 @@ bool AutofillAiManager::MaybeImportForm(const FormStructure& form,
     }
     const bool is_save_synchronous = !IsSaveAsynchronous(
         candidate_entity.type(), candidate_entity.record_type());
+    // TODO(crbug.com/553442816): If IsEligibleForWalletPassDisclosure() is
+    // true, implement the RPC backend code to fetch
+    // legal message lines, and call `client_->ShowEntityImportBubble` (which
+    // will take `legal_message_lines` as an argument as well) in
+    // `OnGetDetailsForUpsertPassResponse`.
     client_->ShowEntityImportBubble(std::move(candidate_entity),
                                     std::move(old_entity), is_save_synchronous,
                                     std::move(prompt_result_callback));
@@ -651,43 +655,6 @@ std::vector<Suggestion> AutofillAiManager::GetSuggestions(
                                            &form, autofill_field, *client_,
                                            on_suggestions_generated);
   return suggestions;
-}
-
-bool AutofillAiManager::ShouldDisplayIph(const FormStructure& form,
-                                         FieldGlobalId field_id) const {
-  // This early return is just a performance optimization:
-  // AutofillAiAction::kIphForOptIn requires an EntityType, which we don't know
-  // at this point yet. Since kIphForOptIn is a stronger requirement than
-  // kOptIn, we can check kOptIn first.
-  if (!MayPerformAutofillAiAction(*client_, AutofillAiAction::kOptIn)) {
-    return false;
-  }
-
-  const AutofillField* const focused_field = form.GetFieldById(field_id);
-  if (!focused_field) {
-    return false;
-  }
-
-  // We want to show IPH if filling the `focused_field` and fields that belong
-  // to the same entity leads to an import.
-  std::map<EntityType, DenseSet<AttributeType>> attributes_in_form;
-  for (auto [entity, fields_and_types] : RationalizeAndDetermineAttributeTypes(
-           form.fields(), focused_field->section())) {
-    if (std::ranges::contains(fields_and_types, focused_field->global_id(),
-                              [](const AutofillFieldWithAttributeType& f) {
-                                return f.field->global_id();
-                              }) &&
-        MayPerformAutofillAiAction(*client_, AutofillAiAction::kIphForOptIn,
-                                   entity)) {
-      attributes_in_form[entity].insert_all(
-          DenseSet(fields_and_types, &AutofillFieldWithAttributeType::type));
-    }
-  }
-
-  return std::ranges::any_of(attributes_in_form, [](const auto& p) {
-    return !p.first.read_only() &&
-           AttributesMeetImportConstraints(p.first, p.second);
-  });
 }
 
 LogManager* AutofillAiManager::GetCurrentLogManager() {
@@ -950,9 +917,6 @@ AutofillAiManager::GetMigratePromptCandidates(
     base::span<const EntityInstance> observed_entities,
     base::span<const EntityInstance> saved_entities,
     const FormStructure& form) const {
-  SCOPED_UMA_HISTOGRAM_TIMER(
-      "Autofill.Ai.Timing.GetEntityUpstreamCandidateFromSubmittedForm");
-
   std::vector<const EntityInstance*> saved_local_entities;
   std::vector<const EntityInstance*> saved_server_entities;
   for (const EntityInstance& entity : saved_entities) {

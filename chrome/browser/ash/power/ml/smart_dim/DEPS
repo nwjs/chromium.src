@@ -3,10 +3,6 @@ include_rules = [
   # details.
   "-chrome",
 
-  # This directory is in //chrome, which violates the rule above. Allow this
-  # directory to #include its own files.
-  "+chrome/browser/ash/power/ml/smart_dim",
-
   # Existing dependencies within //chrome. There is an active effort to
   # refactor //chrome/browser/ash to break these dependencies; see b/332804822.
   # Whenever possible, avoid adding new //chrome dependencies to this list.
@@ -16,12 +12,12 @@ include_rules = [
   # directory basis. See //tools/chromeos/gen_deps.sh for details.
   "+chrome/browser/ash/power/ml",
   "+chrome/grit/browser_resources.h",
+  "+components/assist_ranker",
 ]
 
 specific_include_rules = {
   "smart_dim_integration_test\\.cc": [
     "+chrome/browser/browser_process.h",
     "+chrome/browser/component_updater/smart_dim_component_installer.h",
-    "+chrome/common/chrome_features.h",
   ],
 }

@@ -29,6 +29,7 @@
 #include "third_party/skia/include/core/SkBitmap.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/models/dialog_model.h"
+#include "ui/base/page_transition_types.h"
 #include "ui/base/window_open_disposition.h"
 
 #if BUILDFLAG(IS_ANDROID)
@@ -98,9 +99,10 @@ void OpenExtensionsShortcutsPage(
   }
   const GURL kUrl(base::StrCat({chrome::kChromeUIExtensionsURL,
                                 chrome::kExtensionConfigureCommandsSubPage}));
-  content::OpenURLParams params(
-      kUrl, content::Referrer(), WindowOpenDisposition::NEW_FOREGROUND_TAB,
-      ui::PAGE_TRANSITION_LINK, /*is_renderer_initiated=*/false);
+  content::OpenURLParams params =
+      content::OpenURLParams::CreateBrowserInitiated(
+          kUrl, WindowOpenDisposition::NEW_FOREGROUND_TAB,
+          ui::PAGE_TRANSITION_LINK);
   web_contents->OpenURL(params, {});
 }
 
@@ -119,8 +121,10 @@ class ExtensionPostInstallDialog : public ui::DialogModelDelegate {
   ExtensionPostInstallDialogModel* model() { return model_.get(); }
 
   void LinkClicked() {
-    extensions::OpenExtensionsShortcutsPage(web_contents_);
+    base::WeakPtr<content::WebContents> web_contents = web_contents_;
     dialog_model()->host()->Close();
+    // `this` might be deleted when `Close()` is called.
+    extensions::OpenExtensionsShortcutsPage(web_contents);
   }
 
  private:

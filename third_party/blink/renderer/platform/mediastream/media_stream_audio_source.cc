@@ -17,6 +17,7 @@
 #include "base/task/single_thread_task_runner.h"
 #include "build/build_config.h"
 #include "media/base/audio_glitch_info.h"
+#include "media/media_buildflags.h"
 #include "third_party/blink/public/common/thread_safe_browser_interface_broker_proxy.h"
 #include "third_party/blink/public/platform/modules/webrtc/webrtc_logging.h"
 #include "third_party/blink/public/platform/platform.h"
@@ -129,18 +130,24 @@ void* MediaStreamAudioSource::GetClassIdentifier() const {
   return nullptr;
 }
 
-bool MediaStreamAudioSource::HasSameReconfigurableSettings(
+bool MediaStreamAudioSource::HasSameSessionIdentityProperties(
     const blink::AudioProcessingProperties& selected_properties) const {
+  // Source reuse is evaluated against the initial properties with which
+  // the capture session was created. Comparing against current properties
+  // would make reuse dependent on transient runtime changes, potentially
+  // causing unnecessary duplicate sessions or coupling streams with
+  // conflicting requirements.
   std::optional<blink::AudioProcessingProperties> configured_properties =
-      GetAudioProcessingProperties();
-  if (!configured_properties)
+      GetInitialAudioProcessingProperties();
+  if (!configured_properties) {
     return false;
+  }
 
-  return selected_properties.HasSameReconfigurableSettings(
+  return selected_properties.HasSameSessionIdentityProperties(
       *configured_properties);
 }
 
-bool MediaStreamAudioSource::HasSameNonReconfigurableSettings(
+bool MediaStreamAudioSource::HasSameInterlockingProperties(
     MediaStreamAudioSource* other_source) const {
   if (!other_source)
     return false;
@@ -153,7 +160,7 @@ bool MediaStreamAudioSource::HasSameNonReconfigurableSettings(
   if (!others_properties || !this_properties)
     return false;
 
-  return this_properties->HasSameNonReconfigurableSettings(*others_properties);
+  return this_properties->HasSameInterlockingProperties(*others_properties);
 }
 
 std::optional<media::AudioCapturerSource::ErrorCode>

@@ -87,10 +87,6 @@ BASE_DECLARE_FEATURE(kClearUndecryptablePasswordsOnSync);
 BASE_DECLARE_FEATURE(kCredentialManagementUnifiedUi);
 #endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
 
-// Enables debug data popups on OTP fields for manual testing of
-// one-time-passwords. Only for OTP detection testing, not intended to be
-// launched.
-BASE_DECLARE_FEATURE(kDebugUiForOtps);
 
 // When enabled, automated password change won't be offered when the form
 // contains new password field.
@@ -183,12 +179,12 @@ BASE_DECLARE_FEATURE(kPasswordFormGroupedAffiliations);
 // terminal.
 BASE_DECLARE_FEATURE(kPasswordManagerLogToTerminal);
 
-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)  // Desktop
+#if !BUILDFLAG(IS_ANDROID)
 // Enables the OnDeviceEncryptionMetricsReporter service which tracks
 // on-device encryption states of passwords and passkeys and records
 // readiness metrics.
 BASE_DECLARE_FEATURE(kPasswordManagerOnDeviceEncryptionMetricsReporter);
-#endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_IOS)
+#endif  // !BUILDFLAG(IS_ANDROID)
 
 // Performs additional security checks wrt. the triggering frame before adding
 // the "Select password" entry to the context menu.

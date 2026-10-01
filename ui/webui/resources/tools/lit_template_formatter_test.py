@@ -152,6 +152,23 @@ class LitTemplateFormatterTest(unittest.TestCase):
   def testRetainNewlines(self):
     self._run_test("retain_newlines.html.ts", "retain_newlines.html.ts")
 
+  def testSingleLineTemplate(self):
+    self._run_test(
+      "test_single_line_template.html.ts", "test_single_line_template.html.ts"
+    )
+
+  def testTernaryColumnLimitWrap(self):
+    self._run_test(
+      "test_ternary_column_limit.html.ts",
+      "test_ternary_column_limit.html.ts",
+    )
+
+  def testLineLengthWrapping(self):
+    self._run_test(
+      "test_line_length_wrapping.html.ts",
+      "test_line_length_wrapping.html.ts",
+    )
+
   def testDryRunModeFormatted(self):
     filename = "test_basic_expressions.html.ts"
     expected_path = os.path.join(

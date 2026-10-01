@@ -22,7 +22,6 @@ public abstract class PaymentFeatureList {
     public static final String ANDROID_PAYMENT_INTENTS_OMIT_DEPRECATED_PARAMETERS =
             "AndroidPaymentIntentsOmitDeprecatedParameters";
 
-    public static final String DEDUPLICATE_NATIVE_PAYMENT_APPS = "DeduplicateNativePaymentApps";
     public static final String DELAY_NATIVE_PAYMENT_APP_SCRIM_SHOW =
             "DelayNativePaymentAppScrimShow";
     public static final String ENFORCE_FULL_DELEGATION = "EnforceFullDelegation";
@@ -32,6 +31,8 @@ public abstract class PaymentFeatureList {
             "ReconnectOnLostConnectionToUpdatePaymentDetailsService";
     public static final String SERVICE_WORKER_PAYMENT_APPS = "ServiceWorkerPaymentApps";
     public static final String SHOW_READY_TO_PAY_DEBUG_INFO = "ShowReadyToPayDebugInfo";
+    public static final String SURFACE_WALLET_ERROR_CODE_FROM_INTENT =
+            "SurfaceWalletErrorCodeFromIntent";
     public static final String UPDATE_PAYMENT_DETAILS_INTENT_FILTER_IN_PAYMENT_APP =
             "UpdatePaymentDetailsIntentFilterInPaymentApp";
     public static final String WEB_PAYMENTS = "WebPayments";

@@ -34,6 +34,7 @@ import org.chromium.chrome.browser.tasks.tab_management.TabListEditorCoordinator
 import org.chromium.chrome.browser.tasks.tab_management.TabListEditorCoordinator.ItemPickerSelectionHandler;
 import org.chromium.chrome.browser.tasks.tab_management.TabListEditorCoordinator.LifecycleObserver;
 import org.chromium.chrome.browser.tasks.tab_management.TabListEditorCoordinator.NavigationProvider;
+import org.chromium.chrome.browser.tasks.tab_management.TabListMediator.TabListLayoutType;
 import org.chromium.chrome.browser.tasks.tab_management.TabProperties.TabActionState;
 import org.chromium.chrome.browser.tasks.tab_management.TabUiMetricsHelper.TabListEditorExitMetricGroups;
 import org.chromium.chrome.browser.ui.messages.snackbar.SnackbarManager;
@@ -71,13 +72,13 @@ class TabListEditorMediator
             new ValueChangedCallback<>(this::onTabModelChanged);
     private final PropertyModel mModel;
     private final SelectionDelegate<TabListEditorItemSelectionId> mSelectionDelegate;
-    private final boolean mActionOnRelatedTabs;
+    private final @TabListLayoutType int mLayoutType;
     private final TabModelObserver mTabModelObserver;
     private final SettableNonNullObservableSupplier<Boolean> mBackPressChangedSupplier =
             ObservableSuppliers.createNonNull(false);
 
-    private final List<Tab> mVisibleTabs = new ArrayList<>();
-    private final List<String> mVisibleTabGroups = new ArrayList<>();
+    private final ArrayList<Tab> mVisibleTabs = new ArrayList<>();
+    private final ArrayList<String> mVisibleTabGroups = new ArrayList<>();
     private final TabListEditorLayout mTabListEditorLayout;
     private final @Nullable DesktopWindowStateManager mDesktopWindowStateManager;
     private final @CreationMode int mCreationMode;
@@ -120,7 +121,7 @@ class TabListEditorMediator
             NullableObservableSupplier<TabModel> currentTabModelSupplier,
             PropertyModel model,
             SelectionDelegate<TabListEditorItemSelectionId> selectionDelegate,
-            boolean actionOnRelatedTabs,
+            @TabListLayoutType int layoutType,
             SnackbarManager snackbarManager,
             @Nullable BottomSheetController bottomSheetController,
             TabListEditorLayout tabListEditorLayout,
@@ -132,7 +133,7 @@ class TabListEditorMediator
         mCurrentTabModelSupplier = currentTabModelSupplier;
         mModel = model;
         mSelectionDelegate = selectionDelegate;
-        mActionOnRelatedTabs = actionOnRelatedTabs;
+        mLayoutType = layoutType;
         mSnackbarManager = snackbarManager;
         mBottomSheetController = bottomSheetController;
         mTabListEditorLayout = tabListEditorLayout;
@@ -323,9 +324,7 @@ class TabListEditorMediator
         // Records to a histogram the time since an instance of TabListEditor was last opened
         // within an activity lifespan.
         TabUiMetricsHelper.recordEditorTimeSinceLastShownHistogram();
-        // We don't call TabListCoordinator#prepareTabSwitcherView, since not all the logic (e.g.
-        // requiring one tab to be selected) is applicable here.
-        mTabListCoordinator.prepareTabGridView();
+        mTabListCoordinator.prepareTabListView();
         mTabListCoordinator.attachEmptyView();
         mVisibleTabs.clear();
         mVisibleTabs.addAll(tabs);
@@ -365,8 +364,7 @@ class TabListEditorMediator
         runListDestroyables();
         mActionListModel.clear();
         for (TabListEditorAction action : actions) {
-            action.configure(
-                    mCurrentTabModelSupplier, mSelectionDelegate, this, mActionOnRelatedTabs);
+            action.configure(mCurrentTabModelSupplier, mSelectionDelegate, this, mLayoutType);
             mActionListModel.add(action.getPropertyModel());
         }
 
@@ -425,9 +423,11 @@ class TabListEditorMediator
         if (!hiddenByAction) {
             syncRecyclerViewPosition();
         }
-        mTabListCoordinator.cleanupTabGridView();
+        mTabListCoordinator.cleanupTabListView();
         mVisibleTabs.clear();
+        mVisibleTabs.trimToSize();
         mVisibleTabGroups.clear();
+        mVisibleTabGroups.trimToSize();
 
         if (mCreationMode != CreationMode.ITEM_PICKER) {
             mResetHandler.resetWithListOfTabs(

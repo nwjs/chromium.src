@@ -29,6 +29,7 @@
 #include "chrome/browser/ui/page_action/page_action_controller.h"
 #include "chrome/browser/ui/page_action/page_action_icon_type.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/toolbar_button_provider.h"
@@ -54,6 +55,7 @@
 #include "components/permissions/permission_request_manager.h"
 #include "components/security_state/core/security_state.h"
 #include "components/zoom/zoom_controller.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/common/content_features.h"
 #include "content/public/test/back_forward_cache_util.h"
 #include "content/public/test/browser_test.h"
@@ -69,6 +71,7 @@
 #include "ui/base/clipboard/scoped_clipboard_writer.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/pointer/touch_ui_controller.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/events/event.h"
 #include "ui/events/event_constants.h"
 #include "ui/views/accessibility/view_accessibility.h"
@@ -136,24 +139,14 @@ class LocationBarViewBrowserTest : public InProcessBrowserTest {
 
   bool IsContentSettingImageVisible(
       ContentSettingImageModel::ImageType image_type) {
-    if (features::IsWebUILocationBarEnabled()) {
-      auto* const browser_view =
-          BrowserView::GetBrowserViewForBrowser(browser());
-      if (auto* const provider = browser_view->toolbar_button_provider()) {
-        if (auto* const webui_view =
-                provider->GetWebUIToolbarViewForTesting()) {
-          if (auto* const webui_loc_bar = webui_view->GetLocationBar()) {
-            if (auto* model =
-                    webui_loc_bar->content_setting_image_control().GetModel(
-                        image_type)) {
-              return model->is_visible();
-            }
-          }
-        }
-      }
-      return false;
-    }
-    return GetContentSettingImageView(image_type).GetVisible();
+    auto* location_bar =
+        BrowserWindow::FromBrowser(browser())->GetLocationBar();
+    CHECK(location_bar);
+    auto* testing = location_bar->GetLocationBarForTesting();
+    CHECK(testing);
+    return testing->IsContentSettingImageVisible(
+        ContentSettingImageModel::GetContentSettingImageModelIndexForTesting(
+            image_type));
   }
 
   raw_ptr<ZoomBubbleCoordinator> zoom_bubble_coordinator_;

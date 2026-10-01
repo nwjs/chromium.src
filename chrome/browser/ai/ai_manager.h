@@ -28,7 +28,6 @@
 #include "mojo/public/cpp/base/proto_wrapper.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/receiver_set.h"
-#include "mojo/public/cpp/bindings/remote_set.h"
 #include "services/network/public/mojom/permissions_policy/permissions_policy_feature.mojom-shared.h"
 #include "services/on_device_model/public/mojom/download_observer.mojom-forward.h"
 #include "third_party/blink/public/mojom/ai/ai_common.mojom-forward.h"
@@ -40,17 +39,14 @@ namespace base {
 class SupportsUserData;
 }  // namespace base
 
-// Feature flag for enabling foundational models in the AI API, requires the
-// field param kModelVersionParam to specify the model version. Example:
-// --enable-features=AIApiFoundationalModel:model_version/v4
-BASE_DECLARE_FEATURE(kAIApiFoundationalModel);
-extern const char kModelVersionParam[];
-
 namespace content {
 class RenderFrameHost;
 }  // namespace content
 
-using blink::mojom::AILanguageCodePtr;
+// Feature flag for enabling foundational models in the AI API, requires the
+// field param kModelVersionParam to specify the model version. Example:
+// --enable-features=AIApiFoundationalModel:model_version/v4
+BASE_DECLARE_FEATURE(kAIApiFoundationalModel);
 
 // Owned by the host of the document / service worker via `SupportUserData`.
 // The browser-side implementation of `blink::mojom::AIManager`.

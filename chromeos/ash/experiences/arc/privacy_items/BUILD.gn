@@ -1,0 +1,37 @@
+# Copyright 2024 The Chromium Authors
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+assert(is_chromeos)
+
+static_library("privacy_items") {
+  sources = [
+    "arc_privacy_items_bridge.cc",
+    "arc_privacy_items_bridge.h",
+  ]
+
+  deps = [
+    "//base",
+    "//chromeos/ash/experiences/arc",
+    "//chromeos/ash/experiences/arc/mojom",
+    "//chromeos/ash/experiences/arc/session",
+    "//components/keyed_service/core",
+    "//content/public/browser",
+    "//ui/gfx",
+  ]
+}
+
+source_set("unit_tests") {
+  testonly = true
+
+  sources = [ "arc_privacy_items_bridge_unittest.cc" ]
+
+  deps = [
+    ":privacy_items",
+    "//chromeos/ash/experiences/arc:arc_test_support",
+    "//chromeos/ash/experiences/arc/session",
+    "//content/test:test_support",
+    "//testing/gtest",
+    "//ui/gfx",
+  ]
+}

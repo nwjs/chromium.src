@@ -56,9 +56,9 @@ import org.chromium.chrome.browser.password_manager.PasswordManagerUtilBridge;
 import org.chromium.chrome.browser.password_manager.PasswordManagerUtilBridgeJni;
 import org.chromium.chrome.browser.settings.SettingsIntentUtil;
 import org.chromium.chrome.browser.sync.FakeSyncServiceImpl;
+import org.chromium.chrome.browser.sync.SyncSettingsUtils;
 import org.chromium.chrome.browser.sync.SyncTestRule;
 import org.chromium.chrome.browser.sync.settings.ManageSyncSettings;
-import org.chromium.chrome.browser.sync.settings.SyncSettingsUtils;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
 import org.chromium.chrome.test.util.ChromeRenderTestRule;
 import org.chromium.components.embedder_support.util.UrlConstants;
@@ -78,7 +78,10 @@ import java.io.IOException;
 @RunWith(ChromeJUnit4ClassRunner.class)
 @DoNotBatch(reason = "TODO(crbug.com/40743432): SyncTestRule doesn't support batching.")
 @CommandLineFlags.Add({ChromeSwitches.DISABLE_FIRST_RUN_EXPERIENCE})
-@DisableFeatures(ChromeFeatureList.SETTINGS_IN_TAB) // crbug.com/521895796
+@DisableFeatures({
+    ChromeFeatureList.SETTINGS_IN_TAB, // crbug.com/521895796
+    ChromeFeatureList.SETTINGS_IN_TAB_DESKTOP // crbug.com/556881398
+})
 public class SyncErrorMessageTest {
 
     @Mock private PasswordManagerUtilBridge.Natives mPasswordManagerUtilBridgeJniMock;

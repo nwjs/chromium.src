@@ -40,6 +40,7 @@
 #include "base/test/test_future.h"
 #include "base/test/test_mock_time_task_runner.h"
 #include "base/thread_annotations.h"
+#include "base/threading/thread_restrictions.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
 #include "chrome/browser/password_manager/factories/account_password_store_factory.h"
@@ -50,6 +51,7 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/create_browser_window.h"
 #include "chrome/browser/ui/omnibox/omnibox_next_features.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/webauthn/passkey_upgrade_request_controller.h"
 #include "chrome/browser/webauthn/authenticator_request_dialog_controller.h"
 #include "chrome/browser/webauthn/authenticator_request_dialog_model.h"
@@ -96,6 +98,7 @@
 #include "content/public/test/browser_test.h"
 #include "content/public/test/browser_test_utils.h"
 #include "crypto/scoped_fake_user_verifying_key_provider.h"
+#include "crypto/sign.h"
 #include "crypto/unexportable_key.h"
 #include "crypto/user_verifying_key.h"
 #include "device/fido/fido_request_handler_base.h"
@@ -109,6 +112,7 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/features.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/window_open_disposition.h"
 
 #if BUILDFLAG(IS_WIN)
 #include "device/fido/win/fake_webauthn_api.h"
@@ -4203,9 +4207,9 @@ GetBlockingUnexportableKeyProviderRendezvous() {
 // functions.
 class BlockingUnexportableKeyProvider : public crypto::UnexportableKeyProvider {
  public:
-  std::optional<crypto::SignatureVerifier::SignatureAlgorithm> SelectAlgorithm(
-      base::span<const crypto::SignatureVerifier::SignatureAlgorithm>
-          acceptable_algorithms) override {
+  std::optional<crypto::sign::SignatureKind> SelectAlgorithm(
+      base::span<const crypto::sign::SignatureKind> acceptable_algorithms)
+      override {
     CHECK(!acceptable_algorithms.empty());
 
     // This function runs in a thread-pool thread.
@@ -4214,8 +4218,8 @@ class BlockingUnexportableKeyProvider : public crypto::UnexportableKeyProvider {
   }
 
   std::unique_ptr<crypto::UnexportableSigningKey> GenerateSigningKeySlowly(
-      base::span<const crypto::SignatureVerifier::SignatureAlgorithm>
-          acceptable_algorithms) override {
+      base::span<const crypto::sign::SignatureKind> acceptable_algorithms)
+      override {
     NOTREACHED();
   }
 

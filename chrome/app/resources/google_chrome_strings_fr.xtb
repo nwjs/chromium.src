@@ -37,7 +37,6 @@ Certaines fonctionnalités ne seront peut-être pas disponibles, et les modifica
 <translation id="1333654552732143316">Lancer Chrome</translation>
 <translation id="1341711321000856656">Vous pouvez changer de profil pour voir les mots de passe d'un autre profil Chrome</translation>
 <translation id="1343830902827845050">Connectez-vous à Chrome</translation>
-<translation id="1356661055722410047">Nouveau ! Vous pouvez traduire du texte et des images sur votre écran.</translation>
 <translation id="1361351916482714918">Naviguez malin avec Google Lens</translation>
 <translation id="1363996462118479832">Impossible de synchroniser vos données dans Chrome OS, car une erreur s'est produite lors de la connexion.</translation>
 <translation id="137466361146087520">Version bêta de Google Chrome</translation>
@@ -75,7 +74,6 @@ Certaines fonctionnalités ne seront peut-être pas disponibles, et les modifica
 <translation id="1640672724030957280">Téléchargement en cours…</translation>
 <translation id="1651617469580841801">Lorsque vous utilisez Google Lens, le titre, l'URL et le contenu de la page, y compris les PDF, sont envoyés à Google. <ph name="LEARN_MORE" /></translation>
 <translation id="1662146548738125461">À propos de ChromeOS Flex</translation>
-<translation id="1664094661346151467">Effectuez des recherches et posez des questions de n'importe où, même si Chrome est réduit</translation>
 <translation id="1674870198290878346">Ouvrir le lien dans la fenêtre de navi&amp;gation privée Chrome</translation>
 <translation id="1682634494516646069">Google Chrome ne peut pas lire et écrire dans son répertoire de données : 
 
@@ -99,6 +97,7 @@ Certaines fonctionnalités ne seront peut-être pas disponibles, et les modifica
 <translation id="1873233029667955273">Google Chrome n'est pas votre navigateur par défaut</translation>
 <translation id="1874309113135274312">Version bêta de Google Chrome (mDNS-In)</translation>
 <translation id="1877026089748256423">Chrome est obsolète</translation>
+<translation id="1877067026701708502"><ph name="EXISTING_USER" /> est déjà connecté(e). Pour séparer votre navigation, connectez-vous à Chrome avec votre propre profil en tant que <ph name="USER_EMAIL_ADDRESS" />. Vous pourrez aussi accéder à vos extensions et à d'autres données sur tous vos appareils.</translation>
 <translation id="1880677175115548835">Sélectionner du texte</translation>
 <translation id="1896602904211344018">Télécharger l'appli Chrome</translation>
 <translation id="1919130412786645364">Autoriser la connexion à Chrome</translation>
@@ -231,6 +230,7 @@ Si cette page ne fonctionne pas comme prévu, essayez d'autoriser l'optimisation
 <translation id="3112458742631356345">Chrome a bloqué ce téléchargement, car le fichier n'est pas souvent téléchargé et peut être dangereux</translation>
 <translation id="3119573284443908657">Chrome a bloqué ce téléchargement, car le fichier d'archive contient d'autres fichiers susceptibles de dissimuler un logiciel malveillant</translation>
 <translation id="3124332159330678621">Personnalisez Chrome pour donner un nouveau look à votre navigateur</translation>
+<translation id="3125851611828811913">Recherchez des informations et posez des questions depuis n'importe où, même si Chrome est réduit. Permet à Chrome de s'exécuter en arrière-plan.</translation>
 <translation id="3130333203120345554">Nouvelle recherche</translation>
 <translation id="3135560418014806498">Ajouter un profil Chrome</translation>
 <translation id="3137969841538672700">Faire glisser pour rechercher</translation>
@@ -388,6 +388,7 @@ Si cette page ne fonctionne pas comme prévu, essayez d'autoriser l'optimisation
 <translation id="4793679854893018356">Découvrez comment Chrome vous protège</translation>
 <translation id="4799870290441980300">Active des fonctionnalités supplémentaires pour fournir les protections les plus efficaces de Chrome</translation>
 <translation id="4828579605166583682">Google Chrome tente de remplacer les mots de passe existants. Saisissez votre mot de passe Windows pour autoriser l'opération.</translation>
+<translation id="4836321460899997044">Profil Chrome</translation>
 <translation id="4842397268809523050">ChromeOS Flex n'a pas pu synchroniser vos données, car la synchronisation n'est pas disponible pour votre domaine.</translation>
 <translation id="4851866215237571846"><ph name="EXISTING_USER" /> est déjà connecté.  Pour séparer votre navigation, connectez-vous à Chrome avec votre propre profil en tant que <ph name="USER_EMAIL_ADDRESS" />.</translation>
 <translation id="4855026984605187434">Pour partager votre écran, autorisez l'enregistrement d'écran pour Chrome dans les réglages système</translation>
@@ -505,6 +506,7 @@ Google Chrome ne peut pas récupérer vos paramètres.</translation>
 <translation id="6014316319780893079">Avec les <ph name="BEGIN_LINK" />outils de Chrome<ph name="END_LINK" />, vous pouvez naviguer de façon sécurisée et garder le contrôle</translation>
 <translation id="6018578474045062808">Essayez Google Lens avec Chrome sur votre téléphone</translation>
 <translation id="6022659036123304283">Personnalisez Chrome</translation>
+<translation id="6024930613143833266">Effectuez des recherches dans Chrome depuis n'importe où</translation>
 <translation id="6025087594896450715">Google Chrome va redémarrer dans <ph name="REMAINING_TIME" /></translation>
 <translation id="6040143037577758943">Fermer</translation>
 <translation id="604424701295382420">Épinglé. Vous pouvez accéder à Google Lens à l'aide du nouveau bouton de la barre d'outils.</translation>
@@ -549,6 +551,7 @@ Google Chrome ne peut pas récupérer vos paramètres.</translation>
 <translation id="6334815226785304306">Définir Google Chrome comme navigateur par défaut et l'épingler à la barre des tâches</translation>
 <translation id="63540178978900677">Chrome n'est plus votre navigateur par défaut. Définir Chrome comme navigateur par défaut ?</translation>
 <translation id="6360449101159168105">Lorsque cet onglet était inactif, de la mémoire a été libérée pour préserver la rapidité de Chrome. Si vous le souhaitez, vous pouvez exclure définitivement ce site de la liste des sites inactifs.</translation>
+<translation id="6362984640667950211"><ph name="EXISTING_USER" /> est déjà connecté(e). Pour séparer votre navigation, connectez-vous à Chrome avec votre propre profil en tant que <ph name="USER_EMAIL_ADDRESS" />. Vous pourrez aussi accéder à votre liste de lecture et à d'autres données sur tous vos appareils.</translation>
 <translation id="6388799252195623474">aide-moi avec ça</translation>
 <translation id="6412673304250309937">Il vérifie les URL d'après une liste de sites dangereux stockée dans Chrome. Si un site tente de voler votre mot de passe ou si vous téléchargez un fichier dangereux, Chrome peut également envoyer les URL concernées, y compris des extraits du contenu de pages, à la fonctionnalité de navigation sécurisée.</translation>
 <translation id="6417690341895039567">{COUNT,plural, =1{Votre organisation ferme automatiquement Chrome lorsqu'il n'est pas utilisé pendant 1 minute. Les données de navigation sont supprimées. Il peut s'agir de l'historique, de la saisie automatique et des téléchargements.}one{Votre organisation ferme automatiquement Chrome lorsqu'il n'est pas utilisé pendant # minute. Les données de navigation sont supprimées. Il peut s'agir de l'historique, de la saisie automatique et des téléchargements.}other{Votre organisation ferme automatiquement Chrome lorsqu'il n'est pas utilisé pendant # minutes. Les données de navigation sont supprimées. Il peut s'agir de l'historique, de la saisie automatique et des téléchargements.}}</translation>
@@ -557,6 +560,7 @@ Google Chrome ne peut pas récupérer vos paramètres.</translation>
 <translation id="6434035853014503219">Merci d'avoir choisi Chrome comme navigateur par défaut.</translation>
 <translation id="6438015621983209660">Profitez de la navigation sécurisée avec protection renforcée avec Chrome sur votre téléphone</translation>
 <translation id="6442774133615368941">Achetez, traduisez et identifiez ce que vous voyez à l'aide de votre appareil photo dans l'appli iOS Chrome</translation>
+<translation id="6446105560007692480">pour rechercher avec Chrome ou personnaliser dans <ph name="BEGIN_LINK" />Paramètres<ph name="END_LINK" /></translation>
 <translation id="6448835208126432197">Pour sélectionner une partie de l'écran dans Gemini dans Chrome, utilisez un raccourci clavier.</translation>
 <translation id="6473905796280459355">Accéder à la page "À propos de Chrome"</translation>
 <translation id="6481963882741794338">Associez Chrome et d'autres services Google à des fins de personnalisation et autres</translation>
@@ -578,6 +582,7 @@ Google Chrome ne peut pas récupérer vos paramètres.</translation>
 <translation id="6612152958212564387">Vous n'envoyez pas de statistiques d'utilisation ni de rapports d'erreur à Google. <ph name="BEGIN_LINK" />Gérer<ph name="END_LINK" /></translation>
 <translation id="6613949864921837107">Synchronisez parfaitement vos mots de passe, vos favoris et votre historique sur tous vos appareils en définissant Chrome comme navigateur par défaut.</translation>
 <translation id="6631524303639368205">Reprenez là où vous en étiez : Chrome a restauré les onglets de votre dernière session. Vous pouvez désactiver cette option dans les</translation>
+<translation id="6632012506031284914">pour rechercher avec Chrome.</translation>
 <translation id="6632473616050862500">ChromeOS Flex dépend d'autres <ph name="BEGIN_LINK_CROS_OSS" />logiciels Open Source <ph name="END_LINK_CROS_OSS" />.</translation>
 <translation id="6634299872736643004">Les modifications apportées à ce paramètre seront appliquées quand Chrome redémarrera.</translation>
 <translation id="6660596345553328257">Se connecter à Chrome ?</translation>
@@ -594,6 +599,7 @@ Google Chrome ne peut pas récupérer vos paramètres.</translation>
 <translation id="6750954913813541382">Pour corriger les fautes d'orthographe, Chrome envoie à Google le texte que vous saisissez dans le navigateur</translation>
 <translation id="6760235774835597023">Accélère les sites avec le moteur V8 de Chrome, mais rend Chrome légèrement moins résistant aux attaques. Ce paramètre est activé.</translation>
 <translation id="677276454032249905">Quitter Chrome quand même ?</translation>
+<translation id="6777654166489463890">Posez des questions sur du contenu en dehors de Chrome, comme une autre appli ou un fichier que vous avez ouvert</translation>
 <translation id="6794858689789885890">Toujours supprimer les données des sites de votre appareil lorsque vous fermez Chrome</translation>
 <translation id="6800285125190089494">Connectez-vous plus rapidement aux sites en utilisant les mots de passe enregistrés pour Chrome sur iOS</translation>
 <translation id="6831043979455480757">Traduire</translation>
@@ -646,6 +652,7 @@ Google Chrome ne peut pas récupérer vos paramètres.</translation>
 <translation id="7285990705317078173">Téléchargez Chrome sur votre téléphone pour suivre les prix et recevoir des alertes en cas de baisse de prix sur un site</translation>
 <translation id="7288567540154601580">Onglets et extensions</translation>
 <translation id="7296210096911315575">Informations importantes concernant l'utilisation et la sécurité</translation>
+<translation id="7299899569525778554">Rechercher depuis un ordinateur</translation>
 <translation id="7302361266603927550">Certaines de vos données Chrome n'ont pas encore été enregistrées dans votre compte Google. Patientez quelques minutes avant de vous déconnecter. Si vous vous déconnectez maintenant, ces données seront supprimées.</translation>
 <translation id="7306401458628386911">Commencez à naviguer instantanément : Chrome peut désormais se lancer au démarrage de Windows.</translation>
 <translation id="7308322188646931570">Pour télécharger des fichiers, Chrome a besoin d'accéder à l'espace de stockage</translation>
@@ -709,6 +716,7 @@ Google Chrome ne peut pas récupérer vos paramètres.</translation>
 <translation id="7845233973568007926">Merci d'avoir installé notre produit. Vous devez redémarrer votre ordinateur avant d'utiliser <ph name="BUNDLE_NAME" />.</translation>
 <translation id="7847170235260850604">Lancer Chrome au démarrage de Windows</translation>
 <translation id="7849037457735762883">Reprenez là où vous en étiez : Chrome peut restaurer vos onglets à chaque redémarrage. Pour activer cette option, accédez aux</translation>
+<translation id="7868731902994556427"><ph name="EXISTING_USER" /> est déjà connecté(e). Pour séparer votre navigation, connectez-vous à Chrome avec votre propre profil en tant que <ph name="USER_EMAIL_ADDRESS" />. Vous pourrez aussi accéder à vos extensions et à d'autres données de <ph name="DEVICE" />.</translation>
 <translation id="7869620795354551924">Pour utiliser vos mots de passe enregistrés, scannez le QR code, téléchargez Chrome pour iOS et connectez-vous à votre compte Google</translation>
 <translation id="7872446069773932638">Téléchargement… <ph name="SECONDS" /> seconde(s) restante(s)</translation>
 <translation id="7886087451482920026">Sélectionnez du texte avec Google Lens</translation>
@@ -795,7 +803,6 @@ Vous ne pourrez pas enregistrer de nouveaux favoris dans votre compte tant que v
 <translation id="8575047640889685742">Utiliser votre <ph name="BEGIN_LINK" />propre phrase secrète<ph name="END_LINK" /> pour chiffrer toutes les données Chrome de votre compte Google. Les adresses et les modes de paiement Google Pay ne seront pas chiffrés. L'historique de navigation de Chrome ne sera pas synchronisé.</translation>
 <translation id="8590782867495422699">Rouvrir le Mode IA dans la recherche Google</translation>
 <translation id="8598779894319572882">Vous pouvez rouvrir le Mode IA de la recherche Google à partir du bouton "Mode IA de la recherche Google" de la barre d'outils pour poser des questions pendant que vous naviguez</translation>
-<translation id="8601359445272098721">Nouveau ! Vous pouvez traduire du texte et des images sur votre écran en sélectionnant le bouton "Traduire l'écran".</translation>
 <translation id="8614913330719544658">Google Chrome ne répond pas. Voulez-vous le relancer maintenant ?</translation>
 <translation id="8623450603356630491">Connectez-vous à Chrome sur votre téléphone</translation>
 <translation id="8624541899164515475">Paramètres, s'ouvre dans un nouvel onglet.</translation>
@@ -807,6 +814,7 @@ Vous ne pourrez pas enregistrer de nouveaux favoris dans votre compte tant que v
 <translation id="8679801911857917785">Elle contrôle également la page qui s'affiche au démarrage de Chrome.</translation>
 <translation id="8712637175834984815">OK</translation>
 <translation id="8712767363896337380">Presque à jour ! Relancez Chrome pour terminer la mise à jour.</translation>
+<translation id="8717554232729236539"><ph name="EXISTING_USER" /> est déjà connecté(e). Pour séparer votre navigation, connectez-vous à Chrome avec votre propre profil en tant que <ph name="USER_EMAIL_ADDRESS" />. Vous pourrez aussi accéder à votre liste de lecture et à d'autres données de <ph name="DEVICE" />.</translation>
 <translation id="8718062187489036808">Se déconnecter de Chrome</translation>
 <translation id="873133009373065397">Impossible d'identifier ou de définir le navigateur par défaut avec Google Chrome</translation>
 <translation id="8747073452963259673">angle inférieur gauche de la zone de recherche : <ph name="LEFT" /> % gauche, <ph name="BOTTOM" /> % bas</translation>

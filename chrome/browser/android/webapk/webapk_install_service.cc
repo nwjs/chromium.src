@@ -15,6 +15,7 @@
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/android/chrome_jni_headers/WebApkInstallService_jni.h"
 #include "chrome/browser/android/shortcut_helper.h"
+#include "chrome/browser/android/tab_android.h"
 #include "chrome/browser/android/webapk/webapk_installer.h"
 #include "components/webapk/webapk.pb.h"
 #include "components/webapps/browser/android/shortcut_info.h"
@@ -23,8 +24,10 @@
 #include "components/webapps/browser/banners/app_banner_manager.h"
 #include "components/webapps/browser/features.h"
 #include "components/webapps/browser/installable/installable_logging.h"
+#include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/web_contents.h"
 #include "ui/gfx/android/java_bitmap.h"
+#include "url/origin.h"
 
 WebApkInstallService::WebApkInstallService(
     content::BrowserContext* browser_context)
@@ -111,18 +114,26 @@ void WebApkInstallService::OnFinishedInstall(
     const std::string& webapk_package_name) {
   install_ids_.erase(shortcut_info.manifest_id);
 
+  bool is_same_origin =
+      web_contents && web_contents->GetPrimaryMainFrame()
+                          ->GetLastCommittedOrigin()
+                          .IsSameOriginWith(shortcut_info.url);
+
   bool show_failure_notification = base::FeatureList::IsEnabled(
       webapps::features::kWebApkInstallFailureNotification);
   HandleFinishInstallNotificationsAndMaybeLaunch(
-      shortcut_info.manifest_id, shortcut_info.url, shortcut_info.short_name,
-      primary_icon, shortcut_info.is_primary_icon_maskable, result,
-      webapk_package_name, show_failure_notification);
+      is_same_origin ? web_contents.get() : nullptr, shortcut_info.manifest_id,
+      shortcut_info.url, shortcut_info.short_name, primary_icon,
+      shortcut_info.is_primary_icon_maskable, result, webapk_package_name,
+      show_failure_notification);
 
   // If the app was successfully installed, we need to notify the app banner
   // manager so that the installability status is reflected elsewhere in the UI.
-  if (result == webapps::WebApkInstallResult::SUCCESS && web_contents) {
-    webapps::AppBannerManager::FromWebContents(web_contents.get())
-        ->OnInstall(shortcut_info.display, true);
+  if (result == webapps::WebApkInstallResult::SUCCESS && is_same_origin) {
+    auto* app_banner_manager =
+        webapps::AppBannerManager::FromWebContents(web_contents.get());
+    CHECK(app_banner_manager);
+    app_banner_manager->OnInstall(shortcut_info.display, true);
   }
 
   if (show_failure_notification) {
@@ -135,13 +146,14 @@ void WebApkInstallService::OnFinishedInstall(
   // this one is still queued (and hence might succeed in the future).
   if (result != webapps::WebApkInstallResult::SUCCESS &&
       result != webapps::WebApkInstallResult::PROBABLE_FAILURE) {
-    if (!web_contents)
-      return;
-
+    // Pass the WebContents pointer if still on the same origin (or nullptr if
+    // destroyed or navigated away). ShortcutHelper::AddToLauncherWithSkBitmap
+    // will also verify same-origin as defense-in-depth before initiating splash
+    // image download or recording UKM.
     // TODO(crbug.com/40584062): Support maskable icons here.
     ShortcutHelper::AddToLauncherWithSkBitmap(
-        web_contents.get(), shortcut_info, primary_icon,
-        webapps::InstallableStatusCode::WEBAPK_INSTALL_FAILED);
+        is_same_origin ? web_contents.get() : nullptr, shortcut_info,
+        primary_icon, webapps::InstallableStatusCode::WEBAPK_INSTALL_FAILED);
   }
 }
 
@@ -154,14 +166,16 @@ void WebApkInstallService::OnFinishedInstallRestore(
     const std::string& webapk_package_name) {
   install_ids_.erase(shortcut_info.manifest_id);
   HandleFinishInstallNotificationsAndMaybeLaunch(
-      shortcut_info.manifest_id, shortcut_info.url, shortcut_info.short_name,
-      primary_icon, shortcut_info.is_primary_icon_maskable, result,
-      webapk_package_name, /* show_failure_notification= */ true);
+      nullptr, shortcut_info.manifest_id, shortcut_info.url,
+      shortcut_info.short_name, primary_icon,
+      shortcut_info.is_primary_icon_maskable, result, webapk_package_name,
+      /* show_failure_notification= */ true);
 
   std::move(finish_callback).Run(result);
 }
 
 void WebApkInstallService::HandleFinishInstallNotificationsAndMaybeLaunch(
+    content::WebContents* web_contents,
     const GURL& notification_id,
     const GURL& url,
     const std::u16string& short_name,
@@ -172,7 +186,7 @@ void WebApkInstallService::HandleFinishInstallNotificationsAndMaybeLaunch(
     bool show_failure_notification) {
   if (result == webapps::WebApkInstallResult::SUCCESS) {
     ShowInstalledNotificationAndMaybeLaunch(
-        notification_id, short_name, url, primary_icon,
+        web_contents, notification_id, short_name, url, primary_icon,
         is_primary_icon_maskable, webapk_package_name);
   } else if (show_failure_notification) {
     ShowInstallFailedNotification(notification_id, short_name, url,
@@ -202,6 +216,7 @@ void WebApkInstallService::ShowInstallInProgressNotification(
 
 // static
 void WebApkInstallService::ShowInstalledNotificationAndMaybeLaunch(
+    content::WebContents* web_contents,
     const GURL& notification_id,
     const std::u16string& short_name,
     const GURL& url,
@@ -212,9 +227,15 @@ void WebApkInstallService::ShowInstalledNotificationAndMaybeLaunch(
   base::android::ScopedJavaLocalRef<jobject> java_primary_icon =
       !primary_icon.isNull() ? gfx::ConvertToJavaBitmap(primary_icon) : nullptr;
 
+  // Resolve Java Tab directly from WebContents pointer
+  TabAndroid* tab =
+      web_contents ? TabAndroid::FromWebContents(web_contents) : nullptr;
+  base::android::ScopedJavaLocalRef<jobject> java_tab =
+      tab ? tab->GetJavaObject() : nullptr;
+
   Java_WebApkInstallService_showInstalledNotificationAndMaybeLaunch(
-      env, webapk_package_name, notification_id.spec(), short_name, url.spec(),
-      java_primary_icon, is_primary_icon_maskable);
+      env, java_tab, webapk_package_name, notification_id.spec(), short_name,
+      url.spec(), java_primary_icon, is_primary_icon_maskable);
 }
 
 // static

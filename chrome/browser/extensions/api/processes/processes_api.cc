@@ -22,6 +22,7 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/task_manager/task_manager_interface.h"
 #include "chrome/common/extensions/api/processes.h"
+#include "components/sessions/core/session_id.h"
 #include "content/public/browser/browser_child_process_host.h"
 #include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
@@ -509,8 +510,8 @@ ExtensionFunction::ResponseAction ProcessesTerminateFunction::Run() {
   auto* browser_child_process_host =
       content::BrowserChildProcessHost::FromID(child_process_host_id_);
   if (browser_child_process_host) {
-    return RespondNow(TerminateIfAllowed(
-        browser_child_process_host->GetData().GetProcess().Handle()));
+    return RespondNow(
+        TerminateIfAllowed(browser_child_process_host->GetProcess().Handle()));
   }
 
   return RespondNow(Error(errors::kProcessNotFound,

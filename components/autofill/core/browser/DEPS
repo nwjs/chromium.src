@@ -26,7 +26,6 @@ include_rules = [
   "+components/policy",
   "+components/profile_metrics",
   "+components/resources",
-  "+components/security_interstitials/core/insecure_form_util.h",
   "+components/security_state",
   "+components/sessions/core/session_id.h",
   "+components/signin/public",
@@ -108,6 +107,9 @@ specific_include_rules = {
     "+content/public/test",
   ],
   "credit_card_save_manager_unittest\\.cc": [
+    "+components/ukm",
+  ],
+  "otp_metrics_tracker_unittest\\.cc": [
     "+components/ukm",
   ],
   "test_autofill_client\\.h": [

@@ -83,6 +83,9 @@ import type {DocumentDimensionsMessageData} from './pdf_viewer_utils.js';
 import {getSaveToDriveManageStorageUrl, getSaveToDriveOpenInDriveUrl} from './pdf_viewer_utils.js';
 // </if> enable_pdf_save_to_drive
 import {hasCtrlModifier, hasCtrlModifierOnly, shouldIgnoreKeyEvents, verifyPdfHeader} from './pdf_viewer_utils.js';
+// <if expr="enable_pdf_ink2">
+import {isStrikethroughShortcut} from './pdf_viewer_utils.js';
+// </if>
 // <if expr="enable_pdf_save_to_drive">
 import {recordSaveToDriveBubbleActionMetrics, recordSaveToDriveBubbleRetryMetrics, recordSaveToDriveMetrics, recordShowSaveToDriveBubbleMetrics} from './save_to_drive_metrics.js';
 // </if> enable_pdf_save_to_drive
@@ -592,6 +595,24 @@ export class PdfViewerElement extends PdfViewerBaseElement {
           this.maybePasteTextAnnotation_();
         }
         return;
+      // <if expr="not is_macosx">
+      case '5':
+      case '%':
+        if (isStrikethroughShortcut(e) && this.isInTextAnnotationMode_()) {
+          Ink2Manager.getInstance().toggleTextStyle(TextStyle.STRIKETHROUGH);
+          e.preventDefault();
+        }
+        return;
+      // </if>
+      // <if expr="is_macosx">
+      case 'x':
+      case 'X':
+        if (isStrikethroughShortcut(e) && this.isInTextAnnotationMode_()) {
+          Ink2Manager.getInstance().toggleTextStyle(TextStyle.STRIKETHROUGH);
+          e.preventDefault();
+        }
+        return;
+      // </if>
       // </if>
       default:
         break;
@@ -669,12 +690,14 @@ export class PdfViewerElement extends PdfViewerBaseElement {
   }
 
   // <if expr="enable_pdf_ink2">
-  private maybeCreateTextAnnotation_(location?: Point): Promise<void> {
-    if (this.textboxState_ !== TextBoxState.INACTIVE) {
-      return this.maybeCommitActiveTextbox_();
+  private async maybeCreateTextAnnotation_(location?: Point): Promise<void> {
+    const hasActive = this.isTextboxActive_();
+    if (hasActive) {
+      await this.maybeCommitActiveTextbox_();
     }
-    Ink2Manager.getInstance().initializeTextAnnotation(location);
-    return Promise.resolve();
+
+    Ink2Manager.getInstance().initializeTextAnnotation(
+        location, /*onlyExisting=*/ hasActive);
   }
 
   private recordEnterExitAnnotationModeMetrics_(
@@ -1960,13 +1983,13 @@ export class PdfViewerElement extends PdfViewerBaseElement {
     record(UserAction.SAVE);
     switch (requestType) {
       case SaveRequestType.ANNOTATION:
-        record(UserAction.SAVE_WITH_ANNOTATION);
         // <if expr="enable_pdf_ink2">
-        if (this.pdfInk2Enabled_) {
-          record(UserAction.SAVE_WITH_INK2_ANNOTATION);
-        }
-        // </if>
+        record(UserAction.SAVE_WITH_INK2_ANNOTATION);
         break;
+        // </if>
+        // <if expr="not enable_pdf_ink2">
+        assertNotReached();
+        // </if>
       case SaveRequestType.ORIGINAL:
         record(
             this.hasCommittedEdits_() ? UserAction.SAVE_ORIGINAL :

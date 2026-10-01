@@ -13,9 +13,12 @@ import org.chromium.build.annotations.NullMarked;
 import org.chromium.chrome.browser.autofill.AutofillSheetUiController;
 import org.chromium.chrome.browser.autofill.AutofillSheetUiControllerFactory;
 import org.chromium.chrome.browser.autofill.anchored_dialog.AnchoredDialogCoordinator;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
 import org.chromium.chrome.browser.layouts.LayoutStateProvider;
 import org.chromium.chrome.browser.tabmodel.TabModel;
+import org.chromium.components.autofill.AutofillFeatures;
 import org.chromium.components.autofill.payments.AutofillSaveCardUiInfo;
+import org.chromium.components.autofill.payments.LegalMessage;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController;
 import org.chromium.components.browser_ui.bottomsheet.BottomSheetController.StateChangeReason;
 import org.chromium.ui.modelutil.PropertyModel;
@@ -103,7 +106,7 @@ public class AutofillSaveCardBottomSheetCoordinator {
                                 uiInfo.getCardDetail().subLabel)
                         .with(
                                 AutofillSaveCardBottomSheetProperties.LEGAL_MESSAGE,
-                                new AutofillSaveCardBottomSheetProperties.LegalMessage(
+                                new LegalMessage(
                                         uiInfo.getLegalMessageLines(), this::openLegalMessageLink))
                         .with(
                                 AutofillSaveCardBottomSheetProperties.ACCEPT_BUTTON_LABEL,
@@ -117,7 +120,11 @@ public class AutofillSaveCardBottomSheetCoordinator {
                                 uiInfo.getLoadingDescription())
                         .with(
                                 AutofillSaveCardBottomSheetProperties.GOOGLE_PAY_PILL_LOGO,
-                                uiInfo.isForUpload() && uiInfo.isChromeBrandingEnabled()
+                                uiInfo.isForUpload()
+                                                && uiInfo.isChromeBrandingEnabled()
+                                                && ChromeFeatureList.isEnabled(
+                                                        AutofillFeatures
+                                                                .AUTOFILL_ENABLE_WALLET_BRANDING_V2)
                                         ? uiInfo.getGooglePayPillLogoId()
                                         : 0)
                         .build();

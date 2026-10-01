@@ -49,6 +49,7 @@ source_set("indigo") {
     "//content/public/browser",
     "//content/public/common",
     "//crypto",
+    "//google_apis/common",
     "//ui/menus",
     "//url",
   ]
@@ -75,6 +76,7 @@ source_set("impl") {
     ":indigo_config_proto",
     ":indigo_prompts_proto",
     "//base",
+    "//chrome/browser:browser_process",
     "//chrome/browser:global_features",
     "//chrome/browser/component_updater",
     "//chrome/browser/enterprise",
@@ -117,6 +119,7 @@ source_set("impl") {
     deps += [ "//chromeos/ash/components/install_attributes" ]
   }
 }
+
 source_set("test_support") {
   testonly = true
   sources = [
@@ -140,6 +143,7 @@ source_set("unit_tests") {
     "indigo_agent_host_unittest.cc",
     "indigo_cue_target_unittest.cc",
     "indigo_menu_model_unittest.cc",
+    "indigo_metrics_unittest.cc",
     "indigo_page_action_controller_unittest.cc",
     "indigo_service_unittest.cc",
   ]
@@ -153,6 +157,7 @@ source_set("unit_tests") {
     "//chrome/browser/component_updater",
     "//chrome/browser/contextual_cueing",
     "//chrome/browser/extensions",
+    "//chrome/browser/glic",
     "//chrome/browser/glic/test_support",
     "//chrome/browser/indigo/onboarding",
     "//chrome/browser/optimization_guide:test_support",

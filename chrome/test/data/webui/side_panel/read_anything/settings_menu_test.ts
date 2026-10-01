@@ -7,11 +7,12 @@ import 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything.js'
 import {KEYBOARD_NAV_CLASS, LINE_FOCUS_FEATURE_NAME, MENU_SHOW_DELAY_MS, ReadAnythingSettingsChange, SUBMENU_SHOW_DELAY_MS, userEducationProxyFactory} from 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything.js';
 import type {SettingsMenuElement} from 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything.js';
 import {SettingsOption, ToolbarEvent} from 'chrome-untrusted://read-anything-side-panel.top-chrome/read_anything.js';
+import {loadTimeData} from 'chrome-untrusted://resources/js/load_time_data.js';
 import {assertDeepEquals, assertEquals, assertFalse, assertNotEquals, assertTrue} from 'chrome-untrusted://webui-test/chai_assert.js';
 import {keyDownOn} from 'chrome-untrusted://webui-test/keyboard_mock_interactions.js';
 import {MockTimer} from 'chrome-untrusted://webui-test/mock_timer.js';
 import {TestUserEducationMixedTrustHandler} from 'chrome-untrusted://webui-test/test_user_education_mixed_trust_handler.js';
-import {eventToPromise, microtasksFinished} from 'chrome-untrusted://webui-test/test_util.js';
+import {eventToPromise, microtasksFinished, whenAttributeIs} from 'chrome-untrusted://webui-test/test_util.js';
 
 import {setupTestEnvironment} from './common.js';
 import type {TestMetricsBrowserProxy} from './test_metrics_browser_proxy.js';
@@ -47,6 +48,10 @@ suite('SettingsMenuElement', () => {
 
     settingsMenu.$.lazyMenu.get();
     await microtasksFinished();
+  });
+
+  teardown(() => {
+    settingsMenu.close();
   });
 
   test('click outside fires close-all-menus event', async () => {
@@ -259,12 +264,14 @@ suite('SettingsMenuElement', () => {
         assertTrue(!!targetItem);
         targetItem.click();
 
-        const whenFired =
+        let whenFired =
             eventToPromise(ToolbarEvent.CLOSE_SUBMENU_REQUESTED, settingsMenu);
         keyDownOn(settingsMenu, 0, undefined, 'Escape');
         await whenFired;
 
         targetItem.click();
+        whenFired =
+            eventToPromise(ToolbarEvent.CLOSE_SUBMENU_REQUESTED, settingsMenu);
         keyDownOn(settingsMenu, 0, undefined, 'ArrowLeft');
         await whenFired;
       });
@@ -278,16 +285,17 @@ suite('SettingsMenuElement', () => {
     assertTrue(!!targetItem);
 
     let openSubmenuWasFiredAfterClose = false;
-    actionMenu.addEventListener(ToolbarEvent.OPEN_SETTINGS_SUBMENU, () => {
+    settingsMenu.addEventListener(ToolbarEvent.OPEN_SETTINGS_SUBMENU, () => {
       openSubmenuWasFiredAfterClose = true;
     });
 
     const timer = new MockTimer();
+    timer.install();
     targetItem.dispatchEvent(new PointerEvent(
         'pointerenter', {bubbles: true, cancelable: true, view: window}));
-    timer.tick(SUBMENU_SHOW_DELAY_MS - 1);
-    actionMenu.close();
-    timer.tick(1);
+    timer.tick(MENU_SHOW_DELAY_MS - 1);
+    settingsMenu.close();
+    timer.tick(MENU_SHOW_DELAY_MS + 1);
 
     assertFalse(openSubmenuWasFiredAfterClose);
     timer.uninstall();
@@ -406,6 +414,7 @@ suite('SettingsMenuElement', () => {
         eventToPromise(ToolbarEvent.OPEN_SETTINGS_SUBMENU, settingsMenu);
     fontItem.click();
     await whenFired;
+    await whenAttributeIs(fontItem, 'aria-expanded', 'true');
     await microtasksFinished();
 
     menuItems =
@@ -476,6 +485,50 @@ suite('SettingsMenuElement', () => {
         assertTrue(!!menuItems.find(item => item.id === SettingsOption.COLOR));
       });
 
+  test('LINE_FOCUS uses tools label and icon with improved ui', async () => {
+    visualBrowserProxy.readAnythingImprovedUiEnabled = true;
+    settingsMenu.settingsPrefs = {...settingsMenu.settingsPrefs};
+    await microtasksFinished();
+
+    const actionMenu = settingsMenu.$.lazyMenu.get();
+    let menuItems = Array.from(
+        actionMenu.querySelectorAll<HTMLButtonElement>('.menu-row'));
+    let lineFocusItem =
+        menuItems.find(item => item.id === SettingsOption.LINE_FOCUS);
+    assertTrue(!!lineFocusItem);
+
+    let icon = lineFocusItem.querySelector('cr-icon');
+    assertTrue(!!icon);
+    assertEquals(icon.icon, 'read-anything:service_toolbox');
+
+    let title = lineFocusItem.querySelector('.label');
+    assertTrue(!!title);
+    assertEquals(
+        title.textContent.trim(), loadTimeData.getString('toolsLabel'));
+
+    visualBrowserProxy.readAnythingImprovedUiEnabled = false;
+    settingsMenu.settingsPrefs = {...settingsMenu.settingsPrefs};
+    await microtasksFinished();
+
+    menuItems = Array.from(
+        actionMenu.querySelectorAll<HTMLButtonElement>('.menu-row'));
+    lineFocusItem =
+        menuItems.find(item => item.id === SettingsOption.LINE_FOCUS);
+    assertTrue(!!lineFocusItem);
+
+    icon = lineFocusItem.querySelector('cr-icon');
+    assertTrue(!!icon);
+    const expectedIcon = loadTimeData.getBoolean('webuiRoundedIconsEnabled') ?
+        'read-anything:wb-incandescent' :
+        'read-anything:line-focus-old';
+    assertEquals(icon.icon, expectedIcon);
+
+    title = lineFocusItem.querySelector('.label');
+    assertTrue(!!title);
+    assertEquals(
+        title.textContent.trim(), loadTimeData.getString('lineFocusLabel'));
+  });
+
   test('translate action fires event when clicked', async () => {
     visualBrowserProxy.translateEntryPointEnabled = true;
     settingsMenu.settingsPrefs = {...settingsMenu.settingsPrefs};
@@ -510,7 +563,10 @@ suite('SettingsMenuElement', () => {
     assertTrue(!!translateItem);
 
     // Click fontItem to open its submenu.
+    const whenSubmenuOpened =
+        eventToPromise(ToolbarEvent.OPEN_SETTINGS_SUBMENU, settingsMenu);
     fontItem.click();
+    await whenSubmenuOpened;
     await microtasksFinished();
 
     const whenFired = eventToPromise<CustomEvent<{previousId: SettingsOption}>>(

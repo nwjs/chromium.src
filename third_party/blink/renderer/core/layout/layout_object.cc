@@ -238,7 +238,8 @@ bool HasNativeBackgroundPainter(Node* node) {
          ElementAnimations::CompositedPaintStatus::kComposited;
 }
 
-bool NeedsForcedUpdateForBackgroundPainter(Node* node) {
+bool NeedsForcedUpdateForBackgroundPainter(Node* node,
+                                           bool background_color_changed) {
   Element* element = To<Element>(node);
   ElementAnimations* element_animations = element->GetElementAnimations();
   CHECK(element_animations);
@@ -247,6 +248,16 @@ bool NeedsForcedUpdateForBackgroundPainter(Node* node) {
   CHECK(npw_data);
   if (npw_data->NeedsKeyframeSnapshotUpdate()) {
     return true;
+  }
+
+  if (background_color_changed) {
+    const Animation* animation = npw_data->GetAnimation();
+    CHECK(animation);
+    if (!animation->effect()->Progress().has_value()) {
+      // Color change due to a style update while the animation is not in
+      // effect.
+      return true;
+    }
   }
 
   return false;
@@ -277,7 +288,8 @@ StyleDifference AdjustForCompositableAnimationPaint(
 
   bool skip_background_color_paint_invalidation =
       HasNativeBackgroundPainter(node)
-          ? !NeedsForcedUpdateForBackgroundPainter(node)
+          ? !NeedsForcedUpdateForBackgroundPainter(
+                node, diff.background_color_changed)
           : !diff.background_color_changed;
   if (!skip_background_color_paint_invalidation)
     diff.SetNeedsNormalPaintInvalidation();
@@ -391,7 +403,7 @@ LayoutObject* LayoutObject::CreateObject(Element* element,
     // image but we don't want to trigger a style change now as the node is
     // not fully attached. Moving this code to style change doesn't make sense
     // as it should be run once at layoutObject creation.
-    image->SetStyleInternal(const_cast<ComputedStyle*>(&style));
+    image->SetStyleInternal(style);
     if (const StyleImage* style_image =
             To<ImageContentData>(content_data)->GetImage()) {
       image->SetImageResource(
@@ -743,7 +755,7 @@ void LayoutObject::AddChild(LayoutObject* new_child,
     children->InsertChildNode(this, new_child, before_child);
   } else if (IsA<LayoutTextCombine>(*this)) {
     DCHECK(LayoutTextCombine::ShouldBeParentOf(*new_child)) << new_child;
-    new_child->SetStyle(&StyleRef());
+    new_child->SetStyle(StyleRef());
     children->InsertChildNode(this, new_child, before_child);
   } else if (!IsHorizontalTypographicMode() &&
              LayoutTextCombine::ShouldBeParentOf(*new_child)) {
@@ -2308,6 +2320,11 @@ String LayoutObject::DecoratedName() const {
   StringBuilder name;
   name.Append(GetName());
 
+  // If we don't have a style yet our "attributes" are meaningless.
+  if (!style_) {
+    return name.ToString();
+  }
+
   Vector<const char*> attributes;
   if (ChildLayoutBlockedByDisplayLock()) {
     attributes.push_back("display-locked");
@@ -2777,7 +2794,7 @@ void LayoutObject::ShowLayoutObject() const {
 
   StringBuilder string_builder;
   DumpLayoutObject(string_builder, true, kShowTreeCharacterOffset);
-  DLOG(INFO) << "\n" << string_builder.ToString().Utf8();
+  DLOG(INFO) << "\n" << string_builder.Utf8();
 }
 
 void LayoutObject::DumpLayoutObject(StringBuilder& string_builder,
@@ -2928,11 +2945,13 @@ StyleDifference LayoutObject::AdjustStyleDifference(
   // change without the actual style changing, since it depends on whether we
   // decide to composite these elements. When the layer status of one of these
   // elements changes, we need to force a layout.
-  if (!diff.NeedsFullLayout() && HasStyle() && IsBoxModelObject()) {
-    bool requires_layer =
-        To<LayoutBoxModelObject>(this)->LayerTypeRequired() != kNoPaintLayer;
-    if (HasLayer() != requires_layer)
-      diff.SetNeedsFullLayout();
+  if (!diff.NeedsFullLayout() && style_) {
+    if (const auto* box_model = DynamicTo<LayoutBoxModelObject>(this)) {
+      const bool needs_layer = box_model->LayerTypeRequired() != kNoPaintLayer;
+      if (HasLayer() != needs_layer) {
+        diff.SetNeedsFullLayout();
+      }
+    }
   }
 
   return diff;
@@ -2980,17 +2999,15 @@ void LayoutObject::SetPseudoElementStyle(const LayoutObject& owner,
       builder.SetWidth(Length::Percent(100));
       builder.SetHeight(Length::Percent(100));
     }
-    SetStyle(builder.TakeStyle());
+    SetStyle(*builder.TakeStyle());
     return;
   }
 
   if (IsText() && Parent() && Parent()->IsInitialLetterBox()) [[unlikely]] {
     // Note: `Parent()` can be null for text for generated contents.
     // See "accessibility/css-generated-content.html"
-    const ComputedStyle* initial_letter_text_style =
-        GetDocument().GetStyleResolver().StyleForInitialLetterText(
-            pseudo_style, Parent()->ContainingBlock()->StyleRef());
-    SetStyle(std::move(initial_letter_text_style));
+    SetStyle(*GetDocument().GetStyleResolver().StyleForInitialLetterText(
+        pseudo_style, Parent()->ContainingBlock()->StyleRef()));
     return;
   }
 
@@ -3001,65 +3018,65 @@ void LayoutObject::SetPseudoElementStyle(const LayoutObject& owner,
             .GetStyleResolver()
             .CreateComputedStyleBuilderInheritingFrom(pseudo_style);
     StyleAdjuster::AdjustStyleForCombinedText(combined_text_style_builder);
-    SetStyle(combined_text_style_builder.TakeStyle());
+    SetStyle(*combined_text_style_builder.TakeStyle());
     return;
   }
 
-  SetStyle(&pseudo_style);
+  SetStyle(pseudo_style);
 }
 
 DISABLE_CFI_PERF
-void LayoutObject::SetStyle(const ComputedStyle* style,
+void LayoutObject::SetStyle(const ComputedStyle& new_style,
                             ApplyStyleChanges apply_changes) {
   NOT_DESTROYED();
-  if (style_ == style)
+
+  const ComputedStyle* old_style = style_.Get();
+  if (old_style == &new_style) {
     return;
+  }
 
   if (apply_changes == ApplyStyleChanges::kNo) {
-    const ComputedStyle* old_style = style_;
-    SetStyleInternal(style);
+    SetStyleInternal(new_style);
     // Ideally we shouldn't have to do this, but new CSSImageGeneratorValues are
     // generated on recalc for custom properties, which means we need to call
     // UpdateImageObservers to keep CSSImageGeneratorValue::clients_ up-to-date.
     if (!IsText()) {
-      UpdateImageObservers(old_style, style_.Get());
+      UpdateImageObservers(old_style, &new_style);
       // Ditto for CSSURIValues.
       if (HasLayer()) {
         PaintLayer* layer = To<LayoutBoxModelObject>(*this).Layer();
-        layer->UpdateFilters({}, old_style, *style_);
-        layer->UpdateBackdropFilters(old_style, *style_);
-        layer->UpdateClipPath(old_style, *style_);
+        layer->UpdateFilters({}, old_style, new_style);
+        layer->UpdateBackdropFilters(old_style, new_style);
+        layer->UpdateClipPath(old_style, new_style);
       }
     }
     return;
   }
 
-  DCHECK(style);
-
   StyleDifference diff;
-  if (style_) {
-    diff = style_->VisualInvalidationDiff(GetDocument(), *style);
+  if (old_style) {
+    diff = old_style->VisualInvalidationDiff(GetDocument(), new_style);
     if (const auto* cached_inherited_first_line_style =
-            style_->GetCachedPseudoElementStyle(kPseudoIdFirstLineInherited)) {
+            old_style->GetCachedPseudoElementStyle(
+                kPseudoIdFirstLineInherited)) {
       // Merge the difference to the first line style because even if the new
       // style is the same as the old style, the new style may have some higher
       // priority properties overriding first line style.
       // See external/wpt/css/css-pseudo/first-line-change-inline-color*.html.
       diff.Merge(cached_inherited_first_line_style->VisualInvalidationDiff(
-          GetDocument(), *style));
+          GetDocument(), new_style));
     }
 
     auto HighlightPseudoUpdateDiff =
-        [this, style, &diff](const PseudoId pseudo,
-                             const ComputedStyle* pseudo_old_style,
-                             const ComputedStyle* pseudo_new_style) {
+        [&](const PseudoId pseudo, const ComputedStyle* pseudo_old_style,
+            const ComputedStyle* pseudo_new_style) {
           DCHECK(pseudo == kPseudoIdSearchText ||
                  pseudo == kPseudoIdTargetText ||
                  pseudo == kPseudoIdSpellingError ||
                  pseudo == kPseudoIdGrammarError);
 
-          if (style_->HasPseudoElementStyle(pseudo) ||
-              style->HasPseudoElementStyle(pseudo)) {
+          if (old_style->HasPseudoElementStyle(pseudo) ||
+              new_style.HasPseudoElementStyle(pseudo)) {
             if (pseudo_old_style && pseudo_new_style) {
               diff.Merge(pseudo_old_style->VisualInvalidationDiff(
                   GetDocument(), *pseudo_new_style));
@@ -3075,43 +3092,44 @@ void LayoutObject::SetStyle(const ComputedStyle* style,
     // LayoutObject::InvalidateSelectionOnStyleChange()).
     if (RuntimeEnabledFeatures::SearchTextHighlightPseudoEnabled()) {
       HighlightPseudoUpdateDiff(kPseudoIdSearchText,
-                                style_->HighlightData().SearchTextCurrent(),
-                                style->HighlightData().SearchTextCurrent());
-      HighlightPseudoUpdateDiff(kPseudoIdSearchText,
-                                style_->HighlightData().SearchTextNotCurrent(),
-                                style->HighlightData().SearchTextNotCurrent());
+                                old_style->HighlightData().SearchTextCurrent(),
+                                new_style.HighlightData().SearchTextCurrent());
+      HighlightPseudoUpdateDiff(
+          kPseudoIdSearchText,
+          old_style->HighlightData().SearchTextNotCurrent(),
+          new_style.HighlightData().SearchTextNotCurrent());
     }
     HighlightPseudoUpdateDiff(kPseudoIdTargetText,
-                              style_->HighlightData().TargetText(),
-                              style->HighlightData().TargetText());
+                              old_style->HighlightData().TargetText(),
+                              new_style.HighlightData().TargetText());
     HighlightPseudoUpdateDiff(kPseudoIdSpellingError,
-                              style_->HighlightData().SpellingError(),
-                              style->HighlightData().SpellingError());
+                              old_style->HighlightData().SpellingError(),
+                              new_style.HighlightData().SpellingError());
     HighlightPseudoUpdateDiff(kPseudoIdGrammarError,
-                              style_->HighlightData().GrammarError(),
-                              style->HighlightData().GrammarError());
+                              old_style->HighlightData().GrammarError(),
+                              new_style.HighlightData().GrammarError());
   }
 
   diff = AdjustStyleDifference(diff);
 
   // A change to a property that can be animated on the compositor or an
   // animation affecting that property may require paint invalidation.
-  diff = AdjustForCompositableAnimationPaint(style_, style, GetNode(), diff);
+  diff = AdjustForCompositableAnimationPaint(old_style, &new_style, GetNode(),
+                                             diff);
 
   StyleChangeContext style_change_context;
 
-  const ComputedStyle* old_style = style_.Get();
-  StyleWillChange(diff, old_style, *style, style_change_context);
+  StyleWillChange(diff, old_style, new_style, style_change_context);
 
-  SetStyleInternal(std::move(style));
+  SetStyleInternal(new_style);
 
   if (!IsText()) {
-    UpdateImageObservers(old_style, style_.Get());
+    UpdateImageObservers(old_style, &new_style);
   }
 
   bool does_not_need_layout_or_paint_invalidation = !parent_;
 
-  StyleDidChange(diff, old_style, *style_, style_change_context);
+  StyleDidChange(diff, old_style, new_style, style_change_context);
 
   // FIXME: |this| might be destroyed here. This can currently happen for a
   // LayoutTextFragment when its first-letter block gets an update in
@@ -3271,24 +3289,12 @@ void LayoutObject::StyleWillChange(StyleDifference diff,
   NOT_DESTROYED();
   DCHECK(!IsText());
 
-  if (old_style) {
-    bool visibility_changed = old_style->Visibility() != new_style.Visibility();
-    // If our z-index changes value or our visibility changes,
-    // we need to dirty our stacking context's z-order list.
-    if (visibility_changed ||
-        old_style->EffectiveZIndex() != new_style.EffectiveZIndex() ||
-        IsStackingContext(*old_style) != IsStackingContext(new_style)) {
-      GetDocument().SetDraggableRegionsDirty(true);
-    }
-
-    // Keep layer hierarchy visibility bits up to date if visibility changes.
-    if (visibility_changed) {
-      // We might not have an enclosing layer yet because we might not be in the
-      // tree.
-      if (PaintLayer* layer = EnclosingLayer())
-        layer->DirtyVisibleContentStatus();
-      GetDocument().GetFrame()->GetInputMethodController().DidChangeVisibility(
-          *this);
+  // Keep layer hierarchy visibility bits up to date if visibility changes.
+  if (old_style && old_style->Visibility() != new_style.Visibility()) {
+    // We might not have an enclosing layer yet because we might not be in the
+    // tree.
+    if (PaintLayer* layer = EnclosingLayer()) {
+      layer->DirtyVisibleContentStatus();
     }
   }
 }
@@ -3470,6 +3476,22 @@ void LayoutObject::StyleDidChange(
       old_style->UsedPointerEvents() != new_style.UsedPointerEvents()) {
     // UsedPointerEvents affects hit test opacity.
     SetShouldInvalidatePaintForHitTest();
+  }
+
+  // Draggable regions are in absolute coordinates, so a transform change
+  // moves them without layout or a scroll update.
+  if (old_style &&
+      (old_style->Visibility() != new_style.Visibility() ||
+       old_style->EffectiveZIndex() != new_style.EffectiveZIndex() ||
+       IsStackingContext(*old_style) != IsStackingContext(new_style) ||
+       diff.transform_changed) &&
+      GetDocument().HasDraggableRegions()) {
+    GetDocument().SetDraggableRegionsDirty(true);
+  }
+
+  if (old_style && old_style->Visibility() != new_style.Visibility()) {
+    GetDocument().GetFrame()->GetInputMethodController().DidChangeVisibility(
+        *this);
   }
 
   if (new_style.AnchorName()) {
@@ -3704,6 +3726,11 @@ void LayoutObject::MapLocalToAncestor(const LayoutBoxModelObject* ancestor,
   if (ancestor == this)
     return;
 
+  if (MapCoordinatesFastPath(ancestor, transform_state, mode)) {
+    return;
+  }
+  mode.Remove(MapCoordinatesMode::kUseGeometryMapper);
+
   if (LayoutObject* canvas_layout_object = CanvasForDrawingLayoutObject()) {
     bool use_transforms = !mode.Has(MapCoordinatesMode::kIgnoreTransforms);
     const bool preserve3d = use_transforms && StyleRef().Preserves3D();
@@ -3779,6 +3806,11 @@ void LayoutObject::MapAncestorToLocal(const LayoutBoxModelObject* ancestor,
   if (this == ancestor)
     return;
 
+  if (MapCoordinatesFastPath(ancestor, transform_state, mode)) {
+    return;
+  }
+  mode.Remove(MapCoordinatesMode::kUseGeometryMapper);
+
   if (LayoutObject* canvas_layout_object = CanvasForDrawingLayoutObject()) {
     if (canvas_layout_object != ancestor) {
       canvas_layout_object->MapAncestorToLocal(ancestor, transform_state, mode);
@@ -3831,6 +3863,109 @@ void LayoutObject::MapAncestorToLocal(const LayoutBoxModelObject* ancestor,
     container_offset = ancestor->OffsetFromAncestor(container);
     transform_state.Move(-container_offset);
   }
+}
+
+bool LayoutObject::MapCoordinatesFastPath(const LayoutBoxModelObject* ancestor,
+                                          TransformState& transform_state,
+                                          MapCoordinatesFlags mode) const {
+  NOT_DESTROYED();
+  DCHECK_NE(ancestor, this);
+
+  if (!mode.Has(MapCoordinatesMode::kUseGeometryMapper)) {
+    return false;
+  }
+  if (mode.HasAny({MapCoordinatesMode::kIgnoreTransforms,
+                   MapCoordinatesMode::kIgnoreStickyOffset,
+                   MapCoordinatesMode::kIgnoreScrollOffset,
+                   MapCoordinatesMode::kIgnoreScrollOriginAndOffset})) {
+    return false;
+  }
+
+  if (IsFragmented()) {
+    return false;
+  }
+  if (ancestor && ancestor->IsFragmented()) {
+    return false;
+  }
+
+  if (ancestor && ancestor->GetDocument() != GetDocument() &&
+      !mode.Has(MapCoordinatesMode::kTraverseDocumentBoundaries)) {
+    // If ancestor is in a different frame while mode doesn't allow traversing
+    // document boundaries, fall back to the slow path for consistency.
+    return false;
+  }
+
+  AncestorSkipInfo skip_info(ancestor);
+  PropertyTreeStateOrAlias local_properties(PropertyTreeState::kUninitialized);
+  const LayoutObject* local_container =
+      GetPropertyContainer(&skip_info, &local_properties);
+  if (!local_container || local_container->IsFragmented()) {
+    return false;
+  }
+
+  const PhysicalOffset local_offset = FirstFragment().PaintOffset();
+  const PhysicalOffset ancestor_offset =
+      ancestor ? ancestor->FirstFragment().PaintOffset() : PhysicalOffset();
+  // `ancestor` was encountered between `this` and `local_container`. No
+  // transform properties exist in between, so adjust by paint offsets directly.
+  if (skip_info.AncestorSkipped()) {
+    DCHECK(ancestor);
+    // Works for both kApply and kUnapplyInverse directions of TransformState.
+    transform_state.Move(local_offset - ancestor_offset);
+    return true;
+  }
+
+  // Map via GeometryMapper between property containers.
+  PropertyTreeStateOrAlias ancestor_properties(
+      PropertyTreeState::kUninitialized);
+  const LayoutObject* ancestor_container = nullptr;
+  if (ancestor) {
+    ancestor_container =
+        ancestor->GetPropertyContainer(nullptr, &ancestor_properties);
+    if (!ancestor_container || ancestor_container->IsFragmented()) {
+      return false;
+    }
+  } else {
+    if (mode.Has(MapCoordinatesMode::kTraverseDocumentBoundaries)) {
+      ancestor_container =
+          GetDocument().GetFrame()->LocalFrameRoot().ContentLayoutObject();
+    } else {
+      ancestor_container = View();
+    }
+    if (!ancestor_container || ancestor_container->IsFragmented() ||
+        !ancestor_container->FirstFragment().HasLocalBorderBoxProperties()) {
+      return false;
+    }
+    ancestor_properties =
+        ancestor_container->FirstFragment().LocalBorderBoxProperties();
+  }
+
+  gfx::Transform transform = GeometryMapper::SourceToDestinationProjection(
+      local_properties.Transform(), ancestor_properties.Transform());
+
+  if (transform_state.Direction() == TransformState::kApplyTransformDirection) {
+    // Local to ancestor.
+    transform_state.Move(local_offset);
+    transform_state.ApplyTransform(transform,
+                                   TransformState::kFlattenTransform);
+    transform_state.Move(-ancestor_offset);
+    if (!ancestor) {
+      // This will apply remote frame transforms if needed.
+      ancestor_container->MapLocalToAncestor(nullptr, transform_state, mode);
+    }
+  } else {
+    // Ancestor to local.
+    if (!ancestor) {
+      // This will apply remote frame transforms if needed.
+      ancestor_container->MapAncestorToLocal(nullptr, transform_state, mode);
+    }
+    transform_state.Move(-ancestor_offset);
+    transform_state.ApplyTransform(transform,
+                                   TransformState::kFlattenTransform);
+    transform_state.Move(local_offset);
+  }
+
+  return true;
 }
 
 bool LayoutObject::ShouldUseTransformFromContainer(
@@ -4547,18 +4682,14 @@ const ComputedStyle* LayoutObject::FirstLineStyleWithoutFallback() const {
     }
   } else if ((!IsAnonymous() && IsLayoutInline() &&
               !GetNode()->IsFirstLetterPseudoElement()) ||
-             (RuntimeEnabledFeatures::QuoteFirstLineStyleEnabled() &&
-              IsQuote())) {
+             IsQuote()) {
     if (const ComputedStyle* cached =
             StyleRef().GetCachedPseudoElementStyle(kPseudoIdFirstLineInherited))
       return cached;
 
     // Quote doesn't have an associated Node because it's generated thus always
     // anonymous. So, we need to access a parent LayoutObject.
-    const auto* layout_object =
-        RuntimeEnabledFeatures::QuoteFirstLineStyleEnabled() && IsQuote()
-            ? Parent()
-            : this;
+    const LayoutObject* layout_object = IsQuote() ? Parent() : this;
     if (layout_object->Parent()) {
       if (const ComputedStyle* parent_first_line_style =
               layout_object->Parent()->FirstLineStyleWithoutFallback()) {
@@ -5489,7 +5620,7 @@ Vector<PhysicalRect> LayoutObject::OutlineRects(
 }
 
 void LayoutObject::SetModifiedStyleOutsideStyleRecalc(
-    const ComputedStyle* style,
+    const ComputedStyle& style,
     ApplyStyleChanges apply_changes) {
   NOT_DESTROYED();
   SetStyle(style, apply_changes);
@@ -5497,7 +5628,7 @@ void LayoutObject::SetModifiedStyleOutsideStyleRecalc(
     return;
   }
   if (auto* element = DynamicTo<Element>(GetNode())) {
-    element->SetComputedStyle(style);
+    element->SetComputedStyle(&style);
   }
 }
 
@@ -5643,7 +5774,7 @@ void ShowLayoutTree(const blink::LayoutObject* object1,
       blink::StringBuilder string_builder;
       root->DumpLayoutTreeAndMark(string_builder, object1, "*", object2, "-",
                                   0);
-      DLOG(INFO) << "\n" << string_builder.ToString().Utf8();
+      DLOG(INFO) << "\n" << string_builder.Utf8();
     }
   } else {
     DLOG(INFO) << "Cannot showLayoutTree. Root is (nil)";

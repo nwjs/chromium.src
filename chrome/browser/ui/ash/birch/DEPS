@@ -18,29 +18,27 @@ include_rules = [
   "+chrome/browser/ash/release_notes",
   "+chrome/browser/ash/video_conference",
   "+chrome/browser/favicon",
-  "+chrome/browser/history",
-  "+chrome/browser/prefs",
   "+chrome/browser/profiles",
   "+chrome/browser/sync",
   "+chrome/browser/ui/ash/holding_space",
   "+chrome/browser/ui/ash/main_extra_parts",
-  "+chrome/common",
   "+chrome/grit",
-  "+chrome/test",
 ]
 
 specific_include_rules = {
-  # The ProfileKeyedServiceFactory resolves the signin::IdentityManager that the
-  # birch classes now take by constructor.
+  # The ProfileKeyedServiceFactory resolves the signin::IdentityManager and
+  # history::HistoryService that the birch classes now take by constructor.
   "birch_keyed_service_factory\\.cc": [
+    "+chrome/browser/history/history_service_factory.h",
     "+chrome/browser/signin/identity_manager_factory.h",
   ],
   ".*test\\.cc": [
     "+chrome/browser/apps/platform_apps/app_browsertest_util.h",
     "+chrome/browser/ash/system_web_apps/system_web_app_manager.h",
     "+chrome/browser/global_features.h",
+    "+chrome/browser/prefs",
     "+chrome/browser/signin/identity_manager_factory.h",
-    "+chrome/browser/ui/browser.h",
+    "+chrome/browser/ui/browser_window/public/browser_window_interface.h",
     "+gmock/gmock.h",
   ],
   "birch_coral_provider_browsertest\\.cc": [

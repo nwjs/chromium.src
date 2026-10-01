@@ -26,6 +26,8 @@
 #include "chrome/browser/actor/actor_proto_conversion.h"
 #include "chrome/browser/actor/actor_tab_data.h"
 #include "chrome/browser/actor/actor_task.h"
+#include "components/sessions/core/session_id.h"
+#include "ui/base/page_transition_types.h"
 #if BUILDFLAG(IS_ANDROID)
 #include "base/android/application_status_listener.h"
 #include "chrome/browser/actor/android/actor_keyed_service_android.h"
@@ -220,12 +222,6 @@ ActorKeyedService* ActorKeyedService::Get(content::BrowserContext* context) {
   return ActorKeyedServiceFactory::GetActorKeyedService(context);
 }
 
-void ActorKeyedService::SetActorUiStateManagerForTesting(
-    std::unique_ptr<ui::ActorUiStateManagerInterface> ausm) {
-  CHECK(ausm);
-  actor_ui_state_manager_ = std::move(ausm);
-}
-
 const ActorTask* ActorKeyedService::GetActingActorTaskForWebContents(
     content::WebContents* web_contents) {
   if (auto* tab_interface =
@@ -264,6 +260,15 @@ void ActorKeyedService::CreateActorTab(TaskId task_id,
 
   BrowserWindowInterface* window_for_new_tab = nullptr;
   tabs::TabInterface* initiator_tab = initiator_tab_handle.Get();
+  if (initiator_tab && initiator_tab->GetProfile() != profile_.get()) {
+    GetJournal().Log(
+        GURL(), task_id, "CreateActorTab",
+        JournalDetailsBuilder()
+            .AddError("Initiator tab belongs to a different profile")
+            .Build());
+    std::move(callback).Run(nullptr);
+    return;
+  }
 
   // Special case: if the initiator tab is the NTP, no need to create a new
   // tab, reuse it.
@@ -337,18 +342,17 @@ void ActorKeyedService::CreateActorTab(TaskId task_id,
 #endif
 
   // If the initiating tab is still live, create the new tab in the same window.
-  if (initiator_tab) {
-    if (initiator_tab->IsInNormalWindow()) {
-      window_for_new_tab = initiator_tab->GetBrowserWindowInterface();
-      if (window_for_new_tab) {
-        GetJournal().Log(GURL(), task_id, "CreateActorTab",
-                         JournalDetailsBuilder()
-                             .Add("Using initiator_tab's window",
-                                  window_for_new_tab->GetSessionID().id())
-                             .Build());
-      }
+  // (Cross-profile initiator tabs were already rejected above.)
+  if (initiator_tab && initiator_tab->IsInNormalWindow()) {
+    window_for_new_tab = initiator_tab->GetBrowserWindowInterface();
+    if (window_for_new_tab) {
+      GetJournal().Log(GURL(), task_id, "CreateActorTab",
+                       JournalDetailsBuilder()
+                           .Add("Using initiator_tab's window",
+                                window_for_new_tab->GetSessionID().id())
+                           .Build());
     }
-  } else {
+  } else if (!initiator_tab) {
     // TODO(b/482430429): Figure out how to proceed from just a window ID on
     // Android.
 #if !BUILDFLAG(IS_ANDROID)
@@ -356,11 +360,17 @@ void ActorKeyedService::CreateActorTab(TaskId task_id,
     // task initiation).
     window_for_new_tab =
         BrowserWindowInterface::FromSessionID(initiator_window_id);
-    GetJournal().Log(
-        GURL(), task_id, "CreateActorTab",
-        JournalDetailsBuilder()
-            .Add("Using initiator_window", initiator_window_id.id())
-            .Build());
+    if (window_for_new_tab &&
+        window_for_new_tab->GetProfile() != profile_.get()) {
+      window_for_new_tab = nullptr;
+    }
+    if (window_for_new_tab) {
+      GetJournal().Log(
+          GURL(), task_id, "CreateActorTab",
+          JournalDetailsBuilder()
+              .Add("Using initiator_window", initiator_window_id.id())
+              .Build());
+    }
 #endif
   }
 
@@ -463,7 +473,8 @@ void ActorKeyedService::ResetForTesting() {
 TaskId ActorKeyedService::CreateTask(
     const TaskSourceInfo& source_info,
     const EnterprisePolicyChecker* policy_checker) {
-  return CreateTaskWithOptions(source_info, policy_checker, nullptr, nullptr);
+  return CreateTaskWithOptions(source_info, policy_checker, /*options=*/nullptr,
+                               /*delegate=*/nullptr, GetActorUiStateManager());
 }
 
 TaskId ActorKeyedService::CreateTaskWithOptions(
@@ -471,10 +482,12 @@ TaskId ActorKeyedService::CreateTaskWithOptions(
     const EnterprisePolicyChecker* policy_checker,
     webui::mojom::TaskOptionsPtr options,
     base::WeakPtr<ActorTaskDelegate> delegate,
+    actor::ui::ActorUiStateManagerInterface* ui_state_manager,
     std::optional<glic::mojom::InvocationSource> initial_invocation_source) {
-  return CreateTaskImpl(ui::NewUiEventDispatcher(GetActorUiStateManager()),
-                        source_info, policy_checker, std::move(options),
-                        std::move(delegate), initial_invocation_source);
+  CHECK(ui_state_manager);
+  return CreateTaskImpl(ui::NewUiEventDispatcher(ui_state_manager), source_info,
+                        policy_checker, std::move(options), std::move(delegate),
+                        ui_state_manager, initial_invocation_source);
 }
 
 TaskId ActorKeyedService::CreateTaskForTesting(
@@ -486,7 +499,7 @@ TaskId ActorKeyedService::CreateTaskForTesting(
     std::optional<glic::mojom::InvocationSource> initial_invocation_source) {
   return CreateTaskImpl(std::move(ui_event_dispatcher), source_info,
                         policy_checker, std::move(options), std::move(delegate),
-                        initial_invocation_source);
+                        GetActorUiStateManager(), initial_invocation_source);
 }
 
 TaskId ActorKeyedService::CreateTaskImpl(
@@ -495,6 +508,7 @@ TaskId ActorKeyedService::CreateTaskImpl(
     const EnterprisePolicyChecker* policy_checker,
     webui::mojom::TaskOptionsPtr options,
     base::WeakPtr<ActorTaskDelegate> delegate,
+    actor::ui::ActorUiStateManagerInterface* ui_state_manager,
     std::optional<glic::mojom::InvocationSource> initial_invocation_source) {
   TRACE_EVENT0("actor", "ActorKeyedService::CreateTask");
   GetJournal().Log(GURL(), TaskId(), "ActorKeyedService::CreateTask", {});
@@ -505,6 +519,7 @@ TaskId ActorKeyedService::CreateTaskImpl(
     initial_tab_handle = tabs::TabHandle(options->actuation_tab_id.value());
   }
 
+  CHECK(ui_state_manager);
   auto actor_task = std::make_unique<ActorTask>(
       base::PassKey<ActorKeyedService>(), *this, task_id,
       std::move(ui_event_dispatcher), std::move(options), source_info,
@@ -518,7 +533,7 @@ TaskId ActorKeyedService::CreateTaskImpl(
   active_tasks_[task_id] = std::move(actor_task);
 
 #if !BUILDFLAG(IS_ANDROID)
-  actor_ui_state_manager_->LazyInitTabTracker();
+  ui_state_manager->LazyInitTabTracker();
 #endif
 
   NotifyTaskStateChanged(*active_tasks_[task_id]);
@@ -587,6 +602,18 @@ void ActorKeyedService::RequestTabObservation(
         screenshot_collection_options,
     base::OnceCallback<void(TabObservationResult)> callback) {
   TRACE_EVENT0("actor", "ActorKeyedService::RequestTabObservation");
+  if (tab.GetProfile() != profile_.get()) {
+    journal_.Log(GURL(), task_id, "RequestTabObservation",
+                 JournalDetailsBuilder()
+                     .AddError("Cross-profile tab observation denied")
+                     .Build());
+    std::move(callback).Run(
+        base::unexpected(page_content_annotations::FetchPageContextErrorDetails{
+            .error_code = page_content_annotations::FetchPageContextError::
+                kPageContextNotEligible,
+            .message = "Cross-profile tab observation denied"}));
+    return;
+  }
   const GURL& last_committed_url = tab.GetContents()->GetLastCommittedURL();
   auto journal_entry = journal_.CreatePendingAsyncEntry(
       last_committed_url, task_id, MakeBrowserTrackUUID(task_id),
@@ -814,19 +841,6 @@ ActorTask* ActorKeyedService::GetTask(TaskId task_id) {
 
 ActorUiStateManagerInterface* ActorKeyedService::GetActorUiStateManager() {
   return actor_ui_state_manager_.get();
-}
-
-void ActorKeyedService::SetTabPendingActuation(tabs::TabHandle tab_handle) {
-  if (actor_ui_state_manager_) {
-    actor_ui_state_manager_->SetTabPendingActuation(tab_handle);
-  }
-}
-
-bool ActorKeyedService::ClearTabPendingActuation(tabs::TabHandle tab_handle) {
-  if (actor_ui_state_manager_) {
-    return actor_ui_state_manager_->ClearTabPendingActuation(tab_handle);
-  }
-  return false;
 }
 
 bool ActorKeyedService::IsActiveOnTab(const tabs::TabInterface& tab) const {

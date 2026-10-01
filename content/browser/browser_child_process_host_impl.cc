@@ -20,6 +20,7 @@
 #include "base/metrics/histogram_shared_memory.h"
 #include "base/metrics/persistent_histogram_allocator.h"
 #include "base/metrics/persistent_memory_allocator.h"
+#include "base/no_destructor.h"
 #include "base/observer_list.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
@@ -88,13 +89,14 @@ base::LazyInstance<base::ObserverList<BrowserChildProcessObserver>::Unchecked>::
     DestructorAtExit g_browser_child_process_observers =
         LAZY_INSTANCE_INITIALIZER;
 
-void NotifyProcessLaunchedAndConnected(const ChildProcessData& data) {
+void NotifyProcessLaunchedAndConnected(const ChildProcessData& data,
+                                       const base::Process& process) {
   // Assert that the process is valid, as guaranteed in a comment on the
   // declaration of `BrowserChildProcessLaunchedAndConnected()`.
-  CHECK(data.GetProcess().IsValid());
+  CHECK(process.IsValid());
 
   for (auto& observer : g_browser_child_process_observers.Get())
-    observer.BrowserChildProcessLaunchedAndConnected(data);
+    observer.BrowserChildProcessLaunchedAndConnected(data, process);
 }
 
 void NotifyProcessKilled(const ChildProcessData& data,
@@ -135,7 +137,7 @@ std::unique_ptr<BrowserChildProcessHost> BrowserChildProcessHost::Create(
 }
 
 BrowserChildProcessHost* BrowserChildProcessHost::FromID(int child_process_id) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M159);
   BrowserChildProcessHostImpl::BrowserChildProcessList* process_list =
       g_child_process_list.Pointer();
   for (BrowserChildProcessHostImpl* host : *process_list) {
@@ -160,14 +162,14 @@ BrowserChildProcessHostImpl::GetIterator() {
 // static
 void BrowserChildProcessHostImpl::AddObserver(
     BrowserChildProcessObserver* observer) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M159);
   g_browser_child_process_observers.Get().AddObserver(observer);
 }
 
 // static
 void BrowserChildProcessHostImpl::RemoveObserver(
     BrowserChildProcessObserver* observer) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M159);
   g_browser_child_process_observers.Get().RemoveObserver(observer);
 }
 
@@ -176,7 +178,7 @@ BrowserChildProcessHostImpl::BrowserChildProcessHostImpl(
     BrowserChildProcessHostDelegate* delegate)
     : data_(process_type, ChildProcessHostImpl::GenerateChildProcessUniqueId()),
       delegate_(delegate) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M159);
 
   // Create a persistent memory segment for subprocess histograms.
   CreateMetricsAllocator();
@@ -189,7 +191,7 @@ BrowserChildProcessHostImpl::BrowserChildProcessHostImpl(
 }
 
 BrowserChildProcessHostImpl::~BrowserChildProcessHostImpl() {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M159);
 
   g_child_process_list.Get().remove(this);
 
@@ -197,23 +199,25 @@ BrowserChildProcessHostImpl::~BrowserChildProcessHostImpl() {
   // was never sent. The only exception here is when the main browser process
   // hosts the child, since InProcessUtilityThreadHelper still depends on this
   // behavior to know when the utility service was shut down.
-  if (!launched_and_connected_ && !in_process_)
+  if (!launched_and_connected_ && !in_process_) {
     return;
+  }
 
   if (launched_and_connected_ && !exited_abnormally_) {
+    ChildProcessTerminationInfo info = GetTerminationInfo(false);
     for (auto& observer : g_browser_child_process_observers.Get()) {
-      observer.BrowserChildProcessExitedNormally(data_,
-                                                 GetTerminationInfo(false));
+      observer.BrowserChildProcessExitedNormally(data_, info);
     }
   }
 
-  for (auto& observer : g_browser_child_process_observers.Get())
+  for (auto& observer : g_browser_child_process_observers.Get()) {
     observer.BrowserChildProcessHostDisconnected(data_);
+  }
 }
 
 // static
 void BrowserChildProcessHostImpl::TerminateAll() {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M159);
   // Make a copy since the BrowserChildProcessHost dtor mutates the original
   // list.
   BrowserChildProcessList copy = g_child_process_list.Get();
@@ -231,18 +235,22 @@ void BrowserChildProcessHostImpl::Launch(
 }
 
 const ChildProcessData& BrowserChildProcessHostImpl::GetData() {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M159);
   return data_;
 }
 
 ChildProcessHost* BrowserChildProcessHostImpl::GetHost() {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M159);
   return child_process_host_.get();
 }
 
 const base::Process& BrowserChildProcessHostImpl::GetProcess() {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
-  return data_.GetProcess();
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M159);
+  if (child_process_launcher_ && !child_process_launcher_->IsStarting()) {
+    return child_process_launcher_->GetProcess();
+  }
+  static const base::NoDestructor<base::Process> null_process;
+  return *null_process;
 }
 
 std::unique_ptr<base::PersistentMemoryAllocator>
@@ -251,18 +259,18 @@ BrowserChildProcessHostImpl::TakeMetricsAllocator() {
 }
 
 void BrowserChildProcessHostImpl::SetName(const std::u16string& name) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M159);
   data_.name = name;
 }
 
 void BrowserChildProcessHostImpl::SetMetricsName(
     const std::string& metrics_name) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M159);
   data_.metrics_name = metrics_name;
 }
 
 void BrowserChildProcessHostImpl::ForceShutdown() {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M159);
   g_child_process_list.Get().remove(this);
   child_process_host_->ForceShutdown();
 }
@@ -281,8 +289,8 @@ void BrowserChildProcessHostImpl::LaunchWithoutExtraCommandLineSwitches(
     std::unique_ptr<SandboxedProcessLauncherDelegate> delegate,
     std::unique_ptr<base::CommandLine> cmd_line,
     std::unique_ptr<ChildProcessLauncherFileData> file_data) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
-  DCHECK(!in_process_);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M159);
+  CHECK(!in_process_, base::NotFatalUntil::M159);
 
   const base::CommandLine& browser_command_line =
       *base::CommandLine::ForCurrentProcess();
@@ -345,8 +353,8 @@ void BrowserChildProcessHostImpl::LaunchWithoutExtraCommandLineSwitches(
 #if !BUILDFLAG(IS_ANDROID)
 void BrowserChildProcessHostImpl::SetProcessPriority(
     base::Process::Priority priority) {
-  DCHECK(child_process_launcher_);
-  DCHECK(!child_process_launcher_->IsStarting());
+  CHECK(child_process_launcher_, base::NotFatalUntil::M159);
+  CHECK(!child_process_launcher_->IsStarting(), base::NotFatalUntil::M159);
   child_process_launcher_->SetProcessPriority(priority);
 }
 #endif  // !BUILDFLAG(IS_ANDROID)
@@ -366,30 +374,23 @@ void BrowserChildProcessHostImpl::DumpProcessStack() {
 
 ChildProcessTerminationInfo BrowserChildProcessHostImpl::GetTerminationInfo(
     bool known_dead) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M159);
   if (!child_process_launcher_) {
-    // If the delegate doesn't use Launch() helper.
-    ChildProcessTerminationInfo info;
-    // TODO(crbug.com/40255458): iOS is single process mode for now.
-#if !BUILDFLAG(IS_IOS)
-    info.status = base::GetTerminationStatus(data_.GetProcess().Handle(),
-                                             &info.exit_code);
-#endif
-    return info;
+    return ChildProcessTerminationInfo();
   }
   return child_process_launcher_->GetChildTerminationInfo(known_dead);
 }
 
 void BrowserChildProcessHostImpl::OnChannelConnected(int32_t peer_pid) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M159);
 
-  DCHECK(has_legacy_ipc_channel_);
+  CHECK(has_legacy_ipc_channel_, base::NotFatalUntil::M159);
   is_channel_connected_ = true;
   OnProcessConnected();
 }
 
 void BrowserChildProcessHostImpl::OnProcessConnected() {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M159);
 #if BUILDFLAG(IS_WIN)
   // From this point onward, the exit of the child process is detected by an
   // error on the IPC channel or ChildProcessHost pipe.
@@ -398,7 +399,7 @@ void BrowserChildProcessHostImpl::OnProcessConnected() {
 
   if (IsProcessLaunched()) {
     launched_and_connected_ = true;
-    NotifyProcessLaunchedAndConnected(data_);
+    NotifyProcessLaunchedAndConnected(data_, GetProcess());
   }
 }
 
@@ -419,7 +420,7 @@ uint64_t BrowserChildProcessHostImpl::GetProcessIdForHistogram() const {
 
 void BrowserChildProcessHostImpl::TerminateOnBadMessageReceived(
     const std::string& error) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M159);
 
   // Create a memory dump. This will contain enough stack frames to work out
   // what the bad message was.
@@ -437,7 +438,7 @@ void BrowserChildProcessHostImpl::OnChannelInitialized(IPC::Channel* channel) {
 }
 
 void BrowserChildProcessHostImpl::OnChildDisconnected() {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M159);
 
   tracing_registration_.reset();
 
@@ -617,10 +618,9 @@ void BrowserChildProcessHostImpl::ShareMetricsAllocatorToProcess() {
 }
 
 void BrowserChildProcessHostImpl::OnProcessLaunchFailed(int error_code) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M159);
   delegate_->OnProcessLaunchFailed(error_code);
-  ChildProcessTerminationInfo info =
-      child_process_launcher_->GetChildTerminationInfo(/*known_dead=*/true);
+  ChildProcessTerminationInfo info = GetTerminationInfo(/*known_dead=*/true);
 #if BUILDFLAG(IS_ANDROID)
   info.has_spare_renderer =
       SpareRenderProcessHostManagerImpl::Get().HasSpareRenderer();
@@ -628,7 +628,8 @@ void BrowserChildProcessHostImpl::OnProcessLaunchFailed(int error_code) {
       SpareRenderProcessHostManagerImpl::Get()
           .GetLastSpareRendererCreationInfo();
 #endif
-  DCHECK_EQ(info.status, base::TERMINATION_STATUS_LAUNCH_FAILED);
+  CHECK_EQ(info.status, base::TERMINATION_STATUS_LAUNCH_FAILED,
+           base::NotFatalUntil::M159);
 
   for (auto& observer : g_browser_child_process_observers.Get())
     observer.BrowserChildProcessLaunchFailed(data_, info);
@@ -642,10 +643,10 @@ bool BrowserChildProcessHostImpl::CanUseWarmUpConnection() {
 #endif
 
 void BrowserChildProcessHostImpl::OnProcessLaunched() {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M159);
 
   const base::Process& process = child_process_launcher_->GetProcess();
-  DCHECK(process.IsValid());
+  CHECK(process.IsValid(), base::NotFatalUntil::M159);
 
 #if BUILDFLAG(IS_MAC)
   ChildProcessTaskPortProvider::GetInstance()->OnChildProcessLaunched(
@@ -663,17 +664,16 @@ void BrowserChildProcessHostImpl::OnProcessLaunched() {
   // child process exits. This watcher is stopped once the IPC channel is
   // connected and the exit of the child process is detected by an error on the
   // IPC channel thereafter.
-  DCHECK(!early_exit_watcher_.GetWatchedObject());
+  CHECK(!early_exit_watcher_.GetWatchedObject(), base::NotFatalUntil::M159);
   early_exit_watcher_.StartWatchingOnce(process.Handle(), this);
 #endif
 
-  DCHECK(!process.is_current());
-  data_.SetProcess(process.Duplicate());
+  CHECK(!process.is_current(), base::NotFatalUntil::M159);
   delegate_->OnProcessLaunched();
 
   if (is_channel_connected_) {
     launched_and_connected_ = true;
-    NotifyProcessLaunchedAndConnected(data_);
+    NotifyProcessLaunchedAndConnected(data_, process);
   }
 
   tracing_registration_ = TracingServiceController::Get().RegisterClient(
@@ -745,8 +745,9 @@ void BrowserChildProcessHostImpl::OnMemoryPressure(
 }
 
 bool BrowserChildProcessHostImpl::IsProcessLaunched() const {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
-  return data_.GetProcess().IsValid();
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M159);
+  return child_process_launcher_ && !child_process_launcher_->IsStarting() &&
+         child_process_launcher_->GetProcess().IsValid();
 }
 
 // static

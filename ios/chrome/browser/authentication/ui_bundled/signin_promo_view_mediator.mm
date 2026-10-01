@@ -153,6 +153,8 @@ bool IsSupportedAccessPoint(signin_metrics::AccessPoint access_point) {
     case signin_metrics::AccessPoint::kLevelUp:
     case signin_metrics::AccessPoint::kSignoutUndoSnackbar:
     case signin_metrics::AccessPoint::kComposeboxDriveContextMenuOptionBubble:
+    case signin_metrics::AccessPoint::kSkills:
+    case signin_metrics::AccessPoint::kAccountMenuSignedOutState:
       return false;
   }
 }
@@ -270,6 +272,8 @@ void RecordImpressionsTilSigninButtonsHistogramForAccessPoint(
     case signin_metrics::AccessPoint::kLevelUp:
     case signin_metrics::AccessPoint::kSignoutUndoSnackbar:
     case signin_metrics::AccessPoint::kComposeboxDriveContextMenuOptionBubble:
+    case signin_metrics::AccessPoint::kSkills:
+    case signin_metrics::AccessPoint::kAccountMenuSignedOutState:
       NOTREACHED() << "Unexpected value for access point "
                    << static_cast<int>(access_point);
   }
@@ -388,6 +392,8 @@ void RecordImpressionsTilXButtonHistogramForAccessPoint(
     case signin_metrics::AccessPoint::kLevelUp:
     case signin_metrics::AccessPoint::kSignoutUndoSnackbar:
     case signin_metrics::AccessPoint::kComposeboxDriveContextMenuOptionBubble:
+    case signin_metrics::AccessPoint::kSkills:
+    case signin_metrics::AccessPoint::kAccountMenuSignedOutState:
       NOTREACHED() << "Unexpected value for access point "
                    << static_cast<int>(access_point);
   }
@@ -491,6 +497,8 @@ const char* DisplayedCountPreferenceKey(
     case signin_metrics::AccessPoint::kLevelUp:
     case signin_metrics::AccessPoint::kSignoutUndoSnackbar:
     case signin_metrics::AccessPoint::kComposeboxDriveContextMenuOptionBubble:
+    case signin_metrics::AccessPoint::kSkills:
+    case signin_metrics::AccessPoint::kAccountMenuSignedOutState:
       return nullptr;
   }
 }
@@ -593,6 +601,8 @@ const char* AlreadySeenSigninViewPreferenceKey(
     case signin_metrics::AccessPoint::kLevelUp:
     case signin_metrics::AccessPoint::kSignoutUndoSnackbar:
     case signin_metrics::AccessPoint::kComposeboxDriveContextMenuOptionBubble:
+    case signin_metrics::AccessPoint::kSkills:
+    case signin_metrics::AccessPoint::kAccountMenuSignedOutState:
       return nullptr;
   }
 }

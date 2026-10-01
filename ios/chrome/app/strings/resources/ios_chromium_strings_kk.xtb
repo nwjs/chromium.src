@@ -8,12 +8,10 @@
 <translation id="1091252999271033193">Chromium браузерін әрдайым телефонда ашу қажет болады.</translation>
 <translation id="1115463765356382667">Chromium браузерін барынша тиімді пайдалану үшін төменде ұсынылған әрекеттерді орындаңыз.</translation>
 <translation id="1185134272377778587">Chromium туралы ақпарат</translation>
-<translation id="119044033865561140">iPad-та Chromium-ді жылдам ашыңыз</translation>
 <translation id="1229234641991056119">Safari-дегі құпия сөздерді, тарихты, бетбелгілер мен несиелік карталарды Chromium-де пайдаланыңыз.</translation>
 <translation id="1257458525759135959">Суреттерді сақтау үшін "Параметрлер" бөлімін түртіп, Chromium браузеріне суреттер қосуға рұқсат етіңіз.</translation>
 <translation id="1260702988262336471">Chromium мәзірін ашыңыз.</translation>
 <translation id="12739128458173458">Бұл қойындыны басқа құрылғыға жіберу үшін екі құрылғыда да Chromium-ге кіріңіз.</translation>
-<translation id="1279797561821266129">Бекіту аймағынан Chromium-ге жылдам кіріңіз</translation>
 <translation id="1361748954329991663">Chromium ескірген. Егер <ph name="BEGIN_LINK" />App Store<ph name="END_LINK" /> дүкенінде жаңа нұсқа болмаса, құрылғыңыз Chromium-ның жаңа нұсқаларын бұдан былай қолдамайтын болуы мүмкін.</translation>
 <translation id="1383876407941801731">Іздеу</translation>
 <translation id="1423007117030725713">Жаңа Chromium қойындысында іздеуді бастайды.</translation>
@@ -32,7 +30,6 @@
 <translation id="1553657876656159572">Сізге арналған арнаулы фид. Жаңалықтар, спорт пен ауа райы да осында.</translation>
 <translation id="1561849081734670621">Chromium браузерінде құлыптау режимін өшіру үшін оны iPhone құрылғыңызда өшіріңіз.</translation>
 <translation id="1569258826720962327">Chromium-дегі әрекеттерді iOS-те пайдалану</translation>
-<translation id="1573441572176948907">Chromium-ді бекіту аймағына жылжытыңыз</translation>
 <translation id="159029779861043703">Chromium браузері құпия деректеріңізді Face ID-мен қорғайды.</translation>
 <translation id="1591119736686995611">Chromium қойынды торын ашады.</translation>
 <translation id="16001233025397167">Қауіпсіздік тексерісі деректердің қолды болуынан, қауіпті веб-сайттардан және басқа зиянды нәрселерден қорғайды. Chromium сіз үшін анықтайтын құпиялық не қауіпсіздік мәселелеріне қатысты хабарландырулар алыңыз.</translation>
@@ -145,6 +142,7 @@ Chromium тәжірибесін жақсарту үшін деректерді �
 <translation id="3855938650519180865">Chromium-дегі жаңалықтар</translation>
 <translation id="3886689467633467988">Барлық құрылғыда бетбелгілер мен т.б. алу үшін осы сайт пен Chromium-ге кіріңіз.</translation>
 <translation id="3949514465204582407">Chromium кеңесі: құпия сөздерді кез келген қолданбада алыңыз</translation>
+<translation id="3983298990898629929">Сілтемелерді бір рет түртіп ашу үшін Chromium-ді әдепкі браузер етіп орнатыңыз.</translation>
 <translation id="4005283307739974863">Chromium-дегі қауіпсіздік тексерісін ашады және жүргізеді.</translation>
 <translation id="4043291146360695975">Құпия сөздер осы құрылғыда ғана Құпия сөздер реттегішіне сақталады.</translation>
 <translation id="4046625794029820944">Енді URL мекенжайларын көшіріп отыру қажет емес. Беттерді тікелей жүктеу үшін Chromium-ді әдепкі браузер етіп орнатыңыз.</translation>
@@ -182,7 +180,6 @@ Chromium тәжірибесін жақсарту үшін деректерді �
 <translation id="4790638144988730920">Google аккаунтыңызда Chromium деректерін пайдалануды жалғастырыңыз.</translation>
 <translation id="4828317641996116749">Chromium барлық құпия сөзді тексере алмады. Кейінірек қайталап көріңіз.</translation>
 <translation id="4856138222358683580">Chromium-дегі әрекеттер</translation>
-<translation id="4869706986935301458">iPhone-да Chromium-ді жылдам ашыңыз</translation>
 <translation id="4904452304169763785">Chromium сіз үшін анықтайтын құпиялық не қауіпсіздік мәселелеріне қатысты хабарландырулар.</translation>
 <translation id="4962295957157529683">Басқа ашық Chromium терезесінде жасап жатқан нәрсеңізді аяқтаңыз.</translation>
 <translation id="4985291216379576555">Офлайн, Chromium жаңа нұсқалардың бар-жоғын тексере алмайды.</translation>
@@ -277,6 +274,7 @@ Chromium тәжірибесін жақсарту үшін деректерді �
 <translation id="6680609900732453726">Chromium браузерін жапқан кезде, құрылғы аутентификациясы арқылы шолуды құпия сақтаңыз.</translation>
 <translation id="6696512128741076907">Басқа қолданбалардағы сілтемелерді лезде ашу үшін Chromium-ді әдепкі браузер етіп орнатыңыз.</translation>
 <translation id="6752854822223394465">Ұйымыңыз Chromium браузерін реттеуде…</translation>
+<translation id="6777348401413221846">Chromium-ді әдепкі браузер ретінде орнату жолы көрсетілген толық экрандағы бейне: iOS-те Chromium параметрлерін ашып, "Әдепкі браузер қолданбасы" түймесін түртіп, Chromium опциясын таңдаңыз.</translation>
 <translation id="6794054469102824109">Chromium Dino ойынын ашады.</translation>
 <translation id="6820823224820483452">Chromium барлық құпия сөзді тексере алмады. Ертең қайталап көріңіз.</translation>
 <translation id="6830782797004194206">Chromium автотолтыру функциясымен аккаунтқа жылдам кіріңіз.</translation>
@@ -306,8 +304,8 @@ Chromium тәжірибесін жақсарту үшін деректерді �
 <translation id="7337881442233988129">Chromium</translation>
 <translation id="7395825497086981028">Құпия сөзіңіз <ph name="EMAIL" /> аккаунтына арналған Құпия сөздер реттегішіне сақталады.</translation>
 <translation id="7434848749522628428">Бұл кіру кілті Password Manager (<ph name="USER_EMAIL" />) қызметіне сақталады.</translation>
+<translation id="7453822113116681031">Сілтемелерді бір рет түртіп ашу үшін Chromium-ді әдепкі браузер етіп орнатыңыз.</translation>
 <translation id="7504829997542308412">Chromium-ді ашыңыз.</translation>
-<translation id="7507535968973352823">Chromium-ді кез келген уақытта ашу үшін төменгі жағына қойыңыз.</translation>
 <translation id="7531461704633548377">Chromium-нен</translation>
 <translation id="7554983317097061001">Chromium кеңесі: Chromium-ді бекіту аймағына жылжытыңыз</translation>
 <translation id="7576863740961052505">Chromium параметрлерін реттеу</translation>
@@ -357,7 +355,6 @@ Chromium тәжірибесін жақсарту үшін деректерді �
 <translation id="8730503818204408000">Chromium-нің "Chromium-ді әдепкі браузер ретінде орнату" параметрін ашады.</translation>
 <translation id="8754966941001340678">Chromium күшейтілген қорғанысты ұсынады</translation>
 <translation id="8759037115129007407">Отбасы мүшесі құпия сөздерді дәл қазір ала алмайды. Одан Chromium браузерін жаңартып, құпия сөздерді синхрондауды сұраңыз. <ph name="BEGIN_LINK" />Толық ақпарат<ph name="END_LINK" /></translation>
-<translation id="8769418653786388149">Chromium-ді өзіңізбен бірге алып жүріңіз</translation>
 <translation id="8776843108004031667">Бұл аккаунт және кез келген сақталмаған дерек Chromium браузерінен өшіріледі.</translation>
 <translation id="8793333988063379360">Бұл жерден Chromium параметрлерін және т.б. таба аласыз.</translation>
 <translation id="8805148242934787134">Chromium-ді әдепкі браузер ретінде орнату</translation>

@@ -11,9 +11,11 @@
 #include "ui/shell_dialogs/select_file_dialog.h"
 
 #if !BUILDFLAG(IS_ANDROID)
+#include "base/command_line.h"
 #include "chrome/browser/browser_features.h"
 #include "components/history_clusters/core/features.h"
 #include "components/history_embeddings/core/history_embeddings_features.h"
+#include "ui/compositor/compositor_switches.h"
 #endif
 
 typedef WebUIMochaBrowserTest CrComponentsTest;
@@ -352,6 +354,11 @@ IN_PROC_BROWSER_TEST_F(CrComponentsComposeboxTest, LensSearch) {
 IN_PROC_BROWSER_TEST_F(CrComponentsComposeboxTest, CurrentTabChip) {
   RunTest("cr_components/composebox/current_tab_chip_test.js", "mocha.run()");
 }
+
+IN_PROC_BROWSER_TEST_F(CrComponentsComposeboxTest, ComposeboxToolChip) {
+  RunTest("cr_components/composebox/composebox_tool_chip_test.js",
+          "mocha.run()");
+}
 #endif
 
 IN_PROC_BROWSER_TEST_F(CrComponentsComposeboxTest, ComposeboxVoiceSearch) {
@@ -424,6 +431,16 @@ IN_PROC_BROWSER_TEST_F(CrComponentsComposeboxTest, ComposeboxInputPlaceholder) {
           "mocha.run()");
 }
 
+IN_PROC_BROWSER_TEST_F(CrComponentsComposeboxTest, ComposeboxAutocomplete) {
+  RunTest("cr_components/composebox/composebox_autocomplete_test.js",
+          "mocha.run()");
+}
+
+IN_PROC_BROWSER_TEST_F(CrComponentsComposeboxTest, ComposeboxDropdown) {
+  RunTest("cr_components/composebox/composebox_dropdown_test.js",
+          "mocha.run()");
+}
+
 IN_PROC_BROWSER_TEST_F(CrComponentsComposeboxTest, ComposeboxMatch) {
   RunTest("cr_components/composebox/composebox_match_test.js", "mocha.run()");
 }
@@ -431,3 +448,22 @@ IN_PROC_BROWSER_TEST_F(CrComponentsComposeboxTest, ComposeboxMatch) {
 IN_PROC_BROWSER_TEST_F(CrComponentsComposeboxTest, ComposeboxMixin) {
   RunTest("cr_components/composebox/composebox_mixin_test.js", "mocha.run()");
 }
+
+#if !BUILDFLAG(IS_ANDROID)
+class CrComponentsWithPixelOutputTest : public WebUIMochaBrowserTest {
+ public:
+  CrComponentsWithPixelOutputTest() {
+    set_test_loader_host(chrome::kChromeUISettingsHost);
+  }
+
+ protected:
+  void SetUpCommandLine(base::CommandLine* command_line) override {
+    command_line->AppendSwitch(::switches::kEnablePixelOutputInTests);
+    WebUIMochaBrowserTest::SetUpCommandLine(command_line);
+  }
+};
+
+IN_PROC_BROWSER_TEST_F(CrComponentsWithPixelOutputTest, CrLottie) {
+  RunTest("cr_components/cr_lottie/cr_lottie_test.js", "mocha.run()");
+}
+#endif  // !BUILDFLAG(IS_ANDROID)

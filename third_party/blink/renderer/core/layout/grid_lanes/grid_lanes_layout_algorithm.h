@@ -46,7 +46,7 @@ class CORE_EXPORT GridLanesLayoutAlgorithm
   using LayoutAlgorithm::Node;
   using LayoutAlgorithm::Style;
 
-  MinMaxSizesResult ComputeMinMaxSizes(const MinMaxSizesFloatInput&);
+  MinMaxSizesResult ComputeMinMaxSizes(const MinMaxSizesInput&);
   const LayoutResult* Layout();
 
   GridLineResolver BuildGridLineResolver(
@@ -92,6 +92,22 @@ class CORE_EXPORT GridLanesLayoutAlgorithm
   LogicalSize GetGridAvailableSize() const {
     return grid_lanes_available_size_;
   }
+
+  // Initializes the track sizes of a grid-lanes sizing subtree.
+  void InitializeTrackSizes(
+      const GridSizingSubtree& sizing_subtree,
+      const SubgriddedItemData& opt_subgrid_data,
+      const std::optional<GridTrackSizingDirection>& opt_track_direction) const;
+
+  // Completes the track sizing algorithm for non-definite tracks of a
+  // grid-lanes sizing subtree.
+  void CompleteTrackSizingAlgorithm(
+      const GridSizingSubtree& sizing_subtree,
+      const SubgriddedItemData& opt_subgrid_data,
+      GridTrackSizingDirection track_direction,
+      SizingConstraint sizing_constraint,
+      bool* opt_needs_additional_pass,
+      bool needs_intrinsic_track_size = false) const;
 
  private:
   friend class GridLanesLayoutAlgorithmTest;
@@ -220,17 +236,16 @@ class CORE_EXPORT GridLanesLayoutAlgorithm
   // containing the layout boxes of OOF grid-lanes items. If 'fill-reverse' is
   // enabled, this method will also apply the necessary reverse offsets to the
   // OOF items so that they are positioned correctly along the stacking axis.
+  //
+  // When block fragmented, `oof_children` is also an output param: candidates
+  // that don't belong in this fragment are left in the output vector, to be
+  // handled by a subsequent fragment.
   void PlaceOutOfFlowItems(const GridLayoutData& layout_data,
                            LayoutUnit block_size,
                            HeapVector<Member<LayoutBox>>& oof_children);
 
-  // Initializes the track sizes of a grid-lanes sizing subtree. If
+  // Helper that calls the method above for the entire grid sizing tree. If
   // `only_for_grid_axis` is true, only the grid axis is re-initialized.
-  void InitializeTrackSizes(const GridSizingSubtree& sizing_subtree,
-                            const SubgriddedItemData& opt_subgrid_data,
-                            bool only_for_grid_axis = false) const;
-
-  // Helper that calls the method above for the entire grid sizing tree.
   void InitializeTrackSizes(GridSizingTree* sizing_tree,
                             bool only_for_grid_axis = false) const;
 
@@ -250,17 +265,9 @@ class CORE_EXPORT GridLanesLayoutAlgorithm
       HeapVector<Member<LayoutBox>>* opt_oof_children = nullptr,
       bool* opt_needs_additional_pass = nullptr);
 
-  // Completes the track sizing algorithm for non-definite tracks of a
-  // grid-lanes sizing subtree. If `only_for_grid_axis` is true, only the
-  // subgrids' grid-axis tracks are re-completed.
-  void CompleteTrackSizingAlgorithm(
-      const GridSizingSubtree& sizing_subtree,
-      SizingConstraint sizing_constraint,
-      bool needs_intrinsic_track_size,
-      bool only_for_grid_axis = false,
-      bool* opt_needs_additional_pass = nullptr) const;
-
-  // Helper that calls the method above for the entire grid sizing tree.
+  // Helper that calls the method above for the entire grid sizing tree. If
+  // `only_for_grid_axis` is true, only the subgrids' grid-axis tracks are
+  // re-completed.
   void CompleteTrackSizingAlgorithm(
       SizingConstraint sizing_constraint,
       GridSizingTree* sizing_tree,
@@ -285,6 +292,7 @@ class CORE_EXPORT GridLanesLayoutAlgorithm
   //
   // `subgrid_axis_direction` is the subgridded axis in the subgrid's own
   // coordinates.
+  template <typename LayoutAlgorithmType>
   void RebuildSubgridLayoutDataForResolvedPlacement(
       const GridItemData& subgrid_item,
       const GridLayoutData& parent_layout_data,

@@ -36,7 +36,6 @@
 <translation id="1333654552732143316">Iniciar o Chrome</translation>
 <translation id="1341711321000856656">Mude para outro perfil do Chrome para conferir as senhas dele</translation>
 <translation id="1343830902827845050">Faça login no Chrome</translation>
-<translation id="1356661055722410047">Novidade! Agora é possível traduzir textos e imagens na tela.</translation>
 <translation id="1361351916482714918">Navegue de forma mais inteligente usando o Google Lens</translation>
 <translation id="1363996462118479832">O ChromeOS não pôde sincronizar seus dados devido a um erro durante o login.</translation>
 <translation id="137466361146087520">Google Chrome Beta</translation>
@@ -74,7 +73,6 @@
 <translation id="1640672724030957280">Fazendo download...</translation>
 <translation id="1651617469580841801">Quando você usa o Google Lens, o título, o URL e o conteúdo da página, incluindo PDFs, são enviados ao Google. <ph name="LEARN_MORE" /></translation>
 <translation id="1662146548738125461">Sobre o ChromeOS Flex</translation>
-<translation id="1664094661346151467">Pesquise e faça perguntas de qualquer lugar, mesmo com o Chrome minimizado</translation>
 <translation id="1674870198290878346">Abrir link na janela &amp;sem rastros do Chrome</translation>
 <translation id="1682634494516646069">O Google Chrome não pode ler e gravar neste diretório de dados: <ph name="USER_DATA_DIRECTORY" /></translation>
 <translation id="1688214853608504530">O Chrome envia o que você digitou na barra de endereço ou na caixa de pesquisa para as ferramentas de pesquisa, IA e agente da sua organização e recebe sugestões.</translation>
@@ -96,6 +94,7 @@
 <translation id="1873233029667955273">O Google Chrome não é seu navegador padrão</translation>
 <translation id="1874309113135274312">Google Chrome Beta (mDNS-In)</translation>
 <translation id="1877026089748256423">O Google Chrome está desatualizado</translation>
+<translation id="1877067026701708502">A conta <ph name="EXISTING_USER" /> já está conectada. Para manter sua navegação separada, faça login no Chrome no seu perfil como <ph name="USER_EMAIL_ADDRESS" />. Você também terá acesso às suas extensões e muito mais em todos os seus dispositivos.</translation>
 <translation id="1880677175115548835">Selecionar texto</translation>
 <translation id="1896602904211344018">Baixar o Chrome</translation>
 <translation id="1919130412786645364">Permitir login no Chrome</translation>
@@ -228,6 +227,7 @@ Se esta página não funcionar como o esperado, ative a otimização.</translati
 <translation id="3112458742631356345">O Chrome bloqueou o download porque o arquivo não é baixado com frequência e pode ser perigoso</translation>
 <translation id="3119573284443908657">O Chrome bloqueou o download porque o arquivo inclui outros arquivos que podem estar ocultando malware</translation>
 <translation id="3124332159330678621">Personalize o Chrome para mudar o visual do navegador</translation>
+<translation id="3125851611828811913">Pesquise e faça perguntas de qualquer lugar, mesmo com o Chrome minimizado. Isso permite que o Chrome seja executado em segundo plano.</translation>
 <translation id="3130333203120345554">Nova pesquisa</translation>
 <translation id="3135560418014806498">Adicionar perfil do Chrome</translation>
 <translation id="3137969841538672700">Arraste para pesquisar</translation>
@@ -385,6 +385,7 @@ Se esta página não funcionar como o esperado, ative a otimização.</translati
 <translation id="4793679854893018356">Saiba como o Chrome protege você</translation>
 <translation id="4799870290441980300">Ativa recursos extras para oferecer a proteção mais segura do Chrome.</translation>
 <translation id="4828579605166583682">O Google Chrome está tentando substituir senhas já existentes. Digite sua senha do Windows para conceder essa permissão.</translation>
+<translation id="4836321460899997044">Perfil do Chrome</translation>
 <translation id="4842397268809523050">O ChromeOS Flex não pôde sincronizar seus dados porque a sincronização não está disponível para seu domínio.</translation>
 <translation id="4851866215237571846">A conta <ph name="EXISTING_USER" /> já está conectada. Para manter sua navegação separada, faça login no Chrome em seu perfil como <ph name="USER_EMAIL_ADDRESS" />.</translation>
 <translation id="4855026984605187434">Para compartilhar a tela, use os Ajustes do Sistema para permitir a gravação de tela do Chrome</translation>
@@ -498,6 +499,7 @@ Se esta página não funcionar como o esperado, ative a otimização.</translati
 <translation id="6014316319780893079">Com as <ph name="BEGIN_LINK" />ferramentas do Chrome<ph name="END_LINK" />, você pode navegar com segurança e ficar no controle</translation>
 <translation id="6018578474045062808">Teste o Google Lens com o Chrome no seu celular</translation>
 <translation id="6022659036123304283">Deixe o Chrome do seu jeito</translation>
+<translation id="6024930613143833266">Pesquise com o Chrome de qualquer lugar</translation>
 <translation id="6025087594896450715">O Google Chrome será reiniciado em <ph name="REMAINING_TIME" /></translation>
 <translation id="6040143037577758943">Fechar</translation>
 <translation id="604424701295382420">Fixado. Você pode acessar o Google Lens de novo usando o novo botão na barra de ferramentas</translation>
@@ -542,6 +544,7 @@ Se esta página não funcionar como o esperado, ative a otimização.</translati
 <translation id="6334815226785304306">Definir o Google Chrome como navegador padrão e fixar na barra de tarefas</translation>
 <translation id="63540178978900677">O Chrome não é mais seu navegador padrão. Definir o Chrome como navegador padrão?</translation>
 <translation id="6360449101159168105">Enquanto esta guia estava inativa, a memória foi liberada para manter o Chrome rápido. Você pode optar por sempre excluir este site do status de inatividade.</translation>
+<translation id="6362984640667950211">A conta <ph name="EXISTING_USER" /> já está conectada. Para manter sua navegação separada, faça login no Chrome no seu perfil como <ph name="USER_EMAIL_ADDRESS" />. Você também terá acesso à sua Lista de leitura e muito mais em todos os seus dispositivos.</translation>
 <translation id="6388799252195623474">me ajude com isso</translation>
 <translation id="6412673304250309937">Verifica se os URLs estão em uma lista de sites não seguros armazenada no Chrome. Se um site tentar roubar sua senha ou se você fizer o download de um arquivo nocivo, o Chrome também poderá enviar URLs, incluindo partes do conteúdo da página, para o "Navegação segura".</translation>
 <translation id="6417690341895039567">{COUNT,plural, =1{A organização vai fechar o Chrome automaticamente se ele não for usado por 1 minuto. Os dados de navegação serão excluídos. Isso pode incluir o histórico, o preenchimento automático e os downloads.}one{A organização vai fechar o Chrome automaticamente se ele não for usado por # minuto. Os dados de navegação serão excluídos. Isso pode incluir o histórico, o preenchimento automático e os downloads.}other{A organização vai fechar o Chrome automaticamente se ele não for usado por # minutos. Os dados de navegação serão excluídos. Isso pode incluir o histórico, o preenchimento automático e os downloads.}}</translation>
@@ -550,6 +553,7 @@ Se esta página não funcionar como o esperado, ative a otimização.</translati
 <translation id="6434035853014503219">Agradecemos por escolher o Chrome como seu navegador padrão.</translation>
 <translation id="6438015621983209660">Amplie a Navegação Segura com Maior Proteção com o Chrome no seu celular</translation>
 <translation id="6442774133615368941">Compre, traduza e identifique qualquer coisa com a câmera no Chrome para iOS</translation>
+<translation id="6446105560007692480">para pesquisar com o Chrome ou personalizar nas <ph name="BEGIN_LINK" />Configurações<ph name="END_LINK" /></translation>
 <translation id="6448835208126432197">Para selecionar parte da tela no Gemini no Chrome, use o atalho do teclado.</translation>
 <translation id="6473905796280459355">Acesse a página "Sobre o Chrome"</translation>
 <translation id="6481963882741794338">Vincular o Chrome e outros Serviços do Google para personalização e outras finalidades</translation>
@@ -571,6 +575,7 @@ Se esta página não funcionar como o esperado, ative a otimização.</translati
 <translation id="6612152958212564387">Você não está enviando estatísticas de uso e relatórios de erros ao Google. <ph name="BEGIN_LINK" />Gerenciar<ph name="END_LINK" /></translation>
 <translation id="6613949864921837107">Mantenha senhas, favoritos e histórico sincronizados em todos os dispositivos definindo o Chrome como navegador padrão.</translation>
 <translation id="6631524303639368205">Continue de onde você parou: o Chrome restaurou as guias da sua última sessão. Para desativar essa opção, acesse as</translation>
+<translation id="6632012506031284914">para pesquisar com o Chrome.</translation>
 <translation id="6632473616050862500">A criação do ChromeOS Flex só foi possível graças a um outro <ph name="BEGIN_LINK_CROS_OSS" />software de código aberto<ph name="END_LINK_CROS_OSS" />.</translation>
 <translation id="6634299872736643004">As mudanças nessa configuração serão aplicadas assim que o Chrome for reiniciado.</translation>
 <translation id="6660596345553328257">Fazer login no Chrome?</translation>
@@ -587,6 +592,7 @@ Se esta página não funcionar como o esperado, ative a otimização.</translati
 <translation id="6750954913813541382">Para corrigir erros de ortografia, o Chrome envia o texto digitado no navegador para o Google</translation>
 <translation id="6760235774835597023">Deixa os sites mais rápidos com o mecanismo V8 do Chrome, mas o navegador fica um pouco menos resistente a ataques. Esta configuração está ativada.</translation>
 <translation id="677276454032249905">Sair do Chrome mesmo assim?</translation>
+<translation id="6777654166489463890">Pergunte sobre conteúdo fora do Chrome, como outro app ou arquivo aberto</translation>
 <translation id="6794858689789885890">Sempre excluir os dados do site do seu dispositivo ao fechar o Chrome</translation>
 <translation id="6800285125190089494">Faça login em sites com mais rapidez usando as senhas salvas no Chrome para iOS</translation>
 <translation id="6831043979455480757">Traduzir</translation>
@@ -639,6 +645,7 @@ Se esta página não funcionar como o esperado, ative a otimização.</translati
 <translation id="7285990705317078173">Baixe o Chrome no seu celular para monitorar preços e receber alertas quando houver uma redução em algum site</translation>
 <translation id="7288567540154601580">Guias e extensões</translation>
 <translation id="7296210096911315575">Informações importantes sobre uso e segurança</translation>
+<translation id="7299899569525778554">Pesquisar no computador</translation>
 <translation id="7302361266603927550">Alguns dos seus dados do Chrome ainda não foram salvos na sua Conta do Google. Aguarde alguns minutos antes de sair. Se você sair agora, esses dados serão excluídos.</translation>
 <translation id="7306401458628386911">Comece a navegar instantaneamente: o Chrome agora pode ser iniciado com o Windows.</translation>
 <translation id="7308322188646931570">O Chrome precisa de acesso para fazer o download e armazenar arquivos</translation>
@@ -702,6 +709,7 @@ Se esta página não funcionar como o esperado, ative a otimização.</translati
 <translation id="7845233973568007926">Agradecemos por fazer a instalação. É necessário reiniciar o computador antes de utilizar o <ph name="BUNDLE_NAME" />.</translation>
 <translation id="7847170235260850604">Iniciar o Chrome junto com o Windows</translation>
 <translation id="7849037457735762883">Continue de onde você parou: o Chrome pode restaurar suas guias sempre que você reinicia. Para ativar essa opção, acesse as</translation>
+<translation id="7868731902994556427">A conta <ph name="EXISTING_USER" /> já está conectada. Para manter sua navegação separada, faça login no Chrome no seu perfil como <ph name="USER_EMAIL_ADDRESS" />. Você também terá acesso às suas extensões e muito mais do <ph name="DEVICE" />.</translation>
 <translation id="7869620795354551924">Para usar as senhas salvas, leia o QR code, baixe o Chrome para iOS e faça login na sua Conta do Google.</translation>
 <translation id="7872446069773932638">Fazendo o download… <ph name="SECONDS" /> segundo(s) restante(s)</translation>
 <translation id="7886087451482920026">Selecionar texto com o Google Lens</translation>
@@ -788,7 +796,6 @@ Exclua alguns dos favoritos da sua conta para poder salvar novos. Se você sair 
 <translation id="8575047640889685742">Usar <ph name="BEGIN_LINK" />sua senha longa<ph name="END_LINK" /> para criptografar todos os dados do Chrome na sua Conta do Google. As formas de pagamento e os endereços do Google Pay não serão criptografados. O histórico de navegação do Chrome não será sincronizado.</translation>
 <translation id="8590782867495422699">Reabrir o Modo IA da Pesquisa Google</translation>
 <translation id="8598779894319572882">O botão "Modo IA da Pesquisa Google" na barra de ferramentas reabre essa função para você fazer perguntas enquanto navega</translation>
-<translation id="8601359445272098721">Novidade! Agora você pode traduzir texto e imagens na sua tela selecionando o botão "Traduzir tela".</translation>
 <translation id="8614913330719544658">O Google Chrome não responde. Reiniciar agora?</translation>
 <translation id="8623450603356630491">Fazer login no Chrome pelo celular</translation>
 <translation id="8624541899164515475">Configurações, abre em uma nova guia.</translation>
@@ -800,6 +807,7 @@ Exclua alguns dos favoritos da sua conta para poder salvar novos. Se você sair 
 <translation id="8679801911857917785">Controla também qual página deve ser exibida quando você inicia o Chrome.</translation>
 <translation id="8712637175834984815">Entendi</translation>
 <translation id="8712767363896337380">Falta pouco para a atualização terminar. Reinicie o Chrome para concluir.</translation>
+<translation id="8717554232729236539">A conta <ph name="EXISTING_USER" /> já está conectada. Para manter sua navegação separada, faça login no Chrome no seu perfil como <ph name="USER_EMAIL_ADDRESS" />. Você também terá acesso à sua Lista de Leitura e muito mais do <ph name="DEVICE" />.</translation>
 <translation id="8718062187489036808">Sair do Google Chrome</translation>
 <translation id="873133009373065397">O Google Chrome não pode determinar ou definir o navegador padrão</translation>
 <translation id="8747073452963259673">canto inferior esquerdo da área de pesquisa: <ph name="LEFT" />% à esquerda, <ph name="BOTTOM" />% abaixo</translation>

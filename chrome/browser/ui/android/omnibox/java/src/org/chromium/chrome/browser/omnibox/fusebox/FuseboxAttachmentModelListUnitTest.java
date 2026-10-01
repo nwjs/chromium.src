@@ -12,10 +12,10 @@ import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
@@ -30,6 +30,7 @@ import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
+import org.mockito.quality.Strictness;
 
 import org.chromium.base.ContextUtils;
 import org.chromium.base.test.BaseRobolectricTestRunner;
@@ -48,7 +49,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 @RunWith(BaseRobolectricTestRunner.class)
 public class FuseboxAttachmentModelListUnitTest {
-    @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
+    @Rule
+    public final MockitoRule mMockitoRule = MockitoJUnit.rule().strictness(Strictness.STRICT_STUBS);
 
     @Mock private ComposeboxQueryControllerBridge mComposeboxQueryControllerBridge;
     @Mock private FuseboxAttachmentModelList.FuseboxAttachmentChangeListener mListener;
@@ -97,7 +99,8 @@ public class FuseboxAttachmentModelListUnitTest {
         Tab tab = mock(Tab.class);
         when(tab.getId()).thenReturn(tabId);
         var attachment = createTabAttachment(tab);
-        when(mComposeboxQueryControllerBridge.addTabContextFromCache(tabId, false))
+        when(mComposeboxQueryControllerBridge.addTabContextFromCache(
+                        tabId, /* isSuggestedTab= */ false))
                 .thenReturn(token);
         return attachment;
     }
@@ -502,7 +505,8 @@ public class FuseboxAttachmentModelListUnitTest {
         doReturn(false).when(mTab).isFrozen();
         doReturn(mWebContents).when(mTab).getWebContents();
         doReturn(mRenderWidgetHostView).when(mWebContents).getRenderWidgetHostView();
-        when(mComposeboxQueryControllerBridge.addTabContext(mTab, false)).thenReturn("token");
+        when(mComposeboxQueryControllerBridge.addTabContext(mTab, /* isSuggestedTab= */ false))
+                .thenReturn("token");
 
         FuseboxAttachment tabAttachment = createTabAttachment(mTab);
         mFuseboxAttachmentModelList.add(tabAttachment);
@@ -518,7 +522,8 @@ public class FuseboxAttachmentModelListUnitTest {
         doReturn(true).when(mTab).isIncognitoBranded();
         doReturn(mWebContents).when(mTab).getWebContents();
         doReturn(mRenderWidgetHostView).when(mWebContents).getRenderWidgetHostView();
-        when(mComposeboxQueryControllerBridge.addTabContext(mTab, false)).thenReturn("token");
+        when(mComposeboxQueryControllerBridge.addTabContext(mTab, /* isSuggestedTab= */ false))
+                .thenReturn("token");
 
         FuseboxAttachment tabAttachment = createTabAttachment(mTab);
         mFuseboxAttachmentModelList.add(tabAttachment);
@@ -533,8 +538,11 @@ public class FuseboxAttachmentModelListUnitTest {
         doReturn(false).when(mTab).isFrozen();
         doReturn(mWebContents).when(mTab).getWebContents();
         doReturn(mRenderWidgetHostView).when(mWebContents).getRenderWidgetHostView();
-        when(mComposeboxQueryControllerBridge.addTabContext(mTab, false)).thenReturn("token2");
-        when(mComposeboxQueryControllerBridge.addTabContextFromCache(1, false)).thenReturn("");
+        when(mComposeboxQueryControllerBridge.addTabContext(mTab, /* isSuggestedTab= */ false))
+                .thenReturn("token2");
+        when(mComposeboxQueryControllerBridge.addTabContextFromCache(
+                        1, /* isSuggestedTab= */ false))
+                .thenReturn("");
 
         FuseboxAttachment tabAttachment = createTabAttachment(mTab);
         mFuseboxAttachmentModelList.add(tabAttachment);
@@ -548,13 +556,16 @@ public class FuseboxAttachmentModelListUnitTest {
         doReturn(false).when(mTab).isFrozen();
         doReturn(mWebContents).when(mTab).getWebContents();
         doReturn(mRenderWidgetHostView).when(mWebContents).getRenderWidgetHostView();
-        when(mComposeboxQueryControllerBridge.addTabContextFromCache(1, false)).thenReturn("token");
+        when(mComposeboxQueryControllerBridge.addTabContextFromCache(
+                        1, /* isSuggestedTab= */ false))
+                .thenReturn("token");
 
         FuseboxAttachment tabAttachment = createTabAttachment(mTab);
         mFuseboxAttachmentModelList.add(tabAttachment);
         assertEquals("token", tabAttachment.getToken());
 
-        when(mComposeboxQueryControllerBridge.addTabContext(mTab, false)).thenReturn("token2");
+        when(mComposeboxQueryControllerBridge.addTabContext(mTab, /* isSuggestedTab= */ false))
+                .thenReturn("token2");
         mFuseboxAttachmentModelList.onContextUploadStatusChanged(
                 "token", ContextUploadStatus.VALIDATION_FAILED, ContextUploadErrorType.UNKNOWN);
         assertEquals("token2", tabAttachment.getToken());
@@ -629,8 +640,8 @@ public class FuseboxAttachmentModelListUnitTest {
 
         // Add an attachment before starting the batch edit.
         mFuseboxAttachmentModelList.add(attachment1);
-        // Reset the listener to ignore the notification from the previous add.
-        reset(mListener);
+        // Clear invocations on listener to ignore the notification from the previous add.
+        clearInvocations(mListener);
 
         try (var token = mFuseboxAttachmentModelList.beginBatchEdit()) {
             mFuseboxAttachmentModelList.add(attachment2);
@@ -711,7 +722,9 @@ public class FuseboxAttachmentModelListUnitTest {
         doReturn(true).when(mTab).isInitialized();
         doReturn(false).when(mTab).isFrozen();
         doReturn(null).when(mTab).getWebContents();
-        when(mComposeboxQueryControllerBridge.addTabContextFromCache(1, false)).thenReturn("token");
+        when(mComposeboxQueryControllerBridge.addTabContextFromCache(
+                        1, /* isSuggestedTab= */ false))
+                .thenReturn("token");
         FuseboxAttachment tabAttachment = createTabAttachment(mTab);
         mFuseboxAttachmentModelList.add(tabAttachment);
 

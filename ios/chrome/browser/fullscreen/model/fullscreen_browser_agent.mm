@@ -174,15 +174,8 @@ void FullscreenBrowserAgent::IncrementalScroll(CGFloat amount,
     return;
   }
 
-  if (top_progress_ == 0.0 && bottom_progress_ == 0.0) {
-    base::UmaHistogramEnumeration(
-        kEnterFullscreenModeTransitionTriggerHistogram,
-        FullscreenModeTransitionTrigger::kUserControlled);
-  } else if (top_progress_ == 1.0 && bottom_progress_ == 1.0) {
-    base::UmaHistogramEnumeration(
-        kExitFullscreenModeTransitionTriggerHistogram,
-        FullscreenModeTransitionTrigger::kUserControlled);
-  }
+  RecordIncrementalScrollMetrics(pre_scroll_top_progress,
+                                 pre_scroll_bottom_progress);
 
   NotifyObserversOfUpdatedState();
 }
@@ -193,6 +186,9 @@ void FullscreenBrowserAgent::EnterFullscreen(
     bool animated) {
   base::UmaHistogramEnumeration(kEnterFullscreenModeTransitionTriggerHistogram,
                                 trigger);
+  if (top_progress_ > 0.0 || bottom_progress_ > 0.0) {
+    RecordEnterFullscreenTiming();
+  }
   UpdateProgressAndBroadcast(FullscreenTransition::kEnterFullscreen, trigger,
                              animated);
 }
@@ -203,8 +199,54 @@ void FullscreenBrowserAgent::ExitFullscreen(
     bool animated) {
   base::UmaHistogramEnumeration(kExitFullscreenModeTransitionTriggerHistogram,
                                 trigger);
+  if (trigger == FullscreenModeTransitionTrigger::kForcedByCode) {
+    time_entered_fullscreen_ = std::nullopt;
+    time_exited_fullscreen_ = base::TimeTicks::Now();
+  } else if (top_progress_ < 1.0 || bottom_progress_ < 1.0) {
+    RecordExitFullscreenTiming();
+  }
   UpdateProgressAndBroadcast(FullscreenTransition::kExitFullscreen, trigger,
                              animated);
+}
+
+void FullscreenBrowserAgent::RecordIncrementalScrollMetrics(
+    CGFloat pre_scroll_top_progress,
+    CGFloat pre_scroll_bottom_progress) {
+  if (top_progress_ == 0.0 && bottom_progress_ == 0.0) {
+    if (pre_scroll_top_progress > 0.0 || pre_scroll_bottom_progress > 0.0) {
+      base::UmaHistogramEnumeration(
+          kEnterFullscreenModeTransitionTriggerHistogram,
+          FullscreenModeTransitionTrigger::kUserControlled);
+      RecordEnterFullscreenTiming();
+    }
+  } else if (top_progress_ == 1.0 && bottom_progress_ == 1.0) {
+    if (pre_scroll_top_progress < 1.0 || pre_scroll_bottom_progress < 1.0) {
+      base::UmaHistogramEnumeration(
+          kExitFullscreenModeTransitionTriggerHistogram,
+          FullscreenModeTransitionTrigger::kUserControlled);
+      RecordExitFullscreenTiming();
+    }
+  }
+}
+
+void FullscreenBrowserAgent::RecordEnterFullscreenTiming() {
+  if (time_exited_fullscreen_.has_value()) {
+    base::UmaHistogramLongTimes(
+        kTimeNotInFullscreenHistogram,
+        base::TimeTicks::Now() - time_exited_fullscreen_.value());
+  }
+  time_entered_fullscreen_ = base::TimeTicks::Now();
+  time_exited_fullscreen_ = std::nullopt;
+}
+
+void FullscreenBrowserAgent::RecordExitFullscreenTiming() {
+  if (time_entered_fullscreen_.has_value()) {
+    base::UmaHistogramLongTimes(
+        kTimeInFullscreenHistogram,
+        base::TimeTicks::Now() - time_entered_fullscreen_.value());
+  }
+  time_exited_fullscreen_ = base::TimeTicks::Now();
+  time_entered_fullscreen_ = std::nullopt;
 }
 
 void FullscreenBrowserAgent::UpdateProgressAndBroadcast(
@@ -212,7 +254,11 @@ void FullscreenBrowserAgent::UpdateProgressAndBroadcast(
     FullscreenModeTransitionTrigger trigger,
     bool animated) {
   CGFloat target_progress = TargetProgressForTransition(transition);
-  if (top_progress_ == target_progress && bottom_progress_ == target_progress) {
+  // The target is already reached, so there is nothing to broadcast. A
+  // non-animated request is the exception: it must still run to interrupt an
+  // in-flight animation towards that same target and settle immediately.
+  if (top_progress_ == target_progress && bottom_progress_ == target_progress &&
+      (animated || !is_animating_)) {
     return;
   }
 
@@ -220,9 +266,20 @@ void FullscreenBrowserAgent::UpdateProgressAndBroadcast(
   top_progress_ = target_progress;
   bottom_progress_ = target_progress;
 
+  // Commit the settled state together with the progress: both describe the
+  // same target. Deferring it to the animation completion would let an
+  // interrupted animation leave the two permanently contradicting each other,
+  // which in turn makes the eased-transition clamps in IncrementalScroll() snap
+  // the progress back to a threshold value.
+  settled_state_ = SettledStateForTransition(transition);
+
+  // Take ownership of the animation state: the completion callback of any
+  // in-flight animation now belongs to a superseded generation and will be
+  // discarded.
+  ++animation_generation_;
+
   if (!animated) {
     is_animating_ = false;
-    settled_state_ = SettledStateForTransition(transition);
     NotifyObserversOfUpdatedState();
     NotifyFullscreenDidTransition(transition);
     return;
@@ -243,9 +300,9 @@ void FullscreenBrowserAgent::UpdateProgressAndBroadcast(
   auto update_state = base::CallbackToBlock(
       base::BindOnce(&FullscreenBrowserAgent::NotifyObserversOfUpdatedState,
                      weak_ptr_factory_.GetWeakPtr(), duration));
-  auto completion_block = base::CallbackToBlock(
-      base::BindOnce(&FullscreenBrowserAgent::AnimationDidComplete,
-                     weak_ptr_factory_.GetWeakPtr(), transition));
+  auto completion_block = base::CallbackToBlock(base::BindOnce(
+      &FullscreenBrowserAgent::AnimationDidComplete,
+      weak_ptr_factory_.GetWeakPtr(), transition, animation_generation_));
 
   [UIView animateWithDuration:duration.InSecondsF()
                         delay:0.0
@@ -289,12 +346,22 @@ void FullscreenBrowserAgent::NotifyObserversOfUpdatedState(
 
 void FullscreenBrowserAgent::AnimationDidComplete(
     FullscreenTransition transition,
+    int generation,
     bool finished) {
-  is_animating_ = false;
-  if (finished) {
-    settled_state_ = SettledStateForTransition(transition);
-    NotifyFullscreenDidTransition(transition);
+  // A newer transition has already taken over the animation state; this
+  // completion belongs to the animation it superseded.
+  if (generation != animation_generation_) {
+    return;
   }
+
+  is_animating_ = false;
+
+  // `finished` is deliberately ignored. The progress and the settled state were
+  // committed when the transition started, and an interruption by an external
+  // layout pass snaps the observer views to that committed progress, so the
+  // target is reached either way. Skipping the notification here would strand
+  // observers that only react to completed transitions.
+  NotifyFullscreenDidTransition(transition);
 }
 
 void FullscreenBrowserAgent::NotifyFullscreenDidTransition(

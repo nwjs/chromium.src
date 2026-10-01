@@ -2,35 +2,54 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import './taskbox/ai_taskbox.js';
+import '//resources/cr_elements/cr_icon/cr_icon.js';
+import '//resources/cr_elements/cr_menu_selector/cr_menu_selector.js';
+import '//resources/cr_elements/icons.html.js';
+import './icons.html.js';
+import './memory_bank_chat/memory_bank_chat.js';
 import './memory_banks/memory_banks.js';
 import './tab_groups/tab_groups.js';
-import '//resources/cr_elements/cr_menu_selector/cr_menu_selector.js';
-import '//resources/cr_elements/cr_icon/cr_icon.js';
-import '//resources/cr_elements/icons.html.js';
+import './taskbox/ai_taskbox.js';
+import './smart_search/smart_search.js';
+import './topics/topics_view.js';
 
 import {CrLitElement} from '//resources/lit/v3_0/lit.rollup.js';
 
 import {getCss} from './app.css.js';
 import {getHtml} from './app.html.js';
 
-export type ViewType = 'ai-taskbox'|'memory-banks'|'tab-groups';
+export type ViewType =
+    'launchpad'|'memory-banks'|'tab-groups'|'memory-bank-chat'|'topics'|'jumpstart';
 
 const VALID_VIEWS: Set<ViewType> =
-    new Set(['ai-taskbox', 'memory-banks', 'tab-groups']);
+    new Set(['launchpad', 'memory-banks', 'tab-groups', 'topics', 'jumpstart']);
 const STORAGE_KEY = 'context_hub_current_view';
+
+function normalizeView(view: string|null): ViewType|null {
+  // Backwards compatibility for old view names.
+  if (view === 'ai-taskbox') {
+    return 'launchpad';
+  }
+  if (view === 'smart-search') {
+    return 'jumpstart';
+  }
+  if (view && VALID_VIEWS.has(view as ViewType)) {
+    return view as ViewType;
+  }
+  return null;
+}
 
 // Page refresh should restore the current view.
 function getInitialView(): ViewType {
-  const hash = window.location.hash.slice(1) as ViewType;
-  if (VALID_VIEWS.has(hash)) {
-    return hash;
+  const hashView = normalizeView(window.location.hash.slice(1));
+  if (hashView) {
+    return hashView;
   }
-  const stored = localStorage.getItem(STORAGE_KEY) as ViewType;
-  if (stored && VALID_VIEWS.has(stored)) {
-    return stored;
+  const storedView = normalizeView(localStorage.getItem(STORAGE_KEY));
+  if (storedView) {
+    return storedView;
   }
-  return 'ai-taskbox';
+  return 'launchpad';
 }
 
 export class ContextHubAppElement extends CrLitElement {
@@ -65,8 +84,8 @@ export class ContextHubAppElement extends CrLitElement {
   }
 
   private onHashChange_ = () => {
-    const hash = window.location.hash.slice(1) as ViewType;
-    if (VALID_VIEWS.has(hash) && this.currentView_ !== hash) {
+    const hash = normalizeView(window.location.hash.slice(1));
+    if (hash && this.currentView_ !== hash) {
       this.currentView_ = hash;
     }
   };

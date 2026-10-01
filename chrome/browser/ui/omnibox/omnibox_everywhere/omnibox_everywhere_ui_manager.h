@@ -15,6 +15,8 @@
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
 #include "base/time/time.h"
+#include "base/timer/timer.h"
+#include "build/build_config.h"
 #include "chrome/browser/ui/browser_window/public/browser_collection_observer.h"
 #include "chrome/browser/ui/browser_window/public/profile_browser_collection.h"
 #include "chrome/browser/ui/omnibox/omnibox_everywhere_service.h"
@@ -22,6 +24,7 @@
 #include "chrome/browser/ui/webui/top_chrome/webui_contents_wrapper.h"
 #include "components/prefs/pref_change_registrar.h"
 #include "content/public/browser/context_menu_params.h"
+#include "content/public/browser/web_contents.h"
 #include "third_party/blink/public/mojom/page/draggable_region.mojom-forward.h"
 #include "third_party/skia/include/core/SkRegion.h"
 #include "ui/base/interaction/element_identifier.h"
@@ -30,6 +33,12 @@
 #include "ui/views/context_menu_controller.h"
 #include "ui/views/widget/widget.h"
 #include "ui/views/widget/widget_observer.h"
+
+#if BUILDFLAG(IS_WIN)
+#include "base/functional/callback.h"
+#include "base/threading/sequence_bound.h"
+#include "chrome/browser/ui/omnibox/omnibox_everywhere/omnibox_everywhere_shortcut_win.h"
+#endif
 
 class Profile;
 class ScopedKeepAlive;
@@ -63,14 +72,22 @@ class OmniboxEverywhereUIManager : public views::WidgetObserver,
   DECLARE_CLASS_ELEMENT_IDENTIFIER_VALUE(kOmniboxEverywhereElementId);
 
   // Fixed popup window width:
-  //   680px (Loomnibox searchbox content width)
+  //   680px (Loomnibox searchbox content width; 480px when smallLoomnibox param
+  //          is enabled)
   // +  48px (24px left + 24px right body padding in omnibox_everywhere.html to
   //          accommodate the drop shadow without clipping).
-  // = 728px total window width.
+  // = 728px total window width (528px when smallLoomnibox is enabled).
   static constexpr int kPopupFixedWidth = 728;
+  static constexpr int kPopupSmallFixedWidth = 528;
+  static int GetPopupFixedWidth();
   static constexpr int kDefaultRestingHeight = 152;
+  // Resting height when the FRE intro modal is shown (searchbox + 2-row FRE
+  // modal card + drop-shadow body padding).
+  static constexpr int kFreModalRestingHeight = 424;
   static constexpr base::TimeDelta kActivationGracePeriod =
       base::Milliseconds(500);
+  static constexpr base::TimeDelta kPostHideCaptureDuration =
+      base::Milliseconds(200);
 
   enum ContextMenuCommandId {
     kUndo = 1,
@@ -85,6 +102,8 @@ class OmniboxEverywhereUIManager : public views::WidgetObserver,
     kShowShortcuts = 10,
     kCustomizeKeyboardShortcut = 11,
     kSettings = 12,
+    kMinimize = 13,
+    kClose = 14,
   };
 
   using ContentsWrapperFactory =
@@ -106,22 +125,39 @@ class OmniboxEverywhereUIManager : public views::WidgetObserver,
   // Demotes the widget to normal Z-order and deactivates it without hiding.
   void Demote();
 
+#if BUILDFLAG(IS_WIN)
+  // Minimizes the widget to the taskbar. Unlike `Close()`, the widget and its
+  // WebContents are kept alive, and no FRE impression is recorded.
+  void Minimize();
+#endif  // BUILDFLAG(IS_WIN)
+
   // Synchronously closes the widget and destroys the WebContents during profile
   // shutdown.
   void Shutdown();
 
-  // Returns true if the widget is visible.
+  // Returns true if the widget is visible and not minimized.
   bool IsVisible() const;
 
   // Returns true if the widget is active/focused.
   bool IsActive() const;
 
-  // Returns true if a file chooser, drive picker, or screenshare picker modal
-  // dialog is open.
+  // Returns true if any modal dialog or modal overlay owned by the launcher is
+  // open (e.g. file chooser, drive picker, permission prompt, screenshare
+  // picker/disclosure, region select overlay, or hotkey dropdown).
   bool HasOpenModalDialog() const;
+
+  // Returns true while a screenshot capture flow owns the screen: the native
+  // OS screen picker, Chrome's default desktop media picker, the region
+  // selection overlay, or the capture that immediately follows the user's
+  // selection. The widget is intentionally hidden for the duration of that
+  // flow, so invocation entry points must be ignored while this is true.
+  bool IsScreenshareCaptureInProgress() const;
 
   // views::WidgetObserver:
   void OnWidgetActivationChanged(views::Widget* widget, bool active) override;
+  void OnWidgetVisibilityOnScreenChanged(views::Widget* widget,
+                                         bool visible) override;
+  void OnWidgetShowStateChanged(views::Widget* widget) override;
   void OnWidgetDestroying(views::Widget* widget) override;
   void OnWidgetUserDragStarted(views::Widget* widget) override;
   void OnWidgetUserDragEnded(views::Widget* widget) override;
@@ -172,10 +208,14 @@ class OmniboxEverywhereUIManager : public views::WidgetObserver,
   void OnDrivePickerOpened();
   void OnDrivePickerClosed();
 
+  void OnHotkeyDropdownOpened();
+  void OnHotkeyDropdownClosed();
+
   using RegionCaptureSource = OmniboxEverywhereService::RegionCaptureSource;
 
   void OnScreensharePickerOpened();
   void OnScreensharePickerClosed();
+  bool CancelChromeDefaultPicker(Profile* target_profile = nullptr);
 
   void ShowScreenshotDisclosureDialog(
       base::OnceClosure on_accepted,
@@ -204,6 +244,24 @@ class OmniboxEverywhereUIManager : public views::WidgetObserver,
 
   bool IsPointInDraggableRegion(const gfx::Point& point) const;
 
+#if BUILDFLAG(IS_WIN)
+  // Creates the Start Menu shortcut the Shell requires for taskbar pinning,
+  // on a COM STA runner. Reports whether a usable shortcut exists.
+  void CreateStartMenuShortcut(
+      base::OnceCallback<void(bool)> callback = base::DoNothing());
+
+  // Suppresses taskbar pinning on widgets created from now on; pinning remains
+  // enabled until this is called. Does not affect the open widget.
+  void DisableTaskbarPinning();
+
+  bool taskbar_pinning_disabled_for_testing() const {
+    return taskbar_pinning_disabled_;
+  }
+  bool start_menu_shortcut_requested_for_testing() const {
+    return start_menu_shortcut_requested_;
+  }
+#endif
+
   // For testing:
   WebUIContentsWrapper* contents_wrapper_for_testing() {
     return contents_wrapper_.get();
@@ -229,6 +287,15 @@ class OmniboxEverywhereUIManager : public views::WidgetObserver,
   bool is_permission_prompt_open_for_testing() const {
     return is_permission_prompt_open_;
   }
+  bool is_hotkey_dropdown_open_for_testing() const {
+    return is_hotkey_dropdown_open_;
+  }
+  bool is_hotkey_dropdown_deactivation_task_pending_for_testing() const {
+    return !hotkey_dropdown_deactivation_task_.IsCancelled();
+  }
+  void CheckDeactivationAfterHotkeyDropdownClosedForTesting() {
+    CheckDeactivationAfterHotkeyDropdownClosed();
+  }
   OmniboxEverywhereRegionSelectOverlay* region_select_overlay_for_testing() {
     return region_select_overlay_.get();
   }
@@ -238,6 +305,8 @@ class OmniboxEverywhereUIManager : public views::WidgetObserver,
   void set_is_context_menu_open_for_testing(bool open) {
     is_context_menu_open_ = open;
   }
+  bool is_dragging_for_testing() const { return is_dragging_; }
+  bool is_demoted() const { return is_demoted_; }
   void OnContextMenuClosedForTesting() { OnContextMenuClosed(); }
   const ui::SimpleMenuModel* context_menu_model_for_testing() const {
     return context_menu_model_.get();
@@ -253,8 +322,15 @@ class OmniboxEverywhereUIManager : public views::WidgetObserver,
   void CreateAndInitWidget(gfx::NativeWindow context);
   void ActivateAndFocus();
   void OnEphemeralModelPrefChanged();
+
+#if BUILDFLAG(IS_WIN)
+  // Disables taskbar pinning if no Start Menu shortcut is available.
+  void OnStartMenuShortcutChecked(bool shortcut_exists);
+#endif
   void OnMostVisitedPrefChanged();
-  void RecordFreImpression();
+  void MaybeRecordFreImpression();
+  void MaybeShowLensPromo();
+  void EndLensPromo();
   static gfx::Rect CalculateWidgetBounds(int height);
 
   // Try and acquire process and profile keep alives. If unsuccessful, releases
@@ -271,13 +347,23 @@ class OmniboxEverywhereUIManager : public views::WidgetObserver,
   void BuildSelectionContextMenu(const content::ContextMenuParams& params);
   void BuildBackgroundContextMenu(const content::ContextMenuParams& params);
   void AppendSettingsContextMenu();
+#if BUILDFLAG(IS_WIN)
+  void AppendWindowControlsContextMenu();
+#endif  // BUILDFLAG(IS_WIN)
 
   void CleanUpWidget();
+
+  // Cancels transient UI state (pending dismissal tasks, activation grace
+  // period timestamp, and any open context menu).
+  void CancelTransientUiState();
   void OnWidgetClosed(views::Widget::ClosedReason reason);
   void OnContextMenuClosed();
   void HandleWidgetDeactivated();
-  void OnScreenshotDisclosureClosed(base::OnceClosure on_cancelled,
+  void CheckDeactivationAfterHotkeyDropdownClosed();
+  void OnScreenshotDisclosureClosed(base::OnceClosure on_accepted,
+                                    base::OnceClosure on_cancelled,
                                     views::Widget::ClosedReason reason);
+  void UpdateModalInteractionState();
 
 #if defined(USE_AURA)
   std::unique_ptr<OmniboxEverywhereEventHandlerAura> event_handler_;
@@ -295,15 +381,23 @@ class OmniboxEverywhereUIManager : public views::WidgetObserver,
   std::unique_ptr<OmniboxEverywhereRegionSelectOverlay> region_select_overlay_;
 
   std::unique_ptr<views::Widget> disclosure_dialog_widget_;
+  std::optional<content::WebContents::ScopedIgnoreInputEvents>
+      scoped_ignore_input_events_;
+  base::OneShotTimer capture_release_timer_;
 
   bool is_file_chooser_open_ = false;
   bool is_drive_picker_open_ = false;
+  bool is_hotkey_dropdown_open_ = false;
   bool is_context_menu_open_ = false;
   bool is_demoted_ = false;
   bool is_screenshare_picker_open_ = false;
   bool is_screenshare_disclosure_open_ = false;
   bool is_permission_prompt_open_ = false;
+  bool suppress_restore_on_screenshare_picker_closed_ = false;
   bool is_dragging_ = false;
+  // Re-entrancy guard to prevent recursive closing or processing deactivation
+  // events while Close() is executing synchronously on the stack.
+  bool is_closing_ = false;
   std::optional<gfx::Size> pending_auto_resize_size_;
   std::optional<SkRegion> draggable_region_;
 
@@ -317,6 +411,7 @@ class OmniboxEverywhereUIManager : public views::WidgetObserver,
   // Task posted when the widget is deactivated, used to either dismiss or
   // reactivate the widget after the grace period.
   base::CancelableOnceClosure deactivation_task_;
+  base::CancelableOnceClosure hotkey_dropdown_deactivation_task_;
 
   PrefChangeRegistrar local_state_pref_change_registrar_;
   PrefChangeRegistrar profile_pref_change_registrar_;
@@ -327,6 +422,17 @@ class OmniboxEverywhereUIManager : public views::WidgetObserver,
   base::ScopedObservation<PermissionPromptObserver,
                           PermissionPromptObserver::Observer>
       permission_prompt_observation_{this};
+
+#if BUILDFLAG(IS_WIN)
+  base::SequenceBound<OmniboxEverywhereShortcutHelperWin> shortcut_helper_;
+
+  // Tracks whether shortcut creation has succeeded or is in flight.
+  // Reset on failure so subsequent persistent widgets can retry.
+  bool start_menu_shortcut_requested_ = false;
+
+  // See DisableTaskbarPinning().
+  bool taskbar_pinning_disabled_ = false;
+#endif
 
   base::WeakPtrFactory<OmniboxEverywhereUIManager> weak_factory_{this};
 };

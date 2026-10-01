@@ -22,6 +22,7 @@ https://chromium.googlesource.com/chromium/src/+/main/build/android/docs/lint.md
     <ignore regexp="chrome/browser/data_sharing/android/java/res/layout/recent_activity_log_item.xml"/>
     <ignore regexp="chrome/browser/glic/android/java/res/layout/glic_auto_browse.xml"/>
     <ignore regexp="chrome/browser/glic/android/java/res/layout/glic_default_tab_access.xml"/>
+    <ignore regexp="chrome/browser/glic/android/java/res/layout/glic_spark_auto_browse.xml"/>
     <ignore regexp="chrome/browser/safety_hub/android/java/res/layout/safety_hub_expandable_preference.xml"/>
     <ignore regexp="chrome/browser/ui/android/omnibox/java/res/layout/fusebox_layout.xml"/>
     <ignore regexp="components/browser_ui/settings/android/java/res/layout/chrome_expandable_switch_preference.xml"/>
@@ -156,11 +157,6 @@ https://chromium.googlesource.com/chromium/src/+/main/build/android/docs/lint.md
   <issue id="UnusedQuantity" severity="ignore"/>
   <issue id="UnusedResources">
     <!-- Do not add new suppressions without rationale. -->
-    <!-- TODO(crbug.com/543028748): Remove temporarily suppress Safety FRE carousel screen strings. -->
-    <ignore regexp="The resource `R\..*safety_promo_.*` appears to be unused"/>
-    <ignore regexp="The resource `R\..*safety_fre_.*` appears to be unused"/>
-    <ignore regexp="The resource `R\..*fre_promo_.*_illustration` appears to be unused"/>
-
     <!-- TODO(crbug.com/554115227): Remove temporarily suppress Actor notification prompt strings. -->
     <ignore regexp="The resource `R.string.actor_notification_prompt_toast_title` appears to be unused"/>
     <ignore regexp="The resource `R.string.actor_notification_prompt_toast_body` appears to be unused"/>
@@ -398,9 +394,6 @@ https://chromium.googlesource.com/chromium/src/+/main/build/android/docs/lint.md
     <!-- TODO(https://crbug.com/461840249): Remove the following 1 line after lint migrates to using merged manifests. -->
     <ignore regexp="The resource `R.string.menu` appears to be unused"/>
 
-    <!-- TODO(crbug.com/553614656): Remove once string is used in code. -->
-    <ignore regexp="The resource `R.string.actor_notification_title_preparing_to_start_task` appears to be unused"/>
-
     <!-- Endnote: Please specify number of suppressions when adding more -->
   </issue>
   <issue id="VectorPath" severity="ignore"/>
@@ -410,6 +403,7 @@ https://chromium.googlesource.com/chromium/src/+/main/build/android/docs/lint.md
   <issue id="UseCompoundDrawables">
     <ignore regexp="chrome/browser/glic/android/java/res/layout/glic_auto_browse.xml"/>
     <ignore regexp="chrome/browser/glic/android/java/res/layout/glic_default_tab_access.xml"/>
+    <ignore regexp="chrome/browser/glic/android/java/res/layout/glic_spark_auto_browse.xml"/>
     <ignore regexp="chrome/browser/ui/android/appmenu/internal/java/res/layout/submenu_header.xml"/>
     <ignore regexp="chrome/browser/ui/android/toolbar/java/res/layout/sheet_tab_toolbar.xml"/>
   </issue>

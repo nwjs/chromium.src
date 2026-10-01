@@ -114,7 +114,6 @@ class GlicActorPolicyCheckerBrowserTestBase : public GlicBrowserTest {
     GlicBrowserTest::SetUpOnMainThread();
 
     host_resolver()->AddRule("*", "127.0.0.1");
-    ASSERT_TRUE(embedded_https_test_server().Start());
 
     adaptor_ =
         std::make_unique<IdentityTestEnvironmentProfileAdaptor>(GetProfile());
@@ -161,8 +160,8 @@ class GlicActorPolicyCheckerBrowserTestBase : public GlicBrowserTest {
     identity_test_env_->UpdateAccountInfoForAccount(account_info);
 
     identity_test_env_->SimulateSuccessfulFetchOfAccountInfo(
-        account_info.account_id, account_info.email, account_info.gaia,
-        std::string(account->host_domain),
+        account_info.GetAccountId(), account_info.GetEmail(),
+        account_info.GetGaiaId(), account->host_domain,
         base::StrCat({"full_name-", account->email}),
         base::StrCat({"given_name-", account->email}),
         base::StrCat({"local-", account->email}),

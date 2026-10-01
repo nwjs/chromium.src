@@ -62,7 +62,8 @@ void ConnectToSharedWorkerWithContextType(
     const std::string& name,
     blink::mojom::SharedWorkerCreationContextType creation_context_type,
     MockSharedWorkerClient* client,
-    MessagePortChannel* local_port) {
+    MessagePortChannel* local_port,
+    bool flush_connector = true) {
   auto options = blink::mojom::WorkerOptions::New();
   options->name = name;
   blink::mojom::SharedWorkerInfoPtr info(blink::mojom::SharedWorkerInfo::New(
@@ -88,6 +89,9 @@ void ConnectToSharedWorkerWithContextType(
   connector->Connect(std::move(info), std::move(client_proxy),
                      creation_context_type, pipe.TakePort1(),
                      mojo::NullRemote());
+  if (flush_connector) {
+    connector.FlushForTesting();
+  }
 }
 
 void ConnectToSharedWorker(
@@ -95,11 +99,12 @@ void ConnectToSharedWorker(
     const GURL& url,
     const std::string& name,
     MockSharedWorkerClient* client,
-    MessagePortChannel* local_port) {
+    MessagePortChannel* local_port,
+    bool flush_connector = true) {
   ConnectToSharedWorkerWithContextType(
       std::move(connector), url, name,
       blink::mojom::SharedWorkerCreationContextType::kSecure, client,
-      local_port);
+      local_port, flush_connector);
 }
 
 }  // namespace
@@ -380,7 +385,7 @@ TEST_F(SharedWorkerServiceImplTest, WebContentsDestroyed) {
   const GURL kUrl("http://example.com/w.js");
   ConnectToSharedWorker(
       MakeSharedWorkerConnector(render_frame_host->GetGlobalId()), kUrl, "name",
-      &client, &local_port);
+      &client, &local_port, /*flush_connector=*/false);
 
   // Now asynchronously destroy |web_contents| so that the startup sequence at
   // least reaches SharedWorkerServiceImpl::StartWorker().
@@ -1629,11 +1634,11 @@ TEST_F(SharedWorkerServiceImplTest, FreezeAndResumeOnBFCache) {
   RenderFrameHostImpl* rfh_impl =
       static_cast<RenderFrameHostImpl*>(render_frame_host);
   rfh_impl->SetLifecycleState(
-      RenderFrameHostImpl::LifecycleStateImpl::kInBackForwardCache);
+      RenderFrameHostLifecycleStateImpl::kInBackForwardCache);
   // The worker is frozen when the frame is in BackForwardCache.
   EXPECT_TRUE(base::test::RunUntil([&]() { return worker.IsFrozen(); }));
 
-  rfh_impl->SetLifecycleState(RenderFrameHostImpl::LifecycleStateImpl::kActive);
+  rfh_impl->SetLifecycleState(RenderFrameHostLifecycleStateImpl::kActive);
   // The worker is resumed when the frame is active.
   EXPECT_TRUE(base::test::RunUntil([&]() { return !worker.IsFrozen(); }));
 }
@@ -1685,7 +1690,7 @@ TEST_F(SharedWorkerServiceImplTest, FreezeAndResumeOnAddClient) {
 
   RenderFrameHostImpl* rfh_impl1 = static_cast<RenderFrameHostImpl*>(rfh1);
   rfh_impl1->SetLifecycleState(
-      RenderFrameHostImpl::LifecycleStateImpl::kInBackForwardCache);
+      RenderFrameHostLifecycleStateImpl::kInBackForwardCache);
   // The worker is frozen when the frame is in BackForwardCache.
   EXPECT_TRUE(base::test::RunUntil([&]() { return worker.IsFrozen(); }));
 
@@ -1732,9 +1737,9 @@ TEST_P(SharedWorkerServiceImplCreationContextTest,
     case ContextTypeTestCase::kMismatchRendererSecure: {
       auto policies = rfh->policy_container_host()->policies().Clone();
       policies.is_web_secure_context = false;
-      rfh->SetPolicyContainerHost(
+      rfh->SetPolicyContainerHostForTesting(
           base::MakeRefCounted<PolicyContainerHost>(std::move(policies)),
-          base::UnguessableToken::Create());
+          blink::InitiatorStateToken());
     }
       renderer_type = blink::mojom::SharedWorkerCreationContextType::kSecure;
       expected_uma_bucket =
@@ -1805,9 +1810,9 @@ TEST_P(SharedWorkerServiceImplCreationContextTest, SpoofingProtection) {
   {
     auto policies = rfh_a->policy_container_host()->policies().Clone();
     policies.is_web_secure_context = false;
-    rfh_a->SetPolicyContainerHost(
+    rfh_a->SetPolicyContainerHostForTesting(
         base::MakeRefCounted<PolicyContainerHost>(std::move(policies)),
-        base::UnguessableToken::Create());
+        blink::InitiatorStateToken());
   }
 
   MockSharedWorkerClient client_a;
@@ -2027,6 +2032,71 @@ TEST_F(SharedWorkerServiceImplTest, ExtensionSameOriginCheckFlagOff) {
            renderer_host->bad_msg_count() > initial_bad_msg_count;
   }));
   EXPECT_EQ(initial_bad_msg_count, renderer_host->bad_msg_count());
+}
+
+TEST_F(SharedWorkerServiceImplTest, EvictBFCachedClientsIfLastActive) {
+  std::unique_ptr<TestWebContents> web_contents1 =
+      CreateWebContents(GURL("http://example.com/"));
+  TestRenderFrameHost* rfh1 = web_contents1->GetPrimaryMainFrame();
+  MockRenderProcessHost* renderer_host1 = rfh1->GetProcess();
+  const int process_id1 = renderer_host1->GetDeprecatedID();
+  renderer_host1->OverrideBinderForTesting(
+      blink::mojom::SharedWorkerFactory::Name_,
+      base::BindRepeating(&SharedWorkerServiceImplTest::BindSharedWorkerFactory,
+                          base::Unretained(this), process_id1));
+
+  std::unique_ptr<TestWebContents> web_contents2 =
+      CreateWebContents(GURL("http://example.com/"));
+  TestRenderFrameHost* rfh2 = web_contents2->GetPrimaryMainFrame();
+
+  MockSharedWorkerClient client1;
+  MessagePortChannel local_port1;
+  const GURL kUrl("http://example.com/w.js");
+  ConnectToSharedWorker(MakeSharedWorkerConnector(rfh1->GetGlobalId()), kUrl,
+                        "name", &client1, &local_port1);
+
+  MockSharedWorkerClient client2;
+  MessagePortChannel local_port2;
+  ConnectToSharedWorker(MakeSharedWorkerConnector(rfh2->GetGlobalId()), kUrl,
+                        "name", &client2, &local_port2);
+
+  RenderFrameHostImpl* rfh_impl1 = static_cast<RenderFrameHostImpl*>(rfh1);
+  RenderFrameHostImpl* rfh_impl2 = static_cast<RenderFrameHostImpl*>(rfh2);
+
+  SharedWorkerServiceImpl* service = static_cast<SharedWorkerServiceImpl*>(
+      browser_context_->GetDefaultStoragePartition()->GetSharedWorkerService());
+
+  // 1. When rfh2 is Active:
+  // EvictBFCachedClientsIfLastActive returns false because rfh2 is active.
+  EXPECT_FALSE(service->EvictBFCachedClientsIfLastActive(rfh_impl1));
+  EXPECT_FALSE(rfh_impl2->is_evicted_from_back_forward_cache());
+
+  // 2. When rfh2 is in BackForwardCache:
+  rfh_impl2->SetLifecycleState(
+      RenderFrameHostImpl::LifecycleStateImpl::kInBackForwardCache);
+  // EvictBFCachedClientsIfLastActive returns true (rfh1 is last active client)
+  // and evicts rfh2 from BFCache.
+  EXPECT_TRUE(service->EvictBFCachedClientsIfLastActive(rfh_impl1));
+  EXPECT_TRUE(rfh_impl2->is_evicted_from_back_forward_cache());
+
+  // 3. When a client (rfh3) is pending deletion (neither active nor in
+  // BFCache):
+  std::unique_ptr<TestWebContents> web_contents3 =
+      CreateWebContents(GURL("http://example.com/"));
+  TestRenderFrameHost* rfh3 = web_contents3->GetPrimaryMainFrame();
+  MockSharedWorkerClient client3;
+  MessagePortChannel local_port3;
+  ConnectToSharedWorker(MakeSharedWorkerConnector(rfh3->GetGlobalId()), kUrl,
+                        "name", &client3, &local_port3);
+  RenderFrameHostImpl* rfh_impl3 = static_cast<RenderFrameHostImpl*>(rfh3);
+
+  rfh_impl3->SetLifecycleState(
+      RenderFrameHostImpl::LifecycleStateImpl::kRunningUnloadHandlers);
+  // EvictBFCachedClientsIfLastActive returns true because rfh1 is the last
+  // active client (rfh3 is pending deletion, so not active), but rfh3 is not
+  // evicted from BFCache because it is not in BFCache.
+  EXPECT_TRUE(service->EvictBFCachedClientsIfLastActive(rfh_impl1));
+  EXPECT_FALSE(rfh_impl3->is_evicted_from_back_forward_cache());
 }
 
 }  // namespace content

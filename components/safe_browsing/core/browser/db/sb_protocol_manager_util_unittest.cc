@@ -14,7 +14,8 @@
 #include "base/strings/stringprintf.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/time/time.h"
-#include "components/safe_browsing/core/browser/db/v4_test_util.h"
+#include "components/safe_browsing/core/browser/db/sb_protocol_config.h"
+#include "components/safe_browsing/core/browser/db/sb_test_util.h"
 #include "components/safe_browsing/core/common/features.h"
 #include "net/http/http_request_headers.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -22,7 +23,6 @@
 
 using base::Time;
 
-// TODO(crbug.com/362791941): Update v4-specific comments in this file.
 namespace safe_browsing {
 
 class SBProtocolManagerUtilTest : public testing::Test {};
@@ -101,11 +101,12 @@ TEST_F(SBProtocolManagerUtilTest, TestBackOffLogic) {
   EXPECT_EQ(base::Hours(24), next);
 }
 
+// TODO(crbug.com/372395685): Deprecate with v4.
 TEST_F(SBProtocolManagerUtilTest, TestGetRequestUrlAndUpdateHeaders) {
   net::HttpRequestHeaders headers;
   GURL gurl;
   SBProtocolManagerUtil::GetRequestUrlAndHeaders("request_base64", "someMethod",
-                                                 GetTestV4ProtocolConfig(),
+                                                 GetTestSBProtocolConfig(),
                                                  &gurl, &headers);
   std::string expectedUrl =
       "https://safebrowsing.googleapis.com/v4/someMethod?"
@@ -268,7 +269,10 @@ TEST_P(SBProtocolManagerUtilUrlParsingTest, UrlParsing) {
 }
 
 // Tests the url canonicalization according to the Safe Browsing spec.
-// See: https://developers.google.com/safe-browsing/v4/urls-hashing
+// For v4, see: https://developers.google.com/safe-browsing/v4/urls-hashing
+// For v5, see:
+// https://developers.google.com/safe-browsing/reference/URLs.and.Hashing
+// TODO(crbug.com/372395685): remove v4 references in this file.
 TEST_F(SBProtocolManagerUtilTest, CanonicalizeUrl) {
   struct TestCase {
     std::string_view input_url;
@@ -379,6 +383,19 @@ TEST_F(SBProtocolManagerUtilTest, TestGetHashPrefix) {
   EXPECT_EQ(
       SBProtocolManagerUtil::GetHashPrefix("dcba1111111111111111111111111111"),
       "dcba");
+}
+
+TEST_F(SBProtocolManagerUtilTest, SetV5UserAgentHeader) {
+  SBProtocolConfig config(/*client_name=*/"client",
+                          /*disable_auto_update=*/false,
+                          /*key_param=*/"",
+                          /*version=*/"1.0");
+  net::HttpRequestHeaders headers;
+  SBProtocolManagerUtil::SetV5UserAgentHeader(&headers, config);
+  std::optional<std::string> user_agent =
+      headers.GetHeader(net::HttpRequestHeaders::kUserAgent);
+  ASSERT_TRUE(user_agent.has_value());
+  EXPECT_EQ(*user_agent, "client 1.0");
 }
 
 }  // namespace safe_browsing

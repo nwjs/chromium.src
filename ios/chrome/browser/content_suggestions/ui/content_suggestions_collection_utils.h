@@ -44,10 +44,16 @@ extern const CGFloat kQuickActionsTopPaddingControl;
 extern const CGFloat kMostVisitedTopPaddingControl;
 extern const CGFloat kReducedModuleSpacingControl;
 
+// Regular x Regular (iPad) Padding.
+extern const CGFloat kLogoTopPaddingRegularXRegular;
+extern const CGFloat kDoodleTopPaddingRegularXRegular;
+extern const CGFloat kLogoToFakeboxPaddingRegularXRegular;
+extern const CGFloat kQuickActionsTopPaddingRegularXRegular;
+
 // Shared spacing constants.
 extern const CGFloat kQuickActionsTopPadding;
 extern const CGFloat kReducedModuleSpacing;
-extern const CGFloat kReducedModuleSpacingRegularXRegular;
+extern const CGFloat kNTPShrunkLogoSearchFieldBottomPadding;
 
 // Returns the proper height for the doodle, based on `logo_state`. The
 // SizeClass of the `trait_collection` of the view displaying the doodle is used
@@ -90,16 +96,18 @@ CGFloat HeaderBottomPadding(UITraitCollection* trait_collection);
 CGFloat LogoTopPadding(SearchEngineLogoState logo_state,
                        UITraitCollection* trait_collection);
 // Returns padding between the Google logo/doodle and fakebox based on the
-// enabled arm.
-CGFloat LogoToFakeboxPadding(SearchEngineLogoState logo_state);
-// Returns top padding for Quick Actions based on the enabled arm.
-CGFloat QuickActionsTopPadding();
+// enabled arm and size class.
+CGFloat LogoToFakeboxPadding(SearchEngineLogoState logo_state,
+                             UITraitCollection* trait_collection);
+// Returns top padding for Quick Actions based on the enabled arm and size
+// class.
+CGFloat QuickActionsTopPadding(UITraitCollection* trait_collection);
 // Returns top padding for Most Visited Tiles based on the
-// enabled arm.
-CGFloat MostVisitedTopPadding();
-// Returns reduced spacing used between the MVT, Magic Stack, and Discover Feed.
-// Padding is based on the size class.
-CGFloat ReducedModuleSpacing(UITraitCollection* trait_collection = nil);
+// enabled arm and size class.
+CGFloat MostVisitedTopPadding(UITraitCollection* trait_collection);
+// Returns reduced spacing used between the MVT, Magic Stack, and Discover Feed
+// based on the enabled arm.
+CGFloat ReducedModuleSpacing();
 
 // Configure the `search_hint_label` for the fake omnibox.  `hintLabelContainer`
 // is added to the `search_tab_target` with autolayout and `search_hint_label`
@@ -121,9 +129,6 @@ void ConfigureLensButtonAppearance(UIButton* lens_button,
 // Configure the `lens_button` new badge's alpha.
 void ConfigureLensButtonWithNewBadgeAlpha(UIButton* lens_button,
                                           CGFloat new_badge_alpha);
-
-// Returns the nearest ancestor of `view` that is kind of `of_class`.
-UIView* NearestAncestor(UIView* view, Class of_class);
 
 // Returns the color of the search hint label in the fakebox.
 UIColor* SearchHintLabelColor();

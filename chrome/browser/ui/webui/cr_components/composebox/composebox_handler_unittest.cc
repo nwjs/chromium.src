@@ -22,6 +22,7 @@
 #include "base/version_info/channel.h"
 #include "chrome/browser/contextual_search/contextual_search_service_factory.h"
 #include "chrome/browser/contextual_search/contextual_search_web_contents_helper.h"
+#include "chrome/browser/ui/omnibox/omnibox_next_features.h"
 #include "chrome/browser/ui/webui/searchbox/contextual_searchbox_test_utils.h"
 #include "chrome/browser/ui/webui/searchbox/searchbox_test_utils.h"
 #include "chrome/common/pref_names.h"
@@ -33,6 +34,7 @@
 #include "components/prefs/scoped_user_pref_update.h"
 #include "components/sessions/content/session_tab_helper.h"
 #include "components/sessions/core/session_id.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_delegate.h"
@@ -43,6 +45,7 @@
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/base/models/menu_model.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/webui/resources/cr_components/composebox/composebox.mojom.h"
 
 namespace {

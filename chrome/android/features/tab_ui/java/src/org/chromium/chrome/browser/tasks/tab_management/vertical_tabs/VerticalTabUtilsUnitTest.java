@@ -146,22 +146,6 @@ public class VerticalTabUtilsUnitTest {
 
     @Test
     @SmallTest
-    public void testIsIncognitoButtonEnabled_DefaultDisabled() {
-        assertFalse(VerticalTabUtils.isIncognitoButtonEnabled());
-    }
-
-    @Test
-    @SmallTest
-    public void testIsIncognitoButtonEnabled_EnabledViaOverride() {
-        FeatureOverrides.overrideParam(
-                ChromeFeatureList.ANDROID_VERTICAL_TABS,
-                VerticalTabUtils.INCOGNITO_BUTTON_PARAM,
-                /* testValue= */ true);
-        assertTrue(VerticalTabUtils.isIncognitoButtonEnabled());
-    }
-
-    @Test
-    @SmallTest
     public void testRecordLayoutToggle_Enable_AppMenu() {
         assertLayoutToggleHistogram(
                 LayoutSwitchEntryPoint.APP_MENU,
@@ -352,7 +336,7 @@ public class VerticalTabUtilsUnitTest {
     public void testShouldShowNewBadgeForVerticalTabs_NullContext() {
         FeatureOverrides.enable(ChromeFeatureList.ANDROID_VERTICAL_TABS);
         DeviceInfo.setIsDesktopForTesting(false);
-        assertFalse(VerticalTabUtils.shouldShowNewBadgeForVerticalTabs(null));
+        assertFalse(VerticalTabUtils.shouldShowNewBadgeForVerticalTabs(null, null));
     }
 
     @Test

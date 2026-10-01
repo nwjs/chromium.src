@@ -5,6 +5,7 @@
 #ifndef COMPONENTS_CONTENT_SETTINGS_BROWSER_UI_COOKIE_CONTROLS_CONTROLLER_H_
 #define COMPONENTS_CONTENT_SETTINGS_BROWSER_UI_COOKIE_CONTROLS_CONTROLLER_H_
 
+#include <optional>
 #include <set>
 
 #include "base/containers/lru_cache.h"
@@ -19,6 +20,7 @@
 #include "components/content_settings/core/common/cookie_controls_enforcement.h"
 #include "components/content_settings/core/common/cookie_controls_state.h"
 #include "content/public/browser/web_contents_observer.h"
+#include "ui/base/unowned_user_data/scoped_unowned_user_data.h"
 
 namespace content {
 class WebContents;
@@ -33,7 +35,18 @@ class CookieControlsObserver;
 class CookieControlsController final
     : content_settings::CookieSettings::Observer {
  public:
+  DECLARE_USER_DATA(CookieControlsController);
+
   CookieControlsController(
+      scoped_refptr<content_settings::CookieSettings> cookie_settings,
+      scoped_refptr<content_settings::CookieSettings> original_cookie_settings,
+      HostContentSettingsMap* settings_map,
+      bool is_incognito_profile);
+  // Constructs a controller registered on `host`, so that owners which have an
+  // UnownedUserDataHost - such as a browser window - can expose it through
+  // Get() rather than through an accessor of their own.
+  CookieControlsController(
+      ui::UnownedUserDataHost& host,
       scoped_refptr<content_settings::CookieSettings> cookie_settings,
       scoped_refptr<content_settings::CookieSettings> original_cookie_settings,
       HostContentSettingsMap* settings_map,
@@ -46,8 +59,8 @@ class CookieControlsController final
   // Called when the web_contents has changed.
   void Update(content::WebContents* web_contents);
 
-  // Updates user bypass visibility and/or highlighting.
-  void UpdateUserBypass();
+  // Updates the cookie controls icon.
+  void UpdateCookieControlsIcon();
 
   // Called when the UI is closing.
   void OnUiClosing();
@@ -157,7 +170,8 @@ class CookieControlsController final
   bool SiteDataAccessed(int third_party_allowed_sites,
                         int third_party_blocked_sites);
 
-  bool ShouldUserBypassIconBeVisible(CookieControlsState controls_state);
+  CookieControlsState GetCookieControlsIconState(
+      CookieControlsState controls_state);
   bool SiteDataAccessAttempted();
   content::WebContents* GetWebContents() const;
 
@@ -187,6 +201,10 @@ class CookieControlsController final
   bool show_icon_as_confirmation_ = false;
 
   base::ObserverList<CookieControlsObserver> observers_;
+
+  // Only set when constructed with an UnownedUserDataHost.
+  std::optional<ui::ScopedUnownedUserData<CookieControlsController>>
+      scoped_unowned_user_data_;
 
   base::WeakPtrFactory<CookieControlsController> weak_ptr_factory_{this};
 };

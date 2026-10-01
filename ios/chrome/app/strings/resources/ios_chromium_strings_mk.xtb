@@ -8,12 +8,10 @@
 <translation id="1091252999271033193">Ова значи дека Chromium ќе го бара сајтот за мобилен уред секој пат.</translation>
 <translation id="1115463765356382667">Завршете ги дејствава предложени подолу за да го извлечете максимумот од Chromium.</translation>
 <translation id="1185134272377778587">За Chromium</translation>
-<translation id="119044033865561140">Отворајте го Chromium веднаш кога сте на вашиот iPad</translation>
 <translation id="1229234641991056119">Користете ги лозинките, историјата, обележувачите и кредитните картички од Safari во Chromium</translation>
 <translation id="1257458525759135959">За да ги зачувате сликите, допрете на „Поставки“ за да овозможите Chromium да додава фотографии</translation>
 <translation id="1260702988262336471">Отворете го менито на Chromium</translation>
 <translation id="12739128458173458">За да ја испратите картичкава на друг уред, најавете се на Chromium на двата уреда.</translation>
-<translation id="1279797561821266129">Пристапувајте до Chromium побрзо од докот</translation>
 <translation id="1361748954329991663">Chromium е застарен. Ако нема достапно ажурирање во <ph name="BEGIN_LINK" />App Store<ph name="END_LINK" />, можно е уредот веќе да не поддржува нови верзии на Chromium.</translation>
 <translation id="1383876407941801731">Барај</translation>
 <translation id="1423007117030725713">Започнете пребарување во нова картичка на Chromium.</translation>
@@ -32,7 +30,6 @@
 <translation id="1553657876656159572">Приспособена активност создадена за вас. Опфаќа „Вести“, „Спорт“ и „Време“.</translation>
 <translation id="1561849081734670621">За да го оневозможите режимот на заклучување во Chromium, исклучете го на вашиот iPhone.</translation>
 <translation id="1569258826720962327">Користете „Дејства во Chromium“ на iOS</translation>
-<translation id="1573441572176948907">Преместете го Chromium на вашиот Dock</translation>
 <translation id="159029779861043703">Chromium ги штити вашите чувствителни податоци со ID на лик.</translation>
 <translation id="1591119736686995611">Ја отвора мрежата со картички во Chromium.</translation>
 <translation id="16001233025397167">„Безбедносна проверка“ ве штити од упади во податоци, небезбедни вебсајтови и друго. Добивајте известувања за проблеми со приватноста или безбедноста што Chromium ќе ги открие за вас.</translation>
@@ -145,6 +142,7 @@
 <translation id="3855938650519180865">Што е ново во Chromium</translation>
 <translation id="3886689467633467988">Најавете се на сајтов и Chromium ќе ги префрли вашите обележувачи и друго на сите ваши уреди.</translation>
 <translation id="3949514465204582407">Совет за Chromium: Добивајте ги лозинките во која било апликација</translation>
+<translation id="3983298990898629929">Поставете го Chromium како стандарден прелистувач за да ги отворате линковите со еден допир</translation>
 <translation id="4005283307739974863">Отвора и врши безбедносна проверка во Chromium.</translation>
 <translation id="4043291146360695975">Лозинките се зачувани во „Управникот со лозинки“ само на уредов.</translation>
 <translation id="4046625794029820944">Престанете да копирате URL-адреси. Поставете го Chromium како стандарден прелистувач за да ги вчитувате страниците директно.</translation>
@@ -182,7 +180,6 @@
 <translation id="4790638144988730920">Продолжете да ги користите податоците од Chromium во вашата сметка на Google.</translation>
 <translation id="4828317641996116749">Chromium не може да ги провери сите лозинки. Обидете се повторно подоцна.</translation>
 <translation id="4856138222358683580">Дејства во Chromium</translation>
-<translation id="4869706986935301458">Отворајте го Chromium веднаш кога сте на вашиот iPhone</translation>
 <translation id="4904452304169763785">Известувања за проблеми со приватноста или безбедноста што Chromium ќе ги открие за вас.</translation>
 <translation id="4962295957157529683">Довршете го тоа што сте го започнале во другиот отворен прозорец на Chromium.</translation>
 <translation id="4985291216379576555">Офлајн сте. Chromium не може да провери дали има ажурирања</translation>
@@ -277,6 +274,7 @@
 <translation id="6680609900732453726">Чувајте го прелистувањето приватно со автентикацијата на уредот кога ќе го затворите Chromium</translation>
 <translation id="6696512128741076907">Поставете го Chromium како стандарден прелистувач за да ги отворате линковите веднаш од други апликации.</translation>
 <translation id="6752854822223394465">Вашата организација го поставува Chromium…</translation>
+<translation id="6777348401413221846">Видео на цел екран за тоа како да го поставите Chromium како стандарден прелистувач: Отворете ги поставките за Chromium на iOS, допрете „Стандардна апликација за прелистување“ и изберете Chromium.</translation>
 <translation id="6794054469102824109">Ја отвора играта „Диносаурус на Chromium“.</translation>
 <translation id="6820823224820483452">Chromium не може да ги провери сите лозинки. Обидете се повторно утре.</translation>
 <translation id="6830782797004194206">Најавувајте се побрзо со автоматското пополнување на Chromium</translation>
@@ -306,8 +304,8 @@
 <translation id="7337881442233988129">Chromium</translation>
 <translation id="7395825497086981028">Лозинката ќе се зачува во „Управникот со лозинки“ за <ph name="EMAIL" />.</translation>
 <translation id="7434848749522628428">Криптографскиов клуч за <ph name="USER_EMAIL" /> ќе се зачува во Password Manager</translation>
+<translation id="7453822113116681031">Поставете го Chromium како стандарден прелистувач за да ги отворате линковите со еден допир</translation>
 <translation id="7504829997542308412">Отворете го Chromium</translation>
-<translation id="7507535968973352823">Поставете го Chromium во долната област за да пристапувате до него кога сакате</translation>
 <translation id="7531461704633548377">Од Chromium</translation>
 <translation id="7554983317097061001">Совет за Chromium: преместете го Chromium на докот</translation>
 <translation id="7576863740961052505">Управувајте со поставките за Chromium</translation>
@@ -357,7 +355,6 @@
 <translation id="8730503818204408000">Ја отвора поставката за Chromium за поставување на Chromium како стандарден прелистувач.</translation>
 <translation id="8754966941001340678">Chromium препорачува „Подобрена заштита“</translation>
 <translation id="8759037115129007407">Членот на вашето семејство не може да прима лозинки во моментов. Кажете му да го ажурира Chromium и да ги синхронизира своите лозинки. <ph name="BEGIN_LINK" />Дознајте повеќе<ph name="END_LINK" /></translation>
-<translation id="8769418653786388149">Носете го вашиот Chromium со себе</translation>
 <translation id="8776843108004031667">Сметкава и сите незачувани податоци ќе се отстранат од Chromium.</translation>
 <translation id="8793333988063379360">Овде може да најдете Settings за Chromium и друго</translation>
 <translation id="8805148242934787134">Поставете го Chromium како стандарден прелистувач</translation>

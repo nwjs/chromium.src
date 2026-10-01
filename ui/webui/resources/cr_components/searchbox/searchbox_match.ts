@@ -147,6 +147,7 @@ export class SearchboxMatchElement extends CrLitElement {
       sideType: {type: Number},
 
       virtualFocusEnabled: {type: Boolean},
+      resultSequenceId: {type: Number},
 
       //========================================================================
       // Private properties
@@ -207,6 +208,7 @@ export class SearchboxMatchElement extends CrLitElement {
   accessor showThumbnail: boolean = false;
   accessor showEllipsis: boolean = false;
   accessor virtualFocusEnabled: boolean = false;
+  accessor resultSequenceId: number = 0;
   private accessor isContextualSuggestion_: boolean = false;
   private accessor isTopChromeSearchbox_: boolean =
       loadTimeData.getBoolean('isTopChromeSearchbox');
@@ -354,7 +356,7 @@ export class SearchboxMatchElement extends CrLitElement {
     }
 
     this.pageHandler_.openAutocompleteMatch(
-        this.matchIndex, this.match.destinationUrl,
+        this.resultSequenceId, this.matchIndex, this.match.destinationUrl,
         /*areMatchesShowing=*/ true,
         /*mouseButton=*/ e.button || 0, {
           altKey: e.altKey,
@@ -378,7 +380,8 @@ export class SearchboxMatchElement extends CrLitElement {
   }
 
   private onMatchMouseDown_(e: MouseEvent) {
-    if (this.match.keywordModel?.type === KeywordType.kInstant) {
+    if (this.virtualFocusEnabled ||
+        this.match.keywordModel?.type === KeywordType.kInstant) {
       e.preventDefault();  // Prevents default browser action (focus loss).
     }
     this.pageHandler_.onNavigationLikely(

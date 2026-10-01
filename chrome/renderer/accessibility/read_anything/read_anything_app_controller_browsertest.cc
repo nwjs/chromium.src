@@ -280,13 +280,14 @@ class ReadAnythingAppControllerTest : public ChromeRenderViewTest {
   }
 
   void Distill() { controller_->Distill(); }
+  void LogSpeechStop(int source) { controller_->LogSpeechStop(source); }
   void ProcessModelUpdates() { controller_->ProcessModelUpdates(); }
   bool IsControllerHidden() const { return controller_->IsHidden(); }
   bool IsPdfDrawDebouncerRunning() const {
     return controller_->pdf_draw_debouncer_->IsRunning();
   }
-  bool IsNodePendingDeletion(ui::AXNodeID node_id) const {
-    return controller_->displayed_nodes_pending_deletion_.contains(node_id);
+  bool IsNodePendingDeletion(ui::AXNodeID node_id) {
+    return model().displayed_nodes_pending_deletion().contains(node_id);
   }
   void RecordSessionMetricsIfShownOrRecentlyHidden(bool recently_hidden) {
     controller_->RecordSessionMetricsIfShownOrRecentlyHidden(recently_hidden);
@@ -3190,6 +3191,29 @@ TEST_F(ReadAnythingAppControllerScreen2xTest,
       .Times(1);
   OnAXTreeDistilled(tree_id_, {1});
   page_handler_.FlushForTesting();
+}
+
+TEST_F(ReadAnythingAppControllerScreen2xTest,
+       OnAXTreeDistilled_InactiveTree_DoesNotMutateActiveTreeState) {
+  // Distill active tree with leaf node 2. Display nodes will include ancestor 1
+  // and node 2, but not sibling nodes 3 and 4.
+  OnAXTreeDistilled(tree_id_, {2});
+  EXPECT_THAT(model().content_node_ids(), ElementsAre(2));
+  EXPECT_TRUE(model().display_node_ids().contains(1));
+  EXPECT_TRUE(model().display_node_ids().contains(2));
+  EXPECT_FALSE(model().display_node_ids().contains(3));
+  EXPECT_FALSE(model().display_node_ids().contains(4));
+
+  // A delayed distillation callback arrives for a different (inactive) tree ID.
+  ui::AXTreeID inactive_tree_id = ui::AXTreeID::CreateNewAXTreeID();
+  OnAXTreeDistilled(inactive_tree_id, {3, 4});
+
+  // Active tree state should not be mutated, cleared, or overwritten.
+  EXPECT_THAT(model().content_node_ids(), ElementsAre(2));
+  EXPECT_TRUE(model().display_node_ids().contains(1));
+  EXPECT_TRUE(model().display_node_ids().contains(2));
+  EXPECT_FALSE(model().display_node_ids().contains(3));
+  EXPECT_FALSE(model().display_node_ids().contains(4));
 }
 
 TEST_F(ReadAnythingAppControllerScreen2xTest,
@@ -6530,6 +6554,56 @@ TEST_F(ReadAnythingAppControllerTest,
 }
 
 TEST_F(ReadAnythingAppControllerTest,
+       OnReadingModeShown_ResetsWillHideAndAllowsLogSpeechStop) {
+  base::HistogramTester histogram_tester;
+
+  EXPECT_CALL(page_handler_, AckReadingModeHidden()).Times(1);
+  controller().OnReadingModeHidden(true);
+  EXPECT_TRUE(model().will_hide());
+
+  // While hidden/will_hide, LogSpeechStop should be suppressed.
+  LogSpeechStop(
+      static_cast<int>(ReadAloudAppModel::ReadAloudStopSource::kButton));
+  EXPECT_EQ(0, histogram_tester.GetTotalSum(
+                   ReadAloudAppModel::kSpeechStopSourceHistogramName));
+
+  // When Reading Mode is shown again, will_hide should be reset.
+  controller().OnReadingModeShown(
+      read_anything::mojom::ReadAnythingOpenTrigger::kOmniboxChip);
+  EXPECT_FALSE(model().will_hide());
+
+  // LogSpeechStop should now log properly.
+  LogSpeechStop(
+      static_cast<int>(ReadAloudAppModel::ReadAloudStopSource::kButton));
+  histogram_tester.ExpectUniqueSample(
+      ReadAloudAppModel::kSpeechStopSourceHistogramName,
+      ReadAloudAppModel::ReadAloudStopSource::kButton, 1);
+}
+
+TEST_F(ReadAnythingAppControllerTest,
+       OnReadingModeShown_ResetsWillHideAfterTabWillDetach) {
+  base::HistogramTester histogram_tester;
+
+  controller().OnTabWillDetach();
+  EXPECT_TRUE(model().will_hide());
+
+  LogSpeechStop(
+      static_cast<int>(ReadAloudAppModel::ReadAloudStopSource::kButton));
+  EXPECT_EQ(0, histogram_tester.GetTotalSum(
+                   ReadAloudAppModel::kSpeechStopSourceHistogramName));
+
+  controller().OnReadingModeShown(
+      read_anything::mojom::ReadAnythingOpenTrigger::kOmniboxChip);
+  EXPECT_FALSE(model().will_hide());
+
+  LogSpeechStop(
+      static_cast<int>(ReadAloudAppModel::ReadAloudStopSource::kButton));
+  histogram_tester.ExpectUniqueSample(
+      ReadAloudAppModel::kSpeechStopSourceHistogramName,
+      ReadAloudAppModel::ReadAloudStopSource::kButton, 1);
+}
+
+TEST_F(ReadAnythingAppControllerTest,
        OnNodeWillBeDeleted_InactiveTree_Ignored) {
   model().set_next_distillation_method(
       ReadAnythingAppModel::DistillationMethod::kScreen2x);
@@ -6608,8 +6682,226 @@ TEST_F(ReadAnythingAppControllerTest,
   EXPECT_TRUE(IsNodePendingDeletion(2));
 }
 
+TEST_F(ReadAnythingAppControllerTest, OnNodeDeleted_InactiveTree_Ignored) {
+  model().set_next_distillation_method(
+      ReadAnythingAppModel::DistillationMethod::kScreen2x);
+  // Create an inactive tree.
+  ui::AXTreeID inactive_tree_id = ui::AXTreeID::CreateNewAXTreeID();
+
+  // Create a node with ID 2 in the active tree, and mark it as visible.
+  ui::AXTreeUpdate update;
+  test::SetUpdateTreeID(&update, tree_id_);
+  ui::AXNodeData node_active = test::TextNode(/* id= */ 2);
+  update.nodes = {std::move(node_active)};
+  AccessibilityEventReceived({std::move(update)});
+
+  // Set display node list to contain node ID 2.
+  model().Reset({2});
+  model().ComputeDisplayNodeIdsForDistilledTree();
+  ASSERT_TRUE(model().GetCurrentlyVisibleNodes()->contains(2));
+
+  // Get active tree pointer.
+  const auto& tree_infos = model().tree_infos_for_testing();
+  auto it = tree_infos.find(tree_id_);
+  ASSERT_NE(it, tree_infos.end());
+  ui::AXTree* active_tree = it->second->manager->ax_tree();
+
+  ui::AXNode* active_node = active_tree->GetFromId(2);
+  ASSERT_NE(active_node, nullptr);
+
+  // Call OnNodeWillBeDeleted for node 2 on the active tree.
+  controller().OnNodeWillBeDeleted(active_tree, active_node);
+  EXPECT_TRUE(IsNodePendingDeletion(2));
+
+  // Now, construct a node with ID 2 in the inactive tree.
+  ui::AXTreeUpdate inactive_update;
+  test::SetUpdateTreeID(&inactive_update, inactive_tree_id);
+  inactive_update.root_id = 2;
+  ui::AXNodeData node_inactive = test::TextNode(/* id= */ 2);
+  inactive_update.nodes = {std::move(node_inactive)};
+
+  std::vector<ui::AXEvent> events;
+  std::vector<ui::AXTreeUpdate> inactive_updates = {inactive_update};
+  model().ApplyAccessibilityUpdates(inactive_tree_id, inactive_updates, events);
+
+  auto inactive_it = tree_infos.find(inactive_tree_id);
+  ASSERT_NE(inactive_it, tree_infos.end());
+  ui::AXTree* inactive_tree = inactive_it->second->manager->ax_tree();
+
+  // Call OnNodeDeleted for node 2 on the inactive tree.
+  controller().OnNodeDeleted(inactive_tree, 2);
+
+  // Verify that node ID 2 was NOT deleted from
+  // displayed_nodes_pending_deletion_ because the tree ID didn't match the
+  // active tree ID.
+  EXPECT_TRUE(IsNodePendingDeletion(2));
+
+  // Call OnNodeDeleted for node 2 on the active tree.
+  controller().OnNodeDeleted(active_tree, 2);
+
+  // Verify that node ID 2 was deleted from displayed_nodes_pending_deletion_.
+  EXPECT_FALSE(IsNodePendingDeletion(2));
+}
+
+TEST_F(ReadAnythingAppControllerTest,
+       OnActiveAXTreeIDChanged_ClearsDisplayedNodesPendingDeletion) {
+  model().set_next_distillation_method(
+      ReadAnythingAppModel::DistillationMethod::kScreen2x);
+  // Create a node with ID 2 in the active tree, and mark it as visible.
+  ui::AXTreeUpdate update;
+  test::SetUpdateTreeID(&update, tree_id_);
+  ui::AXNodeData node_active = test::TextNode(/* id= */ 2);
+  update.nodes = {std::move(node_active)};
+  AccessibilityEventReceived({std::move(update)});
+
+  // Set display node list to contain node ID 2.
+  model().Reset({2});
+  model().ComputeDisplayNodeIdsForDistilledTree();
+  ASSERT_TRUE(model().GetCurrentlyVisibleNodes()->contains(2));
+
+  // Get active tree pointer.
+  const auto& tree_infos = model().tree_infos_for_testing();
+  auto it = tree_infos.find(tree_id_);
+  ASSERT_NE(it, tree_infos.end());
+  ui::AXTree* active_tree = it->second->manager->ax_tree();
+
+  ui::AXNode* active_node = active_tree->GetFromId(2);
+  ASSERT_NE(active_node, nullptr);
+
+  // Call OnNodeWillBeDeleted for node 2 on the active tree.
+  controller().OnNodeWillBeDeleted(active_tree, active_node);
+  EXPECT_TRUE(IsNodePendingDeletion(2));
+
+  // Change active tree ID.
+  controller().OnActiveAXTreeIDChanged(ui::AXTreeID::CreateNewAXTreeID(),
+                                       ukm::kInvalidSourceId, false);
+
+  // Verify that displayed_nodes_pending_deletion_ is cleared.
+  EXPECT_FALSE(IsNodePendingDeletion(2));
+}
+
+TEST_F(ReadAnythingAppControllerTest,
+       OnAXTreeDestroyed_ActiveTree_ClearsDisplayedNodesPendingDeletion) {
+  model().set_next_distillation_method(
+      ReadAnythingAppModel::DistillationMethod::kScreen2x);
+  // Create a node with ID 2 in the active tree, and mark it as visible.
+  ui::AXTreeUpdate update;
+  test::SetUpdateTreeID(&update, tree_id_);
+  ui::AXNodeData node_active = test::TextNode(/* id= */ 2);
+  update.nodes = {std::move(node_active)};
+  AccessibilityEventReceived({std::move(update)});
+
+  // Set display node list to contain node ID 2.
+  model().Reset({2});
+  model().ComputeDisplayNodeIdsForDistilledTree();
+  ASSERT_TRUE(model().GetCurrentlyVisibleNodes()->contains(2));
+
+  // Get active tree pointer.
+  const auto& tree_infos = model().tree_infos_for_testing();
+  auto it = tree_infos.find(tree_id_);
+  ASSERT_NE(it, tree_infos.end());
+  ui::AXTree* active_tree = it->second->manager->ax_tree();
+
+  ui::AXNode* active_node = active_tree->GetFromId(2);
+  ASSERT_NE(active_node, nullptr);
+
+  // Call OnNodeWillBeDeleted for node 2 on the active tree.
+  controller().OnNodeWillBeDeleted(active_tree, active_node);
+  EXPECT_TRUE(IsNodePendingDeletion(2));
+
+  // Destroy the active tree.
+  controller().OnAXTreeDestroyed(tree_id_);
+
+  // Verify that displayed_nodes_pending_deletion_ is cleared.
+  EXPECT_FALSE(IsNodePendingDeletion(2));
+}
+
+TEST_F(
+    ReadAnythingAppControllerTest,
+    OnAXTreeDestroyed_InactiveTree_DoesNotClearDisplayedNodesPendingDeletion) {
+  model().set_next_distillation_method(
+      ReadAnythingAppModel::DistillationMethod::kScreen2x);
+  // Create a node with ID 2 in the active tree, and mark it as visible.
+  ui::AXTreeUpdate update;
+  test::SetUpdateTreeID(&update, tree_id_);
+  ui::AXNodeData node_active = test::TextNode(/* id= */ 2);
+  update.nodes = {std::move(node_active)};
+  AccessibilityEventReceived({std::move(update)});
+
+  // Set display node list to contain node ID 2.
+  model().Reset({2});
+  model().ComputeDisplayNodeIdsForDistilledTree();
+  ASSERT_TRUE(model().GetCurrentlyVisibleNodes()->contains(2));
+
+  // Get active tree pointer.
+  const auto& tree_infos = model().tree_infos_for_testing();
+  auto it = tree_infos.find(tree_id_);
+  ASSERT_NE(it, tree_infos.end());
+  ui::AXTree* active_tree = it->second->manager->ax_tree();
+
+  ui::AXNode* active_node = active_tree->GetFromId(2);
+  ASSERT_NE(active_node, nullptr);
+
+  // Call OnNodeWillBeDeleted for node 2 on the active tree.
+  controller().OnNodeWillBeDeleted(active_tree, active_node);
+  EXPECT_TRUE(IsNodePendingDeletion(2));
+
+  // Register and destroy an inactive tree.
+  ui::AXTreeID inactive_tree_id = ui::AXTreeID::CreateNewAXTreeID();
+  ui::AXTreeUpdate inactive_update;
+  test::SetUpdateTreeID(&inactive_update, inactive_tree_id);
+  ui::AXNodeData inactive_node;
+  inactive_node.id = 1;
+  inactive_update.root_id = inactive_node.id;
+  inactive_update.nodes = {std::move(inactive_node)};
+  std::vector<ui::AXEvent> events;
+  std::vector<ui::AXTreeUpdate> inactive_updates = {std::move(inactive_update)};
+  model().ApplyAccessibilityUpdates(inactive_tree_id, inactive_updates, events);
+  ASSERT_TRUE(model().ContainsTree(inactive_tree_id));
+
+  controller().OnAXTreeDestroyed(inactive_tree_id);
+
+  // Verify that displayed_nodes_pending_deletion_ still contains node 2.
+  EXPECT_TRUE(IsNodePendingDeletion(2));
+}
+
 TEST_F(ReadAnythingAppControllerTest, ScreenAIServiceReady_UpdatesModel) {
   EXPECT_FALSE(model().is_screen_ai_service_ready());
   controller().ScreenAIServiceReady();
   EXPECT_TRUE(model().is_screen_ai_service_ready());
+}
+
+class ReadAnythingAppControllerDistillerRefactorTest
+    : public ReadAnythingAppControllerTest {
+ public:
+  ReadAnythingAppControllerDistillerRefactorTest() = default;
+  ~ReadAnythingAppControllerDistillerRefactorTest() override = default;
+
+  void SetUp() override {
+    scoped_feature_list_.InitAndEnableFeature(
+        features::kReadAnythingDistillerRefactor);
+    forced_distillation_method_ =
+        ReadAnythingAppModel::DistillationMethod::kScreen2x;
+    ReadAnythingAppControllerTest::SetUp();
+  }
+
+  void DoInitialDistillation() override {
+    std::unique_ptr<ui::AXTreeUpdate> snapshot = test::CreateInitialUpdate();
+    test::SetUpdateTreeID(snapshot.get(), tree_id_);
+    AccessibilityEventReceived({*snapshot});
+    controller().OnActiveAXTreeIDChanged(tree_id_, ukm::kInvalidSourceId,
+                                         false);
+  }
+};
+
+TEST_F(ReadAnythingAppControllerDistillerRefactorTest,
+       Distill_WithRefactorEnabled_Screen2xDistillsSuccessfully) {
+  ui::AXTreeUpdate update;
+  test::SetUpdateTreeID(&update, tree_id_);
+  ui::AXNodeData node = test::TextNode(/* id= */ 2);
+  update.nodes = {node};
+  AccessibilityEventReceived({std::move(update)});
+
+  // Distillation completed and tree is updated.
+  EXPECT_FALSE(model().screen2x_distiller_running());
 }

@@ -11,6 +11,7 @@
 #include "base/functional/bind.h"
 #include "base/strings/utf_ostream_operators.h"
 #include "base/strings/utf_string_conversions.h"
+#include "components/affiliations/core/browser/match_type.h"
 #include "components/password_manager/core/browser/features/password_features.h"
 #include "components/password_manager/core/browser/features/password_manager_features_util.h"
 #include "components/password_manager/core/browser/password_form.h"
@@ -209,16 +210,17 @@ ProcessIncomingSharingInvitationTask::~ProcessIncomingSharingInvitationTask() =
 
 void ProcessIncomingSharingInvitationTask::OnGetPasswordStoreResultsOrErrorFrom(
     PasswordStoreInterface* store,
-    LoginsResultOrError results_or_error) {
-  if (std::holds_alternative<PasswordStoreBackendError>(results_or_error)) {
+    base::expected<std::vector<StoredCredential>, PasswordStoreBackendError>
+        results_or_error) {
+  if (!results_or_error) {
     std::move(done_processing_invitation_callback_).Run(this);
     return;
   }
-  auto results = std::get<LoginsResult>(std::move(results_or_error));
+  std::vector<StoredCredential> results = std::move(*results_or_error);
 
   // Grouped credentials are ignored because they have different domains.
   std::erase_if(results, [](const auto& form) {
-    return form.match_type == PasswordForm::MatchType::kGrouped;
+    return form.match_type == affiliations::MatchType::kGrouped;
   });
   // TODO(crbug.com/40269204): process PSL and affilated credentials if needed.
   // TODO(crbug.com/40269204): process conflicting passwords differently if

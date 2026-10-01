@@ -180,7 +180,6 @@ bool IsAtMemoryTriggerSource(AutofillSuggestionTriggerSource trigger_source) {
     case AutofillSuggestionTriggerSource::kAtMemoryContextMenu:
     case AutofillSuggestionTriggerSource::kAtMemoryDoubleCtrl:
     case AutofillSuggestionTriggerSource::kAtMemoryKeyboardShortcut:
-    case AutofillSuggestionTriggerSource::kAtMemoryTriggerString:
       return true;
     case AutofillSuggestionTriggerSource::kUnspecified:
     case AutofillSuggestionTriggerSource::kFormControlElementClicked:
@@ -196,6 +195,7 @@ bool IsAtMemoryTriggerSource(AutofillSuggestionTriggerSource trigger_source) {
     case AutofillSuggestionTriggerSource::kComposeDelayedProactiveNudge:
     case AutofillSuggestionTriggerSource::kPasswordManagerProcessedFocusedField:
     case AutofillSuggestionTriggerSource::kProactivePasswordRecovery:
+    case AutofillSuggestionTriggerSource::kGmailOneTimePasswordAvailable:
     case AutofillSuggestionTriggerSource::kGlic:
     case AutofillSuggestionTriggerSource::kAtMemoryInactivityNudge:
       return false;

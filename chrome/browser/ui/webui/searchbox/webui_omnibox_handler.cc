@@ -27,6 +27,7 @@
 #include "chrome/browser/ui/omnibox/omnibox_edit_model.h"
 #include "chrome/browser/ui/omnibox/omnibox_next_features.h"
 #include "chrome/browser/ui/omnibox/omnibox_pedal_implementations.h"
+#include "chrome/browser/ui/omnibox/omnibox_popup_state_manager.h"
 #include "chrome/browser/ui/omnibox/omnibox_tab_helper.h"
 #include "chrome/browser/ui/omnibox/omnibox_view.h"
 #include "chrome/browser/ui/search/omnibox_utils.h"
@@ -43,6 +44,7 @@
 #include "components/contextual_search/contextual_search_service.h"
 #include "components/contextual_search/pref_names.h"
 #include "components/lens/lens_features.h"
+#include "components/lens/lens_overlay_invocation_source.h"
 #include "components/navigation_metrics/navigation_metrics.h"
 #include "components/omnibox/browser/aim_eligibility_service.h"
 #include "components/omnibox/browser/autocomplete_classifier.h"
@@ -76,6 +78,7 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/ui_base_features.h"
 #include "ui/base/webui/resource_path.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/base/window_open_disposition_utils.h"
 #include "ui/views/widget/widget.h"
 
@@ -145,6 +148,7 @@ WebuiOmniboxHandler::WebuiOmniboxHandler(
   // `OmniboxView`.
   CHECK(omnibox_controller);
   controller_ = omnibox_controller;
+  SendAvailableKeywordModels();
   autocomplete_controller_observation_.Observe(autocomplete_controller());
   edit_model_observation_.Observe(omnibox_controller->edit_model());
 
@@ -319,6 +323,11 @@ void WebuiOmniboxHandler::AddTabContext(
     context = std::make_unique<SearchboxContextData::Context>();
   }
 
+  if (source == searchbox::mojom::TabAttachmentSource::kCurrentTabChip) {
+    context->invocation_source =
+        lens::LensOverlayInvocationSource::kOmniboxPageAction;
+  }
+
   auto tab_attachment = searchbox::mojom::TabAttachment::New();
   tab_attachment->tab_id = tab_id;
   tab_attachment->title = base::UTF16ToUTF8(TabUIHelper::From(tab)->GetTitle());
@@ -432,7 +441,14 @@ void WebuiOmniboxHandler::OverrideIconPaths(
 
 void WebuiOmniboxHandler::OnFocusChanged(bool focused) {
   if (focused) {
-    edit_model()->OnSetFocus(false);
+    if (base::FeatureList::IsEnabled(omnibox::kWebUIOmniboxFullPopup)) {
+      if (omnibox_controller() &&
+          omnibox_controller()->popup_state_manager()->popup_state() ==
+              OmniboxPopupState::kNone) {
+        return;
+      }
+    }
+    edit_model()->OnSetFocus(/*control_down=*/false);
   } else {
     edit_model()->OnWillKillFocus();
     // Delay killing focus for full popup until state is properly synced in
@@ -457,12 +473,16 @@ void WebuiOmniboxHandler::OnStart(AutocompleteController* controller,
   bool cobrowse_blocked = (omnibox::kAskGCoBrowse.Get() ||
                            omnibox::kAskGCoBrowseWithVisualSelection.Get()) &&
                           client && !client->ShouldOpenCoBrowsePanel();
+  bool composebox_blocked = omnibox::kAskGComposeBox.Get() && client &&
+                            !client->ShouldOpenComposeboxForAskG();
+  bool ask_g_fallback_to_lens = cobrowse_blocked || composebox_blocked;
   // Check if there are zero suggest (either on NTP or on web) or the
   // input text is empty (necessary because `IsZeroSuggest()` is false on
   // clobber).
   page_->UpdateLensSearchEligibility(
       ContextualSearchProvider::LensEntrypointEligible(input, client) &&
-      !cobrowse_blocked && (input.IsZeroSuggest() || input.text().empty()));
+      !ask_g_fallback_to_lens &&
+      (input.IsZeroSuggest() || input.text().empty()));
 }
 
 void WebuiOmniboxHandler::OnResultChanged(AutocompleteController* controller,
@@ -484,6 +504,12 @@ void WebuiOmniboxHandler::OnResultChanged(AutocompleteController* controller,
   SearchboxHandler::OnResultChanged(controller, default_match_changed);
 }
 
+void WebuiOmniboxHandler::SetPopupSelection(
+    searchbox::mojom::OmniboxPopupSelectionPtr selection) {
+  SearchboxHandler::SetPopupSelection(std::move(selection));
+  UpdateAimButtonVisibility();
+}
+
 void WebuiOmniboxHandler::OnSelectionChanged(
     OmniboxPopupSelection old_selection,
     OmniboxPopupSelection selection) {
@@ -494,6 +520,7 @@ void WebuiOmniboxHandler::OnSelectionChanged(
       searchbox::mojom::OmniboxPopupSelection::New(
           selection.line, ConvertLineState(selection.state),
           selection.action_index));
+  UpdateAimButtonVisibility();
 }
 
 void WebuiOmniboxHandler::OnCharTyped(base::TimeTicks timestamp) {
@@ -544,6 +571,10 @@ void WebuiOmniboxHandler::UpdateAimButtonVisibility() {
     auto* client =
         static_cast<ChromeOmniboxClient*>(omnibox_controller()->client());
     if (LocationBar* location_bar = client->GetLocationBar()) {
+      if (auto* ai_mode_controller = omnibox::AiModePageActionController::From(
+              location_bar->GetBrowser())) {
+        ai_mode_controller->UpdatePageAction();
+      }
       SetAimButtonVisible(
           omnibox::AiModePageActionController::ShouldShowPageAction(
               profile_, *location_bar));

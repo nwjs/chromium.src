@@ -6,13 +6,13 @@
 #define COMPONENTS_PASSWORD_MANAGER_CORE_BROWSER_PASSWORD_MANAGER_TEST_UTILS_H_
 
 #include <iosfwd>
-#include <variant>
 #include <vector>
 
 #include "base/memory/scoped_refptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/run_loop.h"
 #include "base/scoped_observation.h"
+#include "components/affiliations/core/browser/match_type.h"
 #include "components/autofill/core/browser/autofill_type.h"
 #include "components/password_manager/core/browser/origin_credential_store.h"
 #include "components/password_manager/core/browser/password_form.h"
@@ -23,6 +23,7 @@
 #include "components/password_manager/core/browser/password_store/fake_password_store_backend.h"
 #include "components/password_manager/core/browser/password_store/password_form_converters.h"
 #include "components/password_manager/core/browser/password_store/password_store_interface.h"
+#include "components/password_manager/core/browser/password_store/stored_credential.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "url/gurl.h"
 
@@ -112,7 +113,7 @@ StoredCredential FillStoredCredentialWithData(const PasswordFormData& form_data,
 PasswordForm CreateEntry(const std::string& username,
                          const std::string& password,
                          const GURL& origin_url,
-                         PasswordForm::MatchType match_type);
+                         affiliations::MatchType match_type);
 
 // Creates a new vector entry. Callers are expected to call .get() to get a raw
 // pointer to the underlying PasswordForm.
@@ -120,7 +121,7 @@ std::unique_ptr<PasswordForm> CreateUniquePtrEntry(
     const std::string& username,
     const std::string& password,
     const GURL& origin_url,
-    PasswordForm::MatchType match_type);
+    affiliations::MatchType match_type);
 
 // Checks whether the PasswordForms pointed to in |actual_values| are in some
 // permutation pairwise equal to those in |expectations|. Returns true in case
@@ -145,16 +146,6 @@ CreateServerPredictions(
 MATCHER_P(UnorderedPasswordFormElementsAre, expectations, "") {
   return ContainsEqualPasswordFormsUnordered(*expectations, arg,
                                              result_listener->stream());
-}
-
-MATCHER_P(LoginsResultsOrErrorAre, expectations, "") {
-  if (std::holds_alternative<PasswordStoreBackendError>(arg)) {
-    return false;
-  }
-
-  return ContainsEqualPasswordFormsUnordered(
-      *expectations, std::move(std::get<LoginsResult>(arg)),
-      result_listener->stream());
 }
 
 // Matches a form or a stored credential that has the primary_key field set, and

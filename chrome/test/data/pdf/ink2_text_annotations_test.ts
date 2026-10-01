@@ -3,7 +3,7 @@
 // found in the LICENSE file.
 
 import {DEFAULT_TEXTBOX_WIDTH, Ink2Manager, PdfViewerPrivateProxyImpl, TextBoxState, TextStyle, Viewport} from 'chrome-extension://mhjfbmdgcfjbbpaeojofohoefgiehjai/pdf_viewer_wrapper.js';
-import type {InkTextAnnotationsElement, TextAnnotationMessageData} from 'chrome-extension://mhjfbmdgcfjbbpaeojofohoefgiehjai/pdf_viewer_wrapper.js';
+import type {InkTextAnnotationsElement, TextAnnotationMessageData, TextBoxInit} from 'chrome-extension://mhjfbmdgcfjbbpaeojofohoefgiehjai/pdf_viewer_wrapper.js';
 import {assert} from 'chrome://resources/js/assert.js';
 import {loadTimeData} from 'chrome://resources/js/load_time_data.js';
 import {getTrustedHTML} from 'chrome://resources/js/static_types.js';
@@ -29,6 +29,7 @@ function setUpTest(): TestContext {
   Ink2Manager.setInstance(null);
   const context = setUpInkTestContext();
   const viewport = context.viewport;
+  viewport.setZoom(1.0);
   const mockPlugin = context.mockPlugin;
 
   const privateProxy = new TestPdfViewerPrivateProxy();
@@ -61,6 +62,26 @@ function waitForTextboxFocused(annotationsElement: InkTextAnnotationsElement):
     Promise<Event> {
   return eventToPromise(
       'textbox-focused-for-test', annotationsElement.$.textBox);
+}
+
+function isPlaceholderPositioned(placeholder: HTMLElement): boolean {
+  return placeholder.style.getPropertyValue('--left') !== '';
+}
+
+function checkPositionedIndices(
+    placeholders: NodeListOf<HTMLElement>,
+    expectedPositionedIndices: number[]) {
+  const expectedSet = new Set(expectedPositionedIndices);
+  for (let i = 0; i < placeholders.length; i++) {
+    const isPositioned = expectedSet.has(i);
+    chrome.test.assertEq(
+        isPositioned, isPlaceholderPositioned(placeholders[i]!));
+    chrome.test.assertEq(
+        isPositioned ? '0' : '-1', placeholders[i]!.getAttribute('tabindex'));
+    chrome.test.assertEq(
+        isPositioned ? 'false' : 'true',
+        placeholders[i]!.getAttribute('aria-hidden'));
+  }
 }
 
 chrome.test.runTests([
@@ -140,13 +161,6 @@ chrome.test.runTests([
     chrome.test.assertEq('43px', style2.top);
     chrome.test.assertEq('124px', style2.width);
     chrome.test.assertEq('40px', style2.height);
-    chrome.test.assertEq('2', style2.zIndex);
-
-    const style1 = window.getComputedStyle(placeholders[1]!);
-    chrome.test.assertEq('1', style1.zIndex);
-
-    const style3 = window.getComputedStyle(placeholders[2]!);
-    chrome.test.assertEq('3', style3.zIndex);
 
     chrome.test.succeed();
   },
@@ -482,7 +496,7 @@ chrome.test.runTests([
     // (4) Re-activate this annotation.
     const placeholders = getPlaceholders(annotationsElement);
     chrome.test.assertEq(1, placeholders.length);
-    placeholders[0]!.click();
+    manager.initializeTextAnnotation({x: 100, y: 60});
     await microtasksFinished();
     chrome.test.assertTrue(isVisible(textbox));
     chrome.test.assertEq('Hello', textbox.$.textbox.value);
@@ -493,6 +507,7 @@ chrome.test.runTests([
       [TextStyle.BOLD]: true,
       [TextStyle.ITALIC]: false,
       [TextStyle.STRIKETHROUGH]: false,
+      [TextStyle.UNDERLINE]: false,
     });
     await microtasksFinished();
 
@@ -566,8 +581,9 @@ chrome.test.runTests([
     const placeholders = getPlaceholders(annotationsElement);
     chrome.test.assertEq(1, placeholders.length);
 
-    // Initially, tabindex should be 0.
+    // Initially, tabindex should be 0 and aria-hidden should be false.
     chrome.test.assertEq('0', placeholders[0]!.getAttribute('tabindex'));
+    chrome.test.assertEq('false', placeholders[0]!.getAttribute('aria-hidden'));
 
     // Activate the annotation manually.
     const activeAnnotation = getTestAnnotation(2);
@@ -580,8 +596,9 @@ chrome.test.runTests([
     }));
     await microtasksFinished();
 
-    // Now tabindex should be -1.
+    // Now tabindex should be -1 and aria-hidden should be true.
     chrome.test.assertEq('-1', placeholders[0]!.getAttribute('tabindex'));
+    chrome.test.assertEq('true', placeholders[0]!.getAttribute('aria-hidden'));
 
     // Deactivate the annotation (simulate via event).
     annotationsElement.$.textBox.dispatchEvent(
@@ -590,8 +607,9 @@ chrome.test.runTests([
         }));
     await microtasksFinished();
 
-    // Tabindex should be back to 0.
+    // Tabindex should be back to 0 and aria-hidden back to false.
     chrome.test.assertEq('0', placeholders[0]!.getAttribute('tabindex'));
+    chrome.test.assertEq('false', placeholders[0]!.getAttribute('aria-hidden'));
 
     chrome.test.succeed();
   },
@@ -653,18 +671,26 @@ chrome.test.runTests([
     chrome.test.succeed();
   },
 
-  async function testActivatePlaceholder() {
+  // Verify activating a placeholder with keyboard (Enter and Space) triggers
+  // activation on Ink2Manager and notifies the plugin.
+  async function testActivatePlaceholderFromKeyboard() {
     const {manager, viewport, mockPlugin} = setUpTest();
 
-    // Add one annotation to create a placeholder.
-    const testAnnotation = getTestAnnotation(0);
-    testAnnotation.text = 'Hello World';
-    testAnnotation.textBoxRect.width = DEFAULT_TEXTBOX_WIDTH;
-    testAnnotation.textBoxRect.height = DEFAULT_HEIGHT;
-    // Position: x=60, y=25, w=200, h=24. Page offsets: x=55, y=3.
-    // Screen position: x=115, y=28, w=200, h=24.
+    // Add two annotations to create placeholders.
+    const testAnnotation1 = getTestAnnotation(0);
+    testAnnotation1.text = 'Hello World';
+    testAnnotation1.textBoxRect.width = DEFAULT_TEXTBOX_WIDTH;
+    testAnnotation1.textBoxRect.height = DEFAULT_HEIGHT;
+
+    const testAnnotation2 = getTestAnnotation(1);
+    testAnnotation2.text = 'Goodbye Moon';
+    testAnnotation2.textBoxRect.width = DEFAULT_TEXTBOX_WIDTH;
+    testAnnotation2.textBoxRect.height = DEFAULT_HEIGHT;
+    testAnnotation2.textBoxRect.locationX = 60;
+    testAnnotation2.textBoxRect.locationY = 100;
+
     mockPlugin.setMessageReply('getAllTextAnnotations', {
-      annotations: [testAnnotation],
+      annotations: [testAnnotation1, testAnnotation2],
     });
     await manager.initializeTextAnnotations();
 
@@ -672,80 +698,64 @@ chrome.test.runTests([
     await microtasksFinished();
 
     const placeholders = getPlaceholders(annotationsElement);
-    chrome.test.assertEq(1, placeholders.length);
-    const placeholder = placeholders[0]!;
+    chrome.test.assertEq(2, placeholders.length);
 
-    function verifyEditTextAnnotation(expected: boolean, id: number = 0) {
-      const editTextAnnotationMessage =
-          mockPlugin.findMessage<{type: string, data: number}>(
-              'editTextAnnotation');
-      chrome.test.assertEq(expected, editTextAnnotationMessage !== undefined);
-      if (expected) {
-        chrome.test.assertEq(
-            'editTextAnnotation', editTextAnnotationMessage!.type);
-        chrome.test.assertEq(id, editTextAnnotationMessage!.data);
-      }
-    }
-
-    // 1. Verify click activates it.
+    // 1. Verify Keyboard (Enter) on placeholder 0 fires initialize-text-box on
+    // Ink2Manager and sends editTextAnnotation to the plugin.
     mockPlugin.clearMessages();
-    placeholder.click();
-    await microtasksFinished();
+    let whenInitEvent = eventToPromise<CustomEvent<TextBoxInit>>(
+        'initialize-text-box', manager);
+    placeholders[0]!.focus();
+    placeholders[0]!.dispatchEvent(
+        new KeyboardEvent('keydown', {key: 'Enter'}));
+    let initEvent = await whenInitEvent;
 
-    // Verify textbox is active with the correct annotation (in screen coords).
-    chrome.test.assertFalse(annotationsElement.$.textBox.hidden);
-    const activeAnnotation1 = annotationsElement.$.textBox.annotation;
-    chrome.test.assertTrue(activeAnnotation1 !== null);
-    chrome.test.assertEq(testAnnotation.id, activeAnnotation1.id);
-    chrome.test.assertEq(testAnnotation.text, activeAnnotation1.text);
-    // Screen coords: x = 60 + 55 = 115, y = 25 + 3 = 28.
-    chrome.test.assertEq(115, activeAnnotation1.textBoxRect.locationX);
-    chrome.test.assertEq(28, activeAnnotation1.textBoxRect.locationY);
+    chrome.test.assertEq(testAnnotation1.id, initEvent.detail.annotation.id);
     chrome.test.assertEq(
-        DEFAULT_TEXTBOX_WIDTH, activeAnnotation1.textBoxRect.width);
-    chrome.test.assertEq(DEFAULT_HEIGHT, activeAnnotation1.textBoxRect.height);
-    // Verify manager was notified.
-    verifyEditTextAnnotation(true, testAnnotation.id);
+        testAnnotation1.text, initEvent.detail.annotation.text);
+    // Screen coords: x = 60 + 55 = 115, y = 25 + 3 = 28.
+    chrome.test.assertEq(
+        115, initEvent.detail.annotation.textBoxRect.locationX);
+    chrome.test.assertEq(28, initEvent.detail.annotation.textBoxRect.locationY);
+    chrome.test.assertEq(
+        DEFAULT_TEXTBOX_WIDTH, initEvent.detail.annotation.textBoxRect.width);
+    chrome.test.assertEq(
+        DEFAULT_HEIGHT, initEvent.detail.annotation.textBoxRect.height);
 
-    // Deactivate it.
-    annotationsElement.$.textBox.dispatchEvent(
-        new CustomEvent('state-changed', {
-          detail: TextBoxState.INACTIVE,
-        }));
-    await microtasksFinished();
-    chrome.test.assertTrue(annotationsElement.$.textBox.hidden);
+    let editTextAnnotationMessage =
+        mockPlugin.findMessage<{type: string, data: number}>(
+            'editTextAnnotation');
+    assert(editTextAnnotationMessage);
+    chrome.test.assertEq('editTextAnnotation', editTextAnnotationMessage.type);
+    chrome.test.assertEq(testAnnotation1.id, editTextAnnotationMessage.data);
 
-    // 2. Verify Keyboard (Enter) activates it.
+    // 2. Verify Keyboard (Space) on placeholder 1 activates annotation 2.
     mockPlugin.clearMessages();
-    placeholder.focus();
-    placeholder.dispatchEvent(new KeyboardEvent('keydown', {key: 'Enter'}));
-    await microtasksFinished();
+    whenInitEvent = eventToPromise<CustomEvent<TextBoxInit>>(
+        'initialize-text-box', manager);
+    placeholders[1]!.focus();
+    placeholders[1]!.dispatchEvent(new KeyboardEvent('keydown', {key: ' '}));
+    initEvent = await whenInitEvent;
 
-    chrome.test.assertFalse(annotationsElement.$.textBox.hidden);
-    const activeAnnotation2 = annotationsElement.$.textBox.annotation;
-    chrome.test.assertTrue(activeAnnotation2 !== null);
-    chrome.test.assertEq(testAnnotation.id, activeAnnotation2.id);
-    verifyEditTextAnnotation(true, testAnnotation.id);
+    chrome.test.assertEq(testAnnotation2.id, initEvent.detail.annotation.id);
+    chrome.test.assertEq(
+        testAnnotation2.text, initEvent.detail.annotation.text);
+    // Screen coords: x = 60 + 55 = 115, y = 100 + 3 = 103.
+    chrome.test.assertEq(
+        115, initEvent.detail.annotation.textBoxRect.locationX);
+    chrome.test.assertEq(
+        103, initEvent.detail.annotation.textBoxRect.locationY);
+    chrome.test.assertEq(
+        DEFAULT_TEXTBOX_WIDTH, initEvent.detail.annotation.textBoxRect.width);
+    chrome.test.assertEq(
+        DEFAULT_HEIGHT, initEvent.detail.annotation.textBoxRect.height);
 
-    // Deactivate it.
-    annotationsElement.$.textBox.dispatchEvent(
-        new CustomEvent('state-changed', {
-          detail: TextBoxState.INACTIVE,
-        }));
-    await microtasksFinished();
-    chrome.test.assertTrue(annotationsElement.$.textBox.hidden);
-
-    // 3. Verify Keyboard (Space) activates it.
-    mockPlugin.clearMessages();
-    placeholder.focus();
-    placeholder.dispatchEvent(new KeyboardEvent('keydown', {key: ' '}));
-    await microtasksFinished();
-
-    chrome.test.assertFalse(annotationsElement.$.textBox.hidden);
-    const activeAnnotation3 = annotationsElement.$.textBox.annotation;
-    chrome.test.assertTrue(activeAnnotation3 !== null);
-    chrome.test.assertEq(testAnnotation.id, activeAnnotation3.id);
-    verifyEditTextAnnotation(true, testAnnotation.id);
+    editTextAnnotationMessage =
+        mockPlugin.findMessage<{type: string, data: number}>(
+            'editTextAnnotation');
+    assert(editTextAnnotationMessage);
+    chrome.test.assertEq('editTextAnnotation', editTextAnnotationMessage.type);
+    chrome.test.assertEq(testAnnotation2.id, editTextAnnotationMessage.data);
 
     chrome.test.succeed();
   },
@@ -910,7 +920,7 @@ chrome.test.runTests([
     chrome.test.assertEq(1, placeholders.length);
 
     // Activate the annotation for editing.
-    placeholders[0]!.click();
+    manager.initializeTextAnnotation({x: 105, y: 53});
     await microtasksFinished();
 
     // Trigger Copy shortcut (Ctrl+C / Cmd+C).
@@ -996,7 +1006,7 @@ chrome.test.runTests([
     chrome.test.assertEq(1, placeholders.length);
 
     // Activate the annotation for editing.
-    placeholders[0]!.click();
+    manager.initializeTextAnnotation({x: 105, y: 53});
     await microtasksFinished();
 
     // Trigger Cut shortcut (Ctrl+X / Cmd+X).
@@ -1018,12 +1028,13 @@ chrome.test.runTests([
     chrome.test.assertFalse(textbox.hidden);
     chrome.test.assertEq('Cut Me', textbox.$.textbox.value);
 
-    // Cut/pasted annotation reuses the same ID and is offset by +10px.
+    // Cut/pasted annotation reuses the same ID and is restored at the
+    // original position.
     const activeAnnotation = textbox.annotation;
     chrome.test.assertTrue(activeAnnotation !== null);
     chrome.test.assertEq(1, activeAnnotation.id);
-    chrome.test.assertEq(115, activeAnnotation.textBoxRect.locationX);
-    chrome.test.assertEq(63, activeAnnotation.textBoxRect.locationY);
+    chrome.test.assertEq(105, activeAnnotation.textBoxRect.locationX);
+    chrome.test.assertEq(53, activeAnnotation.textBoxRect.locationY);
 
     // Cut the newly pasted annotation without committing it first.
     keyDownOn(annotationsElement.$.textBox, 0, getCtrlModifier(), 'x');
@@ -1050,6 +1061,96 @@ chrome.test.runTests([
     chrome.test.assertTrue(pageMap !== undefined);
     chrome.test.assertEq(1, pageMap.size);
     chrome.test.assertTrue(pageMap.has(1));
+
+    chrome.test.succeed();
+  },
+
+  async function testSlidingFocusWindow() {
+    const {manager, viewport} = setUpTest();
+
+    // Create 6 annotations (0 to 5) spaced out vertically.
+    for (let i = 0; i < 6; i++) {
+      const annotation = {
+        ...getTestAnnotation(i + 1),
+        text: `Annotation ${i}`,
+        textBoxRect: {
+          height: 20,
+          locationX: 105,
+          locationY: 53 + i * 50,
+          width: 100,
+        },
+      };
+      manager.commitTextAnnotation(annotation, true, []);
+    }
+
+    const annotationsElement = createAnnotationsElement(viewport);
+    await microtasksFinished();
+
+    const placeholders = getPlaceholders(annotationsElement);
+    chrome.test.assertEq(6, placeholders.length);
+
+    // Verify aria-setsize and aria-posinset on all placeholders.
+    for (let i = 0; i < placeholders.length; i++) {
+      chrome.test.assertEq('6', placeholders[i]!.getAttribute('aria-setsize'));
+      chrome.test.assertEq(
+          String(i + 1), placeholders[i]!.getAttribute('aria-posinset'));
+    }
+
+    // 1. Initial state (unfocused, radius = 1):
+    // Indices 0 (first item) and 5 (last item) are pre-positioned.
+    // Indices 1, 2, 3, 4 are unpositioned.
+    checkPositionedIndices(placeholders, [0, 5]);
+
+    // 2. Tab into first element (placeholder 0):
+    // Window slides to [0, 1].
+    // Indices 0, 1 are positioned; 2, 3, 4, 5 are unpositioned.
+    placeholders[0]!.focus();
+    placeholders[0]!.dispatchEvent(new FocusEvent('focus'));
+    await microtasksFinished();
+    checkPositionedIndices(placeholders, [0, 1]);
+
+    // 3. Tab to placeholder 1:
+    // Window slides to [0, 1, 2] -> index 2 is now positioned.
+    placeholders[1]!.focus();
+    placeholders[1]!.dispatchEvent(new FocusEvent('focus'));
+    await microtasksFinished();
+    checkPositionedIndices(placeholders, [0, 1, 2]);
+
+    // 4. Tab to placeholder 2:
+    // Window slides to [1, 2, 3] -> index 3 is now positioned.
+    placeholders[2]!.focus();
+    placeholders[2]!.dispatchEvent(new FocusEvent('focus'));
+    await microtasksFinished();
+    checkPositionedIndices(placeholders, [1, 2, 3]);
+
+    // 5. Tab to placeholder 3:
+    // Window slides to [2, 3, 4] -> index 4 is now positioned.
+    placeholders[3]!.focus();
+    placeholders[3]!.dispatchEvent(new FocusEvent('focus'));
+    await microtasksFinished();
+    checkPositionedIndices(placeholders, [2, 3, 4]);
+
+    // 6. Tab to placeholder 4:
+    // Window slides to [3, 4, 5] -> index 5 is now positioned.
+    placeholders[4]!.focus();
+    placeholders[4]!.dispatchEvent(new FocusEvent('focus'));
+    await microtasksFinished();
+    checkPositionedIndices(placeholders, [3, 4, 5]);
+
+    // 7. Backward Shift-Tab to placeholder 3:
+    // Window slides back to [2, 3, 4].
+    placeholders[3]!.focus();
+    placeholders[3]!.dispatchEvent(new FocusEvent('focus'));
+    await microtasksFinished();
+    checkPositionedIndices(placeholders, [2, 3, 4]);
+
+    // 8. Focus moves out of container:
+    // Resets to initial unfocused state -> [0] and [5] positioned.
+    const container = annotationsElement.shadowRoot.querySelector('#container');
+    assert(container);
+    container.dispatchEvent(new FocusEvent('focusout', {relatedTarget: null}));
+    await microtasksFinished();
+    checkPositionedIndices(placeholders, [0, 5]);
 
     chrome.test.succeed();
   },
@@ -1088,6 +1189,60 @@ chrome.test.runTests([
 
     // Verify nothing was saved to clipboard.
     chrome.test.assertFalse(manager.pasteAnnotation());
+
+    chrome.test.succeed();
+  },
+
+  async function testFocusWindowSmallAnnotationCount() {
+    const {manager, viewport} = setUpTest();
+
+    // Test with 2 annotations (total = 2).
+    const annotation1 = {
+      ...getTestAnnotation(1),
+      text: 'Annotation 0',
+      textBoxRect: {height: 20, locationX: 105, locationY: 53, width: 100},
+    };
+    const annotation2 = {
+      ...getTestAnnotation(2),
+      text: 'Annotation 1',
+      textBoxRect: {height: 20, locationX: 105, locationY: 103, width: 100},
+    };
+    manager.commitTextAnnotation(annotation1, true, []);
+    manager.commitTextAnnotation(annotation2, true, []);
+
+    const annotationsElement = createAnnotationsElement(viewport);
+    await microtasksFinished();
+
+    const placeholders = getPlaceholders(annotationsElement);
+    chrome.test.assertEq(2, placeholders.length);
+
+    // Verify aria-setsize and aria-posinset for 2 items.
+    chrome.test.assertEq('2', placeholders[0]!.getAttribute('aria-setsize'));
+    chrome.test.assertEq('1', placeholders[0]!.getAttribute('aria-posinset'));
+    chrome.test.assertEq('2', placeholders[1]!.getAttribute('aria-setsize'));
+    chrome.test.assertEq('2', placeholders[1]!.getAttribute('aria-posinset'));
+
+    // Unfocused: both are positioned.
+    checkPositionedIndices(placeholders, [0, 1]);
+
+    // Focus placeholder 0: both remain positioned (clamped window [0, 1]).
+    placeholders[0]!.focus();
+    placeholders[0]!.dispatchEvent(new FocusEvent('focus'));
+    await microtasksFinished();
+    checkPositionedIndices(placeholders, [0, 1]);
+
+    // Focus placeholder 1: both remain positioned (clamped window [0, 1]).
+    placeholders[1]!.focus();
+    placeholders[1]!.dispatchEvent(new FocusEvent('focus'));
+    await microtasksFinished();
+    checkPositionedIndices(placeholders, [0, 1]);
+
+    // Focus moves out of container: both remain positioned.
+    const container = annotationsElement.shadowRoot.querySelector('#container');
+    assert(container);
+    container.dispatchEvent(new FocusEvent('focusout', {relatedTarget: null}));
+    await microtasksFinished();
+    checkPositionedIndices(placeholders, [0, 1]);
 
     chrome.test.succeed();
   },

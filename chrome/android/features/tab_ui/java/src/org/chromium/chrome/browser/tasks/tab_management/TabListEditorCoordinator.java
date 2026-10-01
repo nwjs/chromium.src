@@ -28,6 +28,8 @@ import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.browser.browser_controls.BrowserControlsStateProvider;
 import org.chromium.chrome.browser.profiles.Profile;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tab.TabFavicon;
+import org.chromium.chrome.browser.tab_ui.MultiThumbnailCardProvider;
 import org.chromium.chrome.browser.tab_ui.RecyclerViewPosition;
 import org.chromium.chrome.browser.tab_ui.TabContentManager;
 import org.chromium.chrome.browser.tab_ui.TabContentManagerThumbnailProvider;
@@ -36,6 +38,7 @@ import org.chromium.chrome.browser.tab_ui.ThumbnailProvider;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tasks.tab_management.TabListCoordinator.TabListItemSizeChangedObserver;
 import org.chromium.chrome.browser.tasks.tab_management.TabListMediator.TabListItemOnClickListenerProvider;
+import org.chromium.chrome.browser.tasks.tab_management.TabListMediator.TabListLayoutType;
 import org.chromium.chrome.browser.tasks.tab_management.TabProperties.TabActionState;
 import org.chromium.chrome.browser.tasks.tab_management.TabProperties.UiType;
 import org.chromium.chrome.browser.tasks.tab_management.TabUiMetricsHelper.TabListEditorExitMetricGroups;
@@ -333,8 +336,7 @@ public class TabListEditorCoordinator {
     private final TabListEditorMediator mTabListEditorMediator;
     private final Callback<RecyclerViewPosition> mClientTabListRecyclerViewPositionSetter;
 
-    private final @TabListMode int mTabListMode;
-    private final boolean mDisplayGroups;
+    private final @TabListLayoutType int mLayoutType;
     private final TabContentManager mTabContentManager;
     private final @Nullable TabListItemOnClickListenerProvider mTabListItemOnClickListenerProvider;
     private final ModalDialogManager mModalDialogManager;
@@ -363,8 +365,7 @@ public class TabListEditorCoordinator {
      * @param currentTabModelSupplier Supplies the current TabModel.
      * @param tabContentManager Provides thumbnails for tabs.
      * @param clientTabListRecyclerViewPositionSetter Allows setting the recycler view position.
-     * @param mode Modes of showing the list of tabs. Can be used in GRID or STRIP.
-     * @param displayGroups Whether groups should be displayed.
+     * @param layoutType The {@link TabListLayoutType} of the tab list editor.
      * @param snackbarManager Used to display snackbar messages.
      * @param bottomSheetController Used to display bottom sheets.
      * @param initialTabActionState The initial TabActionState to use.
@@ -393,8 +394,7 @@ public class TabListEditorCoordinator {
             NullableObservableSupplier<TabModel> currentTabModelSupplier,
             TabContentManager tabContentManager,
             Callback<RecyclerViewPosition> clientTabListRecyclerViewPositionSetter,
-            @TabListMode int mode,
-            boolean displayGroups,
+            @TabListLayoutType int layoutType,
             SnackbarManager snackbarManager,
             @Nullable BottomSheetController bottomSheetController,
             @TabActionState int initialTabActionState,
@@ -415,12 +415,10 @@ public class TabListEditorCoordinator {
             mBrowserControlsStateProvider = browserControlsStateProvider;
             mCurrentTabModelSupplier = currentTabModelSupplier;
             mClientTabListRecyclerViewPositionSetter = clientTabListRecyclerViewPositionSetter;
-            mTabListMode = mode;
-            mDisplayGroups = displayGroups;
+            mLayoutType = layoutType;
             mSnackbarManager = snackbarManager;
             mTabActionState = initialTabActionState;
             mTabContentManager = tabContentManager;
-            assert mode == TabListMode.GRID;
             mTabListItemOnClickListenerProvider = tabListItemOnClickListenerProvider;
             mModalDialogManager = modalDialogManager;
             mEdgeToEdgeSupplier = edgeToEdgeSupplier;
@@ -445,7 +443,7 @@ public class TabListEditorCoordinator {
                             mCurrentTabModelSupplier,
                             mModel,
                             mSelectionDelegate,
-                            displayGroups,
+                            layoutType,
                             snackbarManager,
                             bottomSheetController,
                             mTabListEditorLayout,
@@ -622,7 +620,7 @@ public class TabListEditorCoordinator {
                 };
 
         ThumbnailProvider thumbnailProvider =
-                initMultiThumbnailCardProvider(mDisplayGroups, mTabContentManager);
+                initMultiThumbnailCardProvider(mLayoutType, mTabContentManager);
         if (mMultiThumbnailCardProvider != null) {
             mMultiThumbnailCardProvider.initWithNative(regularProfile);
         }
@@ -636,16 +634,16 @@ public class TabListEditorCoordinator {
         if (emptyViewParent == null) emptyViewParent = mTabListEditorLayout;
         mTabListCoordinator =
                 new TabListCoordinator(
-                        mTabListMode,
+                        TabListMode.GRID,
                         mActivity,
                         mBrowserControlsStateProvider,
                         mModalDialogManager,
                         mCurrentTabModelSupplier,
                         thumbnailProvider,
-                        mDisplayGroups,
+                        mLayoutType,
                         /* dataSharingTabManager= */ null,
                         mTabListItemOnClickListenerProvider,
-                        /* dialogHandler= */ null,
+                        /* ungroupBarStatusHandler= */ null,
                         mTabActionState,
                         this::getSelectionDelegate,
                         /* priceWelcomeMessageControllerSupplier= */ null,
@@ -697,9 +695,7 @@ public class TabListEditorCoordinator {
                 PropertyModelChangeProcessor.create(
                         mModel, mTabListEditorLayout, TabListEditorLayoutBinder::bind);
 
-        if (mEdgeToEdgeSupplier != null && mDisplayGroups) {
-            assert mTabListMode != TabListMode.BOTTOM_STRIP
-                    : "STRIP tab lists should not be padded for edge-to-edge.";
+        if (mEdgeToEdgeSupplier != null && mLayoutType == TabListLayoutType.GROUPED) {
             mEdgeToEdgePadAdjuster =
                     EdgeToEdgeControllerFactory.createForViewAndObserveSupplier(
                             mTabListCoordinator.getContainerView(), mEdgeToEdgeSupplier);
@@ -717,14 +713,15 @@ public class TabListEditorCoordinator {
     }
 
     private ThumbnailProvider initMultiThumbnailCardProvider(
-            boolean displayGroups, TabContentManager tabContentManager) {
-        if (displayGroups) {
+            @TabListLayoutType int layoutType, TabContentManager tabContentManager) {
+        if (layoutType == TabListLayoutType.GROUPED) {
             mMultiThumbnailCardProvider =
                     new MultiThumbnailCardProvider(
                             mActivity,
                             mBrowserControlsStateProvider,
                             tabContentManager,
-                            mCurrentTabModelSupplier);
+                            mCurrentTabModelSupplier,
+                            TabFavicon::getBitmap);
             return mMultiThumbnailCardProvider;
         }
         return new TabContentManagerThumbnailProvider(tabContentManager);

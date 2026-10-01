@@ -46,6 +46,7 @@
 #include "components/content_settings/core/browser/host_content_settings_map.h"
 #include "components/content_settings/core/common/content_settings.h"
 #include "components/content_settings/core/common/content_settings_types.h"
+#include "components/sessions/core/session_id.h"
 #include "components/tab_groups/tab_group_id.h"
 #include "components/tab_groups/tab_group_visual_data.h"
 #include "components/tabs/public/android/jni_conversion.h"
@@ -774,6 +775,13 @@ std::vector<tab_groups::TabGroupId> TabModelJniBridge::ListTabGroups() {
     group_ids.push_back(tab_groups::TabGroupId::FromRawToken(token));
   }
   return group_ids;
+}
+
+std::set<split_tabs::SplitTabId> TabModelJniBridge::ListSplits() {
+  // TODO(https://crbug.com/480192698): Implement this once split tabs are
+  // supported on Desktop Android.
+  NOTIMPLEMENTED();
+  return {};
 }
 
 std::optional<TabGroupVisualData> TabModelJniBridge::GetTabGroupVisualData(

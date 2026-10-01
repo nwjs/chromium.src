@@ -57,6 +57,7 @@
 #include "components/user_manager/user_names.h"
 #include "components/variations/pref_names.h"
 #include "content/public/browser/browser_context.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/content_features.h"
@@ -194,8 +195,10 @@ class ChromePasswordProtectionServiceBrowserTest : public InProcessBrowserTest {
     // Ensure that the stub user is signed in.
 
     CoreAccountInfo account_info =
-        identity_test_env()->MakePrimaryAccountAvailable(
-            user_manager::kStubUserEmail, signin::ConsentLevel::kSignin);
+        identity_test_env()
+            ->MakePrimaryAccountAvailable(user_manager::kStubUserEmail,
+                                          signin::ConsentLevel::kSignin)
+            .GetCoreAccountInfo();
 
     ASSERT_EQ(account_info.email, user_manager::kStubUserEmail);
 

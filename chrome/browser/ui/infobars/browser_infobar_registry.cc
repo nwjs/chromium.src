@@ -25,6 +25,7 @@
 #include "chrome/grit/branded_strings.h"
 #include "chrome/grit/generated_resources.h"
 #include "components/infobars/core/infobar_delegate.h"
+#include "components/prefs/pref_service.h"
 #include "components/strings/grit/components_strings.h"
 #include "components/vector_icons/vector_icons.h"
 #include "components/version_info/version_info.h"
@@ -39,6 +40,7 @@
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
 #include "chrome/browser/extensions/api/debugger/debugger_api.h"
+#include "chrome/browser/extensions/api/identity/web_auth_flow.h"
 #endif
 
 #include "components/omnibox/browser/vector_icons.h"
@@ -49,6 +51,12 @@
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
 #include "chrome/browser/ui/views/session_restore_infobar/session_restore_infobar_manager.h"
+#endif
+
+#if BUILDFLAG(IS_MAC)
+#include "chrome/browser/updater/updater.h"
+#include "chrome/common/pref_names.h"
+#include "chrome/grit/theme_resources.h"
 #endif
 
 namespace infobars {
@@ -187,6 +195,47 @@ void RegisterInfoBars() {
   }
 #endif
 
+#if BUILDFLAG(IS_MAC)
+  if (IsInfoBarMigrated(
+          InfoBarDelegate::KEYSTONE_PROMOTION_INFOBAR_DELEGATE_MAC)) {
+    auto spec =
+        InfoBarSpec::Builder(
+            InfoBarDelegate::KEYSTONE_PROMOTION_INFOBAR_DELEGATE_MAC)
+            .SetMessageText(l10n_util::GetStringFUTF16(
+                IDS_PROMOTE_INFOBAR_TEXT,
+                l10n_util::GetStringUTF16(IDS_PRODUCT_NAME)))
+            .SetIconId(IDR_PRODUCT_LOGO_32)
+            .SetScope(InfoBarScope::kGlobal)
+            .SetExpireOnNavigation(false)
+            .SetBrowserFilter(
+                base::BindRepeating([](BrowserWindowInterface* browser) {
+                  return browser && browser->GetProfile() &&
+                         browser->GetProfile()->GetPrefs()->GetBoolean(
+                             prefs::kShowUpdatePromotionInfoBar);
+                }))
+            .AddOkButton(
+                l10n_util::GetStringUTF16(IDS_PROMOTE_INFOBAR_PROMOTE_BUTTON),
+                base::BindRepeating([](content::WebContents*) {
+                  updater::SetUpSystemUpdater();
+                }))
+            .AddCancelButton(
+                l10n_util::GetStringUTF16(IDS_PROMOTE_INFOBAR_DONT_ASK_BUTTON),
+                base::BindRepeating([](content::WebContents* web_contents) {
+                  if (!web_contents) {
+                    return;
+                  }
+                  Profile* profile = Profile::FromBrowserContext(
+                      web_contents->GetBrowserContext());
+                  if (profile) {
+                    profile->GetPrefs()->SetBoolean(
+                        prefs::kShowUpdatePromotionInfoBar, false);
+                  }
+                }))
+            .Build();
+    browser_infobar_manager->Register(std::move(spec));
+  }
+#endif
+
   if (IsInfoBarMigrated(InfoBarDelegate::LOCAL_TEST_POLICIES_APPLIED_INFOBAR)) {
     auto spec = InfoBarSpec::Builder(
                     InfoBarDelegate::LOCAL_TEST_POLICIES_APPLIED_INFOBAR)
@@ -253,6 +302,11 @@ void RegisterInfoBars() {
             .AddOkButton(std::u16string(), base::DoNothing())
             .Build();
     browser_infobar_manager->Register(std::move(spec));
+  }
+
+  if (IsInfoBarMigrated(
+          InfoBarDelegate::EXTENSIONS_WEB_AUTH_FLOW_INFOBAR_DELEGATE)) {
+    extensions::WebAuthFlow::RegisterInfoBar(*browser_infobar_manager);
   }
 #endif
 
@@ -322,6 +376,22 @@ void RegisterInfoBars() {
   }
 #endif
 
+  if (IsInfoBarMigrated(InfoBarDelegate::DEV_TOOLS_INFOBAR_DELEGATE)) {
+    auto spec =
+        InfoBarSpec::Builder(InfoBarDelegate::DEV_TOOLS_INFOBAR_DELEGATE)
+            // The message and the decision callback come in per show via
+            // InfoBarShowParams.
+            .AddOkButton(
+                l10n_util::GetStringUTF16(IDS_DEV_TOOLS_CONFIRM_ALLOW_BUTTON),
+                base::DoNothing())
+            .AddCancelButton(
+                l10n_util::GetStringUTF16(IDS_DEV_TOOLS_CONFIRM_DENY_BUTTON),
+                base::DoNothing())
+            .SetScope(InfoBarScope::kGlobal)
+            .Build();
+    browser_infobar_manager->Register(std::move(spec));
+  }
+
   if (IsInfoBarMigrated(
           InfoBarDelegate::OSCRYPTASYNC_AVAILABILITY_INFOBAR_DELEGATE)) {
     auto spec =
@@ -389,6 +459,18 @@ void RegisterPreProfileInitInfoBars() {
             .Build();
     browser_infobar_manager->Register(std::move(spec));
   }
+
+#if !BUILDFLAG(IS_ANDROID)
+  if (IsInfoBarMigrated(InfoBarDelegate::BAD_FLAGS_INFOBAR_DELEGATE)) {
+    auto spec =
+        InfoBarSpec::Builder(InfoBarDelegate::BAD_FLAGS_INFOBAR_DELEGATE)
+            .SetScope(InfoBarScope::kGlobal)
+            .SetExpireOnNavigation(false)
+            .SetShouldAnimate(false)
+            .Build();
+    browser_infobar_manager->Register(std::move(spec));
+  }
+#endif
 }
 
 }  // namespace infobars

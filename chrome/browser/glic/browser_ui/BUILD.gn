@@ -95,11 +95,13 @@ source_set("impl") {
       "//chrome/browser/actor",
       "//chrome/browser/actor/ui",
       "//chrome/browser/glic",
+      "//chrome/browser/notifications",
       "//chrome/browser/profiles:profile",
       "//chrome/browser/themes",
       "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/tabs:tab_strip",
       "//chrome/browser/ui/user_education",
+      "//chrome/browser/ui/views/frame:contents_capture_border_view",
       "//chrome/browser/ui/views/tabs/glic",
       "//chrome/browser/ui/views/toolbar",
       "//chrome/common:buildflags",
@@ -198,6 +200,7 @@ source_set("glow_impl") {
       "//chrome/browser/ui:ui_features",
       "//chrome/browser/ui/browser_window",
       "//chrome/browser/ui/tabs:tab_strip",
+      "//chrome/browser/ui/views/frame:contents_capture_border_view",
     ]
   }
 }

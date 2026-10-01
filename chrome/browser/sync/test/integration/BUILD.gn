@@ -38,8 +38,8 @@ source_set("sync_integration_tests_impl") {
     "//chrome/browser/trusted_vault",
     "//chrome/browser/ui:ui_features",
     "//chrome/browser/ui/navigator",
-    "//chrome/test:browser_tests_runner",
     "//chrome/test:test_support",
+    "//chrome/test/base:browser_tests_runner",
     "//components/account_settings",
     "//components/autofill/core/browser",
     "//components/autofill/core/browser:test_support",
@@ -76,7 +76,6 @@ source_set("sync_integration_tests_impl") {
     "single_client_device_info_sync_test.cc",
     "single_client_history_delete_directives_sync_test.cc",
     "single_client_history_sync_test.cc",
-    "single_client_offer_sync_test.cc",
     "single_client_preferences_sync_test.cc",
     "single_client_reading_list_sync_test.cc",
     "single_client_search_engines_sync_test.cc",
@@ -111,17 +110,13 @@ source_set("sync_integration_tests_impl") {
   }
 
   if (is_android) {
-    sources += [
-      "//chrome/test/android/browsertests_apk/android_browsertests_jni_onload.cc",
-      "single_client_web_apks_sync_test.cc",
-    ]
+    sources += [ "//chrome/test/android/browsertests_apk/android_browsertests_jni_onload.cc" ]
 
     # Defined here so it's shared between android_sync_integration_tests
     # (upstream) and android_live_sync_integration_tests (downstream).
     deps += [
       "//chrome:chrome_android_core",
       "//chrome/browser/android",
-      "//chrome/browser/android/webapk:webapk_sources",
       "//chrome/browser/ui:ui_features",
       "//chrome/test:test_support_ui_android",
       "//chrome/test/base:chrome_test_launcher",
@@ -366,6 +361,7 @@ source_set("sync_integration_tests_impl") {
         "//chromeos/printing",
         "//chromeos/services/network_config/public/cpp",
         "//components/desks_storage",
+        "//ui/message_center",
       ]
     }
 
@@ -425,14 +421,10 @@ source_set("sync_integration_test_support") {
     "fake_sync_gcm_driver_for_instance_id.h",
     "history_helper.cc",
     "history_helper.h",
-    "invalidations/fake_server_sync_invalidation_sender.cc",
-    "invalidations/fake_server_sync_invalidation_sender.h",
     "invalidations/invalidations_status_checker.cc",
     "invalidations/invalidations_status_checker.h",
     "multi_client_status_change_checker.cc",
     "multi_client_status_change_checker.h",
-    "offer_helper.cc",
-    "offer_helper.h",
     "password_sharing_invitation_helper.cc",
     "password_sharing_invitation_helper.h",
     "passwords_helper.cc",
@@ -483,7 +475,6 @@ source_set("sync_integration_test_support") {
   ]
 
   public_deps = [
-    "//chrome/browser",
     "//chrome/browser/favicon",
     "//chrome/test:test_support",
     "//components/autofill/content/browser",
@@ -540,14 +531,11 @@ source_set("sync_integration_test_support") {
       "live_sync_signin_delegate_android.h",
       "sync_test_utils_android.cc",
       "sync_test_utils_android.h",
-      "webapks_helper.cc",
-      "webapks_helper.h",
     ]
 
     deps += [
       "//chrome/browser/android",
       "//chrome/browser/android:tabs_public",
-      "//chrome/browser/android/webapk:webapk_sources",
       "//chrome/browser/password_manager/android:utils",
       "//chrome/browser/ui/android/tab_model",
       "//chrome/test:sync_integration_test_support_jni_headers",

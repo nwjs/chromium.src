@@ -4,15 +4,11 @@
 //
 // Library functions related to the Financial Server ping.
 
-#ifdef UNSAFE_BUFFERS_BUILD
-// TODO(crbug.com/351564777): Remove this and convert code to safer constructs.
-#pragma allow_unsafe_buffers
-#endif
-
 #include "rlz/lib/financial_ping.h"
 
 #include <stdint.h>
 
+#include <array>
 #include <atomic>
 #include <memory>
 #include <optional>
@@ -21,6 +17,7 @@
 #include "base/location.h"
 #include "base/memory/ref_counted.h"
 #include "base/no_destructor.h"
+#include "base/strings/strcat.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
@@ -57,10 +54,13 @@
 namespace rlz_lib {
 
 bool FinancialPing::FormRequest(Product product,
-    const AccessPoint* access_points, const char* product_signature,
-    const char* product_brand, const char* product_id,
-    const char* product_lang, bool exclude_machine_id,
-    std::string* request) {
+                                base::span<const AccessPoint> access_points,
+                                std::string_view product_signature,
+                                std::string_view product_brand,
+                                std::string_view product_id,
+                                std::string_view product_lang,
+                                bool exclude_machine_id,
+                                std::string* request) {
   if (!request) {
     ASSERT_STRING("FinancialPing::FormRequest: request is NULL");
     return false;
@@ -73,13 +73,8 @@ bool FinancialPing::FormRequest(Product product,
   if (!store || !store->HasAccess(RlzValueStore::kReadAccess))
     return false;
 
-  if (!access_points) {
-    ASSERT_STRING("FinancialPing::FormRequest: access_points is NULL");
-    return false;
-  }
-
-  if (!product_signature) {
-    ASSERT_STRING("FinancialPing::FormRequest: product_signature is NULL");
+  if (product_signature.empty()) {
+    ASSERT_STRING("FinancialPing::FormRequest: product_signature is empty");
     return false;
   }
 
@@ -90,57 +85,57 @@ bool FinancialPing::FormRequest(Product product,
     }
   }
 
-  base::StringAppendF(request, "%s?", kFinancialPingPath);
+  base::StrAppend(request,
+                  {kFinancialPingPath, "?", kProductSignatureCgiVariable, "=",
+                   product_signature});
 
-  // Add the signature, brand, product id and language.
-  base::StringAppendF(request, "%s=%s", kProductSignatureCgiVariable,
-                      product_signature);
-  if (product_brand)
-    base::StringAppendF(request, "&%s=%s", kProductBrandCgiVariable,
-                        product_brand);
+  if (!product_brand.empty()) {
+    base::StrAppend(request,
+                    {"&", kProductBrandCgiVariable, "=", product_brand});
+  }
 
-  if (product_id)
-    base::StringAppendF(request, "&%s=%s", kProductIdCgiVariable, product_id);
+  if (!product_id.empty()) {
+    base::StrAppend(request, {"&", kProductIdCgiVariable, "=", product_id});
+  }
 
-  if (product_lang)
-    base::StringAppendF(request, "&%s=%s", kProductLanguageCgiVariable,
-                        product_lang);
+  if (!product_lang.empty()) {
+    base::StrAppend(request,
+                    {"&", kProductLanguageCgiVariable, "=", product_lang});
+  }
 
   // Add the product events.
-  char cgi[kMaxCgiLength + 1];
-  cgi[0] = 0;
-  bool has_events = GetProductEventsAsCgi(product, cgi, std::size(cgi));
-  if (has_events)
-    base::StringAppendF(request, "&%s", cgi);
+  std::optional<std::string> events_cgi = GetProductEventsAsCgi(product);
+  if (events_cgi) {
+    base::StrAppend(request, {"&", *events_cgi});
+  }
 
   // If we don't have any events, we should ping all the AP's on the system
   // that we know about and have a current RLZ value, even if they are not
   // used by this product.
-  AccessPoint all_points[LAST_ACCESS_POINT];
-  if (!has_events) {
-    char rlz[kMaxRlzLength + 1];
-    int idx = 0;
+  std::array<AccessPoint, LAST_ACCESS_POINT> all_points{};
+  size_t idx = 0;
+  if (!events_cgi) {
     for (int ap = NO_ACCESS_POINT + 1; ap < LAST_ACCESS_POINT; ap++) {
-      rlz[0] = 0;
       AccessPoint point = static_cast<AccessPoint>(ap);
-      if (GetAccessPointRlz(point, rlz, std::size(rlz)) && rlz[0] != '\0')
+      std::optional<std::string> rlz = GetAccessPointRlz(point);
+      if (rlz && !rlz->empty()) {
         all_points[idx++] = point;
+      }
     }
-    all_points[idx] = NO_ACCESS_POINT;
   }
 
   // Add the RLZ's and the DCC if needed. This is the same as get PingParams.
   // This will also include the RLZ Exchange Protocol CGI Argument.
-  cgi[0] = 0;
-  if (GetPingParams(product, has_events ? access_points : all_points, cgi,
-                    std::size(cgi)))
-    base::StringAppendF(request, "&%s", cgi);
+  if (std::optional<std::string> ping_params = GetPingParams(
+          product,
+          events_cgi ? access_points : base::span(all_points).first(idx))) {
+    base::StrAppend(request, {"&", *ping_params});
+  }
 
-  if (has_events && !exclude_machine_id) {
+  if (events_cgi && !exclude_machine_id) {
     std::string machine_id;
     if (GetMachineId(&machine_id)) {
-      base::StringAppendF(request, "&%s=%s", kMachineIdCgiVariable,
-                          machine_id.c_str());
+      base::StrAppend(request, {"&", kMachineIdCgiVariable, "=", machine_id});
     }
   }
 
@@ -208,8 +203,6 @@ void OnURLLoadComplete(std::unique_ptr<network::SimpleURLLoader> url_loader,
                              std::move(response_body).value_or(""));
 }
 
-bool send_financial_ping_interrupted_for_test = false;
-
 }  // namespace
 
 // The signal for the current ping request. It can be used to cancel the request
@@ -230,7 +223,6 @@ bool FinancialPing::SetURLLoaderFactory(
   g_URLLoaderFactory.store(factory, std::memory_order_release);
   scoped_refptr<RefCountedWaitableEvent> event = GetPingResultEvent();
   if (!factory && event) {
-    send_financial_ping_interrupted_for_test = true;
     event->SignalShutdown();
   }
   return true;
@@ -335,7 +327,6 @@ FinancialPing::PingResponse FinancialPing::PingServer(const char* request,
     return PING_FAILURE;
 
   if (event->GetResponseCode() == -1) {
-    send_financial_ping_interrupted_for_test = true;
     return PING_SHUTDOWN;
   } else if (event->GetResponseCode() != 200) {
     return PING_FAILURE;
@@ -351,25 +342,25 @@ bool FinancialPing::IsPingTime(Product product, bool no_delay) {
   if (!store || !store->HasAccess(RlzValueStore::kReadAccess))
     return false;
 
-  int64_t last_ping = 0;
-  if (!store->ReadPingTime(product, &last_ping))
+  std::optional<int64_t> last_ping = store->ReadPingTime(product);
+  if (!last_ping) {
     return true;
+  }
 
   uint64_t now = GetSystemTimeAsInt64();
-  int64_t interval = now - last_ping;
+  int64_t interval = now - *last_ping;
 
   // If interval is negative, clock was probably reset. So ping.
   if (interval < 0)
     return true;
 
   // Check if this product has any unreported events.
-  char cgi[kMaxCgiLength + 1];
-  cgi[0] = 0;
-  bool has_events = GetProductEventsAsCgi(product, cgi, std::size(cgi));
-  if (no_delay && has_events)
+  std::optional<std::string> cgi = GetProductEventsAsCgi(product);
+  if (no_delay && cgi) {
     return true;
+  }
 
-  return interval >= (has_events ? kEventsPingInterval : kNoEventsPingInterval);
+  return interval >= (cgi ? kEventsPingInterval : kNoEventsPingInterval);
 }
 
 
@@ -391,17 +382,5 @@ bool FinancialPing::ClearLastPingTime(Product product) {
     return false;
   return store->ClearPingTime(product);
 }
-
-namespace test {
-
-void ResetSendFinancialPingInterrupted() {
-  send_financial_ping_interrupted_for_test = false;
-}
-
-bool WasSendFinancialPingInterrupted() {
-  return send_financial_ping_interrupted_for_test;
-}
-
-}  // namespace test
 
 }  // namespace rlz_lib

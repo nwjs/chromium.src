@@ -97,6 +97,7 @@ source_set("impl") {
     "//chrome/browser/ui:accelerator_table",
     "//chrome/browser/ui:browser_init_state",
     "//chrome/browser/ui:browser_window_state",
+    "//chrome/browser/ui:browser_window_theme_observer",
     "//chrome/browser/ui/bookmarks",
     "//chrome/browser/ui/browser_active_state_manager",
     "//chrome/browser/ui/browser_web_contents_delegate",
@@ -114,6 +115,7 @@ source_set("impl") {
     "//chrome/browser/ui/tabs/tab_strip_api/controllers",
     "//chrome/browser/ui/toolbar",
     "//chrome/browser/ui/views:bubble_anchor_util_views",
+    "//chrome/browser/ui/views:find_bar_views",
     "//chrome/browser/ui/views/exclusive_access",
     "//chrome/browser/ui/views/page_info",
     "//chrome/browser/ui/views/toolbar",
@@ -157,10 +159,6 @@ source_set("impl") {
       "//ui/base/accelerators/global_accelerator_listener",
     ]
   }
-
-  # TODO(crbug.com/40031409): Fix code that adds exit-time destructors and
-  # enable the diagnostic by removing this line.
-  configs += [ "//build/config/compiler:no_exit_time_destructors" ]
 }
 
 mojom("browser_mojo_bindings") {
@@ -194,6 +192,7 @@ source_set("browser_tests") {
     "//base/test:test_support",
     "//chrome/browser/devtools",
     "//chrome/browser/ui",
+    "//chrome/browser/ui/side_panel",
     "//chrome/browser/ui/webui:webui_util",
     "//chrome/browser/ui/webui/searchbox",
     "//chrome/common:chrome_features",

@@ -66,11 +66,15 @@ public class FlatBufferTabStateSerializer implements TabStateSerializer {
     }
 
     @Override
-    public ByteBuffer serialize(TabState state, byte[] contentsStateBytes) {
+    public ByteBuffer serialize(TabState state) {
         FlatBufferBuilder fbb = new FlatBufferBuilder();
+        ByteBuffer contentsStateBuffer =
+                state.contentsState == null
+                        ? ByteBuffer.allocate(0).asReadOnlyBuffer()
+                        : state.contentsState.buffer().asReadOnlyBuffer();
+        contentsStateBuffer.rewind();
         int webContentsState =
-                TabStateFlatBufferV1.createWebContentsStateBytesVector(
-                        fbb, ByteBuffer.wrap(contentsStateBytes));
+                TabStateFlatBufferV1.createWebContentsStateBytesVector(fbb, contentsStateBuffer);
         int openerAppId =
                 fbb.createString(state.openerAppId == null ? NULL_STR : state.openerAppId);
         int url = fbb.createString(state.url == null ? NULL_STR : state.url.getSpec());
@@ -113,10 +117,8 @@ public class FlatBufferTabStateSerializer implements TabStateSerializer {
             state.isIncognito = mIsEncrypted;
             state.parentId = tabStateFlatBuffer.parentId();
             state.rootId = tabStateFlatBuffer.rootId();
-            state.openerAppId =
-                    NULL_STR.equals(tabStateFlatBuffer.openerAppId())
-                            ? null
-                            : tabStateFlatBuffer.openerAppId();
+            String openerAppId = tabStateFlatBuffer.openerAppId();
+            state.openerAppId = NULL_STR.equals(openerAppId) ? null : openerAppId;
             state.timestampMillis = tabStateFlatBuffer.timestampMillis();
             state.lastNavigationCommittedTimestampMillis =
                     tabStateFlatBuffer.lastNavigationCommittedTimestampMillis();
@@ -135,26 +137,23 @@ public class FlatBufferTabStateSerializer implements TabStateSerializer {
             state.tabHasSensitiveContent = tabStateFlatBuffer.tabHasSensitiveContent();
             state.isPinned = tabStateFlatBuffer.isPinned();
 
-            boolean isUrlNull = NULL_STR.equals(tabStateFlatBuffer.url());
-            state.url = isUrlNull ? null : new GURL(tabStateFlatBuffer.url());
+            String url = tabStateFlatBuffer.url();
+            state.url = NULL_STR.equals(url) ? null : new GURL(url);
             if (state.url != null && !state.url.isValid()) state.url = null;
 
+            @Nullable ByteBuffer rawBuffer = tabStateFlatBuffer.webContentsStateBytesAsByteBuffer();
             ByteBuffer webContentsStateBuffer =
-                    tabStateFlatBuffer.webContentsStateBytesAsByteBuffer() == null
-                            ? ByteBuffer.allocateDirect(0)
-                            : tabStateFlatBuffer.webContentsStateBytesAsByteBuffer().slice();
-            if (mIsEncrypted) {
+                    rawBuffer == null ? ByteBuffer.allocateDirect(0) : rawBuffer.slice();
+            if (mIsEncrypted || !webContentsStateBuffer.isDirect()) {
                 ByteBuffer buffer = ByteBuffer.allocateDirect(webContentsStateBuffer.remaining());
                 buffer.put(webContentsStateBuffer);
-                state.contentsState =
-                        new WebContentsState(
-                                buffer, WebContentsState.CONTENTS_STATE_CURRENT_VERSION);
-            } else {
-                state.contentsState =
-                        new WebContentsState(
-                                webContentsStateBuffer,
-                                WebContentsState.CONTENTS_STATE_CURRENT_VERSION);
+                buffer.rewind();
+                webContentsStateBuffer = buffer;
             }
+            state.contentsState =
+                    new WebContentsState(
+                            webContentsStateBuffer,
+                            WebContentsState.CONTENTS_STATE_CURRENT_VERSION);
             return state;
         } catch (IndexOutOfBoundsException e) {
             RecordHistogram.recordEnumeratedHistogram(

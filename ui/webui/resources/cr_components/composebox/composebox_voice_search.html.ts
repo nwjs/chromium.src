@@ -32,12 +32,16 @@ export function getHtml(this: ComposeboxVoiceSearchElement) {
             <span>${this.i18n('voiceWaiting')}</span>
           </div>`
       : ''}
-      ${this.liveTranscriptEnabled && !this.isPermissionPromptOpen ?
+      ${(this.liveTranscriptEnabled || this.helperTextEnabled) &&
+          !this.isPermissionPromptOpen ?
           html`<div id="input"
-              class="${this.shouldShowErrorScrim_() ? 'hidden' : ''}"
+              class="${this.shouldShowErrorScrim_() ? 'hidden' : ''} ${
+                  (!this.transcript_ || !this.liveTranscriptEnabled) ?
+                      'empty' : ''}"
           >
             <span id="transcript-text"
-            >${this.transcript_ || this.listeningPlaceholder_}</span>
+            >${(this.liveTranscriptEnabled && this.transcript_) ||
+                this.listeningPlaceholder_}</span>
           </div>`
       : ''}
       ${!this.submitStopButtonsEnabled || this.shouldShowErrorScrim_() ?
@@ -51,7 +55,9 @@ export function getHtml(this: ComposeboxVoiceSearchElement) {
               class="${this.shouldShowErrorScrim_() ? 'hidden' : ''}">
             <cr-icon-button id="stopButton" part="voice-stop-button"
                 iron-icon="composebox:stop-filled"
-                 title="${this.i18n('voiceStop')}"
+                title="${this.i18n('voiceStop')}"
+                aria-label="${this.i18n('voiceStop')}"
+                tabindex="0"
                 @click="${this.onStopClick_}"
             ></cr-icon-button>
             <cr-composebox-submit id="submitButton"

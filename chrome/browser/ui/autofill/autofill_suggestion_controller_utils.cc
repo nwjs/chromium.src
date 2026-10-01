@@ -256,7 +256,6 @@ bool ShouldResetIdleBarrier(AutofillSuggestionTriggerSource trigger_source) {
     case AutofillSuggestionTriggerSource::kAtMemoryDoubleCtrl:
     case AutofillSuggestionTriggerSource::kAtMemoryInactivityNudge:
     case AutofillSuggestionTriggerSource::kAtMemoryKeyboardShortcut:
-    case AutofillSuggestionTriggerSource::kAtMemoryTriggerString:
       return false;
     case AutofillSuggestionTriggerSource::kUnspecified:
     case AutofillSuggestionTriggerSource::kFormControlElementClicked:
@@ -272,6 +271,7 @@ bool ShouldResetIdleBarrier(AutofillSuggestionTriggerSource trigger_source) {
     case AutofillSuggestionTriggerSource::kComposeDelayedProactiveNudge:
     case AutofillSuggestionTriggerSource::kPasswordManagerProcessedFocusedField:
     case AutofillSuggestionTriggerSource::kProactivePasswordRecovery:
+    case AutofillSuggestionTriggerSource::kGmailOneTimePasswordAvailable:
     case AutofillSuggestionTriggerSource::kGlic:
       return true;
   }

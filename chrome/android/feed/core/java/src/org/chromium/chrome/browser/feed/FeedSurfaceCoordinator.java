@@ -86,6 +86,7 @@ import org.chromium.components.feature_engagement.EventConstants;
 import org.chromium.components.feature_engagement.Tracker;
 import org.chromium.third_party.android.swiperefresh.SwipeRefreshLayout;
 import org.chromium.ui.base.DeviceFormFactor;
+import org.chromium.ui.base.DeviceInput;
 import org.chromium.ui.base.ViewUtils;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.edge_to_edge.EdgeToEdgePadAdjuster;
@@ -178,6 +179,8 @@ public class FeedSurfaceCoordinator
          */
         RootView(Context context) {
             super(context);
+            setFocusable(true);
+            setFocusableInTouchMode(true);
         }
 
         @Override
@@ -208,6 +211,11 @@ public class FeedSurfaceCoordinator
             // event. Placing this call later in the method would mean at least a subset of events
             // would be missed.
             mDelegate.sendMotionEventForInputTracking(ev);
+            // Defocus any other view (such as the Omnibox / UrlBar) when tapping on the empty
+            // background surface.
+            if (ev.getActionMasked() == MotionEvent.ACTION_DOWN) {
+                requestFocus();
+            }
 
             if (super.onInterceptTouchEvent(ev)) return true;
             if (mMediator != null && !mMediator.getTouchEnabled()) return true;
@@ -1042,8 +1050,9 @@ public class FeedSurfaceCoordinator
         setHeaders(headerList);
 
         // Explicitly request focus on the scroll container to avoid UrlBar being focused after
-        // mRootView containers are refreshed.
-        mRecyclerView.requestFocus();
+        // mRootView containers are refreshed, unless a physical keyboard is attached and UrlBar
+        // is expected to remain focused.
+        if (!DeviceInput.supportsAlphabeticKeyboard()) mRecyclerView.requestFocus();
     }
 
     /**

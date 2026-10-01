@@ -26,7 +26,6 @@
 #include "chrome/browser/browser_process_platform_part.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/chrome_constants.h"
-#include "chrome/common/chrome_switches.h"
 #include "chromeos/ash/components/browser_context_helper/browser_context_helper.h"
 #include "chromeos/ash/components/browser_context_helper/browser_context_types.h"
 #include "components/account_id/account_id.h"
@@ -55,6 +54,7 @@ class ProfileHelperImpl : public ProfileHelper {
 
   void SetUserToProfileMappingForTesting(const user_manager::User* user,
                                          Profile* profile) override;
+  void ClearUserToProfileMappingForTesting() override;
 
  private:
   std::unique_ptr<BrowserContextHelper> browser_context_helper_;
@@ -274,6 +274,10 @@ void ProfileHelperImpl::SetUserToProfileMappingForTesting(
     Profile* profile) {
   DCHECK(user);
   user_to_profile_for_testing_[user] = profile;
+}
+
+void ProfileHelperImpl::ClearUserToProfileMappingForTesting() {
+  user_to_profile_for_testing_.clear();
 }
 
 }  // namespace ash

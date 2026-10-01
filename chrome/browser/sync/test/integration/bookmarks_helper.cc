@@ -872,10 +872,11 @@ std::u16string IndexedSubsubfolderName(size_t i) {
 
 std::unique_ptr<syncer::LoopbackServerEntity> CreateBookmarkServerEntity(
     const std::u16string& title,
-    const GURL& url) {
+    const GURL& url,
+    const base::Uuid& uuid) {
   fake_server::EntityBuilderFactory entity_builder_factory;
   fake_server::BookmarkEntityBuilder bookmark_builder =
-      entity_builder_factory.NewBookmarkEntityBuilder(title);
+      entity_builder_factory.NewBookmarkEntityBuilder(title, uuid);
   return bookmark_builder.BuildBookmark(url);
 }
 

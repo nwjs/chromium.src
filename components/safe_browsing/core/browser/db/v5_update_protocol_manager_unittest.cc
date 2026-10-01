@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "base/base64.h"
+#include "base/base64url.h"
 #include "base/functional/bind.h"
 #include "base/strings/escape.h"
 #include "base/task/single_thread_task_runner.h"
@@ -18,8 +19,9 @@
 #include "base/test/task_environment.h"
 #include "base/time/time.h"
 #include "base/types/expected.h"
+#include "build/build_config.h"
+#include "components/safe_browsing/core/browser/db/sb_test_util.h"
 #include "components/safe_browsing/core/browser/db/util.h"
-#include "components/safe_browsing/core/browser/db/v4_test_util.h"
 #include "components/safe_browsing/core/browser/db/v5_rice.h"
 #include "components/safe_browsing/core/common/safebrowsing_switches.h"
 #include "net/base/load_flags.h"
@@ -110,18 +112,13 @@ class V5UpdateProtocolManagerTest : public PlatformTest {
 
   void ValidateV5UpdateResults(
       const std::vector<ExpectedV5Update>& expected_updates,
-      bool expect_success,
-      std::optional<std::map<ListIdentifier, V5::HashList>> response) {
+      std::map<ListIdentifier, V5::HashList> response) {
     callback_was_called_ = true;
     EXPECT_TRUE(expect_callback_to_be_called_);
-    EXPECT_EQ(expect_success, response.has_value());
-    if (!expect_success) {
-      return;
-    }
-    EXPECT_EQ(expected_updates.size(), response->size());
+    EXPECT_EQ(expected_updates.size(), response.size());
     for (const auto& update : expected_updates) {
-      auto it = response->find(update.list_id);
-      ASSERT_TRUE(it != response->end());
+      auto it = response.find(update.list_id);
+      ASSERT_TRUE(it != response.end());
       EXPECT_EQ(update.version, it->second.version());
       EXPECT_EQ(update.partial_update, it->second.partial_update());
     }
@@ -129,14 +126,13 @@ class V5UpdateProtocolManagerTest : public PlatformTest {
 
   std::unique_ptr<V5UpdateProtocolManager> CreateProtocolManager(
       const std::vector<ExpectedV5Update>& expected_updates,
-      bool expect_success = true,
       bool disable_auto_update = false) {
     return std::make_unique<V5UpdateProtocolManager>(
         test_shared_loader_factory_,
-        GetTestV4ProtocolConfig(disable_auto_update),
+        GetTestSBProtocolConfig(disable_auto_update),
         base::BindRepeating(
             &V5UpdateProtocolManagerTest::ValidateV5UpdateResults,
-            base::Unretained(this), expected_updates, expect_success));
+            base::Unretained(this), expected_updates));
   }
 
   // Builds the expected response. Any list in `store_state_map_` gets
@@ -189,23 +185,21 @@ class V5UpdateProtocolManagerTest : public PlatformTest {
 };
 
 TEST_F(V5UpdateProtocolManagerTest, TestDisableAutoUpdates) {
-  auto pm = CreateProtocolManager(std::vector<ExpectedV5Update>(),
-                                  /*expect_success=*/true,
+  auto pm = CreateProtocolManager(/*expected_updates=*/{},
                                   /*disable_auto_update=*/true);
 
   pm->ScheduleNextUpdate(std::move(store_state_map_));
   EXPECT_FALSE(IsUpdateScheduled(pm.get()));
-  DCHECK(!HasPendingRequest(pm.get()));
+  CHECK(!HasPendingRequest(pm.get()));
 }
 
 TEST_F(V5UpdateProtocolManagerTest, TestEnableAutoUpdates) {
-  auto pm = CreateProtocolManager(std::vector<ExpectedV5Update>(),
-                                  /*expect_success=*/true,
+  auto pm = CreateProtocolManager(/*expected_updates=*/{},
                                   /*disable_auto_update=*/false);
 
   pm->ScheduleNextUpdate(std::move(store_state_map_));
   EXPECT_TRUE(IsUpdateScheduled(pm.get()));
-  DCHECK(!HasPendingRequest(pm.get()));
+  CHECK(!HasPendingRequest(pm.get()));
 }
 
 TEST_F(V5UpdateProtocolManagerTest, TestGetUpdatesErrorHandlingNetwork) {
@@ -390,21 +384,54 @@ TEST_F(V5UpdateProtocolManagerTest, TestGetUpdatesWithOneBackoff) {
   EXPECT_FALSE(IsUpdateScheduled(pm.get()));
 }
 
+TEST_F(V5UpdateProtocolManagerTest,
+       TestGetBase64SerializedUpdateRequestProto_PlatformSpecificLists) {
+  std::vector<V5UpdateProtocolManager::ListIdentifierAndVersion> mapping = {
+      {ListIdentifier(SBThreatType::SB_THREAT_TYPE_URL_MALWARE), "version_1"},
+      {ListIdentifier(SBThreatType::SB_THREAT_TYPE_URL_PHISHING), "version_2"},
+      {ListIdentifier(SBThreatType::SB_THREAT_TYPE_URL_UNWANTED), "version_3"},
+  };
+  std::string encoded_request = GetBase64SerializedUpdateRequestProto(mapping);
+  std::string decoded_request;
+  ASSERT_TRUE(base::Base64UrlDecode(
+      encoded_request, base::Base64UrlDecodePolicy::REQUIRE_PADDING,
+      &decoded_request));
+
+  V5::BatchGetHashListsRequest request;
+  ASSERT_TRUE(request.ParseFromString(decoded_request));
+  ASSERT_EQ(request.names_size(), 3);
+  ASSERT_EQ(request.version_size(), 3);
+#if BUILDFLAG(IS_IOS)
+  EXPECT_EQ(request.names(0), "pha-4b");
+  EXPECT_EQ(request.names(1), "sea-4b");
+  EXPECT_EQ(request.names(2), "uwsa-4b");
+#else
+  EXPECT_EQ(request.names(0), "mw-4b");
+  EXPECT_EQ(request.names(1), "se-4b");
+  EXPECT_EQ(request.names(2), "uws-4b");
+#endif
+  EXPECT_EQ(request.version(0), "version_1");
+  EXPECT_EQ(request.version(1), "version_2");
+  EXPECT_EQ(request.version(2), "version_3");
+
+  EXPECT_FALSE(request.has_size_constraints());
+}
+
 TEST_F(V5UpdateProtocolManagerTest, TestBase64EncodingUsesUrlEncoding) {
   // Picked by generating random strings until one led to a '-' in the base64
   // url encoded request output.
   std::string magic_string = "ANo>Qqel>C";
-  auto pm = CreateProtocolManager({});
+  auto pm = CreateProtocolManager(/*expected_updates=*/{});
   std::unique_ptr<StoreStateMap> store_state_map =
       std::make_unique<StoreStateMap>();
-  ListIdentifier malware(SBThreatType::SB_THREAT_TYPE_URL_MALWARE);
-  store_state_map->insert({malware, magic_string});
+  ListIdentifier billing(SBThreatType::SB_THREAT_TYPE_BILLING);
+  store_state_map->insert({billing, magic_string});
   std::vector<V5UpdateProtocolManager::ListIdentifierAndVersion> mapping;
   mapping.push_back(
-      V5UpdateProtocolManager::ListIdentifierAndVersion(malware, magic_string));
+      V5UpdateProtocolManager::ListIdentifierAndVersion(billing, magic_string));
   std::string encoded_request_with_minus =
       GetBase64SerializedUpdateRequestProto(mapping);
-  std::string expected = "CgVtdy00YhIKQU5vPlFxZWw-Qw==";
+  std::string expected = "CgViaS00YhIKQU5vPlFxZWw-Qw==";
   ASSERT_TRUE(encoded_request_with_minus.find("-") != std::string::npos);
   EXPECT_EQ(expected, encoded_request_with_minus);
 }
@@ -468,7 +495,7 @@ TEST_F(V5UpdateProtocolManagerTest, TestGetUpdatesNoError) {
 
 TEST_F(V5UpdateProtocolManagerTest, TestPostProcessingTimeAdjustment) {
   base::HistogramTester histogram_tester;
-  auto pm = CreateProtocolManager({});
+  auto pm = CreateProtocolManager(/*expected_updates=*/{});
 
   // Set initial conditions.
   SetNextUpdateInterval(pm.get(), base::Seconds(60));
@@ -536,7 +563,7 @@ TEST_F(V5UpdateProtocolManagerTest, TestResponseParsingMinimumWaitDuration) {
   for (const auto& test_case : test_cases) {
     SCOPED_TRACE(test_case.test_case_name);
     base::HistogramTester histogram_tester;
-    auto pm = CreateProtocolManager({});
+    auto pm = CreateProtocolManager(/*expected_updates=*/{});
     V5::BatchGetHashListsResponse response;
     std::vector<V5UpdateProtocolManager::ListIdentifierAndVersion> lists;
 
@@ -674,7 +701,7 @@ TEST_F(V5UpdateProtocolManagerTest, TestBackToBackGetUpdatesWithWaitDuration) {
 TEST_F(V5UpdateProtocolManagerTest, TestResponseParsingInvalidProto) {
   base::HistogramTester histogram_tester;
   expect_callback_to_be_called_ = false;
-  auto pm = CreateProtocolManager({}, /*expect_success=*/false);
+  auto pm = CreateProtocolManager(/*expected_updates=*/{});
 
   pm->ScheduleNextUpdate(std::make_unique<StoreStateMap>(*store_state_map_));
   task_environment_.FastForwardBy(base::Minutes(10));
@@ -702,7 +729,7 @@ TEST_F(V5UpdateProtocolManagerTest, TestResponseParsingInvalidProto) {
 TEST_F(V5UpdateProtocolManagerTest, TestResponseParsingMismatchedSize) {
   base::HistogramTester histogram_tester;
   expect_callback_to_be_called_ = false;
-  auto pm = CreateProtocolManager({}, /*expect_success=*/false);
+  auto pm = CreateProtocolManager(/*expected_updates=*/{});
 
   // Request has 1 list.
   std::unique_ptr<StoreStateMap> small_store_state_map =
@@ -752,7 +779,7 @@ TEST_F(V5UpdateProtocolManagerTest, TestResponseParsingMismatchedSize) {
 TEST_F(V5UpdateProtocolManagerTest, TestResponseParsingMismatchedName) {
   base::HistogramTester histogram_tester;
   expect_callback_to_be_called_ = false;
-  auto pm = CreateProtocolManager({}, /*expect_success=*/false);
+  auto pm = CreateProtocolManager(/*expected_updates=*/{});
 
   ListIdentifier malware(SBThreatType::SB_THREAT_TYPE_URL_MALWARE);
   store_state_map_ =
@@ -793,7 +820,7 @@ TEST_F(V5UpdateProtocolManagerTest, TestResponseParsingMismatchedName) {
 TEST_F(V5UpdateProtocolManagerTest, TestResponseParsingEmptyName) {
   base::HistogramTester histogram_tester;
   expect_callback_to_be_called_ = false;
-  auto pm = CreateProtocolManager({}, /*expect_success=*/false);
+  auto pm = CreateProtocolManager(/*expected_updates=*/{});
 
   ListIdentifier malware(SBThreatType::SB_THREAT_TYPE_URL_MALWARE);
   store_state_map_ =
@@ -833,7 +860,7 @@ TEST_F(V5UpdateProtocolManagerTest, TestResponseParsingEmptyName) {
 TEST_F(V5UpdateProtocolManagerTest, TestResponseParsingMismatchedPrefixLength) {
   base::HistogramTester histogram_tester;
   expect_callback_to_be_called_ = false;
-  auto pm = CreateProtocolManager({}, /*expect_success=*/false);
+  auto pm = CreateProtocolManager(/*expected_updates=*/{});
 
   ListIdentifier malware(SBThreatType::SB_THREAT_TYPE_URL_MALWARE);
   store_state_map_ =
@@ -876,7 +903,7 @@ TEST_F(V5UpdateProtocolManagerTest,
        TestResponseParsingMismatchedPrefixLengthAlternate) {
   base::HistogramTester histogram_tester;
   expect_callback_to_be_called_ = false;
-  auto pm = CreateProtocolManager({}, /*expect_success=*/false);
+  auto pm = CreateProtocolManager(/*expected_updates=*/{});
 
   ListIdentifier csd(SBThreatType::SB_THREAT_TYPE_CSD_ALLOWLIST);
   std::unique_ptr<StoreStateMap> csd_store_state_map =
@@ -918,7 +945,7 @@ TEST_F(V5UpdateProtocolManagerTest,
 TEST_F(V5UpdateProtocolManagerTest, TestResponseParsingNullBody) {
   base::HistogramTester histogram_tester;
   expect_callback_to_be_called_ = false;
-  auto pm = CreateProtocolManager({}, /*expect_success=*/false);
+  auto pm = CreateProtocolManager(/*expected_updates=*/{});
 
   pm->ScheduleNextUpdate(std::make_unique<StoreStateMap>(*store_state_map_));
   task_environment_.FastForwardBy(base::Minutes(10));
@@ -946,7 +973,7 @@ TEST_F(V5UpdateProtocolManagerTest, TestResponseParsingNullBody) {
 TEST_F(V5UpdateProtocolManagerTest, TestResponseParsingInvalidRiceField) {
   base::HistogramTester histogram_tester;
   expect_callback_to_be_called_ = false;
-  auto pm = CreateProtocolManager({}, /*expect_success=*/false);
+  auto pm = CreateProtocolManager(/*expected_updates=*/{});
 
   ListIdentifier malware(SBThreatType::SB_THREAT_TYPE_URL_MALWARE);
   store_state_map_ =
@@ -993,7 +1020,7 @@ TEST_F(V5UpdateProtocolManagerTest, TestResponseParsingInvalidRiceField) {
 TEST_F(V5UpdateProtocolManagerTest, TestResponseParsingMissingChecksum) {
   base::HistogramTester histogram_tester;
   expect_callback_to_be_called_ = false;
-  auto pm = CreateProtocolManager({}, /*expect_success=*/false);
+  auto pm = CreateProtocolManager(/*expected_updates=*/{});
 
   ListIdentifier malware(SBThreatType::SB_THREAT_TYPE_URL_MALWARE);
   store_state_map_ =
@@ -1030,7 +1057,7 @@ TEST_F(V5UpdateProtocolManagerTest, TestResponseParsingMissingChecksum) {
 TEST_F(V5UpdateProtocolManagerTest, TestResponseParsingInvalidChecksumSize) {
   base::HistogramTester histogram_tester;
   expect_callback_to_be_called_ = false;
-  auto pm = CreateProtocolManager({}, /*expect_success=*/false);
+  auto pm = CreateProtocolManager(/*expected_updates=*/{});
 
   ListIdentifier malware(SBThreatType::SB_THREAT_TYPE_URL_MALWARE);
   store_state_map_ =
@@ -1067,7 +1094,7 @@ TEST_F(V5UpdateProtocolManagerTest, TestResponseParsingInvalidChecksumSize) {
 
 TEST_F(V5UpdateProtocolManagerTest, FastUpdateCommandLineSwitch) {
   {
-    auto pm = CreateProtocolManager({});
+    auto pm = CreateProtocolManager(/*expected_updates=*/{});
     base::TimeDelta interval = GetNextUpdateInterval(pm.get());
     EXPECT_GE(interval, base::Seconds(kTimerStartIntervalSecMin));
     EXPECT_LE(interval, base::Seconds(kTimerStartIntervalSecMax));
@@ -1077,7 +1104,7 @@ TEST_F(V5UpdateProtocolManagerTest, FastUpdateCommandLineSwitch) {
     base::test::ScopedCommandLine scoped_command_line;
     scoped_command_line.GetProcessCommandLine()->AppendSwitch(
         switches::kSbFastInitialListsUpdate);
-    auto pm = CreateProtocolManager({});
+    auto pm = CreateProtocolManager(/*expected_updates=*/{});
     base::TimeDelta interval = GetNextUpdateInterval(pm.get());
     EXPECT_GE(interval, base::Seconds(kTimerStartIntervalSecMinFastUpdate));
     EXPECT_LE(interval, base::Seconds(kTimerStartIntervalSecMaxFastUpdate));

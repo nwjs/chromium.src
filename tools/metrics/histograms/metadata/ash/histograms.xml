@@ -581,19 +581,6 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="Ash.AmbientMode.Enabled" enum="BooleanEnabled"
-    expires_after="2025-08-31">
-  <owner>cowmoo@google.com</owner>
-  <owner>cros-p13n-eng@google.com</owner>
-  <summary>
-    Among eligible users, whether the user has Ambient mode enabled. Recorded
-    once for every UMA upload. The set of eligible users includes all users with
-    profiles that can allow Ambient mode to be enabled. This is limited by
-    profile type, whether the user is primary, if the user has a supported
-    email, etc.
-  </summary>
-</histogram>
-
 <histogram name="Ash.AmbientMode.EngagementTime.{TabletOrClamshellMode}"
     units="ms" expires_after="2026-05-10">
   <owner>cowmoo@google.com</owner>
@@ -605,32 +592,6 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="Ash.AmbientMode.Init.{Settings}" enum="Boolean"
-    expires_after="2025-06-30">
-  <owner>cowmoo@google.com</owner>
-  <owner>cros-p13n-eng@google.com</owner>
-  <summary>
-    Background initialization tasks must be completed successfully before the
-    ambient UI can be launched. For example, slide show mode must download an
-    initial set of photos from the server before the UI can be rendered. This
-    records the initialization success/failure count per ambient setting; each
-    ambient setting (slide show, video, etc) has a different initialization
-    process. This is emitted each time ash tries to launch the ambient UI.
-  </summary>
-  <token key="Settings" variants="AmbientUiSettings"/>
-</histogram>
-
-<histogram name="Ash.AmbientMode.LottieAnimationSmoothness.{Settings}"
-    units="%" expires_after="2025-06-30">
-  <owner>cowmoo@google.com</owner>
-  <owner>cros-p13n-eng@google.com</owner>
-  <summary>
-    Emitted periodically while {Settings} is rendering in ambient mode. 100%
-    represents ideal smoothness.
-  </summary>
-  <token key="Settings" variants="AmbientUiSettings"/>
-</histogram>
-
 <histogram name="Ash.AmbientMode.PhotoSource" enum="AmbientModePhotoSource"
     expires_after="2026-01-25">
   <owner>cowmoo@google.com</owner>
@@ -638,17 +599,6 @@ chromium-metrics-reviews@google.com.
   <summary>
     Among eligible users with ambient mode enabled, records the source of
     ambient mode photos. Recorded once for every UMA upload.
-  </summary>
-</histogram>
-
-<histogram name="Ash.AmbientMode.SelectedNumberOfAlbums" units="int"
-    expires_after="2025-06-30">
-  <owner>cowmoo@google.com</owner>
-  <owner>cros-p13n-eng@google.com</owner>
-  <summary>
-    Among eligible users with ambient mode enabled, records the selected number
-    of personal photo albums. Recorded once only when users make a selection on
-    the personal photo albums on Settings page.
   </summary>
 </histogram>
 
@@ -681,17 +631,6 @@ chromium-metrics-reviews@google.com.
   <summary>
     Emitted when screen saver starts running. Logs the topic source of the
     screen saver.
-  </summary>
-</histogram>
-
-<histogram name="Ash.AmbientMode.TotalNumberOfAlbums" units="int"
-    expires_after="2025-06-30">
-  <owner>cowmoo@google.com</owner>
-  <owner>cros-p13n-eng@google.com</owner>
-  <summary>
-    Among eligible users with ambient mode enabled, records the total number of
-    personal photo albums. Recorded once only when users make a selection on the
-    personal photo albums on Settings page.
   </summary>
 </histogram>
 
@@ -903,24 +842,6 @@ chromium-metrics-reviews@google.com.
         summary="disabled after being enabled via notification."/>
     <variant name=".EnabledSettings"
         summary="disabled after being enabled via the device settings page."/>
-  </token>
-</histogram>
-
-<histogram name="Ash.BatterySaver.TimeToEmpty{TimeToEmptyWhen}" units="ms"
-    expires_after="2025-06-08">
-  <owner>cwd@google.com</owner>
-  <owner>ckwyee@google.com</owner>
-  <summary>
-    The battery time to empty when battery saver is {TimeToEmptyWhen}. Only
-    logged when an estimate is available.
-  </summary>
-  <token key="TimeToEmptyWhen">
-    <variant name=".Disabled" summary="disabled"/>
-    <variant name=".DisabledSettings"
-        summary="disabled via the device settings page"/>
-    <variant name=".Enabled" summary="enabled"/>
-    <variant name=".EnabledSettings"
-        summary="enabled via the device settings page"/>
   </token>
 </histogram>
 
@@ -1341,7 +1262,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Ash.BrowserContext.UnexpectedGet{UserType}UserProfile.{Timing}.Location"
-    enum="ProfileManagerCallersCodeLocation" expires_after="2026-12-31">
+    enum="ProfileManagerCallersCodeLocation" expires_after="2027-03-07">
   <owner>hidehiko@chromium.org</owner>
   <owner>junis@chromium.org</owner>
   <owner>oshima@chromium.org</owner>
@@ -3392,7 +3313,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Ash.EventLatency.{EventType}.TotalLatency.1MinAfterResume"
-    units="microseconds" expires_after="2027-01-03">
+    units="microseconds" expires_after="2027-03-07">
   <owner>kawasin@google.com</owner>
   <owner>baseos-perf@google.com</owner>
   <summary>
@@ -4576,7 +4497,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Ash.Login.Lock.SessionStateChange" enum="SessionLockEvent"
-    expires_after="2026-12-27">
+    expires_after="2027-02-28">
   <owner>mslus@google.com</owner>
   <owner>cros-lurs@google.com</owner>
   <summary>Records all session lock and unlock events.</summary>
@@ -4726,7 +4647,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Ash.Login.TotalSessionDuration" units="minutes"
-    expires_after="2026-11-29">
+    expires_after="2027-02-28">
   <owner>hidehiko@chromium.org</owner>
   <owner>raging@google.com</owner>
   <owner>cros-lurs@google.com</owner>
@@ -4941,7 +4862,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Ash.LoginReadahead.Result" enum="LoginReadaheadResult"
-    expires_after="2026-10-11">
+    expires_after="2027-04-11">
   <owner>hidehiko@chromium.org</owner>
   <owner>junis@google.com</owner>
   <owner>cros-sw-perf@google.com</owner>
@@ -5165,7 +5086,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Ash.NightLight.AutoNightLightNotificationShown"
-    enum="BooleanShown" expires_after="2026-10-08">
+    enum="BooleanShown" expires_after="2027-04-08">
   <owner>longbowei@google.com</owner>
   <owner>cros-device-enablement@google.com</owner>
   <summary>
@@ -5175,7 +5096,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Ash.NightLight.AutoNightLightNotificationState"
-    enum="AshAutoNightLightNotificationState" expires_after="2026-10-08">
+    enum="AshAutoNightLightNotificationState" expires_after="2027-04-08">
   <owner>longbowei@google.com</owner>
   <owner>cros-device-enablement@google.com</owner>
   <summary>
@@ -5187,7 +5108,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Ash.NightLight.ScheduleType" enum="AshNightLightScheduleType"
-    expires_after="2026-10-08">
+    expires_after="2027-04-08">
   <owner>longbowei@google.com</owner>
   <owner>cros-device-enablement@google.com</owner>
   <summary>
@@ -5198,7 +5119,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Ash.NightLight.ScheduleType.Initial"
-    enum="AshNightLightScheduleType" expires_after="2026-10-08">
+    enum="AshNightLightScheduleType" expires_after="2027-04-08">
   <owner>longbowei@google.com</owner>
   <owner>cros-device-enablement@google.com</owner>
   <summary>The selected Night Light schedule type. Emitted on login.</summary>
@@ -6196,15 +6117,6 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
-<histogram name="Ash.Personalization.Theme.ColorMode"
-    enum="PersonalizationThemeColorMode" expires_after="2025-03-09">
-  <owner>jasontt@chromium.org</owner>
-  <owner>cros-p13n-eng@google.com</owner>
-  <summary>
-    Emitted when a user selects a theme button in personalization hub.
-  </summary>
-</histogram>
-
 <histogram name="Ash.PhantomWindowController.Show.PresentationTime" units="ms"
     expires_after="2027-05-21">
   <owner>xdai@chromium.org</owner>
@@ -6454,7 +6366,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="Ash.PowerNotification.CriticalNotificationToOutcomeDuration.{Outcome}"
-    units="seconds" expires_after="2027-01-05">
+    units="seconds" expires_after="2027-03-07">
   <owner>jimmyxgong@chromium.org</owner>
   <owner>longbowei@google.com</owner>
   <owner>cros-device-enablement@google.com</owner>
@@ -6491,7 +6403,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Ash.PowerSoundsController.PluggedInBatteryLevel" units="%"
-    expires_after="2026-11-20">
+    expires_after="2027-03-07">
   <owner>hongyulong@chromium.org</owner>
   <owner>chromeos-wm@google.com</owner>
   <summary>

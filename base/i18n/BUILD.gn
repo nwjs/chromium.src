@@ -26,6 +26,8 @@ component("language_tag_no_icu") {
   deps = [ "//base/i18n/internal:canonical_language_tags" ]
 }
 
+# This component provides usability of `LanguageTag` without any dependencies on
+# ICU4C, it does however, depend on ICU4X locale canonicalization.
 component("language_tag") {
   output_name = "language_tag"
   sources = [
@@ -40,10 +42,7 @@ component("language_tag") {
 
   defines = [ "IS_LANGUAGE_TAG_WITH_ICU_IMPL" ]
 
-  public_deps = [
-    ":language_tag_no_icu",
-    "//third_party/icu",
-  ]
+  public_deps = [ ":language_tag_no_icu" ]
   deps = [
     "//base",
     "//base/i18n/internal",
@@ -111,4 +110,25 @@ source_set("unittests") {
     "//testing/gmock",
     "//testing/gtest",
   ]
+}
+
+if (is_win) {
+  component("win_i18n") {
+    output_name = "win_i18n"
+    sources = [
+      "win/embedded_i18n/language_selector.cc",
+      "win/embedded_i18n/language_selector.h",
+      "win/preferred_languages.cc",
+      "win/preferred_languages.h",
+    ]
+
+    defines = [ "BASE_I18N_IMPLEMENTATION" ]
+
+    public_deps = [
+      ":base_i18n_export",
+      "//base/i18n:language_tag",
+    ]
+
+    deps = [ "//base" ]
+  }
 }

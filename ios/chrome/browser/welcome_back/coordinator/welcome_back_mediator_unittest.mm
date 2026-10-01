@@ -18,7 +18,6 @@
 #import "ios/chrome/browser/signin/model/authentication_service_factory.h"
 #import "ios/chrome/browser/signin/model/avatar/avatar_provider.h"
 #import "ios/chrome/browser/signin/model/chrome_account_manager_service_factory.h"
-#import "ios/chrome/browser/signin/model/fake_authentication_service_delegate.h"
 #import "ios/chrome/browser/signin/model/fake_system_identity.h"
 #import "ios/chrome/browser/signin/model/fake_system_identity_manager.h"
 #import "ios/chrome/browser/sync/model/sync_service_factory.h"
@@ -48,41 +47,45 @@ class WelcomeBackMediatorTest : public PlatformTest {
     TestProfileIOS::Builder builder;
     builder.AddTestingFactory(
         AuthenticationServiceFactory::GetInstance(),
-        AuthenticationServiceFactory::GetFactoryWithDelegateForTesting(
-            std::make_unique<FakeAuthenticationServiceDelegate>()));
+        AuthenticationServiceFactory::GetDefaultFactory());
     builder.AddTestingFactory(SyncServiceFactory::GetInstance(),
                               base::BindRepeating(&CreateTestSyncService));
 
-    profile_ = std::move(builder).Build();
-    prefs_ = profile_.get()->GetPrefs();
+    profile_ = profile_manager_.AddProfileWithBuilder(std::move(builder));
+    prefs_ = profile_->GetPrefs();
     AuthenticationService* auth_service_ =
-        AuthenticationServiceFactory::GetForProfile(profile_.get());
+        AuthenticationServiceFactory::GetForProfile(profile_);
 
     mediator_ = [[WelcomeBackMediator alloc]
         initWithAuthenticationService:auth_service_
                 accountManagerService:ChromeAccountManagerServiceFactory::
-                                          GetForProfile(profile_.get())];
+                                          GetForProfile(profile_)];
 
     consumer_ = OCMStrictProtocolMock(@protocol(WelcomeBackScreenConsumer));
   }
 
   void TearDown() override {
-    PlatformTest::TearDown();
     mediator_.consumer = nil;
     [mediator_ disconnect];
     mediator_ = nil;
+    consumer_ = nil;
+    fake_system_identity_ = nil;
+    prefs_ = nullptr;
+    profile_ = nullptr;
+    PlatformTest::TearDown();
   }
 
  protected:
   web::WebTaskEnvironment task_environment_;
   IOSChromeScopedTestingLocalState scoped_testing_local_state_;
+  TestProfileManagerIOS profile_manager_;
+  raw_ptr<TestProfileIOS> profile_ = nullptr;
   base::test::ScopedFeatureList scoped_feature_list_;
-  std::unique_ptr<TestProfileIOS> profile_;
-  raw_ptr<PrefService> prefs_;
+  raw_ptr<PrefService> prefs_ = nullptr;
   FakeSystemIdentity* fake_system_identity_ =
       [FakeSystemIdentity fakeIdentity1];
-  WelcomeBackMediator* mediator_;
-  id consumer_;
+  WelcomeBackMediator* mediator_ = nil;
+  id consumer_ = nil;
 };
 
 // Tests that the preferred items are sent correctly when all the items are

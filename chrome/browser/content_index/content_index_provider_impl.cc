@@ -27,6 +27,8 @@
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/content_index_context.h"
 #include "content/public/browser/storage_partition.h"
+#include "ui/base/page_transition_types.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/gfx/image/image_skia.h"
 #include "url/origin.h"
 
@@ -194,10 +196,10 @@ void ContentIndexProviderImpl::DidGetEntryToOpen(
     return;
 
 #if BUILDFLAG(IS_ANDROID)
-  content::OpenURLParams params(entry->launch_url, content::Referrer(),
-                                WindowOpenDisposition::NEW_FOREGROUND_TAB,
-                                ui::PAGE_TRANSITION_LINK,
-                                /* is_renderer_initiated= */ false);
+  content::OpenURLParams params =
+      content::OpenURLParams::CreateBrowserInitiated(
+          entry->launch_url, WindowOpenDisposition::NEW_FOREGROUND_TAB,
+          ui::PAGE_TRANSITION_LINK);
   ServiceTabLauncher::GetInstance()->LaunchTab(
       profile_, params,
       base::BindOnce(&ContentIndexProviderImpl::DidOpenTab,

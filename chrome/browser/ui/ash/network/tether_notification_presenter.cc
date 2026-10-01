@@ -5,6 +5,7 @@
 #include "chrome/browser/ui/ash/network/tether_notification_presenter.h"
 
 #include <algorithm>
+#include <memory>
 #include <string>
 
 #include "ash/constants/notifier_catalogs.h"
@@ -15,7 +16,6 @@
 #include "ash/webui/settings/public/constants/routes.mojom.h"
 #include "base/check_deref.h"
 #include "base/functional/bind.h"
-#include "base/memory/ptr_util.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/strings/utf_string_conversions.h"
 #include "chrome/browser/profiles/profile.h"
@@ -133,7 +133,7 @@ TetherNotificationPresenter::TetherNotificationPresenter(
     NetworkConnect* network_connect)
     : profile_(profile),
       network_connect_(network_connect),
-      settings_ui_delegate_(base::WrapUnique(new SettingsUiDelegateImpl())) {}
+      settings_ui_delegate_(std::make_unique<SettingsUiDelegateImpl>()) {}
 
 TetherNotificationPresenter::~TetherNotificationPresenter() = default;
 
@@ -241,7 +241,7 @@ void TetherNotificationPresenter::NotifyConnectionToHostFailed() {
           IDS_TETHER_NOTIFICATION_CONNECTION_FAILED_TITLE),
       l10n_util::GetStringUTF16(
           IDS_TETHER_NOTIFICATION_CONNECTION_FAILED_MESSAGE),
-      std::u16string() /* display_source */, GURL() /* origin_url */,
+      std::u16string() /* display_source */,
       message_center::NotifierId(
           message_center::NotifierType::SYSTEM_COMPONENT, kNotifierTether,
           NotificationCatalogName::kTetherConnectionError),

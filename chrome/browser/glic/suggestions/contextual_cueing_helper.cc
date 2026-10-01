@@ -33,7 +33,6 @@
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
 #include "chrome/browser/ui/browser_window/public/global_browser_collection.h"
 #include "chrome/browser/ui/side_panel/side_panel_ui.h"
-#include "chrome/browser/ui/side_panel/side_panel_ui_provider.h"
 #include "chrome/browser/ui/tabs/public/tab_features.h"
 #include "chrome/common/pref_names.h"
 #include "components/feature_engagement/public/feature_constants.h"
@@ -50,6 +49,7 @@
 #include "services/metrics/public/cpp/ukm_builders.h"
 #include "services/metrics/public/cpp/ukm_recorder.h"
 #include "third_party/blink/public/common/features.h"
+#include "ui/base/page_transition_types.h"
 #include "url/gurl.h"
 #include "url/origin.h"
 
@@ -470,7 +470,7 @@ ContextualCueingHelper::AutoOpenGlicSidePanel(
   auto* tab_interface = tabs::TabInterface::GetFromContents(web_contents());
   auto* bwi =
       tab_interface ? tab_interface->GetBrowserWindowInterface() : nullptr;
-  auto* side_panel_ui = bwi ? SidePanelUIProvider::From(bwi) : nullptr;
+  auto* side_panel_ui = bwi ? SidePanelUI::From(bwi) : nullptr;
 
   if (side_panel_ui && side_panel_ui->IsSidePanelShowing()) {
     return RecordAutoOpenResult(

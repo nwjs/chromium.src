@@ -9,6 +9,7 @@
 #include "build/chromeos_buildflags.h"
 #include "chrome/browser/net/net_error_diagnostics_dialog.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "chrome/test/base/ui_test_utils.h"
 #include "content/public/test/browser_test.h"
@@ -237,26 +238,6 @@ IN_PROC_BROWSER_TEST_F(NetErrorTabHelperWithFencedFrameTest,
   EXPECT_EQ(WebContentsCanShowDiagnosticsTool(
                 GetWebContents()->GetPrimaryMainFrame()),
             result.ExtractString());
-}
-
-IN_PROC_BROWSER_TEST_F(NetErrorTabHelperWithFencedFrameTest,
-                       CanRunDiagnosticsDialogOnFencedFrame) {
-  GURL fenced_frame_url =
-      net::URLRequestFailedJob::GetMockHttpUrl(net::ERR_NAME_NOT_RESOLVED);
-  RenderFrameHost* inner_fenced_frame_rfh =
-      fenced_frame_test_helper().CreateFencedFrame(
-          GetWebContents()->GetPrimaryMainFrame(), fenced_frame_url,
-          net::ERR_NAME_NOT_RESOLVED);
-  EvalJsResult result =
-      EvalJs(inner_fenced_frame_rfh, kSearchingForDiagnosisScript);
-  ASSERT_TRUE(result.is_ok());
-#if BUILDFLAG(IS_CHROMEOS)
-  // ChromeOS has its own diagnostics extension, which doesn't rely on a
-  // browser-initiated dialog.
-  EXPECT_EQ("FOUND", result.ExtractString());
-#else
-  EXPECT_EQ("NOT FOUND", result.ExtractString());
-#endif
 }
 
 }  // namespace content

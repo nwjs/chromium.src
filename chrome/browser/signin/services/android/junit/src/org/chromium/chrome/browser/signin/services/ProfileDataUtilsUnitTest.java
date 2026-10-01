@@ -9,7 +9,6 @@ import static org.junit.Assert.assertNull;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.robolectric.annotation.Config;
 
 import org.chromium.base.Promise;
 import org.chromium.base.test.BaseRobolectricTestRunner;
@@ -23,7 +22,6 @@ import java.util.List;
 
 /** Unit tests for {@link ProfileDataUtils}. */
 @RunWith(BaseRobolectricTestRunner.class)
-@Config(manifest = Config.NONE)
 public class ProfileDataUtilsUnitTest {
     private static final DisplayableProfileData PROFILE_DATA1 = TestDisplayableProfileData.ACCOUNT1;
     private static final DisplayableProfileData PROFILE_DATA2 = TestDisplayableProfileData.ACCOUNT2;

@@ -9,6 +9,7 @@
 #include "components/viz/common/surfaces/tracked_element_rects.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/renderer/core/dom/document.h"
+#include "third_party/blink/renderer/core/dom/events/native_event_listener.h"
 #include "third_party/blink/renderer/core/dom/text.h"
 #include "third_party/blink/renderer/core/editing/frame_selection.h"
 #include "third_party/blink/renderer/core/editing/position.h"
@@ -199,6 +200,101 @@ TEST_F(TextControlElementTest, TrackPasswordTrackingElementRectJSHeuristic) {
   input->SetValue(AtomicString(""));
   GetDocument().UpdateStyleAndLayoutTree();
   EXPECT_FALSE(input->GetTrackedElementSubRect(tracking_feature));
+}
+
+namespace {
+class ChangeEventListener final : public NativeEventListener {
+ public:
+  bool invoked = false;
+  void Invoke(ExecutionContext*, Event*) override { invoked = true; }
+};
+}  // namespace
+
+TEST_F(TextControlElementTest, InputChangeEventOnElementRemoval) {
+  {
+    ScopedOmitBlurEventOnElementRemovalForTest scoped_feature(true);
+    GetDocument().body()->SetInnerHTMLWithoutTrustedTypes(
+        "<input id=test type=text value=initial>");
+    auto* input = To<HTMLInputElement>(
+        GetDocument().getElementById(AtomicString("test")));
+    auto* listener = MakeGarbageCollected<ChangeEventListener>();
+    input->addEventListener(event_type_names::kChange, listener);
+    input->Focus();
+    input->SetValueBeforeFirstUserEditIfNotSet();
+    input->SetValue("modified");
+    input->remove();
+    EXPECT_FALSE(listener->invoked);
+  }
+  {
+    ScopedOmitBlurEventOnElementRemovalForTest scoped_feature(false);
+    GetDocument().body()->SetInnerHTMLWithoutTrustedTypes(
+        "<input id=test type=text value=initial>");
+    auto* input = To<HTMLInputElement>(
+        GetDocument().getElementById(AtomicString("test")));
+    auto* listener = MakeGarbageCollected<ChangeEventListener>();
+    input->addEventListener(event_type_names::kChange, listener);
+    input->Focus();
+    input->SetValueBeforeFirstUserEditIfNotSet();
+    input->SetValue("modified");
+    input->remove();
+    EXPECT_TRUE(listener->invoked);
+  }
+}
+
+TEST_F(TextControlElementTest, TextAreaChangeEventOnElementRemoval) {
+  {
+    ScopedOmitBlurEventOnElementRemovalForTest scoped_feature(true);
+    GetDocument().body()->SetInnerHTMLWithoutTrustedTypes(
+        "<textarea id=test>initial</textarea>");
+    auto* textarea = To<HTMLTextAreaElement>(
+        GetDocument().getElementById(AtomicString("test")));
+    auto* listener = MakeGarbageCollected<ChangeEventListener>();
+    textarea->addEventListener(event_type_names::kChange, listener);
+    textarea->Focus();
+    textarea->SetValueBeforeFirstUserEditIfNotSet();
+    textarea->SetValue("modified");
+    textarea->remove();
+    EXPECT_FALSE(listener->invoked);
+  }
+  {
+    ScopedOmitBlurEventOnElementRemovalForTest scoped_feature(false);
+    GetDocument().body()->SetInnerHTMLWithoutTrustedTypes(
+        "<textarea id=test>initial</textarea>");
+    auto* textarea = To<HTMLTextAreaElement>(
+        GetDocument().getElementById(AtomicString("test")));
+    auto* listener = MakeGarbageCollected<ChangeEventListener>();
+    textarea->addEventListener(event_type_names::kChange, listener);
+    textarea->Focus();
+    textarea->SetValueBeforeFirstUserEditIfNotSet();
+    textarea->SetValue("modified");
+    textarea->remove();
+    EXPECT_TRUE(listener->invoked);
+  }
+}
+
+TEST_F(TextControlElementTest, TextAreaPlaceholderBreakAriaHidden) {
+  GetDocument().body()->SetInnerHTMLWithoutTrustedTypes(
+      "<textarea id='empty'></textarea>"
+      "<textarea id='trailing_newline'>abc\n</textarea>");
+  UpdateAllLifecyclePhases();
+
+  auto* empty_ta = To<HTMLTextAreaElement>(
+      GetDocument().getElementById(AtomicString("empty")));
+  auto* empty_break = To<Element>(empty_ta->InnerEditorElement()->lastChild());
+  ASSERT_TRUE(empty_break);
+  EXPECT_TRUE(TextControlElement::IsPlaceholderBreakElement(empty_break));
+  // An empty textarea placeholder break should be aria-hidden.
+  EXPECT_TRUE(empty_break->FastHasAttribute(html_names::kAriaHiddenAttr));
+
+  auto* newline_ta = To<HTMLTextAreaElement>(
+      GetDocument().getElementById(AtomicString("trailing_newline")));
+  auto* newline_break =
+      To<Element>(newline_ta->InnerEditorElement()->lastChild());
+  ASSERT_TRUE(newline_break);
+  EXPECT_TRUE(TextControlElement::IsPlaceholderBreakElement(newline_break));
+  // A trailing newline placeholder break must NOT be aria-hidden so that
+  // accessibility can expose the final blank line.
+  EXPECT_FALSE(newline_break->FastHasAttribute(html_names::kAriaHiddenAttr));
 }
 
 }  // namespace blink

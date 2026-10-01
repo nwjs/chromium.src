@@ -57,6 +57,7 @@
 #include "components/sessions/core/command_storage_features.h"
 #include "components/sessions/core/command_storage_manager.h"
 #include "components/sessions/core/command_storage_manager_test_helper.h"
+#include "components/sessions/core/session_id.h"
 #include "components/sessions/core/tab_restore_service.h"
 #include "components/sessions/core/tab_restore_service_impl.h"
 #include "components/tab_groups/tab_group_color.h"
@@ -75,6 +76,8 @@
 #include "net/test/embedded_test_server/embedded_test_server.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/base/ozone_buildflags.h"
+#include "ui/base/page_transition_types.h"
+#include "ui/base/window_open_disposition.h"
 
 #if BUILDFLAG(IS_OZONE)
 #include "ui/ozone/public/ozone_platform.h"
@@ -928,7 +931,13 @@ IN_PROC_BROWSER_TEST_P(SessionRestoreAcrossStagesTest, PRE_Restore) {
   AssertCommandStorageBackendFilesExist(SessionType::kSessionRestore);
 }
 
-IN_PROC_BROWSER_TEST_P(SessionRestoreAcrossStagesTest, Restore) {
+// TODO(crbug.com/553933982): Re-enable this test
+#if BUILDFLAG(IS_MAC)
+#define MAYBE_Restore DISABLED_Restore
+#else
+#define MAYBE_Restore Restore
+#endif
+IN_PROC_BROWSER_TEST_P(SessionRestoreAcrossStagesTest, MAYBE_Restore) {
   AssertSessionState();
   browser()->GetProfile()->SaveSessionState();
   AssertCommandStorageBackendFilesExist(SessionType::kSessionRestore);

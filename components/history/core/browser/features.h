@@ -12,7 +12,6 @@
 #include "base/component_export.h"
 #include "base/feature_list.h"
 #include "base/metrics/field_trial_params.h"
-#include "base/task/task_traits.h"
 #include "build/build_config.h"
 
 namespace history {
@@ -76,18 +75,17 @@ BASE_DECLARE_FEATURE(kBrowsingHistoryActorIntegrationM3);
 #endif  // !BUILDFLAG(IS_IOS)
 
 COMPONENT_EXPORT(HISTORY_FEATURES)
+BASE_DECLARE_FEATURE(kBrowsingHistoryImprovedHostnameSuffixMatching);
+
+COMPONENT_EXPORT(HISTORY_FEATURES)
 BASE_DECLARE_FEATURE(kWebHistoryUseNewApi);
 
 COMPONENT_EXPORT(HISTORY_FEATURES)
 BASE_DECLARE_FEATURE(kHistoryDatabaseWriteAheadLogging);
 
-// Allows tuning the task priority of the History backend task runner during
-// startup.
+// Defers HistoryBackend initialization to after startup or until it is needed.
 COMPONENT_EXPORT(HISTORY_FEATURES)
-BASE_DECLARE_FEATURE(kHistoryInitPrioritySettings);
-
-COMPONENT_EXPORT(HISTORY_FEATURES)
-extern const base::FeatureParam<base::TaskPriority> kHistoryInitPriority;
+BASE_DECLARE_FEATURE(kDeferHistoryBackendInit);
 
 }  // namespace history
 

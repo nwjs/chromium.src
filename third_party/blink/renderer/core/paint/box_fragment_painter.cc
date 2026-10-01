@@ -35,6 +35,7 @@
 #include "third_party/blink/renderer/core/layout/pointer_events_hit_rules.h"
 #include "third_party/blink/renderer/core/layout/table/layout_table.h"
 #include "third_party/blink/renderer/core/layout/table/layout_table_cell.h"
+#include "third_party/blink/renderer/core/overscroll/overscroll_area_tracker.h"
 #include "third_party/blink/renderer/core/page/page.h"
 #include "third_party/blink/renderer/core/paint/border_shape_utils.h"
 #include "third_party/blink/renderer/core/paint/box_background_paint_context.h"
@@ -1156,6 +1157,7 @@ void BoxFragmentPainter::PaintBlockChildren(const PaintInfo& paint_info,
   PaintInfo paint_info_for_descendants = paint_info.ForDescendants();
   for (const PhysicalFragmentLink& child : box_fragment_.Children()) {
     const PhysicalFragment& child_fragment = *child;
+    CHECK(!child_fragment.IsLayoutObjectDestroyedOrMoved());
     DCHECK(child_fragment.IsBox());
     if (child_fragment.HasSelfPaintingLayer()) {
       if (paint_info.phase != PaintPhase::kTextClip) {
@@ -1227,6 +1229,7 @@ void BoxFragmentPainter::PaintFloatingItems(const PaintInfo& paint_info,
   while (*cursor) {
     const FragmentItem* item = cursor->Current().Item();
     DCHECK(item);
+    CHECK(!item->IsLayoutObjectDestroyedOrMoved());
     const PhysicalBoxFragment* child_fragment = item->BoxFragment();
     if (!child_fragment) {
       cursor->MoveToNext();
@@ -1265,6 +1268,7 @@ void BoxFragmentPainter::PaintFloatingChildren(
 
   for (const PhysicalFragmentLink& child : container.Children()) {
     const PhysicalFragment& child_fragment = *child;
+    CHECK(!child_fragment.IsLayoutObjectDestroyedOrMoved());
     if (child_fragment.HasSelfPaintingLayer())
       continue;
 
@@ -1748,6 +1752,7 @@ void BoxFragmentPainter::PaintBoxDecorationBackgroundForBlockInInline(
     const PhysicalOffset& paint_offset) {
   while (*children) {
     const FragmentItem* item = children->Current().Item();
+    CHECK(!item->IsLayoutObjectDestroyedOrMoved());
     if (const PhysicalLineBoxFragment* line = item->LineBoxFragment()) {
       if (!line->IsBlockInInline()) {
         children->MoveToNextSkippingChildren();
@@ -1842,11 +1847,7 @@ void BoxFragmentPainter::PaintInlineItems(const PaintInfo& paint_info,
   while (*cursor) {
     const FragmentItem* item = cursor->CurrentItem();
     DCHECK(item);
-    if (item->IsLayoutObjectDestroyedOrMoved()) [[unlikely]] {
-      // TODO(crbug.com/1099613): This should not happen, as long as it is
-      // really layout-clean.
-      NOTREACHED();
-    }
+    CHECK(!item->IsLayoutObjectDestroyedOrMoved());
     switch (item->Type()) {
       case FragmentItem::kText:
       case FragmentItem::kGeneratedText:
@@ -1914,6 +1915,7 @@ void BoxFragmentPainter::PaintLineBoxChildItems(
   for (; *children; children->MoveToNextSkippingChildren()) {
     const FragmentItem* child_item = children->CurrentItem();
     DCHECK(child_item);
+    CHECK(!child_item->IsLayoutObjectDestroyedOrMoved());
     if (child_item->IsFloating())
       continue;
 
@@ -2235,8 +2237,11 @@ bool BoxFragmentPainter::HitTestContext::AddNodeToResultWithContentOffset(
     const PhysicalBoxFragment& container,
     const T& bounds_rect,
     PhysicalOffset offset) const {
-  if (container.IsScrollContainer())
-    offset += PhysicalOffset(container.PixelSnappedScrolledContentOffset());
+  if (container.IsScrollContainer()) {
+    offset += PhysicalOffset(To<LayoutBox>(*container.GetLayoutObject())
+                                 .GetScrollableArea()
+                                 ->PixelSnappedScrollOffset());
+  }
   return AddNodeToResult(node, &container, bounds_rect, offset);
 }
 
@@ -2321,11 +2326,8 @@ bool BoxFragmentPainter::NodeAtPoint(const HitTestContext& hit_test,
         return true;
     } else {
       const PhysicalOffset scrolled_offset =
-          physical_offset -
-          PhysicalOffset(
-              GetPhysicalFragment().PixelSnappedOverscrollContentOffset()) -
-          PhysicalOffset(
-              GetPhysicalFragment().PixelSnappedScrolledContentOffset());
+          physical_offset - PhysicalOffset(PixelSnappedOverscrollOffset()) -
+          PhysicalOffset(PixelSnappedScrollOffset());
       HitTestContext adjusted_hit_test{hit_test.phase, hit_test.location,
                                        scrolled_offset, hit_test.result};
       if (HitTestChildren(adjusted_hit_test, scrolled_offset))
@@ -2760,10 +2762,7 @@ bool BoxFragmentPainter::HitTestBlockChildren(
 
     // Note: |accumulated_offset| includes container scrolled offset added
     // in |BoxFragmentPainter::NodeAtPoint()|. See http://crbug.com/1268782
-    const PhysicalOffset scrolled_offset =
-        box_fragment_.IsScrollContainer()
-            ? PhysicalOffset(box_fragment_.PixelSnappedScrolledContentOffset())
-            : PhysicalOffset();
+    const PhysicalOffset scrolled_offset(PixelSnappedScrollOffset());
     result.SetNodeAndPosition(
         node, &box_fragment_,
         hit_test_location.Point() - accumulated_offset - scrolled_offset);
@@ -3045,6 +3044,38 @@ void BoxFragmentPainter::RecordRegionCaptureAndTrackedElementData(
     paint_info.context.GetPaintController().RecordTrackedElementData(
         display_item_client, ToPixelSnappedRect(paint_rect), *sub_rects);
   }
+}
+
+gfx::Vector2d BoxFragmentPainter::PixelSnappedOverscrollOffset() const {
+  if (!box_fragment_.IsNonOverlayOverscrollScrollContainer()) {
+    // This intentionally skips the ::-internal-overscroll-area-parents as they
+    // are self painting layers so we rely on the layer position to account
+    // for their overscroll offset.
+    return gfx::Vector2d();
+  }
+  gfx::Vector2d offset;
+  const auto* layout_object = box_fragment_.GetLayoutObject();
+  CHECK(layout_object);
+  if (auto* tracker =
+          To<Element>(layout_object->GetNode())->GetOverscrollAreaTracker()) {
+    for (const Element* element : tracker->DOMSortedElements()) {
+      PseudoElement* pseudo =
+          element->GetPseudoElement(kPseudoIdOverscrollAreaParent);
+      if (LayoutBox* layout_box = pseudo->GetLayoutBox()) {
+        offset += layout_box->GetScrollableArea()->PixelSnappedScrollOffset();
+      }
+    }
+  }
+  return offset;
+}
+
+gfx::Vector2d BoxFragmentPainter::PixelSnappedScrollOffset() const {
+  if (box_fragment_.IsScrollContainer()) {
+    return To<LayoutBox>(box_fragment_.GetLayoutObject())
+        ->GetScrollableArea()
+        ->PixelSnappedScrollOffset();
+  }
+  return gfx::Vector2d();
 }
 
 }  // namespace blink

@@ -76,7 +76,7 @@ chromium-metrics-reviews@google.com.
   <int value="3" label="Implicit"/>
 </enum>
 
-<!-- LINT.ThenChange(//chrome/browser/ui/android/omnibox/java/src/org/chromium/chrome/browser/omnibox/fusebox/FuseboxMetrics.java:AiModeActivationSource,//ios/chrome/browser/composebox/shared/metrics/composebox_metrics_recorder.h:AiModeActivationSource) -->
+<!-- LINT.ThenChange(//chrome/browser/ui/android/omnibox/java/src/org/chromium/chrome/browser/omnibox/fusebox/FuseboxMetrics.java:AiModeActivationSource,//ios/chrome/browser/composebox/shared/metrics/composebox_metrics_constants.h:AiModeActivationSource) -->
 
 <!-- LINT.IfChange(AiModePageActionIconSource) -->
 
@@ -103,7 +103,7 @@ chromium-metrics-reviews@google.com.
   <int value="5" label="Deep Search"/>
 </enum>
 
-<!-- LINT.ThenChange(//components/omnibox/browser/android/java/src/org/chromium/components/omnibox/AutocompleteRequestType.java,//ios/chrome/browser/composebox/shared/metrics/composebox_metrics_recorder.h:AutocompleteRequestType)-->
+<!-- LINT.ThenChange(//components/omnibox/browser/android/java/src/org/chromium/components/omnibox/AutocompleteRequestType.java,//ios/chrome/browser/composebox/shared/metrics/composebox_metrics_constants.h:AutocompleteRequestType)-->
 
 <enum name="BooleanNonNull">
   <int value="0" label="Null"/>
@@ -131,7 +131,7 @@ chromium-metrics-reviews@google.com.
   <int value="5" label="Raw File"/>
 </enum>
 
-<!-- LINT.ThenChange(//ios/chrome/browser/composebox/shared/metrics/composebox_metrics_recorder.h:ComposeboxDragAndDropType, //tools/metrics/histograms/metadata/omnibox/histograms.xml:ComposeboxDragAndDropType) -->
+<!-- LINT.ThenChange(//ios/chrome/browser/composebox/shared/metrics/composebox_metrics_constants.h:ComposeboxDragAndDropType, //tools/metrics/histograms/metadata/omnibox/histograms.xml:ComposeboxDragAndDropType) -->
 
 <!-- LINT.IfChange(ContextUploadErrorType) -->
 
@@ -252,7 +252,7 @@ chromium-metrics-reviews@google.com.
   <int value="8" label="Drive Files"/>
 </enum>
 
-<!-- LINT.ThenChange(//chrome/browser/ui/android/omnibox/java/src/org/chromium/chrome/browser/omnibox/fusebox/FuseboxMetrics.java:FuseboxAttachmentButtonType,//ios/chrome/browser/composebox/shared/metrics/composebox_metrics_recorder.h:FuseboxAttachmentButtonType) -->
+<!-- LINT.ThenChange(//chrome/browser/ui/android/omnibox/java/src/org/chromium/chrome/browser/omnibox/fusebox/FuseboxMetrics.java:FuseboxAttachmentButtonType,//ios/chrome/browser/composebox/shared/metrics/composebox_metrics_constants.h:FuseboxAttachmentButtonType) -->
 
 <!-- LINT.IfChange(FuseboxAttachmentSizeLimitCheck) -->
 
@@ -340,7 +340,7 @@ chromium-metrics-reviews@google.com.
   <int value="3" label="Local error"/>
 </enum>
 
-<!-- LINT.ThenChange(//ios/chrome/browser/composebox/shared/metrics/composebox_metrics_recorder.h:MobileFuseboxPickerOutcome) -->
+<!-- LINT.ThenChange(//ios/chrome/browser/composebox/shared/metrics/composebox_metrics_constants.h:MobileFuseboxPickerOutcome) -->
 
 <!-- LINT.IfChange(OmniboxBuiltinEngineType) -->
 
@@ -380,6 +380,29 @@ chromium-metrics-reviews@google.com.
   <int value="4" label="Closed popup and cleared user input"/>
   <int value="5" label="Blurred"/>
 </enum>
+
+<!-- LINT.IfChange(OmniboxEverywhereInvocationSource) -->
+
+<enum name="OmniboxEverywhereInvocationSource">
+  <summary>The entry point used to invoke Omnibox Everywhere.</summary>
+  <int value="0" label="Global hotkey"/>
+  <int value="1" label="Status tray / menu bar icon"/>
+  <int value="2" label="Profile picker"/>
+  <int value="3" label="Shortcut"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/browser/ui/omnibox/omnibox_everywhere/omnibox_everywhere_controller.h:OmniboxEverywhereInvocationSource) -->
+
+<!-- LINT.IfChange(OmniboxEverywhereScreenshareOption) -->
+
+<enum name="OmniboxEverywhereScreenshareOption">
+  <summary>The screensharing modality selected in Omnibox Everywhere.</summary>
+  <int value="0" label="Entire Screen"/>
+  <int value="1" label="Window"/>
+  <int value="2" label="Region Selection"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/browser/ui/webui/omnibox_everywhere/omnibox_everywhere_ui.h:OmniboxEverywhereScreenshareOption) -->
 
 <!-- LINT.IfChange(OmniboxInlineLocationSuggestionShown) -->
 
@@ -449,9 +472,25 @@ chromium-metrics-reviews@google.com.
   <int value="9" label="Aim"/>
   <int value="10" label="AimGenPrompt"/>
   <int value="11" label="AgentTask"/>
+  <int value="12" label="SearchMore"/>
 </enum>
 
 <!-- LINT.ThenChange(//components/omnibox/common/omnibox_metrics_utils.cc:ToolMode,//chrome/browser/ui/android/omnibox/java/src/org/chromium/chrome/browser/omnibox/fusebox/FuseboxMetrics.java:ToolMode) -->
+
+<!-- LINT.IfChange(OmniboxWebUIMatchActivationStatus) -->
+
+<enum name="OmniboxWebUIMatchActivationStatus">
+  <summary>
+    Status of an autocomplete match activation attempt from WebUI searchbox.
+  </summary>
+  <int value="0" label="Live result match"/>
+  <int value="1" label="Snapshot match"/>
+  <int value="2" label="Snapshot not found or evicted"/>
+  <int value="3" label="URL mismatch"/>
+  <int value="4" label="Index out of bounds"/>
+</enum>
+
+<!-- LINT.ThenChange(//chrome/browser/ui/webui/cr_components/searchbox/searchbox_handler.h:OmniboxWebUIMatchActivationStatus) -->
 
 <enum name="OmniboxWebUIRendererProcessGoneStatus">
   <int value="0" label="Normal termination"/>
@@ -576,7 +615,7 @@ chromium-metrics-reviews@google.com.
   <int value="6" label="Duplicate prefetch request"/>
   <int value="7" label="Too many recent prefetches"/>
   <int value="8" label="Throttle prevented the prefetch"/>
-  <int value="9" label="SlowNetwork suppressed the prefetch"/>
+  <int value="9" label="SlowNetwork suppressed the prefetch (Obsolete)"/>
   <int value="10" label="Data saver enabled"/>
   <int value="11" label="Battery saver enabled"/>
 </enum>

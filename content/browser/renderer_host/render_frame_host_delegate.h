@@ -113,7 +113,7 @@ class FrameTreeNode;
 class Page;
 class PrerenderHostRegistry;
 class RenderWidgetHostImpl;
-class SessionStorageNamespace;
+class SessionStorageNamespaceHandle;
 class SiteInstanceGroup;
 class SurfaceEmbedConnector;
 struct ContextMenuParams;
@@ -243,7 +243,12 @@ class CONTENT_EXPORT RenderFrameHostDelegate {
       RenderFrameHostImpl* render_frame_host) {}
 
   // Called when a federated login request completes.
-  virtual void OnFedCmFederatedLogin(webid::FederatedLoginResult result) {}
+  // |result| is the result of the federated login request.
+  // |idp_origin| is the origin of the identity provider. It is nullopt on all
+  // failure cases during the FedCM login flow.
+  virtual void OnFedCmFederatedLogin(
+      webid::FederatedLoginResult result,
+      const std::optional<url::Origin>& idp_origin) {}
 
   // Binds a DisplayCutoutHost object associated to |render_frame_host|.
   virtual void BindDisplayCutoutHost(
@@ -453,7 +458,7 @@ class CONTENT_EXPORT RenderFrameHostDelegate {
       const mojom::CreateNewWindowParams& params,
       bool is_new_browsing_instance,
       bool has_user_gesture,
-      SessionStorageNamespace* session_storage_namespace);
+      SessionStorageNamespaceHandle* session_storage_namespace);
 
   // Show a previously created page with the specified disposition and window
   // features. The window is identified by the |main_frame_widget_route_id|

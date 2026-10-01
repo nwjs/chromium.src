@@ -23,8 +23,8 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.chromium.base.test.util.Criteria.checkThat;
 
 import android.app.Activity;
-import android.os.Build;
 import android.text.TextUtils;
+import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -52,7 +52,6 @@ import org.chromium.base.ThreadUtils;
 import org.chromium.base.test.BaseActivityTestRule;
 import org.chromium.base.test.util.Batch;
 import org.chromium.base.test.util.CriteriaHelper;
-import org.chromium.base.test.util.DisableIf;
 import org.chromium.base.test.util.KeyUtils;
 import org.chromium.chrome.R;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
@@ -66,10 +65,6 @@ import org.chromium.ui.test.util.BlankUiTestActivity;
 /** Non-render tests for {@link BookmarkSearchBoxRow}. */
 @RunWith(ChromeJUnit4ClassRunner.class)
 @Batch(Batch.PER_CLASS)
-// TODO(crbug.com/428281174): The top content is blocked by system UI on B+.
-@DisableIf.Build(
-        sdk_is_greater_than = Build.VERSION_CODES.VANILLA_ICE_CREAM,
-        message = "crbug.com/428281174")
 public class BookmarkSearchBoxRowTest {
     /** Needed because CoreMatchers.equalTo does not correctly handle CharSequences. */
     private static Matcher<CharSequence> withText(CharSequence text) {
@@ -121,6 +116,7 @@ public class BookmarkSearchBoxRowTest {
                             new FrameLayout.LayoutParams(
                                     ViewGroup.LayoutParams.MATCH_PARENT,
                                     ViewGroup.LayoutParams.WRAP_CONTENT);
+                    params.gravity = Gravity.CENTER;
                     activity.setContentView(contentView, params);
 
                     LayoutInflater layoutInflater = LayoutInflater.from(activity);
@@ -134,6 +130,9 @@ public class BookmarkSearchBoxRowTest {
 
                     mPropertyModel =
                             new PropertyModel.Builder(BookmarkSearchBoxRowProperties.ALL_KEYS)
+                                    .with(
+                                            BookmarkSearchBoxRowProperties.SHOPPING_CHIP_TEXT_RES,
+                                            R.string.price_tracking_bookmarks_filter_title)
                                     .with(
                                             BookmarkSearchBoxRowProperties.SHOPPING_CHIP_VISIBILITY,
                                             true)

@@ -51,7 +51,6 @@
 #include "third_party/blink/renderer/core/dom/dom_node_ids.h"
 #include "third_party/blink/renderer/core/dom/element.h"
 #include "third_party/blink/renderer/core/dom/element_traversal.h"
-#include "third_party/blink/renderer/core/dom/events/add_event_listener_options_resolved.h"
 #include "third_party/blink/renderer/core/dom/events/event.h"
 #include "third_party/blink/renderer/core/dom/events/event_dispatch_forbidden_scope.h"
 #include "third_party/blink/renderer/core/dom/events/event_dispatcher.h"
@@ -389,7 +388,8 @@ void Node::setNodeValue(const String&, ExceptionState&) {
 
 NodeList* Node::childNodes() {
   auto* this_node = DynamicTo<ContainerNode>(this);
-  auto& node_lists = UnpackAndRefresh(EnsureRareData().EnsureNodeLists());
+  auto& node_lists =
+      EnsureRareData().EnsureNodeLists().RefreshNodeAndUnwrap(*this);
   if (this_node)
     return node_lists.EnsureChildNodeList(*this_node);
   return node_lists.EnsureEmptyChildNodeList(*this);
@@ -1117,7 +1117,7 @@ void Node::replaceWithHTML(const String& html,
 
 void Node::replaceWithHTMLUnsafe(
     const V8UnionStringOrTrustedHTML* html,
-    V8UnionSetHTMLUnsafeOptionsOrTrustedParserOptions* options,
+    V8UnionSetHTMLUnsafeOptionsOrTrustedHTMLParserOptions* options,
     ExceptionState& exception_state) {
   FragmentParserOptions resolved_options = FragmentParserOptions::From(options);
   String compliant_string = TrustedTypesCheckForFragment(
@@ -1156,7 +1156,7 @@ void Node::beforeHTML(const String& html,
 
 void Node::beforeHTMLUnsafe(
     const V8UnionStringOrTrustedHTML* html,
-    V8UnionSetHTMLUnsafeOptionsOrTrustedParserOptions* options,
+    V8UnionSetHTMLUnsafeOptionsOrTrustedHTMLParserOptions* options,
     ExceptionState& exception_state) {
   FragmentParserOptions resolved_options = FragmentParserOptions::From(options);
   String compliant_string = TrustedTypesCheckForFragment(
@@ -1195,7 +1195,7 @@ void Node::afterHTML(const String& html,
 
 void Node::afterHTMLUnsafe(
     const V8UnionStringOrTrustedHTML* html,
-    V8UnionSetHTMLUnsafeOptionsOrTrustedParserOptions* options,
+    V8UnionSetHTMLUnsafeOptionsOrTrustedHTMLParserOptions* options,
     ExceptionState& exception_state) {
   FragmentParserOptions resolved_options = FragmentParserOptions::From(options);
   String compliant_string = TrustedTypesCheckForFragment(
@@ -1219,12 +1219,12 @@ void Node::afterHTMLUnsafe(
 
 WritableStream* Node::streamBeforeHTMLUnsafe(
     ScriptState* script_state,
-    V8UnionSetHTMLUnsafeOptionsOrTrustedParserOptions* options,
+    V8UnionSetHTMLUnsafeOptionsOrTrustedHTMLParserOptions* options,
     ExceptionState& exception_state) {
   std::optional<FragmentParserOptions> resolved_options =
       TrustedTypesCheckForStreaming(
-          FragmentParserOptions::From(options),
-          ExecutionContext::From(script_state), trusted_types_names::kNode,
+          FragmentParserOptions::From(options), GetExecutionContext(),
+          trusted_types_names::kNode,
           trusted_types_names::kStreamBeforeHTMLUnsafe, exception_state);
   if (!resolved_options) {
     return nullptr;
@@ -1244,12 +1244,12 @@ WritableStream* Node::streamBeforeHTML(ScriptState* script_state,
 
 WritableStream* Node::streamAfterHTMLUnsafe(
     ScriptState* script_state,
-    V8UnionSetHTMLUnsafeOptionsOrTrustedParserOptions* options,
+    V8UnionSetHTMLUnsafeOptionsOrTrustedHTMLParserOptions* options,
     ExceptionState& exception_state) {
   std::optional<FragmentParserOptions> resolved_options =
       TrustedTypesCheckForStreaming(
-          FragmentParserOptions::From(options),
-          ExecutionContext::From(script_state), trusted_types_names::kNode,
+          FragmentParserOptions::From(options), GetExecutionContext(),
+          trusted_types_names::kNode,
           trusted_types_names::kStreamAfterHTMLUnsafe, exception_state);
   if (!resolved_options) {
     return nullptr;
@@ -1269,12 +1269,12 @@ WritableStream* Node::streamAfterHTML(ScriptState* script_state,
 
 WritableStream* Node::streamReplaceWithHTMLUnsafe(
     ScriptState* script_state,
-    V8UnionSetHTMLUnsafeOptionsOrTrustedParserOptions* options,
+    V8UnionSetHTMLUnsafeOptionsOrTrustedHTMLParserOptions* options,
     ExceptionState& exception_state) {
   std::optional<FragmentParserOptions> resolved_options =
       TrustedTypesCheckForStreaming(
-          FragmentParserOptions::From(options),
-          ExecutionContext::From(script_state), trusted_types_names::kNode,
+          FragmentParserOptions::From(options), GetExecutionContext(),
+          trusted_types_names::kNode,
           trusted_types_names::kStreamReplaceWithHTMLUnsafe, exception_state);
   if (!resolved_options) {
     return nullptr;
@@ -1530,9 +1530,16 @@ bool Node::ShouldSkipMarkingStyleDirty() const {
     }
     // This is an element outside the flat tree without a parent. Should only
     // mark dirty if it has a computed style.
-    return !element->GetComputedStyle();
+    if (element->GetComputedStyle()) {
+      // We may end up with a ComputedStyle outside the flat tree for moveBefore
+      // if we move an element under a shadow host but the moved element does
+      // not have a target slot in the host's shadow tree.
+      CHECK(GetDocument().StatePreservingAtomicMoveInProgress());
+      return false;
+    }
   }
-  // Text nodes outside the flat tree do not need to be marked for style recalc.
+  // Node is outside the flat tree and does not need to be marked for style
+  // recalc.
   return true;
 }
 
@@ -1780,7 +1787,7 @@ void Node::ClearNodeLists() {
 }
 
 FlatTreeNodeData& Node::EnsureFlatTreeNodeData() {
-  return UnpackAndRefresh(EnsureRareData().EnsureFlatTreeNodeData());
+  return EnsureRareData().EnsureFlatTreeNodeData().RefreshNodeAndUnwrap(*this);
 }
 
 FlatTreeNodeData* Node::GetFlatTreeNodeData() const {
@@ -1946,10 +1953,12 @@ void Node::AttachLayoutTree(AttachContext& context) {
   DCHECK(!context.performing_reattach ||
          GetDocument().GetStyleEngine().InRebuildLayoutTree());
 
-  LayoutObject* layout_object = GetLayoutObject();
+#if DCHECK_IS_ON()
+  const LayoutObject* layout_object = GetLayoutObject();
   DCHECK(!layout_object ||
          (layout_object->HasStyle() &&
           (layout_object->Parent() || IsA<LayoutView>(layout_object))));
+#endif
 
   ClearNeedsReattachLayoutTree();
 
@@ -2444,7 +2453,7 @@ void Node::setTextContent(const String& text) {
       // mutation observer listeners attached.
       if (container->HasOneTextChild() &&
           To<Text>(container->firstChild())->data() == text && !text.empty() &&
-          !GetDocument().HasMutationObservers()) {
+          !GetDocument().MayHaveMutationObservers()) {
         return;
       }
 
@@ -3052,7 +3061,7 @@ void Node::WillMoveToNewDocument(Document& new_document) {
   if (old_document.FocusedElement() == this) {
     FocusParams params(SelectionBehaviorOnFocus::kNone,
                        mojom::blink::FocusType::kNone, nullptr);
-    params.omit_blur_events = true;
+    params.blur_event_behavior = BlurEventBehavior::kDropWhenRemoving;
     old_document.SetFocusedElement(nullptr, params);
   }
 
@@ -3099,7 +3108,7 @@ void Node::AddedEventListener(const AtomicString& event_type,
   }
   if (auto* frame = GetDocument().GetFrame()) {
     frame->GetEventHandlerRegistry().DidAddEventHandler(
-        *this, event_type, registered_listener.Options());
+        *this, event_type, registered_listener.Passive());
     // We need to track the existence of the visibilitychange event listeners to
     // enable/disable sudden terminations.
     if (IsDocumentNode() && event_type == event_type_names::kVisibilitychange) {
@@ -3120,7 +3129,7 @@ void Node::RemovedEventListener(
   // https://bugs.webkit.org/show_bug.cgi?id=33861
   if (auto* frame = GetDocument().GetFrame()) {
     frame->GetEventHandlerRegistry().DidRemoveEventHandler(
-        *this, event_type, registered_listener.Options());
+        *this, event_type, registered_listener.Passive());
   }
   if (AXObjectCache* cache = GetDocument().ExistingAXObjectCache())
     cache->HandleEventListenerRemoved(*this, event_type);
@@ -3282,7 +3291,7 @@ void Node::RegisterMutationObserver(
     const HashSet<AtomicString>& attribute_filter) {
   MutationObserverRegistration* registration = nullptr;
   auto& mutation_observer_data =
-      UnpackAndRefresh(EnsureRareData().EnsureMutationObserverData());
+      EnsureRareData().EnsureMutationObserverData().RefreshNodeAndUnwrap(*this);
   for (const auto& item : mutation_observer_data.Registry()) {
     if (&item->Observer() == &observer) {
       registration = item.Get();
@@ -3311,13 +3320,17 @@ void Node::UnregisterMutationObserver(
   // understandable by humans.  The explicit dispose() is needed to have the
   // registration object unregister itself promptly.
   registration->Dispose();
-  UnpackAndRefresh(EnsureRareData().EnsureMutationObserverData())
+  EnsureRareData()
+      .EnsureMutationObserverData()
+      .RefreshNodeAndUnwrap(*this)
       .RemoveRegistration(registration);
 }
 
 void Node::RegisterTransientMutationObserver(
     MutationObserverRegistration* registration) {
-  UnpackAndRefresh(EnsureRareData().EnsureMutationObserverData())
+  EnsureRareData()
+      .EnsureMutationObserverData()
+      .RefreshNodeAndUnwrap(*this)
       .AddTransientRegistration(registration);
 }
 
@@ -3329,12 +3342,14 @@ void Node::UnregisterTransientMutationObserver(
   if (!transient_registry)
     return;
 
-  UnpackAndRefresh(EnsureRareData().EnsureMutationObserverData())
+  EnsureRareData()
+      .EnsureMutationObserverData()
+      .RefreshNodeAndUnwrap(*this)
       .RemoveTransientRegistration(registration);
 }
 
 void Node::NotifyMutationObserversNodeWillDetach() {
-  if (!GetDocument().HasMutationObservers())
+  if (!GetDocument().MayHaveMutationObservers())
     return;
 
   ScriptForbiddenScope forbid_script_during_raw_iteration;
@@ -3800,16 +3815,15 @@ void Node::FlatTreeParentChanged() {
     SetForceReattachLayoutTree();
   }
   if (auto* element = DynamicTo<Element>(this)) {
-    // Only set canvas subtree state for elements that are participating in the
-    // flat tree (i.e. not awaiting assignment) to avoid forcing assignment in
-    // the FlatTreeTraversal::ParentElement call inside
-    // ComputeIsInCanvasSubtree.
-    // We do not want to force assignment now because it interferes with
-    // moveBefore semantics. If an element is assigned a slot this method
-    // will be called again and the canvas flags will be set.
-    if (IsNodeInFlatTree(*this, GetStyleRecalcParent())) {
-      element->SetIsInCanvasSubtree(element->ComputeIsInCanvasSubtree());
+    bool is_in_canvas_subtree = false;
+    if (element->IsDocumentElement()) {
+      auto* owner = GetDocument().LocalOwner();
+      is_in_canvas_subtree = owner && owner->IsCanvasOrInCanvasSubtree();
+    } else {
+      auto* parent = GetStyleRecalcParent();
+      is_in_canvas_subtree = parent && parent->IsCanvasOrInCanvasSubtree();
     }
+    element->SetIsInCanvasSubtree(is_in_canvas_subtree);
   }
 }
 
@@ -3832,10 +3846,10 @@ void Node::RemovedFromFlatTree() {
 }
 
 void Node::RegisterScrollTimeline(ScrollTimeline* timeline) {
-  data_ = EnsureRareData().RegisterScrollTimeline(timeline);
+  EnsureRareData().RegisterScrollTimeline(timeline).RefreshNode(*this);
 }
 void Node::UnregisterScrollTimeline(ScrollTimeline* timeline) {
-  data_ = EnsureRareData().UnregisterScrollTimeline(timeline);
+  EnsureRareData().UnregisterScrollTimeline(timeline).RefreshNode(*this);
 }
 
 void Node::SetManuallyAssignedSlot(HTMLSlotElement* slot) {

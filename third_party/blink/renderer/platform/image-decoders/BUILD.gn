@@ -18,13 +18,10 @@ component("image_decoders") {
   sources = [
     "bmp/bmp_decoder_factory.cc",
     "bmp/bmp_decoder_factory.h",
-    "bmp/bmp_features.h",
     "bmp/bmp_image_decoder.cc",
     "bmp/bmp_image_decoder.h",
     "bmp/bmp_image_reader.cc",
     "bmp/bmp_image_reader.h",
-    "bmp/bmp_rust_image_decoder.cc",
-    "bmp/bmp_rust_image_decoder.h",
     "fast_shared_buffer_reader.cc",
     "fast_shared_buffer_reader.h",
     "gif/gif_image_decoder.cc",
@@ -99,7 +96,7 @@ component("image_decoders") {
       "jxl/jxl_image_decoder.cc",
       "jxl/jxl_image_decoder.h",
     ]
-    deps += [ "//third_party/rust/jxl/v0_6/wrapper:jxl_rs" ]
+    deps += [ "//third_party/rust/jxl/v0_7/wrapper:jxl_rs" ]
   }
 }
 
@@ -143,8 +140,8 @@ source_set("unit_tests") {
   if (enable_jxl_decoder) {
     sources += [ "jxl/jxl_image_decoder_test.cc" ]
     deps += [
-      "//third_party/rust/jxl/v0_6/wrapper:jxl_rs",
-      "//third_party/rust/jxl/v0_6/wrapper:parallel_runner_unittests",
+      "//third_party/rust/jxl/v0_7/wrapper:jxl_rs",
+      "//third_party/rust/jxl/v0_7/wrapper:parallel_runner_unittests",
     ]
   }
 

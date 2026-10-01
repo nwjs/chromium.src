@@ -72,6 +72,7 @@ android_library("java") {
     "java/src/org/chromium/chrome/browser/tab/state/Serializer.java",
     "java/src/org/chromium/chrome/browser/tab/state/ShoppingPersistedTabData.java",
     "java/src/org/chromium/chrome/browser/tab/state/ShoppingPersistedTabDataService.java",
+    "java/src/org/chromium/chrome/browser/tab/utilities/OnDemandBackgroundTabCaptureConfig.java",
     "java/src/org/chromium/chrome/browser/tab/utilities/TabLoadingService.java",
   ]
 
@@ -195,6 +196,7 @@ robolectric_library("junit") {
     "java/src/org/chromium/chrome/browser/tab/TabStateAttributesTest.java",
     "java/src/org/chromium/chrome/browser/tab/TabStateExtractorTest.java",
     "java/src/org/chromium/chrome/browser/tab/TabSupplierObserverTest.java",
+    "java/src/org/chromium/chrome/browser/tab/state/LevelDBPersistedTabDataStorageFactoryUnitTest.java",
     "java/src/org/chromium/chrome/browser/tab/state/PriceDropMetricsLoggerTest.java",
     "java/src/org/chromium/chrome/browser/tab/state/SendTabToSelfTabCardLabelDataUnitTest.java",
     "java/src/org/chromium/chrome/browser/tab/utilities/TabLoadingServiceTest.java",
@@ -228,7 +230,6 @@ robolectric_library("junit") {
 
 source_set("tab") {
   sources = [
-    "android_tab_package.h",
     "collection_save_forwarder.h",
     "collection_storage_observer.h",
     "collection_storage_package.h",
@@ -274,7 +275,6 @@ source_set("tab") {
 
 source_set("impl") {
   sources = [
-    "android_tab_package.cc",
     "collection_save_forwarder.cc",
     "collection_storage_observer.cc",
     "collection_storage_package.cc",
@@ -316,12 +316,14 @@ source_set("unit_tests") {
   sources = [
     "payload_util_unittest.cc",
     "tab_state_storage_service_unittest.cc",
+    "tab_storage_package_unittest.cc",
     "tab_storage_util_unittest.cc",
   ]
   deps = [
     ":tab",
     "//base",
     "//base/test:test_support",
+    "//chrome/browser/tab/protocol",
     "//components/tabs:public",
     "//testing/gtest",
   ]

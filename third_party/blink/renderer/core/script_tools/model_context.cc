@@ -8,6 +8,7 @@
 #include "base/metrics/histogram_functions.h"
 #include "base/task/single_thread_task_runner.h"
 #include "base/time/time.h"
+#include "third_party/blink/public/common/script_tools/script_tool_utils.h"
 #include "third_party/blink/public/platform/browser_interface_broker_proxy.h"
 #include "third_party/blink/public/web/web_script_tool_types.h"
 #include "third_party/blink/renderer/bindings/core/v8/capture_source_location.h"
@@ -74,12 +75,19 @@ const char kInactiveDocumentError[] = "The document is not active.";
 const char kDocumentDomainEnabledError[] =
     "document.modelContext cannot be used when document.domain is enabled.";
 
-String ValidateAndStringifyObject(ScriptState* script_state,
-                                  ExceptionState& exception_state,
-                                  const ScriptObject& input) {
+String ValidateAndStringifyValue(ScriptState* script_state,
+                                 ExceptionState& exception_state,
+                                 ScriptValue input,
+                                 const String& value_name) {
+  if (!input.V8Value()->IsObject()) {
+    exception_state.ThrowTypeError("invalid " + value_name +
+                                   ": value is not an object");
+    return String();
+  }
+
   v8::Local<v8::String> value;
   TryRethrowScope rethrow_scope(script_state->GetIsolate(), exception_state);
-  if (!v8::JSON::Stringify(script_state->GetContext(), input.V8Object())
+  if (!v8::JSON::Stringify(script_state->GetContext(), input.V8Value())
            .ToLocal(&value)) {
     CHECK(rethrow_scope.HasCaught());
     return String();
@@ -97,26 +105,12 @@ String ValidateAndStringifyObject(ScriptState* script_state,
   // which the spec uses in
   // https://webmachinelearning.github.io/webmcp/#dom-modelcontext-registertool.
   if (result == "undefined") {
-    exception_state.ThrowTypeError(
-        "invalid input schema: toJSON() returns undefined");
+    exception_state.ThrowTypeError("invalid " + value_name +
+                                   ": toJSON() returns undefined");
     return String();
   }
 
   return result;
-}
-
-bool IsValidToolName(const String& name) {
-  if (name.empty() || name.length() > 128) {
-    return false;
-  }
-  for (wtf_size_t i = 0; i < name.length(); ++i) {
-    UChar c = name[i];
-    if (!IsAsciiAlphanumeric(c) && c != '_' && c != '-' && c != '.') {
-      return false;
-    }
-  }
-
-  return true;
 }
 
 ScriptObject JSONStringToScriptObject(ScriptState* script_state,
@@ -380,7 +374,7 @@ ScriptPromise<IDLUndefined> ModelContext::registerTool(
                                            "Duplicate tool name"));
   }
 
-  if (!IsValidToolName(tool->name())) {
+  if (!IsValidScriptToolName(tool->name().Utf8())) {
     return ScriptPromise<IDLUndefined>::RejectWithDOMException(
         script_state,
         MakeGarbageCollected<DOMException>(DOMExceptionCode::kInvalidStateError,
@@ -396,11 +390,11 @@ ScriptPromise<IDLUndefined> ModelContext::registerTool(
 
   String input_schema;
   if (tool->hasInputSchema()) {
-    ExceptionState exception_state(script_state->GetIsolate());
-    input_schema = ValidateAndStringifyObject(script_state, exception_state,
-                                              tool->inputSchema());
+    input_schema = ValidateAndStringifyValue(
+        script_state, PassThroughException(script_state->GetIsolate()),
+        tool->inputSchema(), "input schema");
     if (!input_schema) {
-      // Exception already thrown by ValidateAndStringifyObject
+      // Exception already thrown by ValidateAndStringifyValue.
       return EmptyPromise();
     }
   }
@@ -831,6 +825,9 @@ void ModelContext::RegisterDeclarativeTool(
 
   // TODO(https://crbug.com/509983792): Surface an error if the tool's name is
   // not valid.
+  if (!IsValidScriptToolName(declarative_tool->ToolName().Utf8())) {
+    return;
+  }
   UseCounter::Count(document_,
                     WebFeature::kModelContextRegisterDeclarativeTool);
 
@@ -1041,7 +1038,16 @@ void ModelContext::OnGetScriptToolsCompleted(
     result->setTitle(t->title);
     result->setDescription(t->description);
     if (!t->input_schema.IsNull()) {
-      result->setInputSchema(t->input_schema);
+      ScriptState* script_state = resolver->GetScriptState();
+      ScriptState::Scope scope(script_state);
+      v8::TryCatch try_catch(script_state->GetIsolate());
+      auto script_object =
+          JSONStringToScriptObject(script_state, t->input_schema);
+      ScriptValue script_value = script_object;
+      if (try_catch.HasCaught() || script_value.IsEmpty()) {
+        continue;
+      }
+      result->setInputSchema(script_object);
     }
     if (t->annotations) {
       auto* annotations = ToolAnnotations::Create();
@@ -1071,7 +1077,7 @@ void ModelContext::OnGetScriptToolsCompleted(
 ScriptPromise<IDLNullable<IDLString>> ModelContext::executeTool(
     ScriptState* script_state,
     RegisteredTool* tool,
-    String input_arguments,
+    ScriptValue input_object,
     const ExecuteToolOptions* options) {
   if (!document_->IsActive()) {
     return ScriptPromise<IDLNullable<IDLString>>::RejectWithDOMException(
@@ -1112,6 +1118,14 @@ ScriptPromise<IDLNullable<IDLString>> ModelContext::executeTool(
                           DOMExceptionCode::kNotSupportedError,
                           "Cannot execute tools that live in a document with "
                           "an opaque origin."));
+  }
+
+  String input_arguments = ValidateAndStringifyValue(
+      script_state, PassThroughException(script_state->GetIsolate()),
+      input_object, "input object");
+  if (!input_arguments) {
+    // Exception already thrown by ValidateAndStringifyValue.
+    return EmptyPromise();
   }
 
   auto* resolver =

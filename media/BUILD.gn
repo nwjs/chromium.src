@@ -26,8 +26,7 @@ buildflag_header("media_buildflags") {
   header = "media_buildflags.h"
 
   flags = [
-    "ALLOW_OOP_VIDEO_DECODER=$allow_oop_video_decoder",
-    "ALLOW_HOSTING_OOP_VIDEO_DECODER=$allow_hosting_oop_video_decoder",
+    "ENABLE_OOP_VIDEO_DECODER=$enable_oop_video_decoder",
     "ALTERNATE_CDM_STORAGE_ID_KEY=\"$alternate_cdm_storage_id_key\"",
     "CHROME_WIDE_ECHO_CANCELLATION=$chrome_wide_echo_cancellation_supported",
     "SYSTEM_LOOPBACK_AS_AEC_REFERENCE=$system_loopback_as_aec_reference_supported",
@@ -46,6 +45,7 @@ buildflag_header("media_buildflags") {
     "ENABLE_LIBRARY_CDMS=$enable_library_cdms",
     "ENABLE_LIBVPX=$media_use_libvpx",
     "ENABLE_LOGGING_OVERRIDE=$enable_logging_override",
+    "ENABLE_CDM_PROVISION_FETCHER=$enable_cdm_provision_fetcher",
     "ENABLE_MEDIA_DRM_STORAGE=$enable_media_drm_storage",
     "ENABLE_MEDIA_REMOTING=$enable_media_remoting",
     "ENABLE_MEDIA_REMOTING_RPC=$enable_media_remoting_rpc",

@@ -43,6 +43,8 @@
 #include "net/test/embedded_test_server/expectation_handler.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/features.h"
+#include "ui/base/page_transition_types.h"
+#include "ui/base/window_open_disposition.h"
 
 #if BUILDFLAG(IS_ANDROID)
 #include "base/android/android_info.h"
@@ -112,10 +114,9 @@ class NewTabPagePreloadBrowserTest : public PlatformBrowserTest {
 
   void SimulateNewTabNavigation(const GURL& url) {
     GetActiveWebContents()->OpenURL(
-        content::OpenURLParams(
-            url, content::Referrer(), WindowOpenDisposition::CURRENT_TAB,
-            ui::PageTransitionFromInt(ui::PAGE_TRANSITION_AUTO_BOOKMARK),
-            /*is_renderer_initiated=*/false),
+        content::OpenURLParams::CreateBrowserInitiated(
+            url, WindowOpenDisposition::CURRENT_TAB,
+            ui::PageTransitionFromInt(ui::PAGE_TRANSITION_AUTO_BOOKMARK)),
         base::BindRepeating(&AttachNewTabPageNavigationHandleUserData));
   }
 

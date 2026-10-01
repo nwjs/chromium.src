@@ -14,6 +14,7 @@
 #include "chrome/browser/renderer_context_menu/mock_render_view_context_menu.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_features.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/toasts/toast_controller.h"
 #include "chrome/browser/ui/toasts/toast_features.h"
 #include "chrome/test/base/chrome_test_utils.h"
@@ -162,8 +163,7 @@ class LinkToTextMenuObserverTest : public extensions::ExtensionBrowserTest {
   void Reset(bool incognito) {
     menu_ = std::make_unique<MockRenderViewContextMenu>(incognito);
     observer_ = MockLinkToTextMenuObserver::Create(
-        menu_.get(), getRenderFrameHostId(),
-        browser()->GetFeatures().toast_controller());
+        menu_.get(), getRenderFrameHostId(), ToastController::From(browser()));
     menu_->SetObserver(observer_.get());
   }
 
@@ -318,9 +318,8 @@ IN_PROC_BROWSER_TEST_F(LinkToTextMenuObserverTest, HiddenForExtensions) {
   menu()->set_web_contents(web_contents);
 
   std::unique_ptr<MockLinkToTextMenuObserver> observer =
-      MockLinkToTextMenuObserver::Create(
-          menu(), getRenderFrameHostId(),
-          browser()->GetFeatures().toast_controller());
+      MockLinkToTextMenuObserver::Create(menu(), getRenderFrameHostId(),
+                                         ToastController::From(browser()));
   EXPECT_EQ(nullptr, observer);
 }
 
@@ -725,7 +724,7 @@ IN_PROC_BROWSER_TEST_F(LinkToTextMenuObserverTest, ShowsToastOnCopyingLink) {
   InitMenu(params);
   menu()->ExecuteCommand(IDC_CONTENT_CONTEXT_COPYLINKTOTEXT, 0);
 
-  EXPECT_TRUE(browser()->GetFeatures().toast_controller()->IsShowingToast());
+  EXPECT_TRUE(ToastController::From(browser())->IsShowingToast());
 }
 
 IN_PROC_BROWSER_TEST_F(LinkToTextMenuObserverTest,

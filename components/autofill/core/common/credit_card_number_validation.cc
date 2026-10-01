@@ -12,13 +12,16 @@
 #include "base/containers/adapters.h"
 #include "base/containers/span.h"
 #include "base/feature_list.h"
+#include "base/i18n/char_iterator.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/string_util.h"
+#include "base/strings/utf_string_conversion_utils.h"
 #include "base/strings/utf_string_conversions.h"
 #include "components/autofill/core/common/autofill_payments_features.h"
 #include "components/autofill/core/common/autofill_regexes.h"
 #include "components/autofill/core/common/credit_card_network_identifiers.h"
+#include "third_party/icu/source/common/unicode/uchar.h"
 
 namespace autofill {
 
@@ -51,32 +54,34 @@ std::u16string AddWhiteSpaceSeparatorForNumber(std::u16string_view number,
 }  // namespace
 
 bool IsValidCreditCardNumber(std::u16string_view text) {
-  const std::u16string number = StripCardNumberSeparators(text);
+  const std::u16string number = StripSeparatorsAndNormalizeDigits(text);
   return HasCorrectCreditCardNumberLength(number) && PassesLuhnCheck(number);
 }
 
 bool HasCorrectCreditCardNumberLength(std::u16string_view number) {
-  // Credit card numbers are at most 19 digits in length, 12 digits seems to
-  // be a fairly safe lower-bound [1].  Specific card issuers have more rigidly
-  // defined sizes.
-  // (Last updated: May 29, 2017)
-  // [1] https://en.wikipedia.org/wiki/Payment_card_number.
-  // CardEditor.isCardNumberLengthMaxium() needs to be kept in sync.
+  // Credit card numbers are generally 12-19 digits in length, where specific
+  // card issuers have more rigidly defined sizes.
+  // https://en.wikipedia.org/wiki/Payment_card_number is generally used as a
+  // best-effort approach in keeping these values accurate.
   const char* const type = GetCardNetwork(number);
   if (type == kAmericanExpressCard && number.size() != 15)
     return false;
-  if (type == kDinersCard && number.size() != 14)
+  if (type == kDinersCard && (number.size() < 14 || number.size() > 19)) {
     return false;
-  if (type == kDiscoverCard && number.size() != 16)
+  }
+  if (type == kDiscoverCard && (number.size() < 16 || number.size() > 19)) {
     return false;
+  }
   if (type == kEloCard && number.size() != 16)
     return false;
-  if (type == kJCBCard && number.size() != 16)
+  if (type == kJCBCard && (number.size() < 16 || number.size() > 19)) {
     return false;
+  }
   if (type == kMasterCard && number.size() != 16)
     return false;
-  if (type == kMirCard && number.size() != 16)
+  if (type == kMirCard && (number.size() < 16 || number.size() > 19)) {
     return false;
+  }
   if (type == kTroyCard && number.size() != 16)
     return false;
   if (type == kUnionPay && (number.size() < 16 || number.size() > 19))
@@ -115,11 +120,31 @@ bool PassesLuhnCheck(std::u16string_view number) {
   return (sum % 10) == 0;
 }
 
-std::u16string StripCardNumberSeparators(std::u16string_view number) {
-  std::u16string stripped;
-  base::RemoveChars(number, base::StrCat({u"-.", base::kWhitespaceUTF16}),
-                    &stripped);
-  return stripped;
+std::u16string StripSeparatorsAndNormalizeDigits(std::u16string_view value) {
+  std::u16string result;
+  result.reserve(value.length());
+  for (base::i18n::UTF16CharIterator iter(value); !iter.end(); iter.Advance()) {
+    const int32_t character = iter.get();
+    // Strip whitespace, dash punctuation (including en/em dashes and minus
+    // signs), invisible Unicode format characters (e.g. zero-width spaces,
+    // bidi marks), and dots.
+    if (u_isUWhiteSpace(character) ||
+        u_hasBinaryProperty(character, UCHAR_DASH) ||
+        u_charType(character) == U_FORMAT_CHAR || character == '.') {
+      continue;
+    }
+    // If the character is a decimal digit in any Unicode script (e.g. fullwidth
+    // Zenkaku or Arabic-Indic), fold it to canonical ASCII '0'..'9'.
+    // `u_charDigitValue()` returns 0..9 for decimal digits, or -1 otherwise.
+    if (const int32_t digit = u_charDigitValue(character); digit >= 0) {
+      result.push_back('0' + digit);
+    } else {
+      // Preserve non-separator, non-digit characters (e.g. IBAN country code
+      // letters), safely encoding surrogate pairs if non-BMP.
+      base::WriteUnicodeCharacter(character, &result);
+    }
+  }
+  return result;
 }
 
 const char* GetCardNetwork(std::u16string_view number) {
@@ -129,25 +154,24 @@ const char* GetCardNetwork(std::u16string_view number) {
   // https://developer.ean.com/general-info/valid-card-types,
   // http://www.bincodes.com/, and
   // http://www.fraudpractice.com/FL-binCC.html.
-  // (Last updated: March 2021; change Troy bin range)
   //
   // Card Type              Prefix(es)                                  Length
   // --------------------------------------------------------------------------
   // Visa                   4                                          13,16,19
   // American Express       34,37                                      15
-  // Diners Club            300-305,309,36,38-39                       14
-  // Discover Card          6011,644-649,65                            16
+  // Diners Club            300-305,309,36,38-39                       14-19
+  // Discover Card          6011,644-649,65                            16-19
   // Elo                    See Elo regex pattern below                16
-  // JCB                    3528-3589                                  16
+  // JCB                    3528-3589                                  16-19
   // Mastercard             2221-2720, 51-55                           16
-  // MIR                    2200-2204                                  16
+  // Mir                    2200-2204                                  16-19
   // Troy                   22050-22052, 9792                          16
   // UnionPay               62                                         16-19
   // Verve                  506099–506198,507865-507964,650002–650027  16,18,19
 
   // Determine the network for the given |number| by going from the longest
   // (most specific) prefix to the shortest (most general) prefix.
-  std::u16string stripped_number = StripCardNumberSeparators(number);
+  std::u16string stripped_number = StripSeparatorsAndNormalizeDigits(number);
 
   // Original Elo parsing included only 6 BIN prefixes. This regex pattern,
   // sourced from the official Elo documentation, attempts to cover missing gaps
@@ -308,7 +332,7 @@ const char* GetCardNetwork(std::u16string_view number) {
 }
 
 std::u16string GetFormattedCardNumberForDisplay(std::u16string_view number) {
-  std::u16string stripped = StripCardNumberSeparators(number);
+  std::u16string stripped = StripSeparatorsAndNormalizeDigits(number);
   if (stripped.size() == 16) {
     return AddWhiteSpaceSeparatorForNumber(stripped,
                                            k16DigitNumberSegmentations);

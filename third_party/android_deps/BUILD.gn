@@ -7,6 +7,7 @@ import("//build/config/android/rules.gni")
 # Targets are declared inside a template in autorolled/BUILD.gn so they can be
 # imported here and be part of this BUILD.gn from gn's point of view.
 import("//third_party/android_deps/autorolled/BUILD.gn")
+
 define_autorolled_targets("unused") {
 }
 
@@ -105,6 +106,17 @@ if (!limit_android_deps) {
       deps = [ playcore_target ]
     } else {
       deps = [ "//third_party/android_deps:com_google_android_play_feature_delivery_java" ]
+    }
+  }
+
+  java_group("playcore_app_update_java") {
+    preferred_dep = true
+    if (defined(playcore_app_update_target)) {
+      deps = [ playcore_app_update_target ]
+    } else {
+      deps = [
+        "//third_party/android_deps:com_google_android_play_app_update_java",
+      ]
     }
   }
 

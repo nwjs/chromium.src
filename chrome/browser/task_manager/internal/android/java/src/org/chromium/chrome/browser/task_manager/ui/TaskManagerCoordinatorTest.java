@@ -9,6 +9,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.verify;
 
 import static org.chromium.chrome.browser.task_manager.ui.TaskManagerProperties.ALL_COLUMN_KEYS;
 import static org.chromium.chrome.browser.task_manager.ui.TaskManagerProperties.COLUMNS;
@@ -18,6 +19,7 @@ import static org.chromium.chrome.browser.task_manager.ui.TaskManagerProperties.
 import static org.chromium.chrome.browser.task_manager.ui.TaskManagerProperties.MEMORY_FOOTPRINT;
 import static org.chromium.chrome.browser.task_manager.ui.TaskManagerProperties.NETWORK_USAGE;
 import static org.chromium.chrome.browser.task_manager.ui.TaskManagerProperties.PROCESS_ID;
+import static org.chromium.chrome.browser.task_manager.ui.TaskManagerProperties.SELECTED_CATEGORY;
 import static org.chromium.chrome.browser.task_manager.ui.TaskManagerProperties.SORT_DESCRIPTOR;
 import static org.chromium.chrome.browser.task_manager.ui.TaskManagerProperties.TASK_ID;
 import static org.chromium.chrome.browser.task_manager.ui.TaskManagerProperties.TASK_NAME;
@@ -44,8 +46,13 @@ import org.mockito.junit.MockitoRule;
 import org.robolectric.Robolectric;
 
 import org.chromium.base.test.BaseRobolectricTestRunner;
+import org.chromium.base.test.util.Features.EnableFeatures;
+import org.chromium.chrome.browser.flags.ChromeFeatureList;
+import org.chromium.chrome.browser.task_manager.ui.TaskManagerProperties.Category;
 import org.chromium.chrome.browser.task_manager.ui.TaskManagerProperties.RowType;
 import org.chromium.chrome.browser.task_manager.ui.TaskManagerProperties.SortDescriptor;
+import org.chromium.components.browser_ui.styles.SemanticColorUtils;
+import org.chromium.components.browser_ui.widget.chips.ChipView;
 import org.chromium.ui.modelutil.MVCListAdapter.ListItem;
 import org.chromium.ui.modelutil.MVCListAdapter.ModelList;
 import org.chromium.ui.modelutil.PropertyKey;
@@ -54,6 +61,7 @@ import org.chromium.ui.modelutil.PropertyModel;
 import java.util.List;
 
 @RunWith(BaseRobolectricTestRunner.class)
+@EnableFeatures(ChromeFeatureList.TASK_MANAGER_TOOLBAR)
 public class TaskManagerCoordinatorTest {
     @Rule public MockitoRule mMockitoRule = MockitoJUnit.rule();
     @Mock private TaskManagerMediator mMediator;
@@ -104,8 +112,8 @@ public class TaskManagerCoordinatorTest {
                 new PropertyModel.Builder(mTaskModelKeys)
                         .with(TASK_ID, 1)
                         .with(TASK_NAME, "foo")
-                        .with(MEMORY_FOOTPRINT, 1024_000)
-                        .with(CPU, 0.5F)
+                        .with(MEMORY_FOOTPRINT, 100L * 1024L * 1024L)
+                        .with(CPU, 10F)
                         .with(NETWORK_USAGE, 0)
                         .with(PROCESS_ID, 1234)
                         .with(IS_SELECTED, false)
@@ -125,8 +133,8 @@ public class TaskManagerCoordinatorTest {
         TextView processId = taskView.findViewById(R.id.process_id);
 
         assertEquals("foo", taskName.getText().toString());
-        assertEquals("1,000K", memoryFootprint.getText().toString());
-        assertEquals("0.5", cpu.getText().toString());
+        assertEquals("100 MB", memoryFootprint.getText().toString());
+        assertEquals("10.0%", cpu.getText().toString());
         assertEquals("0", networkUsage.getText().toString());
         assertEquals("1234", processId.getText().toString());
 
@@ -149,25 +157,29 @@ public class TaskManagerCoordinatorTest {
 
         mRecyclerView.layout(0, 0, 1024, 640);
 
+        View itemView = mRecyclerView.findViewHolderForAdapterPosition(0).itemView;
+        assertNotNull(itemView.getBackground());
+        assertFalse(itemView.isSelected());
+
+        ColorDrawable unselectedDrawable = (ColorDrawable) itemView.getBackground().getCurrent();
         assertEquals(
-                0,
-                ((ColorDrawable)
-                                mRecyclerView
-                                        .findViewHolderForAdapterPosition(0)
-                                        .itemView
-                                        .getBackground())
-                        .getColor());
+                SemanticColorUtils.getColorSurfaceContainer(mActivity),
+                unselectedDrawable.getColor());
 
         mTasksModel.get(0).model.set(IS_SELECTED, true);
 
-        assertNotEquals(
-                0,
-                ((ColorDrawable)
-                                mRecyclerView
-                                        .findViewHolderForAdapterPosition(0)
-                                        .itemView
-                                        .getBackground())
-                        .getColor());
+        assertTrue(itemView.isSelected());
+        ColorDrawable selectedDrawable = (ColorDrawable) itemView.getBackground().getCurrent();
+        assertEquals(
+                SemanticColorUtils.getColorSecondaryContainer(mActivity),
+                selectedDrawable.getColor());
+    }
+
+    @Test
+    @SmallTest
+    public void testHeaderDividers() {
+        assertEquals(LinearLayout.SHOW_DIVIDER_MIDDLE, mHeaderView.getShowDividers());
+        assertNotNull(mHeaderView.getDividerDrawable());
     }
 
     @Test
@@ -201,5 +213,49 @@ public class TaskManagerCoordinatorTest {
 
         MenuItem processIdItem = menu.getItem(List.of(ALL_COLUMN_KEYS).indexOf(PROCESS_ID));
         assertFalse(processIdItem.isChecked());
+    }
+
+    @Test
+    @SmallTest
+    public void testCategoryChips_click() {
+        ChipView tabsChip = mActivity.findViewById(R.id.category_chip_tabs);
+        ChipView browserChip = mActivity.findViewById(R.id.category_chip_browser);
+        ChipView allChip = mActivity.findViewById(R.id.category_chip_all);
+
+        assertNotNull(tabsChip);
+        assertNotNull(browserChip);
+        assertNotNull(allChip);
+
+        tabsChip.performClick();
+        verify(mMediator).setSelectedCategory(Category.TABS_AND_EXTENSIONS);
+
+        browserChip.performClick();
+        verify(mMediator).setSelectedCategory(Category.BROWSER);
+
+        allChip.performClick();
+        verify(mMediator).setSelectedCategory(Category.ALL_TASKS);
+    }
+
+    @Test
+    @SmallTest
+    public void testCategoryChips_selectionChange() {
+        ChipView tabsChip = mActivity.findViewById(R.id.category_chip_tabs);
+        ChipView browserChip = mActivity.findViewById(R.id.category_chip_browser);
+        ChipView allChip = mActivity.findViewById(R.id.category_chip_all);
+
+        mHeaderModel.set(SELECTED_CATEGORY, Category.TABS_AND_EXTENSIONS);
+        assertTrue(tabsChip.isSelected());
+        assertFalse(browserChip.isSelected());
+        assertFalse(allChip.isSelected());
+
+        mHeaderModel.set(SELECTED_CATEGORY, Category.BROWSER);
+        assertFalse(tabsChip.isSelected());
+        assertTrue(browserChip.isSelected());
+        assertFalse(allChip.isSelected());
+
+        mHeaderModel.set(SELECTED_CATEGORY, Category.ALL_TASKS);
+        assertFalse(tabsChip.isSelected());
+        assertFalse(browserChip.isSelected());
+        assertTrue(allChip.isSelected());
     }
 }

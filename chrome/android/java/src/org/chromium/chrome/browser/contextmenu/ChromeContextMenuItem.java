@@ -14,6 +14,7 @@ import android.text.style.SuperscriptSpan;
 import androidx.annotation.IntDef;
 import androidx.annotation.StringRes;
 
+import org.chromium.base.DeviceInfo;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
 import org.chromium.chrome.R;
@@ -303,7 +304,8 @@ class ChromeContextMenuItem {
     }
 
     private static boolean isSaveAsEnabled() {
-        return ChromeFeatureList.isEnabled(ChromeFeatureList.ENABLE_DOWNLOAD_SAVE_AS_CONTEXT_MENU);
+        return ChromeFeatureList.isEnabled(ChromeFeatureList.ENABLE_DOWNLOAD_SAVE_AS_CONTEXT_MENU)
+                && DeviceInfo.isDesktop();
     }
 
     /**
@@ -347,37 +349,11 @@ class ChromeContextMenuItem {
                                 .getDefaultSearchEngineTemplateUrl();
                 assumeNonNull(templateUrl);
                 return context.getString(getStringId(item), templateUrl.getShortName());
-            case Item.READ_LATER:
-                return addOrRemoveNewLabel(context, item, null, showInProductHelp);
-            case Item.OPEN_IN_EPHEMERAL_TAB:
-                return addOrRemoveNewLabel(
-                        context,
-                        item,
-                        ChromePreferenceKeys.CONTEXT_MENU_OPEN_IN_EPHEMERAL_TAB_CLICKED,
-                        showInProductHelp);
-            case Item.OPEN_IMAGE_IN_EPHEMERAL_TAB:
-                return addOrRemoveNewLabel(
-                        context,
-                        item,
-                        ChromePreferenceKeys.CONTEXT_MENU_OPEN_IMAGE_IN_EPHEMERAL_TAB_CLICKED,
-                        showInProductHelp);
             case Item.SEARCH_TAB_WITH_GOOGLE_LENS:
                 return addOrRemoveNewLabel(
                         context,
                         item,
                         ChromePreferenceKeys.CONTEXT_MENU_SEARCH_TAB_WITH_GOOGLE_LENS_CLICKED,
-                        showInProductHelp);
-            case Item.SEARCH_IMAGE_WITH_GOOGLE_LENS:
-                return addOrRemoveNewLabel(
-                        context,
-                        item,
-                        ChromePreferenceKeys.CONTEXT_MENU_SEARCH_IMAGE_WITH_GOOGLE_LENS_CLICKED,
-                        showInProductHelp);
-            case Item.SHOP_IMAGE_WITH_GOOGLE_LENS:
-                return addOrRemoveNewLabel(
-                        context,
-                        item,
-                        ChromePreferenceKeys.CONTEXT_MENU_SHOP_IMAGE_WITH_GOOGLE_LENS_CLICKED,
                         showInProductHelp);
             case Item.OPEN_IN_CHROME_INCOGNITO_TAB:
                 if (IncognitoUtils.shouldOpenIncognitoAsWindow()) {

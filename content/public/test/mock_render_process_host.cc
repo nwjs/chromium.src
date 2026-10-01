@@ -515,7 +515,7 @@ void MockRenderProcessHost::ForEachRenderFrameHost(
     // Speculative RFHs are not exposed to //content embedders, so we have to
     // explicitly check them here to avoid leaks.
     if (rfh->lifecycle_state() ==
-        RenderFrameHostImpl::LifecycleStateImpl::kSpeculative) {
+        RenderFrameHostLifecycleStateImpl::kSpeculative) {
       continue;
     }
     on_render_frame_host(rfh);
@@ -644,6 +644,29 @@ void MockRenderProcessHost::GetSandboxedFileSystemForBucket(
 std::string
 MockRenderProcessHost::GetInfoForBrowserContextDestructionCrashReporting() {
   return std::string();
+}
+
+const std::string&
+MockRenderProcessHost::GetUnresponsiveDocumentJavascriptCallStack() const {
+  return unresponsive_document_javascript_call_stack_;
+}
+
+const blink::LocalFrameToken&
+MockRenderProcessHost::GetUnresponsiveDocumentToken() const {
+  return unresponsive_document_token_;
+}
+
+std::optional<blink::OomInterventionMetrics>
+MockRenderProcessHost::GetCrashMemoryMetrics() const {
+  return std::nullopt;
+}
+
+void MockRenderProcessHost::SetUnresponsiveDocumentJSCallStackAndToken(
+    std::string javascript_call_stack,
+    blink::LocalFrameToken token) {
+  unresponsive_document_javascript_call_stack_ =
+      std::move(javascript_call_stack);
+  unresponsive_document_token_ = token;
 }
 
 void MockRenderProcessHost::WriteIntoTrace(

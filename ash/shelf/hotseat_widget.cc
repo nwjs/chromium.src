@@ -21,6 +21,7 @@
 #include "ash/shelf/shelf_navigation_widget.h"
 #include "ash/shelf/shelf_view.h"
 #include "ash/shell.h"
+#include "ash/style/style_util.h"
 #include "ash/style/system_shadow.h"
 #include "ash/system/status_area_widget.h"
 #include "ash/wm/overview/overview_controller.h"
@@ -513,7 +514,7 @@ void HotseatWidgetDelegateView::Init(ScrollableShelfView* scrollable_shelf_view,
 
   // Create a shadow and stack at the bottom.
   shadow_ = SystemShadow::CreateShadowOnNinePatchLayer(
-      SystemShadow::Type::kElevation12, SystemShadow::LayerRecreatedCallback());
+      SystemShadow::Type::kElevation12);
   auto* parent_layer = translucent_background_->layer()->parent();
   auto* shadow_layer = shadow_->GetLayer();
   parent_layer->Add(shadow_layer);
@@ -645,7 +646,7 @@ void HotseatWidgetDelegateView::SetBackgroundBlur(bool enable_blur) {
   if (translucent_background_->layer()->background_blur() != blur_radius) {
     translucent_background_->layer()->SetBackgroundBlur(blur_radius);
     translucent_background_->layer()->SetBackdropFilterQuality(
-        ColorProvider::kBackgroundBlurQuality);
+        StyleUtil::kBackgroundBlurQuality);
   }
 }
 

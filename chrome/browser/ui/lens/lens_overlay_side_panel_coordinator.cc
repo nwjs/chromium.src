@@ -63,6 +63,7 @@
 #include "ui/base/models/image_model.h"
 #include "ui/base/page_transition_types.h"
 #include "ui/base/ui_base_features.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/base/window_open_disposition_utils.h"
 #include "ui/menus/simple_menu_model.h"
 #include "ui/views/vector_icons.h"
@@ -115,10 +116,8 @@ bool IsSiteTrusted(const GURL& url) {
 }
 
 SidePanelUI* GetSidePanelUI(LensSearchController* controller) {
-  return controller->GetTabInterface()
-      ->GetBrowserWindowInterface()
-      ->GetFeatures()
-      .side_panel_ui();
+  return SidePanelUI::From(
+      controller->GetTabInterface()->GetBrowserWindowInterface());
 }
 
 }  // namespace

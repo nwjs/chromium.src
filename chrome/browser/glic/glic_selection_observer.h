@@ -29,13 +29,16 @@
 #include "content/public/browser/web_contents_observer.h"
 #include "mojo/public/cpp/bindings/remote.h"
 #include "third_party/blink/public/mojom/link_to_text/link_to_text.mojom.h"
-#include "ui/gfx/geometry/point_f.h"
-#include "ui/gfx/geometry/vector2d_f.h"
+#include "ui/base/unowned_user_data/scoped_unowned_user_data.h"
 
 namespace content {
 class Page;
 class RenderFrameHost;
 }  // namespace content
+
+namespace tabs {
+class TabInterface;
+}  // namespace tabs
 
 class BrowserWindowInterface;
 enum class ToastId;
@@ -58,6 +61,8 @@ class GlicSelectionObserver
       public content::RenderWidgetHost::InputEventObserver,
       public content_settings::Observer {
  public:
+  DECLARE_USER_DATA(GlicSelectionObserver);
+
   enum class DismissReason {
     kActionTaken,  // User clicked Ask Gemini, Copy, Copy Link, or Open in Side
                    // Panel.
@@ -66,17 +71,33 @@ class GlicSelectionObserver
                 // ESC key.
   };
 
+  enum class SelectionSource {
+    kAutomatic,    // Triggered by WebContents text selection or input events.
+    kContextMenu,  // Triggered by context menu invocation.
+  };
+
+  static GlicSelectionObserver* From(tabs::TabInterface* tab);
+
   explicit GlicSelectionObserver(content::WebContents* web_contents);
   ~GlicSelectionObserver() override;
 
   void OnTextSelectionChanged(content::RenderFrameHost* render_frame_host,
                               std::u16string_view selected_text) override;
 
+  // Notifies the observer that text selection context was sent to the Glic
+  // panel from the context menu entry point.
+  void UpdateSelectionStateFromContextMenu(const std::u16string& selected_text);
+
+  bool has_sent_selection_context() const {
+    return has_sent_selection_context_;
+  }
+
  protected:
   // Updates the Glic UI (nudge or panel) with the selected text.
   // Virtual for testing.
   virtual void UpdateSelectionState(const std::u16string& text,
-                                    bool is_pending_selection);
+                                    bool is_pending_selection,
+                                    SelectionSource source);
 
   // Dismisses the selection UI (widget and/or nudge).
   // Virtual for testing.
@@ -108,9 +129,17 @@ class GlicSelectionObserver
   // Virtual for testing.
   virtual void TriggerRegionCapture();
 
+  // Shows the selection overlay.
+  // Virtual for testing.
+  virtual void ShowSelectionOverlay();
+
   // Returns true if mouse shake trigger is enabled by feature flag and pref.
   // Virtual for testing.
   virtual bool IsShakeTriggerEnabled() const;
+
+  // Returns true if the Glic side panel is open.
+  // Virtual for testing.
+  virtual bool IsSidePanelOpen() const;
 
   // Called when the page context eligibility changes.
   // Virtual for testing.
@@ -155,15 +184,13 @@ class GlicSelectionObserver
       const GlicSkillOption& skill = {},
       const std::string& skill_prompt = "");
 
-
   void OnAskGemini();
   void OnAskGeminiWithSkill(const GlicSkillOption& skill);
   std::vector<GlicSkillOption> GetContextualSkills();
   std::vector<GlicSkillOption> GetUserSkills();
   void OnAskGeminiForQuery(const std::u16string& query);
-  void OnAskGeminiMoreAboutThis(
-      const std::u16string& selected_text,
-      const std::string& explanation_text);
+  void OnAskGeminiMoreAboutThis(const std::u16string& selected_text,
+                                const std::string& explanation_text);
   void OnInlineExplanationUpdate(const std::string& markdown_output,
                                  bool is_complete,
                                  const std::string& error_message);
@@ -189,6 +216,8 @@ class GlicSelectionObserver
   void OnPageContextEligibilityAPILoaded(
       std::string account,
       optimization_guide::PageContextEligibility* page_context_eligibility);
+
+  void ResetSelectionState();
 
   raw_ptr<GlicKeyedService> glic_keyed_service_;
   base::CallbackListSubscription panel_state_subscription_;
@@ -218,13 +247,8 @@ class GlicSelectionObserver
   // True if a dismissal metric has already been recorded for the shown widget.
   bool dismissal_recorded_ = false;
 
-  void ProcessMouseMoveForShake(const blink::WebMouseEvent& mouse_event);
-  void ResetShakeDetector();
-
-  std::optional<gfx::PointF> last_shake_point_;
-  std::optional<gfx::Vector2dF> last_shake_dir_;
-  int direction_change_count_ = 0;
-  base::TimeTicks last_direction_change_time_;
+  class ShakeDetector;
+  std::unique_ptr<ShakeDetector> shake_detector_;
 
   // Private bridge implementation of
   // GlicSelectionWidgetDelegate::ActionDelegate. This is required because
@@ -266,6 +290,8 @@ class GlicSelectionObserver
   base::CallbackListSubscription page_context_eligibility_subscription_;
   std::unique_ptr<::optimization_guide::PageContextEligibilityObserver>
       page_context_tracker_;
+  std::unique_ptr<ui::ScopedUnownedUserData<GlicSelectionObserver>>
+      scoped_unowned_user_data_;
   base::WeakPtrFactory<GlicSelectionObserver> weak_ptr_factory_{this};
 };
 

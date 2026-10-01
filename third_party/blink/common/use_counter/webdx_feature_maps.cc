@@ -352,6 +352,10 @@ GetWebFeatureToWebDXFeatureMap() {
            WebDXFeature::kLargestContentfulPaint},
           {WebFeature::kEventTimingExplicitlyRequested,
            WebDXFeature::kEventTiming},
+          {WebFeature::kSoftNavigationExplicitlyRequested,
+           WebDXFeature::kSoftNavigations},
+          {WebFeature::kInteractionContentfulPaintExplicitlyRequested,
+           WebDXFeature::kInteractionContentfulPaint},
           {WebFeature::kJSSelfProfiling, WebDXFeature::kProfiler},
           {WebFeature::kZstdContentEncoding, WebDXFeature::kZstd},
           {WebFeature::kColumnPseudoElement, WebDXFeature::kColumnPseudo},
@@ -499,6 +503,10 @@ GetWebFeatureToWebDXFeatureMap() {
           {WebFeature::kIdentityDigitalCredentialsCreation,
            WebDXFeature::kDigitalCredentials},
           {WebFeature::kHTMLInCanvas, WebDXFeature::kCanvasHtml},
+          {WebFeature::kElementTimingExplicitlyRequested,
+           WebDXFeature::kElementTiming},
+          {WebFeature::kContainerTimingExplicitlyRequested,
+           WebDXFeature::kContainerTiming},
           // Add new features above this line.
       }};
 

@@ -30,6 +30,7 @@
 #include "components/viz/common/features.h"
 #include "components/viz/common/frame_sinks/copy_output_result.h"
 #include "content/browser/gpu/compositor_util.h"
+#include "content/browser/gpu/gpu_data_manager_impl.h"
 #include "content/browser/renderer_host/browser_compositor_ios.h"
 #include "content/browser/renderer_host/dip_util.h"
 #include "content/browser/renderer_host/render_widget_host_impl.h"
@@ -82,6 +83,7 @@
 
 #if BUILDFLAG(IS_ANDROID)
 #include "content/browser/renderer_host/compositor_impl_android.h"
+#include "content/browser/renderer_host/navigation_request.h"
 #include "content/browser/renderer_host/render_widget_host_view_android.h"
 #include "gpu/command_buffer/client/client_shared_image.h"
 #include "ui/android/delegated_frame_host_android.h"
@@ -1053,6 +1055,25 @@ IN_PROC_BROWSER_TEST_F(NoCompositingRenderWidgetHostViewBrowserTest,
   EXPECT_FALSE(observer.did_paint());
   auto bg_color = GetRenderWidgetHostView()->content_background_color();
   ASSERT_FALSE(bg_color.has_value());
+}
+
+IN_PROC_BROWSER_TEST_F(RenderWidgetHostViewBrowserTestBase,
+                       SharedWorkerContextProviderDurationRecorded) {
+  if (GpuDataManagerImpl::GetInstance()->IsGpuCompositingDisabled()) {
+    GTEST_SKIP() << "The shared raster worker context is only created when the "
+                    "renderer composites on the GPU.";
+  }
+  ASSERT_TRUE(embedded_test_server()->Start());
+  base::HistogramTester histogram_tester;
+  EXPECT_TRUE(NavigateToURL(
+      shell(), embedded_test_server()->GetURL("/page_with_animation.html")));
+  RenderFrameSubmissionObserver frame_observer(shell()->web_contents());
+  frame_observer.WaitForAnyFrameSubmission();
+  FetchHistogramsFromChildProcesses();
+  EXPECT_FALSE(histogram_tester
+                   .GetAllSamples(
+                       "GPU.CreateSharedWorkerContextProvider.Duration.Success")
+                   .empty());
 }
 
 IN_PROC_BROWSER_TEST_F(RenderWidgetHostViewBrowserTestBase,

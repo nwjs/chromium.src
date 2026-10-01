@@ -9,44 +9,86 @@
 #include "components/unexportable_keys/background_task_priority.h"
 #include "components/unexportable_keys/mojom/unexportable_key_service.mojom.h"
 #include "components/unexportable_keys/service_error.h"
-#include "crypto/signature_verifier.h"
+#include "crypto/sign.h"
 #include "crypto/unexportable_key.h"
 #include "mojo/public/cpp/bindings/enum_traits.h"
 #include "mojo/public/cpp/bindings/struct_traits.h"
 #include "mojo/public/mojom/base/unguessable_token.mojom.h"
 
 namespace mojo {
-unexportable_keys::mojom::SignatureAlgorithm
-EnumTraits<unexportable_keys::mojom::SignatureAlgorithm,
-           crypto::SignatureVerifier::SignatureAlgorithm>::
-    ToMojom(crypto::SignatureVerifier::SignatureAlgorithm algo) {
+unexportable_keys::mojom::SignatureAlgorithm EnumTraits<
+    unexportable_keys::mojom::SignatureAlgorithm,
+    crypto::sign::SignatureKind>::ToMojom(crypto::sign::SignatureKind algo) {
   switch (algo) {
-    case crypto::SignatureVerifier::SignatureAlgorithm::RSA_PKCS1_SHA1:
+    case crypto::sign::RSA_PKCS1_SHA1:
       return unexportable_keys::mojom::SignatureAlgorithm::RSA_PKCS1_SHA1;
-    case crypto::SignatureVerifier::SignatureAlgorithm::RSA_PKCS1_SHA256:
+    case crypto::sign::RSA_PKCS1_SHA256:
       return unexportable_keys::mojom::SignatureAlgorithm::RSA_PKCS1_SHA256;
-    case crypto::SignatureVerifier::SignatureAlgorithm::ECDSA_SHA256:
-      return unexportable_keys::mojom::SignatureAlgorithm::ECDSA_SHA256;
-    case crypto::SignatureVerifier::SignatureAlgorithm::RSA_PSS_SHA256:
+    case crypto::sign::RSA_PKCS1_SHA384:
+      return unexportable_keys::mojom::SignatureAlgorithm::RSA_PKCS1_SHA384;
+    case crypto::sign::RSA_PKCS1_SHA512:
+      return unexportable_keys::mojom::SignatureAlgorithm::RSA_PKCS1_SHA512;
+    case crypto::sign::RSA_PSS_SHA256:
       return unexportable_keys::mojom::SignatureAlgorithm::RSA_PSS_SHA256;
+    case crypto::sign::RSA_PSS_SHA384:
+      return unexportable_keys::mojom::SignatureAlgorithm::RSA_PSS_SHA384;
+    case crypto::sign::RSA_PSS_SHA512:
+      return unexportable_keys::mojom::SignatureAlgorithm::RSA_PSS_SHA512;
+    case crypto::sign::ECDSA_SHA1:
+      return unexportable_keys::mojom::SignatureAlgorithm::ECDSA_SHA1;
+    case crypto::sign::ECDSA_SHA256:
+      return unexportable_keys::mojom::SignatureAlgorithm::ECDSA_SHA256;
+    case crypto::sign::ECDSA_SHA384:
+      return unexportable_keys::mojom::SignatureAlgorithm::ECDSA_SHA384;
+    case crypto::sign::ECDSA_SHA512:
+      return unexportable_keys::mojom::SignatureAlgorithm::ECDSA_SHA512;
+    case crypto::sign::ED25519:
+      return unexportable_keys::mojom::SignatureAlgorithm::ED25519;
+    case crypto::sign::MLDSA_44:
+      return unexportable_keys::mojom::SignatureAlgorithm::MLDSA_44;
+    case crypto::sign::MLDSA_65:
+      return unexportable_keys::mojom::SignatureAlgorithm::MLDSA_65;
+    case crypto::sign::MLDSA_87:
+      return unexportable_keys::mojom::SignatureAlgorithm::MLDSA_87;
   }
 }
 
-crypto::SignatureVerifier::SignatureAlgorithm
+crypto::sign::SignatureKind
 mojo::EnumTraits<unexportable_keys::mojom::SignatureAlgorithm,
-                 crypto::SignatureVerifier::SignatureAlgorithm>::
+                 crypto::sign::SignatureKind>::
     FromMojom(unexportable_keys::mojom::SignatureAlgorithm mojo_algo) {
   switch (mojo_algo) {
     case unexportable_keys::mojom::SignatureAlgorithm::RSA_PKCS1_SHA1:
-      return crypto::SignatureVerifier::SignatureAlgorithm::RSA_PKCS1_SHA1;
+      return crypto::sign::RSA_PKCS1_SHA1;
     case unexportable_keys::mojom::SignatureAlgorithm::RSA_PKCS1_SHA256:
-      return crypto::SignatureVerifier::SignatureAlgorithm::RSA_PKCS1_SHA256;
-    case unexportable_keys::mojom::SignatureAlgorithm::ECDSA_SHA256:
-      return crypto::SignatureVerifier::SignatureAlgorithm::ECDSA_SHA256;
+      return crypto::sign::RSA_PKCS1_SHA256;
+    case unexportable_keys::mojom::SignatureAlgorithm::RSA_PKCS1_SHA384:
+      return crypto::sign::RSA_PKCS1_SHA384;
+    case unexportable_keys::mojom::SignatureAlgorithm::RSA_PKCS1_SHA512:
+      return crypto::sign::RSA_PKCS1_SHA512;
     case unexportable_keys::mojom::SignatureAlgorithm::RSA_PSS_SHA256:
-      return crypto::SignatureVerifier::SignatureAlgorithm::RSA_PSS_SHA256;
+      return crypto::sign::RSA_PSS_SHA256;
+    case unexportable_keys::mojom::SignatureAlgorithm::RSA_PSS_SHA384:
+      return crypto::sign::RSA_PSS_SHA384;
+    case unexportable_keys::mojom::SignatureAlgorithm::RSA_PSS_SHA512:
+      return crypto::sign::RSA_PSS_SHA512;
+    case unexportable_keys::mojom::SignatureAlgorithm::ECDSA_SHA1:
+      return crypto::sign::ECDSA_SHA1;
+    case unexportable_keys::mojom::SignatureAlgorithm::ECDSA_SHA256:
+      return crypto::sign::ECDSA_SHA256;
+    case unexportable_keys::mojom::SignatureAlgorithm::ECDSA_SHA384:
+      return crypto::sign::ECDSA_SHA384;
+    case unexportable_keys::mojom::SignatureAlgorithm::ECDSA_SHA512:
+      return crypto::sign::ECDSA_SHA512;
+    case unexportable_keys::mojom::SignatureAlgorithm::ED25519:
+      return crypto::sign::ED25519;
+    case unexportable_keys::mojom::SignatureAlgorithm::MLDSA_44:
+      return crypto::sign::MLDSA_44;
+    case unexportable_keys::mojom::SignatureAlgorithm::MLDSA_65:
+      return crypto::sign::MLDSA_65;
+    case unexportable_keys::mojom::SignatureAlgorithm::MLDSA_87:
+      return crypto::sign::MLDSA_87;
   }
-  NOTREACHED();
 }
 
 unexportable_keys::mojom::BackgroundTaskPriority
@@ -56,6 +98,9 @@ EnumTraits<unexportable_keys::mojom::BackgroundTaskPriority,
   switch (priority) {
     case unexportable_keys::BackgroundTaskPriority::kBestEffort:
       return unexportable_keys::mojom::BackgroundTaskPriority::kBestEffort;
+    case unexportable_keys::BackgroundTaskPriority::kMinPriorityInternalUseOnly:
+      return unexportable_keys::mojom::BackgroundTaskPriority::
+          kMinPriorityInternalUseOnly;
     case unexportable_keys::BackgroundTaskPriority::kUserBlocking:
       return unexportable_keys::mojom::BackgroundTaskPriority::kUserBlocking;
     case unexportable_keys::BackgroundTaskPriority::kUserVisible:
@@ -68,6 +113,10 @@ EnumTraits<unexportable_keys::mojom::BackgroundTaskPriority,
            unexportable_keys::BackgroundTaskPriority>::
     FromMojom(unexportable_keys::mojom::BackgroundTaskPriority mojo_priority) {
   switch (mojo_priority) {
+    case unexportable_keys::mojom::BackgroundTaskPriority::
+        kMinPriorityInternalUseOnly:
+      return unexportable_keys::BackgroundTaskPriority::
+          kMinPriorityInternalUseOnly;
     case unexportable_keys::mojom::BackgroundTaskPriority::kBestEffort:
       return unexportable_keys::BackgroundTaskPriority::kBestEffort;
     case unexportable_keys::mojom::BackgroundTaskPriority::kUserVisible:
@@ -194,6 +243,9 @@ bool StructTraits<unexportable_keys::mojom::AttestationStatementDataView,
     return false;
   }
   if (!data.ReadSignature(&output->signature)) {
+    return false;
+  }
+  if (!data.ReadSubjectKey(&output->subject_key)) {
     return false;
   }
   return true;

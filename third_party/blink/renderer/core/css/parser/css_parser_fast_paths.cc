@@ -263,7 +263,10 @@ static inline bool IsColorPropertyID(CSSPropertyID property_id) {
       CSSPropertyID::kInternalVisitedBorderRightColor,
       CSSPropertyID::kInternalVisitedBorderTopColor,
       CSSPropertyID::kInternalVisitedFill,
+      CSSPropertyID::kInternalVisitedFloodColor,
+      CSSPropertyID::kInternalVisitedLightingColor,
       CSSPropertyID::kInternalVisitedOutlineColor,
+      CSSPropertyID::kInternalVisitedStopColor,
       CSSPropertyID::kInternalVisitedStroke,
       CSSPropertyID::kInternalVisitedBorderBlockEndColor,
       CSSPropertyID::kInternalVisitedBorderBlockStartColor,
@@ -1702,7 +1705,10 @@ bool CSSParserFastPaths::IsValidKeywordPropertyAndValue(
       return value_id == CSSValueID::kAuto || value_id == CSSValueID::kThin ||
              value_id == CSSValueID::kNone;
     case CSSPropertyID::kScrollSnapStop:
-      return value_id == CSSValueID::kNormal || value_id == CSSValueID::kAlways;
+      return value_id == CSSValueID::kNormal ||
+             value_id == CSSValueID::kAlways ||
+             (value_id == CSSValueID::kBefore &&
+              RuntimeEnabledFeatures::CSSScrollSnapStopBeforeEnabled());
     case CSSPropertyID::kOverscrollBehaviorInline:
     case CSSPropertyID::kOverscrollBehaviorBlock:
     case CSSPropertyID::kOverscrollBehaviorX:

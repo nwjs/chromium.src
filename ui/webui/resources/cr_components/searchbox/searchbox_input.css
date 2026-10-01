@@ -28,17 +28,69 @@
   box-sizing: border-box;
   field-sizing: content;
   line-height: 24px;
-  max-height: 190px;
+  /* Fits 7 lines of text (7 * 24px) plus the input's block padding. Content
+   * beyond that scrolls, which is when the scrollbar becomes visible. */
+  max-height: 194px;
   overflow-y: auto;
   overflow-x: hidden;
   padding-top: calc((var(--cr-searchbox-height) - 24px) / 2);
   resize: none;
-  scrollbar-width: none;
   white-space: pre-wrap;
 }
 
-:host([multi-line-enabled]) #input::-webkit-scrollbar {
+/* When force-single-line is enabled, keep the textarea as a single line. */
+:host([force-single-line]) textarea {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:host([show-ellipsis]:focus-within) textarea {
+  text-overflow: clip;
+}
+
+#ellipsisIndicator {
+  background-color: transparent;
+  color: var(--color-searchbox-foreground);
   display: none;
+  flex-shrink: 0;
+  height: var(--cr-searchbox-line-height, 24px);
+  line-height: var(--cr-searchbox-line-height, 24px);
+  margin-inline-end: 4px;
+  margin-top: calc(
+      (var(--cr-searchbox-height) - var(--cr-searchbox-line-height, 24px)) / 2);
+  padding-inline: 0 1px;
+  pointer-events: none;
+}
+
+:host([show-ellipsis]:focus-within) #ellipsisIndicator {
+  display: block;
+}
+
+:host([has-inline-selection]) #ellipsisIndicator {
+  background-color: var(--color-searchbox-selection-background);
+  color: var(
+      --color-searchbox-selection-foreground,
+      var(--color-searchbox-foreground));
+}
+
+/* The scrollbar is only rendered once the input content overflows its max
+ * height, e.g. while a long voice transcription is being shown or when the
+ * typed text grows past the last visible line. */
+:host([multi-line-enabled]) #input::-webkit-scrollbar {
+  width: 7px;
+}
+
+:host([multi-line-enabled]) #input::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+:host([multi-line-enabled]) #input::-webkit-scrollbar-thumb {
+  background: var(--color-cr-searchbox-input-scrollbar-thumb,
+      rgb(127, 127, 127));
+  border-radius: 100px;
 }
 
 :is(input, textarea) {
@@ -81,6 +133,10 @@ input::-webkit-search-cancel-button {
    * visually hiding the placeholder does not work well with 'Find in page...'
    * as the placeholder text can get highlighted. */
   visibility: hidden;
+}
+
+:host([in-keyword-mode]) :is(input, textarea):focus::placeholder {
+  visibility: visible;
 }
 
 cr-searchbox-icon {

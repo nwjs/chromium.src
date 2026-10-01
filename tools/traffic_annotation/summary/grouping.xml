@@ -228,7 +228,6 @@ after discussions on the right group.
       <annotation id="bruschetta_installer_download"/>
       <annotation id="quick_start_session_auth_requester"/>
       <annotation id="network_diagnostics_routines"/>
-      <annotation id="trial_group_lookup"/>
       <annotation id="wallpaper_drivefs_delegate"/>
       <annotation id="network_diagnostics_stun"/>
       <annotation id="network_diagnostics_tls"/>
@@ -311,8 +310,6 @@ after discussions on the right group.
       <annotation id="help_me_read_request"/>
       <annotation id="chrome_data_sharing_preview"/>
       <annotation id="lens_overlay_save"/>
-      <annotation id="iwa_web_app_internals_update_manifest"/>
-      <annotation id="iwa_web_app_internals_web_bundle"/>
       <annotation id="iwa_dev_tools_installation_web_bundle"/>
       <annotation id="remoting_cloud_send_heartbeat"/>
       <annotation id="remoting_cloud_update_remote_access_host"/>
@@ -420,6 +417,8 @@ after discussions on the right group.
       <annotation id="device_authorization_key_fetch"/>
       <annotation id="site_token_fetcher"/>
       <annotation id="browser_actuator_transport"/>
+      <annotation id="iwa_dev_ui_web_bundle"/>
+      <annotation id="ttc_model_execution"/>
     </sender>
   </group>
   <group name="Admin Features">
@@ -455,7 +454,6 @@ after discussions on the right group.
       <annotation id="gcm_connection_factory"/>
       <annotation id="gcm_registration"/>
       <annotation id="gcm_unregistration"/>
-      <annotation id="per_user_topic_registration_request"/>
     </sender>
   </group>
   <group name="Child-protection and Safe Browsing Features">

@@ -51,6 +51,11 @@ void EyeDropperChooserImpl::Create(
     mojo::PendingReceiver<blink::mojom::EyeDropperChooser> receiver) {
   CHECK(render_frame_host);
 
+  // Frame must be active to use EyeDropperChooser.
+  if (!render_frame_host->IsActive()) {
+    return;
+  }
+
   // Renderer process should already check for user activation before sending
   // this request. Double check in case of compromised renderer and consume
   // the activation.
@@ -79,6 +84,12 @@ EyeDropperChooserImpl::~EyeDropperChooserImpl() {
 }
 
 void EyeDropperChooserImpl::Choose(ChooseCallback callback) {
+  // Frame must be active to use EyeDropperChooser.
+  if (!render_frame_host().IsActive()) {
+    std::move(callback).Run(/*success=*/false, /*color=*/0);
+    return;
+  }
+
   if (callback_ || eye_dropper_) {
     ReportBadMessageAndDeleteThis(
         "EyeDropperChooser::Choose() called while a selection was already in "

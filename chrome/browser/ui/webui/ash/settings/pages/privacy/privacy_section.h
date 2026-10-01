@@ -6,6 +6,7 @@
 #define CHROME_BROWSER_UI_WEBUI_ASH_SETTINGS_PAGES_PRIVACY_PRIVACY_SECTION_H_
 
 #include "base/memory/raw_ptr.h"
+#include "base/memory/raw_ref.h"
 #include "base/values.h"
 #include "chrome/browser/ash/auth/legacy_fingerprint_engine.h"
 #include "chrome/browser/ui/webui/ash/settings/pages/os_settings_section.h"
@@ -13,6 +14,7 @@
 #include "chromeos/ash/components/login/auth/auth_performer.h"
 #include "components/prefs/pref_change_registrar.h"
 
+class ApplicationLocaleStorage;
 class PrefService;
 
 namespace content {
@@ -27,7 +29,11 @@ class SearchTagRegistry;
 // search tags are added only for official Google Chrome OS builds.
 class PrivacySection : public OsSettingsSection {
  public:
-  PrivacySection(Profile* profile,
+  // `local_state` and `application_locale_storage` must be non-null and must
+  // outlive `this`.
+  PrivacySection(PrefService* local_state,
+                 const ApplicationLocaleStorage* application_locale_storage,
+                 Profile* profile,
                  SearchTagRegistry* search_tag_registry,
                  PrefService* pref_service);
   ~PrivacySection() override;
@@ -46,6 +52,8 @@ class PrivacySection : public OsSettingsSection {
  private:
   bool AreFingerprintSettingsAllowed();
   void UpdateRemoveFingerprintSearchTags();
+
+  const raw_ref<PrefService> local_state_;
 
   SyncSection sync_subsection_;
 

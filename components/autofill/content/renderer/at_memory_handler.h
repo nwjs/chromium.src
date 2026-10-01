@@ -20,21 +20,12 @@
 #include "components/autofill/core/common/unique_ids.h"
 #include "third_party/blink/public/web/web_range.h"
 
-namespace autofill {
-class FieldDataManager;
-}
-
 namespace blink {
 class WebElement;
 class WebKeyboardEvent;
 class WebNode;
 struct RendererPreferences;
 }  // namespace blink
-
-namespace ukm {
-class MojoUkmRecorder;
-class UkmRecorder;
-}  // namespace ukm
 
 namespace autofill {
 
@@ -43,8 +34,9 @@ class AutofillAgent;
 // Handles AtMemory-related interactions on the renderer side. It has two main
 // jobs:
 //
-// Firstly, it observes two possible AtMemory triggers: the trigger string and
-// the keyboard shortcut. Both are handled in DidReceiveKeyDown().
+// Firstly, it observes two possible AtMemory triggers: the double Ctrl shortcut
+// and the user-configured keyboard shortcut. Both are handled in
+// DidReceiveKeyDown().
 //
 // Secondly, it maintains state between the triggering of suggestions and
 // filling operations. Unlike classical Autofill, AtMemory needs such state
@@ -54,7 +46,7 @@ class AutofillAgent;
 // - has high unmasking latency, so the focus or caret may have moved by the
 //   time AtMemory fills an actual value into a field.
 //
-// Owned by AutofillAgent. AutofillAgent passes the relevant events to
+// Owned by AutofillAgent. AutofillAgent forwards the relevant events to
 // AtMemoryHandler.
 class AtMemoryHandler {
  public:
@@ -89,24 +81,15 @@ class AtMemoryHandler {
  private:
   struct AskForValuesToFillInfo {
     FieldRendererId field_id{};
-    bool caused_by_trigger_string = false;
     size_t value_hash = 0;
     blink::WebRange selection_range;
   };
 
   const blink::RendererPreferences* GetRendererPreferences() const;
 
-  const std::u16string& GetTriggerString() const;
-
-  // Returns true if the trigger string occurs before the caret in `field`.
-  bool HasTriggerStringNextToCaret(const blink::WebElement& field) const;
-
   bool DidReceiveKeyDownForTriggerShortcut(
       const blink::WebElement& field,
       const blink::WebKeyboardEvent& event);
-
-  void DidReceiveKeyDownForTriggerString(const blink::WebElement& field,
-                                         const blink::WebKeyboardEvent& event);
 
   void DidReceiveKeyDownForDoubleCtrl(const blink::WebElement& field,
                                       const blink::WebKeyboardEvent& event);
@@ -120,34 +103,9 @@ class AtMemoryHandler {
   std::optional<AskForValuesToFillInfo> ExtractAskForValuesToFill(
       const blink::WebElement& field);
 
-  // Records a UKM event if the user pressed "@" twice in quick succession.
-  void MaybeRecordAtAt(const blink::WebElement& field,
-                       const blink::WebKeyboardEvent& event,
-                       const FieldDataManager& field_data_manager,
-                       const CallTimerState& timer_state,
-                       form_util::ButtonTitlesCache* button_titles_cache);
-
-  ukm::UkmRecorder* GetUkmRecorder();
-
   const raw_ref<AutofillAgent> agent_;
   base::circular_deque<AskForValuesToFillInfo>
       last_at_memory_ask_for_values_to_fills_;
-
-  // State for observing coherent trigger string input.
-  struct {
-    // The longest suffix of coherent user input that is a prefix of the trigger
-    // string. These characters do not necessarily occur in the field value.
-    std::u16string seen_trigger;
-    // The time of the last keydown event. Only events that happen in a certain
-    // timespan are considered coherent.
-    base::TimeTicks last_time;
-    // The target of the last keydown event.
-    FieldRendererId last_field_id{};
-    // The caret offset before (!) the character occurs.
-    // Note that the character might not appear at all, e.g., in
-    // <input type=number>.
-    size_t last_offset = std::string::npos;
-  } trigger_state_;
 
   // State for observing the double Ctrl sequence.
   struct {
@@ -162,14 +120,6 @@ class AtMemoryHandler {
     // The target of the last keydown event.
     FieldRendererId last_field_id{};
   } ctrl_state_;
-
-  // State for the "@@" UKM metric.
-  struct {
-    base::TimeTicks time;
-    FieldRendererId field;
-  } last_at_key_press_;
-
-  std::unique_ptr<ukm::MojoUkmRecorder> ukm_recorder_;
 
   base::WeakPtrFactory<AtMemoryHandler> weak_ptr_factory_{this};
 };

@@ -11,6 +11,7 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/test/test_future.h"
+#include "base/threading/thread_restrictions.h"
 #include "chrome/browser/extensions/test_extension_system.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_window/public/browser_window_interface.h"
@@ -586,10 +587,6 @@ class AppHomePageHandlerUpdateTest : public AppHomePageHandlerTest {
     AppHomePageHandlerTest::SetUpOnMainThread();
     EXPECT_TRUE(embedded_https_test_server().Start());
   }
-
- private:
-  base::test::ScopedFeatureList feature_list_{
-      blink::features::kWebAppMigrationApi};
 };
 
 IN_PROC_BROWSER_TEST_F(AppHomePageHandlerUpdateTest, HandlePageCalls) {

@@ -22,6 +22,7 @@ import org.chromium.base.task.AsyncTask;
 import org.chromium.blink.mojom.DisplayMode;
 import org.chromium.build.annotations.NullMarked;
 import org.chromium.build.annotations.Nullable;
+import org.chromium.chrome.browser.browserservices.TwaValidator;
 import org.chromium.chrome.browser.browserservices.intents.BitmapHelper;
 import org.chromium.chrome.browser.browserservices.intents.BrowserServicesIntentDataProvider;
 import org.chromium.chrome.browser.browserservices.intents.WebappConstants;
@@ -31,11 +32,11 @@ import org.chromium.chrome.browser.webapps.WebappDataStorage;
 import org.chromium.chrome.browser.webapps.WebappIntentDataProviderFactory;
 import org.chromium.chrome.browser.webapps.WebappLauncherActivity;
 import org.chromium.chrome.browser.webapps.WebappRegistry;
+import org.chromium.components.embedder_support.util.Origin;
 import org.chromium.components.webapps.ShortcutSource;
 import org.chromium.components.webapps.WebappsUtils;
 
 import java.util.HashMap;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -309,8 +310,7 @@ public class ShortcutHelper {
     @VisibleForTesting
     public static boolean doesOriginContainAnyInstalledWebApk(
             @JniType("std::string") String origin) {
-        return WebappRegistry.getInstance()
-                .hasAtLeastOneWebApkForOrigin(origin.toLowerCase(Locale.getDefault()));
+        return WebappRegistry.getInstance().hasAtLeastOneWebApkForOrigin(origin);
     }
 
     /**
@@ -320,7 +320,13 @@ public class ShortcutHelper {
     @CalledByNative
     @VisibleForTesting
     public static boolean doesOriginContainAnyInstalledTwa(@JniType("std::string") String origin) {
-        return WebappRegistry.getInstance().isTwaInstalled(origin.toLowerCase(Locale.getDefault()));
+        Origin parsedOrigin = Origin.create(origin);
+        if (parsedOrigin == null) {
+            return false;
+        }
+        // Note: We should probably use TwaValidator#isTwaInstalledForOrigin(Origin), but
+        // TwaValidator#hasTwaBeenRunForOrigin(Origin) is used for legacy reasons.
+        return TwaValidator.hasTwaBeenRunForOrigin(parsedOrigin);
     }
 
     @CalledByNative

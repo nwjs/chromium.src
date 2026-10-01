@@ -77,12 +77,11 @@
 #if BUILDFLAG(IS_CHROMEOS)
 #include "ash/constants/ash_features.h"
 #include "chrome/browser/ash/apps/apk_web_app_service.h"
-#include "chrome/browser/ash/browser_delegate/browser_controller.h"
 #include "chrome/browser/ash/system_web_apps/color_helpers.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/web_applications/chromeos_web_app_experiments.h"
+#include "chromeos/ash/components/browser_delegate/browser_controller.h"
 #include "chromeos/ash/experiences/system_web_apps/types/system_web_app_delegate.h"
-#include "chromeos/constants/chromeos_features.h"
 #include "components/tabs/public/tab_context_menu_command.h"
 #include "ui/menus/simple_menu_model.h"
 #endif
@@ -277,9 +276,6 @@ bool WebAppBrowserController::HasPendingUpdate() const {
 }
 
 bool WebAppBrowserController::HasPendingMigration() const {
-  if (!base::FeatureList::IsEnabled(blink::features::kWebAppMigrationApi)) {
-    return false;
-  }
   if (!registrar().AppMatches(app_id(),
                               WebAppFilter::IsAppValidMigrationSource())) {
     return false;
@@ -319,11 +315,6 @@ void WebAppBrowserController::CreateMetadataAndTriggerAppUpdateDialog(
 void WebAppBrowserController::CreateMetadataAndTriggerAppMigrationDialog(
     bool is_forced_migration_on_startup,
     base::TimeTicks start_time) const {
-  // This can be reached with app migration disabled when syncing a forced
-  // migration.
-  if (!base::FeatureList::IsEnabled(blink::features::kWebAppMigrationApi)) {
-    return;
-  }
   auto pending_migration_info =
       registrar().GetAppById(app_id())->pending_migration_info();
   CHECK(pending_migration_info);
@@ -552,8 +543,7 @@ std::optional<SkColor> WebAppBrowserController::GetThemeColor() const {
   }
 
 #if BUILDFLAG(IS_CHROMEOS)
-  if (chromeos::features::IsUploadOfficeToCloudEnabled() &&
-      ChromeOsWebAppExperiments::IgnoreManifestColor(app_id())) {
+  if (ChromeOsWebAppExperiments::IgnoreManifestColor(app_id())) {
     return std::nullopt;
   }
 
@@ -581,8 +571,7 @@ std::optional<SkColor> WebAppBrowserController::GetBackgroundColor() const {
   std::optional<SkColor> manifest_color = GetResolvedManifestBackgroundColor();
 
 #if BUILDFLAG(IS_CHROMEOS)
-  if (chromeos::features::IsUploadOfficeToCloudEnabled() &&
-      ChromeOsWebAppExperiments::IgnoreManifestColor(app_id())) {
+  if (ChromeOsWebAppExperiments::IgnoreManifestColor(app_id())) {
     manifest_color = std::nullopt;
   }
 #endif  // BUILDFLAG(IS_CHROMEOS)

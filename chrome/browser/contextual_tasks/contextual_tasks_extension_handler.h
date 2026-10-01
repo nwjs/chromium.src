@@ -17,6 +17,7 @@
 #include "chrome/browser/contextual_tasks/aim_message_poster.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks.mojom.h"
 #include "chrome/browser/contextual_tasks/contextual_tasks_types.h"
+#include "chrome/browser/contextual_tasks/contextual_tasks_ui_service.h"
 #include "chrome/browser/ui/views/permissions/permission_prompt_observer.h"
 #include "components/omnibox/browser/searchbox.mojom.h"
 #include "content/public/browser/document_user_data.h"
@@ -55,9 +56,13 @@ class ContextualTasksExtensionHandler
       public composebox::mojom::PageHandler,
       public searchbox::mojom::PageHandler,
       public contextual_tasks::AimMessagePoster,
-      public PermissionPromptObserver::Observer {
+      public PermissionPromptObserver::Observer,
+      public contextual_tasks::ContextualTasksUiService::Observer {
  public:
   ~ContextualTasksExtensionHandler() override;
+
+  // contextual_tasks::ContextualTasksUiService::Observer:
+  void OnLensOverlayStateChanged(bool is_showing) override;
 
   // PermissionPromptObserver::Observer:
   void OnPermissionPromptChanged(bool is_showing,
@@ -80,6 +85,16 @@ class ContextualTasksExtensionHandler
   void SetTaskId(const base::Uuid& uuid) override;
   void OnWebviewMessage(const std::vector<uint8_t>& message) override;
   void GetHandshakeMessage(GetHandshakeMessageCallback callback) override;
+  void GetLensCropPreview(const std::string& data_id,
+                          GetLensCropPreviewCallback callback) override;
+
+  base::WeakPtr<contextual_search::InputStateModel>
+  GetOrCreateInputStateModelForTesting() {
+    return GetOrCreateInputStateModel();
+  }
+  void OnLensThumbnailCreatedForTesting(const std::string& thumbnail_uri) {
+    OnLensThumbnailCreated(thumbnail_uri);
+  }
 
   void BindComposeboxFactory(
       mojo::PendingReceiver<composebox::mojom::PageHandlerFactory> receiver);
@@ -135,7 +150,8 @@ class ContextualTasksExtensionHandler
                          const std::string& keyword,
                          searchbox::mojom::InputMethod input_method) override;
   void StopAutocomplete(bool clear_result) override;
-  void OpenAutocompleteMatch(uint8_t line,
+  void OpenAutocompleteMatch(uint32_t result_sequence_id,
+                             uint8_t line,
                              const GURL& url,
                              bool are_matches_showing,
                              uint8_t mouse_button,
@@ -202,8 +218,11 @@ class ContextualTasksExtensionHandler
                         StartScreenshareCallback callback) override;
   void CaptureRegionScreenshot(
       CaptureRegionScreenshotCallback callback) override;
-  void DismissFre() override {}
+  void DismissFre(searchbox::mojom::FreStage stage) override {}
+  void ShowHotkeyDropdown(const gfx::Rect& anchor_bounds,
+                          ShowHotkeyDropdownCallback callback) override;
   void OpenHotkeySettings() override {}
+  void OnEscapePressed() override {}
 
  private:
   friend class content::DocumentUserData<ContextualTasksExtensionHandler>;
@@ -238,6 +257,7 @@ class ContextualTasksExtensionHandler
   void OnInputStateChanged(const omnibox::InputState& state);
   base::WeakPtr<contextual_search::InputStateModel>
   GetOrCreateInputStateModel();
+  void OnLensThumbnailCreated(const std::string& thumbnail_uri);
 
   base::WeakPtr<contextual_search::InputStateModel> input_state_model_;
   base::CallbackListSubscription input_state_subscription_;
@@ -245,10 +265,15 @@ class ContextualTasksExtensionHandler
   base::ScopedObservation<PermissionPromptObserver,
                           PermissionPromptObserver::Observer>
       permission_prompt_observation_{this};
+  base::ScopedObservation<contextual_tasks::ContextualTasksUiService,
+                          contextual_tasks::ContextualTasksUiService::Observer>
+      ui_service_observation_{this};
 
   std::optional<base::Uuid> task_id_;
   omnibox::ToolMode active_tool_ = omnibox::TOOL_MODE_UNSPECIFIED;
   omnibox::ModelMode active_model_ = omnibox::MODEL_MODE_UNSPECIFIED;
+
+  base::WeakPtrFactory<ContextualTasksExtensionHandler> weak_ptr_factory_{this};
 };
 
 #endif  // CHROME_BROWSER_CONTEXTUAL_TASKS_CONTEXTUAL_TASKS_EXTENSION_HANDLER_H_

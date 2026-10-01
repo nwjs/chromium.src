@@ -128,6 +128,8 @@ extern const base::FeatureParam<bool>
     kDevToolsConsoleInsightsTeasersAllowWithoutGpu;
 
 BASE_DECLARE_FEATURE(kDevToolsAiV2Architecture);
+extern const base::FeatureParam<DevToolsFreestylerUserTier>
+    kDevToolsAiV2ArchitectureUserTier;
 
 BASE_DECLARE_FEATURE(kDevToolsComments);
 
@@ -150,6 +152,8 @@ BASE_DECLARE_FEATURE(kDevToolsAriaLiveRecording);
 BASE_DECLARE_FEATURE(kDevToolsMobileSafeAreaEmulation);
 
 BASE_DECLARE_FEATURE(kDevToolsTargetLevelEvaluation);
+
+BASE_DECLARE_FEATURE(kDevToolsNetworkBackendLinking);
 }  // namespace features
 
 #endif  // CHROME_BROWSER_DEVTOOLS_FEATURES_H_

@@ -69,10 +69,9 @@ class LensWebsiteSearchTaskTabHelper
     if (dispatcher_) {
       id<LensOverlayCommands> lensOverlayHandler =
           HandlerForProtocol(dispatcher_, LensOverlayCommands);
-      [lensOverlayHandler
-          createAndShowLensUI:YES
-                   entrypoint:LensOverlayEntrypoint::kLocationBar
-                   completion:nil];
+      [lensOverlayHandler createAndShowLensUI:YES
+                                   entrypoint:LensOverlayEntrypoint::kLevelUp
+                                   completion:nil];
     }
   }
 
@@ -105,7 +104,9 @@ class LensWebsiteSearchTaskInfo : public TaskInfo {
   LevelUpTaskCategory GetCategory() const override {
     return LevelUpTaskCategory::kSearch;
   }
-  std::string GetTriggerUserAction() const override { return ""; }
+  std::string GetTriggerUserAction() const override {
+    return "Mobile.LensOverlay.WebsiteSearch.Performed";
+  }
   std::string GetCompletionSnackbarMessage() const override {
     return l10n_util::GetStringUTF8(
         IDS_IOS_LEVEL_UP_TASK_COMPLETED_LENS_WEBSITE_SEARCH);

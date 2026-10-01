@@ -23,6 +23,7 @@
 #include "ash/webui/common/trusted_types_util.h"
 #include "ash/webui/personalization_app/search/search.mojom.h"
 #include "ash/webui/personalization_app/search/search_handler.h"
+#include "base/check_deref.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/strings/string_number_conversions.h"
 #include "build/branding_buildflags.h"
@@ -32,7 +33,6 @@
 #include "chrome/browser/ash/system_web_apps/apps/personalization_app/personalization_app_manager.h"
 #include "chrome/browser/ash/system_web_apps/apps/personalization_app/personalization_app_manager_factory.h"
 #include "chrome/browser/ash/system_web_apps/apps/personalization_app/personalization_app_utils.h"
-#include "chrome/browser/browser_process.h"
 #include "chrome/browser/nearby_sharing/common/nearby_share_features.h"
 #include "chrome/browser/nearby_sharing/contacts/nearby_share_contact_manager.h"
 #include "chrome/browser/nearby_sharing/nearby_receive_manager.h"
@@ -54,9 +54,11 @@
 #include "chrome/browser/ui/webui/ash/settings/services/metrics/settings_user_action_tracker.h"
 #include "chrome/browser/ui/webui/ash/settings/services/settings_manager/os_settings_manager.h"
 #include "chrome/browser/ui/webui/ash/settings/services/settings_manager/os_settings_manager_factory.h"
+#include "chrome/browser/ui/webui/ash/user_image/user_image_source.h"
 #include "chrome/browser/ui/webui/managed_ui_handler.h"
 #include "chrome/browser/ui/webui/sanitized_image/sanitized_image_source.h"
 #include "chrome/browser/ui/webui/theme_source.h"
+#include "chrome/common/buildflags.h"
 #include "chrome/grit/os_settings_resources.h"
 #include "chrome/grit/os_settings_resources_map.h"
 #include "chromeos/ash/services/auth_factor_config/in_process_instances.h"
@@ -71,6 +73,7 @@
 #include "content/public/browser/url_data_source.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_ui_data_source.h"
+#include "content/public/common/url_constants.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
 #include "mojo/public/cpp/bindings/self_owned_receiver.h"
 #include "ui/accessibility/accessibility_features.h"
@@ -100,63 +103,21 @@ class AppManagementDelegate : public AppManagementPageHandlerBase::Delegate {
   }
 };
 
-// Expects a path in the form of "jp-export-dictionary/123" where "123" is the
-// dictionary id.
-std::optional<uint64_t> ExtractJapaneseDictionaryExportIdParam(
-    const std::string& path) {
-  static constexpr std::string_view kJapaneseExportDictionaryPrefix =
-      "jp-export-dictionary/";
-
-  if (!path.starts_with(kJapaneseExportDictionaryPrefix)) {
-    return std::nullopt;
-  }
-
-  std::string_view dict_id_str = path;
-  dict_id_str.remove_prefix(kJapaneseExportDictionaryPrefix.size());
-
-  uint64_t dict_id;
-  if (!base::StringToUint64(dict_id_str, &dict_id)) {
-    return std::nullopt;
-  }
-  return dict_id;
-}
-
-// This function must be a non-member function because WebUIDataSource's
-// lifetime is independent of OSSettingsUI's lifetime. In some cases the
-// WebUIDataSource outlives OSSettingsUI and, in other cases, OSSettingsUI
-// outlives the WebUIDataSource.
-void OnHandleRequest(const std::string& path,
-                     content::WebUIDataSource::GotDataCallback callback) {
-  std::optional<uint64_t> dict_id =
-      ExtractJapaneseDictionaryExportIdParam(path);
-  // Should not expect this to be called if the export request was not valid.
-  // Requests should have been filtered before.
-  CHECK(dict_id.has_value());
-
-  mojo::Remote<ash::ime::mojom::InputMethodUserDataService>
-      ime_user_data_service;
-  auto* ime_user_data_service_ptr = &ime_user_data_service;
-
-  ash::input_method::InputMethodManager::Get()->BindInputMethodUserDataService(
-      ime_user_data_service.BindNewPipeAndPassReceiver());
-
-  // Pass ime_user_data_service to the callback so that the Mojo connection does
-  // not get closed when the OnHandleRequest finishes.
-  ime_user_data_service_ptr->get()->ExportJapaneseDictionary(
-      *dict_id,
-      base::BindOnce(
-          [](mojo::Remote<ash::ime::mojom::InputMethodUserDataService> service,
-             content::WebUIDataSource::GotDataCallback callback,
-             const std::string& result) {
-            std::move(callback).Run(
-                base::MakeRefCounted<base::RefCountedString>(result));
-          },
-          std::move(ime_user_data_service), std::move(callback)));
-}
-
 }  // namespace
 
 namespace ash::settings {
+
+OSSettingsUIConfig::OSSettingsUIConfig(PrefService* local_state)
+    : WebUIConfig(content::kChromeUIScheme, ash::kChromeUIOSSettingsHost),
+      local_state_(CHECK_DEREF(local_state)) {}
+
+OSSettingsUIConfig::~OSSettingsUIConfig() = default;
+
+std::unique_ptr<content::WebUIController>
+OSSettingsUIConfig::CreateWebUIController(content::WebUI* web_ui,
+                                          const GURL& url) {
+  return std::make_unique<OSSettingsUI>(&local_state_.get(), web_ui);
+}
 
 // static
 void OSSettingsUI::RegisterProfilePrefs(
@@ -164,8 +125,9 @@ void OSSettingsUI::RegisterProfilePrefs(
   registry->RegisterBooleanPref(ash::prefs::kSyncOsWallpaper, false);
 }
 
-OSSettingsUI::OSSettingsUI(content::WebUI* web_ui)
+OSSettingsUI::OSSettingsUI(PrefService* local_state, content::WebUI* web_ui)
     : ui::MojoWebUIController(web_ui, /*enable_chrome_send=*/true),
+      local_state_(CHECK_DEREF(local_state)),
       time_when_opened_(base::TimeTicks::Now()),
       webui_load_timer_(web_ui->GetWebContents(),
                         "ChromeOS.Settings.LoadDocumentTime",
@@ -175,14 +137,13 @@ OSSettingsUI::OSSettingsUI(content::WebUI* web_ui)
       content::WebUIDataSource::CreateAndAdd(profile,
                                              ash::kChromeUIOSSettingsHost);
   content::URLDataSource::Add(profile, std::make_unique<ThemeSource>(profile));
-  html_source->SetRequestFilter(
-      base::BindRepeating([](const std::string& path) {
-        return ExtractJapaneseDictionaryExportIdParam(path).has_value();
-      }),
-      base::BindRepeating(OnHandleRequest));
-
   content::URLDataSource::Add(profile,
                               std::make_unique<SanitizedImageSource>(profile));
+
+  // Set up the chrome://userimage/ source for <settings-user-list>.
+  content::URLDataSource::Add(
+      profile, std::make_unique<ash::UserImageSource>(&local_state_.get()));
+
   OsSettingsManager* manager = OsSettingsManagerFactory::GetForProfile(profile);
   manager->AddHandlers(web_ui);
   manager->AddLoadTimeData(html_source);
@@ -432,14 +393,14 @@ void OSSettingsUI::BindInterface(
     mojo::PendingReceiver<auth::mojom::AuthFactorConfig> receiver) {
   auth::BindToAuthFactorConfig(std::move(receiver),
                                quick_unlock::QuickUnlockFactory::GetDelegate(),
-                               g_browser_process->local_state());
+                               &local_state_.get());
 }
 
 void OSSettingsUI::BindInterface(
     mojo::PendingReceiver<auth::mojom::RecoveryFactorEditor> receiver) {
   auth::BindToRecoveryFactorEditor(
       std::move(receiver), quick_unlock::QuickUnlockFactory::GetDelegate(),
-      g_browser_process->local_state());
+      &local_state_.get());
 }
 
 void OSSettingsUI::BindInterface(
@@ -448,14 +409,14 @@ void OSSettingsUI::BindInterface(
   CHECK(pin_backend);
   auth::BindToPinFactorEditor(std::move(receiver),
                               quick_unlock::QuickUnlockFactory::GetDelegate(),
-                              g_browser_process->local_state(), *pin_backend);
+                              &local_state_.get(), *pin_backend);
 }
 
 void OSSettingsUI::BindInterface(
     mojo::PendingReceiver<auth::mojom::PasswordFactorEditor> receiver) {
   auth::BindToPasswordFactorEditor(
       std::move(receiver), quick_unlock::QuickUnlockFactory::GetDelegate(),
-      g_browser_process->local_state());
+      &local_state_.get());
 }
 
 void OSSettingsUI::BindInterface(

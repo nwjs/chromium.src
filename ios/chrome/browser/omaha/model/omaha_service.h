@@ -26,32 +26,14 @@
 #include "ios/chrome/browser/upgrade/model/upgrade_recommended_details.h"
 
 class OmahaService;
+enum class OmahaPingEvent;
 
 namespace network {
 class SharedURLLoaderFactory;
-class PendingSharedURLLoaderFactory;
 class SimpleURLLoader;
 }  // namespace network
 
 struct UpgradeRecommendedDetails;
-
-// All `OmahaServiceObserver` events will be evaluated on the same sequence the
-// `OmahaService` is created on.
-class OmahaServiceObserver : public base::CheckedObserver {
- public:
-  // Called when the Omaha service has successfully started.
-  virtual void OnServiceStarted(OmahaService* omaha_service) {}
-
-  // Called whenever the Omaha Service determines a change in
-  // `UpgradeRecommendedDetails`.
-  virtual void UpgradeRecommendedDetailsChanged(
-      UpgradeRecommendedDetails details) {}
-
-  // Notifies the observer that `omaha_service` has begun shutting down.
-  // Observers should remove themselves from the service via
-  // `omaha_service->RemoveObserver(...)` when this happens.
-  virtual void ServiceWillShutdown(OmahaService* omaha_service) {}
-};
 
 // This service handles the communication with the Omaha server. It also
 // handles all the scheduling necessary to contact the server regularly.
@@ -69,9 +51,9 @@ class OmahaService {
   // Starts the service. Also set the `URLLoaderFactory` necessary to access the
   // Omaha server. This method should only be called once.  Does nothing if
   // Omaha should not be enabled for this build variant.
-  static void Start(std::unique_ptr<network::PendingSharedURLLoaderFactory>
-                        pending_url_loader_factory,
-                    const UpgradeRecommendedCallback& callback);
+  static void Start(
+      scoped_refptr<network::SharedURLLoaderFactory> shared_url_loader_factory,
+      const UpgradeRecommendedCallback& callback);
 
   // Returns `true` if the Omaha service is available and has been
   // successfully started for this build variant. Returns `false` if
@@ -89,12 +71,6 @@ class OmahaService {
   // Posts to CheckNowOnIOThread on IO thread to perform an immediate check
   // if the device is up to date.
   static void CheckNow(OneOffCallback callback);
-
-  // Adds/removes an observer to be notified of `OmahaServiceObserver` events.
-  static void AddObserver(OmahaServiceObserver* observer);
-  static void RemoveObserver(OmahaServiceObserver* observer);
-  void RegisterObserver(OmahaServiceObserver* observer);
-  void UnregisterObserver(OmahaServiceObserver* observer);
 
   // Returns debug information about the omaha service.
   static void GetDebugInformation(
@@ -133,17 +109,14 @@ class OmahaService {
   // For the singleton:
   friend class base::NoDestructor<OmahaService>;
 
-  // Enum for the `GetPingContent` and `GetNextPingRequestId` method.
-  enum PingContent {
-    INSTALL_EVENT,
-    USAGE_PING,
-  };
+  // Callback to create a SharedURLLoaderFactory.
+  using PendingSharedURLLoaderFactoryCallback =
+      base::OnceCallback<scoped_refptr<network::SharedURLLoaderFactory>()>;
 
-  // Starts the service. Called on startup. `task_runner` ensures responses from
-  // async Omaha requests are posted on the same sequence that `OmahaService`
-  // was created on.
+  // Starts the service.
   void StartInternal(
-      const scoped_refptr<base::SequencedTaskRunner> task_runner);
+      PendingSharedURLLoaderFactoryCallback pending_url_loader_factory,
+      const UpgradeRecommendedCallback& callback);
 
   // Resyncs the timer if device sleep has caused it to get out of
   // sync with `next_tries_time_`.
@@ -168,14 +141,6 @@ class OmahaService {
   // Returns the time to wait before next attempt.
   static base::TimeDelta GetBackOff(uint8_t number_of_tries);
 
-  void set_upgrade_recommended_callback(
-      const UpgradeRecommendedCallback& callback) {
-    upgrade_recommended_callback_ = callback;
-  }
-
-  // Notifies all observers of the latest `details`.
-  void NotifyObservers(UpgradeRecommendedDetails details);
-
   // Sends a ping to the Omaha server.
   void SendPing();
 
@@ -194,7 +159,7 @@ class OmahaService {
                              const std::string& versionName,
                              const std::string& channelName,
                              base::Time installationTime,
-                             PingContent pingContent);
+                             OmahaPingEvent pingContent);
 
   // Returns the xml representation of the ping message to send to the Omaha
   // server. Use the current state of the service to compute the right message.
@@ -219,7 +184,7 @@ class OmahaService {
   // `send_install_event` must be true if the next ping is a install/update
   // event, in that case, the identifier will be stored so that it can be
   // reused until the ping is successful.
-  std::string GetNextPingRequestId(PingContent ping_content);
+  std::string GetNextPingRequestId(OmahaPingEvent ping_content);
 
   // Stores the given request id to be reused on install/update retry.
   void SetInstallRetryRequestId(const std::string& request_id);
@@ -228,18 +193,13 @@ class OmahaService {
   // called after a successful installation/update ping.
   void ClearInstallRetryRequestId();
 
-  // Initialize the URLLoaderFactory instance (mostly needed for tests).
-  void InitializeURLLoaderFactory(
-      scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory);
-
   // Clears the all persistent state. Should only be used for testing.
   static void ClearPersistentStateForTests();
 
   // To communicate with the Omaha server.
   std::unique_ptr<network::SimpleURLLoader> url_loader_;
-  std::unique_ptr<network::PendingSharedURLLoaderFactory>
-      pending_url_loader_factory_;
   scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory_;
+  PendingSharedURLLoaderFactoryCallback pending_url_loader_factory_;
 
   // Whether the service has been started.
   bool started_;
@@ -291,17 +251,6 @@ class OmahaService {
 
   // Stores the callback for one off Omaha checks.
   OneOffCallback one_off_check_callback_;
-
-  // Observers to listen to `OmahaService` changes.
-  base::ObserverList<OmahaServiceObserver, true> observers_;
-
-  // Validates `OmahaServiceObserver` events are evaluated on the same sequence
-  // that `OmahaService` was created on.
-  SEQUENCE_CHECKER(sequence_checker_);
-
-  // Ensures responses from async Omaha requests are posted on the same sequence
-  // that `OmahaService` was created on.
-  scoped_refptr<base::SequencedTaskRunner> task_runner_;
 };
 
 #endif  // IOS_CHROME_BROWSER_OMAHA_MODEL_OMAHA_SERVICE_H_

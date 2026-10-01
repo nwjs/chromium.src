@@ -103,7 +103,6 @@ base::TimeDelta GetDefaultLocalChangeNudgeDelay(DataType data_type) {
     case SHARED_TAB_GROUP_DATA:
     case WIFI_CONFIGURATIONS:
     case WEB_APPS:
-    case WEB_APKS:
     case OS_PREFERENCES:
     case OS_PRIORITY_PREFERENCES:
     case WORKSPACE_DESK:
@@ -121,6 +120,7 @@ base::TimeDelta GetDefaultLocalChangeNudgeDelay(DataType data_type) {
     case THEMES_ANDROID:
     case NOTEBOOK:
     case JOURNEY:
+    case AUTOFILL_ENTITY_SUPPRESSION:
       return kMediumLocalChangeNudgeDelay;
     case UNSPECIFIED:
       NOTREACHED();
@@ -177,7 +177,6 @@ bool CanGetCommitsFromExtensions(DataType data_type) {
     case SECURITY_EVENTS:
     case WIFI_CONFIGURATIONS:
     case WEB_APPS:
-    case WEB_APKS:
     case OS_PREFERENCES:
     case OS_PRIORITY_PREFERENCES:
     case WORKSPACE_DESK:
@@ -201,6 +200,7 @@ bool CanGetCommitsFromExtensions(DataType data_type) {
     case THEMES_ANDROID:
     case NOTEBOOK:
     case JOURNEY:
+    case AUTOFILL_ENTITY_SUPPRESSION:
       return false;
     case UNSPECIFIED:
       NOTREACHED();

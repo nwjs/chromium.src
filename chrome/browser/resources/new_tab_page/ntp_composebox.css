@@ -14,6 +14,16 @@
 :host {
   --composebox-cancel-button-top: var(--cr-composebox-cancel-button-top, 10px);
   --contextual-entrypoint-and-carousel-context-menu-container-padding-inline-start: 0px;
+  --cr-composebox-grid-min-item-width: 110px;
+  --cr-composebox-grid-padding-bottom: 6px;
+  --cr-composebox-grid-row-gap: 16px;
+  --cr-composebox-header-color: var(--color-composebox-font-light);
+  --cr-composebox-header-font-size: 14px;
+  --cr-composebox-header-font-weight: 500;
+  --cr-composebox-header-line-height: 20px;
+  --cr-composebox-image-card-aspect-ratio: 5 / 3;
+  --cr-composebox-image-card-border-radius: 24px;
+  --cr-composebox-image-card-text-color: var(--color-composebox-font-light);
 
   --text-input-top-spacing: 10px;
   --text-input-inline-end-spacing: 80px;
@@ -52,9 +62,24 @@
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
+  min-height: 0;
   padding-bottom: 0;
   overflow: hidden;
   width: 100%;
+}
+
+#composeboxInput {
+  flex-shrink: 0;
+}
+
+#context {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+#fileInputs {
+  flex-shrink: 0;
 }
 
 cr-composebox-input::part(cancel),
@@ -130,7 +155,8 @@ cr-composebox-submit::part(submit) {
 
 :host([show-file-carousel]) #carouselContainer,
 :host([submit-enabled]) #carouselContainer {
-  --contextual-entrypoint-and-carousel-context-menu-container-padding-inline-start: 8px;
+  --contextual-entrypoint-and-carousel-context-menu-container-padding-inline-start:
+      8px;
   padding-block-end: var(--ntp-composebox-carousel-padding-block-end);
 }
 
@@ -162,6 +188,26 @@ cr-composebox-submit::part(submit) {
 :host([searchbox-next-enabled]) #voiceToolChipsContainer {
   padding-block-end: 0;
   padding-block-start: 6px;
+}
+
+ /* When there are tabs, both of these variables
+  * are used to control the padding of the plus button.
+  */
+:host([context-management-in-composebox-enabled]) #inputContainer:has(.has-tabs)
+    .carousel-container-inner {
+  /* Modifies padding in 'contextMenuContainer' (composebox shared styles),
+   * which wraps the 'cr-composebox-contextual-entrypoint-and-menu'.
+   */
+  --contextual-entrypoint-and-carousel-context-menu-container-padding-inline-start:
+      12px;
+  /* Modifies padding in 'cr-composebox-contextual-entrypoint-and-menu',
+   * which wraps the plus button. This is the only variable for margin
+   * for the plus button when there are no tabs. Set it to 0 to keep
+   * the above variable as the sole source of truth when there are
+   * tabs.
+   */
+  --contextual-entrypoint-and-carousel-context-entrypoint-padding-inline-start:
+      0px;
 }
 
 :host([submit-enabled][searchbox-next-enabled]) cr-composebox-submit::part(submit) {
@@ -199,6 +245,10 @@ cr-composebox-submit::part(submit) {
 
 :host-context([energy-effect-enabled_]:not([energy-effect-variant_='pre-energy-effect-with-border'])) {
   --color-composebox-input-plate-outline: #DADCE0;
+}
+
+:host([energy-effect-animation-enabled]) {
+  --border-animation-delay: 150ms;
 }
 
 :host-context([energy-effect-enabled_]) search-animated-glow {

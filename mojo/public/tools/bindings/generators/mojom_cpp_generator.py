@@ -289,7 +289,6 @@ class Generator(generator.Generator):
         or mojom.IsDoubleKind(kind)
         or mojom.IsFloatKind(kind)
         or mojom.IsAnyHandleKind(kind)
-        or mojom.IsInterfaceKind(kind)
         or mojom.IsAssociatedKind(kind)
         or mojom.IsPendingRemoteKind(kind)
         or mojom.IsPendingReceiverKind(kind)
@@ -480,6 +479,27 @@ class Generator(generator.Generator):
 
     return modules
 
+  def _UsesHashMap(self):
+    def CheckKind(kind):
+      if mojom.IsHashMapKind(kind):
+        return True
+      if mojom.IsArrayKind(kind):
+        return CheckKind(kind.kind)
+      if mojom.IsMapKind(kind):
+        return CheckKind(kind.key_kind) or CheckKind(kind.value_kind)
+      return False
+
+    for kind in self.module.structs + self.module.unions:
+      for field in kind.fields:
+        if CheckKind(field.kind):
+          return True
+    for interface in self.module.interfaces:
+      for method in interface.methods:
+        for param in method.parameters + (method.response_parameters or []):
+          if CheckKind(param.kind):
+            return True
+    return False
+
   def _GetJinjaExports(self):
     all_enums = list(self.module.enums)
     for struct in self.module.structs:
@@ -519,6 +539,7 @@ class Generator(generator.Generator):
       "uses_message_size_estimator": self._UsesMessageSizeEstimator(),
       "uses_native_types": self._ReferencesAnyNativeType(),
       "uses_stdint_types": self._UsesStdIntTypes(),
+      "uses_hash_map": self._UsesHashMap(),
       "variant": self.variant,
       "send_validation_modules": self._GetSendValidationModules(),
     }
@@ -578,7 +599,6 @@ class Generator(generator.Generator):
       "is_primary_nullable_value_kind_packed_field": pack.IsPrimaryNullableValueKindPackedField,
       "is_full_header_required_for_import": self._IsFullHeaderRequiredForImport,
       "is_integral_kind": mojom.IsIntegralKind,
-      "is_interface_kind": mojom.IsInterfaceKind,
       "is_receiver_kind": self._IsReceiverKind,
       "is_native_only_kind": IsNativeOnlyKind,
       "is_any_handle_kind": mojom.IsAnyHandleKind,
@@ -587,6 +607,7 @@ class Generator(generator.Generator):
       "is_associated_kind": mojom.IsAssociatedKind,
       "is_float_kind": mojom.IsFloatKind,
       "is_feature_kind": mojom.IsFeatureKind,
+      "is_hash_map_kind": mojom.IsHashMapKind,
       "is_hashable": self._IsHashableKind,
       "is_map_kind": mojom.IsMapKind,
       "is_non_const_ref_kind": self._IsNonConstRefKind,
@@ -944,12 +965,20 @@ class Generator(generator.Generator):
       return pattern % self._GetCppWrapperType(
         kind.kind, add_same_module_namespaces=add_same_module_namespaces
       )
-    if mojom.IsMapKind(kind):
+    if mojom.IsHashMapKind(kind):
+      pattern = (
+        "::blink::HashMap<%s, %s>"
+        if self.for_blink
+        else "absl::flat_hash_map<%s, %s>"
+      )
+    elif mojom.IsMapKind(kind):
+      # TODO(crbug.com/527629109): Maybe fail if `for_blink`?
       pattern = (
         "::blink::HashMap<%s, %s>"
         if self.for_blink
         else "base::flat_map<%s, %s>"
       )
+    if mojom.IsMapKind(kind):
       if mojom.IsNullableKind(kind):
         pattern = _AddOptional(pattern)
       return pattern % (
@@ -959,10 +988,6 @@ class Generator(generator.Generator):
         self._GetCppWrapperType(
           kind.value_kind, add_same_module_namespaces=add_same_module_namespaces
         ),
-      )
-    if mojom.IsInterfaceKind(kind):
-      return "%sPtrInfo" % self._GetNameForKind(
-        kind, add_same_module_namespaces=add_same_module_namespaces
       )
     if mojom.IsPendingRemoteKind(kind):
       return "::mojo::PendingRemote<%s>" % self._GetNameForKind(
@@ -1136,10 +1161,6 @@ class Generator(generator.Generator):
 
   def _GetCppWrapperCallType(self, kind, add_same_module_namespaces=False):
     # TODO: Remove this once interfaces are always passed as PtrInfo.
-    if mojom.IsInterfaceKind(kind):
-      return "%sPtr" % self._GetNameForKind(
-        kind, add_same_module_namespaces=add_same_module_namespaces
-      )
     return self._GetCppWrapperType(
       kind, add_same_module_namespaces=add_same_module_namespaces
     )
@@ -1150,10 +1171,6 @@ class Generator(generator.Generator):
     # TODO: Remove all usage of this method in favor of
     # _GetCppWrapperParamTypeNew. This requires all generated code which passes
     # interface handles to use PtrInfo instead of Ptr.
-    if mojom.IsInterfaceKind(kind):
-      return "%sPtr" % self._GetNameForKind(
-        kind, add_same_module_namespaces=add_same_module_namespaces
-      )
     cpp_wrapper_type = self._GetCppWrapperType(
       kind, add_same_module_namespaces=add_same_module_namespaces
     )
@@ -1205,7 +1222,7 @@ class Generator(generator.Generator):
         self._GetCppFieldType(kind.key_kind),
         _GetTypeForElement(kind.value_kind),
       )
-    if mojom.IsInterfaceKind(kind) or mojom.IsPendingRemoteKind(kind):
+    if mojom.IsPendingRemoteKind(kind):
       return "mojo::internal::Interface_Data"
     if mojom.IsPendingReceiverKind(kind):
       return "mojo::internal::Handle_Data"
@@ -1419,8 +1436,6 @@ class Generator(generator.Generator):
       )
     if mojom.IsStringKind(kind):
       return "mojo::StringDataView"
-    if mojom.IsInterfaceKind(kind):
-      return "%sPtrDataView" % _GetName(kind)
     if mojom.IsPendingRemoteKind(kind):
       return "mojo::InterfacePtrDataView<%sInterfaceBase>" % _GetName(kind.kind)
     if mojom.IsPendingReceiverKind(kind):

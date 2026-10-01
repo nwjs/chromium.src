@@ -63,6 +63,7 @@
 #include "mojo/public/cpp/platform/platform_channel.h"
 #include "ui/accelerated_widget_mac/window_resize_helper_mac.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/display/screen.h"
 #include "ui/gfx/image/image.h"
 
@@ -299,7 +300,7 @@ void AppShimController::PreInitFeatureState(
       std::move(feature_list),
       {"AppShimLaunchChromeSilently", "AppShimNotificationAttribution",
        "CacheGurlSchemeIsHttpOrHttpsResult", "DcheckIsFatal",
-       "DisallowSpaceCharacterInURLHostParsing",
+       "DisallowSpaceCharacterInURLHostParsing", "LRUCacheMemoryConsumer",
        "NonSpecialLeadingSlashHandling", "PreservePercentEncodedDotInPath",
        "UseIDNAContextJRules", "MojoBindingsInlineSLS", "MojoIpcz",
        "MojoIpczMemV2", "MojoFixGeometricBufferGrowth",

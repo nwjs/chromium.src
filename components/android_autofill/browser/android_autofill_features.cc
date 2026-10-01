@@ -6,6 +6,8 @@
 
 #include <jni.h>
 
+#include <array>
+
 #include "base/compiler_specific.h"
 #include "base/feature_list.h"
 
@@ -16,11 +18,11 @@ namespace autofill::features {
 
 namespace {
 
-const base::Feature* const kFeaturesExposedToJava[] = {
+constexpr std::array kFeaturesExposedToJava = {
     &kAndroidAutofillLazyFrameworkWrapper,
     &kAndroidAutofillImprovedVisibilityDetection,
     &kAndroidAutofillFieldsUpdatedOnSelect,
-    &kAndroidAutofillSupportForHttpAuthOrigin};
+};
 
 }  // namespace
 
@@ -43,21 +45,13 @@ BASE_FEATURE(kAndroidAutofillUpdateContextForWebContents,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
 // If enabled, fields are updated whenever a user interacts with a <select>.
-// TODO(crbug.com/502346855): Remove in M152 or later.
+// TODO(crbug.com/502346855): Remove in M157 or later.
 BASE_FEATURE(kAndroidAutofillFieldsUpdatedOnSelect,
              base::FEATURE_ENABLED_BY_DEFAULT);
 
-// LINT.IfChange
-// If enabled, the origin of the challenger is passed to the HttpAuth dialog for
-// autofill purposes. Remove in or after M153.
-BASE_FEATURE(kAndroidAutofillSupportForHttpAuthOrigin,
-             base::FEATURE_ENABLED_BY_DEFAULT);
-// LINT.ThenChange(//chrome/android/DEPS)
-
 static int64_t JNI_AndroidAutofillFeatures_GetFeature(JNIEnv* env,
                                                       int32_t ordinal) {
-  return reinterpret_cast<int64_t>(
-      UNSAFE_TODO(kFeaturesExposedToJava[ordinal]));
+  return reinterpret_cast<int64_t>(kFeaturesExposedToJava[ordinal]);
 }
 
 }  // namespace autofill::features

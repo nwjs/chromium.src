@@ -32,7 +32,6 @@
 #import "ios/chrome/browser/sharing/ui_bundled/activity_services/activity_type_util.h"
 #import "ios/chrome/browser/sharing/ui_bundled/activity_services/data/chrome_activity_image_source.h"
 #import "ios/chrome/browser/sharing/ui_bundled/activity_services/data/chrome_activity_item_source.h"
-#import "ios/chrome/browser/sharing/ui_bundled/activity_services/data/chrome_activity_item_thumbnail_generator.h"
 #import "ios/chrome/browser/sharing/ui_bundled/activity_services/data/chrome_activity_text_source.h"
 #import "ios/chrome/browser/sharing/ui_bundled/activity_services/data/chrome_activity_url_source.h"
 #import "ios/chrome/browser/sharing/ui_bundled/activity_services/data/share_image_data.h"
@@ -42,6 +41,14 @@
 #import "testing/gtest_mac.h"
 #import "testing/platform_test.h"
 #import "third_party/ocmock/OCMock/OCMock.h"
+
+namespace {
+
+constexpr char kPhoneGuid[] = "e2b3c4d5-6f7a-4b8c-9d0e-1f2a3b4c5d6e";
+constexpr char kTabletGuid[] = "b8451b6e-41d1-419b-a320-22c67420e7df";
+constexpr char kDesktopGuid[] = "a1b2c3d4-e5f6-4a1b-8c2d-3e4f5a6b7c8d";
+
+}  // namespace
 
 class ActivityServiceMediatorTest : public PlatformTest {
  protected:
@@ -61,8 +68,6 @@ class ActivityServiceMediatorTest : public PlatformTest {
     mocked_help_handler_ = OCMStrictProtocolMock(@protocol(HelpCommands));
     mocked_qr_generation_handler_ =
         OCMStrictProtocolMock(@protocol(QRGenerationCommands));
-    mocked_thumbnail_generator_ =
-        OCMStrictClassMock([ChromeActivityItemThumbnailGenerator class]);
 
     mediator_ = [[ActivityServiceMediator alloc]
           initWithBrowserHandler:mocked_browser_handler_
@@ -100,7 +105,6 @@ class ActivityServiceMediatorTest : public PlatformTest {
   id mocked_bookmarks_handler_;
   id mocked_help_handler_;
   id mocked_qr_generation_handler_;
-  id mocked_thumbnail_generator_;
   std::unique_ptr<TestingPrefServiceSimple> pref_service_;
   base::HistogramTester histograms_tester_;
 
@@ -120,7 +124,7 @@ TEST_F(ActivityServiceMediatorTest, ActivityItemsForMulitpleDataItems_Success) {
                            isPageSearchable:YES
                            canSendTabToSelf:YES
                                   userAgent:web::UserAgentType::MOBILE
-                         thumbnailGenerator:mocked_thumbnail_generator_
+                                  thumbnail:nil
                                linkMetadata:nil];
 
   NSArray<id<ChromeActivityItemSource>>* activityItems =
@@ -144,7 +148,7 @@ TEST_F(ActivityServiceMediatorTest,
                            isPageSearchable:YES
                            canSendTabToSelf:YES
                                   userAgent:web::UserAgentType::MOBILE
-                         thumbnailGenerator:mocked_thumbnail_generator_
+                                  thumbnail:nil
                                linkMetadata:nil];
 
   NSArray<id<ChromeActivityItemSource>>* activityItems =
@@ -170,7 +174,7 @@ TEST_F(ActivityServiceMediatorTest,
                            isPageSearchable:YES
                            canSendTabToSelf:YES
                                   userAgent:web::UserAgentType::MOBILE
-                         thumbnailGenerator:mocked_thumbnail_generator_
+                                  thumbnail:nil
                                linkMetadata:nil];
 
   ShareToData* data2 =
@@ -183,7 +187,7 @@ TEST_F(ActivityServiceMediatorTest,
                            isPageSearchable:YES
                            canSendTabToSelf:YES
                                   userAgent:web::UserAgentType::MOBILE
-                         thumbnailGenerator:mocked_thumbnail_generator_
+                                  thumbnail:nil
                                linkMetadata:nil];
 
   NSArray<id<ChromeActivityItemSource>>* activityItems =
@@ -207,7 +211,7 @@ TEST_F(ActivityServiceMediatorTest, ActivitiesForData_NotHTTPOrHTTPS) {
                            isPageSearchable:YES
                            canSendTabToSelf:YES
                                   userAgent:web::UserAgentType::MOBILE
-                         thumbnailGenerator:mocked_thumbnail_generator_
+                                  thumbnail:nil
                                linkMetadata:nil];
 
   NSArray* activities = [mediator_ applicationActivitiesForDataItems:@[ data ]];
@@ -228,7 +232,7 @@ TEST_F(ActivityServiceMediatorTest, ActivitiesForData_HTTP) {
                            isPageSearchable:YES
                            canSendTabToSelf:YES
                                   userAgent:web::UserAgentType::MOBILE
-                         thumbnailGenerator:mocked_thumbnail_generator_
+                                  thumbnail:nil
                                linkMetadata:nil];
 
   NSArray* activities = [mediator_ applicationActivitiesForDataItems:@[ data ]];
@@ -254,7 +258,7 @@ TEST_F(ActivityServiceMediatorTest, ActivitiesForData_HTTPS) {
                            isPageSearchable:YES
                            canSendTabToSelf:YES
                                   userAgent:web::UserAgentType::MOBILE
-                         thumbnailGenerator:mocked_thumbnail_generator_
+                                  thumbnail:nil
                                linkMetadata:nil];
 
   NSArray* activities = [mediator_ applicationActivitiesForDataItems:@[ data ]];
@@ -280,7 +284,7 @@ TEST_F(ActivityServiceMediatorTest, ActivitiesForMultipleDataItems) {
                            isPageSearchable:YES
                            canSendTabToSelf:YES
                                   userAgent:web::UserAgentType::MOBILE
-                         thumbnailGenerator:mocked_thumbnail_generator_
+                                  thumbnail:nil
                                linkMetadata:nil];
   ShareToData* data2 =
       [[ShareToData alloc] initWithShareURL:GURL("https://example.com")
@@ -292,7 +296,7 @@ TEST_F(ActivityServiceMediatorTest, ActivitiesForMultipleDataItems) {
                            isPageSearchable:YES
                            canSendTabToSelf:YES
                                   userAgent:web::UserAgentType::MOBILE
-                         thumbnailGenerator:mocked_thumbnail_generator_
+                                  thumbnail:nil
                                linkMetadata:nil];
 
   NSArray* activities =
@@ -455,7 +459,7 @@ TEST_F(ActivityServiceMediatorTest, PrintPrefDisabled) {
                            isPageSearchable:YES
                            canSendTabToSelf:YES
                                   userAgent:web::UserAgentType::MOBILE
-                         thumbnailGenerator:mocked_thumbnail_generator_
+                                  thumbnail:nil
                                linkMetadata:nil];
 
   NSArray* activities = [mediator_ applicationActivitiesForDataItems:@[ data ]];
@@ -492,13 +496,13 @@ TEST_F(
     // SetTargetDeviceInfoSortedList.
     std::vector<send_tab_to_self::TargetDeviceInfo> devices = {
         send_tab_to_self::TargetDeviceInfo(
-            "Phone", "phone_guid", syncer::DeviceInfo::FormFactor::kPhone,
+            "Phone", kPhoneGuid, syncer::DeviceInfo::FormFactor::kPhone,
             syncer::DeviceInfo::OsType::kIOS, base::Time::Now()),
         send_tab_to_self::TargetDeviceInfo(
-            "Tablet", "tablet_guid", syncer::DeviceInfo::FormFactor::kTablet,
+            "Tablet", kTabletGuid, syncer::DeviceInfo::FormFactor::kTablet,
             syncer::DeviceInfo::OsType::kIOS, base::Time::Now()),
         send_tab_to_self::TargetDeviceInfo(
-            "Desktop", "desktop_guid", syncer::DeviceInfo::FormFactor::kDesktop,
+            "Desktop", kDesktopGuid, syncer::DeviceInfo::FormFactor::kDesktop,
             syncer::DeviceInfo::OsType::kIOS, base::Time::Now()),
     };
     model->SetTargetDeviceInfoSortedList(devices);
@@ -529,7 +533,7 @@ TEST_F(
                              isPageSearchable:YES
                              canSendTabToSelf:YES
                                     userAgent:web::UserAgentType::MOBILE
-                           thumbnailGenerator:mocked_thumbnail_generator_
+                                    thumbnail:nil
                                  linkMetadata:nil];
 
     NSArray* activities =
@@ -550,6 +554,16 @@ TEST_F(
     // Verify device titles match formatted "Name • device_name" string.
     EXPECT_NSEQ(@"John • Phone", [phone_activity activityTitle]);
     EXPECT_NSEQ(@"John • Tablet", [tablet_activity activityTitle]);
+
+    // Verify distinct device-specific activity types keyed by device GUID.
+    NSString* expected_phone_activity_type = [NSString
+        stringWithFormat:@"com.google.chrome.sendTabToSelfActivity.%s",
+                         kPhoneGuid];
+    NSString* expected_tablet_activity_type = [NSString
+        stringWithFormat:@"com.google.chrome.sendTabToSelfActivity.%s",
+                         kTabletGuid];
+    EXPECT_NSEQ(expected_phone_activity_type, [phone_activity activityType]);
+    EXPECT_NSEQ(expected_tablet_activity_type, [tablet_activity activityType]);
   }
 }
 
@@ -572,7 +586,8 @@ TEST_F(ActivityServiceMediatorTest, ShareFinished_SendTabToSelf) {
 // Mobile.Share.<Scenario>.Actions.
 TEST_F(ActivityServiceMediatorTest, ShareFinished_SendTabToSelfDeviceSpecific) {
   NSString* deviceSpecificActivityString =
-      @"com.google.chrome.sendTabToSelfActivity.target_device_guid";
+      [NSString stringWithFormat:@"com.google.chrome.sendTabToSelfActivity.%s",
+                                 kPhoneGuid];
   [mediator_ shareFinishedWithScenario:SharingScenario::TabShareButton
                           activityType:deviceSpecificActivityString
                              completed:YES];

@@ -103,10 +103,10 @@ SymbolInfo InfoForSymbol(Symbol symbol) {
       return {@"ellipsis_square_fill", SymbolType::kCustom};
     case SymbolEnterprise:
       return {@"enterprise", SymbolType::kCustom};
-    case SymbolEnterpriseSigninBanner:
-      return {@"enterprise_signin_banner", SymbolType::kCustom};
     case SymbolFamilylink:
       return {@"familylink", SymbolType::kCustom};
+    case SymbolImageCreate:
+      return {@"image_create", SymbolType::kCustom};
     case SymbolIncognito:
       return {@"incognito", SymbolType::kCustom};
     case SymbolIncognitoCircleFill:
@@ -659,6 +659,8 @@ SymbolInfo InfoForSymbol(Symbol symbol) {
     case SymbolWandAndSparkles:
       return {@"wand.and.sparkles", SymbolType::kSystem};
     case SymbolWaveform:
+      return {@"waveform", SymbolType::kSystem};
+    case SymbolWaveformMid:
       return {@"waveform.mid", SymbolType::kSystem};
     case SymbolWifi:
       return {@"wifi", SymbolType::kSystem};

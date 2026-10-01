@@ -47,6 +47,7 @@
 #include "services/viz/privileged/mojom/gl/gpu_host.mojom.h"
 #include "services/viz/privileged/mojom/gl/gpu_service.mojom.h"
 #include "services/viz/privileged/mojom/viz_main.mojom.h"
+#include "services/webnn/public/mojom/webnn_browser_host.mojom.h"
 #include "services/webnn/public/mojom/webnn_context_provider.mojom.h"
 #include "services/webnn/public/mojom/webnn_service_introspection.mojom.h"
 #include "skia/buildflags.h"
@@ -66,6 +67,7 @@ class SharedContextState;
 class SharedImageManager;
 class SyncPointManager;
 class VulkanImplementation;
+class VulkanContextProvider;
 }  // namespace gpu
 
 namespace gpu::webgpu {
@@ -81,8 +83,6 @@ class WebNNContextProviderImpl;
 }  // namespace webnn
 
 namespace viz {
-
-class VulkanContextProvider;
 
 // This runs in the GPU process, and communicates with the gpu host (which is
 // the window server) over the mojom APIs. This is responsible for setting up
@@ -104,6 +104,12 @@ class VIZ_SERVICE_EXPORT GpuServiceImpl
     std::unique_ptr<gpu::GpuWatchdogThread> watchdog_thread;
     scoped_refptr<base::SingleThreadTaskRunner> io_runner;
     raw_ptr<gpu::VulkanImplementation> vulkan_implementation = nullptr;
+    // Binds a receiver for the interface the WebNN service uses to broker
+    // operations through the browser (see webnn::mojom::WebNNBrowserHost),
+    // invoked on demand when WebNN is first used.
+    base::OnceCallback<void(
+        mojo::PendingReceiver<webnn::mojom::WebNNBrowserHost>)>
+        bind_webnn_browser_host;
 #if BUILDFLAG(SKIA_USE_DAWN)
     std::unique_ptr<gpu::DawnContextProvider> dawn_context_provider;
 #endif
@@ -226,7 +232,6 @@ class VIZ_SERVICE_EXPORT GpuServiceImpl
                   const std::string& key,
                   const std::string& data) override;
   void WakeUpGpu() override;
-  void GpuSwitched() override;
   void DisplayAdded() override;
   void DisplayRemoved() override;
   void DisplayMetricsChanged() override;
@@ -356,11 +361,13 @@ class VIZ_SERVICE_EXPORT GpuServiceImpl
   }
 
 #if BUILDFLAG(ENABLE_VULKAN)
-  VulkanContextProvider* vulkan_context_provider() const {
+  gpu::VulkanContextProvider* vulkan_context_provider() const {
     return vulkan_context_provider_.get();
   }
 #else
-  VulkanContextProvider* vulkan_context_provider() const { return nullptr; }
+  gpu::VulkanContextProvider* vulkan_context_provider() const {
+    return nullptr;
+  }
 #endif
 
 #if BUILDFLAG(SKIA_USE_DAWN)
@@ -488,6 +495,12 @@ class VIZ_SERVICE_EXPORT GpuServiceImpl
   scoped_refptr<gpu::RefCountedGpuProcessShmCount> use_shader_cache_shm_count_;
 
   mojo::SharedRemote<mojom::GpuHost> gpu_host_;
+
+  // Stored from InitParams and run when the WebNNContextProviderImpl is lazily
+  // created, binding the WebNNBrowserHost pipe on first WebNN use.
+  base::OnceCallback<void(
+      mojo::PendingReceiver<webnn::mojom::WebNNBrowserHost>)>
+      bind_webnn_browser_host_;
   std::unique_ptr<gpu::GpuChannelManager> gpu_channel_manager_;
   std::unique_ptr<media::MediaGpuChannelManager> media_gpu_channel_manager_;
 
@@ -516,7 +529,7 @@ class VIZ_SERVICE_EXPORT GpuServiceImpl
 
 #if BUILDFLAG(ENABLE_VULKAN)
   raw_ptr<gpu::VulkanImplementation> vulkan_implementation_;
-  scoped_refptr<VulkanContextProvider> vulkan_context_provider_;
+  scoped_refptr<gpu::VulkanContextProvider> vulkan_context_provider_;
 #endif
 
 #if BUILDFLAG(SKIA_USE_DAWN)

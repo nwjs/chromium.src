@@ -10,6 +10,7 @@
 #include "base/functional/callback_helpers.h"
 #include "base/memory/ptr_util.h"
 #include "chrome/browser/private_verification_tokens/private_verification_tokens_service.h"
+#include "chrome/browser/profiles/profile.h"
 #include "net/base/features.h"
 #include "net/http/http_request_headers.h"
 #include "services/network/public/cpp/http_request_headers_update_params.h"
@@ -22,23 +23,23 @@
 std::unique_ptr<PrivateVerificationTokensURLLoaderThrottle>
 PrivateVerificationTokensURLLoaderThrottle::Create(
     PrivateVerificationTokensService* pvt_service,
-    bool is_off_the_record,
+    base::WeakPtr<Profile> profile,
     scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory) {
   if (!pvt_service || !url_loader_factory) {
     return nullptr;
   }
   return base::WrapUnique(new PrivateVerificationTokensURLLoaderThrottle(
-      pvt_service->GetWeakPtr(), is_off_the_record,
+      pvt_service->GetWeakPtr(), std::move(profile),
       std::move(url_loader_factory)));
 }
 
 PrivateVerificationTokensURLLoaderThrottle::
     PrivateVerificationTokensURLLoaderThrottle(
         base::WeakPtr<PrivateVerificationTokensService> pvt_service,
-        bool is_off_the_record,
+        base::WeakPtr<Profile> profile,
         scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory)
     : pvt_service_(std::move(pvt_service)),
-      is_off_the_record_(is_off_the_record),
+      profile_(std::move(profile)),
       url_loader_factory_(std::move(url_loader_factory)) {}
 
 PrivateVerificationTokensURLLoaderThrottle::
@@ -59,7 +60,8 @@ void PrivateVerificationTokensURLLoaderThrottle::WillStartRequest(
 
   // Token Issuance: Trigger token fetch if request_initiator is null and not
   // off the record.
-  if (!request->request_initiator.has_value() && !is_off_the_record_) {
+  if (!request->request_initiator.has_value() &&
+      (profile_ && !profile_->IsOffTheRecord())) {
     pvt_service_->MaybeFetchTokens(request->url, url_loader_factory_);
   }
 
@@ -75,9 +77,12 @@ void PrivateVerificationTokensURLLoaderThrottle::WillStartRequest(
       request->credentials_mode != network::mojom::CredentialsMode::kOmit &&
       request->is_outermost_main_frame && top_frame_matches) {
     auto token_info = pvt_service_->GetTokenForRedemption(
-        *request->trusted_params->isolation_info.top_frame_origin());
+        *request->trusted_params->isolation_info.top_frame_origin(),
+        profile_.get());
     if (token_info.has_value()) {
       token_id_ = token_info->first;
+      redeemer_origin_ =
+          *request->trusted_params->isolation_info.top_frame_origin();
       request->headers.SetHeader(
           net::HttpRequestHeaders::kSecPrivateVerificationToken,
           token_info->second);
@@ -96,9 +101,13 @@ void PrivateVerificationTokensURLLoaderThrottle::WillRedirectRequest(
   }
   if (token_id_.has_value()) {
     if (pvt_service_ && !response_head.pvt_token_removed_due_to_cookies) {
+      if (profile_ && redeemer_origin_) {
+        pvt_service_->TrackerInsert(profile_.get(), *redeemer_origin_);
+      }
       pvt_service_->DeleteToken(*token_id_, base::DoNothing());
     }
     token_id_.reset();
+    redeemer_origin_.reset();
   }
 }
 
@@ -109,8 +118,12 @@ void PrivateVerificationTokensURLLoaderThrottle::WillProcessResponse(
   if (token_id_.has_value()) {
     if (pvt_service_ && response_head &&
         !response_head->pvt_token_removed_due_to_cookies) {
+      if (profile_ && redeemer_origin_) {
+        pvt_service_->TrackerInsert(profile_.get(), *redeemer_origin_);
+      }
       pvt_service_->DeleteToken(*token_id_, base::DoNothing());
     }
     token_id_.reset();
+    redeemer_origin_.reset();
   }
 }

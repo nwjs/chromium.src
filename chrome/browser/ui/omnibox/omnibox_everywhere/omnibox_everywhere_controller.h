@@ -9,6 +9,7 @@
 #include <string>
 
 #include "base/functional/callback_forward.h"
+#include "base/functional/callback_helpers.h"
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
 #include "base/scoped_observation.h"
@@ -22,11 +23,6 @@
 #include "ui/base/accelerators/global_accelerator_listener/global_accelerator_listener.h"
 #include "ui/gfx/native_ui_types.h"
 
-#if BUILDFLAG(IS_WIN)
-#include "base/threading/sequence_bound.h"
-#include "chrome/browser/ui/omnibox/omnibox_everywhere/omnibox_everywhere_shortcut_win.h"
-#endif
-
 class Profile;
 class ScopedKeepAlive;
 
@@ -35,16 +31,22 @@ namespace omnibox_everywhere {
 class OmniboxEverywhereBackgroundModeManager;
 
 // The source of the Omnibox Everywhere invocation.
+// These values are persisted to logs. Entries should not be renumbered and
+// numeric values should never be reused.
+//
+// LINT.IfChange(OmniboxEverywhereInvocationSource)
 enum class InvocationSource {
   // Triggered by a global system hotkey registration.
-  kGlobalHotkey,
-  // Triggered by the profile picker.
-  kProfilePicker,
+  kGlobalHotkey = 0,
   // Triggered from the status tray/menu bar icon.
-  kStatusTrayIcon,
+  kStatusTrayIcon = 1,
+  // Triggered by the profile picker.
+  kProfilePicker = 2,
   // Triggered by command-line switch or OS shortcut.
-  kCommandLine,
+  kCommandLine = 3,
+  kMaxValue = kCommandLine,
 };
+// LINT.ThenChange(//tools/metrics/histograms/metadata/omnibox/enums.xml:OmniboxEverywhereInvocationSource)
 
 // Coordinator class that manages the Omnibox Everywhere desktop feature.
 // Exists as a process-global singleton owned by GlobalFeatures.
@@ -110,10 +112,6 @@ class OmniboxEverywhereController
   // background mode manager.
   void SetTargetProfile(Profile* profile);
 
-  // Creates the Start Menu shortcut for Omnibox Everywhere.
-  // Performs blocking operations asynchronously on a COM STA background runner.
-  void CreateStartMenuShortcut(base::OnceCallback<void(bool)> callback = {});
-
   // Offers to pin Omnibox Everywhere to the Windows taskbar via Windows
   // ITaskbarManager, which checks eligibility and prompts the user with the
   // native OS confirmation dialog.
@@ -171,6 +169,17 @@ class OmniboxEverywhereController
   // flag and preference settings.
   void UpdateHotkeyRegistration();
 
+  // Asynchronously loads the profile at `profile_path` and runs `on_loaded` on
+  // success while holding a startup ScopedKeepAlive. `on_loaded` is always
+  // invoked asynchronously.
+  // Returns true if profile exists and loading/invocation was initiated.
+  bool LoadProfileAsync(const base::FilePath& profile_path,
+                        base::OnceCallback<void(Profile*)> on_loaded);
+
+  // Asynchronously loads the persisted target profile when in background mode
+  // and no target profile is currently loaded.
+  void MaybeLoadPersistedTargetProfile();
+
   BooleanPrefMember enabled_pref_member_;
   BooleanPrefMember hotkey_pref_member_;
   StringPrefMember hotkey_string_pref_member_;
@@ -183,10 +192,6 @@ class OmniboxEverywhereController
   base::ScopedObservation<GlobalBrowserCollection, BrowserCollectionObserver>
       browser_collection_observation_{this};
   raw_ptr<ui::GlobalAcceleratorListener> listener_ = nullptr;
-
-#if BUILDFLAG(IS_WIN)
-  base::SequenceBound<OmniboxEverywhereShortcutHelperWin> shortcut_helper_;
-#endif
 
   base::WeakPtrFactory<OmniboxEverywhereController> weak_factory_{this};
 };

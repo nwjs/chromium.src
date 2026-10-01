@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "base/task/single_thread_task_runner.h"
 #include "base/test/run_until.h"
 #include "base/test/scoped_feature_list.h"
 #include "build/build_config.h"
@@ -11,12 +12,14 @@
 #include "chrome/browser/global_features.h"
 #include "chrome/browser/lifetime/application_lifetime_desktop.h"
 #include "chrome/browser/lifetime/browser_shutdown.h"
+#include "chrome/browser/prefs/session_startup_pref.h"
 #include "chrome/browser/profiles/keep_alive/profile_keep_alive_types.h"
 #include "chrome/browser/profiles/profile_attributes_entry.h"
 #include "chrome/browser/profiles/profile_attributes_storage.h"
 #include "chrome/browser/profiles/profile_avatar_icon_util.h"
 #include "chrome/browser/profiles/profile_manager.h"
 #include "chrome/browser/profiles/profile_test_util.h"
+#include "chrome/browser/sessions/session_restore.h"
 #include "chrome/browser/status_icons/status_tray.h"
 #include "chrome/browser/ui/browser_commands.h"
 #include "chrome/browser/ui/browser_element_identifiers.h"
@@ -31,21 +34,29 @@
 #include "chrome/browser/ui/omnibox/omnibox_everywhere_service.h"
 #include "chrome/browser/ui/omnibox/omnibox_everywhere_service_factory.h"
 #include "chrome/browser/ui/omnibox/omnibox_next_features.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "chrome/browser/ui/webui/cr_components/searchbox/contextual_searchbox_handler.h"
+#include "chrome/browser/ui/webui/omnibox_everywhere/omnibox_everywhere_ui.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/webui_url_constants.h"
 #include "chrome/test/base/in_process_browser_test.h"
+#include "chrome/test/base/ui_test_utils.h"
 #include "chrome/test/interaction/interactive_browser_test.h"
 #include "components/keep_alive_registry/keep_alive_registry.h"
 #include "components/keep_alive_registry/keep_alive_types.h"
 #include "components/permissions/permission_request_manager.h"
 #include "components/prefs/pref_service.h"
+#include "content/public/browser/web_ui.h"
 #include "content/public/test/browser_test.h"
+#include "content/public/test/browser_test_utils.h"
 #include "extensions/buildflags/buildflags.h"
 #include "third_party/blink/public/mojom/page/draggable_region.mojom.h"
 #include "ui/base/accelerators/accelerator.h"
 #include "ui/base/ozone_buildflags.h"
+#include "ui/base/page_transition_types.h"
 #include "ui/base/test/ui_controls.h"
 #include "ui/base/webui/web_ui_util.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/display/screen.h"
 #include "ui/events/event_constants.h"
 #include "ui/events/keycodes/keyboard_codes.h"
@@ -54,6 +65,8 @@
 #include "ui/views/test/widget_test.h"
 #include "ui/views/widget/widget.h"
 #include "ui/views/widget/widget_delegate.h"
+#include "ui/views/window/dialog_client_view.h"
+#include "ui/views/window/dialog_delegate.h"
 
 #if BUILDFLAG(ENABLE_EXTENSIONS_CORE)
 #include "extensions/browser/view_type_utils.h"
@@ -63,14 +76,55 @@
 #include "ui/ozone/public/ozone_platform.h"
 #endif
 
+#if BUILDFLAG(IS_MAC)
+#include "chrome/browser/ui/webui/cr_components/searchbox/contextual_searchbox_screenshare_controller.h"
+#include "media/base/media_switches.h"
+#endif
+
+#if BUILDFLAG(IS_WIN)
+#include "base/base_paths_win.h"
+#include "base/files/scoped_temp_dir.h"
+#include "base/test/scoped_path_override.h"
+#endif
+
 namespace omnibox_everywhere {
 
 class OmniboxEverywhereBrowserTest : public InteractiveBrowserTest {
  public:
   OmniboxEverywhereBrowserTest() {
+#if BUILDFLAG(IS_MAC)
+    feature_list_.InitWithFeatures(
+        /*enabled_features=*/{omnibox::kOmniboxEverywhere},
+        /*disabled_features=*/{kOmniboxEverywhereNativeScreenPicker,
+                               media::kUseSCContentSharingPicker});
+#else
     feature_list_.InitAndEnableFeature(omnibox::kOmniboxEverywhere);
+#endif
   }
   ~OmniboxEverywhereBrowserTest() override = default;
+
+  void SetUp() override {
+#if BUILDFLAG(IS_WIN)
+    ASSERT_TRUE(temp_start_menu_dir_.CreateUniqueTempDir());
+    start_menu_override_.emplace(base::DIR_START_MENU,
+                                 temp_start_menu_dir_.GetPath());
+#endif
+    InteractiveBrowserTest::SetUp();
+  }
+
+  void TearDownOnMainThread() override {
+    // If Chrome was launched without a browser window (e.g. via
+    // --omnibox-everywhere) or all browser windows closed while background mode
+    // was enabled, trigger a clean shutdown while the message loop is still
+    // running so keep-alives are released before
+    // BrowserProcessImpl::StartTearDown.
+    if (GlobalBrowserCollection::GetInstance()->IsEmpty() &&
+        !browser_shutdown::IsTryingToQuit()) {
+      base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+          FROM_HERE, base::BindOnce(&chrome::CloseAllBrowsersAndQuit));
+    }
+    InteractiveBrowserTest::TearDownOnMainThread();
+  }
 
   // Simulates triggering the global hotkey to show or dismiss the Omnibox
   // Everywhere widget.
@@ -230,6 +284,10 @@ class OmniboxEverywhereBrowserTest : public InteractiveBrowserTest {
 
  private:
   base::test::ScopedFeatureList feature_list_;
+#if BUILDFLAG(IS_WIN)
+  base::ScopedTempDir temp_start_menu_dir_;
+  std::optional<base::ScopedPathOverride> start_menu_override_;
+#endif
 };
 
 IN_PROC_BROWSER_TEST_F(OmniboxEverywhereBrowserTest, ShowAndCloseWidget) {
@@ -250,7 +308,8 @@ IN_PROC_BROWSER_TEST_F(OmniboxEverywhereBrowserTest, ShowAndCloseWidget) {
   ASSERT_TRUE(delegate);
   EXPECT_TRUE(delegate->CanActivate());
   EXPECT_FALSE(delegate->CanMaximize());
-  EXPECT_FALSE(delegate->CanMinimize());
+  EXPECT_EQ(!omnibox_everywhere::prefs::IsEphemeralModelEnabled(),
+            delegate->CanMinimize());
   EXPECT_FALSE(delegate->CanResize());
 
   // Close (hide) the widget.
@@ -277,6 +336,55 @@ IN_PROC_BROWSER_TEST_F(OmniboxEverywhereBrowserTest, FocusAndActivationState) {
 
   ui_manager.Close();
   EXPECT_FALSE(widget->IsVisible());
+  ui_manager.Shutdown();
+}
+
+IN_PROC_BROWSER_TEST_F(OmniboxEverywhereBrowserTest,
+                       SynthesizesMouseEventOnMenuClosed) {
+  OmniboxEverywhereUIManager ui_manager;
+
+  ui_manager.ShowForProfile(browser()->GetProfile(),
+                            browser()->GetWindow()->GetNativeWindow());
+  views::Widget* widget = ui_manager.widget();
+  ASSERT_TRUE(widget);
+  EXPECT_TRUE(widget->IsVisible());
+
+  ASSERT_TRUE(ui_manager.contents_wrapper_for_testing());
+  content::WebContents* web_contents =
+      ui_manager.contents_wrapper_for_testing()->web_contents();
+  ASSERT_TRUE(web_contents);
+  ASSERT_TRUE(content::WaitForLoadStop(web_contents));
+
+  auto* rwh = web_contents->GetPrimaryMainFrame()->GetRenderWidgetHost();
+  ASSERT_TRUE(rwh);
+
+  ASSERT_TRUE(web_contents->GetWebUI());
+  auto* controller =
+      web_contents->GetWebUI()->GetController()->GetAs<OmniboxEverywhereUI>();
+  ASSERT_TRUE(controller);
+
+  // 1. Verify OnContextMenuClosed forwards a synthetic mouse event to the host.
+  {
+    content::RenderWidgetHostMouseEventMonitor monitor(rwh);
+    controller->OnContextMenuClosed();
+    EXPECT_TRUE(monitor.EventWasReceived());
+    EXPECT_TRUE(
+        monitor.event().GetType() == blink::WebInputEvent::Type::kMouseMove ||
+        monitor.event().GetType() == blink::WebInputEvent::Type::kMouseLeave);
+  }
+
+  // 2. Verify OnScreenshotMenuClosed forwards a synthetic mouse event to the
+  // host.
+  {
+    content::RenderWidgetHostMouseEventMonitor monitor(rwh);
+    controller->OnScreenshotMenuClosed();
+    EXPECT_TRUE(monitor.EventWasReceived());
+    EXPECT_TRUE(
+        monitor.event().GetType() == blink::WebInputEvent::Type::kMouseMove ||
+        monitor.event().GetType() == blink::WebInputEvent::Type::kMouseLeave);
+  }
+
+  ui_manager.Close();
   ui_manager.Shutdown();
 }
 
@@ -577,7 +685,7 @@ IN_PROC_BROWSER_TEST_F(OmniboxEverywhereEphemeralBrowserTest,
       "omnibox-everywhere-app",
       "omnibox-everywhere-omnibox",
       "cr-searchbox-input",
-      "input",
+      "#input",
   };
 
   RunTestSequence(
@@ -699,18 +807,23 @@ IN_PROC_BROWSER_TEST_F(OmniboxEverywhereBrowserTest,
     GTEST_SKIP() << "StatusTray is not supported on this platform.";
   }
 
-  // Initially background mode pref is false, status icon should not exist.
-  EXPECT_FALSE(status_tray->HasStatusIconOfTypeForTesting(
-      StatusTray::OMNIBOX_EVERYWHERE_ICON));
-
-  // Enable background mode pref.
-  local_state->SetBoolean(prefs::kOmniboxEverywhereBackgroundMode, true);
+  // Initially enabled pref is true, status icon should exist.
   EXPECT_TRUE(status_tray->HasStatusIconOfTypeForTesting(
       StatusTray::OMNIBOX_EVERYWHERE_ICON));
 
-  // Disable background mode pref.
-  local_state->SetBoolean(prefs::kOmniboxEverywhereBackgroundMode, false);
+  // Disable enabled pref.
+  local_state->SetBoolean(prefs::kOmniboxEverywhereEnabled, false);
   EXPECT_FALSE(status_tray->HasStatusIconOfTypeForTesting(
+      StatusTray::OMNIBOX_EVERYWHERE_ICON));
+
+  // Re-enable enabled pref.
+  local_state->SetBoolean(prefs::kOmniboxEverywhereEnabled, true);
+  EXPECT_TRUE(status_tray->HasStatusIconOfTypeForTesting(
+      StatusTray::OMNIBOX_EVERYWHERE_ICON));
+
+  // Background mode pref should not affect the status icon.
+  local_state->SetBoolean(prefs::kOmniboxEverywhereBackgroundMode, false);
+  EXPECT_TRUE(status_tray->HasStatusIconOfTypeForTesting(
       StatusTray::OMNIBOX_EVERYWHERE_ICON));
 }
 
@@ -745,6 +858,22 @@ IN_PROC_BROWSER_TEST_F(OmniboxEverywhereBrowserTest, BackgroundModeKeepAlive) {
     return !profile_manager->HasKeepAliveForTesting(
         profile, ProfileKeepAliveOrigin::kOmniboxEverywhere);
   }));
+
+  // Re-enable background mode pref.
+  local_state->SetBoolean(prefs::kOmniboxEverywhereBackgroundMode, true);
+  EXPECT_TRUE(profile_manager->HasKeepAliveForTesting(
+      profile, ProfileKeepAliveOrigin::kOmniboxEverywhere));
+
+  // Disabling the main enabled pref resets everything, including keep-alives.
+  local_state->SetBoolean(prefs::kOmniboxEverywhereEnabled, false);
+  EXPECT_TRUE(base::test::RunUntil([&]() {
+    return !profile_manager->HasKeepAliveForTesting(
+        profile, ProfileKeepAliveOrigin::kOmniboxEverywhere);
+  }));
+
+  // Clean up prefs.
+  local_state->SetBoolean(prefs::kOmniboxEverywhereEnabled, true);
+  local_state->SetBoolean(prefs::kOmniboxEverywhereBackgroundMode, false);
 }
 
 #if BUILDFLAG(IS_CHROMEOS)
@@ -948,6 +1077,32 @@ IN_PROC_BROWSER_TEST_F(OmniboxEverywhereBrowserTest,
       FROM_HERE, base::BindOnce(&chrome::CloseAllBrowsersAndQuit));
 }
 
+IN_PROC_BROWSER_TEST_F(OmniboxEverywhereBrowserTest,
+                       ShutdownWithOpenBrowserAndBackgroundModeEnabled) {
+  PrefService* local_state = g_browser_process->local_state();
+
+  set_exit_when_last_browser_closes(false);
+
+  // Enable background mode pref.
+  local_state->SetBoolean(prefs::kOmniboxEverywhereBackgroundMode, true);
+
+  auto* keep_alive_registry = KeepAliveRegistry::GetInstance();
+  ASSERT_TRUE(keep_alive_registry->IsOriginRegistered(
+      KeepAliveOrigin::OMNIBOX_EVERYWHERE));
+
+  // Quit the browser while a browser window is still open.
+  // This exercises BrowserCloseManager::CloseBrowsers(), which must exit
+  // background mode and release the keep-alive so the process can terminate.
+  ui_test_utils::BrowserDestroyedObserver observer(browser());
+  chrome::CloseAllBrowsersAndQuit();
+  observer.Wait();
+
+  EXPECT_TRUE(browser_shutdown::IsTryingToQuit());
+  EXPECT_TRUE(GlobalBrowserCollection::GetInstance()->IsEmpty());
+  EXPECT_FALSE(keep_alive_registry->IsOriginRegistered(
+      KeepAliveOrigin::OMNIBOX_EVERYWHERE));
+}
+
 #if BUILDFLAG(IS_CHROMEOS)
 #define MAYBE_OpenUrlCreatesBrowserBeforeClosingPopupWhenNoBrowsers \
   DISABLED_OpenUrlCreatesBrowserBeforeClosingPopupWhenNoBrowsers
@@ -972,6 +1127,43 @@ IN_PROC_BROWSER_TEST_F(
     OmniboxEverywherePersistentBrowserTest,
     MAYBE_OpenUrlCreatesBrowserBeforeDemotingPopupWhenNoBrowsers) {
   TestOpenUrlCreatesBrowserWhenNoBrowsers(/*ephemeral=*/false);
+}
+
+IN_PROC_BROWSER_TEST_F(OmniboxEverywhereEphemeralBrowserTest,
+                       OpenUrlDoesNotTriggerSessionRestoreWhenNoBrowsers) {
+  Profile* profile = browser()->GetProfile();
+  set_exit_when_last_browser_closes(false);
+
+  // Set startup pref to restore last session.
+  SessionStartupPref::SetStartupPref(
+      profile, SessionStartupPref(SessionStartupPref::LAST));
+
+  GlobalFeatures* features = g_browser_process->GetFeatures();
+  ASSERT_TRUE(features);
+  auto* controller = features->omnibox_everywhere_controller();
+  ASSERT_TRUE(controller);
+
+  // Show the Omnibox Everywhere widget.
+  controller->OnInvoke(InvocationSource::kGlobalHotkey, profile);
+  EXPECT_TRUE(controller->IsVisible());
+
+  // Close the existing browser window so 0 browser windows exist.
+  CloseBrowserSynchronously(browser());
+  EXPECT_EQ(0u, GlobalBrowserCollection::GetInstance()->GetSize());
+  EXPECT_TRUE(controller->IsVisible());
+
+  // Trigger OpenUrl from the Omnibox Everywhere service.
+  auto* service = OmniboxEverywhereServiceFactory::GetForProfile(profile);
+  ASSERT_TRUE(service);
+  service->OpenUrl(GURL("chrome://version/"),
+                   WindowOpenDisposition::CURRENT_TAB,
+                   ui::PAGE_TRANSITION_TYPED);
+
+  // Verify that only one browser window was created and session restore was
+  // not triggered.
+  EXPECT_EQ(1u, GlobalBrowserCollection::GetInstance()->GetSize());
+  EXPECT_FALSE(SessionRestore::IsRestoring(profile));
+  EXPECT_FALSE(controller->IsVisible());
 }
 
 class OmniboxEverywhereCommandLineBrowserTest
@@ -1000,22 +1192,6 @@ IN_PROC_BROWSER_TEST_F(OmniboxEverywhereCommandLineBrowserTest,
   EXPECT_TRUE(controller->IsVisible());
   ASSERT_TRUE(controller->target_profile());
   EXPECT_FALSE(controller->target_profile()->IsOffTheRecord());
-}
-
-IN_PROC_BROWSER_TEST_F(OmniboxEverywhereBrowserTest,
-                       FreModalVisibilityAndDismissal) {
-  Profile* profile = browser()->GetProfile();
-  ASSERT_TRUE(profile);
-
-  PrefService* profile_prefs = profile->GetPrefs();
-  ASSERT_TRUE(profile_prefs);
-
-  // By default, FRE should not be dismissed initially.
-  EXPECT_FALSE(profile_prefs->GetBoolean(prefs::kFreDismissed));
-
-  // Dismissing the FRE persists the preference.
-  profile_prefs->SetBoolean(prefs::kFreDismissed, true);
-  EXPECT_TRUE(profile_prefs->GetBoolean(prefs::kFreDismissed));
 }
 
 #if BUILDFLAG(IS_CHROMEOS)
@@ -1088,6 +1264,102 @@ IN_PROC_BROWSER_TEST_F(OmniboxEverywhereBrowserTest,
           initial_avatar_data_url),
       Do([&]() { entry->SetGAIAPicture("gaia_picture_key", gaia_image); }),
       WaitForStateChange(kOmniboxWebContentsId, avatar_updated_to_gaia));
+}
+
+IN_PROC_BROWSER_TEST_F(OmniboxEverywhereEphemeralBrowserTest,
+                       ScreenshotSharingDisclosureFlow) {
+  GlobalFeatures* features = g_browser_process->GetFeatures();
+  ASSERT_TRUE(features);
+  auto* controller = features->omnibox_everywhere_controller();
+  ASSERT_TRUE(controller);
+
+  Profile* profile = browser()->GetProfile();
+  ASSERT_TRUE(profile);
+  PrefService* profile_prefs = profile->GetPrefs();
+  ASSERT_TRUE(profile_prefs);
+
+  DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kOmniboxWebContentsId);
+  DEFINE_LOCAL_STATE_IDENTIFIER_VALUE(ui::test::PollingStateObserver<bool>,
+                                      kScreenshotDisclosureAcceptedState);
+
+  auto execute_screenshot_command = [&]() {
+    content::WebContents* web_contents =
+        controller->ui_manager()->web_contents();
+    if (!web_contents || !web_contents->GetWebUI()) {
+      return;
+    }
+    auto* omnibox_ui =
+        web_contents->GetWebUI()->GetController()->GetAs<OmniboxEverywhereUI>();
+    if (omnibox_ui) {
+      auto* handler = omnibox_ui->GetContextualSearchboxHandler();
+      if (handler && handler->screenshare_controller_for_testing()) {
+        omnibox_ui->ShowScreenshotMenu(
+            gfx::Rect(),
+            handler->screenshare_controller_for_testing()->GetWeakPtr());
+      }
+      omnibox_ui->ExecuteCommand(OmniboxEverywhereUI::kScreenshotEntireScreen,
+                                 /*event_flags=*/0);
+    }
+  };
+
+  RunTestSequence(
+      InvokeViaHotkey(), CheckWidgetVisible(true),
+      WaitForOmniboxWebUIReady(kOmniboxWebContentsId),
+      PollState(kScreenshotDisclosureAcceptedState,
+                [&]() {
+                  return prefs::IsScreenshotDisclosureAccepted(profile_prefs);
+                }),
+      // Attempt to execute screenshot command before accepting disclosure.
+      Do(execute_screenshot_command),
+      // The disclosure dialog should be shown and tracked as open modal.
+      InAnyContext(
+          WaitForShow(views::DialogClientView::kCancelButtonElementId)),
+      Check([&]() { return controller->ui_manager()->HasOpenModalDialog(); }),
+      // Cancel/close the disclosure dialog by pressing Cancel.
+      InAnyContext(
+          PressButton(views::DialogClientView::kCancelButtonElementId),
+          WaitForHide(views::DialogClientView::kCancelButtonElementId)),
+      Check([&]() {
+        return !controller->ui_manager()
+                    ->disclosure_dialog_widget_for_testing() &&
+               !prefs::IsScreenshotDisclosureAccepted(profile_prefs) &&
+               !controller->ui_manager()->HasOpenModalDialog();
+      }),
+      // Subsequent screenshot attempt re-displays the disclosure dialog.
+      Do(execute_screenshot_command),
+      InAnyContext(WaitForShow(views::DialogClientView::kOkButtonElementId)),
+      Check([&]() { return controller->ui_manager()->HasOpenModalDialog(); }),
+      // Accepting the disclosure dialog sets the preference and opens the
+      // screenshare picker dialog.
+      InAnyContext(PressButton(views::DialogClientView::kOkButtonElementId),
+                   WaitForHide(views::DialogClientView::kOkButtonElementId)),
+      WaitForState(kScreenshotDisclosureAcceptedState, true), Check([&]() {
+        return !controller->ui_manager()
+                    ->disclosure_dialog_widget_for_testing() &&
+               !controller->ui_manager()
+                    ->is_screenshare_disclosure_open_for_testing();
+      }),
+      // Dismiss the screenshare picker dialog that opened upon accepting
+      // disclosure.
+      InAnyContext(
+          WaitForShow(views::DialogClientView::kCancelButtonElementId),
+          PressButton(views::DialogClientView::kCancelButtonElementId),
+          WaitForHide(views::DialogClientView::kCancelButtonElementId)),
+      WaitForWidgetActiveState(true),
+      // Subsequent attempts when accepted do not show disclosure dialog,
+      // opening the screenshare picker dialog directly.
+      Do(execute_screenshot_command), Check([&]() {
+        return !controller->ui_manager()
+                    ->disclosure_dialog_widget_for_testing();
+      }),
+      // Dismiss the second screenshare picker dialog via its Cancel button.
+      InAnyContext(
+          WaitForShow(views::DialogClientView::kCancelButtonElementId),
+          PressButton(views::DialogClientView::kCancelButtonElementId),
+          WaitForHide(views::DialogClientView::kCancelButtonElementId)),
+      WaitForWidgetActiveState(true),
+      // Dismiss the widget to cleanly release keep-alives.
+      InvokeViaHotkey(), CheckWidgetVisible(false));
 }
 
 }  // namespace omnibox_everywhere

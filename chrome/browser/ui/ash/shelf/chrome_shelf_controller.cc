@@ -37,7 +37,6 @@
 #include "chrome/browser/apps/app_service/promise_apps/promise_app_metrics.h"
 #include "chrome/browser/apps/app_service/promise_apps/promise_app_service.h"
 #include "chrome/browser/apps/app_service/promise_apps/promise_app_update.h"
-#include "chrome/browser/apps/icon_standardizer.h"
 #include "chrome/browser/ash/app_list/app_list_client_impl.h"
 #include "chrome/browser/ash/app_list/app_list_controller_delegate.h"
 #include "chrome/browser/ash/app_list/app_list_syncable_service_factory.h"
@@ -46,8 +45,6 @@
 #include "chrome/browser/ash/app_list/arc/arc_app_utils.h"
 #include "chrome/browser/ash/app_list/md_icon_normalizer.h"
 #include "chrome/browser/ash/arc/arc_util.h"
-#include "chrome/browser/ash/browser_delegate/browser_controller.h"
-#include "chrome/browser/ash/browser_delegate/browser_delegate.h"
 #include "chrome/browser/ash/system_web_apps/system_web_app_manager.h"
 #include "chrome/browser/extensions/chrome_app_icon_loader.h"
 #include "chrome/browser/extensions/extension_util.h"
@@ -81,6 +78,8 @@
 #include "chrome/grit/theme_resources.h"
 #include "chromeos/ash/components/browser_context_helper/annotated_account_id.h"
 #include "chromeos/ash/components/browser_context_helper/browser_context_helper.h"
+#include "chromeos/ash/components/browser_delegate/browser_controller.h"
+#include "chromeos/ash/components/browser_delegate/browser_delegate.h"
 #include "chromeos/ash/experiences/arc/arc_prefs.h"
 #include "chromeos/ash/experiences/arc/arc_util.h"
 #include "chromeos/ash/experiences/settings_ui/settings_app_manager.h"
@@ -112,6 +111,7 @@
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/base/ui_base_features.h"
 #include "ui/display/types/display_constants.h"
+#include "ui/gfx/image/icon_standardizer.h"
 #include "ui/resources/grit/ui_resources.h"
 
 using app_constants::kChromeAppId;
@@ -129,7 +129,7 @@ bool ItemTypeIsPinned(const ash::ShelfItem& item) {
 gfx::ImageSkia CreateStandardImageOnWorkerThread(const gfx::ImageSkia& image) {
   TRACE_EVENT0("ui",
                "chrome_shelf_controller::CreateStandardImageOnWorkerThread");
-  gfx::ImageSkia standard_image = apps::CreateStandardIconImage(image);
+  gfx::ImageSkia standard_image = gfx::CreateStandardAppIconImage(image);
   if (!standard_image.isNull()) {
     standard_image.MakeThreadSafe();
   }

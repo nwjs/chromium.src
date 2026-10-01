@@ -85,6 +85,21 @@ class CueTarget {
   // to generate cue content rather than generating content locally.
   virtual bool RequiresModelExecution() const = 0;
 
+  // Whether this target should bypass UCB scoring and take absolute precedence
+  // when eligible. NOTE: This is a highly privileged override that is strictly
+  // intended for Indigo temporarily to ensure it always wins. It should not be
+  // used by other targets.
+  virtual bool OverridesUcbScoring() const;
+
+  // Whether this target should fall back to a suggestion chip instead of fully
+  // disappearing when the anchored message is dismissed.
+  virtual bool DowngradesToQuietOnDismiss() const;
+
+  // Whether the cue is persistent across UI interactions. If true, the cue
+  // remains visible when clicked or when a side panel is opened, and can also
+  // be initially shown even if a side panel is already open.
+  virtual bool IsPersistent() const;
+
   // Returns true if this target supports the given intrusiveness level.
   // Targets requiring MES are restricted to kLoud only. Non-MES targets
   // can override SupportsIntrusivenessImpl() to declare supported levels.

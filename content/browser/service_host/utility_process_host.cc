@@ -178,13 +178,13 @@ UtilityProcessHost::UtilityProcessHost(Options options,
       gpu_client_(nullptr, base::OnTaskRunnerDeleter(nullptr)),
 #endif  // BUILDFLAG(ENABLE_GPU_CHANNEL_MEDIA_CAPTURE)
       client_(std::move(client)) {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M159);
   process_ =
       std::make_unique<BrowserChildProcessHostImpl>(PROCESS_TYPE_UTILITY, this);
 }
 
 UtilityProcessHost::~UtilityProcessHost() {
-  DCHECK_CURRENTLY_ON(BrowserThread::UI);
+  CHECK_CURRENTLY_ON(BrowserThread::UI, base::NotFatalUntil::M159);
   if (client_ && launch_state_ == LaunchState::kLaunchComplete) {
     client_->OnProcessTerminatedNormally();
   }
@@ -250,7 +250,7 @@ UtilityProcessHost::Options& UtilityProcessHost::Options::WithFileToPreload(
     std::variant<base::FilePath, base::ScopedFD> file) {
   auto [it, inserted] =
       file_data_->files_to_preload.try_emplace(std::move(key), std::move(file));
-  DCHECK(inserted);
+  CHECK(inserted, base::NotFatalUntil::M159);
   return *this;
 }
 #endif  // BUILDFLAG(IS_POSIX) && !BUILDFLAG(IS_MAC)
@@ -332,7 +332,7 @@ bool UtilityProcessHost::StartProcess() {
   process_->SetMetricsName(options_.metrics_name_);
 
   if (RenderProcessHost::run_renderer_in_process()) {
-    DCHECK(g_utility_main_thread_factory);
+    CHECK(g_utility_main_thread_factory, base::NotFatalUntil::M159);
     // See comment in RenderProcessHostImpl::Init() for the background on why we
     // support single process mode this way.
     in_process_thread_.reset(g_utility_main_thread_factory(
@@ -361,7 +361,8 @@ bool UtilityProcessHost::StartProcess() {
 #else  // BUILDFLAG(IS_ANDROID)
 #if BUILDFLAG(IS_MAC)
   if (options_.sandbox_type_ == sandbox::mojom::Sandbox::kServiceWithJit) {
-    DCHECK_EQ(options_.child_flags_, ChildProcessHost::CHILD_RENDERER);
+    CHECK_EQ(options_.child_flags_, ChildProcessHost::CHILD_RENDERER,
+             base::NotFatalUntil::M159);
   }
 #endif  // BUILDFLAG(IS_MAC)
   int child_flags = options_.child_flags_;

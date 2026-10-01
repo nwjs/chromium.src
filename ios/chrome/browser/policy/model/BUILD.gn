@@ -56,6 +56,10 @@ source_set("model") {
     "reporting/reporting_delegate_factory_ios.mm",
     "reporting/reporting_util.h",
     "reporting/reporting_util.mm",
+    "reporting/saas_usage/saas_usage_encryption_protocol_provider.h",
+    "reporting/saas_usage/saas_usage_encryption_protocol_provider.mm",
+    "reporting/saas_usage/saas_usage_reporting_controller_factory_ios.h",
+    "reporting/saas_usage/saas_usage_reporting_controller_factory_ios.mm",
     "restrict_accounts_policy_handler.cc",
     "restrict_accounts_policy_handler.h",
     "schema_registry_factory.h",
@@ -130,11 +134,15 @@ source_set("model") {
     "//ios/chrome/browser/signin/model:system_identity",
     "//ios/chrome/common",
     "//ios/web/public/thread",
+    "//net",
     "//services/network/public/cpp",
     "//url",
   ]
 
-  public_deps = [ "//components/policy/core/browser" ]
+  public_deps = [
+    "//components/policy/core/browser",
+    "//components/policy/resources/webui/mojom:mojo_bindings",
+  ]
 }
 
 source_set("cloud_profile_reporting") {
@@ -150,6 +158,7 @@ source_set("cloud_profile_reporting") {
     "//base",
     "//components/enterprise",
     "//components/enterprise/browser/identifiers",
+    "//components/enterprise/device_attestation",
     "//components/keyed_service/core",
     "//components/policy/core/common",
     "//ios/chrome/browser/enterprise/identifiers:profile_id_service_factory",
@@ -157,7 +166,28 @@ source_set("cloud_profile_reporting") {
     "//ios/chrome/browser/shared/model/application_context",
     "//ios/chrome/browser/shared/model/profile",
     "//ios/chrome/browser/shared/model/profile:profile_keyed_service_factory",
+    "//ios/public/provider/chrome/browser/device_attestation:device_attestation_api",
     "//services/network/public/cpp",
+  ]
+}
+
+source_set("saas_usage_reporting") {
+  sources = [
+    "reporting/saas_usage/saas_usage_report_factory_delegate_ios.h",
+    "reporting/saas_usage/saas_usage_report_factory_delegate_ios.mm",
+    "reporting/saas_usage/saas_usage_report_scheduler_delegate_ios.h",
+    "reporting/saas_usage/saas_usage_report_scheduler_delegate_ios.mm",
+  ]
+  deps = [
+    ":model",
+    "//base",
+    "//components/enterprise",
+    "//components/enterprise/browser/identifiers",
+    "//components/policy/core/common",
+    "//ios/chrome/browser/enterprise/connectors/reporting",
+    "//ios/chrome/browser/enterprise/identifiers:profile_id_service_factory",
+    "//ios/chrome/browser/shared/model/application_context",
+    "//ios/chrome/browser/shared/model/profile",
   ]
 }
 
@@ -278,6 +308,8 @@ source_set("unit_tests") {
     "reporting/profile_report_generator_ios_unittest.mm",
     "reporting/report_generator_ios_unittest.mm",
     "reporting/report_scheduler_ios_unittest.mm",
+    "reporting/saas_usage/saas_usage_encryption_protocol_provider_unittest.mm",
+    "reporting/saas_usage/saas_usage_report_scheduler_delegate_ios_unittest.mm",
     "restrict_accounts_policy_handler_unittest.cc",
     "status_provider/user_cloud_policy_status_provider_unittest.mm",
   ]
@@ -286,6 +318,7 @@ source_set("unit_tests") {
     ":constants",
     ":model",
     ":policy_util",
+    ":saas_usage_reporting",
     ":test_resources",
     ":test_support",
     "//base",
@@ -302,6 +335,7 @@ source_set("unit_tests") {
     "//components/policy/core/browser:test_support",
     "//components/policy/core/common",
     "//components/policy/proto",
+    "//components/policy/resources/webui/mojom:mojo_bindings",
     "//components/pref_registry",
     "//components/prefs",
     "//components/prefs:test_support",
@@ -314,6 +348,7 @@ source_set("unit_tests") {
     "//ios/chrome/app/application_delegate:app_state",
     "//ios/chrome/app/profile",
     "//ios/chrome/browser/authentication/ui_bundled/enterprise/enterprise_prompt",
+    "//ios/chrome/browser/enterprise/connectors/reporting",
     "//ios/chrome/browser/enterprise/identifiers:profile_id_service_factory",
     "//ios/chrome/browser/flags:system_flags",
     "//ios/chrome/browser/prefs/model",
@@ -325,6 +360,7 @@ source_set("unit_tests") {
     "//ios/chrome/browser/shared/model/paths",
     "//ios/chrome/browser/shared/model/prefs:browser_prefs",
     "//ios/chrome/browser/shared/model/prefs:pref_names",
+    "//ios/chrome/browser/shared/model/profile",
     "//ios/chrome/browser/shared/model/profile/test",
     "//ios/chrome/browser/shared/public/commands",
     "//ios/chrome/browser/shared/public/features:system_flags",

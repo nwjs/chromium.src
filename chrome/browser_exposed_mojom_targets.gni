@@ -18,6 +18,7 @@ browser_exposed_mojom_targets = [
   "//cc/mojom:mojom_browser_controls",
   "//cc/mojom:mojom_layer_trees",
   "//chrome/browser/actor/ui:mojo_bindings",
+  "//chrome/browser/browser_actuator/internals:mojo_bindings",
   "//chrome/browser/contextual_cueing/internals:mojo_bindings",
   "//chrome/browser/contextual_tasks:mojo_bindings",
   "//chrome/browser/geic:mojo_bindings",
@@ -33,9 +34,9 @@ browser_exposed_mojom_targets = [
   "//chrome/browser/ui/webui/app_home:mojo_bindings",
   "//chrome/browser/ui/webui/app_service_internals:mojo_bindings",
   "//chrome/browser/ui/webui/bluetooth_internals:mojo_bindings",
-  "//chrome/browser/ui/webui/chrome_finds_internals:mojo_bindings",
   "//chrome/browser/ui/webui/context_hub:mojo_bindings",
   "//chrome/browser/ui/webui/content_settings:mojo_bindings",
+  "//chrome/browser/ui/webui/critical_actions:mojo_bindings",
   "//chrome/browser/ui/webui/customize_buttons:mojo_bindings",
   "//chrome/browser/ui/webui/default_browser:modal_mojo_bindings",
   "//chrome/browser/ui/webui/discards:mojo_bindings",
@@ -118,6 +119,7 @@ browser_exposed_mojom_targets = [
   "//components/dom_distiller/core/mojom:mojom",
   "//components/download/public/common:interfaces",
   "//components/enterprise/connectors:mojom",
+  "//components/facilitated_payments/core/mojom:facilitated_payments_agent_mojom",
   "//components/facilitated_payments/core/mojom:pix_code_validator_mojom",
   "//components/global_media_controls/public/mojom:device_service",
   "//components/guest_contents/common:mojom",
@@ -359,6 +361,7 @@ if (!is_android) {
     "//chrome/browser/ui/webui/feedback/report_unsafe_site:mojo_bindings",
     "//chrome/browser/ui/webui/iwa_dev:mojo_bindings",
     "//chrome/browser/ui/webui/omnibox_everywhere/debug:mojo_bindings",
+    "//chrome/browser/ui/webui/omnibox_everywhere/mojom:mojo_bindings",
   ]
 }
 

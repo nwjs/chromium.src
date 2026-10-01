@@ -9,9 +9,11 @@
 
 #include "base/callback_list.h"
 #include "base/memory/raw_ptr.h"
+#include "chrome/browser/ui/bookmarks/bookmark_bar.h"
 #include "chrome/browser/ui/bookmarks/bookmark_bar_controller.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/side_panel/side_panel_entry_key.h"
+#include "chrome/browser/ui/unload_controller.h"
 #include "chrome/browser/ui/webui/webui_toolbar/icon_table.h"
 #include "content/public/browser/web_contents.h"
 #include "ui/base/accelerators/accelerator.h"
@@ -90,6 +92,7 @@ class WebUIBrowserWindow : public BrowserWindow,
   void SetContentsSize(const gfx::Size& size) override;
   autofill::AutofillBubbleHandler* GetAutofillBubbleHandler() override;
   LocationBar* GetLocationBar() const override;
+  ui::AcceleratorProvider* GetAcceleratorProvider() override;
   void SetFocusToLocationBar(bool is_user_initiated) override;
   void UpdateReloadStopState(bool is_loading, bool force) override;
   void UpdateToolbar(content::WebContents* contents) override;

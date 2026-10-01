@@ -33,7 +33,6 @@
 #include "chrome/browser/ui/webui/ash/settings/search/search_tag_registry.h"
 #include "chrome/browser/ui/webui/settings/settings_secure_dns_handler.h"
 #include "chrome/browser/ui/webui/settings/shared_settings_localized_strings_provider.h"
-#include "chrome/common/chrome_features.h"
 #include "chrome/grit/branded_strings.h"
 #include "chrome/grit/generated_resources.h"
 #include "chromeos/ash/components/browser_context_helper/browser_context_helper.h"
@@ -330,11 +329,17 @@ void AddChromeOsSecureDnsStrings(content::WebUIDataSource* html_source) {
 
 }  // namespace
 
-PrivacySection::PrivacySection(Profile* profile,
-                               SearchTagRegistry* search_tag_registry,
-                               PrefService* pref_service)
+PrivacySection::PrivacySection(
+    PrefService* local_state,
+    const ApplicationLocaleStorage* application_locale_storage,
+    Profile* profile,
+    SearchTagRegistry* search_tag_registry,
+    PrefService* pref_service)
     : OsSettingsSection(profile, search_tag_registry),
-      sync_subsection_(profile, search_tag_registry),
+      local_state_(CHECK_DEREF(local_state)),
+      sync_subsection_(application_locale_storage,
+                       profile,
+                       search_tag_registry),
       pref_service_(pref_service),
       auth_performer_(UserDataAuthClient::Get()),
       fp_engine_(&auth_performer_) {
@@ -389,8 +394,8 @@ PrivacySection::PrivacySection(Profile* profile,
 PrivacySection::~PrivacySection() = default;
 
 void PrivacySection::AddHandlers(content::WebUI* web_ui) {
-  web_ui->AddMessageHandler(
-      std::make_unique<PeripheralDataAccessHandler>(profile()));
+  web_ui->AddMessageHandler(std::make_unique<PeripheralDataAccessHandler>(
+      &local_state_.get(), profile()));
 
   web_ui->AddMessageHandler(std::make_unique<MetricsChoiceHandler>(
       profile(), g_browser_process->metrics_service(),

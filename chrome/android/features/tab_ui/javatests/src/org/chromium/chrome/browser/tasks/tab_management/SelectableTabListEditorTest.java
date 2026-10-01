@@ -78,7 +78,6 @@ import org.chromium.chrome.browser.layouts.LayoutType;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabLaunchType;
 import org.chromium.chrome.browser.tab_ui.RecyclerViewPosition;
-import org.chromium.chrome.browser.tab_ui.TabListMode;
 import org.chromium.chrome.browser.tabmodel.TabGroupMergeNotificationType;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
@@ -86,6 +85,7 @@ import org.chromium.chrome.browser.tasks.tab_management.TabListEditorAction.Butt
 import org.chromium.chrome.browser.tasks.tab_management.TabListEditorAction.IconPosition;
 import org.chromium.chrome.browser.tasks.tab_management.TabListEditorAction.ShowMode;
 import org.chromium.chrome.browser.tasks.tab_management.TabListEditorCoordinator.CreationMode;
+import org.chromium.chrome.browser.tasks.tab_management.TabListMediator.TabListLayoutType;
 import org.chromium.chrome.browser.tasks.tab_management.TabProperties.TabActionState;
 import org.chromium.chrome.browser.ui.desktop_windowing.AppHeaderCoordinator;
 import org.chromium.chrome.browser.ui.edge_to_edge.EdgeToEdgeController;
@@ -205,8 +205,7 @@ public class SelectableTabListEditorTest {
                                     currentTabModelSupplier,
                                     cta.getTabContentManager(),
                                     mSetRecyclerViewPosition,
-                                    TabListMode.GRID,
-                                    /* displayGroups= */ true,
+                                    TabListLayoutType.GROUPED,
                                     mSnackbarManager,
                                     /* bottomSheetController= */ null,
                                     TabProperties.TabActionState.SELECTABLE,

@@ -18,12 +18,18 @@
 #include "chrome/grit/generated_resources.h"
 #include "components/vector_icons/vector_icons.h"
 #include "ui/base/l10n/l10n_util.h"
+#include "ui/base/page_transition_types.h"
 #include "ui/base/ui_base_features.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/color/color_id.h"
 #include "ui/message_center/public/cpp/message_center_constants.h"
 #include "ui/message_center/public/cpp/notification.h"
 #include "ui/message_center/public/cpp/notification_delegate.h"
 #include "ui/native_theme/native_theme.h"
+
+#if BUILDFLAG(IS_ANDROID)
+#include "base/strings/string_split.h"
+#endif
 
 namespace enterprise_reporting {
 namespace {

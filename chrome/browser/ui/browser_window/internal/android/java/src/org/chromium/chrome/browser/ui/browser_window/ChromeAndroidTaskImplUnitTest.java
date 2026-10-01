@@ -332,7 +332,6 @@ public class ChromeAndroidTaskImplUnitTest {
                 (ChromeAndroidTaskImpl) chromeAndroidTaskWithMockDeps.mChromeAndroidTask;
         var activityScopedObjects1 = chromeAndroidTaskWithMockDeps.mActivityScopedObjects;
         var activityScopedObjects2 = createActivityScopedObjects(taskId);
-        var tabModel1 = activityScopedObjects1.mTabModelSelector.getCurrentModel();
 
         // Act.
         chromeAndroidTask.addActivityScopedObjects(activityScopedObjects2);
@@ -1465,6 +1464,42 @@ public class ChromeAndroidTaskImplUnitTest {
                 nonProfileScopedFeature,
                 chromeAndroidTask.getFeatureForTesting(nonProfileScopedFeatureKey));
         assertEquals(0, nonProfileScopedFeature.mOnFeatureRemovedHelper.getCallCount());
+    }
+
+    @Test
+    public void onProfileDestroyed_removesProfileScopedFeaturesInLifoOrder() throws Exception {
+        var chromeAndroidTaskWithMockDeps = createChromeAndroidTaskWithMockDeps(/* taskId= */ 1);
+        var chromeAndroidTask =
+                (ChromeAndroidTaskImpl) chromeAndroidTaskWithMockDeps.mChromeAndroidTask;
+        var profile = chromeAndroidTaskWithMockDeps.mMockProfile;
+        var activityScopedObjects1 = chromeAndroidTaskWithMockDeps.mActivityScopedObjects;
+        var activityScopedObjects2 = createActivityScopedObjects(/* taskId= */ 1);
+        chromeAndroidTask.addActivityScopedObjects(activityScopedObjects2);
+
+        List<String> removalOrder = new ArrayList<>();
+
+        var feature1 = new TestChromeAndroidTaskFeature(chromeAndroidTask);
+        feature1.mOnFeatureRemovedCallback = () -> removalOrder.add("feature1");
+        var featureKey1 =
+                new ChromeAndroidTaskFeatureKey(
+                        TestChromeAndroidTaskFeature.class,
+                        profile,
+                        activityScopedObjects1.mActivityWindowAndroid);
+        chromeAndroidTask.addFeature(featureKey1, () -> feature1);
+
+        var feature2 = new TestChromeAndroidTaskFeature(chromeAndroidTask);
+        feature2.mOnFeatureRemovedCallback = () -> removalOrder.add("feature2");
+        var featureKey2 =
+                new ChromeAndroidTaskFeatureKey(
+                        TestChromeAndroidTaskFeature.class,
+                        profile,
+                        activityScopedObjects2.mActivityWindowAndroid);
+        chromeAndroidTask.addFeature(featureKey2, () -> feature2);
+
+        ProfileManager.onProfileDestroyed(profile);
+
+        // Check feature2 (added 2nd) is removed before feature1 (added 1st).
+        assertEquals(List.of("feature2", "feature1"), removalOrder);
     }
 
     @Test
@@ -3920,7 +3955,7 @@ public class ChromeAndroidTaskImplUnitTest {
     }
 
     @Test
-    public void onProfileDestroyed_whenTaskIsPendingCreate_destroysPendingBrowserWindow() {
+    public void onProfileDestroyed_whenTaskIsPendingCreate_throwsException() {
         // TODO(crbug.com/479566813): Re-enable for Desktop Android when fixed.
         assumeFalse(BuildConfig.IS_DESKTOP_ANDROID);
 
@@ -3930,29 +3965,10 @@ public class ChromeAndroidTaskImplUnitTest {
         // Arrange: Create the pending task.
         var pendingTaskWithDeps =
                 createChromeAndroidTaskWithMockDeps(/* taskId= */ 2, /* isPendingTask= */ true);
-        var pendingTask = (ChromeAndroidTaskImpl) pendingTaskWithDeps.mChromeAndroidTask;
         var profile = pendingTaskWithDeps.mMockProfile;
-        var mockNatives = pendingTaskWithDeps.mMockAndroidBrowserWindowNatives;
 
-        assertEquals(
-                "Pending task should track exactly 1 native window pointer",
-                1,
-                pendingTask.getAllNativeBrowserWindowPtrs().size());
-
-        // Extract the created native pointer to verify it gets destroyed.
-        long pendingWindowPtr = pendingTask.getAllNativeBrowserWindowPtrs().get(0);
-
-        // Act: Destroy the profile before the task attaches to an Activity.
-        ProfileManager.onProfileDestroyed(profile);
-
-        // Assert: The pending window should be destroyed and cleared.
-        assertEquals(
-                "Pending window should be cleared",
-                0,
-                pendingTask.getAllNativeBrowserWindowPtrs().size());
-
-        // Verify native destroy was actually called.
-        verify(mockNatives, times(1)).destroy(pendingWindowPtr);
+        // Act & Assert: Destroying the profile while a browser window is pending should throw.
+        assertThrows(IllegalStateException.class, () -> ProfileManager.onProfileDestroyed(profile));
     }
 
     @Test
@@ -4015,6 +4031,27 @@ public class ChromeAndroidTaskImplUnitTest {
                                 chromeAndroidTaskWithMockDeps
                                         .mActivityScopedObjects
                                         .mActivityWindowAndroid));
+    }
+
+    @Test
+    public void
+            androidBrowserWindowObserver_whenPendingTaskDestroyed_notifiesRemovedOncePerWindow() {
+        // Arrange: Creating a pending task requires an existing task to generate the Intent.
+        createChromeAndroidTaskWithMockDeps(/* taskId= */ 1);
+
+        var pendingTaskWithDeps =
+                createChromeAndroidTaskWithMockDeps(/* taskId= */ 2, /* isPendingTask= */ true);
+        var pendingTask = (ChromeAndroidTaskImpl) pendingTaskWithDeps.mChromeAndroidTask;
+        pendingTask.getOrCreateNativeBrowserWindowPtr(pendingTaskWithDeps.mMockProfile);
+
+        var observer = mock(AndroidBrowserWindowObserver.class);
+        pendingTask.addAndroidBrowserWindowObserver(observer);
+
+        // Act.
+        pendingTask.destroy();
+
+        // Assert: Observer should be notified exactly once for the pending window.
+        verify(observer, times(1)).onBrowserWindowRemoved(any());
     }
 
     @Test
@@ -4476,9 +4513,15 @@ public class ChromeAndroidTaskImplUnitTest {
             mInitInfoHistory.add(initInfo);
         }
 
+        Runnable mOnFeatureRemovedCallback;
+
         @Override
         public void onFeatureRemoved() {
             mOnFeatureRemovedHelper.notifyCalled();
+
+            if (mOnFeatureRemovedCallback != null) {
+                mOnFeatureRemovedCallback.run();
+            }
 
             if (mShouldRefuseToBeRemoved) {
                 var featureKey =

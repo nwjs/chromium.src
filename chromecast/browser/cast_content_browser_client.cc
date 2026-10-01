@@ -111,6 +111,7 @@
 #include "base/android/device_info.h"
 #include "chromecast/media/audio/cast_audio_manager_android.h"  // nogncheck
 #include "components/crash/core/app/crashpad.h"
+#include "components/input/features.h"
 #include "media/audio/android/audio_manager_android.h"
 #include "media/audio/audio_features.h"
 #endif  // BUILDFLAG(IS_ANDROID)
@@ -124,9 +125,6 @@
 #include "chromecast/media/service/video_geometry_setter_service.h"
 #endif  // BUILDFLAG(ENABLE_CAST_RENDERER)
 
-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_FUCHSIA)
-#include "device/bluetooth/cast/bluetooth_adapter_cast.h"
-#endif
 
 namespace chromecast {
 namespace shell {
@@ -164,6 +162,7 @@ CastContentBrowserClient::CastContentBrowserClient(
 #if BUILDFLAG(IS_ANDROID)
   extra_enable_features.push_back(
       &::media::kUseTaskRunnerForMojoAudioDecoderService);
+  extra_disable_features.push_back(&input::features::kInputOnViz);
 
   if (base::android::device_info::is_tv()) {
     // Use the software decoder provided by MediaCodec instead of the built in
@@ -321,13 +320,6 @@ media::MediaCapsImpl* CastContentBrowserClient::media_caps() {
   DCHECK(cast_browser_main_parts_);
   return cast_browser_main_parts_->media_caps();
 }
-
-#if !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_FUCHSIA)
-scoped_refptr<device::BluetoothAdapterCast>
-CastContentBrowserClient::CreateBluetoothAdapter() {
-  NOTREACHED() << "Bluetooth Adapter is not supported!";
-}
-#endif  // !BUILDFLAG(IS_ANDROID) && !BUILDFLAG(IS_FUCHSIA)
 
 void CastContentBrowserClient::SetMetricsClientId(
     const std::string& client_id) {}

@@ -25,6 +25,7 @@
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/bind.h"
+#include "base/threading/thread_restrictions.h"
 #include "base/values.h"
 #include "build/build_config.h"
 #include "chrome/browser/browser_process.h"
@@ -82,6 +83,8 @@
 #include "net/test/test_data_directory.h"
 #include "services/network/public/mojom/url_response_head.mojom.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "ui/base/page_transition_types.h"
+#include "ui/base/window_open_disposition.h"
 
 #if BUILDFLAG(IS_WIN)
 #include "base/win/win_util.h"
@@ -2014,9 +2017,9 @@ void CaptivePortalBrowserTest::RunNavigateLoadingTabToTimeoutTest(
   tab_strip_model->ActivateTabAt(
       0, TabStripUserGestureDetails(
              TabStripUserGestureDetails::GestureType::kOther));
-  browser->OpenURL(content::OpenURLParams(timeout_url, content::Referrer(),
-                                          WindowOpenDisposition::CURRENT_TAB,
-                                          ui::PAGE_TRANSITION_TYPED, false),
+  browser->OpenURL(content::OpenURLParams::CreateBrowserInitiated(
+                       timeout_url, WindowOpenDisposition::CURRENT_TAB,
+                       ui::PAGE_TRANSITION_TYPED),
                    /*navigation_handle_callback=*/{});
   portal_observer.WaitForResults(1);
   EXPECT_FALSE(CheckPending(browser));
@@ -2672,9 +2675,9 @@ IN_PROC_BROWSER_TEST_F(CaptivePortalBrowserTest,
   // a load stop notification before starting a new navigation.
   MultiNavigationObserver test_navigation_observer;
   browser()->OpenURL(
-      content::OpenURLParams(
-          embedded_test_server()->GetURL("/title2.html"), content::Referrer(),
-          WindowOpenDisposition::CURRENT_TAB, ui::PAGE_TRANSITION_TYPED, false),
+      content::OpenURLParams::CreateBrowserInitiated(
+          embedded_test_server()->GetURL("/title2.html"),
+          WindowOpenDisposition::CURRENT_TAB, ui::PAGE_TRANSITION_TYPED),
       /*navigation_handle_callback=*/{});
   test_navigation_observer.WaitForNavigations(1);
 
@@ -2738,9 +2741,9 @@ IN_PROC_BROWSER_TEST_F(
   // tabs to stop loading before navigating.
   CaptivePortalObserver portal_observer(browser()->GetProfile());
   MultiNavigationObserver test_navigation_observer;
-  browser()->OpenURL(content::OpenURLParams(cert_error_url, content::Referrer(),
-                                            WindowOpenDisposition::CURRENT_TAB,
-                                            ui::PAGE_TRANSITION_TYPED, false),
+  browser()->OpenURL(content::OpenURLParams::CreateBrowserInitiated(
+                         cert_error_url, WindowOpenDisposition::CURRENT_TAB,
+                         ui::PAGE_TRANSITION_TYPED),
                      /*navigation_handle_callback=*/{});
   test_navigation_observer.WaitForNavigations(1);
   // Should end up with an SSL interstitial.
@@ -2783,9 +2786,9 @@ IN_PROC_BROWSER_TEST_F(
   // tabs to stop loading before navigating.
   CaptivePortalObserver portal_observer(browser()->GetProfile());
   MultiNavigationObserver test_navigation_observer;
-  browser()->OpenURL(content::OpenURLParams(cert_error_url, content::Referrer(),
-                                            WindowOpenDisposition::CURRENT_TAB,
-                                            ui::PAGE_TRANSITION_TYPED, false),
+  browser()->OpenURL(content::OpenURLParams::CreateBrowserInitiated(
+                         cert_error_url, WindowOpenDisposition::CURRENT_TAB,
+                         ui::PAGE_TRANSITION_TYPED),
                      /*navigation_handle_callback=*/{});
   // Expect two navigations:
   // 1- For completing the load of the above navigation.

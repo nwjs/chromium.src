@@ -16,6 +16,9 @@
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/site_token_provider/site_token_provider_service_factory.h"
 #include "chrome/common/url_constants.h"
+#include "components/site_token_provider/features.h"
+#include "components/site_token_provider/site_token_constants.h"
+#include "components/site_token_provider/site_token_provider.h"
 #include "components/site_token_provider/site_token_provider_service.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_thread.h"
@@ -29,6 +32,7 @@
 #include "net/http/http_response_headers.h"
 #include "net/traffic_annotation/network_traffic_annotation.h"
 #include "services/network/public/cpp/cors/cors.h"
+#include "services/network/public/cpp/is_potentially_trustworthy.h"
 #include "services/network/public/cpp/resource_request.h"
 #include "services/network/public/cpp/url_loader_completion_status.h"
 #include "services/network/public/mojom/url_loader.mojom.h"
@@ -60,11 +64,21 @@ network::mojom::URLResponseHeadPtr BuildResponseHead(
 
 base::expected<mojo::ScopedDataPipeConsumerHandle, net::Error>
 CreateDataPipeWithPayload(std::string_view payload) {
+  if (payload.size() > kMaxTokenPayloadSize) {
+    return base::unexpected(net::ERR_FILE_TOO_BIG);
+  }
+
+  MojoCreateDataPipeOptions options;
+  options.struct_size = sizeof(MojoCreateDataPipeOptions);
+  options.flags = MOJO_CREATE_DATA_PIPE_FLAG_NONE;
+  options.element_num_bytes = 1;
+  options.capacity_num_bytes = kMaxTokenPayloadSize;
+
   mojo::ScopedDataPipeProducerHandle producer_handle;
   mojo::ScopedDataPipeConsumerHandle consumer_handle;
-  if (mojo::CreateDataPipe(nullptr, producer_handle, consumer_handle) !=
+  if (mojo::CreateDataPipe(&options, producer_handle, consumer_handle) !=
       MOJO_RESULT_OK) {
-    return base::unexpected(net::ERR_FAILED);
+    return base::unexpected(net::ERR_INSUFFICIENT_RESOURCES);
   }
   if (producer_handle->WriteAllData(base::as_byte_span(payload)) !=
       MOJO_RESULT_OK) {
@@ -104,6 +118,12 @@ base::expected<url::Origin, net::Error> ValidateAndGetInitiator(
     return base::unexpected(net::ERR_ACCESS_DENIED);
   }
 
+  // Require initiator origin to be potentially trustworthy (e.g. HTTPS or
+  // localhost).
+  if (!network::IsOriginPotentiallyTrustworthy(initiator)) {
+    return base::unexpected(net::ERR_ACCESS_DENIED);
+  }
+
   return initiator;
 }
 
@@ -111,17 +131,34 @@ base::expected<std::string, net::Error> GetToken(int render_process_id,
                                                  const url::Origin& initiator) {
   content::RenderProcessHost* rph =
       content::RenderProcessHost::FromID(render_process_id);
-  Profile* profile =
-      rph ? Profile::FromBrowserContext(rph->GetBrowserContext()) : nullptr;
-  SiteTokenProviderService* service =
-      profile ? SiteTokenProviderServiceFactory::GetForProfile(profile)
-              : nullptr;
-
-  if (!service) {
+  if (!rph) {
     return base::unexpected(net::ERR_FAILED);
   }
 
-  return service->GetTokenForDomain(initiator.host());
+  Profile* profile = Profile::FromBrowserContext(rph->GetBrowserContext());
+  if (!profile) {
+    return base::unexpected(net::ERR_FAILED);
+  }
+
+  const std::string& host = initiator.host();
+  SiteTokenProviderService* service =
+      SiteTokenProviderServiceFactory::GetForProfile(profile);
+
+  bool is_allowed =
+      service ? service->IsDomainAllowlisted(host)
+              : IsDomainInAllowlist(host, features::kSiteTokenAllowlist.Get());
+
+  if (!is_allowed) {
+    return base::unexpected(net::ERR_ACCESS_DENIED);
+  }
+
+  // If the service is not created (e.g. Incognito / Off-The-Record profile),
+  // return an empty token to avoid exposing Incognito state to web content.
+  if (!service) {
+    return "";
+  }
+
+  return service->GetTokenForDomain(host);
 }
 
 }  // namespace

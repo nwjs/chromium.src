@@ -44,6 +44,7 @@ enum class ManagedToolbarPinMode;
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC)
 BASE_DECLARE_FEATURE(
     kDisableForceInstalledExtensionsInLowTrustEnviromentWhenGreylisted);
+BASE_DECLARE_FEATURE(kBlockPolicyDseNtpOverridesInLowTrust);
 #endif
 
 namespace internal {
@@ -56,6 +57,7 @@ struct GlobalSettings;
 class APIPermissionSet;
 class CWSInfoServiceInterface;
 class Extension;
+class LowTrustPolicyInstallBlockManager;
 class PermissionSet;
 
 // Tracks the management policies that affect extensions and provides interfaces
@@ -156,6 +158,21 @@ class ExtensionManagement : public KeyedService,
   // but they must be hosted within the web store. See https://b/283274398.
   bool ShouldBlockForceInstalledOffstoreExtension(const Extension& extension);
 
+  // Returns true if low-trust policy enforcement is active for this browser
+  // instance (Windows or Mac without trusted enterprise management).
+  bool IsLowTrustEnforcementActive() const;
+
+  // Returns true if the policy-installed extension should be blocked because
+  // it overrides DSE/NTP settings in a low-trust environment (where neither
+  // the device nor the browser profile is managed by a trusted authority).
+  bool ShouldBlockPolicyInstalledDseNtpOverrideExtension(
+      const Extension& extension);
+
+  // Returns true if the policy-installed extension is recorded as blocked in
+  // preferences in a low-trust environment (where neither the device nor the
+  // browser profile is managed by a trusted authority).
+  bool IsExtensionBlockedByLowTrust(const ExtensionId& extension_id) const;
+
   // Returns the list of blocked API permissions for `extension`.
   APIPermissionSet GetBlockedAPIPermissions(const Extension* extension);
 
@@ -197,6 +214,12 @@ class ExtensionManagement : public KeyedService,
   // Returns the toolbar pin mode for `extension_id`.
   extensions::ManagedToolbarPinMode GetToolbarPinMode(
       const ExtensionId& extension_id);
+
+  // Returns the manager for tracking policy extensions blocked in low-trust
+  // environments.
+  LowTrustPolicyInstallBlockManager* low_trust_block_manager() const {
+    return low_trust_block_manager_.get();
+  }
 
  private:
   using SettingsIdMap =
@@ -315,6 +338,12 @@ class ExtensionManagement : public KeyedService,
   // profile. The service provides information about CWS publish status for
   // extensions.
   raw_ptr<CWSInfoServiceInterface> cws_info_service_ = nullptr;
+
+  // Returns true if low-trust DSE/NTP policy install blocking is active
+  // (the feature is enabled and low-trust enforcement is active).
+  bool IsDseNtpOverrideBlockingActive() const;
+
+  std::unique_ptr<LowTrustPolicyInstallBlockManager> low_trust_block_manager_;
 };
 
 class ExtensionManagementFactory : public ProfileKeyedServiceFactory {

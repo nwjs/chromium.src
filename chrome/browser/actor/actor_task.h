@@ -298,6 +298,9 @@ class ActorTask : public base::SupportsUserData {
   }
 
   ActorKeyedService& actor_keyed_service() const { return service_.get(); }
+  ui::UiEventDispatcher& ui_event_dispatcher() const {
+    return *ui_event_dispatcher_;
+  }
 
   bool has_visible_tab() const { return has_visible_tab_; }
   bool is_in_pip() const { return is_in_pip_; }
@@ -364,8 +367,8 @@ class ActorTask : public base::SupportsUserData {
   void DidContentsExitActorControl(ActorControlledTabState* state,
                                    content::WebContents* contents);
 
-  // Returns true if the tab belongs to a different profile than the task,
-  // and logs an error to the journal.
+  // Returns true if the tab does not exist or belongs to a different profile
+  // than the task, and logs an error to the journal.
   bool CheckCrossProfileAndLog(tabs::TabInterface* tab,
                                tabs::TabHandle tab_handle,
                                std::string_view method_name);
@@ -406,11 +409,13 @@ class ActorTask : public base::SupportsUserData {
 
   std::unique_ptr<ActionTrackerForMetrics> action_tracker_for_metrics_;
 
+  // This is used by and should be kept above `execution_engine_`.
+  std::unique_ptr<ui::UiEventDispatcher> ui_event_dispatcher_;
+
   // The engine responsible for actually processing and invoking a list of
   // ToolRequests. Always non-null.
   std::unique_ptr<ExecutionEngine> execution_engine_;
 
-  std::unique_ptr<ui::UiEventDispatcher> ui_event_dispatcher_;
 
   base::SafeRef<AggregatedJournal> journal_;
 

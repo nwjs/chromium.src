@@ -37,7 +37,6 @@
 <translation id="1330562121671411446">Разпознаване на езика</translation>
 <translation id="1342274909142618978">Изтриване на данните и от Chromium (<ph name="URL" />)</translation>
 <translation id="1345251407431278948">Успешно фиксиране. Можете да осъществявате достъп до търсенето на изображения чрез новия бутон в лентата с инструменти</translation>
-<translation id="1356661055722410047">Ново! Можете да превеждате текст и изображения на екрана си</translation>
 <translation id="1383876407941801731">Търсене</translation>
 <translation id="1388276868779258475">Използвайте приложението Chromium, за да продължите да сърфирате в движение</translation>
 <translation id="141901961143729572">Споделете какво мислите</translation>
@@ -69,6 +68,7 @@
 <translation id="1793486931176048546">Кликнете върху <ph name="BEGIN_BOLD" />Да<ph name="END_BOLD" /> в известието от Windows, за да фиксирате Chromium в лентата на задачите за бърз достъп.</translation>
 <translation id="1808667845054772817">Повторно инсталиране на Chromium</translation>
 <translation id="1820835682567584003">Chromium се опитва да <ph name="AUTHENTICATION_PURPOSE" /></translation>
+<translation id="1828328511398219809"><ph name="EXISTING_USER" /> вече е в профила си. За да бъде сърфирането ви отделно, влезте в Chromium със свой собствен потребителски профил като <ph name="USER_EMAIL_ADDRESS" />. Също така ще получите разширенията си и др. от <ph name="DEVICE" />.</translation>
 <translation id="183031085822326697">Следващия път, когато отворите Chromium на устройството си <ph name="DEVICE_TYPE" />, ще видите подкана да използвате Google Мениджър на пароли.</translation>
 <translation id="1838374766361614909">Изчистване на търсенето</translation>
 <translation id="18552579716432081">За да изтриете данните за сърфирането само от това устройство, но да ги запазите в профила си в Google, <ph name="BEGIN_LINK" />излезте от профила си в Chromium<ph name="END_LINK" />.</translation>
@@ -147,6 +147,7 @@
 <translation id="2575822587468774919">Изберете каквото и да е, за да търсите с функцията за търсене на изображения</translation>
 <translation id="2576118232315942160">Влезте в Chromium, за да получите паролите си и др. на всичките си устройства</translation>
 <translation id="2587622539943955767">Сканирайте QR кода с телефона си, за да изтеглите Chromium и да влезете в профила си в Google.</translation>
+<translation id="2587885422541096572">за търсене с Chromium.</translation>
 <translation id="2592940277904433508">Продължаване на използването на Chromium</translation>
 <translation id="259935314519650377">Кеширането на изтеглената инсталационна програма не бе успешно. Грешка: <ph name="UNPACK_CACHING_ERROR_CODE" />.</translation>
 <translation id="2620436844016719705">Система</translation>
@@ -191,6 +192,7 @@
 <translation id="3038232873781883849">Изчаква се инсталирането да започне...</translation>
 <translation id="3045032126857188731">Език на превода: <ph name="LANGUAGE" /></translation>
 <translation id="3047590466164881923">Затваряне на диалоговия прозорец за отзиви</translation>
+<translation id="3064717200427679322"><ph name="EXISTING_USER" /> вече е в профила си. За да бъде сърфирането ви отделно, влезте в Chromium със свой собствен потребителски профил като <ph name="USER_EMAIL_ADDRESS" />. Също така ще получите списъка си за четене и др. от <ph name="DEVICE" />.</translation>
 <translation id="3068187312562070417">Други потребителски профили в Chromium</translation>
 <translation id="3068290154869370196">Разширенията са добавки, които ви дават възможност да персонализирате Chromium. От организирането до улесняването на ежедневните задачи – разширенията ви помагат да персонализирате Chromium.</translation>
 <translation id="3068515742935458733">Помогнете ни да подобрим Chromium, като ни изпращате <ph name="UMA_LINK" /> му и сигнали за сривове</translation>
@@ -290,6 +292,7 @@
 <translation id="4147856324248078748">Персонализиране на Chromium</translation>
 <translation id="4148957013307229264">Инсталира се...</translation>
 <translation id="419998258129752635"><ph name="PAGE_TITLE" /> – Вход в мрежата – Chromium</translation>
+<translation id="4208652172235621272"><ph name="EXISTING_USER" /> вече е в профила си. За да бъде сърфирането ви отделно, влезте в Chromium със свой собствен потребителски профил като <ph name="USER_EMAIL_ADDRESS" />. Също така ще получите списъка си за четене и др. на всичките си устройства.</translation>
 <translation id="421369550622382712">Открийте отлични приложения, игри, разширения и теми за Chromium.</translation>
 <translation id="4217080900579554343">За да получите това разширение и др. на всичките си компютри, влезте в профила си в Chromium</translation>
 <translation id="4217972271355023382">За да сърфирате по-безопасно онлайн с избраните от родителя ви настройки, превключете към потребителския си профил в Chromium, в който вече сте влезли като <ph name="USER_EMAIL_ADDRESS" /></translation>
@@ -304,7 +307,6 @@
 <translation id="4298125729853015961">Експортиране на паролите от Chromium</translation>
 <translation id="4304713468139749426">Мениджър на паролите</translation>
 <translation id="4334241893986177674">Търсене на тази екранна снимка</translation>
-<translation id="4368547723231502008">Търсете и задавайте въпроси от всяко място дори когато Chromium е минимизиран</translation>
 <translation id="4384331407722351213">Стартиране на Chromium при стартиране на Windows</translation>
 <translation id="4400772909124543403">Няма актуализация</translation>
 <translation id="4407044323746248786">Искате ли да излезете от Chromium въпреки това?</translation>
@@ -335,6 +337,7 @@
 <translation id="4621240073146040695">Актуализирането почти завърши! Остава само да стартирате отново Chromium.</translation>
 <translation id="4625064703209785397">Ускорява сайтовете с машината V8 на Chromium, но същевременно устойчивостта на браузъра срещу атаки леко намалява</translation>
 <translation id="4626321472657185181">Отваряне на търсенето с Chromium</translation>
+<translation id="4654639495249754755">Потребителски профил в Chromium</translation>
 <translation id="4665829708273112819">Предупреждение: Chromium не може да попречи на разширенията да записват историята ви на сърфиране. За да деактивирате това разширение в режим „инкогнито“, премахнете отметката от тази опция.</translation>
 <translation id="4673151026126227699">Ако споделяте и отчети за употребата на Chromium, те ще включват посещаваните от вас URL адреси</translation>
 <translation id="4673710618874938871">Влезли сте като <ph name="USER_NAME" />, членство. Отваряне на менюто на профила</translation>
@@ -390,6 +393,7 @@
 <translation id="5382964351116519680">Отваряне на търсенето с Chromium</translation>
 <translation id="5383439451358640070">Научете защо Chromium блокира някои файлове</translation>
 <translation id="5386450000063123300">Chromium се актуализира (<ph name="PROGRESS_PERCENT" />)</translation>
+<translation id="5387586787134731891"><ph name="EXISTING_USER" /> вече е в профила си. За да бъде сърфирането ви отделно, влезте в Chromium със свой собствен потребителски профил като <ph name="USER_EMAIL_ADDRESS" />. Също така ще получите разширенията си и др. на всичките си устройства.</translation>
 <translation id="538767207339317086">Разрешаване на влизането в Chromium</translation>
 <translation id="5405650547142096840">Премахване от Chromium</translation>
 <translation id="5424544524441439284">Намалява ефективността, но прави Chromium по-устойчив на атаки</translation>
@@ -466,6 +470,7 @@
 <translation id="6174920971222007286">Възможно е този файл да е опасен<ph name="LINE_BREAK" />Chromium може да провери това изтегляне, ако предоставите паролата. Информацията за файла се изпраща до Google Безопасно сърфиране, но съдържанието му и паролата остават на устройството ви.</translation>
 <translation id="6182736845697986886">Инсталирането не бе успешно поради вътрешна грешка в сървъра за актуализиране.</translation>
 <translation id="6183079672144801177">Проверете дали сте влезли в Chromium на устройството си <ph name="TARGET_DEVICE_NAME" /> и опитайте да изпратите отново.</translation>
+<translation id="6192070012454216182">Търсете и задавайте въпроси от всяко място дори когато Chromium е минимизиран. Разрешава на браузъра да се изпълнява на заден план.</translation>
 <translation id="6212496753309875659">На този компютър вече има по-скорошна версия на Chromium. Ако софтуерът не работи, моля, деинсталирайте Chromium и опитайте отново.</translation>
 <translation id="6219195342503754812">{0,plural, =0{Chromium ще се стартира отново сега}=1{Chromium ще се стартира отново след 1 секунда}other{Chromium ще се стартира отново след # секунди}}</translation>
 <translation id="6241367896540709610">Chromium се нуждае от разрешение за достъп до хранилището, за да изтегля файлове</translation>
@@ -590,6 +595,7 @@
 <translation id="7288567540154601580">Раздели и разширения</translation>
 <translation id="7295544978856094497">{NUM_EXTENSIONS,plural, =1{Chromium препоръчва да го премахнете}other{Chromium препоръчва да го премахнете}}</translation>
 <translation id="7296334833518879294">За да споделяте системното аудио, отворете системните настройки и разрешете „Записване само на системното аудио“ за Chromium. След това ще трябва да рестартирате Chromium.</translation>
+<translation id="7299899569525778554">Търсене от настолен компютър</translation>
 <translation id="731795002583552498">Chromium се актуализира</translation>
 <translation id="7318036098707714271">Файлът с предпочитанията ви е повреден или невалиден. Chromium не може да възстанови настройките ви.</translation>
 <translation id="7324051657739063017">Можете да отворите отново контекстните задачи, за да задавате въпроси, докато сърфирате</translation>
@@ -643,6 +649,7 @@
 <translation id="7790626492778995050"><ph name="PAGE_TITLE" /> – Chromium Canary</translation>
 <translation id="7803986347287457849">Попречете на хората с достъп до трафика ви в интернет да виждат кои сайтове посещавате. Chromium използва защитена връзка, за да потърси IP адреса на даден сайт в DNS (системата за имена на домейни).</translation>
 <translation id="7810005234485217901">Можете да фиксирате търсенето на изображения за лесен достъп</translation>
+<translation id="7813626943009612327">Задавайте въпроси за съдържание извън Chromium, например в друго приложение или файл, които сте отворили</translation>
 <translation id="7828527096541974699">Изберете какво да споделяте с Chromium</translation>
 <translation id="7828947555739565424">На това устройство вече съществува потребителски профил в Chromium за този профил</translation>
 <translation id="7845233973568007926">Благодарим ви, че инсталирахте <ph name="BUNDLE_NAME" />. Трябва да рестартирате компютъра си, преди да използвате това приложение.</translation>
@@ -730,10 +737,10 @@
 <translation id="856656450041460113">Търсене в списъка с езици</translation>
 <translation id="8576826849825683917">Chromium се управлява от няколко организации</translation>
 <translation id="8586442755830160949">Авторски права <ph name="YEAR" /> Авторите на Chromium. Всички права запазени.</translation>
-<translation id="8601359445272098721">Ново! Можете да превеждате текст и изображения на екрана си, като изберете бутона „Превод на екрана“</translation>
 <translation id="8619360774459241877">Chromium стартира…</translation>
 <translation id="8624541899164515475">Настройки (отваря се в нов раздел).</translation>
 <translation id="8648201657708811153">Google Chrome for Testing не може да бъде зададен като браузъра ви по подразбиране.</translation>
+<translation id="8676101123715131330">Търсене с Chromium от всяко място</translation>
 <translation id="8697124171261953979">То също контролира коя страница се показва при стартиране на Chromium или при търсене от полето за всичко.</translation>
 <translation id="8704119203788522458">Това е вашият Chromium</translation>
 <translation id="8712637175834984815">Разбрах</translation>
@@ -767,6 +774,7 @@
 <translation id="897581876605952338">Лого на Chromium Enterprise</translation>
 <translation id="8980139959902937527">Вземете безопасността на Google със себе си с приложението Chromium на устройството си <ph name="DEVICE_TYPE" /></translation>
 <translation id="8981150672034878610">Chromium не може да стартира, защото нещо се обърка при отварянето на потребителския ви профил. Рестартирайте Chromium.</translation>
+<translation id="8981886272598860786">за търсене с Chromium или персонализирайте в <ph name="BEGIN_LINK" />настройките<ph name="END_LINK" /></translation>
 <translation id="8988036198400390003">Управление на потребителските профили в Chromium</translation>
 <translation id="8993855408334954620">Използвайте клавиатурата си, за да се придвижвате между Gemini в Chromium и отворения раздел.</translation>
 <translation id="9018218886431812662">Инсталирането завърши</translation>

@@ -40,9 +40,7 @@ void AecdumpRecordingManager::EnableDebugRecording(
   DCHECK(!create_file_callback_);
   create_file_callback_ = std::move(create_file_callback);
 
-  for (const auto& it : aecdump_recording_sources_) {
-    AecdumpRecordingSource* source = it.first;
-    uint32_t id = it.second;
+  for (const auto& [source, id] : aecdump_recording_sources_) {
     create_file_callback_.Run(
         id, /*reply_callback=*/base::BindOnce(
             &StartRecordingIfValidPointer, weak_factory_.GetWeakPtr(), source));
@@ -54,8 +52,7 @@ void AecdumpRecordingManager::StartRecording(AecdumpRecordingSource* source,
   DCHECK(task_runner_->BelongsToCurrentThread());
   DCHECK(IsDebugRecordingEnabled());
 
-  if (aecdump_recording_sources_.find(source) !=
-      aecdump_recording_sources_.end()) {
+  if (aecdump_recording_sources_.contains(source)) {
     source->StartAecdump(std::move(file));
     return;
   }
@@ -81,8 +78,7 @@ void AecdumpRecordingManager::DisableDebugRecording() {
 void AecdumpRecordingManager::RegisterAecdumpSource(
     AecdumpRecordingSource* source) {
   DCHECK(task_runner_->BelongsToCurrentThread());
-  DCHECK(aecdump_recording_sources_.find(source) ==
-         aecdump_recording_sources_.end());
+  DCHECK(!aecdump_recording_sources_.contains(source));
 
   const uint32_t id = recording_id_counter_++;
 
@@ -97,8 +93,7 @@ void AecdumpRecordingManager::RegisterAecdumpSource(
 void AecdumpRecordingManager::DeregisterAecdumpSource(
     AecdumpRecordingSource* source) {
   DCHECK(task_runner_->BelongsToCurrentThread());
-  DCHECK(aecdump_recording_sources_.find(source) !=
-         aecdump_recording_sources_.end());
+  DCHECK(aecdump_recording_sources_.contains(source));
 
   if (IsDebugRecordingEnabled()) {
     source->StopAecdump();

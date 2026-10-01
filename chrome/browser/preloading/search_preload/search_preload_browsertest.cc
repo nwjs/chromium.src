@@ -51,6 +51,8 @@
 #include "testing/gtest/include/gtest/gtest.h"
 #include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/common/navigation/preloading_headers.h"
+#include "ui/base/page_transition_types.h"
+#include "ui/base/window_open_disposition.h"
 
 namespace {
 
@@ -460,11 +462,10 @@ class SearchPreloadBrowserTestBase : public PlatformBrowserTest,
     content::TestNavigationObserver observer(&GetWebContents());
     observer.set_wait_event(wait_event);
     GetWebContents().OpenURL(
-        content::OpenURLParams(
-            url, content::Referrer(), WindowOpenDisposition::CURRENT_TAB,
+        content::OpenURLParams::CreateBrowserInitiated(
+            url, WindowOpenDisposition::CURRENT_TAB,
             ui::PageTransitionFromInt(ui::PAGE_TRANSITION_GENERATED |
-                                      ui::PAGE_TRANSITION_FROM_ADDRESS_BAR),
-            /*is_renderer_initiated=*/false),
+                                      ui::PAGE_TRANSITION_FROM_ADDRESS_BAR)),
         /*navigation_handle_callback=*/{});
     observer.Wait();
   }

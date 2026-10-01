@@ -18,10 +18,19 @@ import org.chromium.chrome.browser.about_settings.LegalInformationSettings;
 import org.chromium.chrome.browser.appearance.settings.AppearanceSettingsFragment;
 import org.chromium.chrome.browser.autofill.settings.AndroidPaymentAppsFragment;
 import org.chromium.chrome.browser.autofill.settings.AutofillAndPasswordsFragment;
+import org.chromium.chrome.browser.autofill.settings.AutofillAndPasswordsFragment.AutofillSettingsReferrer;
+import org.chromium.chrome.browser.autofill.settings.AutofillBuyNowPayLaterFragment;
 import org.chromium.chrome.browser.autofill.settings.AutofillCardBenefitsFragment;
+import org.chromium.chrome.browser.autofill.settings.AutofillIdentityDocsFragment;
 import org.chromium.chrome.browser.autofill.settings.AutofillPaymentMethodsFragment;
 import org.chromium.chrome.browser.autofill.settings.AutofillProfilesFragment;
+import org.chromium.chrome.browser.autofill.settings.AutofillShoppingFragment;
+import org.chromium.chrome.browser.autofill.settings.AutofillTravelFragment;
+import org.chromium.chrome.browser.autofill.settings.FinancialAccountsManagementFragment;
+import org.chromium.chrome.browser.autofill.settings.NonCardPaymentMethodsManagementFragment;
 import org.chromium.chrome.browser.autofill.settings.options.AutofillOptionsFragment;
+import org.chromium.chrome.browser.autofill.settings.options.AutofillOptionsReferrer;
+import org.chromium.chrome.browser.autofill.settings.personal_context.AutofillPersonalContextFragment;
 import org.chromium.chrome.browser.browsing_data.ClearBrowsingDataFragment;
 import org.chromium.chrome.browser.download.settings.DownloadSettings;
 import org.chromium.chrome.browser.glic.GlicSettings;
@@ -36,17 +45,20 @@ import org.chromium.chrome.browser.prefetch.settings.StandardPreloadingSettingsF
 import org.chromium.chrome.browser.privacy.secure_dns.SecureDnsSettings;
 import org.chromium.chrome.browser.privacy.settings.DoNotTrackSettings;
 import org.chromium.chrome.browser.privacy.settings.PrivacySettings;
+import org.chromium.chrome.browser.privacy_guide.PrivacyGuideFragment;
 import org.chromium.chrome.browser.safe_browsing.settings.EnhancedProtectionSettingsFragment;
 import org.chromium.chrome.browser.safe_browsing.settings.SafeBrowsingSettingsFragment;
 import org.chromium.chrome.browser.safe_browsing.settings.StandardProtectionSettingsFragment;
-import org.chromium.chrome.browser.safety_check.SafetyCheckSettingsFragment;
 import org.chromium.chrome.browser.safety_hub.SafetyHubFragment;
+import org.chromium.chrome.browser.safety_hub.SafetyHubNotificationsFragment;
+import org.chromium.chrome.browser.safety_hub.SafetyHubPermissionsFragment;
 import org.chromium.chrome.browser.search_engines.settings.SearchEngineSettings;
 import org.chromium.chrome.browser.search_engines.settings.SiteSearchSettings;
 import org.chromium.chrome.browser.settings.search.SearchResultsPreferenceFragment;
 import org.chromium.chrome.browser.ssl.HttpsFirstModeSettingsFragment;
 import org.chromium.chrome.browser.sync.settings.GoogleServicesSettings;
 import org.chromium.chrome.browser.sync.settings.ManageSyncSettings;
+import org.chromium.chrome.browser.sync.settings.PersonalizeGoogleServicesSettings;
 import org.chromium.chrome.browser.tasks.tab_management.TabArchiveSettingsFragment;
 import org.chromium.chrome.browser.tasks.tab_management.TabsSettings;
 import org.chromium.chrome.browser.toolbar.adaptive.settings.AdaptiveToolbarSettingsFragment;
@@ -54,9 +66,17 @@ import org.chromium.chrome.browser.tracing.settings.DeveloperSettings;
 import org.chromium.chrome.browser.tracing.settings.TracingSettings;
 import org.chromium.components.browser_ui.accessibility.AccessibilitySettings;
 import org.chromium.components.browser_ui.site_settings.AllSiteSettings;
+import org.chromium.components.browser_ui.site_settings.ChosenObjectSettings;
 import org.chromium.components.browser_ui.site_settings.CookieSettings;
+import org.chromium.components.browser_ui.site_settings.GroupedWebsitesSettings;
+import org.chromium.components.browser_ui.site_settings.LocationPermissionSubpageSettings;
+import org.chromium.components.browser_ui.site_settings.SingleCategorySettings;
 import org.chromium.components.browser_ui.site_settings.SingleWebsiteSettings;
 import org.chromium.components.browser_ui.site_settings.SiteSettings;
+import org.chromium.components.browser_ui.site_settings.StorageAccessSubpageSettings;
+import org.chromium.components.browser_ui.site_settings.Website;
+import org.chromium.components.browser_ui.site_settings.WebsiteAddress;
+import org.chromium.components.browser_ui.site_settings.WebsiteGroup;
 import org.chromium.components.embedder_support.util.UrlConstants;
 import org.chromium.components.embedder_support.util.UrlUtilities;
 
@@ -83,6 +103,14 @@ public class SettingsFragmentRegistry {
     @VisibleForTesting
     static final ArrayMap<String, String> sArgKeyToQueryParamMap = new ArrayMap<>();
 
+    @FunctionalInterface
+    interface ParameterValueParser {
+        void putValue(Bundle bundle, String argKey, String val);
+    }
+
+    @VisibleForTesting
+    static final ArrayMap<String, ParameterValueParser> sQueryParamParsers = new ArrayMap<>();
+
     @VisibleForTesting
     static final ArrayMap<Class<? extends Fragment>, Consumer<Bundle>> sDefaultArgsProviders =
             new ArrayMap<>();
@@ -103,14 +131,16 @@ public class SettingsFragmentRegistry {
         // TODO(crbug.com/542745585): Handle /account differently based on local state
         // since it's not a static page which is always available.
         registerMapping("/account", ManageSyncSettings.class);
+        registerMapping("/account/personalize", PersonalizeGoogleServicesSettings.class);
         registerMapping("/googleServices", GoogleServicesSettings.class);
 
         // Basics
         registerMapping("/search", SearchEngineSettings.class);
         registerMapping("/search/siteSearch", SiteSearchSettings.class);
 
-        // Privacy
+        // Privacy & Security
         registerMapping("/privacy", PrivacySettings.class);
+        registerMapping("/privacyGuide", PrivacyGuideFragment.class);
         registerMapping("/clearBrowsingData", ClearBrowsingDataFragment.class);
         registerMapping("/cookies", CookieSettings.class);
         registerMapping("/doNotTrack", DoNotTrackSettings.class);
@@ -127,16 +157,23 @@ public class SettingsFragmentRegistry {
 
         // Safety Check / Safety Hub
         registerMapping("/safetyCheck", SafetyHubFragment.class);
-        registerMapping("/notifications", SafetyCheckSettingsFragment.class);
+        registerMapping("/safetyCheck/permissions", SafetyHubPermissionsFragment.class);
+        registerMapping("/safetyCheck/notifications", SafetyHubNotificationsFragment.class);
 
         // Autofill & Passwords
-        // TODO(mwoj): There are some missing here, but it's not obvious which.
         registerMapping("/autofill", AutofillAndPasswordsFragment.class);
         registerMapping("/payments", AutofillPaymentMethodsFragment.class);
+        registerMapping("/payments/nonCardMethods", NonCardPaymentMethodsManagementFragment.class);
+        registerMapping("/payments/financialAccounts", FinancialAccountsManagementFragment.class);
         registerMapping("/cardBenefits", AutofillCardBenefitsFragment.class);
+        registerMapping("/cardBenefits/bnpl", AutofillBuyNowPayLaterFragment.class);
         registerMapping("/paymentApps", AndroidPaymentAppsFragment.class);
         registerMapping("/addresses", AutofillProfilesFragment.class);
-        registerMapping("/autofillSettings", AutofillOptionsFragment.class);
+        registerMapping("/autofill/identityDocs", AutofillIdentityDocsFragment.class);
+        registerMapping("/autofill/travel", AutofillTravelFragment.class);
+        registerMapping("/autofill/shopping", AutofillShoppingFragment.class);
+        registerMapping("/autofill/personalContext", AutofillPersonalContextFragment.class);
+        registerMapping("/autofill/settings", AutofillOptionsFragment.class);
 
         // Tabs and tab groups
         registerMapping("/tabs", TabsSettings.class);
@@ -156,10 +193,22 @@ public class SettingsFragmentRegistry {
 
         // Content / Site Settings
         registerMapping("/siteSettings", SiteSettings.class);
+        registerMapping("/siteSettings/category", SingleCategorySettings.class);
         registerMapping("/allSites", AllSiteSettings.class);
+        registerMapping("/allSites/group", GroupedWebsitesSettings.class);
         registerMapping("/siteDetails", SingleWebsiteSettings.class);
+        registerMapping("/storageAccess", StorageAccessSubpageSettings.class);
+        registerMapping("/locationPermission", LocationPermissionSubpageSettings.class);
+        registerMapping("/chosenObject", ChosenObjectSettings.class);
 
         // Languages, Downloads, Tabs, Homepage
+        //
+        // Only the top-level languages page is URL routed. The subpages (language picker, always
+        // and never translate lists) exchange the selected language using the androidx Fragment
+        // Result API, which requires the calling fragment to remain on the fragment back stack.
+        // URL navigation replaces detail fragments with addToBackStack=false, which breaks that
+        // contract. See crbug.com/555347875; these routes are restored once the subpages no longer
+        // depend on the fragment back stack.
         registerMapping("/languages", LanguageSettings.class);
         registerMapping("/downloads", DownloadSettings.class);
 
@@ -173,8 +222,20 @@ public class SettingsFragmentRegistry {
         registerMapping("/ai/gemini", GlicSettings.class);
 
         // Parameter translations mapping URL query string keys to Fragment
-        // argument extra keys.
-        registerParameterMapping("site", SingleWebsiteSettings.EXTRA_SITE_ADDRESS);
+        // argument extra keys with appropriate type deserialization.
+        registerWebsiteAddressParameterMapping("site", SingleWebsiteSettings.EXTRA_SITE_ADDRESS);
+        registerBooleanParameterMapping("fromGrouped", SingleWebsiteSettings.EXTRA_FROM_GROUPED);
+        registerParameterMapping("category", SingleCategorySettings.EXTRA_CATEGORY);
+        registerParameterMapping("title", SingleCategorySettings.EXTRA_TITLE);
+        registerParameterMapping("group", GroupedWebsitesSettings.EXTRA_GROUP);
+        registerIntParameterMapping(
+                "referrer",
+                AutofillAndPasswordsFragment.EXTRA_REFERRER,
+                /* defaultValue= */ AutofillSettingsReferrer.SETTINGS_MENU);
+        registerIntParameterMapping(
+                "optionsReferrer",
+                AutofillOptionsFragment.AUTOFILL_OPTIONS_REFERRER,
+                /* defaultValue= */ AutofillOptionsReferrer.SETTINGS);
 
         // Register default argument providers cleanly without hardcoding in URL parsing logic
         sDefaultArgsProviders.put(
@@ -184,6 +245,15 @@ public class SettingsFragmentRegistry {
                         bundle.putInt(
                                 ThemeSettingsFragment.KEY_THEME_SETTINGS_ENTRY,
                                 NightModeMetrics.ThemeSettingsEntry.SETTINGS);
+                    }
+                });
+        sDefaultArgsProviders.put(
+                AutofillOptionsFragment.class,
+                bundle -> {
+                    if (!bundle.containsKey(AutofillOptionsFragment.AUTOFILL_OPTIONS_REFERRER)) {
+                        bundle.putInt(
+                                AutofillOptionsFragment.AUTOFILL_OPTIONS_REFERRER,
+                                AutofillOptionsReferrer.SETTINGS);
                     }
                 });
     }
@@ -204,9 +274,67 @@ public class SettingsFragmentRegistry {
         }
     }
 
-    private static void registerParameterMapping(String queryParam, String argKey) {
+    private static void registerParameterMapping(
+            String queryParam, String argKey, ParameterValueParser parser) {
         sQueryParamToArgKeyMap.put(queryParam, argKey);
         sArgKeyToQueryParamMap.put(argKey, queryParam);
+        sQueryParamParsers.put(queryParam, parser);
+    }
+
+    private static void registerParameterMapping(String queryParam, String argKey) {
+        registerParameterMapping(
+                queryParam, argKey, (bundle, key, val) -> bundle.putString(key, val));
+    }
+
+    @SuppressWarnings("unused")
+    private static void registerBooleanParameterMapping(String queryParam, String argKey) {
+        registerParameterMapping(
+                queryParam,
+                argKey,
+                (bundle, key, val) -> bundle.putBoolean(key, Boolean.parseBoolean(val)));
+    }
+
+    private static void registerIntParameterMapping(
+            String queryParam, String argKey, int defaultValue) {
+        registerParameterMapping(
+                queryParam,
+                argKey,
+                (bundle, key, val) -> {
+                    try {
+                        bundle.putInt(key, Integer.parseInt(val));
+                    } catch (NumberFormatException e) {
+                        bundle.putInt(key, defaultValue);
+                    }
+                });
+    }
+
+    // Currently unused: its only caller was the "potentialLanguages" mapping, removed along with
+    // the languages subpage routes. Retained for when those routes are re-landed.
+    @SuppressWarnings("unused")
+    private static void registerShortParameterMapping(
+            String queryParam, String argKey, short defaultValue) {
+        registerParameterMapping(
+                queryParam,
+                argKey,
+                (bundle, key, val) -> {
+                    try {
+                        bundle.putShort(key, Short.parseShort(val));
+                    } catch (NumberFormatException e) {
+                        bundle.putShort(key, defaultValue);
+                    }
+                });
+    }
+
+    private static void registerWebsiteAddressParameterMapping(String queryParam, String argKey) {
+        registerParameterMapping(
+                queryParam,
+                argKey,
+                (bundle, key, val) -> {
+                    WebsiteAddress address = WebsiteAddress.create(val);
+                    if (address != null) {
+                        bundle.putSerializable(key, address);
+                    }
+                });
     }
 
     public static void registerMappingForTesting(
@@ -286,7 +414,12 @@ public class SettingsFragmentRegistry {
                 // Map query parameter key to argument bundle key if registered,
                 // otherwise keep original.
                 String argKey = sQueryParamToArgKeyMap.getOrDefault(param, param);
-                bundle.putString(argKey, val);
+                ParameterValueParser parser = sQueryParamParsers.get(param);
+                if (parser != null) {
+                    parser.putValue(bundle, argKey, val);
+                } else {
+                    bundle.putString(argKey, val);
+                }
             }
         } catch (UnsupportedOperationException
                 | IllegalArgumentException
@@ -349,15 +482,42 @@ public class SettingsFragmentRegistry {
             Object val = args.get(key);
             if (val == null) continue;
 
-            if (!(val instanceof String || val instanceof Number || val instanceof Boolean)) {
-                continue;
+            UrlParam result = extractQueryParam(key, val);
+            if (result != null) {
+                String queryParam = sArgKeyToQueryParamMap.getOrDefault(result.mKey, result.mKey);
+                builder.appendQueryParameter(queryParam, result.mValue);
             }
-
-            // Map argument extra key back to canonical URL query param key.
-            String queryParam = sArgKeyToQueryParamMap.getOrDefault(key, key);
-            builder.appendQueryParameter(queryParam, String.valueOf(val));
         }
         return builder.build().toString();
+    }
+
+    private static @Nullable UrlParam extractQueryParam(String key, Object val) {
+        if (val instanceof Website website) {
+            return new UrlParam(
+                    SingleWebsiteSettings.EXTRA_SITE_ADDRESS, website.getAddress().getOrigin());
+        }
+        if (val instanceof WebsiteAddress websiteAddress) {
+            return new UrlParam(
+                    SingleWebsiteSettings.EXTRA_SITE_ADDRESS, websiteAddress.getOrigin());
+        }
+        if (val instanceof WebsiteGroup websiteGroup) {
+            return new UrlParam(
+                    GroupedWebsitesSettings.EXTRA_GROUP, websiteGroup.getDomainAndRegistry());
+        }
+        if (val instanceof CharSequence || val instanceof Number || val instanceof Boolean) {
+            return new UrlParam(key, String.valueOf(val));
+        }
+        return null;
+    }
+
+    private static class UrlParam {
+        final String mKey;
+        final String mValue;
+
+        UrlParam(String key, String value) {
+            this.mKey = key;
+            this.mValue = value;
+        }
     }
 
     /**

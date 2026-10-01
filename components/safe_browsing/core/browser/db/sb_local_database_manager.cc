@@ -20,8 +20,10 @@
 #include "base/functional/callback.h"
 #include "base/functional/callback_helpers.h"
 #include "base/memory/ref_counted.h"
+#include "base/memory/scoped_refptr.h"
 #include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
+#include "base/not_fatal_until.h"
 #include "base/strings/strcat.h"
 #include "base/strings/string_tokenizer.h"
 #include "base/task/sequenced_task_runner.h"
@@ -41,8 +43,6 @@
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 
 // TODO(crbug.com/362791941): Handle v4 references
-// TODO(crbug.com/362791941): Convert |comments| to `comments`
-// TODO(crbug.com/362791941): Change DCHECKs to CHECKs
 namespace safe_browsing {
 
 namespace {
@@ -279,6 +279,27 @@ void OnCheckForUrlHighConfidenceAllowlistComplete(
                           std::move(logging_details));
 }
 
+// Returns the metric suffix for a given `type`.
+std::string_view GetThreatInfoSizeMetricSuffix(
+    SBLocalDatabaseManager::ClientCallbackType type) {
+  using enum SBLocalDatabaseManager::ClientCallbackType;
+  switch (type) {
+    case CHECK_BROWSE_URL:
+      return ".BrowseUrl";
+    case CHECK_DOWNLOAD_URLS:
+      return ".DownloadUrls";
+    case CHECK_EXTENSION_IDS:
+      return ".ExtensionIds";
+    case CHECK_URL_FOR_SUBRESOURCE_FILTER:
+      return ".SubresourceFilter";
+    case CHECK_CSD_ALLOWLIST:
+      return ".CsdAllowlist";
+    case CHECK_OTHER:
+      // Synchronous checks never perform full-hash checks.
+      NOTREACHED();
+  }
+}
+
 }  // namespace
 
 SBLocalDatabaseManager::PendingCheck::PendingCheck(
@@ -316,13 +337,13 @@ SBLocalDatabaseManager::PendingCheck::PendingCheck(
           needs_full_hash_check_after_local_match) {
   CHECK(client || client_callback_type == ClientCallbackType::CHECK_OTHER);
   full_hashes.assign(full_hashes_set.begin(), full_hashes_set.end());
-  DCHECK(full_hashes.size());
+  CHECK(full_hashes.size(), base::NotFatalUntil::M162);
   full_hash_threat_types.assign(full_hashes.size(),
                                 SBThreatType::SB_THREAT_TYPE_SAFE);
 }
 
 SBLocalDatabaseManager::PendingCheck::~PendingCheck() {
-  DCHECK(!is_in_pending_checks);
+  CHECK(!is_in_pending_checks, base::NotFatalUntil::M162);
 }
 
 void SBLocalDatabaseManager::PendingCheck::Abandon() {
@@ -339,9 +360,10 @@ scoped_refptr<SBLocalDatabaseManager> SBLocalDatabaseManager::Create(
     scoped_refptr<base::SequencedTaskRunner> ui_task_runner,
     scoped_refptr<base::SequencedTaskRunner> io_task_runner,
     ExtendedReportingLevelCallback extended_reporting_level_callback) {
-  return base::WrapRefCounted(new SBLocalDatabaseManager(
-      base_path, extended_reporting_level_callback, std::move(ui_task_runner),
-      std::move(io_task_runner), nullptr));
+  return base::MakeRefCounted<SBLocalDatabaseManager>(
+      base::PassKey<SBLocalDatabaseManager>(), base_path,
+      extended_reporting_level_callback, std::move(ui_task_runner),
+      std::move(io_task_runner), nullptr);
 }
 
 void SBLocalDatabaseManager::CollectDatabaseManagerInfo(
@@ -360,6 +382,19 @@ void SBLocalDatabaseManager::CollectDatabaseManagerInfo(
         full_hash_cache_info);
   }
 }
+
+SBLocalDatabaseManager::SBLocalDatabaseManager(
+    base::PassKey<SBLocalDatabaseManager, SBLocalDatabaseManagerTest>,
+    const base::FilePath& base_path,
+    ExtendedReportingLevelCallback extended_reporting_level_callback,
+    scoped_refptr<base::SequencedTaskRunner> ui_task_runner,
+    scoped_refptr<base::SequencedTaskRunner> io_task_runner,
+    scoped_refptr<base::SequencedTaskRunner> task_runner_for_tests)
+    : SBLocalDatabaseManager(base_path,
+                             extended_reporting_level_callback,
+                             std::move(ui_task_runner),
+                             std::move(io_task_runner),
+                             std::move(task_runner_for_tests)) {}
 
 SBLocalDatabaseManager::SBLocalDatabaseManager(
     const base::FilePath& base_path,
@@ -381,13 +416,14 @@ SBLocalDatabaseManager::SBLocalDatabaseManager(
           base::OnTaskRunnerDeleter(nullptr))),
       enabled_(false),
       is_shutdown_(false) {
-  DCHECK(this->ui_task_runner()->RunsTasksInCurrentSequence());
-  DCHECK(!base_path_.empty());
-  DCHECK(!list_infos_.empty());
+  CHECK(this->ui_task_runner()->RunsTasksInCurrentSequence(),
+        base::NotFatalUntil::M162);
+  CHECK(!base_path_.empty(), base::NotFatalUntil::M162);
+  CHECK(!list_infos_.empty(), base::NotFatalUntil::M162);
 }
 
 SBLocalDatabaseManager::~SBLocalDatabaseManager() {
-  DCHECK(!enabled_);
+  CHECK(!enabled_, base::NotFatalUntil::M162);
 }
 
 //
@@ -400,12 +436,13 @@ void SBLocalDatabaseManager::CancelCheck(Client* client) {
     // in `DropQueuedAndPendingChecks()`, so there is no work needed here.
     return;
   }
-  DCHECK(ui_task_runner()->RunsTasksInCurrentSequence());
+  CHECK(ui_task_runner()->RunsTasksInCurrentSequence(),
+        base::NotFatalUntil::M162);
   CHECK(client);
   // We can't use IsDatabaseReady() here because there's several expected cases
   // where a client could cancel while the request is still queued (e.g.
   // timeouts, tab being closed).
-  DCHECK(enabled_);
+  CHECK(enabled_, base::NotFatalUntil::M162);
   auto pending_it =
       std::ranges::find(pending_checks_, client, &PendingCheck::client);
   if (pending_it != pending_checks_.end()) {
@@ -430,11 +467,14 @@ bool SBLocalDatabaseManager::CheckBrowseUrl(
     const SBThreatTypeSet& threat_types,
     Client* client,
     CheckBrowseUrlType check_type) {
-  DCHECK(ui_task_runner()->RunsTasksInCurrentSequence());
+  CHECK(ui_task_runner()->RunsTasksInCurrentSequence(),
+        base::NotFatalUntil::M162);
   CHECK(client);
-  DCHECK(!threat_types.empty());
-  DCHECK(SBThreatTypeSetIsValidForCheckBrowseUrl(threat_types));
-  DCHECK(check_type == CheckBrowseUrlType::kHashDatabase)
+  CHECK(!threat_types.empty(), base::NotFatalUntil::M162);
+  CHECK(SBThreatTypeSetIsValidForCheckBrowseUrl(threat_types),
+        base::NotFatalUntil::M162);
+  CHECK(check_type == CheckBrowseUrlType::kHashDatabase,
+        base::NotFatalUntil::M162)
       << "SB Local database only supports hash database check.";
 
   // We use `enabled_` here because `HandleCheck` queues checks that come in
@@ -458,7 +498,8 @@ bool SBLocalDatabaseManager::CheckBrowseUrl(
 bool SBLocalDatabaseManager::CheckDownloadUrl(
     const std::vector<GURL>& url_chain,
     Client* client) {
-  DCHECK(ui_task_runner()->RunsTasksInCurrentSequence());
+  CHECK(ui_task_runner()->RunsTasksInCurrentSequence(),
+        base::NotFatalUntil::M162);
   CHECK(client);
 
   // We use `enabled_` here because `HandleCheck` queues checks that come in
@@ -479,7 +520,8 @@ bool SBLocalDatabaseManager::CheckDownloadUrl(
 bool SBLocalDatabaseManager::CheckExtensionIDs(
     const std::set<FullHashStr>& extension_ids,
     Client* client) {
-  DCHECK(ui_task_runner()->RunsTasksInCurrentSequence());
+  CHECK(ui_task_runner()->RunsTasksInCurrentSequence(),
+        base::NotFatalUntil::M162);
   CHECK(client);
 
   // We use `enabled_` here because `HandleCheck` queues checks that come in
@@ -514,7 +556,8 @@ bool SBLocalDatabaseManager::CheckExtensionIDs(
 void SBLocalDatabaseManager::CheckUrlForHighConfidenceAllowlist(
     const GURL& url,
     CheckUrlForHighConfidenceAllowlistCallback callback) {
-  DCHECK(ui_task_runner()->RunsTasksInCurrentSequence());
+  CHECK(ui_task_runner()->RunsTasksInCurrentSequence(),
+        base::NotFatalUntil::M162);
   if (base::CommandLine::ForCurrentProcess()->HasSwitch(
           switches::kSkipHighConfidenceAllowlist)) {
     ui_task_runner()->PostTask(
@@ -563,7 +606,8 @@ void SBLocalDatabaseManager::CheckUrlForHighConfidenceAllowlist(
 
 bool SBLocalDatabaseManager::CheckUrlForSubresourceFilter(const GURL& url,
                                                           Client* client) {
-  DCHECK(ui_task_runner()->RunsTasksInCurrentSequence());
+  CHECK(ui_task_runner()->RunsTasksInCurrentSequence(),
+        base::NotFatalUntil::M162);
   CHECK(client);
 
   StoresToCheck stores_to_check(
@@ -583,7 +627,8 @@ bool SBLocalDatabaseManager::CheckUrlForSubresourceFilter(const GURL& url,
 
 AsyncMatch SBLocalDatabaseManager::CheckCsdAllowlistUrl(const GURL& url,
                                                         Client* client) {
-  DCHECK(ui_task_runner()->RunsTasksInCurrentSequence());
+  CHECK(ui_task_runner()->RunsTasksInCurrentSequence(),
+        base::NotFatalUntil::M162);
   CHECK(client);
 
   StoresToCheck stores_to_check({GetUrlCsdAllowlistId()});
@@ -617,7 +662,8 @@ AsyncMatch SBLocalDatabaseManager::CheckCsdAllowlistUrl(const GURL& url,
 void SBLocalDatabaseManager::MatchDownloadAllowlistUrl(
     const GURL& url,
     base::OnceCallback<void(bool)> callback) {
-  DCHECK(ui_task_runner()->RunsTasksInCurrentSequence());
+  CHECK(ui_task_runner()->RunsTasksInCurrentSequence(),
+        base::NotFatalUntil::M162);
 
   StoresToCheck stores_to_check({GetUrlCsdDownloadAllowlistId()});
 
@@ -634,7 +680,8 @@ void SBLocalDatabaseManager::MatchDownloadAllowlistUrl(
 
 ThreatSource SBLocalDatabaseManager::GetBrowseUrlThreatSource(
     CheckBrowseUrlType check_type) const {
-  DCHECK(check_type == CheckBrowseUrlType::kHashDatabase)
+  CHECK(check_type == CheckBrowseUrlType::kHashDatabase,
+        base::NotFatalUntil::M162)
       << "SB Local database only supports hash database check.";
   if (base::FeatureList::IsEnabled(kLocalListsUseSBv5)) {
     return ThreatSource::LOCAL_PVER5_LOCAL_BLOCKLIST;
@@ -651,7 +698,7 @@ ThreatSource SBLocalDatabaseManager::GetNonBrowseUrlThreatSource() const {
 
 void SBLocalDatabaseManager::StartOnUIThread(
     scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
-    const V4ProtocolConfig& config) {
+    const SBProtocolConfig& config) {
   SafeBrowsingDatabaseManager::StartOnUIThread(url_loader_factory, config);
 
   db_updated_callback_ = base::BindRepeating(
@@ -667,7 +714,8 @@ void SBLocalDatabaseManager::StartOnUIThread(
 }
 
 void SBLocalDatabaseManager::StopOnUIThread(bool shutdown) {
-  DCHECK(ui_task_runner()->RunsTasksInCurrentSequence());
+  CHECK(ui_task_runner()->RunsTasksInCurrentSequence(),
+        base::NotFatalUntil::M162);
 
   enabled_ = false;
   is_shutdown_ = shutdown;
@@ -711,7 +759,8 @@ bool SBLocalDatabaseManager::IsDatabaseReady() const {
 void SBLocalDatabaseManager::DatabaseReadyForChecks(
     base::Time start_time,
     std::unique_ptr<SBDatabase, base::OnTaskRunnerDeleter> sb_database) {
-  DCHECK(ui_task_runner()->RunsTasksInCurrentSequence());
+  CHECK(ui_task_runner()->RunsTasksInCurrentSequence(),
+        base::NotFatalUntil::M162);
 
   base::TimeDelta delta = base::Time::Now() - start_time;
   if (base::FeatureList::IsEnabled(kLocalListsUseSBv5)) {
@@ -732,8 +781,8 @@ void SBLocalDatabaseManager::DatabaseReadyForChecks(
 
     PopulateArtificialDatabase();
 
-    // The consistency of the stores read from the disk needs to verified. Post
-    // that task on the task runner. It calls |DatabaseReadyForUpdates|
+    // The consistency of the stores read from the disk needs to be verified.
+    // Post that task on the task runner. It calls `DatabaseReadyForUpdates`
     // callback with the stores to reset, if any, and then we can schedule the
     // database updates.
     sb_database_->VerifyChecksum(
@@ -782,7 +831,8 @@ void SBLocalDatabaseManager::GetArtificialPrefixMatches(
          artificially_marked_store_and_hash_prefixes_) {
       FullHashStr artificial_full_hash =
           artificial_store_and_hash_prefix.hash_prefix;
-      DCHECK_EQ(crypto::hash::kSha256Size, artificial_full_hash.size());
+      CHECK_EQ(crypto::hash::kSha256Size, artificial_full_hash.size(),
+               base::NotFatalUntil::M162);
       if (artificial_full_hash == full_hash &&
           check->stores_to_check.contains(
               artificial_store_and_hash_prefix.list_id)) {
@@ -797,8 +847,9 @@ void SBLocalDatabaseManager::GetArtificialPrefixMatches(
 void SBLocalDatabaseManager::GetPrefixMatches(
     PendingCheck* check,
     base::OnceCallback<void(DbLookupResult)> callback) {
-  DCHECK(ui_task_runner()->RunsTasksInCurrentSequence());
-  DCHECK(IsDatabaseReady());
+  CHECK(ui_task_runner()->RunsTasksInCurrentSequence(),
+        base::NotFatalUntil::M162);
+  CHECK(IsDatabaseReady(), base::NotFatalUntil::M162);
 
   check->local_db_lookup_start_time = base::TimeTicks::Now();
   sb_database_->GetStoresMatchingFullHash(
@@ -810,9 +861,15 @@ void SBLocalDatabaseManager::GetSeverestThreatTypeAndMetadata(
     const std::vector<FullHashStr>& full_hashes,
     std::vector<SBThreatType>* full_hash_threat_types,
     SBThreatType* most_severe_threat_type,
-    ThreatMetadata* metadata) {
-  UMA_HISTOGRAM_COUNTS_100("SafeBrowsing.V4LocalDatabaseManager.ThreatInfoSize",
-                           full_hash_infos.size());
+    ThreatMetadata* metadata,
+    ClientCallbackType client_callback_type) {
+  base::UmaHistogramCounts100(
+      "SafeBrowsing.V4LocalDatabaseManager.ThreatInfoSize",
+      full_hash_infos.size());
+  base::UmaHistogramCounts100(
+      base::StrCat({"SafeBrowsing.V4LocalDatabaseManager.ThreatInfoSize",
+                    GetThreatInfoSizeMetricSuffix(client_callback_type)}),
+      full_hash_infos.size());
   ThreatSeverity most_severe_yet = kLeastSeverity;
   for (const FullHashInfo& fhi : full_hash_infos) {
     ThreatSeverity severity = GetThreatSeverity(fhi.list_id);
@@ -847,8 +904,10 @@ SBThreatType SBLocalDatabaseManager::GetSBThreatTypeForList(
     const ListIdentifier& list_id) {
   auto it = std::ranges::find(list_infos_, list_id, &ListInfo::list_id);
   CHECK(list_infos_.end() != it);
-  DCHECK_NE(SBThreatType::SB_THREAT_TYPE_SAFE, it->sb_threat_type());
-  DCHECK_NE(SBThreatType::SB_THREAT_TYPE_UNUSED, it->sb_threat_type());
+  CHECK_NE(SBThreatType::SB_THREAT_TYPE_SAFE, it->sb_threat_type(),
+           base::NotFatalUntil::M162);
+  CHECK_NE(SBThreatType::SB_THREAT_TYPE_UNUSED, it->sb_threat_type(),
+           base::NotFatalUntil::M162);
   return it->sb_threat_type();
 }
 
@@ -860,7 +919,7 @@ void SBLocalDatabaseManager::HandleAllowlistCheck(
   // normally be available already -- allowlists are used after page load,
   // and navigations are blocked until the DB is ready and dequeues checks.
   // The caller should have already checked that the DB is ready.
-  DCHECK(sb_database_);
+  CHECK(sb_database_, base::NotFatalUntil::M162);
 
   PendingCheck* check_ptr = check.get();
 
@@ -887,11 +946,12 @@ void SBLocalDatabaseManager::HandleAllowlistCheckContinuation(
     bool allow_async_full_hash_check,
     base::OnceCallback<void(bool)> callback,
     DbLookupResult lookup_result) {
-  DCHECK(ui_task_runner()->RunsTasksInCurrentSequence());
+  CHECK(ui_task_runner()->RunsTasksInCurrentSequence(),
+        base::NotFatalUntil::M162);
 
   AsyncMatch local_match;
     if (!IsDatabaseReady()) {
-      DCHECK(pending_checks_.empty());
+      CHECK(pending_checks_.empty(), base::NotFatalUntil::M162);
       return;
     }
 
@@ -977,7 +1037,7 @@ void SBLocalDatabaseManager::HandleCheckContinuation(
     std::unique_ptr<PendingCheck> check,
     DbLookupResult lookup_result) {
   if (!IsDatabaseReady()) {
-    DCHECK(pending_checks_.empty());
+    CHECK(pending_checks_.empty(), base::NotFatalUntil::M162);
     return;
   }
 
@@ -1025,7 +1085,8 @@ void SBLocalDatabaseManager::PopulateArtificialDatabase() {
 
 void SBLocalDatabaseManager::ScheduleFullHashCheck(
     std::unique_ptr<PendingCheck> check) {
-  DCHECK(ui_task_runner()->RunsTasksInCurrentSequence());
+  CHECK(ui_task_runner()->RunsTasksInCurrentSequence(),
+        base::NotFatalUntil::M162);
 
   // Add check to pending_checks_ before scheduling PerformFullHashCheck so that
   // even if the client calls CancelCheck before PerformFullHashCheck gets
@@ -1078,7 +1139,8 @@ void SBLocalDatabaseManager::HandleUrl(
     const GURL& url,
     const StoresToCheck& stores_to_check,
     base::OnceCallback<void(bool)> callback) {
-  DCHECK(ui_task_runner()->RunsTasksInCurrentSequence());
+  CHECK(ui_task_runner()->RunsTasksInCurrentSequence(),
+        base::NotFatalUntil::M162);
 
   std::unique_ptr<PendingCheck> check = std::make_unique<PendingCheck>(
       nullptr, ClientCallbackType::CHECK_OTHER, stores_to_check,
@@ -1125,7 +1187,8 @@ void SBLocalDatabaseManager::OnFullHashResponseV4(
   // Find out the most severe threat, if any, to report to the client.
   GetSeverestThreatTypeAndMetadata(
       full_hash_infos, check->full_hashes, &check->full_hash_threat_types,
-      &check->most_severe_threat_type, &check->url_metadata);
+      &check->most_severe_threat_type, &check->url_metadata,
+      check->client_callback_type);
 
   FinishFullHashResponse(std::move(check), it, start_processing);
 }
@@ -1159,14 +1222,16 @@ void SBLocalDatabaseManager::OnFullHashResponseV5(
 
 void SBLocalDatabaseManager::PerformFullHashCheck(
     std::unique_ptr<PendingCheck> check) {
-  DCHECK(ui_task_runner()->RunsTasksInCurrentSequence());
+  CHECK(ui_task_runner()->RunsTasksInCurrentSequence(),
+        base::NotFatalUntil::M162);
 
-  DCHECK(!check->full_hash_to_store_and_hash_prefixes.empty());
+  CHECK(!check->full_hash_to_store_and_hash_prefixes.empty(),
+        base::NotFatalUntil::M162);
 
   // If the database isn't ready, the service has been turned off, so silently
   // drop the check.
   if (!IsDatabaseReady()) {
-    DCHECK(pending_checks_.empty());
+    CHECK(pending_checks_.empty(), base::NotFatalUntil::M162);
     return;
   }
 
@@ -1228,7 +1293,8 @@ void SBLocalDatabaseManager::PerformFullHashCheck(
 }
 
 void SBLocalDatabaseManager::ProcessQueuedChecks() {
-  DCHECK(ui_task_runner()->RunsTasksInCurrentSequence());
+  CHECK(ui_task_runner()->RunsTasksInCurrentSequence(),
+        base::NotFatalUntil::M162);
 
   // Steal the queue to protect against reentrant CancelCheck() calls.
   QueuedChecks checks;
@@ -1255,7 +1321,7 @@ void SBLocalDatabaseManager::ProcessQueuedChecksContinuation(
     std::unique_ptr<PendingCheck> check,
     DbLookupResult lookup_result) {
   if (!IsDatabaseReady()) {
-    DCHECK(pending_checks_.empty());
+    CHECK(pending_checks_.empty(), base::NotFatalUntil::M162);
     return;
   }
 
@@ -1280,7 +1346,8 @@ void SBLocalDatabaseManager::ProcessQueuedChecksContinuation(
 }
 
 void SBLocalDatabaseManager::RespondSafeToQueuedAndPendingChecks() {
-  DCHECK(ui_task_runner()->RunsTasksInCurrentSequence());
+  CHECK(ui_task_runner()->RunsTasksInCurrentSequence(),
+        base::NotFatalUntil::M162);
 
   // Steal the queue to protect against reentrant CancelCheck() calls.
   QueuedChecks checks;
@@ -1305,7 +1372,8 @@ void SBLocalDatabaseManager::RespondSafeToQueuedAndPendingChecks() {
 }
 
 void SBLocalDatabaseManager::DropQueuedAndPendingChecks() {
-  DCHECK(ui_task_runner()->RunsTasksInCurrentSequence());
+  CHECK(ui_task_runner()->RunsTasksInCurrentSequence(),
+        base::NotFatalUntil::M162);
 
   queued_checks_.clear();
   // Abandon all checks this method returns to avoid dangling raw pointers.
@@ -1346,13 +1414,13 @@ void SBLocalDatabaseManager::RespondToClientWithoutPendingCheckCleanup(
 
   switch (check->client_callback_type) {
     case ClientCallbackType::CHECK_BROWSE_URL:
-      DCHECK_EQ(1u, check->urls.size());
+      CHECK_EQ(1u, check->urls.size(), base::NotFatalUntil::M162);
       client->OnCheckBrowseUrlResult(check->urls[0],
                                      check->most_severe_threat_type);
       break;
 
     case ClientCallbackType::CHECK_URL_FOR_SUBRESOURCE_FILTER:
-      DCHECK_EQ(1u, check->urls.size());
+      CHECK_EQ(1u, check->urls.size(), base::NotFatalUntil::M162);
       client->OnCheckSubresourceFilterUrlResult(
           check->urls[0], check->most_severe_threat_type,
           check->url_metadata.subresource_filter_match);
@@ -1364,11 +1432,12 @@ void SBLocalDatabaseManager::RespondToClientWithoutPendingCheckCleanup(
       break;
 
     case ClientCallbackType::CHECK_CSD_ALLOWLIST: {
-      DCHECK_EQ(1u, check->urls.size());
+      CHECK_EQ(1u, check->urls.size(), base::NotFatalUntil::M162);
       bool did_match_allowlist = check->most_severe_threat_type ==
                                  SBThreatType::SB_THREAT_TYPE_CSD_ALLOWLIST;
-      DCHECK(did_match_allowlist || check->most_severe_threat_type ==
-                                        SBThreatType::SB_THREAT_TYPE_SAFE);
+      CHECK(did_match_allowlist || check->most_severe_threat_type ==
+                                       SBThreatType::SB_THREAT_TYPE_SAFE,
+            base::NotFatalUntil::M162);
       client->OnCheckAllowlistUrlResult(did_match_allowlist);
       break;
     }
@@ -1390,8 +1459,8 @@ void SBLocalDatabaseManager::RespondToClientWithoutPendingCheckCleanup(
           }
         }
       } else {
-        DCHECK_EQ(check->full_hash_threat_types.size(),
-                  check->full_hashes.size());
+        CHECK_EQ(check->full_hash_threat_types.size(),
+                 check->full_hashes.size(), base::NotFatalUntil::M162);
         for (size_t i = 0; i < check->full_hash_threat_types.size(); i++) {
           if (check->full_hash_threat_types[i] ==
               SBThreatType::SB_THREAT_TYPE_EXTENSION) {
@@ -1409,9 +1478,10 @@ void SBLocalDatabaseManager::RespondToClientWithoutPendingCheckCleanup(
 }
 
 void SBLocalDatabaseManager::SetupDatabase() {
-  DCHECK(!base_path_.empty());
-  DCHECK(!list_infos_.empty());
-  DCHECK(ui_task_runner()->RunsTasksInCurrentSequence());
+  CHECK(!base_path_.empty(), base::NotFatalUntil::M162);
+  CHECK(!list_infos_.empty(), base::NotFatalUntil::M162);
+  CHECK(ui_task_runner()->RunsTasksInCurrentSequence(),
+        base::NotFatalUntil::M162);
 
   // Do not create the database on the UI thread since this may be an expensive
   // operation. Instead, do that on the task_runner and when the new database
@@ -1425,7 +1495,7 @@ void SBLocalDatabaseManager::SetupDatabase() {
 
 void SBLocalDatabaseManager::SetupUpdateProtocolManager(
     scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory,
-    const V4ProtocolConfig& config) {
+    const SBProtocolConfig& config) {
   if (base::FeatureList::IsEnabled(kLocalListsUseSBv5)) {
     V5UpdateCallback update_callback =
         base::BindRepeating(&SBLocalDatabaseManager::V5UpdateRequestCompleted,
@@ -1444,7 +1514,8 @@ void SBLocalDatabaseManager::SetupUpdateProtocolManager(
 
 void SBLocalDatabaseManager::V4UpdateRequestCompleted(
     std::unique_ptr<ParsedServerResponse> parsed_server_response) {
-  DCHECK(ui_task_runner()->RunsTasksInCurrentSequence());
+  CHECK(ui_task_runner()->RunsTasksInCurrentSequence(),
+        base::NotFatalUntil::M162);
   auto update_map = std::make_unique<SBUpdateResponseMap>();
   for (auto& response : *parsed_server_response) {
     ListIdentifier identifier(*response);
@@ -1456,17 +1527,11 @@ void SBLocalDatabaseManager::V4UpdateRequestCompleted(
 }
 
 void SBLocalDatabaseManager::V5UpdateRequestCompleted(
-    std::optional<std::map<ListIdentifier, V5::HashList>>
-        parsed_server_response) {
+    std::map<ListIdentifier, V5::HashList> parsed_server_response) {
   CHECK(ui_task_runner()->RunsTasksInCurrentSequence());
-  // TODO(crbug.com/362791941): Remove nullopt case from API since it never
-  // occurs.
-  if (!parsed_server_response.has_value()) {
-    return;
-  }
 
   auto update_map = std::make_unique<SBUpdateResponseMap>();
-  for (auto& [identifier, response] : parsed_server_response.value()) {
+  for (auto& [identifier, response] : parsed_server_response) {
     auto sb_response = std::make_unique<SBUpdateResponse>();
     sb_response->v5_response =
         std::make_unique<V5::HashList>(std::move(response));

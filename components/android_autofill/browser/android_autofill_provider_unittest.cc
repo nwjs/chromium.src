@@ -802,24 +802,121 @@ TEST_F(AndroidAutofillProviderTest,
   android_autofill_manager().OnFormsSeen({form}, /*removed_forms=*/{},
                                          AutofillManagerTestApi::pass_key());
 
-  // Start an Autofill session.
+  FormFieldData field = form.fields()[0];
+  url::Origin select_origin = url::Origin::Create(GURL("https://bar.com"));
+  field.set_origin(select_origin);
+
+  // Simulate OnSelectControlSelectionChanged on an unlinked form.
+  autofill_provider().OnSelectControlSelectionChanged(
+      &android_autofill_manager(), form, field);
+
+  EXPECT_EQ(test_api(autofill_provider()).last_focused_field_origin(),
+            select_origin);
+}
+
+// Tests that OnSelectControlSelectionChanged updates the origin when the
+// selection change occurs on the currently focused field.
+TEST_F(AndroidAutofillProviderTest,
+       OnSelectControlSelectionChangedUpdatesOriginForFocusedField) {
+  base::test::ScopedFeatureList scoped_feature_list{
+      features::kAndroidAutofillFieldsUpdatedOnSelect};
+
+  FormData form = CreateFormDataForFrame(
+      CreateTestPersonalInformationFormData(), main_frame_token());
+  android_autofill_manager().OnFormsSeen({form}, /*removed_forms=*/{},
+                                         AutofillManagerTestApi::pass_key());
+
+  // Start an Autofill session on field 0.
   android_autofill_manager().OnAskForValuesToFillTest(
       form, form.fields()[0].global_id());
 
   EXPECT_EQ(test_api(autofill_provider()).last_focused_field_origin(),
             form.fields()[0].origin());
 
-  // Create a new field with a different origin.
-  FormFieldData field = form.fields()[1];
+  // Update selection on the same focused field.
+  FormFieldData field = form.fields()[0];
   url::Origin new_origin = url::Origin::Create(GURL("https://bar.com"));
   field.set_origin(new_origin);
 
-  // Simulate OnSelectControlSelectionChanged.
   autofill_provider().OnSelectControlSelectionChanged(
       &android_autofill_manager(), form, field);
 
   EXPECT_EQ(test_api(autofill_provider()).last_focused_field_origin(),
             new_origin);
+}
+
+// Tests that an unfocused select control's value change in a multi-origin form
+// does not overwrite the active session's focused field origin (b/552440317).
+TEST_F(AndroidAutofillProviderTest,
+       UnfocusedSelectDoesNotOverwriteFocusedFieldOrigin) {
+  base::test::ScopedFeatureList scoped_feature_list{
+      features::kAndroidAutofillFieldsUpdatedOnSelect};
+
+  FormData form = CreateFormDataForFrame(
+      CreateTestPersonalInformationFormData(), main_frame_token());
+  url::Origin iframe_origin =
+      url::Origin::Create(GURL("https://iframe-payment.example"));
+  url::Origin parent_origin =
+      url::Origin::Create(GURL("https://parent-attacker.example"));
+
+  test_api(form).field(0).set_origin(iframe_origin);
+  test_api(form).field(1).set_origin(parent_origin);
+
+  android_autofill_manager().OnFormsSeen({form}, /*removed_forms=*/{},
+                                         AutofillManagerTestApi::pass_key());
+
+  // 1. User taps and focuses field 0 inside the iframe.
+  android_autofill_manager().OnAskForValuesToFillTest(
+      form, form.fields()[0].global_id());
+
+  ASSERT_EQ(test_api(autofill_provider()).last_focused_field_origin(),
+            iframe_origin);
+
+  // 2. Parent page mutates unfocused select field 1.
+  autofill_provider().OnSelectControlSelectionChanged(
+      &android_autofill_manager(), form, form.fields()[1]);
+
+  // The active session origin must remain iframe_origin.
+  EXPECT_EQ(test_api(autofill_provider()).last_focused_field_origin(),
+            iframe_origin);
+}
+
+// Tests that when kAndroidAutofillFieldsUpdatedOnSelect is disabled
+// (killswitch), an unfocused select control does NOT overwrite the active
+// session origin.
+TEST_F(AndroidAutofillProviderTest,
+       UnfocusedSelectWithFeatureDisabledPreservesFocusedFieldOrigin) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndDisableFeature(
+      features::kAndroidAutofillFieldsUpdatedOnSelect);
+
+  FormData form = CreateFormDataForFrame(
+      CreateTestPersonalInformationFormData(), main_frame_token());
+  url::Origin iframe_origin =
+      url::Origin::Create(GURL("https://iframe-payment.example"));
+  url::Origin parent_origin =
+      url::Origin::Create(GURL("https://parent-attacker.example"));
+
+  test_api(form).field(0).set_origin(iframe_origin);
+  test_api(form).field(1).set_origin(parent_origin);
+
+  android_autofill_manager().OnFormsSeen({form}, /*removed_forms=*/{},
+                                         AutofillManagerTestApi::pass_key());
+
+  // 1. User taps and focuses field 0 inside the iframe.
+  android_autofill_manager().OnAskForValuesToFillTest(
+      form, form.fields()[0].global_id());
+
+  ASSERT_EQ(test_api(autofill_provider()).last_focused_field_origin(),
+            iframe_origin);
+
+  // 2. Parent page mutates unfocused select field 1.
+  autofill_provider().OnSelectControlSelectionChanged(
+      &android_autofill_manager(), form, form.fields()[1]);
+
+  // With the feature disabled, the active session origin is preserved.
+  EXPECT_EQ(test_api(autofill_provider()).last_focused_field_origin(),
+            iframe_origin);
 }
 
 class AndroidAutofillProviderWithCredManTest
@@ -1739,6 +1836,60 @@ TEST_F(AndroidAutofillProviderPrefillRequestTest,
   Mock::VerifyAndClearExpectations(&provider_bridge());
 
   // A new session id is used to start the Autofill session.
+  EXPECT_NE(cache_session_id, autofill_session_id);
+  histogram_tester.ExpectUniqueSample(
+      AndroidAutofillProvider::kPrefillRequestStateUma,
+      PrefillRequestState::kRequestSentFormChanged, 1);
+}
+
+// Tests that the session id used in a prefill request is not reused when
+// the form structure changes by inserting fields before the cached login
+// fields, even if the login fields themselves are still present in the form.
+TEST_F(AndroidAutofillProviderPrefillRequestTest,
+       SessionIdIsNotReusedWhenFieldsAreInserted) {
+  if (base::android::android_info::sdk_int() <
+      base::android::android_info::SDK_VERSION_U) {
+    GTEST_SKIP();
+  }
+
+  base::HistogramTester histogram_tester;
+  FormData form =
+      CreateFormDataForFrame(CreateTestLoginForm(), main_frame_token());
+  android_autofill_manager().OnFormsSeen({form}, /*removed_forms=*/{},
+                                         AutofillManagerTestApi::pass_key());
+
+  // Upon receiving server predictions a prefill request should be sent.
+  SessionId cache_session_id = SessionId(0);
+  EXPECT_CALL(provider_bridge(), SendPrefillRequest(EqualsFormData(form)))
+      .WillOnce(SaveSessionId(&cache_session_id));
+  android_autofill_manager().SimulatePropagateAutofillPredictions(
+      form.global_id());
+  Mock::VerifyAndClearExpectations(&provider_bridge());
+
+  // Insert a new field at the beginning of the form (e.g. from an iframe or
+  // dynamic DOM insertion).
+  FormData changed_form = form;
+  FormFieldData new_field = CreateTestFormField(
+      /*label=*/"Injected", /*name=*/"injected", /*value=*/"",
+      FormControlType::kInputText);
+  new_field.set_host_frame(main_frame_token());
+  test_api(changed_form).Insert(0, new_field);
+
+  android_autofill_manager().OnFormsSeen({changed_form},
+                                         /*removed_forms=*/{},
+                                         AutofillManagerTestApi::pass_key());
+  SessionId autofill_session_id = SessionId(0);
+  EXPECT_CALL(provider_bridge(),
+              StartAutofillSession(EqualsFormData(changed_form),
+                                   EqualsFieldInfo(/*index=*/0),
+                                   /*has_server_predictions=*/true))
+      .WillOnce(WithArg<0>(SaveSessionId(&autofill_session_id)));
+  android_autofill_manager().OnAskForValuesToFillTest(
+      changed_form, changed_form.fields().front().global_id());
+  Mock::VerifyAndClearExpectations(&provider_bridge());
+
+  // A new session id must be used because field indices no longer match the
+  // prefill request.
   EXPECT_NE(cache_session_id, autofill_session_id);
   histogram_tester.ExpectUniqueSample(
       AndroidAutofillProvider::kPrefillRequestStateUma,

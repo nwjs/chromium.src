@@ -52,6 +52,7 @@ class ImageView;
 class MenuController;
 class MenuControllerTest;
 class MenuDelegate;
+class MenuSeparator;
 class Separator;
 class SubmenuView;
 class TestMenuItemView;
@@ -125,10 +126,12 @@ class VIEWS_EXPORT MenuItemView : public View, public LayoutDelegate {
   struct MenuItemBackground {
     MenuItemBackground(ui::ColorId background_color_id,
                        int top_radius,
-                       int bottom_radius)
+                       int bottom_radius,
+                       std::optional<int> horizontal_margin = std::nullopt)
         : background_color_id(background_color_id),
           top_radius(top_radius),
-          bottom_radius(bottom_radius) {}
+          bottom_radius(bottom_radius),
+          horizontal_margin(horizontal_margin) {}
     MenuItemBackground(ui::ColorId background_color_id, int corner_radius)
         : MenuItemBackground(background_color_id,
                              corner_radius,
@@ -137,6 +140,7 @@ class VIEWS_EXPORT MenuItemView : public View, public LayoutDelegate {
     ui::ColorId background_color_id;
     int top_radius = 0;
     int bottom_radius = 0;
+    std::optional<int> horizontal_margin = std::nullopt;
   };
 
   // Constructor for use with the top level menu item. This menu is never
@@ -255,11 +259,16 @@ class VIEWS_EXPORT MenuItemView : public View, public LayoutDelegate {
                               const std::u16string& label,
                               const ui::ImageModel& icon = ui::ImageModel());
 
-  // Adds a separator to this menu
-  void AppendSeparator();
+  // Adds a separator to this menu.
+  // The returned pointer is owned by this menu.
+  MenuSeparator* AppendSeparator(
+      ui::MenuSeparatorType type = ui::MenuSeparatorType::NORMAL_SEPARATOR);
 
   // Adds a separator to this menu at the specified position.
-  void AddSeparatorAt(size_t index);
+  // The returned pointer is owned by this menu.
+  MenuSeparator* AddSeparatorAt(
+      size_t index,
+      ui::MenuSeparatorType type = ui::MenuSeparatorType::NORMAL_SEPARATOR);
 
   // All the AppendXXX methods funnel into this.
   MenuItemView* AppendMenuItemImpl(int item_id,
@@ -659,6 +668,7 @@ class VIEWS_EXPORT MenuItemView : public View, public LayoutDelegate {
   void UpdateAccessibleName();
   void UpdateAccessibleSelection();
   void UpdateAccessibleKeyShortcuts();
+  void UpdateAccessibleDefaultActionVerb();
 
   // The delegate. This is only valid for the root menu item. You shouldn't
   // use this directly, instead use GetDelegate() which walks the tree as

@@ -8,6 +8,7 @@
 #include <memory>
 #include <string_view>
 #include "content/nw/src/nw_version.h"
+#include "cppgc/garbage-collected.h"  // NWJS: opaque blink ScriptState slot copy
 #include "gin/public/gin_embedders.h"
 
 #include <utility>
@@ -156,6 +157,30 @@ using blink::WebURL;
 #ifndef NODE_CONTEXT_EMBEDDER_DATA_INDEX
 #define NODE_CONTEXT_EMBEDDER_DATA_INDEX 32
 #endif
+
+namespace {
+// NWJS: opaque stand-in for blink's ScriptState (a cppgc object) so the
+// per-context data slot (v8ContextPerContextDataIndex) can be copied with
+// v8's cppgc-typed embedder data API, which is the only public API for
+// CppHeapPointerTag access (the raw pointer overloads are private).
+// Blink stores the slot with CppHeapPointerTag::kScriptStateTag
+// (third_party/blink/renderer/platform/bindings/wrapper_type_info.h:
+// kLastGeneratedScriptWrappableTag (2000) + 19). Reading/writing with
+// v8::kEmbedderDataTypeTagDefault or gin::kBlinkScriptState no longer sees
+// the value since v8 d04704a20fc ("[sandbox] Store CppHeapPointerHandles in
+// EmbedderDataArray") enforces exact tag matching under pointer compression.
+class NwScriptStateSlot : public cppgc::GarbageCollected<NwScriptStateSlot> {
+ public:
+  void Trace(cppgc::Visitor*) const {}
+};
+constexpr v8::CppHeapPointerTag kScriptStateTag =
+    static_cast<v8::CppHeapPointerTag>(2019);
+// node::EmbedderDataTag::kPerContextData - the tag node uses for the
+// Environment* slot (NODE_CONTEXT_EMBEDDER_DATA_INDEX). Writing with
+// v8::kEmbedderDataTypeTagDefault makes node's tagged reads return null.
+constexpr v8::EmbedderDataTypeTag kNodePerContextDataTag =
+    static_cast<v8::EmbedderDataTypeTag>(2);
+}  // namespace
 
 #include "third_party/node-nw/src/node_webkit.h"
 #include "nw/id/commit.h"
@@ -973,10 +998,11 @@ void RendererBlinkPlatformImpl::WorkerContextCreated(
 
       v8::Local<v8::Context> new_node_context;
       new_node_context = v8::Context::New(isolate);
-      void* data = worker->GetAlignedPointerFromEmbedderData(
-          2, gin::kBlinkScriptState); //v8ContextPerContextDataIndex
-      new_node_context->SetAlignedPointerInEmbedderData(
-          2, data, gin::kBlinkScriptState);
+      NwScriptStateSlot* data =
+          worker->GetAlignedPointerFromEmbedderData<NwScriptStateSlot>(
+              isolate, 2, kScriptStateTag); //v8ContextPerContextDataIndex
+      new_node_context->SetAlignedPointerInEmbedderData(2, data,
+                                                        kScriptStateTag);
       new_node_context->SetAlignedPointerInEmbedderData(
           50, (void*)0x08110800, v8::kEmbedderDataTypeTagDefault);
 
@@ -1002,7 +1028,8 @@ void RendererBlinkPlatformImpl::WorkerContextCreated(
         std::ignore = script->Run(new_node_context);
       }
       worker->SetAlignedPointerInEmbedderData(
-          NODE_CONTEXT_EMBEDDER_DATA_INDEX, g_get_node_env_fn(), v8::kEmbedderDataTypeTagDefault);
+          NODE_CONTEXT_EMBEDDER_DATA_INDEX, g_get_node_env_fn(),
+          kNodePerContextDataTag);
       worker->SetSecurityToken(new_node_context->GetSecurityToken());
 
       v8::Handle<v8::Object> nw = v8::Object::New(isolate);

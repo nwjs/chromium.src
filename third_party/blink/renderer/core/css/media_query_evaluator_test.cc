@@ -144,8 +144,21 @@ MediaQueryEvaluatorTestCase g_display_state_test_cases[] = {
 
 MediaQueryEvaluatorTestCase g_resizable_test_cases[] = {
     {"(resizable)", true},
+    {"not (resizable)", false},
     {"(resizable: true)", true},
     {"(resizable: false)", false},
+    {"(resizable: #true)", false},
+    {"(resizable: @true)", false},
+    {"(resizable: 'true')", false},
+    {"(resizable: \"true\")", false},
+    {"(resizable: @junk true)", false},
+};
+
+MediaQueryEvaluatorTestCase g_non_resizable_test_cases[] = {
+    {"(resizable)", false},
+    {"not (resizable)", true},
+    {"(resizable: true)", false},
+    {"(resizable: false)", true},
     {"(resizable: #true)", false},
     {"(resizable: @true)", false},
     {"(resizable: 'true')", false},
@@ -364,12 +377,16 @@ MediaQueryEvaluatorTestCase g_device_posture_folded_over_cases[] = {
 };
 
 MediaQueryEvaluatorTestCase g_dynamic_range_standard_cases[] = {
+    {"(dynamic-range)", true},
+    {"(dynamic-range), not all and (dynamic-range)", true},
     {"(dynamic-range: standard)", true},
     {"(dynamic-range: high)", false},
     {"(dynamic-range: invalid)", false},
 };
 
 MediaQueryEvaluatorTestCase g_dynamic_range_high_cases[] = {
+    {"(dynamic-range)", true},
+    {"(dynamic-range), not all and (dynamic-range)", true},
     {"(dynamic-range: standard)", true},
     {"(dynamic-range: high)", true},
     {"(dynamic-range: invalid)", false},
@@ -382,18 +399,24 @@ MediaQueryEvaluatorTestCase g_dynamic_range_feature_disabled_cases[] = {
 };
 
 MediaQueryEvaluatorTestCase g_video_dynamic_range_standard_cases[] = {
+    {"(video-dynamic-range)", true},
+    {"(video-dynamic-range), not all and (video-dynamic-range)", true},
     {"(video-dynamic-range: standard)", true},
     {"(video-dynamic-range: high)", false},
     {"(video-dynamic-range: invalid)", false},
 };
 
 MediaQueryEvaluatorTestCase g_video_dynamic_range_high_cases[] = {
+    {"(video-dynamic-range)", true},
+    {"(video-dynamic-range), not all and (video-dynamic-range)", true},
     {"(video-dynamic-range: standard)", true},
     {"(video-dynamic-range: high)", true},
     {"(video-dynamic-range: invalid)", false},
 };
 
 MediaQueryEvaluatorTestCase g_video_dynamic_range_feature_disabled_cases[] = {
+    {"(video-dynamic-range)", false},
+    {"(video-dynamic-range), not all and (video-dynamic-range)", false},
     {"(video-dynamic-range: standard)", false},
     {"(video-dynamic-range: high)", false},
     {"(video-dynamic-range: invalid)", false},
@@ -526,6 +549,17 @@ TEST(MediaQueryEvaluatorTest, Cached) {
     MediaQueryEvaluator* media_query_evaluator =
         MakeGarbageCollected<MediaQueryEvaluator>(media_values);
     TestMQEvaluator(g_resizable_test_cases, media_query_evaluator);
+  }
+
+  // Non-resizable resizable values.
+  {
+    ScopedDesktopPWAsAdditionalWindowingControlsForTest scoped_feature(true);
+    data.resizable = false;
+    auto* media_values = MakeGarbageCollected<MediaValuesCached>(data);
+    MediaQueryEvaluator* media_query_evaluator =
+        MakeGarbageCollected<MediaQueryEvaluator>(media_values);
+    TestMQEvaluator(g_non_resizable_test_cases, media_query_evaluator);
+    data.resizable = true;
   }
 
   // Print values.

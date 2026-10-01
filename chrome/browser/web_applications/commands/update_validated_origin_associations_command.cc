@@ -66,8 +66,9 @@ void UpdateValidatedOriginAssociationsCommand::StartWithLock(
   }
 
   const WebAppRegistrar& registrar = lock_->registrar();
-  const WebApp* app =
-      registrar.GetAppById(app_id_, WebAppFilter::InstalledInChrome());
+  const WebApp* app = registrar.GetAppById(
+      app_id_, WebAppFilter::InstalledInChrome() |
+                   WebAppFilter::IsAppSuggestedForMigration());
 
   if (!app) {
     CompleteAndSelfDestruct(
@@ -159,8 +160,7 @@ void UpdateValidatedOriginAssociationsCommand::OnOriginAssociationValidated(
     app.SetOriginAssociationLastValidationCheckTime(now_time);
   }
 
-  if (migration_sources_updated &&
-      base::FeatureList::IsEnabled(blink::features::kWebAppMigrationApi)) {
+  if (migration_sources_updated) {
     lock_->scheduler().ScheduleResolveWebAppPendingMigrationInfo(
         base::DoNothing());
   }

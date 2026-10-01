@@ -113,6 +113,10 @@ namespace enterprise_data_protection {
 class DataProtectionNavigationController;
 }  // namespace enterprise_data_protection
 
+namespace enterprise_net {
+class EnterpriseProxyTabHelper;
+}  // namespace enterprise_net
+
 namespace enterprise_reporting {
 class SaasUsageNavigationObserver;
 }  // namespace enterprise_reporting
@@ -137,6 +141,10 @@ class SidePanelController;
 namespace extensions {
 class ExtensionSidePanelManager;
 }  // namespace extensions
+
+namespace geic {
+class GeicSidePanelCoordinator;
+}  // namespace geic
 
 namespace glic {
 class ContextualCueingHelper;
@@ -469,6 +477,9 @@ class TabFeatures {
       enterprise_data_protection::DataProtectionNavigationController>
       data_protection_tab_controller_;
 
+  std::unique_ptr<enterprise_net::EnterpriseProxyTabHelper>
+      enterprise_proxy_tab_helper_;
+
   // Holds subscriptions for TabInterface callbacks.
   std::vector<base::CallbackListSubscription> tab_subscriptions_;
 
@@ -544,6 +555,7 @@ class TabFeatures {
   std::unique_ptr<glic::GlicInstanceHelper> glic_instance_helper_;
   std::unique_ptr<glic::GlicTabIndicatorHelper> glic_tab_indicator_helper_;
   std::unique_ptr<glic::GlicSidePanelCoordinator> glic_side_panel_coordinator_;
+  std::unique_ptr<geic::GeicSidePanelCoordinator> geic_side_panel_coordinator_;
   std::unique_ptr<glic::GlicSelectionObserver> glic_selection_observer_;
   std::unique_ptr<glic::SelectionOverlayController>
       glic_selection_overlay_controller_;

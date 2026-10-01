@@ -39,7 +39,6 @@
 <translation id="1330562121671411446">Ճանաչել լեզուն</translation>
 <translation id="1342274909142618978">Նաև հեռացնել տվյալները Chromium-ից (<ph name="URL" />)</translation>
 <translation id="1345251407431278948">«Որոնում պատկերով» գործառույթն ամրացված է․ այն բացելու համար օգտագործեք գործիքագոտու նոր կոճակը</translation>
-<translation id="1356661055722410047">Նորույթ․ դուք կարող եք ձեր էկրանին թարգմանել ինչպես տեքստ, այնպես էլ պատկերներ</translation>
 <translation id="1383876407941801731">Որոնում</translation>
 <translation id="1388276868779258475">Շարունակեք դիտարկումը Chromium հավելվածի միջոցով՝ շարժման մեջ</translation>
 <translation id="141901961143729572">Կիսվեք ձեր մտքերով</translation>
@@ -71,6 +70,7 @@
 <translation id="1793486931176048546">Սեղմեք <ph name="BEGIN_BOLD" />Այո<ph name="END_BOLD" /> Windows-ի ծանուցման մեջ՝ Chromium-ը հավելվածների վահանակում ամրացնելու համար։</translation>
 <translation id="1808667845054772817">Նորից տեղադրել Chromium-ը</translation>
 <translation id="1820835682567584003">Chromium-ը փորձում է <ph name="AUTHENTICATION_PURPOSE" /></translation>
+<translation id="1828328511398219809"><ph name="EXISTING_USER" />-ն արդեն մտել է հաշիվ։ Ձեր այցելությունների պատմությունն առանձին պահելու համար ձեր սեփական պրոֆիլում մուտք գործեք Chromium <ph name="USER_EMAIL_ADDRESS" /> հաշվով։ Ձեզ նաև հասանելի կլինեն ընդլայնումները և այլ տվյալներ <ph name="DEVICE" />։</translation>
 <translation id="183031085822326697">Հաջորդ անգամ, երբ ձեր <ph name="DEVICE_TYPE" /> սարքում բացեք Chromium-ը, կտեսնեք Google գաղտնաբառերի կառավարիչն օգտագործելու հրավեր։</translation>
 <translation id="1838374766361614909">Մաքրել որոնումը</translation>
 <translation id="18552579716432081">Այցելությունների պատմությունը միայն այս սարքից ջնջելու, սակայն Google հաշվում պահպանելու համար <ph name="BEGIN_LINK" />դուրս եկեք Chromium-ից<ph name="END_LINK" />։</translation>
@@ -149,6 +149,7 @@
 <translation id="2575822587468774919">Ընտրեք ցանկացած բան՝ «Որոնում պատկերով» գործառույթի միջոցով որոնելու համար</translation>
 <translation id="2576118232315942160">Գաղտնաբառերը և մյուս տվյալները ձեր բոլոր սարքերում օգտագործելու համար մուտք գործեք Chromium</translation>
 <translation id="2587622539943955767">Հեռախոսով սկանավորեք QR կոդը՝ Chromium-ը ներբեռնելու և ձեր Google հաշիվ մուտք գործելու համար։</translation>
+<translation id="2587885422541096572">Chromium-ով որոնելու համար։</translation>
 <translation id="2592940277904433508">Շարունակել Chromium-ի օգտագործումը</translation>
 <translation id="259935314519650377">Չհաջողվեց քեշավորել ներբեռնված տեղադրիչը։ Սխալ՝ <ph name="UNPACK_CACHING_ERROR_CODE" />։</translation>
 <translation id="2620436844016719705">Համակարգ</translation>
@@ -193,6 +194,7 @@
 <translation id="3038232873781883849">Սպասում ենք տեղադրմանը…</translation>
 <translation id="3045032126857188731">Թարգմանության լեզուն՝ <ph name="LANGUAGE" /></translation>
 <translation id="3047590466164881923">Փակել կարծիքով երկխոսության պատուհանը</translation>
+<translation id="3064717200427679322"><ph name="EXISTING_USER" />-ն արդեն մտել է հաշիվ։ Ձեր այցելությունների պատմությունն առանձին պահելու համար ձեր սեփական պրոֆիլում մուտք գործեք Chromium <ph name="USER_EMAIL_ADDRESS" /> հաշվով։ Ձեզ նաև հասանելի կլինեն ընթերցանության ցանկը և այլ տվյալներ <ph name="DEVICE" />։</translation>
 <translation id="3068187312562070417">Chromium-ի այլ պրոֆիլներ</translation>
 <translation id="3068290154869370196">Ընդլայնումները հավելումներ են, որոնք թույլ են տալիս անհատականացնել Chromium-ը։ Դրանք օգնում են կազմակերպել աշխատանքը, պարզեցնել առօրյա առաջադրանքները և անհատականացնել Chromium-ը։</translation>
 <translation id="3068515742935458733">Օգնեք բարելավել Chromium-ը՝ Google-ին ուղարկելով խափանման մասին հաշվետվությունները և <ph name="UMA_LINK" />ը</translation>
@@ -294,6 +296,7 @@
 <translation id="4147856324248078748">Անհատականացրեք ձեր Chromium-ը</translation>
 <translation id="4148957013307229264">Տեղադրում…</translation>
 <translation id="419998258129752635"><ph name="PAGE_TITLE" /> – Ցանցի մուտքի էջ – Chromium</translation>
+<translation id="4208652172235621272"><ph name="EXISTING_USER" />-ն արդեն մտել է հաշիվ։ Ձեր այցելությունների պատմությունն առանձին պահելու համար ձեր սեփական պրոֆիլում մուտք գործեք Chromium <ph name="USER_EMAIL_ADDRESS" /> հաշվով։ Ձեր ընթերցանության ցանկը և այլ տվյալները նույնպես հասանելի կլինեն ձեր բոլոր սարքերում։</translation>
 <translation id="421369550622382712">Հավելվածների, խաղերի, ընդլայնումների և թեմաների լայն ընտրանի Chromium-ի համար:</translation>
 <translation id="4217080900579554343">Ձեր բոլոր համակարգիչներում այս ընդլայնումը և ավելին ստանալու համար մուտք գործեք Chromium</translation>
 <translation id="4217972271355023382">Ձեր ծնողների ընտրած ավելի անվտանգ կարգավորումներն օգտագործելու համար անցեք Chromium պրոֆիլ, որտեղ արդեն մուտք եք գործել որպես <ph name="USER_EMAIL_ADDRESS" /></translation>
@@ -308,7 +311,6 @@
 <translation id="4298125729853015961">Արտահանեք գաղտնաբառերը Chromium-ից</translation>
 <translation id="4304713468139749426">Գաղտնաբառերի կառավարիչ</translation>
 <translation id="4334241893986177674">Որոնում այս սքրինշոթում</translation>
-<translation id="4368547723231502008">Որոնեք և հարցեր տվեք ցանկացած տեղից, նույնիսկ եթե Chromium-ը ծալված է</translation>
 <translation id="4384331407722351213">Գործարկել Chromium-ը, երբ Windows-ը միանա</translation>
 <translation id="4400772909124543403">Հասանելի թարմացումներ չկան</translation>
 <translation id="4407044323746248786">Փակե՞լ Chromium-ը։</translation>
@@ -339,6 +341,7 @@
 <translation id="4621240073146040695">Գրեթե պատրաստ է: Վերագործարկեք Chromium-ը՝ թարմացումն ավարտելու համար:</translation>
 <translation id="4625064703209785397">Արագացնում է կայքերի աշխատանքը Chromium-ի V8 շարժիչի օգնությամբ, սակայն փոքր-ինչ խոցելի է դարձնում Chromium-ը հարձակումների նկատմամբ</translation>
 <translation id="4626321472657185181">Բացել Որոնումը Chromium-ով</translation>
+<translation id="4654639495249754755">Chromium պրոֆիլ</translation>
 <translation id="4665829708273112819">Ուշադրություն․ Chromium-ը չի կարող արգելել ընդլայնումներին գրանցել ձեր այցելությունների պատմությունը։ Ընդլայնումն ինկոգնիտո ռեժիմում անջատելու համար ապանշեք այս պարամետրը։</translation>
 <translation id="4673151026126227699">Եթե դուք նաև ուղարկում եք Chromium-ի օգտագործման մասին հաշվետվություններ, դրանցում կներառվեն ձեր այցելած URL-ները։</translation>
 <translation id="4673710618874938871">Մուտք եք գործել որպես <ph name="USER_NAME" />, բաժանորդագրություն։ Բացել հաշվի ընտրացանկը</translation>
@@ -394,6 +397,7 @@
 <translation id="5382964351116519680">Բացել որոնումը Chromium-ով</translation>
 <translation id="5383439451358640070">Իմացեք, թե ինչու է Chromium-ն արգելափակում որոշ ֆայլեր</translation>
 <translation id="5386450000063123300">Chromium-ի թարմացում (<ph name="PROGRESS_PERCENT" />)</translation>
+<translation id="5387586787134731891"><ph name="EXISTING_USER" />-ն արդեն մտել է հաշիվ։ Ձեր այցելությունների պատմությունն առանձին պահելու համար ձեր սեփական պրոֆիլում մուտք գործեք Chromium <ph name="USER_EMAIL_ADDRESS" /> հաշվով։ Ընդլայնումները և այլ տվյալները նույնպես հասանելի կլինեն ձեր բոլոր սարքերում։</translation>
 <translation id="538767207339317086">Թույլատրել մուտքը Chromium-ում</translation>
 <translation id="5405650547142096840">Հեռացնել Chromium-ից</translation>
 <translation id="5424544524441439284">Արդյունավետությունը կնվազի, սակայն Chromium-ն ավելի դիմակայուն կդառնա հարձակումների նկատմամբ</translation>
@@ -470,6 +474,7 @@
 <translation id="6174920971222007286">Այս ֆայլը կարող է վտանգավոր լինել<ph name="LINE_BREAK" />Chromium-ը կարող է ստուգել այն, եթե մուտքագրեք ձեր գաղտնաբառը։ Ֆայլի մասին տեղեկությունները կուղարկվեն «Google Ապահով դիտարկում» ծառայությանը, սակայն ֆայլի բովանդակությունը և գաղտնաբառը կմնան ձեր սարքում։</translation>
 <translation id="6182736845697986886">Չհաջողվեց տեղադրել հավելվածը թարմացումն իրականացնող սերվերի ներքին սխալի պատճառով։</translation>
 <translation id="6183079672144801177">Համոզվեք, որ մուտք եք գործել հաշիվ <ph name="TARGET_DEVICE_NAME" /> սարքի Chromium դիտարկիչում և փորձեք նորից ուղարկել։</translation>
+<translation id="6192070012454216182">Որոնեք և հարցեր տվեք ցանկացած տեղից, նույնիսկ եթե Chromium-ը ծալված է։ Թույլ է տալիս Chromium-ին աշխատել ֆոնային ռեժիմում։</translation>
 <translation id="6212496753309875659">Այս համակարգչում արդեն տեղադրված է Chromium-ի ավելի նոր տարբերակը: Եթե ծրագրակազմը չի աշխատում, ապատեղադրեք Chromium-ը և նորից փորձեք:</translation>
 <translation id="6219195342503754812">{0,plural, =0{Chromium-ը հիմա կվերագործարկվի}=1{Chromium-ը կվերագործարկվի 1 վայրկյանից}one{Chromium-ը կվերագործարկվի # վայրկյանից}other{Chromium-ը կվերագործարկվի # վայրկյանից}}</translation>
 <translation id="6241367896540709610">Ֆայլեր ներբեռնելու համար Chromium-ին անհրաժեշտ է հիշողությունն օգտագործելու թույլտվություն</translation>
@@ -596,6 +601,7 @@
 <translation id="7288567540154601580">Ներդիրներ և ընդլայնումներ</translation>
 <translation id="7295544978856094497">{NUM_EXTENSIONS,plural, =1{Chromium-ը խորհուրդ է տալիս ձեզ հեռացնել այն}one{Chromium-ը խորհուրդ է տալիս ձեզ հեռացնել այն}other{Chromium-ը խորհուրդ է տալիս ձեզ հեռացնել դրանք}}</translation>
 <translation id="7296334833518879294">Համակարգի աուդիոյով կիսվելու համար բացեք Համակարգի կարգավորումները և թույլատրեք «Միայն համակարգի աուդիոյի ձայնագրումը» Chromium-ի համար։ Այնուհետև անհրաժեշտ կլինի վերագործարկել Chromium-ը։</translation>
+<translation id="7299899569525778554">Որոնում համակարգչից</translation>
 <translation id="731795002583552498">Chromium-ը թարմացվում է</translation>
 <translation id="7318036098707714271">Ձեր նախընտրանքների ֆայլը վնասված է կամ անվավեր:
 
@@ -651,6 +657,7 @@ Chromium-ին չհաջողվեց վերականգնել ձեր կարգավոր�
 <translation id="7790626492778995050"><ph name="PAGE_TITLE" /> – Chromium Canary</translation>
 <translation id="7803986347287457849">Արեք այնպես, որ ձեր ինտերնետ թրաֆիկի հասանելիություն ունեցող մարդիկ չկարողանան տեսնել, թե ինչ կայքեր եք այցելել։ Chromium-ն օգտագործում է ապահով միացում՝ DNS-ում (տիրույթի անունների համակարգ) կայքերի IP հասցեները որոնելու համար։</translation>
 <translation id="7810005234485217901">Ամրացրեք «Որոնում պատկերով» գործառույթը՝ արագ մուտքի համար</translation>
+<translation id="7813626943009612327">Հարցրեք Chromium-ից դուրս բովանդակության մասին, օրինակ՝ մեկ այլ հավելվածի կամ ֆայլի, որը բացել եք</translation>
 <translation id="7828527096541974699">Ընտրեք, թե ինչ տվյալներով կիսվել Chromium-ի հետ</translation>
 <translation id="7828947555739565424">Այս հաշվի հետ կապված Chromium-ի պրոֆիլ արդեն գոյություն ունի այս սարքում</translation>
 <translation id="7845233973568007926">Շնորհակալություն տեղադրելու համար։ Նախքան <ph name="BUNDLE_NAME" />-ն օգտագործելը դուք պետք է վերագործարկեք ձեր համակարգիչը։</translation>
@@ -738,10 +745,10 @@ Chromium-ին չհաջողվեց վերականգնել ձեր կարգավոր�
 <translation id="856656450041460113">Որոնել լեզուների ցանկում</translation>
 <translation id="8576826849825683917">Chromium-ը կառավարվում է մի քանի կազմակերպության կողմից</translation>
 <translation id="8586442755830160949">© <ph name="YEAR" /> The Chromium Authors: Բոլոր իրավունքները պահպանված են:</translation>
-<translation id="8601359445272098721">Նորույթ․ դուք կարող եք ձեր էկրանին թարգմանել ինչպես տեքստ, այնպես էլ պատկերներ՝ սեղմելով «Թարգմանել էկրանը» կոճակը</translation>
 <translation id="8619360774459241877">Chromium-ի գործարկում...</translation>
 <translation id="8624541899164515475">Կարգավորումներ, բացվում է նոր ներդիրում։</translation>
 <translation id="8648201657708811153">Google Chrome for Testing-ը չի կարող դառնալ ձեր կանխադրված դիտարկիչը։</translation>
+<translation id="8676101123715131330">Որոնեք Chromium-ի միջոցով ցանկացած վայրից</translation>
 <translation id="8697124171261953979">Այն նաև վերահսկում է Chromium-ի մեկնարկի կամ Omnibox-ից որոնում կատարելու ժամանակ ցուցադրվող էջը:</translation>
 <translation id="8704119203788522458">Սա ձեր Chromium-ն է</translation>
 <translation id="8712637175834984815">Պատրաստ է</translation>
@@ -775,6 +782,7 @@ Chromium-ին չհաջողվեց վերականգնել ձեր կարգավոր�
 <translation id="897581876605952338">Chromium Enterprise-ի լոգո</translation>
 <translation id="8980139959902937527">Օգտագործեք Google-ի անվտանգության գործառույթները ձեր <ph name="DEVICE_TYPE" />-ում Chromium հավելվածի միջոցով</translation>
 <translation id="8981150672034878610">Չհաջողվեց գործարկել Chromium-ը, քանի որ պրոֆիլը բացելիս սխալ առաջացավ։ Փորձեք վերագործարկել Chromium-ը։</translation>
+<translation id="8981886272598860786">Chromium-ով որոնելու կամ <ph name="BEGIN_LINK" />Կարգավորումներում<ph name="END_LINK" /> անհատականացնելու համար</translation>
 <translation id="8988036198400390003">Կառավարել Chromium-ի պրոֆիլները</translation>
 <translation id="8993855408334954620">Օգտագործեք ձեր ստեղնաշարը՝ «Gemini-ը Chromium-ում» հավելվածի և ձեր բացված ներդիրի միջև անցում կատարելու համար։</translation>
 <translation id="9018218886431812662">Տեղադրումն ավարտվեց</translation>

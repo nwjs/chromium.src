@@ -16,12 +16,6 @@ namespace android {
 // to Android payment apps.
 BASE_DECLARE_FEATURE(kAndroidPaymentIntentsOmitDeprecatedParameters);
 
-// If enabled, then the Android intent payment app factory will 'yield' to an
-// internal factory if present for the following payment methods:
-// - https://google.com/pay
-// - https://pay.google.com/authentication.
-BASE_DECLARE_FEATURE(kDeduplicateNativePaymentApps);
-
 // If enabled, use Android intents for the following payment methods:
 // - https://google.com/pay
 // - https://pay.google.com/authentication.
@@ -38,6 +32,10 @@ BASE_DECLARE_FEATURE(kReconnectOnLostConnectionToUpdatePaymentDetailsService);
 // If enabled, then Clank displays an alert dialog with the content of the
 // IS_READY_TO_PAY intent, whenever Clank fires this intent.
 BASE_DECLARE_FEATURE(kShowReadyToPayDebugInfo);
+
+// If enabled, surface the wallet error code from payment app response intents
+// in the payment error message.
+BASE_DECLARE_FEATURE(kSurfaceWalletErrorCodeFromIntent);
 
 // If enabled, PaymentRequest looks up the UPDATE_PAYMENT_DETAILS intent filter
 // in the payment app.

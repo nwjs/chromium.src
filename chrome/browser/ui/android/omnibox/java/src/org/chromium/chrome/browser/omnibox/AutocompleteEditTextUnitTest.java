@@ -8,8 +8,9 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
-import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
 
 import android.app.Activity;
 import android.content.Context;
@@ -32,9 +33,9 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.InOrder;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
+import org.mockito.quality.Strictness;
 import org.robolectric.Robolectric;
 import org.robolectric.Shadows;
 import org.robolectric.shadows.ShadowAccessibilityManager;
@@ -58,8 +59,9 @@ public class AutocompleteEditTextUnitTest {
 
     private static final boolean DEBUG = false;
 
-    @Rule public final MockitoRule mMockitoRule = MockitoJUnit.rule();
-    private InOrder mInOrder;
+    @Rule
+    public final MockitoRule mMockitoRule = MockitoJUnit.rule().strictness(Strictness.STRICT_STUBS);
+
     private TestAutocompleteEditText mAutocomplete;
     private LinearLayout mFocusPlaceHolder;
 
@@ -129,7 +131,7 @@ public class AutocompleteEditTextUnitTest {
         }
     }
 
-    // Limits the target of InOrder#verify.
+    // Verifier target for mock verification.
     private static class Verifier {
         public void onAutocompleteTextStateChanged(boolean updateDisplay) {
             if (DEBUG) Log.i(TAG, "onAutocompleteTextStateChanged(%b)", updateDisplay);
@@ -181,12 +183,6 @@ public class AutocompleteEditTextUnitTest {
         @Override
         public void onAutocompleteTextStateChanged(boolean updateDisplay) {
             mVerifier.onAutocompleteTextStateChanged(updateDisplay);
-            mVerifierCallCount.incrementAndGet();
-        }
-
-        @Override
-        public void onUpdateSelectionForTesting(int selStart, int selEnd) {
-            mVerifier.onUpdateSelection(selStart, selEnd);
             mVerifierCallCount.incrementAndGet();
         }
 
@@ -250,6 +246,12 @@ public class AutocompleteEditTextUnitTest {
             }
             return s;
         }
+
+        @Override
+        public void onUpdateSelectionForTesting(int selStart, int selEnd) {
+            mVerifier.onUpdateSelection(selStart, selEnd);
+            mVerifierCallCount.incrementAndGet();
+        }
     }
 
     public AutocompleteEditTextUnitTest() {}
@@ -287,21 +289,19 @@ public class AutocompleteEditTextUnitTest {
                                 mContext.getSystemService(Context.ACCESSIBILITY_SERVICE));
         manager.setEnabled(true);
         manager.setTouchExplorationEnabled(true);
-        AccessibilityStateTestHelper.setIsPerformGesturesEnabledForTesting(true);
-        AccessibilityStateTestHelper.setIsTouchExplorationEnabledForTesting(true);
+        AccessibilityStateTestHelper.setIsPerformGesturesEnabledForTesting(/* enabled= */ true);
+        AccessibilityStateTestHelper.setIsTouchExplorationEnabledForTesting(/* enabled= */ true);
 
-        mInOrder = inOrder(mVerifier);
         assertTrue(mAutocomplete.requestFocus());
         verifyOnPopulateAccessibilityEvent(
                 AccessibilityEvent.TYPE_VIEW_FOCUSED, "", "", 2, -1, -1, -1, -1);
         assertNotNull(mAutocomplete.onCreateInputConnection(new EditorInfo()));
         mInputConnection = mAutocomplete.getInputConnection();
         assertNotNull(mInputConnection);
-        mInOrder.verifyNoMoreInteractions();
-        assertVerifierCallCounts(0, 1);
+        assertVerifierCallCounts(/* nonAccessibilityCount= */ 0, /* accessibilityCount= */ 1);
 
         // Feeder should call this at the beginning.
-        mAutocomplete.setIgnoreTextChangesForAutocomplete(false);
+        mAutocomplete.setIgnoreTextChangesForAutocomplete(/* ignoreAutocomplete= */ false);
 
         if (DEBUG) Log.i(TAG, "setUp finished.");
     }
@@ -315,11 +315,10 @@ public class AutocompleteEditTextUnitTest {
         assertEquals(additionalText, additionalTextStr != null ? additionalTextStr : "");
     }
 
-    private void assertVerifierCallCounts(
-            int nonAccessibilityCallCount, int accessibilityCallCount) {
-        assertEquals(nonAccessibilityCallCount, mAutocomplete.getAndResetVerifierCallCount());
-        assertEquals(
-                accessibilityCallCount, mAutocomplete.getAndResetAccessibilityVerifierCallCount());
+    private void assertVerifierCallCounts(int nonAccessibilityCount, int accessibilityCount) {
+        assertEquals(nonAccessibilityCount, mAutocomplete.getAndResetVerifierCallCount());
+        assertEquals(accessibilityCount, mAutocomplete.getAndResetAccessibilityVerifierCallCount());
+        clearInvocations(mVerifier);
     }
 
     private void verifyOnPopulateAccessibilityEvent(
@@ -331,7 +330,7 @@ public class AutocompleteEditTextUnitTest {
             int toIndex,
             int removedCount,
             int addedCount) {
-        mInOrder.verify(mVerifier)
+        verify(mVerifier)
                 .onPopulateAccessibilityEvent(
                         eventType,
                         text,
@@ -347,15 +346,14 @@ public class AutocompleteEditTextUnitTest {
     public void testAppend_CommitText() {
         // User types "h".
         assertTrue(mInputConnection.commitText("h", 1));
-        mInOrder.verify(mVerifier).onUpdateSelection(1, 1);
+        verify(mVerifier).onUpdateSelection(1, 1);
         verifyOnPopulateAccessibilityEvent(
                 AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED, "h", "", -1, 0, -1, 0, 1);
         verifyOnPopulateAccessibilityEvent(
                 AccessibilityEvent.TYPE_VIEW_TEXT_SELECTION_CHANGED, "h", "", 1, 1, 1, -1, -1);
-        mInOrder.verify(mVerifier).onAutocompleteTextStateChanged(false);
-        assertVerifierCallCounts(2, 2);
+        verify(mVerifier).onAutocompleteTextStateChanged(false);
+        assertVerifierCallCounts(/* nonAccessibilityCount= */ 2, /* accessibilityCount= */ 2);
 
-        mInOrder.verifyNoMoreInteractions();
         assertTrue(mAutocomplete.shouldAutocomplete());
 
         // The controller kicks in.
@@ -363,13 +361,12 @@ public class AutocompleteEditTextUnitTest {
         assertFalse(mAutocomplete.isCursorVisible());
         verifyOnPopulateAccessibilityEvent(
                 AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED, "hello world", "h", -1, 1, -1, 0, 10);
-        assertVerifierCallCounts(0, 1);
-        mInOrder.verifyNoMoreInteractions();
+        assertVerifierCallCounts(/* nonAccessibilityCount= */ 0, /* accessibilityCount= */ 1);
         assertTrue(mAutocomplete.shouldAutocomplete());
 
         // User types "he".
         assertTrue(mInputConnection.commitText("e", 1));
-        mInOrder.verify(mVerifier).onUpdateSelection(2, 2);
+        verify(mVerifier).onUpdateSelection(2, 2);
         verifyOnPopulateAccessibilityEvent(
                 AccessibilityEvent.TYPE_VIEW_TEXT_SELECTION_CHANGED,
                 "hello world",
@@ -381,21 +378,19 @@ public class AutocompleteEditTextUnitTest {
                 -1);
         verifyOnPopulateAccessibilityEvent(
                 AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED, "hello world", "he", -1, 2, -1, 0, 9);
-        mInOrder.verify(mVerifier).onAutocompleteTextStateChanged(false);
-        assertVerifierCallCounts(2, 2);
-        mInOrder.verifyNoMoreInteractions();
+        verify(mVerifier).onAutocompleteTextStateChanged(false);
+        assertVerifierCallCounts(/* nonAccessibilityCount= */ 2, /* accessibilityCount= */ 2);
         assertTrue(mAutocomplete.shouldAutocomplete());
         // The controller kicks in.
         mAutocomplete.setAutocompleteText("he", "llo world", null, null);
         assertFalse(mAutocomplete.isCursorVisible());
 
-        mInOrder.verifyNoMoreInteractions();
         assertTexts("he", "llo world", "");
         assertTrue(mAutocomplete.shouldAutocomplete());
 
         // User types "hello".
         assertTrue(mInputConnection.commitText("llo", 1));
-        mInOrder.verify(mVerifier).onUpdateSelection(5, 5);
+        verify(mVerifier).onUpdateSelection(5, 5);
         verifyOnPopulateAccessibilityEvent(
                 AccessibilityEvent.TYPE_VIEW_TEXT_SELECTION_CHANGED,
                 "hello world",
@@ -407,15 +402,13 @@ public class AutocompleteEditTextUnitTest {
                 -1);
         verifyOnPopulateAccessibilityEvent(
                 AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED, "hello world", "hello", -1, 5, -1, 0, 6);
-        mInOrder.verify(mVerifier).onAutocompleteTextStateChanged(false);
-        assertVerifierCallCounts(2, 2);
-        mInOrder.verifyNoMoreInteractions();
+        verify(mVerifier).onAutocompleteTextStateChanged(false);
+        assertVerifierCallCounts(/* nonAccessibilityCount= */ 2, /* accessibilityCount= */ 2);
         assertTrue(mAutocomplete.shouldAutocomplete());
         // The controller kicks in.
         mAutocomplete.setAutocompleteText("hello", " world", null, null);
         assertFalse(mAutocomplete.isCursorVisible());
-        assertVerifierCallCounts(0, 0);
-        mInOrder.verifyNoMoreInteractions();
+        assertVerifierCallCounts(/* nonAccessibilityCount= */ 0, /* accessibilityCount= */ 0);
         assertTexts("hello", " world", "");
         assertTrue(mAutocomplete.shouldAutocomplete());
 
@@ -429,13 +422,12 @@ public class AutocompleteEditTextUnitTest {
         assertFalse(mAutocomplete.shouldAutocomplete());
         assertEquals("hello world", mAutocomplete.getText().toString());
 
-        mInOrder.verifyNoMoreInteractions();
         assertLastBatchEdit(mInputConnection.endBatchEdit());
 
         // Autocomplete text gets redrawn.
         assertTexts("hello ", "world", "");
         assertTrue(mAutocomplete.shouldAutocomplete());
-        mInOrder.verify(mVerifier).onUpdateSelection(6, 6);
+        verify(mVerifier).onUpdateSelection(6, 6);
         verifyOnPopulateAccessibilityEvent(
                 AccessibilityEvent.TYPE_VIEW_TEXT_SELECTION_CHANGED,
                 "hello world",
@@ -454,29 +446,27 @@ public class AutocompleteEditTextUnitTest {
                 -1,
                 0,
                 5);
-        mInOrder.verify(mVerifier).onAutocompleteTextStateChanged(false);
-        assertVerifierCallCounts(2, 2);
+        verify(mVerifier).onAutocompleteTextStateChanged(false);
+        assertVerifierCallCounts(/* nonAccessibilityCount= */ 2, /* accessibilityCount= */ 2);
 
         mAutocomplete.setAutocompleteText("hello ", "world", "foo.com", null);
         assertFalse(mAutocomplete.isCursorVisible());
         assertTexts("hello ", "world", "foo.com");
-        assertVerifierCallCounts(0, 0);
-        mInOrder.verifyNoMoreInteractions();
+        assertVerifierCallCounts(/* nonAccessibilityCount= */ 0, /* accessibilityCount= */ 0);
     }
 
     @Test
     public void testAppendWithAdditionalText_CommitText() {
         // User types "hel".
         assertTrue(mInputConnection.commitText("hel", 1));
-        mInOrder.verify(mVerifier).onUpdateSelection(3, 3);
+        verify(mVerifier).onUpdateSelection(3, 3);
         verifyOnPopulateAccessibilityEvent(
                 AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED, "hel", "", -1, 0, -1, 0, 3);
         verifyOnPopulateAccessibilityEvent(
                 AccessibilityEvent.TYPE_VIEW_TEXT_SELECTION_CHANGED, "hel", "", 3, 3, 3, -1, -1);
-        mInOrder.verify(mVerifier).onAutocompleteTextStateChanged(false);
-        assertVerifierCallCounts(2, 2);
+        verify(mVerifier).onAutocompleteTextStateChanged(false);
+        assertVerifierCallCounts(/* nonAccessibilityCount= */ 2, /* accessibilityCount= */ 2);
 
-        mInOrder.verifyNoMoreInteractions();
         assertTrue(mAutocomplete.shouldAutocomplete());
 
         // The controller kicks in.
@@ -491,13 +481,12 @@ public class AutocompleteEditTextUnitTest {
                 -1,
                 0,
                 8);
-        assertVerifierCallCounts(0, 1);
-        mInOrder.verifyNoMoreInteractions();
+        assertVerifierCallCounts(/* nonAccessibilityCount= */ 0, /* accessibilityCount= */ 1);
         assertTrue(mAutocomplete.shouldAutocomplete());
 
         // User types "hell".
         assertTrue(mInputConnection.commitText("l", 1));
-        mInOrder.verify(mVerifier).onUpdateSelection(4, 4);
+        verify(mVerifier).onUpdateSelection(4, 4);
         verifyOnPopulateAccessibilityEvent(
                 AccessibilityEvent.TYPE_VIEW_TEXT_SELECTION_CHANGED,
                 "hello world - www.foo.com",
@@ -516,21 +505,19 @@ public class AutocompleteEditTextUnitTest {
                 -1,
                 0,
                 7);
-        mInOrder.verify(mVerifier).onAutocompleteTextStateChanged(false);
-        assertVerifierCallCounts(2, 2);
-        mInOrder.verifyNoMoreInteractions();
+        verify(mVerifier).onAutocompleteTextStateChanged(false);
+        assertVerifierCallCounts(/* nonAccessibilityCount= */ 2, /* accessibilityCount= */ 2);
         assertTrue(mAutocomplete.shouldAutocomplete());
         // The controller kicks in.
         mAutocomplete.setAutocompleteText("hell", "o world", "www.bar.com", null);
         assertFalse(mAutocomplete.isCursorVisible());
 
-        mInOrder.verifyNoMoreInteractions();
         assertTexts("hell", "o world", "www.bar.com");
         assertTrue(mAutocomplete.shouldAutocomplete());
 
         // User types "hello".
         assertTrue(mInputConnection.commitText("o", 1));
-        mInOrder.verify(mVerifier).onUpdateSelection(5, 5);
+        verify(mVerifier).onUpdateSelection(5, 5);
         verifyOnPopulateAccessibilityEvent(
                 AccessibilityEvent.TYPE_VIEW_TEXT_SELECTION_CHANGED,
                 "hello world - www.bar.com",
@@ -549,15 +536,13 @@ public class AutocompleteEditTextUnitTest {
                 -1,
                 0,
                 6);
-        mInOrder.verify(mVerifier).onAutocompleteTextStateChanged(false);
-        assertVerifierCallCounts(2, 2);
-        mInOrder.verifyNoMoreInteractions();
+        verify(mVerifier).onAutocompleteTextStateChanged(false);
+        assertVerifierCallCounts(/* nonAccessibilityCount= */ 2, /* accessibilityCount= */ 2);
         assertTrue(mAutocomplete.shouldAutocomplete());
         // The controller kicks in.
         mAutocomplete.setAutocompleteText("hello", " world", "www.foobar.com", null);
         assertFalse(mAutocomplete.isCursorVisible());
-        assertVerifierCallCounts(0, 0);
-        mInOrder.verifyNoMoreInteractions();
+        assertVerifierCallCounts(/* nonAccessibilityCount= */ 0, /* accessibilityCount= */ 0);
         assertTexts("hello", " world", "www.foobar.com");
         assertTrue(mAutocomplete.shouldAutocomplete());
 
@@ -571,13 +556,12 @@ public class AutocompleteEditTextUnitTest {
         assertFalse(mAutocomplete.shouldAutocomplete());
         assertEquals("hello world - www.foobar.com", mAutocomplete.getText().toString());
 
-        mInOrder.verifyNoMoreInteractions();
         assertLastBatchEdit(mInputConnection.endBatchEdit());
 
         // Autocomplete text gets redrawn.
         assertTexts("hello ", "world", "www.foobar.com");
         assertTrue(mAutocomplete.shouldAutocomplete());
-        mInOrder.verify(mVerifier).onUpdateSelection(6, 6);
+        verify(mVerifier).onUpdateSelection(6, 6);
         verifyOnPopulateAccessibilityEvent(
                 AccessibilityEvent.TYPE_VIEW_TEXT_SELECTION_CHANGED,
                 "hello world - www.foobar.com",
@@ -596,29 +580,27 @@ public class AutocompleteEditTextUnitTest {
                 -1,
                 0,
                 5);
-        mInOrder.verify(mVerifier).onAutocompleteTextStateChanged(false);
-        assertVerifierCallCounts(2, 2);
+        verify(mVerifier).onAutocompleteTextStateChanged(false);
+        assertVerifierCallCounts(/* nonAccessibilityCount= */ 2, /* accessibilityCount= */ 2);
 
         mAutocomplete.setAutocompleteText("hello ", "world", "www.foobar.com", null);
         assertFalse(mAutocomplete.isCursorVisible());
         assertTexts("hello ", "world", "www.foobar.com");
-        assertVerifierCallCounts(0, 0);
-        mInOrder.verifyNoMoreInteractions();
+        assertVerifierCallCounts(/* nonAccessibilityCount= */ 0, /* accessibilityCount= */ 0);
     }
 
     @Test
     public void testAdditionalTextColor() {
         // User types "hel".
         assertTrue(mInputConnection.commitText("hel", 1));
-        mInOrder.verify(mVerifier).onUpdateSelection(3, 3);
+        verify(mVerifier).onUpdateSelection(3, 3);
         verifyOnPopulateAccessibilityEvent(
                 AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED, "hel", "", -1, 0, -1, 0, 3);
         verifyOnPopulateAccessibilityEvent(
                 AccessibilityEvent.TYPE_VIEW_TEXT_SELECTION_CHANGED, "hel", "", 3, 3, 3, -1, -1);
-        mInOrder.verify(mVerifier).onAutocompleteTextStateChanged(false);
-        assertVerifierCallCounts(2, 2);
+        verify(mVerifier).onAutocompleteTextStateChanged(false);
+        assertVerifierCallCounts(/* nonAccessibilityCount= */ 2, /* accessibilityCount= */ 2);
 
-        mInOrder.verifyNoMoreInteractions();
         assertTrue(mAutocomplete.shouldAutocomplete());
 
         // The controller kicks in.
@@ -633,8 +615,7 @@ public class AutocompleteEditTextUnitTest {
                 -1,
                 0,
                 8);
-        assertVerifierCallCounts(0, 1);
-        mInOrder.verifyNoMoreInteractions();
+        assertVerifierCallCounts(/* nonAccessibilityCount= */ 0, /* accessibilityCount= */ 1);
         assertTrue(mAutocomplete.shouldAutocomplete());
 
         Editable editable = mAutocomplete.getEditableText();
@@ -650,15 +631,14 @@ public class AutocompleteEditTextUnitTest {
     public void testAppendWithAdditionalText_minimumCharacters() {
         // User types "h".
         assertTrue(mInputConnection.commitText("h", 1));
-        mInOrder.verify(mVerifier).onUpdateSelection(1, 1);
+        verify(mVerifier).onUpdateSelection(1, 1);
         verifyOnPopulateAccessibilityEvent(
                 AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED, "h", "", -1, 0, -1, 0, 1);
         verifyOnPopulateAccessibilityEvent(
                 AccessibilityEvent.TYPE_VIEW_TEXT_SELECTION_CHANGED, "h", "", 1, 1, 1, -1, -1);
-        mInOrder.verify(mVerifier).onAutocompleteTextStateChanged(false);
-        assertVerifierCallCounts(2, 2);
+        verify(mVerifier).onAutocompleteTextStateChanged(false);
+        assertVerifierCallCounts(/* nonAccessibilityCount= */ 2, /* accessibilityCount= */ 2);
 
-        mInOrder.verifyNoMoreInteractions();
         assertTrue(mAutocomplete.shouldAutocomplete());
 
         // The controller kicks in.
@@ -667,13 +647,12 @@ public class AutocompleteEditTextUnitTest {
         // The input characters are not enough, so additional texts are not shown.
         verifyOnPopulateAccessibilityEvent(
                 AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED, "hello world", "h", -1, 1, -1, 0, 10);
-        assertVerifierCallCounts(0, 1);
-        mInOrder.verifyNoMoreInteractions();
+        assertVerifierCallCounts(/* nonAccessibilityCount= */ 0, /* accessibilityCount= */ 1);
         assertTrue(mAutocomplete.shouldAutocomplete());
 
         // User types "he".
         assertTrue(mInputConnection.commitText("e", 1));
-        mInOrder.verify(mVerifier).onUpdateSelection(2, 2);
+        verify(mVerifier).onUpdateSelection(2, 2);
         // The input characters are not enough, so additional texts are not shown.
         verifyOnPopulateAccessibilityEvent(
                 AccessibilityEvent.TYPE_VIEW_TEXT_SELECTION_CHANGED,
@@ -686,21 +665,19 @@ public class AutocompleteEditTextUnitTest {
                 -1);
         verifyOnPopulateAccessibilityEvent(
                 AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED, "hello world", "he", -1, 2, -1, 0, 9);
-        mInOrder.verify(mVerifier).onAutocompleteTextStateChanged(false);
-        assertVerifierCallCounts(2, 2);
-        mInOrder.verifyNoMoreInteractions();
+        verify(mVerifier).onAutocompleteTextStateChanged(false);
+        assertVerifierCallCounts(/* nonAccessibilityCount= */ 2, /* accessibilityCount= */ 2);
         assertTrue(mAutocomplete.shouldAutocomplete());
         // The controller kicks in.
         mAutocomplete.setAutocompleteText("he", "llo world", "www.bar.com", null);
         assertFalse(mAutocomplete.isCursorVisible());
 
-        mInOrder.verifyNoMoreInteractions();
         assertTexts("he", "llo world", "www.bar.com");
         assertTrue(mAutocomplete.shouldAutocomplete());
 
         // User types "hello".
         assertTrue(mInputConnection.commitText("llo", 1));
-        mInOrder.verify(mVerifier).onUpdateSelection(5, 5);
+        verify(mVerifier).onUpdateSelection(5, 5);
         // The input characters are enough, so additional texts are shown.
         verifyOnPopulateAccessibilityEvent(
                 AccessibilityEvent.TYPE_VIEW_TEXT_SELECTION_CHANGED,
@@ -720,15 +697,13 @@ public class AutocompleteEditTextUnitTest {
                 -1,
                 0,
                 6);
-        mInOrder.verify(mVerifier).onAutocompleteTextStateChanged(false);
-        assertVerifierCallCounts(2, 2);
-        mInOrder.verifyNoMoreInteractions();
+        verify(mVerifier).onAutocompleteTextStateChanged(false);
+        assertVerifierCallCounts(/* nonAccessibilityCount= */ 2, /* accessibilityCount= */ 2);
         assertTrue(mAutocomplete.shouldAutocomplete());
         // The controller kicks in.
         mAutocomplete.setAutocompleteText("hello", " world", "www.foobar.com", null);
         assertFalse(mAutocomplete.isCursorVisible());
-        assertVerifierCallCounts(0, 0);
-        mInOrder.verifyNoMoreInteractions();
+        assertVerifierCallCounts(/* nonAccessibilityCount= */ 0, /* accessibilityCount= */ 0);
         assertTexts("hello", " world", "www.foobar.com");
         assertTrue(mAutocomplete.shouldAutocomplete());
     }
@@ -737,15 +712,14 @@ public class AutocompleteEditTextUnitTest {
     public void testAppendWithAdditionalText_onSelectionChanged() {
         // User types "hel".
         assertTrue(mInputConnection.commitText("hel", 1));
-        mInOrder.verify(mVerifier).onUpdateSelection(3, 3);
+        verify(mVerifier).onUpdateSelection(3, 3);
         verifyOnPopulateAccessibilityEvent(
                 AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED, "hel", "", -1, 0, -1, 0, 3);
         verifyOnPopulateAccessibilityEvent(
                 AccessibilityEvent.TYPE_VIEW_TEXT_SELECTION_CHANGED, "hel", "", 3, 3, 3, -1, -1);
-        mInOrder.verify(mVerifier).onAutocompleteTextStateChanged(false);
-        assertVerifierCallCounts(2, 2);
+        verify(mVerifier).onAutocompleteTextStateChanged(false);
+        assertVerifierCallCounts(/* nonAccessibilityCount= */ 2, /* accessibilityCount= */ 2);
 
-        mInOrder.verifyNoMoreInteractions();
         assertTrue(mAutocomplete.shouldAutocomplete());
 
         // The controller kicks in.
@@ -760,13 +734,12 @@ public class AutocompleteEditTextUnitTest {
                 -1,
                 0,
                 8);
-        assertVerifierCallCounts(0, 1);
-        mInOrder.verifyNoMoreInteractions();
+        assertVerifierCallCounts(/* nonAccessibilityCount= */ 0, /* accessibilityCount= */ 1);
         assertTrue(mAutocomplete.shouldAutocomplete());
 
         // User taps on "hello world - www.fo[|]o.com".
         mAutocomplete.onSelectionChanged(20, 20);
-        mInOrder.verify(mVerifier).onUpdateSelection(11, 11);
+        verify(mVerifier).onUpdateSelection(11, 11);
         verifyOnPopulateAccessibilityEvent(
                 AccessibilityEvent.TYPE_VIEW_TEXT_SELECTION_CHANGED,
                 "hello world",
@@ -779,7 +752,7 @@ public class AutocompleteEditTextUnitTest {
 
         // User selects on "[hello world - www.fo]o.com".
         mAutocomplete.onSelectionChanged(0, 20);
-        mInOrder.verify(mVerifier).onUpdateSelection(0, 11);
+        verify(mVerifier).onUpdateSelection(0, 11);
         verifyOnPopulateAccessibilityEvent(
                 AccessibilityEvent.TYPE_VIEW_TEXT_SELECTION_CHANGED,
                 "hello world",
@@ -795,14 +768,13 @@ public class AutocompleteEditTextUnitTest {
     public void testAppendWithAdditionalText_removeAutocompleteAndAddtionalText() {
         // User types "hello".
         assertTrue(mInputConnection.commitText("hello", 1));
-        mInOrder.verify(mVerifier).onUpdateSelection(5, 5);
+        verify(mVerifier).onUpdateSelection(5, 5);
         verifyOnPopulateAccessibilityEvent(
                 AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED, "hello", "", -1, 0, -1, 0, 5);
         verifyOnPopulateAccessibilityEvent(
                 AccessibilityEvent.TYPE_VIEW_TEXT_SELECTION_CHANGED, "hello", "", 5, 5, 5, -1, -1);
-        mInOrder.verify(mVerifier).onAutocompleteTextStateChanged(false);
-        assertVerifierCallCounts(2, 2);
-        mInOrder.verifyNoMoreInteractions();
+        verify(mVerifier).onAutocompleteTextStateChanged(false);
+        assertVerifierCallCounts(/* nonAccessibilityCount= */ 2, /* accessibilityCount= */ 2);
         assertTrue(mAutocomplete.shouldAutocomplete());
         // The controller kicks in.
         mAutocomplete.setAutocompleteText("hello", " world", "www.foo.com", null);
@@ -816,9 +788,8 @@ public class AutocompleteEditTextUnitTest {
                 -1,
                 0,
                 6);
-        assertVerifierCallCounts(0, 1);
+        assertVerifierCallCounts(/* nonAccessibilityCount= */ 0, /* accessibilityCount= */ 1);
         assertTexts("hello", " world", "www.foo.com");
-        mInOrder.verifyNoMoreInteractions();
         assertTrue(mAutocomplete.shouldAutocomplete());
 
         // User taps on "he[|]llo world - www.foo.com", the autocomplete and additional text will be
@@ -833,14 +804,13 @@ public class AutocompleteEditTextUnitTest {
         // User types "h".
         assertTrue(mInputConnection.setComposingText("h", 1));
 
-        mInOrder.verify(mVerifier).onUpdateSelection(1, 1);
+        verify(mVerifier).onUpdateSelection(1, 1);
         verifyOnPopulateAccessibilityEvent(
                 AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED, "h", "", -1, 0, -1, 0, 1);
         verifyOnPopulateAccessibilityEvent(
                 AccessibilityEvent.TYPE_VIEW_TEXT_SELECTION_CHANGED, "h", "", 1, 1, 1, -1, -1);
-        mInOrder.verify(mVerifier).onAutocompleteTextStateChanged(false);
-        assertVerifierCallCounts(2, 2);
-        mInOrder.verifyNoMoreInteractions();
+        verify(mVerifier).onAutocompleteTextStateChanged(false);
+        assertVerifierCallCounts(/* nonAccessibilityCount= */ 2, /* accessibilityCount= */ 2);
 
         // The old model does not allow autocompletion here.
         assertTrue(mAutocomplete.shouldAutocomplete());
@@ -850,12 +820,11 @@ public class AutocompleteEditTextUnitTest {
                 AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED, "hello world", "h", -1, 1, -1, 0, 10);
         assertFalse(mAutocomplete.isCursorVisible());
         assertTexts("h", "ello world", "");
-        assertVerifierCallCounts(0, 1);
-        mInOrder.verifyNoMoreInteractions();
+        assertVerifierCallCounts(/* nonAccessibilityCount= */ 0, /* accessibilityCount= */ 1);
 
         // User types "hello".
         assertTrue(mInputConnection.setComposingText("hello", 1));
-        mInOrder.verify(mVerifier).onUpdateSelection(5, 5);
+        verify(mVerifier).onUpdateSelection(5, 5);
         verifyOnPopulateAccessibilityEvent(
                 AccessibilityEvent.TYPE_VIEW_TEXT_SELECTION_CHANGED,
                 "hello world",
@@ -867,9 +836,8 @@ public class AutocompleteEditTextUnitTest {
                 -1);
         verifyOnPopulateAccessibilityEvent(
                 AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED, "hello world", "hello", -1, 5, -1, 0, 6);
-        mInOrder.verify(mVerifier).onAutocompleteTextStateChanged(false);
-        assertVerifierCallCounts(2, 2);
-        mInOrder.verifyNoMoreInteractions();
+        verify(mVerifier).onAutocompleteTextStateChanged(false);
+        assertVerifierCallCounts(/* nonAccessibilityCount= */ 2, /* accessibilityCount= */ 2);
         assertTexts("hello", " world", "");
 
         // The old model does not allow autocompletion here.
@@ -878,8 +846,7 @@ public class AutocompleteEditTextUnitTest {
         mAutocomplete.setAutocompleteText("hello", " world", null, null);
         assertFalse(mAutocomplete.isCursorVisible());
         assertTexts("hello", " world", "");
-        assertVerifierCallCounts(0, 0);
-        mInOrder.verifyNoMoreInteractions();
+        assertVerifierCallCounts(/* nonAccessibilityCount= */ 0, /* accessibilityCount= */ 0);
 
         // User types a space.
         assertTrue(mInputConnection.beginBatchEdit());
@@ -894,12 +861,11 @@ public class AutocompleteEditTextUnitTest {
         assertTrue(mInputConnection.commitText(" ", 1));
 
         assertEquals("hello world", mAutocomplete.getText().toString());
-        assertVerifierCallCounts(0, 0);
-        mInOrder.verifyNoMoreInteractions();
+        assertVerifierCallCounts(/* nonAccessibilityCount= */ 0, /* accessibilityCount= */ 0);
 
         assertLastBatchEdit(mInputConnection.endBatchEdit());
 
-        mInOrder.verify(mVerifier).onUpdateSelection(6, 6);
+        verify(mVerifier).onUpdateSelection(6, 6);
         verifyOnPopulateAccessibilityEvent(
                 AccessibilityEvent.TYPE_VIEW_TEXT_SELECTION_CHANGED,
                 "hello world",
@@ -918,9 +884,8 @@ public class AutocompleteEditTextUnitTest {
                 -1,
                 0,
                 5);
-        mInOrder.verify(mVerifier).onAutocompleteTextStateChanged(false);
-        assertVerifierCallCounts(2, 2);
-        mInOrder.verifyNoMoreInteractions();
+        verify(mVerifier).onAutocompleteTextStateChanged(false);
+        assertVerifierCallCounts(/* nonAccessibilityCount= */ 2, /* accessibilityCount= */ 2);
 
         // Autocomplete text has been drawn at endBatchEdit().
         assertTexts("hello ", "world", "");
@@ -930,8 +895,7 @@ public class AutocompleteEditTextUnitTest {
         mAutocomplete.setAutocompleteText("hello ", "world", "foo.com", null);
         assertTexts("hello ", "world", "foo.com");
         assertFalse(mAutocomplete.isCursorVisible());
-        assertVerifierCallCounts(0, 0);
-        mInOrder.verifyNoMoreInteractions();
+        assertVerifierCallCounts(/* nonAccessibilityCount= */ 0, /* accessibilityCount= */ 0);
     }
 
     @Test
@@ -939,14 +903,13 @@ public class AutocompleteEditTextUnitTest {
         // User types "h".
         mAutocomplete.dispatchKeyEvent(new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_H));
         mAutocomplete.dispatchKeyEvent(new KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_H));
-        mInOrder.verify(mVerifier).onUpdateSelection(1, 1);
+        verify(mVerifier).onUpdateSelection(1, 1);
         verifyOnPopulateAccessibilityEvent(
                 AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED, "h", "", -1, 0, -1, 0, 1);
         verifyOnPopulateAccessibilityEvent(
                 AccessibilityEvent.TYPE_VIEW_TEXT_SELECTION_CHANGED, "h", "", 1, 1, 1, -1, -1);
-        mInOrder.verify(mVerifier).onAutocompleteTextStateChanged(false);
-        assertVerifierCallCounts(2, 2);
-        mInOrder.verifyNoMoreInteractions();
+        verify(mVerifier).onAutocompleteTextStateChanged(false);
+        assertVerifierCallCounts(/* nonAccessibilityCount= */ 2, /* accessibilityCount= */ 2);
         assertTrue(mAutocomplete.shouldAutocomplete());
 
         // The controller kicks in.
@@ -954,15 +917,14 @@ public class AutocompleteEditTextUnitTest {
         // The non-spannable model changes selection in two steps.
         verifyOnPopulateAccessibilityEvent(
                 AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED, "hello world", "h", -1, 1, -1, 0, 10);
-        assertVerifierCallCounts(0, 1);
+        assertVerifierCallCounts(/* nonAccessibilityCount= */ 0, /* accessibilityCount= */ 1);
         assertFalse(mAutocomplete.isCursorVisible());
-        mInOrder.verifyNoMoreInteractions();
         assertTrue(mAutocomplete.shouldAutocomplete());
 
         // User types "he".
         mAutocomplete.dispatchKeyEvent(new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_E));
         mAutocomplete.dispatchKeyEvent(new KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_E));
-        mInOrder.verify(mVerifier).onUpdateSelection(2, 2);
+        verify(mVerifier).onUpdateSelection(2, 2);
         verifyOnPopulateAccessibilityEvent(
                 AccessibilityEvent.TYPE_VIEW_TEXT_SELECTION_CHANGED,
                 "hello world",
@@ -974,66 +936,59 @@ public class AutocompleteEditTextUnitTest {
                 -1);
         verifyOnPopulateAccessibilityEvent(
                 AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED, "hello world", "he", -1, 2, -1, 0, 9);
-        mInOrder.verify(mVerifier).onAutocompleteTextStateChanged(false);
+        verify(mVerifier).onAutocompleteTextStateChanged(false);
         // The new model tries to reuse autocomplete text.
         assertTexts("he", "llo world", "");
-        assertVerifierCallCounts(2, 2);
-        mInOrder.verifyNoMoreInteractions();
+        assertVerifierCallCounts(/* nonAccessibilityCount= */ 2, /* accessibilityCount= */ 2);
         assertTrue(mAutocomplete.shouldAutocomplete());
         // The controller kicks in.
         mAutocomplete.setAutocompleteText("he", "llo world", "foo.com", null);
         assertFalse(mAutocomplete.isCursorVisible());
-        assertVerifierCallCounts(0, 0);
-        mInOrder.verifyNoMoreInteractions();
+        assertVerifierCallCounts(/* nonAccessibilityCount= */ 0, /* accessibilityCount= */ 0);
         assertTexts("he", "llo world", "foo.com");
         assertTrue(mAutocomplete.shouldAutocomplete());
-        mInOrder.verifyNoMoreInteractions();
     }
 
     @Test
     public void testDelete_CommitText() {
         // User types "hello".
         assertTrue(mInputConnection.commitText("hello", 1));
-        mInOrder.verify(mVerifier).onUpdateSelection(5, 5);
+        verify(mVerifier).onUpdateSelection(5, 5);
         verifyOnPopulateAccessibilityEvent(
                 AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED, "hello", "", -1, 0, -1, 0, 5);
         verifyOnPopulateAccessibilityEvent(
                 AccessibilityEvent.TYPE_VIEW_TEXT_SELECTION_CHANGED, "hello", "", 5, 5, 5, -1, -1);
-        mInOrder.verify(mVerifier).onAutocompleteTextStateChanged(false);
-        assertVerifierCallCounts(2, 2);
-        mInOrder.verifyNoMoreInteractions();
+        verify(mVerifier).onAutocompleteTextStateChanged(false);
+        assertVerifierCallCounts(/* nonAccessibilityCount= */ 2, /* accessibilityCount= */ 2);
         assertTrue(mAutocomplete.shouldAutocomplete());
         // The controller kicks in.
         mAutocomplete.setAutocompleteText("hello", " world", null, null);
         verifyOnPopulateAccessibilityEvent(
                 AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED, "hello world", "hello", -1, 5, -1, 0, 6);
-        assertVerifierCallCounts(0, 1);
+        assertVerifierCallCounts(/* nonAccessibilityCount= */ 0, /* accessibilityCount= */ 1);
         assertFalse(mAutocomplete.isCursorVisible());
         assertTexts("hello", " world", "");
-        mInOrder.verifyNoMoreInteractions();
 
         // User deletes autocomplete.
         assertTrue(mInputConnection.deleteSurroundingText(1, 0)); // deletes one character
 
         // Pretend that we have deleted 'o' first.
-        mInOrder.verify(mVerifier).onUpdateSelection(4, 4);
+        verify(mVerifier).onUpdateSelection(4, 4);
         // We restore 'o', and clear autocomplete text instead.
-        mInOrder.verify(mVerifier).onUpdateSelection(5, 5);
+        verify(mVerifier).onUpdateSelection(5, 5);
         assertTrue(mAutocomplete.isCursorVisible());
         // Autocomplete removed.
         verifyOnPopulateAccessibilityEvent(
                 AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED, "hello", "hello world", -1, 5, -1, 6, 0);
-        mInOrder.verify(mVerifier).onAutocompleteTextStateChanged(false);
-        assertVerifierCallCounts(3, 1);
-        mInOrder.verifyNoMoreInteractions();
+        verify(mVerifier).onAutocompleteTextStateChanged(false);
+        assertVerifierCallCounts(/* nonAccessibilityCount= */ 3, /* accessibilityCount= */ 1);
         assertFalse(mAutocomplete.shouldAutocomplete());
         assertTexts("hello", "", "");
 
         // Keyboard app checks the current state.
         assertEquals("hello", mInputConnection.getTextBeforeCursor(10, 0));
         assertTrue(mAutocomplete.isCursorVisible());
-        assertVerifierCallCounts(0, 0);
-        mInOrder.verifyNoMoreInteractions();
+        assertVerifierCallCounts(/* nonAccessibilityCount= */ 0, /* accessibilityCount= */ 0);
         assertFalse(mAutocomplete.shouldAutocomplete());
         assertTexts("hello", "", "");
     }
@@ -1048,14 +1003,13 @@ public class AutocompleteEditTextUnitTest {
         // User types "hello".
         assertTrue(mInputConnection.setComposingText("hello", 1));
         assertTrue(isComposing());
-        mInOrder.verify(mVerifier).onUpdateSelection(5, 5);
+        verify(mVerifier).onUpdateSelection(5, 5);
         verifyOnPopulateAccessibilityEvent(
                 AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED, "hello", "", -1, 0, -1, 0, 5);
         verifyOnPopulateAccessibilityEvent(
                 AccessibilityEvent.TYPE_VIEW_TEXT_SELECTION_CHANGED, "hello", "", 5, 5, 5, -1, -1);
-        mInOrder.verify(mVerifier).onAutocompleteTextStateChanged(false);
-        assertVerifierCallCounts(2, 2);
-        mInOrder.verifyNoMoreInteractions();
+        verify(mVerifier).onAutocompleteTextStateChanged(false);
+        assertVerifierCallCounts(/* nonAccessibilityCount= */ 2, /* accessibilityCount= */ 2);
         assertTrue(mAutocomplete.shouldAutocomplete());
         // The controller kicks in.
         mAutocomplete.setAutocompleteText("hello", " world", null, null);
@@ -1063,31 +1017,28 @@ public class AutocompleteEditTextUnitTest {
                 AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED, "hello world", "hello", -1, 5, -1, 0, 6);
         assertFalse(mAutocomplete.isCursorVisible());
         assertTexts("hello", " world", "");
-        assertVerifierCallCounts(0, 1);
-        mInOrder.verifyNoMoreInteractions();
+        assertVerifierCallCounts(/* nonAccessibilityCount= */ 0, /* accessibilityCount= */ 1);
 
         // User deletes autocomplete.
         assertTrue(mInputConnection.setComposingText("hell", 1));
         // Pretend that we have deleted 'o'.
-        mInOrder.verify(mVerifier).onUpdateSelection(4, 4);
+        verify(mVerifier).onUpdateSelection(4, 4);
         // We restore 'o', finish composition, and clear autocomplete text instead.
-        mInOrder.verify(mVerifier).onUpdateSelection(5, 5);
+        verify(mVerifier).onUpdateSelection(5, 5);
         assertTrue(mAutocomplete.isCursorVisible());
         assertFalse(isComposing());
         // Remove autocomplete.
         verifyOnPopulateAccessibilityEvent(
                 AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED, "hello", "hello world", -1, 5, -1, 6, 0);
-        mInOrder.verify(mVerifier).onAutocompleteTextStateChanged(false);
-        assertVerifierCallCounts(3, 1);
-        mInOrder.verifyNoMoreInteractions();
+        verify(mVerifier).onAutocompleteTextStateChanged(false);
+        assertVerifierCallCounts(/* nonAccessibilityCount= */ 3, /* accessibilityCount= */ 1);
         assertFalse(mAutocomplete.shouldAutocomplete());
         assertTexts("hello", "", "");
 
         // Keyboard app checks the current state.
         assertEquals("hello", mInputConnection.getTextBeforeCursor(10, 0));
         assertTrue(mAutocomplete.isCursorVisible());
-        assertVerifierCallCounts(0, 0);
-        mInOrder.verifyNoMoreInteractions();
+        assertVerifierCallCounts(/* nonAccessibilityCount= */ 0, /* accessibilityCount= */ 0);
         assertFalse(mAutocomplete.shouldAutocomplete());
         assertTexts("hello", "", "");
     }
@@ -1118,14 +1069,13 @@ public class AutocompleteEditTextUnitTest {
         // User types "hello".
         assertTrue(mInputConnection.setComposingText("hello", 1));
 
-        mInOrder.verify(mVerifier).onUpdateSelection(5, 5);
+        verify(mVerifier).onUpdateSelection(5, 5);
         verifyOnPopulateAccessibilityEvent(
                 AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED, "hello", "", -1, 0, -1, 0, 5);
         verifyOnPopulateAccessibilityEvent(
                 AccessibilityEvent.TYPE_VIEW_TEXT_SELECTION_CHANGED, "hello", "", 5, 5, 5, -1, -1);
-        mInOrder.verify(mVerifier).onAutocompleteTextStateChanged(false);
-        mInOrder.verifyNoMoreInteractions();
-        assertVerifierCallCounts(2, 2);
+        verify(mVerifier).onAutocompleteTextStateChanged(false);
+        assertVerifierCallCounts(/* nonAccessibilityCount= */ 2, /* accessibilityCount= */ 2);
         assertTrue(mAutocomplete.shouldAutocomplete());
         // The controller kicks in.
         mAutocomplete.setAutocompleteText("hello", " world", null, null);
@@ -1133,8 +1083,7 @@ public class AutocompleteEditTextUnitTest {
         assertTexts("hello", " world", "");
         verifyOnPopulateAccessibilityEvent(
                 AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED, "hello world", "hello", -1, 5, -1, 0, 6);
-        mInOrder.verifyNoMoreInteractions();
-        assertVerifierCallCounts(0, 1);
+        assertVerifierCallCounts(/* nonAccessibilityCount= */ 0, /* accessibilityCount= */ 1);
 
         // User deletes 'o' in a batch edit.
         assertTrue(mInputConnection.beginBatchEdit());
@@ -1152,33 +1101,30 @@ public class AutocompleteEditTextUnitTest {
         assertTrue(mAutocomplete.isCursorVisible());
         assertFalse(mAutocomplete.shouldAutocomplete());
 
-        mInOrder.verifyNoMoreInteractions();
-        assertVerifierCallCounts(0, 0);
+        assertVerifierCallCounts(/* nonAccessibilityCount= */ 0, /* accessibilityCount= */ 0);
 
         assertLastBatchEdit(mInputConnection.endBatchEdit());
-        mInOrder.verify(mVerifier).onUpdateSelection(4, 4);
-        mInOrder.verify(mVerifier).onUpdateSelection(5, 5);
+        verify(mVerifier).onUpdateSelection(4, 4);
+        verify(mVerifier).onUpdateSelection(5, 5);
         verifyOnPopulateAccessibilityEvent(
                 AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED, "hello", "hello world", -1, 5, -1, 6, 0);
-        mInOrder.verify(mVerifier).onAutocompleteTextStateChanged(false);
+        verify(mVerifier).onAutocompleteTextStateChanged(false);
         assertFalse(mAutocomplete.shouldAutocomplete());
         assertTexts("hello", "", "");
-        mInOrder.verifyNoMoreInteractions();
-        assertVerifierCallCounts(3, 1);
+        assertVerifierCallCounts(/* nonAccessibilityCount= */ 3, /* accessibilityCount= */ 1);
     }
 
     @Test
     public void testSelect_SelectAutocomplete() {
         // User types "hello".
         assertTrue(mInputConnection.commitText("hello", 1));
-        mInOrder.verify(mVerifier).onUpdateSelection(5, 5);
+        verify(mVerifier).onUpdateSelection(5, 5);
         verifyOnPopulateAccessibilityEvent(
                 AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED, "hello", "", -1, 0, -1, 0, 5);
         verifyOnPopulateAccessibilityEvent(
                 AccessibilityEvent.TYPE_VIEW_TEXT_SELECTION_CHANGED, "hello", "", 5, 5, 5, -1, -1);
-        mInOrder.verify(mVerifier).onAutocompleteTextStateChanged(false);
-        assertVerifierCallCounts(2, 2);
-        mInOrder.verifyNoMoreInteractions();
+        verify(mVerifier).onAutocompleteTextStateChanged(false);
+        assertVerifierCallCounts(/* nonAccessibilityCount= */ 2, /* accessibilityCount= */ 2);
         assertTrue(mAutocomplete.shouldAutocomplete());
         // The controller kicks in.
         mAutocomplete.setAutocompleteText("hello", " world", null, null);
@@ -1186,11 +1132,10 @@ public class AutocompleteEditTextUnitTest {
         verifyOnPopulateAccessibilityEvent(
                 AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED, "hello world", "hello", -1, 5, -1, 0, 6);
         assertFalse(mAutocomplete.isCursorVisible());
-        assertVerifierCallCounts(0, 1);
-        mInOrder.verifyNoMoreInteractions();
+        assertVerifierCallCounts(/* nonAccessibilityCount= */ 0, /* accessibilityCount= */ 1);
         // User touches autocomplete text.
         mAutocomplete.setSelection(7);
-        mInOrder.verify(mVerifier).onUpdateSelection(7, 7);
+        verify(mVerifier).onUpdateSelection(7, 7);
         verifyOnPopulateAccessibilityEvent(
                 AccessibilityEvent.TYPE_VIEW_TEXT_SELECTION_CHANGED,
                 "hello world",
@@ -1200,9 +1145,8 @@ public class AutocompleteEditTextUnitTest {
                 7,
                 -1,
                 -1);
-        mInOrder.verify(mVerifier).onAutocompleteTextStateChanged(false);
-        assertVerifierCallCounts(2, 1);
-        mInOrder.verifyNoMoreInteractions();
+        verify(mVerifier).onAutocompleteTextStateChanged(false);
+        assertVerifierCallCounts(/* nonAccessibilityCount= */ 2, /* accessibilityCount= */ 1);
         assertFalse(mAutocomplete.shouldAutocomplete());
         assertTexts("hello world", "", "");
     }
@@ -1211,14 +1155,13 @@ public class AutocompleteEditTextUnitTest {
     public void testSelect_SelectUserText() {
         // User types "hello".
         assertTrue(mInputConnection.commitText("hello", 1));
-        mInOrder.verify(mVerifier).onUpdateSelection(5, 5);
+        verify(mVerifier).onUpdateSelection(5, 5);
         verifyOnPopulateAccessibilityEvent(
                 AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED, "hello", "", -1, 0, -1, 0, 5);
         verifyOnPopulateAccessibilityEvent(
                 AccessibilityEvent.TYPE_VIEW_TEXT_SELECTION_CHANGED, "hello", "", 5, 5, 5, -1, -1);
-        mInOrder.verify(mVerifier).onAutocompleteTextStateChanged(false);
-        assertVerifierCallCounts(2, 2);
-        mInOrder.verifyNoMoreInteractions();
+        verify(mVerifier).onAutocompleteTextStateChanged(false);
+        assertVerifierCallCounts(/* nonAccessibilityCount= */ 2, /* accessibilityCount= */ 2);
         assertTrue(mAutocomplete.shouldAutocomplete());
         // The controller kicks in.
         mAutocomplete.setAutocompleteText("hello", " world", null, null);
@@ -1226,19 +1169,17 @@ public class AutocompleteEditTextUnitTest {
         verifyOnPopulateAccessibilityEvent(
                 AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED, "hello world", "hello", -1, 5, -1, 0, 6);
         assertFalse(mAutocomplete.isCursorVisible());
-        assertVerifierCallCounts(0, 1);
-        mInOrder.verifyNoMoreInteractions();
+        assertVerifierCallCounts(/* nonAccessibilityCount= */ 0, /* accessibilityCount= */ 1);
         // User touches the user text.
         mAutocomplete.setSelection(3);
         assertTrue(mAutocomplete.isCursorVisible());
-        mInOrder.verify(mVerifier).onUpdateSelection(3, 3);
+        verify(mVerifier).onUpdateSelection(3, 3);
         verifyOnPopulateAccessibilityEvent(
                 AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED, "hello", "hello world", -1, 5, -1, 6, 0);
         verifyOnPopulateAccessibilityEvent(
                 AccessibilityEvent.TYPE_VIEW_TEXT_SELECTION_CHANGED, "hello", "", 5, 3, 3, -1, -1);
-        mInOrder.verify(mVerifier).onAutocompleteTextStateChanged(false);
-        assertVerifierCallCounts(2, 2);
-        mInOrder.verifyNoMoreInteractions();
+        verify(mVerifier).onAutocompleteTextStateChanged(false);
+        assertVerifierCallCounts(/* nonAccessibilityCount= */ 2, /* accessibilityCount= */ 2);
         assertFalse(mAutocomplete.shouldAutocomplete());
         // Autocomplete text is removed.
         assertTexts("hello", "", "");
@@ -1261,12 +1202,11 @@ public class AutocompleteEditTextUnitTest {
     @Test
     public void testIgnoreAndGet() {
         final String url = "https://www.google.com/";
-        mAutocomplete.setIgnoreTextChangesForAutocomplete(true);
+        mAutocomplete.setIgnoreTextChangesForAutocomplete(/* ignoreAutocomplete= */ true);
         mAutocomplete.setText(url);
-        mAutocomplete.setIgnoreTextChangesForAutocomplete(false);
+        mAutocomplete.setIgnoreTextChangesForAutocomplete(/* ignoreAutocomplete= */ false);
         mInputConnection.getTextBeforeCursor(1, 1);
         assertTrue(mAutocomplete.isCursorVisible());
-        mInOrder.verifyNoMoreInteractions();
     }
 
     // crbug.com/41341754
@@ -1285,34 +1225,31 @@ public class AutocompleteEditTextUnitTest {
     public void testFocusInAndSelectAll() {
         final String url = "https://google.com";
         final int len = url.length();
-        mAutocomplete.setIgnoreTextChangesForAutocomplete(true);
+        mAutocomplete.setIgnoreTextChangesForAutocomplete(/* ignoreAutocomplete= */ true);
         mAutocomplete.setText(url);
-        mAutocomplete.setIgnoreTextChangesForAutocomplete(false);
+        mAutocomplete.setIgnoreTextChangesForAutocomplete(/* ignoreAutocomplete= */ false);
 
-        mInOrder.verifyNoMoreInteractions();
-        assertVerifierCallCounts(0, 0);
+        assertVerifierCallCounts(/* nonAccessibilityCount= */ 0, /* accessibilityCount= */ 0);
 
         assertTrue(mFocusPlaceHolder.requestFocus());
 
-        mInOrder.verifyNoMoreInteractions();
-        assertVerifierCallCounts(0, 0);
+        assertVerifierCallCounts(/* nonAccessibilityCount= */ 0, /* accessibilityCount= */ 0);
 
         // LocationBarLayout does this.
-        mAutocomplete.setSelectAllOnFocus(true);
+        mAutocomplete.setSelectAllOnFocus(/* selectAllOnFocus= */ true);
 
         assertTrue(mAutocomplete.requestFocus());
 
-        mInOrder.verify(mVerifier).onUpdateSelection(len, len);
+        verify(mVerifier).onUpdateSelection(len, len);
         verifyOnPopulateAccessibilityEvent(
                 AccessibilityEvent.TYPE_VIEW_TEXT_SELECTION_CHANGED, url, "", 18, 18, 18, -1, -1);
-        mInOrder.verify(mVerifier).onUpdateSelection(0, len);
+        verify(mVerifier).onUpdateSelection(0, len);
         verifyOnPopulateAccessibilityEvent(
                 AccessibilityEvent.TYPE_VIEW_TEXT_SELECTION_CHANGED, url, "", 18, 0, 18, -1, -1);
         verifyOnPopulateAccessibilityEvent(
                 AccessibilityEvent.TYPE_VIEW_FOCUSED, url, "", 2, -1, -1, -1, -1);
 
-        assertVerifierCallCounts(2, 3);
-        mInOrder.verifyNoMoreInteractions();
+        assertVerifierCallCounts(/* nonAccessibilityCount= */ 2, /* accessibilityCount= */ 3);
     }
 
     // crbug.com/40539855
@@ -1363,9 +1300,9 @@ public class AutocompleteEditTextUnitTest {
         assertTrue(mInputConnection.commitText("h", 1));
         assertTrue(mAutocomplete.shouldAutocomplete());
         mAutocomplete.setAutocompleteText("h", "ello world", null, null);
-        mAutocomplete.setIgnoreTextChangesForAutocomplete(true);
+        mAutocomplete.setIgnoreTextChangesForAutocomplete(/* ignoreAutocomplete= */ true);
         mAutocomplete.setText("abcde");
-        mAutocomplete.setIgnoreTextChangesForAutocomplete(false);
+        mAutocomplete.setIgnoreTextChangesForAutocomplete(/* ignoreAutocomplete= */ false);
         assertEquals("abcde", mAutocomplete.getText().toString());
 
         mAutocomplete.setSelection(0);
@@ -1432,6 +1369,14 @@ public class AutocompleteEditTextUnitTest {
         assertEquals("google.com", mAutocomplete.getText().toString());
     }
 
+    @Test
+    public void testPerformEditorAction_swallowNextAndPrevious() {
+        // IME_ACTION_NEXT and IME_ACTION_PREVIOUS should be swallowed without delegating to
+        // TextView, which would trigger an unwanted focusSearch. See crbug.com/553939053.
+        assertTrue(mInputConnection.performEditorAction(EditorInfo.IME_ACTION_NEXT));
+        assertTrue(mInputConnection.performEditorAction(EditorInfo.IME_ACTION_PREVIOUS));
+    }
+
     // crbug.com/40537418
 
     @Test
@@ -1455,25 +1400,22 @@ public class AutocompleteEditTextUnitTest {
                 -1);
         verifyOnPopulateAccessibilityEvent(
                 AccessibilityEvent.TYPE_VIEW_TEXT_SELECTION_CHANGED, text, "", len, 0, len, -1, -1);
-        mInOrder.verifyNoMoreInteractions();
-        assertVerifierCallCounts(3, 3);
+        assertVerifierCallCounts(/* nonAccessibilityCount= */ 3, /* accessibilityCount= */ 3);
 
         assertTrue(mFocusPlaceHolder.requestFocus());
-        mInOrder.verifyNoMoreInteractions();
-        assertVerifierCallCounts(0, 0);
+        assertVerifierCallCounts(/* nonAccessibilityCount= */ 0, /* accessibilityCount= */ 0);
 
         // We left EditText with selected content. We should get the same event sent again now.
-        mAutocomplete.setSelectAllOnFocus(true);
+        mAutocomplete.setSelectAllOnFocus(/* selectAllOnFocus= */ true);
         assertTrue(mAutocomplete.requestFocus());
 
-        mInOrder.verify(mVerifier).onUpdateSelection(0, len);
+        verify(mVerifier).onUpdateSelection(0, len);
         verifyOnPopulateAccessibilityEvent(
                 AccessibilityEvent.TYPE_VIEW_TEXT_SELECTION_CHANGED, text, "", len, 0, len, -1, -1);
         verifyOnPopulateAccessibilityEvent(
                 AccessibilityEvent.TYPE_VIEW_FOCUSED, text, "", 2, -1, -1, -1, -1);
 
-        assertVerifierCallCounts(2, 3);
-        mInOrder.verifyNoMoreInteractions();
+        assertVerifierCallCounts(/* nonAccessibilityCount= */ 2, /* accessibilityCount= */ 3);
     }
 
     // crbug.com/40537418

@@ -9,6 +9,7 @@
 #include "base/functional/bind.h"
 #include "base/functional/callback_helpers.h"
 #include "base/memory/raw_ptr.h"
+#include "base/memory/scoped_refptr.h"
 #include "base/run_loop.h"
 #include "base/task/sequenced_task_runner.h"
 #include "base/test/bind.h"
@@ -519,7 +520,7 @@ class SafeBrowsingUrlCheckerTest : public PlatformTest {
 
   void SetUp() override {
     PlatformTest::SetUp();
-    database_manager_ = new MockSafeBrowsingDatabaseManager();
+    database_manager_ = base::MakeRefCounted<MockSafeBrowsingDatabaseManager>();
     url_checker_delegate_ = new MockUrlCheckerDelegate(database_manager_.get());
     url_lookup_service_ = std::make_unique<FakeRealTimeUrlLookupService>();
     hash_realtime_service_ = std::make_unique<MockHashRealTimeService>();
@@ -2448,7 +2449,7 @@ TEST_F(SafeBrowsingUrlCheckerTest, GetV5GetHashProtocolManager) {
 
   V5GetHashProtocolManager v5_protocol_manager(
       /*url_loader_factory=*/nullptr,
-      V4ProtocolConfig("test", false, "key", "1.0"),
+      SBProtocolConfig("test", false, "key", "1.0"),
       /*cache=*/nullptr);
 
   auto checker = CreateSafeBrowsingUrlChecker(

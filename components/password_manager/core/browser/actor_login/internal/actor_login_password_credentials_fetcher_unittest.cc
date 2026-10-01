@@ -19,6 +19,7 @@
 #include "base/test/test_future.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
+#include "components/affiliations/core/browser/match_type.h"
 #include "components/autofill/core/common/autofill_test_util.h"
 #include "components/autofill/core/common/form_data.h"
 #include "components/optimization_guide/proto/features/actor_login.pb.h"
@@ -180,8 +181,8 @@ class ActorLoginPasswordCredentialsFetcherTest : public ::testing::Test {
   NiceMock<password_manager::MockPasswordFormCache>& form_cache() {
     return form_cache_;
   }
-  base::WeakPtr<MockActorLoginQualityLogger> mqls_logger() {
-    return mock_mqls_logger_.AsWeakPtr();
+  scoped_refptr<MockActorLoginQualityLogger> mqls_logger() {
+    return mock_mqls_logger_;
   }
 
   std::unique_ptr<PasswordFormManager> CreateFormManager() {
@@ -217,7 +218,7 @@ class ActorLoginPasswordCredentialsFetcherTest : public ::testing::Test {
       const std::string& url,
       const std::u16string& username,
       const std::u16string& password,
-      PasswordForm::MatchType match_type = PasswordForm::MatchType::kExact) {
+      affiliations::MatchType match_type = affiliations::MatchType::kExact) {
     password_manager::StoredCredential cred;
     cred.url = GURL(url);
     cred.signon_realm = cred.url.spec();
@@ -253,7 +254,8 @@ class ActorLoginPasswordCredentialsFetcherTest : public ::testing::Test {
   NiceMock<MockPasswordManagerDriver> driver_;
   std::vector<std::unique_ptr<PasswordFormManager>> form_managers_;
   NiceMock<password_manager::MockPasswordFormCache> form_cache_;
-  MockActorLoginQualityLogger mock_mqls_logger_;
+  scoped_refptr<MockActorLoginQualityLogger> mock_mqls_logger_ =
+      base::MakeRefCounted<MockActorLoginQualityLogger>();
 };
 
 TEST_F(ActorLoginPasswordCredentialsFetcherTest, Success) {
@@ -703,12 +705,12 @@ TEST_F(ActorLoginPasswordCredentialsFetcherTest,
        ReturnsAllMatchesWithPermission) {
   PasswordForm psl_match = password_manager::ToPasswordForm(
       CreatePasswordForm("https://sub.foo.com", u"psl_username",
-                         u"psl_password", PasswordForm::MatchType::kPSL));
+                         u"psl_password", affiliations::MatchType::kPSL));
   psl_match.actor_login_approved = true;
   PasswordForm affiliated_match =
       password_manager::ToPasswordForm(CreatePasswordForm(
           "https://m.foo.com", u"affiliated_username", u"affiliated_password",
-          PasswordForm::MatchType::kAffiliated));
+          affiliations::MatchType::kAffiliated));
   affiliated_match.actor_login_approved = true;
   PasswordForm exact_match = password_manager::ToPasswordForm(
       CreatePasswordForm(kUrl.spec(), u"exact_username", u"exact_password"));
@@ -736,11 +738,11 @@ TEST_F(ActorLoginPasswordCredentialsFetcherTest,
 TEST_F(ActorLoginPasswordCredentialsFetcherTest, NoApprovedCredentials) {
   PasswordForm psl_match = password_manager::ToPasswordForm(
       CreatePasswordForm("https://sub.foo.com", u"psl_username",
-                         u"psl_password", PasswordForm::MatchType::kPSL));
+                         u"psl_password", affiliations::MatchType::kPSL));
   PasswordForm affiliated_match =
       password_manager::ToPasswordForm(CreatePasswordForm(
           "https://m.foo.com", u"affiliated_username", u"affiliated_password",
-          PasswordForm::MatchType::kAffiliated));
+          affiliations::MatchType::kAffiliated));
   AddFormManager(CreateFormManager());
   form_fetcher()->SetBestMatches({affiliated_match, psl_match});
 
@@ -766,12 +768,12 @@ TEST_F(ActorLoginPasswordCredentialsFetcherTest,
        IgnoresWeakApprovedCredentials) {
   PasswordForm psl_match = password_manager::ToPasswordForm(
       CreatePasswordForm("https://sub.foo.com", u"psl_username",
-                         u"psl_password", PasswordForm::MatchType::kPSL));
+                         u"psl_password", affiliations::MatchType::kPSL));
   psl_match.actor_login_approved = true;
   PasswordForm affiliated_match =
       password_manager::ToPasswordForm(CreatePasswordForm(
           "https://m.foo.com", u"affiliated_username", u"affiliated_password",
-          PasswordForm::MatchType::kAffiliated));
+          affiliations::MatchType::kAffiliated));
   AddFormManager(CreateFormManager());
   form_fetcher()->SetBestMatches({affiliated_match, psl_match});
 
@@ -797,7 +799,7 @@ TEST_F(ActorLoginPasswordCredentialsFetcherTest, IgnoresGroupedMatches) {
   PasswordForm grouped_match =
       password_manager::ToPasswordForm(CreatePasswordForm(
           "https://sub.foo.com", u"grouped_username", u"grouped_password",
-          PasswordForm::MatchType::kGrouped));
+          affiliations::MatchType::kGrouped));
   grouped_match.actor_login_approved = true;
   AddFormManager(CreateFormManager());
   form_fetcher()->SetBestMatches({grouped_match});
@@ -824,11 +826,11 @@ TEST_F(ActorLoginPasswordCredentialsFetcherTest,
        ReturnsCredentialsWithCorrectPermissionStatus) {
   PasswordForm psl_match = password_manager::ToPasswordForm(
       CreatePasswordForm("https://sub.foo.com", u"psl_username",
-                         u"psl_password", PasswordForm::MatchType::kPSL));
+                         u"psl_password", affiliations::MatchType::kPSL));
   PasswordForm affiliated_match =
       password_manager::ToPasswordForm(CreatePasswordForm(
           "https://m.foo.com", u"affiliated_username", u"affiliated_password",
-          PasswordForm::MatchType::kAffiliated));
+          affiliations::MatchType::kAffiliated));
   affiliated_match.actor_login_approved = true;
   PasswordForm exact_match = password_manager::ToPasswordForm(
       CreatePasswordForm(kUrl.spec(), u"exact_username", u"exact_password"));

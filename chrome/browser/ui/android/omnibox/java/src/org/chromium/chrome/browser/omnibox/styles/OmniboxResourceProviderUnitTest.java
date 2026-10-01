@@ -31,6 +31,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.junit.MockitoJUnit;
 import org.mockito.junit.MockitoRule;
+import org.mockito.quality.Strictness;
 import org.robolectric.annotation.Config;
 
 import org.chromium.base.ContextUtils;
@@ -41,13 +42,16 @@ import org.chromium.chrome.browser.omnibox.R;
 import org.chromium.chrome.browser.ui.theme.BrandedColorScheme;
 import org.chromium.components.browser_ui.styles.ChromeColors;
 import org.chromium.components.browser_ui.styles.SemanticColorUtils;
+import org.chromium.components.omnibox.OmniboxCapabilities;
 
 /** Tests for {@link OmniboxResourceProvider}. */
 @RunWith(BaseRobolectricTestRunner.class)
 public class OmniboxResourceProviderUnitTest {
     private static final String TAG = "ORPTest";
 
-    @Rule public final MockitoRule mockitoRule = MockitoJUnit.rule();
+    @Rule
+    public final MockitoRule mMockitoRule = MockitoJUnit.rule().strictness(Strictness.STRICT_STUBS);
+
     private @ColorInt int mDefaultColor;
     private Context mContext;
     private OmniboxResourceProvider mProvider;
@@ -637,5 +641,36 @@ public class OmniboxResourceProviderUnitTest {
         provider.onConfigurationChanged(config);
         ResourceCache cache2 = provider.getCacheForTesting();
         assertNotSame(cache1, cache2);
+    }
+
+    @Test
+    public void getStatusIconDimensions_default() {
+        assertEquals(
+                R.dimen.omnibox_search_engine_logo_composed_half_size,
+                mProvider.getStatusIconCornerRadiusRes(/* focused= */ false));
+        assertEquals(
+                R.dimen.omnibox_small_icon_rounding_radius,
+                mProvider.getStatusIconCornerRadiusRes(/* focused= */ true));
+        assertEquals(
+                mContext.getResources()
+                        .getDimensionPixelSize(R.dimen.location_bar_status_icon_width),
+                mProvider.getStatusIconSize());
+    }
+
+    @Test
+    public void getStatusIconDimensions_desktop() {
+        OmniboxCapabilities.setIsDesktopPlatformForTesting(true);
+
+        assertEquals(
+                R.dimen.omnibox_search_engine_logo_composed_half_size_desktop,
+                mProvider.getStatusIconCornerRadiusRes(/* focused= */ false));
+        assertEquals(
+                R.dimen.omnibox_small_icon_rounding_radius,
+                mProvider.getStatusIconCornerRadiusRes(/* focused= */ true));
+        assertEquals(
+                mContext.getResources()
+                        .getDimensionPixelSize(
+                                R.dimen.omnibox_search_engine_logo_composed_size_desktop),
+                mProvider.getStatusIconSize());
     }
 }

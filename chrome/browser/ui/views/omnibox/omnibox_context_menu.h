@@ -52,6 +52,8 @@ class OmniboxContextMenu : public views::MenuDelegate,
   void ExecuteCommand(int command_id, int event_flags) override;
   const gfx::FontList* GetLabelFontList(int command_id) const override;
   std::optional<SkColor> GetLabelColor(int command_id) const override;
+  std::u16string GetTooltipText(int command_id,
+                                const gfx::Point& p) const override;
   int GetMaxWidthForMenu(views::MenuItemView* menu) override;
   void WillShowMenu(views::MenuItemView* menu) override;
   bool IsCommandEnabled(int command_id) const override;
@@ -60,6 +62,7 @@ class OmniboxContextMenu : public views::MenuDelegate,
 
   // ui::MenuModelDelegate:
   void OnIconChanged(int command_id) override;
+  void OnMenuStructureChanged() override;
 
   // Returns minimum preferred width for `menu`. Submenus return the default
   // width; top-level menu width depends on whether a shared tabs submenu is
@@ -67,6 +70,7 @@ class OmniboxContextMenu : public views::MenuDelegate,
   int GetMinimumMenuWidth(const views::MenuItemView* menu) const;
 
  private:
+  void BuildMenuTree();
   const raw_ptr<views::Widget> parent_widget_;
   std::unique_ptr<OmniboxContextMenuController> controller_;
 
@@ -86,6 +90,11 @@ class OmniboxContextMenu : public views::MenuDelegate,
   bool was_add_tabs_button_shown_logged_ = false;
   bool was_add_tabs_button_hovered_logged_ = false;
   bool was_add_tabs_flyout_shown_logged_ = false;
+
+  // True while ExecuteCommand is actively running.
+  bool is_executing_command_ = false;
+  // True when the menu is in the process of closing or has closed.
+  bool is_closing_ = false;
 };
 
 #endif  // CHROME_BROWSER_UI_VIEWS_OMNIBOX_OMNIBOX_CONTEXT_MENU_H_

@@ -48,7 +48,6 @@
 #include "chrome/browser/policy/chrome_browser_policy_connector.h"
 #include "chromeos/ash/components/install_attributes/install_attributes.h"
 #include "chromeos/ash/components/system/statistics_provider.h"
-#include "chromeos/constants/chromeos_features.h"
 #include "components/policy/core/browser/browser_policy_connector.h"
 #include "components/policy/core/common/cloud/cloud_external_data_manager.h"
 #include "components/policy/core/common/cloud/cloud_policy_client.h"
@@ -176,7 +175,6 @@ void DeviceCloudPolicyManagerAsh::Shutdown() {
   shared_url_loader_factory_ = nullptr;
   local_state_ = nullptr;
   CloudPolicyManager::Shutdown();
-  signin_profile_forwarding_schema_registry_.reset();
   auth_screens_schema_registry_.reset();
 }
 
@@ -207,7 +205,9 @@ void DeviceCloudPolicyManagerAsh::StartConnection(
   // If supported, set state keys here so the first policy fetch submits them to
   // the server.
   if (AutoEnrollmentTypeChecker::AreFREStateKeysSupported()) {
-    client_to_connect->SetStateKeysToUpload(state_keys_broker_->state_keys());
+    client_to_connect->SetStateKeysToUpload(
+        state_keys_broker_->state_keys(),
+        state_keys_broker_->current_time_quantum_index());
   }
 
   // Create the component cloud policy service for fetching, caching and
@@ -215,19 +215,11 @@ void DeviceCloudPolicyManagerAsh::StartConnection(
   if (!component_policy_disabled_for_testing_) {
     const base::FilePath component_policy_cache_dir =
         base::PathService::CheckedGet(ash::DIR_SIGNIN_PROFILE_COMPONENT_POLICY);
-    if (chromeos::features::IsLockScreenBadgeAuthEnabled()) {
-      CHECK(auth_screens_schema_registry_);
-      CreateComponentCloudPolicyService(
-          dm_protocol::kChromeSigninExtensionPolicyType,
-          component_policy_cache_dir, client_to_connect.get(),
-          auth_screens_schema_registry_.get());
-    } else {
-      CHECK(signin_profile_forwarding_schema_registry_);
-      CreateComponentCloudPolicyService(
-          dm_protocol::kChromeSigninExtensionPolicyType,
-          component_policy_cache_dir, client_to_connect.get(),
-          signin_profile_forwarding_schema_registry_.get());
-    }
+    CHECK(auth_screens_schema_registry_);
+    CreateComponentCloudPolicyService(
+        dm_protocol::kChromeSigninExtensionPolicyType,
+        component_policy_cache_dir, client_to_connect.get(),
+        auth_screens_schema_registry_.get());
   }
 
   core()->Connect(std::move(client_to_connect));
@@ -280,7 +272,7 @@ void DeviceCloudPolicyManagerAsh::StartConnection(
                                                     task_runner_),
         task_runner_, GetSystemLogUploadUrl());
     metric_reporting_manager_ = reporting::MetricReportingManager::Create(
-        network_quality_tracker, managed_session_service_.get());
+        local_state_, network_quality_tracker, managed_session_service_.get());
     os_updates_reporter_ = reporting::OsUpdatesReporter::Create();
     event_based_log_manager_ =
         std::make_unique<EventBasedLogManager>(local_state_, this);
@@ -298,32 +290,11 @@ void DeviceCloudPolicyManagerAsh::OnPolicyStoreReady(
 }
 
 bool DeviceCloudPolicyManagerAsh::HasSchemaRegistry() const {
-  if (chromeos::features::IsLockScreenBadgeAuthEnabled()) {
-    return auth_screens_schema_registry_ != nullptr;
-  } else {
-    return signin_profile_forwarding_schema_registry_ != nullptr;
-  }
+  return auth_screens_schema_registry_ != nullptr;
 }
 
-void DeviceCloudPolicyManagerAsh::SetSigninProfileSchemaRegistry(
+void DeviceCloudPolicyManagerAsh::AddAuthScreenSchemaRegistry(
     SchemaRegistry* schema_registry) {
-  if (chromeos::features::IsLockScreenBadgeAuthEnabled()) {
-    if (!auth_screens_schema_registry_) {
-      auth_screens_schema_registry_ =
-          std::make_unique<CombinedSchemaRegistry>();
-    }
-    auth_screens_schema_registry_->Track(schema_registry);
-  } else {
-    DCHECK(!signin_profile_forwarding_schema_registry_);
-    signin_profile_forwarding_schema_registry_ =
-        std::make_unique<ForwardingSchemaRegistry>(schema_registry);
-  }
-  NotifyGotRegistry();
-}
-
-void DeviceCloudPolicyManagerAsh::SetLockProfileSchemaRegistry(
-    SchemaRegistry* schema_registry) {
-  DCHECK(chromeos::features::IsLockScreenBadgeAuthEnabled());
   if (!auth_screens_schema_registry_) {
     auth_screens_schema_registry_ = std::make_unique<CombinedSchemaRegistry>();
   }
@@ -392,7 +363,9 @@ void DeviceCloudPolicyManagerAsh::OnUserRemoved(
 
 void DeviceCloudPolicyManagerAsh::OnStateKeysUpdated() {
   if (client()) {
-    client()->SetStateKeysToUpload(state_keys_broker_->state_keys());
+    client()->SetStateKeysToUpload(
+        state_keys_broker_->state_keys(),
+        state_keys_broker_->current_time_quantum_index());
   }
 }
 

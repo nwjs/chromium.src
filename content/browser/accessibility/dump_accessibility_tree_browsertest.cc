@@ -1634,6 +1634,11 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
 }
 
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
+                       AccessibilityMenuListDialogModeSetsize) {
+  RunHtmlTest(FILE_PATH_LITERAL("menulist-dialog-mode-setsize.html"));
+}
+
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
                        AccessibilityAriaMismatchedTableAttr) {
   RunAriaTest(FILE_PATH_LITERAL("aria-mismatched-table-attr.html"));
 }
@@ -2199,7 +2204,11 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
 }
 
 // TODO(crbug.com/40943250): Fix failure on android
-#if BUILDFLAG(IS_ANDROID)
+// TODO(crbug.com/372910798): Flaky on Linux with ASan and LSan and Debug
+// builds.
+#if BUILDFLAG(IS_ANDROID) || \
+(BUILDFLAG(IS_LINUX) && \
+ (defined(ADDRESS_SANITIZER) || defined(LEAK_SANITIZER) || !defined(NDEBUG)))
 #define MAYBE_AccessibilityAudio DISABLED_AccessibilityAudio
 #else
 #define MAYBE_AccessibilityAudio AccessibilityAudio
@@ -2521,6 +2530,17 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
 
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest, AccessibilityGraphicsRoles) {
   RunAriaTest(FILE_PATH_LITERAL("graphics-roles.html"));
+}
+
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
+                       AccessibilityHeadingWithAriaLabel) {
+  RunAriaTest(FILE_PATH_LITERAL("heading-with-aria-label.html"));
+}
+
+IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
+                       AccessibilityContainerWithGenericDescendantsAndName) {
+  RunHtmlTest(
+      FILE_PATH_LITERAL("container-with-generic-descendants-and-name.html"));
 }
 
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
@@ -2860,40 +2880,7 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
   RunHtmlTest(FILE_PATH_LITERAL("iframe-empty-positioned.html"));
 }
 
-class DumpAccessibilityTreeFencedFrameTest : public DumpAccessibilityTreeTest {
- protected:
-  DumpAccessibilityTreeFencedFrameTest() {
-    feature_list_.InitWithFeatures(
-        {{blink::features::kFencedFrames},
-         {features::kPrivacySandboxAdsAPIsOverride},
-         {blink::features::kFencedFramesAPIChanges},
-         {blink::features::kFencedFramesDefaultMode}},
-        {/* disabled_features */});
 
-    UseHttpsTestServer();
-  }
-
-  ~DumpAccessibilityTreeFencedFrameTest() override {
-    // Ensure that the feature lists are destroyed in the same order they
-    // were created in.
-    scoped_feature_list_.Reset();
-    feature_list_.Reset();
-  }
-
- private:
-  base::test::ScopedFeatureList feature_list_;
-};
-
-INSTANTIATE_TEST_SUITE_P(
-    All,
-    DumpAccessibilityTreeFencedFrameTest,
-    ::testing::ValuesIn(DumpAccessibilityTestBase::TreeTestPasses()),
-    DumpAccessibilityTreeTestPassToString());
-
-IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeFencedFrameTest,
-                       AccessibilityFencedFrameScrollable) {
-  RunHtmlTest(FILE_PATH_LITERAL("fencedframe-scrollable-mparch.html"));
-}
 
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
                        AccessibilityIframeScrollable) {
@@ -5114,9 +5101,8 @@ IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
   RunApgPatternThirdPartyTest(FILE_PATH_LITERAL("alert/examples/alert.html"));
 }
 
-// TODO(crbug.com/545647752): disabled due to flakiness
 IN_PROC_BROWSER_TEST_P(DumpAccessibilityTreeTest,
-                       DISABLED_AccessibilityApgPatternThirdPartyAlertdialog) {
+                       AccessibilityApgPatternThirdPartyAlertdialog) {
   RunApgPatternThirdPartyTest(
       FILE_PATH_LITERAL("alertdialog/examples/alertdialog.html"));
 }

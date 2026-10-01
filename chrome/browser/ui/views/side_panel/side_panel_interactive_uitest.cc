@@ -47,6 +47,7 @@
 #include "chrome/test/interaction/tracked_element_webcontents.h"
 #include "chrome/test/interaction/webcontents_interaction_test_util.h"
 #include "chrome/test/user_education/interactive_feature_promo_test.h"
+#include "components/enterprise/isolated_mode/isolated_mode_features.h"
 #include "components/feature_engagement/public/feature_constants.h"
 #include "components/prefs/pref_service.h"
 #include "components/reading_list/core/reading_list_entry.h"
@@ -117,7 +118,7 @@ class SidePanelInteractiveTest : public InteractiveBrowserTest {
                   },
                   ready_indicator_id),
               /*default_content_width_callback=*/base::NullCallback()));
-          browser()->GetFeatures().side_panel_ui()->Show(
+          SidePanelUI::From(browser())->Show(
               SidePanelEntry::Id::kCustomizeChrome);
         }),
         WaitForShow(kSidePanelElementId),
@@ -156,7 +157,7 @@ class SidePanelInteractiveTest : public InteractiveBrowserTest {
 IN_PROC_BROWSER_TEST_F(SidePanelInteractiveTest, SidePanelNotShownOnPwa) {
   DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kSecondTabElementId);
   GURL second_tab_url("https://test.com");
-  auto* const side_panel_ui = browser()->GetFeatures().side_panel_ui();
+  auto* const side_panel_ui = SidePanelUI::From(browser());
 
   RunTestSequence(
       // Add a second tab to the tab strip
@@ -279,8 +280,7 @@ class PinnedSidePanelInteractiveTest : public InteractiveFeaturePromoTest {
  public:
   PinnedSidePanelInteractiveTest()
       : InteractiveFeaturePromoTest(UseDefaultTrackerAllowingPromos(
-            {feature_engagement::kIPHSidePanelGenericPinnableFeature})) {
-  }
+            {feature_engagement::kIPHSidePanelGenericPinnableFeature})) {}
   ~PinnedSidePanelInteractiveTest() override = default;
 
   void SetUp() override {
@@ -393,7 +393,7 @@ class PinnedSidePanelInteractiveTest : public InteractiveFeaturePromoTest {
   }
 
   auto ShowSidePanelForKey(SidePanelEntryKey key) {
-    return Do(([&]() { browser()->GetFeatures().side_panel_ui()->Show(key); }));
+    return Do(([&]() { SidePanelUI::From(browser())->Show(key); }));
   }
 };
 
@@ -412,7 +412,7 @@ IN_PROC_BROWSER_TEST_F(PinnedSidePanelInteractiveTest,
           [](SidePanelEntryScope&) { return std::make_unique<views::View>(); }),
       /*default_content_width_callback=*/base::NullCallback()));
 
-  SidePanelUI* const side_panel_ui = browser()->GetFeatures().side_panel_ui();
+  SidePanelUI* const side_panel_ui = SidePanelUI::From(browser());
   side_panel_ui->SetNoDelaysForTesting(true);
 
   RunTestSequence(OpenReadingModeSidePanel(),
@@ -439,7 +439,7 @@ IN_PROC_BROWSER_TEST_F(PinnedSidePanelInteractiveTest,
           [](SidePanelEntryScope&) { return std::make_unique<views::View>(); }),
       /*default_content_width_callback=*/base::NullCallback()));
 
-  SidePanelUI* const side_panel_ui = browser()->GetFeatures().side_panel_ui();
+  SidePanelUI* const side_panel_ui = SidePanelUI::From(browser());
   side_panel_ui->SetNoDelaysForTesting(true);
 
   RunTestSequence(
@@ -472,7 +472,7 @@ IN_PROC_BROWSER_TEST_F(PinnedSidePanelInteractiveTest,
                   SidePanelOpenTrigger::kAppMenu))
           .Build());
 
-  EXPECT_TRUE(browser()->GetFeatures().side_panel_ui()->IsSidePanelEntryShowing(
+  EXPECT_TRUE(SidePanelUI::From(browser())->IsSidePanelEntryShowing(
       SidePanelEntryKey(SidePanelEntryId::kHistoryClusters)));
 }
 
@@ -511,6 +511,31 @@ IN_PROC_BROWSER_TEST_F(PinnedSidePanelInteractiveTest,
                     EnsureNotPresent(kSidePanelPinButtonElementId)));
 }
 
+class SidePanelEnterpriseIsolatedModeTest
+    : public PinnedSidePanelInteractiveTest {
+ public:
+  void SetUpCommandLine(base::CommandLine* command_line) override {
+    PinnedSidePanelInteractiveTest::SetUpCommandLine(command_line);
+    command_line->AppendSwitch(
+        enterprise_isolated_mode::switches::
+            kForceEnterpriseIsolatedModeReplacesIncognito);
+  }
+};
+
+IN_PROC_BROWSER_TEST_F(SidePanelEnterpriseIsolatedModeTest,
+                       SidePanelPinButtonsHideInEnterpriseIsolatedMode) {
+  BrowserWindowInterface* const isolated_browser = CreateIncognitoBrowser();
+  ASSERT_TRUE(
+      isolated_browser->GetProfile()->IsEnterpriseIsolatedModeProfile());
+  RunTestSequence(
+      InContext(BrowserElements::From(isolated_browser)->GetContext(),
+                WaitForShow(kBrowserViewElementId)),
+      InSameContext(ActivateSurface(kBrowserViewElementId),
+                    EnsureNotPresent(kSidePanelElementId),
+                    OpenBookmarksSidePanel(),
+                    EnsureNotPresent(kSidePanelPinButtonElementId)));
+}
+
 // TODO(crbug.com/417601707): Re-enable this test
 #if BUILDFLAG(IS_MAC)
 #define MAYBE_PinnedToolbarButtonsHighlightWhileSidePanelVisible \
@@ -533,7 +558,7 @@ IN_PROC_BROWSER_TEST_F(
           [](SidePanelEntryScope&) { return std::make_unique<views::View>(); }),
       /*default_content_width_callback=*/base::NullCallback()));
 
-  SidePanelUI* const side_panel_ui = browser()->GetFeatures().side_panel_ui();
+  SidePanelUI* const side_panel_ui = SidePanelUI::From(browser());
   side_panel_ui->SetNoDelaysForTesting(true);
 
   PinnedToolbarActionsModel* const actions_model =
@@ -595,7 +620,7 @@ IN_PROC_BROWSER_TEST_F(PinnedSidePanelInteractiveTest,
                        SwitchBetweenDifferentEntries) {
   DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kBookmarksWebContentsId);
   DEFINE_LOCAL_ELEMENT_IDENTIFIER_VALUE(kReadLaterWebContentsId);
-  auto* const side_panel_ui = browser()->GetFeatures().side_panel_ui();
+  auto* const side_panel_ui = SidePanelUI::From(browser());
 
   RunTestSequence(
       // Ensure the side panel isn't open
@@ -870,7 +895,8 @@ IN_PROC_BROWSER_TEST_F(SidePanelAnimationPerfUiTest,
 IN_PROC_BROWSER_TEST_F(PinnedSidePanelInteractiveTest,
                        PinActiveItemHighlightsButton) {
   auto* registry = SidePanelRegistry::From(browser());
-  auto* entry = registry->GetEntryForKey(SidePanelEntry::Key(SidePanelEntryId::kReadingList));
+  auto* entry = registry->GetEntryForKey(
+      SidePanelEntry::Key(SidePanelEntryId::kReadingList));
   ASSERT_TRUE(entry);
   entry->set_should_show_ephemerally_in_toolbar(false);
 

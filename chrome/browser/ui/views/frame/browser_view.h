@@ -22,13 +22,15 @@
 #include "base/time/time.h"
 #include "base/timer/timer.h"
 #include "build/build_config.h"
+#include "chrome/browser/ui/bookmarks/bookmark_bar.h"
 #include "chrome/browser/ui/bookmarks/bookmark_bar_controller.h"
 #include "chrome/browser/ui/browser_window.h"
 #include "chrome/browser/ui/immersive/immersive_mode_controller.h"
-#include "chrome/browser/ui/tabs/organizer/organizer_panel_state_controller.h"
+#include "chrome/browser/ui/tabs/organizer/organizer_panel_controller.h"
 #include "chrome/browser/ui/tabs/tab_strip_model_observer.h"
 #include "chrome/browser/ui/tabs/vertical_tab_strip_state_controller.h"
 #include "chrome/browser/ui/translate/partial_translate_bubble_model.h"
+#include "chrome/browser/ui/unload_controller.h"
 #include "chrome/browser/ui/user_education/browser_user_education_interface.h"
 #include "chrome/browser/ui/views/frame/browser_widget.h"
 #include "chrome/browser/ui/views/frame/contents_container_view.h"
@@ -84,7 +86,7 @@ class ExclusiveAccessBubbleViewsContext;
 class InfoBarContainerView;
 class LocationBarView;
 class MultiContentsView;
-class OrganizerPanelView;
+class OrganizerTrayView;
 class ScrimView;
 class SidePanel;
 class SidePanelAnimationContentView;
@@ -281,10 +283,6 @@ class BrowserView : public BrowserWindow,
     return vertical_tab_strip_region_view_.get();
   }
 
-  OrganizerPanelView* organizer_panel_container_for_testing() const {
-    return organizer_panel_container_;
-  }
-
   // Accessor for the TabStrip.
   TabStrip* horizontal_tab_strip_for_testing();
 
@@ -356,6 +354,10 @@ class BrowserView : public BrowserWindow,
   // Returns true if the profile associated with this Browser window is
   // incognito.
   bool GetIncognito() const;
+
+  // Returns true if the profile associated with this Browser window is in
+  // enterprise isolated mode.
+  bool GetEnterpriseIsolatedMode() const;
 
   // Returns true if the profile associated with this Browser window is
   // a guest session.
@@ -564,6 +566,7 @@ class BrowserView : public BrowserWindow,
   bool IsFullscreen() const override;
   autofill::AutofillBubbleHandler* GetAutofillBubbleHandler() override;
   LocationBar* GetLocationBar() const override;
+  ui::AcceleratorProvider* GetAcceleratorProvider() override;
   void SetFocusToLocationBar(bool is_user_initiated) override;
   void UpdateReloadStopState(bool is_loading, bool force) override;
   void UpdateToolbar(content::WebContents* contents) override;
@@ -900,8 +903,6 @@ class BrowserView : public BrowserWindow,
 
   void OnVerticalTabStripModeChanged(
       tabs::VerticalTabStripStateController* controller);
-
-  void OnOrganizerPanelStateChanged(OrganizerPanelStateController* controller);
 
   // Callback for the loading animation(s) associated with this view.
   void LoadingAnimationTimerCallback();
@@ -1254,7 +1255,7 @@ private:
   raw_ptr<CustomFloatingCorner> vertical_tab_strip_bottom_corner_ = nullptr;
 
   // The view responsible for housing the contents of the organizer panel.
-  raw_ptr<OrganizerPanelView> organizer_panel_container_ = nullptr;
+  raw_ptr<OrganizerTrayView> organizer_tray_ = nullptr;
 
   // Side panel that extends to the height of the page content or toolbar,
   // aligned to the left or the right side of the browser window depending on
@@ -1292,20 +1293,29 @@ private:
 
   // State machine for deferring layouts during browser startup.
   enum class StartupLayoutState {
-    // Before the very first layout pass has completed. Layout is allowed so the
-    // window gets initial bounds.
+    // Initial state for normal windows, before the very first layout pass has
+    // completed. Layout is allowed so the window gets initial bounds.
     kInitial,
     // The first layout pass has completed, but the window is still invisible.
-    // Subsequent layout requests will be deferred to avoid redundant passes.
+    // Subsequent layout requests will be deferred to avoid redundant passes
+    // (unless the window size changes or web contents bounds are still
+    // pending).
     kDeferring,
-    // The window has been shown at least once. Layout deferral is disabled for
-    // the rest of the browser session to avoid active-use jank.
+    // Layout deferral is disabled for the rest of the browser session. This is
+    // set at initialization for non-normal window types (which do not use the
+    // WebUI toolbar), or once a window has been shown at least once to avoid
+    // active-use jank.
     kDisabled,
   };
   StartupLayoutState startup_layout_state_ = StartupLayoutState::kInitial;
 
   // Set to true if a layout request was skipped while the window was invisible.
   bool layout_deferred_while_invisible_ = false;
+
+  // The size of this view during the last completed layout pass. Used by
+  // kDeferLayoutDuringBrowserStartup to ensure that window resize operations
+  // while invisible still execute layout to update child view bounds.
+  gfx::Size last_laid_out_size_;
 
   // True if (as of the last time it was checked) the frame type is native.
   bool using_native_frame_ = true;
@@ -1407,8 +1417,6 @@ private:
 
   std::unique_ptr<tabs::VerticalTabStripStateController::ScopedEnableStateLock>
       vertical_tabs_enable_state_lock_;
-
-  base::CallbackListSubscription organizer_panel_subscription_;
 
 #if BUILDFLAG(IS_CHROMEOS)
   base::CallbackListSubscription on_locked_task_subscription_;

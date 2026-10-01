@@ -279,7 +279,7 @@
             }
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
-          "shards": 78
+          "shards": 70
         },
         "test": "browser_tests",
         "test_id_prefix": "ninja://chrome/test:browser_tests/"
@@ -800,6 +800,11 @@
           "dimensions": {
             "os": "Ubuntu-22.04"
           },
+          "optional_dimensions": {
+            "30": {
+              "cpu": "x86-64-e4"
+            }
+          },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
           "shards": 24
         },
@@ -1304,7 +1309,7 @@
             "os": "Ubuntu-22.04"
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
-          "shards": 8
+          "shards": 6
         },
         "test": "sync_integration_tests",
         "test_id_prefix": "ninja://chrome/test:sync_integration_tests/"
@@ -1631,7 +1636,7 @@
             "os": "Ubuntu-22.04"
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
-          "shards": 8
+          "shards": 9
         },
         "test": "blink_web_tests",
         "test_id_prefix": "ninja://:blink_web_tests/"
@@ -1662,7 +1667,7 @@
             "os": "Ubuntu-22.04"
           },
           "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
-          "shards": 3
+          "shards": 2
         },
         "test": "blink_wpt_tests",
         "test_id_prefix": "ninja://:blink_wpt_tests/"
@@ -2397,6 +2402,50 @@
         },
         "test": "blink_web_tests",
         "test_id_prefix": "ninja://:blink_web_tests/"
+      },
+      {
+        "experiment_percentage": 10,
+        "isolate_profile_data": true,
+        "merge": {
+          "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
+        },
+        "module_name": "//third_party/chromium-bidi:webdriver_bidi_e2e_tests",
+        "name": "webdriver_bidi_e2e_tests",
+        "resultdb": {
+          "enable": true,
+          "has_native_resultdb_integration": true
+        },
+        "swarming": {
+          "dimensions": {
+            "os": "Ubuntu-22.04"
+          },
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com",
+          "shards": 8
+        },
+        "test": "webdriver_bidi_e2e_tests",
+        "test_id_prefix": "ninja://third_party/chromium-bidi:webdriver_bidi_e2e_tests/"
+      },
+      {
+        "experiment_percentage": 10,
+        "isolate_profile_data": true,
+        "merge": {
+          "script": "//testing/merge_scripts/standard_isolated_script_merge.py"
+        },
+        "module_name": "//third_party/chromium-bidi:webdriver_bidi_unittests",
+        "module_scheme": "mocha",
+        "name": "webdriver_bidi_unittests",
+        "resultdb": {
+          "enable": true,
+          "has_native_resultdb_integration": true
+        },
+        "swarming": {
+          "dimensions": {
+            "os": "Ubuntu-22.04"
+          },
+          "service_account": "chromium-tester@chops-service-accounts.iam.gserviceaccount.com"
+        },
+        "test": "webdriver_bidi_unittests",
+        "test_id_prefix": "ninja://third_party/chromium-bidi:webdriver_bidi_unittests/"
       },
       {
         "args": [

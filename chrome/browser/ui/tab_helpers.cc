@@ -27,15 +27,11 @@
 #include "chrome/browser/content_settings/mixed_content_settings_tab_helper.h"
 #include "chrome/browser/content_settings/page_specific_content_settings_delegate.h"
 #include "chrome/browser/content_settings/sound_content_setting_observer.h"
-#include "chrome/browser/contextual_tasks/aim_user_agent_tab_helper.h"
 #include "chrome/browser/external_protocol/external_protocol_observer.h"
 #include "chrome/browser/favicon/favicon_utils.h"
 #include "chrome/browser/file_system_access/file_system_access_features.h"
 #include "chrome/browser/file_system_access/file_system_access_permission_request_manager.h"
 #include "chrome/browser/file_system_access/file_system_access_tab_helper.h"
-#include "chrome/browser/finds/core/finds_features.h"
-#include "chrome/browser/finds/core/finds_tab_helper.h"
-#include "chrome/browser/finds/finds_service_factory.h"
 #include "chrome/browser/glic/glic_marketing_page_tab_helper.h"
 #include "chrome/browser/glic/public/features.h"
 #include "chrome/browser/history/history_tab_helper.h"
@@ -82,6 +78,7 @@
 #include "chrome/browser/supervised_user/supervised_user_navigation_observer.h"
 #include "chrome/browser/sync/sessions/sync_sessions_router_tab_helper.h"
 #include "chrome/browser/sync/sessions/sync_sessions_web_contents_router_factory.h"
+#include "chrome/browser/sync_tab_context/tab_context_decryption_token_tab_helper.h"
 #include "chrome/browser/tab_contents/navigation_metrics_recorder.h"
 #include "chrome/browser/task_manager/web_contents_tags.h"
 #include "chrome/browser/translate/chrome_translate_client.h"
@@ -113,7 +110,6 @@
 #include "components/commerce/core/commerce_feature_list.h"
 #include "components/compose/buildflags.h"
 #include "components/content_settings/browser/page_specific_content_settings.h"
-#include "components/contextual_tasks/public/features.h"
 #include "components/dom_distiller/core/dom_distiller_features.h"
 #include "components/download/content/factory/navigation_monitor_factory.h"
 #include "components/download/content/public/download_navigation_observer.h"
@@ -143,6 +139,7 @@
 #include "components/safe_browsing/core/common/features.h"
 #include "components/search/ntp_features.h"
 #include "components/sessions/content/session_tab_helper.h"
+#include "components/sessions/core/session_id.h"
 #include "components/signin/public/base/signin_buildflags.h"
 #include "components/site_engagement/content/site_engagement_helper.h"
 #include "components/site_engagement/content/site_engagement_service.h"
@@ -174,6 +171,9 @@
 #include "chrome/browser/banners/android/chrome_app_banner_manager_android.h"
 #include "chrome/browser/content_settings/request_desktop_site_web_contents_observer_android.h"
 #include "chrome/browser/facilitated_payments/ui/chrome_facilitated_payments_client.h"
+#include "chrome/browser/finds/core/finds_features.h"
+#include "chrome/browser/finds/core/finds_tab_helper.h"
+#include "chrome/browser/finds/finds_service_factory.h"
 #include "chrome/browser/flags/android/chrome_feature_list.h"
 #include "chrome/browser/loader/from_gws_navigation_and_keep_alive_request_tab_helper.h"
 #include "chrome/browser/plugins/plugin_observer_android.h"
@@ -278,6 +278,7 @@
 
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
 #include "chrome/browser/contextual_tasks/search_ai_mode_promo_tab_helper.h"
+#include "components/contextual_tasks/public/features.h"
 #include "components/signin/public/base/signin_switches.h"
 #endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 
@@ -604,12 +605,6 @@ void TabHelpers::AttachTabHelpers(WebContents* web_contents,
 #endif  // BUILDFLAG(SAFE_BROWSING_AVAILABLE)
   SafetyTipWebContentsObserver::CreateForWebContents(web_contents);
   SearchEngineTabHelper::CreateForWebContents(web_contents);
-#if !BUILDFLAG(IS_ANDROID)
-  if (contextual_tasks::IsContextualTasksUIEnabled()) {
-    // Manages User-Agent override for tab navigations to AIM / AI URLs.
-    contextual_tasks::AimUserAgentTabHelper::CreateForWebContents(web_contents);
-  }
-#endif  // !BUILDFLAG(IS_ANDROID)
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
   if (base::FeatureList::IsEnabled(switches::kEnableSearchAIModeSigninPromo) &&
       base::FeatureList::IsEnabled(contextual_tasks::kContextualTasks)) {
@@ -642,6 +637,7 @@ void TabHelpers::AttachTabHelpers(WebContents* web_contents,
 #if !BUILDFLAG(IS_ANDROID)
   TabCaptureContentsBorderHelper::CreateForWebContents(web_contents);
 #endif  // BUILDFLAG(IS_ANDROID)
+  TabContextDecryptionTokenTabHelper::CreateForWebContents(web_contents);
   TrustedVaultEncryptionKeysTabHelper::CreateForWebContents(web_contents);
   auto* service = RevokedPermissionsServiceFactory::GetForProfile(profile);
   if (service) {

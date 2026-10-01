@@ -8,6 +8,7 @@
 #include <optional>
 #include <utility>
 
+#include "base/auto_reset.h"
 #include "base/check.h"
 #include "base/feature_list.h"
 #include "base/functional/bind.h"
@@ -103,24 +104,40 @@ void SaveUpdatePasswordMessageDelegate::DismissAllActiveUI() {
   if (state_ == State::kIdle) {
     return;
   }
+  base::AutoReset<bool> auto_reset(&is_programmatic_dismissal_, true);
   // This dismissal is programmatic (e.g. WebContents being destroyed or a new
   // prompt replacing this one), not user-initiated.
   weak_ptr_factory_.InvalidateWeakPtrs();
   account_password_store_observation_.Reset();
 
+  if (IsSavingBlockedByTrustedVaultError() &&
+      (state_ == State::kSaveUpdatePromptShowing ||
+       state_ == State::kEditDialogShowing ||
+       state_ == State::kWaitingForDeviceLock ||
+       state_ == State::kWaitingForTrustedVault ||
+       state_ == State::kRepromptShowing)) {
+    password_manager::metrics_util::LogSaveWithTrustedVaultErrorOutcome(
+        password_manager::metrics_util::SaveWithTrustedVaultErrorOutcome::
+            kTabDestroyed);
+  }
+
   // Record dismissal metrics only for the currently active UI to avoid
   // duplicate logging when both dialog and message pointers are non-null
   // (e.g. while message dismissal is in-flight after dialog was opened).
-  if (state_ == State::kEditDialogShowing) {
-    RecordDismissalReasonMetrics(
-        password_manager::metrics_util::NO_DIRECT_INTERACTION);
-  } else if (state_ == State::kSaveUpdatePromptShowing) {
+  if (state_ == State::kEditDialogShowing ||
+      state_ == State::kSaveUpdatePromptShowing ||
+      state_ == State::kRepromptShowing) {
     RecordDismissalReasonMetrics(
         password_manager::metrics_util::NO_DIRECT_INTERACTION);
   }
 
+  // Set state_ to kDismissing before dismissing UI elements to reflect that
+  // UI teardown is in progress. ClearState() at the end resets it to kIdle.
+  state_ = State::kDismissing;
+
   if (password_edit_dialog_ != nullptr) {
     password_edit_dialog_->Dismiss();
+    password_edit_dialog_.reset();
   }
   if (message_ != nullptr) {
     DismissSaveUpdatePasswordMessage(messages::DismissReason::UNKNOWN);
@@ -377,7 +394,8 @@ void SaveUpdatePasswordMessageDelegate::SolveTrustedVaultCheck(
     bool is_device_lock_requirement_met) {
   if (state_ != State::kWaitingForDeviceLock &&
       state_ != State::kSaveUpdatePromptShowing &&
-      state_ != State::kEditDialogShowing) {
+      state_ != State::kEditDialogShowing &&
+      state_ != State::kRepromptShowing) {
     return;
   }
 
@@ -413,8 +431,44 @@ void SaveUpdatePasswordMessageDelegate::SolveTrustedVaultCheck(
 }
 
 void SaveUpdatePasswordMessageDelegate::OnTrustedVaultRecoveryDone() {
-  // TODO(crbug.com/543028154): Handle the result of the trusted vault unlock
-  // activity.
+  // While the key retrieval flow was running, the error may have already been
+  // resolved (or a new store error encountered) via OnErrorStateChanged(),
+  // transitioning away from `kWaitingForTrustedVault`.
+  if (state_ != State::kWaitingForTrustedVault) {
+    return;
+  }
+
+  // Check if the trusted vault error is still present and reshow the message.
+  // If the trusted vault error is resolved, save the pending credential and
+  // show confirmation.
+  if (IsSavingBlockedByTrustedVaultError()) {
+    password_manager::metrics_util::LogSaveWithTrustedVaultErrorOutcome(
+        password_manager::metrics_util::SaveWithTrustedVaultErrorOutcome::
+            kKeyRetrievalFailedOrCanceled);
+    CreateMessage(update_password_);
+    RecordMessageShownMetrics(update_password_);
+    messages::MessageDispatcherBridge::Get()->EnqueueMessage(
+        message_.get(), web_contents_, messages::MessageScopeType::WEB_CONTENTS,
+        messages::MessagePriority::kUrgent);
+    TransitionTo(State::kRepromptShowing);
+  } else {
+    SaveAfterTrustedVaultResolution();
+  }
+}
+
+void SaveUpdatePasswordMessageDelegate::SaveAfterTrustedVaultResolution() {
+  SaveFormManager(/*show_confirmation_message=*/true);
+  password_manager::metrics_util::LogSaveWithTrustedVaultErrorOutcome(
+      password_manager::metrics_util::SaveWithTrustedVaultErrorOutcome::
+          kSavedSuccessfully);
+  if (confirmation_message_ != nullptr) {
+    TransitionTo(State::kConfirmationShowing);
+  } else {
+    TransitionTo(State::kDismissing);
+  }
+  // Dismiss the message prompt if it is currently displayed (e.g. if the error
+  // was resolved in the background while the reprompt was showing).
+  DismissSaveUpdatePasswordMessage(messages::DismissReason::UNKNOWN);
 }
 
 void SaveUpdatePasswordMessageDelegate::SaveFormManager(
@@ -513,7 +567,7 @@ void SaveUpdatePasswordMessageDelegate::DisplayEditDialog(
   GetDisplayUsernames(&usernames);
   password_edit_dialog_->ShowPasswordEditDialog(
       usernames, current_username, password_form.password_value.value(),
-      account_email_);
+      account_email_, IsSavingBlockedByTrustedVaultError());
 
   DismissSaveUpdatePasswordMessage(messages::DismissReason::SECONDARY_ACTION);
 }
@@ -548,7 +602,8 @@ void SaveUpdatePasswordMessageDelegate::HandleMessageDismissed(
     }
   }
 
-  if (state_ == State::kSaveUpdatePromptShowing) {
+  if (state_ == State::kSaveUpdatePromptShowing ||
+      state_ == State::kRepromptShowing) {
     TransitionTo(State::kDismissing);
   } else {
     MaybeCleanUpState();
@@ -568,6 +623,9 @@ void SaveUpdatePasswordMessageDelegate::CreatePasswordEditDialog() {
 
 void SaveUpdatePasswordMessageDelegate::HandleDialogDismissed(
     bool dialog_accepted) {
+  if (is_programmatic_dismissal_) {
+    return;
+  }
   password_edit_dialog_.reset();
 
   RecordDismissalReasonMetrics(
@@ -712,27 +770,19 @@ void SaveUpdatePasswordMessageDelegate::OnLoginsRetained(
 void SaveUpdatePasswordMessageDelegate::OnErrorStateChanged(
     password_manager::PasswordStoreInterface* store,
     password_manager::ActionableError changed_error) {
-  // If the trusted vault key retrieval flow is not started, do not handle the
-  // error. The current implementation always skips trusted vault unlock for
-  // update password flow so that doesn't need to be explicitly checked here.
-  if (state_ != State::kWaitingForTrustedVault) {
+  // Only handle the error while waiting for the trusted vault key retrieval
+  // flow or when in `kRepromptShowing` (where the flow may have already
+  // completed). The current implementation always skips trusted vault unlock
+  // for update password flow so that doesn't need to be explicitly checked
+  // here.
+  if (state_ != State::kWaitingForTrustedVault &&
+      state_ != State::kRepromptShowing) {
     return;
   }
 
-  // TODO(crbug.com/543028154): Handle cases where the error is not resolved
-  // by re-showing the message and clearing the state if the message times
-  // out.
   if (changed_error == password_manager::ActionableError::kNoError &&
       !IsSavingBlockedByTrustedVaultError()) {
-    SaveFormManager(/*show_confirmation_message=*/true);
-    password_manager::metrics_util::LogSaveWithTrustedVaultErrorOutcome(
-        password_manager::metrics_util::SaveWithTrustedVaultErrorOutcome::
-            kSavedSuccessfully);
-    if (confirmation_message_ != nullptr) {
-      TransitionTo(State::kConfirmationShowing);
-    } else {
-      TransitionTo(State::kDismissing);
-    }
+    SaveAfterTrustedVaultResolution();
   } else if (changed_error != password_manager::ActionableError::kNoError &&
              changed_error !=
                  password_manager::ActionableError::kTrustedVaultKeyNeeded) {
@@ -740,6 +790,7 @@ void SaveUpdatePasswordMessageDelegate::OnErrorStateChanged(
         password_manager::metrics_util::SaveWithTrustedVaultErrorOutcome::
             kNewStoreError);
     TransitionTo(State::kDismissing);
+    DismissSaveUpdatePasswordMessage(messages::DismissReason::UNKNOWN);
   }
 }
 

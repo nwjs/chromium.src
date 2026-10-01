@@ -105,9 +105,6 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration);
 // Returns whether the current layout is showing the bottom omnibox.
 - (BOOL)isCurrentLayoutBottomOmnibox;
 
-// Returns whether the ComposeboxIOS feature is enabled.
-- (BOOL)isComposeboxIOSEnabled;
-
 // Returns whether the Proactive Suggestions Framework feature is enabled.
 - (BOOL)isProactiveSuggestionsFrameworkEnabled;
 
@@ -879,8 +876,6 @@ id<GREYAction> grey_longPressWithDuration(base::TimeDelta duration);
 // Returns whether overflow menu refactoring on the NTP is enabled.
 - (BOOL)isOverflowMenuNTPRefactorEnabled;
 
-// Returns whether the Chrome Next Share Icon is visible.
-- (BOOL)isChromeNextShareIconVisible;
 
 // Returns YES if the view with `accessibilityID` or any of its ancestors is
 // animating.

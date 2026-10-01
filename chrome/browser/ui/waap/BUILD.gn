@@ -69,6 +69,7 @@ source_set("window_metrics_manager") {
     "//chrome/browser/profiles:profile",
     "//chrome/browser/ui:ui_features",
     "//chrome/browser/ui/browser_window",
+    "//third_party/blink/public/common",
   ]
 }
 
@@ -89,6 +90,49 @@ source_set("waap_utils") {
     "//content/public/common",
     "//ui/color",
     "//ui/native_theme",
+    "//url",
+  ]
+}
+
+source_set("browser_tests") {
+  testonly = true
+  defines = [ "HAS_OUT_OF_PROC_TEST_RUNNER" ]
+  sources = [ "initial_webui_browsertest.cc" ]
+  deps = [
+    ":manager",
+    ":waap",
+    ":waap_utils",
+    ":window_metrics_manager",
+    "//base",
+    "//base/test:test_support",
+    "//chrome/browser/page_load_metrics",
+    "//chrome/browser/prefs",
+    "//chrome/browser/prefs:util",
+    "//chrome/browser/profiles:profile",
+    "//chrome/browser/profiles:profile_test_util",
+    "//chrome/browser/ui",
+    "//chrome/browser/ui/browser_window",
+    "//chrome/browser/ui/browser_window:create_browser_window",
+    "//chrome/browser/ui/webui:webui_util",
+    "//chrome/browser/ui/webui/webui_toolbar",
+    "//chrome/browser/ui/webui/webui_toolbar:test_support",
+    "//chrome/browser/ui/webui/webui_toolbar/adapters:impl",
+    "//chrome/common:chrome_features",
+    "//chrome/test:test_support",
+    "//components/keep_alive_registry",
+    "//components/metrics:content",
+    "//components/metrics/mapping",
+    "//components/metrics/mapping:metrics_name_mapping_proto",
+    "//components/startup_metric_utils",
+    "//components/ukm:test_support",
+    "//content/public/browser",
+    "//content/public/common",
+    "//content/test:test_support",
+    "//services/metrics/public/cpp:metrics_cpp",
+    "//testing/gmock",
+    "//testing/gtest",
+    "//third_party/blink/public/common",
+    "//ui/base",
     "//url",
   ]
 }
@@ -115,6 +159,8 @@ source_set("unit_tests") {
     "//content/test:test_support",
     "//testing/gmock",
     "//testing/gtest",
+    "//third_party/blink/public/common",
+    "//ui/base:test_support",
     "//ui/events",
     "//ui/events:test_support",
     "//ui/views",

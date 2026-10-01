@@ -141,6 +141,21 @@ constexpr char kDefaultEnabledLocales[] =
 #endif  // BUILDFLAG(IS_ANDROID)
     ;
 
+bool IsAnyEntryPointEnabled(Profile* profile) {
+  bool is_button_enabled =
+      profile->GetPrefs()->GetBoolean(glic::prefs::kGlicPinnedToTabstrip);
+  bool is_shortcut_enabled = g_browser_process->local_state()->GetBoolean(
+      glic::prefs::kGlicLauncherEnabled);
+  return is_button_enabled || is_shortcut_enabled;
+}
+
+void SetAnyEntryPointEnabledForTesting(Profile* profile, bool is_enabled) {
+  profile->GetPrefs()->SetBoolean(glic::prefs::kGlicPinnedToTabstrip,
+                                  is_enabled);
+  g_browser_process->local_state()->SetBoolean(
+      glic::prefs::kGlicLauncherEnabled, is_enabled);
+}
+
 namespace {
 
 constexpr int kExperimentalTriggeringVersion = 1;
@@ -453,7 +468,7 @@ GlicEnabling::ProfileEnablement ComputeProfileEnablement(
       result.share_image_allowed = false;
     } else {
       if (identity_manager->HasAccountWithRefreshTokenInPersistentErrorState(
-              primary_account.account_id)) {
+              primary_account.GetAccountId())) {
         result.primary_account_is_fully_signed_in = false;
       }
 
@@ -1412,6 +1427,19 @@ bool GlicEnabling::IsExperimentalTriggeringUserControlled() const {
   const PrefService::Preference* pref = profile_->GetPrefs()->FindPreference(
       prefs::kGlicExperimentalTriggeringEnabled);
   return pref && !pref->IsManaged();
+}
+
+bool GlicEnabling::ShouldShowExperimentalTriggeringToggle() const {
+  if (!base::FeatureList::IsEnabled(features::kGlicExperimentalTriggering)) {
+    return false;
+  }
+  if (!ShouldShowWebActuationToggle()) {
+    return false;
+  }
+  if (!IsExperimentalTriggeringUserControlled()) {
+    return false;
+  }
+  return !IsExperimentalTriggeringEnabledDefault();
 }
 
 void GlicEnabling::SetUserEnabledActuationOnWeb(bool enabled) {

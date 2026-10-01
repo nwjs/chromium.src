@@ -9,23 +9,19 @@ include_rules = [
   "+chrome/browser/android",
   "+chrome/browser/ash/multidevice_setup",
   "+chrome/browser/ash/system_web_apps",
-  "+chrome/browser/browser_process.h",
   "+chrome/browser/feedback",
   "+chrome/browser/profiles",
   "+chrome/browser/ui/ash/system_web_apps",
   "+chrome/browser/ui/chrome_pages.h",
   "+chrome/browser/ui/dialogs/browser_dialogs.h",
   "+chrome/browser/ui/webui/ash",
-  "+chrome/browser/ui/webui/ash/os_feedback_dialog",
   "+chrome/test/base",
 ]
 
 specific_include_rules = {
   "chrome_os_feedback_delegate_browsertest\\.cc": [
     "+chrome/browser/signin",
-    "+chrome/browser/ui/browser.h",
     "+chrome/browser/ui/browser_window/public/browser_window_interface.h",
     "+chrome/browser/ui/browser_window/public/global_browser_collection.h",
-    "+chrome/common/chrome_switches.h",
   ],
 }

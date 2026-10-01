@@ -101,12 +101,20 @@ void ToolbarUIService::OnFocusRequested(mojom::FocusRequestTarget target) {
   }
 }
 
+void ToolbarUIService::ShowSplitTabsContextMenu() {
+  for (const auto& observer : observers_) {
+    observer->ShowSplitTabsContextMenu();
+  }
+}
+
 void ToolbarUIService::ShowContextMenu(
     toolbar_ui_api::mojom::ContextMenuType menu_type,
     const gfx::RectF& bounds_in_css_pixels,
-    ui::mojom::MenuSourceType source) {
+    ui::mojom::MenuSourceType source,
+    std::optional<uint32_t> show_menu_token) {
   if (delegate_) {
-    delegate_->HandleContextMenu(menu_type, bounds_in_css_pixels, source);
+    delegate_->HandleContextMenu(menu_type, bounds_in_css_pixels, source,
+                                 show_menu_token);
   }
 }
 
@@ -380,9 +388,17 @@ void ToolbarUIService::OnAppMenuFocusChanged(bool focused) {
   }
 }
 
-void ToolbarUIService::ExecuteExtensionAction(const std::string& extension_id) {
+void ToolbarUIService::ExecuteExtensionAction(const std::string& extension_id,
+                                              bool is_pointer_interaction) {
   if (delegate_) {
-    delegate_->ExecuteExtensionAction(extension_id);
+    delegate_->ExecuteExtensionAction(extension_id, is_pointer_interaction);
+  }
+}
+
+void ToolbarUIService::OnExtensionActionPointerDown(
+    const std::string& extension_id) {
+  if (delegate_) {
+    delegate_->OnExtensionActionPointerDown(extension_id);
   }
 }
 
@@ -418,6 +434,18 @@ void ToolbarUIService::OnPerformanceInterventionButtonClicked(
 void ToolbarUIService::OnPerformanceInterventionButtonMousePressed() {
   if (delegate_) {
     delegate_->OnPerformanceInterventionButtonMousePressed();
+  }
+}
+
+void ToolbarUIService::OnMediaButtonClicked(bool is_mouse_interaction) {
+  if (delegate_) {
+    delegate_->OnMediaButtonClicked(is_mouse_interaction);
+  }
+}
+
+void ToolbarUIService::OnMediaButtonMousePressed() {
+  if (delegate_) {
+    delegate_->OnMediaButtonMousePressed();
   }
 }
 }  // namespace toolbar_ui_api

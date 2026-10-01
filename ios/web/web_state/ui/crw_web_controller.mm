@@ -799,8 +799,6 @@ JavaScriptCompletionBlock WrapCompletionBlock(
       break;
   }
 
-  self.webStateImpl->ClearWebUI();
-
   // This navigation can be an iframe navigation, but it's not possible to
   // distinguish it from the main frame navigation, so context still has to be
   // created.
@@ -1914,11 +1912,6 @@ CrFullscreenState CrFullscreenStateFromWKFullscreenState(
     (CRWWKNavigationHandler*)navigationHandler {
   self.webStateImpl->CancelDialogs();
   self.webStateImpl->OnRenderProcessGone();
-}
-
-- (void)navigationHandler:(CRWWKNavigationHandler*)navigationHandler
-    loadCurrentURLWithRendererInitiatedNavigation:(BOOL)rendererInitiated {
-  [self loadCurrentURLWithRendererInitiatedNavigation:rendererInitiated];
 }
 
 - (void)navigationHandler:(CRWWKNavigationHandler*)navigationHandler

@@ -51,6 +51,7 @@
 #include "content/public/browser/platform_notification_context.h"
 #include "content/public/browser/storage_partition.h"
 #include "content/public/browser/storage_partition_config.h"
+#include "extensions/buildflags/buildflags.h"
 #include "services/metrics/public/cpp/ukm_builders.h"
 #include "third_party/blink/public/common/notifications/notification_resources.h"
 #include "third_party/blink/public/common/notifications/platform_notification_data.h"
@@ -145,8 +146,7 @@ static bool ShouldDisplayWebNotificationOnFullScreen(Profile* profile,
         //  (b) the browser is fullscreen
         //  (c) the browser has focus.
         if (active_contents->GetURL().DeprecatedGetOriginAsURL() == origin &&
-            browser_window_interface->GetFeatures()
-                .exclusive_access_manager()
+            ExclusiveAccessManager::From(browser_window_interface)
                 ->context()
                 ->IsFullscreen() &&
             browser_window_interface->GetWindow()->IsActive()) {

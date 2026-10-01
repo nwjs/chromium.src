@@ -10,8 +10,11 @@
 #include "chrome/browser/ui/layout_constants.h"
 #include "chrome/browser/ui/tabs/tab_style.h"
 #include "chrome/browser/ui/views/tabs/common/pinned_tab_container_view.h"
+#include "chrome/browser/ui/views/tabs/common/tab_collection_node.h"
+#include "chrome/browser/ui/views/tabs/common/tab_strip_collection_controller.h"
 #include "chrome/browser/ui/views/tabs/common/tab_strip_view.h"
 #include "chrome/browser/ui/views/tabs/common/unpinned_tab_container_view.h"
+#include "chrome/browser/ui/views/tabs/horizontal/horizontal_tab_closing_helper.h"
 #include "chrome/browser/ui/views/tabs/horizontal/tab_scroll_button_container.h"
 #include "ui/views/controls/scroll_view.h"
 #include "ui/views/controls/separator.h"
@@ -88,23 +91,24 @@ views::ProposedLayout TabStripViewLayout::CalculateHorizontalLayout(
   // Use unconstrained preferred size so the layout accounts for the total
   // desired width of unpinned tabs and groups. The unpinned container may not
   // be set yet so fallback to 0 if it doesn't exist.
-  const int unpinned_preferred_width =
+  int unpinned_preferred_width =
       unpinned_container ? unpinned_container->GetUnconstrainedPreferredWidth()
                          : 0;
+  if (const auto override_width =
+          GetClosingModeUnpinnedContainerOverrideWidth(tab_strip_view)) {
+    unpinned_preferred_width =
+        std::min(unpinned_preferred_width, *override_width);
+  }
 
   const views::SizeBound available_width = size_bounds.width();
 
   // Place the pinned container.
   int pinned_width = pinned_preferred_width;
   if (available_width.is_bounded()) {
-    int min_pinned_width = 0;
-    if (const auto* pinned_container =
-            tab_strip_view->GetPinnedTabsContainer()) {
-      min_pinned_width = pinned_container->GetMinimumSize().width();
-    }
+    // Enforce the 50% cap without a minimum size override.
     pinned_width = CalculatePinnedContainerMainAxisSize(
         pinned_preferred_width, unpinned_preferred_width,
-        available_width.value(), min_pinned_width);
+        available_width.value(), /*min_pinned_size=*/0);
   }
 
   gfx::Rect pinned_bounds(x, 0, pinned_width, container_height);
@@ -112,10 +116,31 @@ views::ProposedLayout TabStripViewLayout::CalculateHorizontalLayout(
                                      pinned_tabs_scroll_view->GetVisible(),
                                      pinned_bounds);
   const bool has_unpinned = unpinned_preferred_width > 0;
+  const bool is_pinned_overflowing = pinned_width < pinned_preferred_width;
+
+  const int min_unpinned_width =
+      unpinned_container ? unpinned_container->GetMinimumSize().width() : 0;
+  bool is_unpinned_overflowing = false;
+  if (has_unpinned && available_width.is_bounded()) {
+    const int available_unpinned_with_overlap = std::max(
+        0,
+        available_width.value() -
+            (pinned_width > 0 ? std::max(0, pinned_width - tab_overlap) : 0));
+    is_unpinned_overflowing =
+        available_unpinned_with_overlap < min_unpinned_width;
+  }
+
+  // To prevent the overflow indicators or scrolling tabs from drawing over the
+  // adjacent tab in the other container, do not overlap the containers whenever
+  // either container is overflowing.
+  const bool is_any_container_overflowing =
+      is_pinned_overflowing || is_unpinned_overflowing;
+  const int container_overlap =
+      (is_any_container_overflowing || !has_unpinned) ? 0 : tab_overlap;
 
   if (pinned_width > 0) {
-    // Unpinned container overlaps with the last pinned tab by tab_overlap.
-    x += has_unpinned ? std::max(0, pinned_width - tab_overlap) : pinned_width;
+    x += has_unpinned ? std::max(0, pinned_width - container_overlap)
+                      : pinned_width;
   }
 
   // The tabs separator isn't visible for the horizontal orientation.
@@ -143,8 +168,19 @@ views::ProposedLayout TabStripViewLayout::CalculateHorizontalLayout(
       show_scroll_buttons = true;
     }
 
-    tab_strip_view->SetAvailableUnpinnedSpace(
-        views::SizeBound(available_unpinned_width));
+    // Do not overwrite available space during zero-size measurement queries.
+    if (available_width.value() > 0) {
+      tab_strip_view->SetAvailableUnpinnedSpace(
+          views::SizeBound(available_unpinned_width));
+      if (unpinned_tabs_scroll_view) {
+        unpinned_tabs_scroll_view->SetDrawOverflowIndicator(
+            will_overflow_without_scroll_buttons);
+      }
+      if (pinned_tabs_scroll_view) {
+        pinned_tabs_scroll_view->SetDrawOverflowIndicator(
+            is_pinned_overflowing);
+      }
+    }
     unpinned_width = std::min(unpinned_width, available_unpinned_width);
   }
   gfx::Rect unpinned_bounds(x, 0, unpinned_width, container_height);
@@ -291,4 +327,18 @@ views::ProposedLayout TabStripViewLayout::CalculateVerticalLayout(
   layouts.host_size = gfx::Size(size_bounds.width().value(),
                                 unpinned_container_bounds.bottom());
   return layouts;
+}
+
+std::optional<int>
+TabStripViewLayout::GetClosingModeUnpinnedContainerOverrideWidth(
+    const TabStripView* tab_strip_view) const {
+  const TabStripCollectionController* controller =
+      tab_strip_view && tab_strip_view->collection_node_
+          ? tab_strip_view->collection_node_->GetController()
+          : nullptr;
+  if (controller && controller->tab_closing_helper()) {
+    return controller->tab_closing_helper()
+        ->override_available_width_for_tabs();
+  }
+  return std::nullopt;
 }

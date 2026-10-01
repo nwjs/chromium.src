@@ -10,6 +10,7 @@
 
 #include "base/memory/raw_ptr.h"
 #include "base/memory/weak_ptr.h"
+#include "base/values.h"
 #include "components/sync/model/data_type_store.h"
 #include "components/themes/ntp_custom_background_service_base.h"
 
@@ -33,6 +34,9 @@ class DataTypeControllerDelegate;
 namespace ntp_customization {
 class NtpAndroidThemeSyncBridge;
 }  // namespace ntp_customization
+
+// Key for storing the Chrome color ID in kNtpAndroidChromeColorDict.
+inline constexpr char kNtpAndroidThemeColorIdKey[] = "theme_color_id";
 
 // Android-specific service for managing custom backgrounds on the NTP.
 class NtpAndroidCustomBackgroundService
@@ -70,9 +74,15 @@ class NtpAndroidCustomBackgroundService
   void ResetCustomBackgroundInfo() override;
   void OnNextCollectionImageAvailable() override;
   std::optional<int> GetNextRefreshTimestamp() const override;
+  bool UpdateCustomBackgroundPrefsWithColor(const GURL& image_url,
+                                            SkColor color) override;
 
   // Callback invoked when incoming theme changes are received from Chrome Sync.
   void OnThemeChangedFromSync(const sync_pb::ThemeAndroidSpecifics& specifics);
+
+  // Sets the Chrome color ID, clears any custom background image, and notifies
+  // the sync bridge.
+  void SetChromeColor(int color_id);
 
  protected:
   void NotifyAboutBackgrounds() override;
@@ -90,6 +100,21 @@ class NtpAndroidCustomBackgroundService
   // Pushes the current local custom background state out to Chrome Sync.
   void NotifySyncBridge();
 
+  // Clears custom background image preference, resets the active background
+  // state, sets the Chrome color ID, and notifies observers that a Chrome
+  // color theme has been applied from sync.
+  void ApplyChromeColorFromSync(int color_id);
+
+  // Clears Chrome color preference, resets the active background state,
+  // sets the background dictionary preference, and notifies observers that a
+  // theme collection background has been applied from sync.
+  void ApplyThemeCollectionFromSync(base::DictValue dict);
+
+  // Clears custom background image and Chrome color preferences, resets
+  // the active background state, and notifies observers that the theme
+  // has been reset to default from sync.
+  void ApplyDefaultThemeFromSync();
+
   raw_ptr<NtpThemeCollectionBridge> theme_collection_bridge_ = nullptr;
   raw_ptr<NtpSyncedThemeBridge> synced_theme_bridge_ = nullptr;
 
@@ -106,6 +131,11 @@ class NtpAndroidCustomBackgroundService
   // True while processing an incoming sync update. Used to route UI updates
   // and prevent bouncing events back to sync.
   bool processing_sync_update_ = false;
+
+  // True while updating the primary color in the background preference
+  // dictionary. Used to suppress re-entrant NotifyAboutBackgrounds() calls
+  // from PrefChangeRegistrar.
+  bool updating_color_pref_ = false;
 
   base::WeakPtrFactory<NtpAndroidCustomBackgroundService> weak_ptr_factory_{
       this};

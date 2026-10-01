@@ -42,7 +42,6 @@
 #include "ash/shelf/shelf_widget.h"
 #include "ash/shell.h"
 #include "ash/strings/grit/ash_strings.h"
-#include "ash/style/ash_color_provider.h"
 #include "ash/style/close_button.h"
 #include "ash/style/color_util.h"
 #include "ash/test/ash_test_base.h"
@@ -137,7 +136,7 @@
 #include "ui/compositor/layer.h"
 #include "ui/compositor/layer_animator.h"
 #include "ui/compositor/test/layer_animation_stopped_waiter.h"
-#include "ui/compositor_extra/shadow.h"
+#include "ui/decoration/shadow.h"
 #include "ui/display/display.h"
 #include "ui/display/display_switches.h"
 #include "ui/display/screen.h"
@@ -11397,10 +11396,6 @@ TEST_P(DesksAcceleratorsTest, DeskSwitchScreenshotMetricsRecording) {
 
 TEST_P(DesksTest, DeskCreationBlockedDuringKioskSession) {
   // Enter Kiosk session.
-  TestingPrefServiceSimple local_state;
-  user_manager::UserManager::RegisterPrefs(local_state.registry());
-  user_manager::ScopedUserManager user_manager(
-      std::make_unique<user_manager::FakeUserManager>(&local_state));
   chromeos::SetUpFakeChromeAppKioskSession();
 
   DesksController* desks_controller = DesksController::Get();

@@ -14,6 +14,7 @@ import android.os.ParcelFileDescriptor;
 import android.os.RemoteException;
 import android.os.SystemClock;
 
+import androidx.annotation.GuardedBy;
 import androidx.annotation.NonNull;
 import androidx.annotation.VisibleForTesting;
 
@@ -23,6 +24,7 @@ import org.jni_zero.JniType;
 import org.jni_zero.NativeMethods;
 
 import org.chromium.android_webview.AwBrowserProcess;
+import org.chromium.android_webview.DualTraceEvent;
 import org.chromium.android_webview.common.AwFeatures;
 import org.chromium.android_webview.common.AwSwitches;
 import org.chromium.android_webview.common.WebViewCachedFlags;
@@ -32,6 +34,7 @@ import org.chromium.android_webview.common.services.ServiceConnectionDelayRecord
 import org.chromium.android_webview.common.services.ServiceNames;
 import org.chromium.android_webview.common.variations.VariationsServiceMetricsHelper;
 import org.chromium.android_webview.common.variations.VariationsUtils;
+import org.chromium.android_webview.metrics.NonembeddedMetricsCollector;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.Log;
 import org.chromium.base.metrics.RecordHistogram;
@@ -82,6 +85,42 @@ import java.util.concurrent.TimeoutException;
 @NullMarked
 public class VariationsSeedLoader {
     private static final String TAG = "VariationsSeedLoader";
+
+    private static final Object sSeedLoaderLock = new Object();
+
+    @GuardedBy("sSeedLoaderLock")
+    private static @Nullable VariationsSeedLoader sSeedLoader;
+
+    /** Starts the asynchronous background task to load the variations seed. */
+    public static void startInit() {
+        if (FastVariationsSeedSafeModeAction.hasRun()) {
+            return;
+        }
+        synchronized (sSeedLoaderLock) {
+            if (sSeedLoader == null) {
+                sSeedLoader = new VariationsSeedLoader();
+                sSeedLoader.startVariationsInit();
+            }
+        }
+    }
+
+    /** Finishes variations seed loading and applies variations before native startup. */
+    public static void finishInit() {
+        if (FastVariationsSeedSafeModeAction.hasRun()) {
+            return;
+        }
+        try (DualTraceEvent e = DualTraceEvent.scoped("VariationsSeedLoader.finishInit")) {
+            synchronized (sSeedLoaderLock) {
+                if (sSeedLoader == null) {
+                    Log.e(TAG, "finishInit() called before startInit()");
+                    startInit();
+                }
+                assert sSeedLoader != null;
+                sSeedLoader.finishVariationsInit();
+                sSeedLoader = null; // Allow this to be GC'd after its background thread finishes.
+            }
+        }
+    }
 
     // The expiration time for an app's copy of the Finch seed, after which we'll still use it,
     // but we'll request a new one from VariationsSeedService.
@@ -367,7 +406,7 @@ public class VariationsSeedLoader {
                 }
                 // Connect to nonembedded metrics Service at the same time we connect to variation
                 // service.
-                AwBrowserProcess.collectNonembeddedMetrics();
+                NonembeddedMetricsCollector.collectNonembeddedMetrics();
             } catch (NameNotFoundException e) {
                 Log.e(
                         TAG,

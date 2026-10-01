@@ -4,11 +4,11 @@
 
 #include "chrome/browser/page_load_metrics/observers/core/amp_page_load_metrics_observer.h"
 
+#include <memory>
 #include <optional>
 #include <string>
 #include <utility>
 
-#include "base/memory/ptr_util.h"
 #include "base/test/scoped_feature_list.h"
 #include "base/time/time.h"
 #include "chrome/browser/page_load_metrics/observers/page_load_metrics_observer_test_harness.h"
@@ -105,7 +105,7 @@ class AMPPageLoadMetricsObserverTest
   bool WithFencedFrames() { return GetParam(); }
 
   void RegisterObservers(page_load_metrics::PageLoadTracker* tracker) override {
-    tracker->AddObserver(base::WrapUnique(new AMPPageLoadMetricsObserver()));
+    tracker->AddObserver(std::make_unique<AMPPageLoadMetricsObserver>());
   }
 
   content::RenderFrameHost* AppendChildFrame(content::RenderFrameHost* parent,

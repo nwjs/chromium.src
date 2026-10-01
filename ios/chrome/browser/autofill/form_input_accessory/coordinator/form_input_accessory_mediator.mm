@@ -18,6 +18,8 @@
 #import "components/autofill/core/browser/data_model/addresses/autofill_profile.h"
 #import "components/autofill/core/browser/data_model/payments/credit_card.h"
 #import "components/autofill/ios/browser/autofill_client_ios.h"
+#import "components/autofill/ios/browser/autofill_driver_ios.h"
+#import "components/autofill/ios/browser/autofill_java_script_feature.h"
 #import "components/autofill/ios/browser/form_suggestion.h"
 #import "components/autofill/ios/browser/form_suggestion_provider.h"
 #import "components/autofill/ios/browser/personal_data_manager_observer_bridge.h"
@@ -57,7 +59,6 @@
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list_observer_bridge.h"
 #import "ios/chrome/browser/shared/public/commands/security_alert_commands.h"
-#import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
 #import "ios/chrome/common/credential_provider/net_util.h"
 #import "ios/chrome/common/ui/elements/form_input_accessory_view.h"
@@ -72,8 +73,10 @@
 #import "ios/web/public/web_state_observer_bridge.h"
 #import "ui/base/device_form_factor.h"
 #import "ui/base/l10n/l10n_util_mac.h"
+#import "url/gurl.h"
 
 using ActivityType = autofill::FormActivityParams::ActivityType;
+using autofill::FieldGlobalId;
 using autofill::Suggestion;
 using autofill::SuggestionType;
 using base::UmaHistogramEnumeration;
@@ -423,6 +426,26 @@ bool IsStateless() {
          autofill::FormActivityParams::FieldType::kObfuscated;
 }
 
+- (std::optional<FieldGlobalId>)lastFocusedFieldGlobalId {
+  if (!_hasLastSeenParams || !_lastSeenParams.field_renderer_id || !_webState) {
+    return std::nullopt;
+  }
+  web::WebFrame* frame = autofill::AutofillJavaScriptFeature::GetInstance()
+                             ->GetWebFramesManager(_webState)
+                             ->GetFrameWithId(_lastSeenParams.frame_id);
+  if (!frame ||
+      !GURL::SchemeIsCryptographic(frame->GetSecurityOrigin().scheme())) {
+    return std::nullopt;
+  }
+  autofill::AutofillDriverIOS* driver =
+      autofill::AutofillDriverIOS::FromWebStateAndWebFrame(_webState, frame);
+  if (!driver) {
+    return std::nullopt;
+  }
+  return FieldGlobalId(driver->GetFrameToken(),
+                       _lastSeenParams.field_renderer_id);
+}
+
 - (autofill::FillingProduct)currentProviderMainFillingProduct {
   return IsStateless() ? _currentSuggestionProvider.mainFillingProduct
                        : self.currentProvider.mainFillingProduct;
@@ -540,7 +563,6 @@ bool IsStateless() {
   }
 
   BOOL isDefaultViewEnabled =
-      IsIOSKeyboardAccessoryDefaultViewEnabled() &&
       ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_PHONE;
   BOOL isSelectOne =
       params.field_type == autofill::FormActivityParams::FieldType::kSelectOne;

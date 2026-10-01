@@ -21,6 +21,7 @@
 #include "third_party/blink/renderer/core/layout/unpositioned_float.h"
 #include "third_party/blink/renderer/platform/fonts/shaping/shape_result_view.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_builder.h"
+#include "third_party/blink/renderer/platform/testing/runtime_enabled_features_test_helpers.h"
 
 namespace blink {
 
@@ -130,7 +131,7 @@ class LineBreakerTest : public RenderingTest {
 
     return node
         .ComputeMinMaxSizes(node.Style().GetWritingMode(), space,
-                            MinMaxSizesFloatInput())
+                            MinMaxSizesInput::Unconstrained())
         .sizes;
   }
 
@@ -1325,6 +1326,22 @@ TEST_F(LineBreakerTest, SplitTrailingBidiCrCrash) {
   )HTML");
   ComputeMinMaxSizes(node);
   // Pass if no CHECK failure.
+}
+
+TEST_F(LineBreakerTest, BidiControlEnterFlag) {
+  ScopedLineBreakBidiControlEnterForTest flag(false);
+  LoadAhem();
+  SetBodyInnerHTML(R"HTML(
+    <style>
+      #container {
+        font: 10px/1 Ahem;
+        width: 40px;
+      }
+    </style>
+    <div id="container">xxx-<bdi>xx</bdi></div>
+  )HTML");
+  Element* container = GetDocument().getElementById(AtomicString("container"));
+  EXPECT_EQ(10, container->OffsetHeight());
 }
 
 }  // namespace

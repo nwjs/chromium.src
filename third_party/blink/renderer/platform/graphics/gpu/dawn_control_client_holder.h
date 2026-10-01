@@ -12,7 +12,7 @@
 #include "base/memory/weak_ptr.h"
 #include "gpu/command_buffer/client/webgpu_interface.h"
 #include "third_party/blink/renderer/platform/graphics/gpu/webgpu_cpp.h"
-#include "third_party/blink/renderer/platform/graphics/gpu/webgpu_shared_image_wrapper_cache.h"
+#include "third_party/blink/renderer/platform/graphics/gpu/webgpu_shared_image_cache.h"
 #include "third_party/blink/renderer/platform/graphics/web_graphics_context_3d_provider_wrapper.h"
 #include "third_party/blink/renderer/platform/platform_export.h"
 #include "third_party/blink/renderer/platform/wtf/hash_set.h"
@@ -30,7 +30,7 @@ namespace blink {
 template <>
 struct HashTraits<wgpu::Buffer> : GenericHashTraits<wgpu::Buffer> {
   STATIC_ONLY(HashTraits);
-  static unsigned GetHash(const wgpu::Buffer& buffer) {
+  static uint32_t GetHash(const wgpu::Buffer& buffer) {
     return HashPointer(buffer.Get());
   }
   static bool Equal(const wgpu::Buffer& a, const wgpu::Buffer& b) {
@@ -75,7 +75,7 @@ class PLATFORM_EXPORT DawnControlClientHolder
   wgpu::Instance GetWGPUInstance() const;
   void MarkContextLost();
   bool IsContextLost() const;
-  std::unique_ptr<WebGpuSharedImageWrapperLease> LeaseWebGpuSharedImageWrapper(
+  std::unique_ptr<WebGpuSharedImageLease> LeaseSharedImage(
       viz::SharedImageFormat format,
       gfx::Size size,
       const gfx::ColorSpace& color_space,
@@ -102,7 +102,7 @@ class PLATFORM_EXPORT DawnControlClientHolder
   std::unique_ptr<WebGraphicsContext3DProviderWrapper> context_provider_;
   scoped_refptr<base::SingleThreadTaskRunner> task_runner_;
   scoped_refptr<gpu::webgpu::APIChannel> api_channel_;
-  WebGpuSharedImageWrapperCache shared_image_wrapper_cache_;
+  WebGpuSharedImageCache shared_image_cache_;
   Vector<base::WeakPtr<WebGPUMailboxTexture>> mailbox_textures_;
   HashSet<wgpu::Buffer> mappable_buffers_;
 

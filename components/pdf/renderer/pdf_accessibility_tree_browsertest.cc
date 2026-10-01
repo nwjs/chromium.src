@@ -1549,6 +1549,125 @@ TEST_F(PdfAccessibilityTreeTest, HeuristicStyledHeadingUsesMappedHeadingLevel) {
 }
 
 TEST_F(PdfAccessibilityTreeTest,
+       HeuristicStyledHeadingFallbackWhenMappingEmpty) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeatures(
+      {::features::kPdfAccessibilityHeuristicEnhancements},
+      {chrome_pdf::features::kPdfTags});
+
+  chrome_pdf::AccessibilityTextStyleInfo normal_style;
+  normal_style.font_weight = kNormalFontWeight;
+  chrome_pdf::AccessibilityTextStyleInfo bold_style;
+  bold_style.font_weight = kBoldFontWeight;
+
+  // Small font size (1.33f <= kMinimumFontSize = 5.0f) means median font size
+  // is not set (remains 0.0f), and heading_font_size_mapping is empty.
+  // A bold text run on its own line should still be promoted as a styled
+  // heading, but fallback to kLargestStyledHeadingLevel (3) rather than h0.
+  SetUpHeuristicAccessibilityTreeDetailed(
+      /*font_sizes=*/{1.33f, 1.33f, 1.33f, 1.33f, 1.33f},
+      {bold_style, normal_style, normal_style, normal_style, normal_style},
+      MakeCharVector({"Heading", "body1", "body2", "body3", "end"}));
+
+  const ui::AXNode* pdf_root = pdf_accessibility_tree_->GetRoot();
+  ASSERT_GT(pdf_root->GetChildCount(), 1u);
+  const ui::AXNode* page = pdf_root->GetChildAtIndex(1u);
+  ASSERT_NE(nullptr, page);
+  ASSERT_GE(page->GetChildCount(), 1u);
+
+  // First run (1.33f, bold): styled heading should fallback to level 3 (H3),
+  // never level 0 (H0).
+  const ui::AXNode* block1 = page->GetChildAtIndex(0u);
+  ASSERT_NE(nullptr, block1);
+  EXPECT_EQ(ax::mojom::Role::kHeading, block1->GetRole());
+  EXPECT_EQ(
+      3, block1->GetIntAttribute(ax::mojom::IntAttribute::kHierarchicalLevel));
+  EXPECT_EQ("h3",
+            block1->GetStringAttribute(ax::mojom::StringAttribute::kHtmlTag));
+}
+
+TEST_F(PdfAccessibilityTreeTest,
+       HeuristicSmallMedianDoesNotSuppressStyledHeading) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeatures(
+      {::features::kPdfAccessibilityHeuristicEnhancements},
+      {chrome_pdf::features::kPdfTags});
+
+  chrome_pdf::AccessibilityTextStyleInfo normal_style;
+  normal_style.font_weight = kNormalFontWeight;
+  chrome_pdf::AccessibilityTextStyleInfo bold_style;
+  bold_style.font_weight = kBoldFontWeight;
+
+  // With font sizes {2.0f, 3.0f, 3.0f, 3.0f, 3.0f}, the median is 3.0f.
+  // Because median (3.0f) <= kMinimumFontSize (5.0f), ComputeFontSizes should
+  // not set median font size (it remains 0.0f).
+  // If median font size were incorrectly set to 3.0f, the bold run at 2.0f
+  // would be suppressed by the `font_size < median_font_size` check.
+  // With median font size remaining 0.0f, the bold run is not suppressed and is
+  // promoted to a styled heading (fallback level 3).
+  SetUpHeuristicAccessibilityTreeDetailed(
+      /*font_sizes=*/{2.0f, 3.0f, 3.0f, 3.0f, 3.0f},
+      {bold_style, normal_style, normal_style, normal_style, normal_style},
+      MakeCharVector({"Heading", "body1", "body2", "body3", "end"}));
+
+  const ui::AXNode* pdf_root = pdf_accessibility_tree_->GetRoot();
+  ASSERT_GT(pdf_root->GetChildCount(), 1u);
+  const ui::AXNode* page = pdf_root->GetChildAtIndex(1u);
+  ASSERT_NE(nullptr, page);
+  ASSERT_EQ(5u, page->GetChildCount());
+
+  // First run (2.0f, bold): promoted to styled heading H3.
+  const ui::AXNode* block1 = page->GetChildAtIndex(0u);
+  ASSERT_NE(nullptr, block1);
+  EXPECT_EQ(ax::mojom::Role::kHeading, block1->GetRole());
+  EXPECT_EQ(
+      3, block1->GetIntAttribute(ax::mojom::IntAttribute::kHierarchicalLevel));
+  EXPECT_EQ("h3",
+            block1->GetStringAttribute(ax::mojom::StringAttribute::kHtmlTag));
+
+  // Subsequent runs (3.0f, normal): remain paragraphs.
+  const ui::AXNode* block2 = page->GetChildAtIndex(1u);
+  ASSERT_NE(nullptr, block2);
+  EXPECT_EQ(ax::mojom::Role::kParagraph, block2->GetRole());
+}
+
+TEST_F(PdfAccessibilityTreeTest,
+       HeuristicFontSizeHeadingsNotDetectedWhenMedianBelowMinimum) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeatures(
+      {::features::kPdfAccessibilityHeuristicEnhancements},
+      {chrome_pdf::features::kPdfTags});
+
+  chrome_pdf::AccessibilityTextStyleInfo normal_style;
+  normal_style.font_weight = kNormalFontWeight;
+
+  // Font sizes: candidate at 4.0f, body runs at 2.0f (median is 2.0f).
+  // Although 4.0f is 2.0x the median (above the 1.2x heading font size ratio),
+  // median (2.0f) <= kMinimumFontSize (5.0f) means no heading font size
+  // threshold is set. Thus, font-size heading promotion is suppressed.
+  SetUpHeuristicAccessibilityTreeDetailed(
+      /*font_sizes=*/{4.0f, 2.0f, 2.0f, 2.0f, 2.0f},
+      {normal_style, normal_style, normal_style, normal_style, normal_style},
+      MakeCharVector({"Heading", "body1", "body2", "body3", "end"}));
+
+  const ui::AXNode* pdf_root = pdf_accessibility_tree_->GetRoot();
+  ASSERT_GT(pdf_root->GetChildCount(), 1u);
+  const ui::AXNode* page = pdf_root->GetChildAtIndex(1u);
+  ASSERT_NE(nullptr, page);
+  ASSERT_EQ(5u, page->GetChildCount());
+
+  // First run (4.0f, normal): remains a paragraph because font-size heading
+  // detection is disabled when median is below the minimum threshold.
+  const ui::AXNode* block1 = page->GetChildAtIndex(0u);
+  ASSERT_NE(nullptr, block1);
+  EXPECT_EQ(ax::mojom::Role::kParagraph, block1->GetRole());
+
+  const ui::AXNode* block2 = page->GetChildAtIndex(1u);
+  ASSERT_NE(nullptr, block2);
+  EXPECT_EQ(ax::mojom::Role::kParagraph, block2->GetRole());
+}
+
+TEST_F(PdfAccessibilityTreeTest,
        HeuristicSkipsH2WhenGoingDirectlyBelowHeadingThreshold) {
   base::test::ScopedFeatureList feature_list;
   feature_list.InitWithFeatures(
@@ -2228,6 +2347,117 @@ TEST_P(PdfAccessibilityTreeStructuredModeTest,
       /*end_of_selection=*/true, 0, 32, &out_node_id, &out_node_char_index);
   EXPECT_EQ(static_text->id(), out_node_id);
   EXPECT_EQ(32, out_node_char_index);
+}
+
+TEST_P(PdfAccessibilityTreeStructuredModeTest,
+       FindCharacterOffset_MultiLineStaticTextWithNonAscii) {
+  CreatePdfAccessibilityTree();
+
+  // Create two text runs representing two lines in a paragraph.
+  // Line 1 contains a multibyte Unicode character (right single quote '’'
+  // U+2019). Line 1 ("It’s a cat ") has 11 chars starting at index 0 (13 UTF-8
+  // bytes). Line 2 ("named Oliver") has 12 chars starting at index 11.
+  chrome_pdf::AccessibilityTextRunInfo run1 = {
+      /*start_index=*/0, /*len=*/11, gfx::RectF(0.0f, 0.0f, 100.0f, 10.0f),
+      chrome_pdf::AccessibilityTextDirection::kNone,
+      chrome_pdf::AccessibilityTextStyleInfo()};
+  chrome_pdf::AccessibilityTextRunInfo run2 = {
+      /*start_index=*/11, /*len=*/12, gfx::RectF(0.0f, 10.0f, 100.0f, 10.0f),
+      chrome_pdf::AccessibilityTextDirection::kNone,
+      chrome_pdf::AccessibilityTextStyleInfo()};
+
+  text_runs_ = {run1, run2};
+
+  constexpr std::u16string_view kText = u"It’s a cat named Oliver";
+  for (char16_t c : kText) {
+    chars_.push_back({static_cast<uint32_t>(c), 10.0f});
+  }
+
+  BuildAndSetAccessibilityTree();
+
+  ui::AXNode* static_text = FindFirstStaticTextNode();
+  ASSERT_NE(nullptr, static_text);
+  EXPECT_EQ(ax::mojom::Role::kStaticText, static_text->GetRole());
+  chrome_pdf::PageCharacterIndex page_char_index;
+
+  // Offset 0 (start of Line 1 "It’s a cat ") -> PDFium char index 0.
+  EXPECT_TRUE(pdf_accessibility_tree_->FindCharacterOffset(*static_text, 0,
+                                                           page_char_index));
+  EXPECT_EQ(0u, page_char_index.char_index);
+
+  // Offset 11 (start of Line 2 "named Oliver") -> PDFium char index 11.
+  EXPECT_TRUE(pdf_accessibility_tree_->FindCharacterOffset(*static_text, 11,
+                                                           page_char_index));
+  EXPECT_EQ(11u, page_char_index.char_index);
+
+  // Offset 12 (second char of Line 2 'a') -> PDFium char index 12.
+  EXPECT_TRUE(pdf_accessibility_tree_->FindCharacterOffset(*static_text, 12,
+                                                           page_char_index));
+  EXPECT_EQ(12u, page_char_index.char_index);
+}
+
+TEST_P(PdfAccessibilityTreeStructuredModeTest,
+       FindNodeOffset_MultiLineStaticTextWithNonAscii) {
+  CreatePdfAccessibilityTree();
+
+  // Create two text runs representing two lines in a paragraph.
+  // Line 1 contains a multibyte Unicode character (right single quote '’'
+  // U+2019). Line 1 ("It’s a cat ") has 11 chars starting at index 0 (13 UTF-8
+  // bytes). Line 2 ("named Oliver") has 12 chars starting at index 11.
+  chrome_pdf::AccessibilityTextRunInfo run1 = {
+      /*start_index=*/0, /*len=*/11, gfx::RectF(0.0f, 0.0f, 100.0f, 10.0f),
+      chrome_pdf::AccessibilityTextDirection::kNone,
+      chrome_pdf::AccessibilityTextStyleInfo()};
+  chrome_pdf::AccessibilityTextRunInfo run2 = {
+      /*start_index=*/11, /*len=*/12, gfx::RectF(0.0f, 10.0f, 100.0f, 10.0f),
+      chrome_pdf::AccessibilityTextDirection::kNone,
+      chrome_pdf::AccessibilityTextStyleInfo()};
+
+  text_runs_ = {run1, run2};
+
+  constexpr std::u16string_view kText = u"It’s a cat named Oliver";
+  for (char16_t c : kText) {
+    chars_.push_back({static_cast<uint32_t>(c), 10.0f});
+  }
+
+  BuildAndSetAccessibilityTree();
+
+  ui::AXNode* static_text = FindFirstStaticTextNode();
+  ASSERT_NE(nullptr, static_text);
+  EXPECT_EQ(ax::mojom::Role::kStaticText, static_text->GetRole());
+
+  int32_t out_node_id = -1;
+  int32_t out_node_char_index = -1;
+
+  // Offset 0 (start of Line 1 "It’s a cat ") -> static text char index 0.
+  pdf_accessibility_tree_->FindNodeOffsetForTesting(
+      /*end_of_selection=*/false, 0, 0, &out_node_id, &out_node_char_index);
+  EXPECT_EQ(static_text->id(), out_node_id);
+  EXPECT_EQ(0, out_node_char_index);
+
+  // Offset 11 (start of Line 2 "named Oliver") -> static text char index 11.
+  pdf_accessibility_tree_->FindNodeOffsetForTesting(
+      /*end_of_selection=*/false, 0, 11, &out_node_id, &out_node_char_index);
+  EXPECT_EQ(static_text->id(), out_node_id);
+  EXPECT_EQ(11, out_node_char_index);
+
+  // Offset 11 as end of selection (end of Line 1) -> static text char index 11.
+  pdf_accessibility_tree_->FindNodeOffsetForTesting(
+      /*end_of_selection=*/true, 0, 11, &out_node_id, &out_node_char_index);
+  EXPECT_EQ(static_text->id(), out_node_id);
+  EXPECT_EQ(11, out_node_char_index);
+
+  // Offset 12 (second char of Line 2 'a') -> static text char index 12.
+  pdf_accessibility_tree_->FindNodeOffsetForTesting(
+      /*end_of_selection=*/false, 0, 12, &out_node_id, &out_node_char_index);
+  EXPECT_EQ(static_text->id(), out_node_id);
+  EXPECT_EQ(12, out_node_char_index);
+
+  // Offset 23 as end of selection (end of Line 2) -> static text char index 23.
+  pdf_accessibility_tree_->FindNodeOffsetForTesting(
+      /*end_of_selection=*/true, 0, 23, &out_node_id, &out_node_char_index);
+  EXPECT_EQ(static_text->id(), out_node_id);
+  EXPECT_EQ(23, out_node_char_index);
 }
 
 TEST_P(PdfAccessibilityTreeStructuredModeTest,
@@ -3058,752 +3288,6 @@ TEST_F(PdfAccessibilityTreeTest, TestHighlightCreation) {
                                 ax::mojom::StringAttribute::kName));
   EXPECT_EQ(gfx::RectF(1.0f, 1.0f, 5.0f, 6.0f),
             static_popup_note_text_node->data().relative_bounds.bounds);
-}
-
-TEST_F(PdfAccessibilityTreeTest, TestTextFieldNodeCreation) {
-  // Enable feature flag
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndEnableFeature(
-      chrome_pdf::features::kAccessiblePDFForm);
-  text_runs_.emplace_back(kFirstTextRun);
-  text_runs_.emplace_back(kSecondTextRun);
-  chars_.insert(chars_.end(), std::begin(kDummyCharsData),
-                std::end(kDummyCharsData));
-
-  {
-    chrome_pdf::AccessibilityTextFieldInfo text_field;
-    text_field.bounds = gfx::RectF(1.0f, 1.0f, 5.0f, 6.0f);
-    text_field.index_in_page = 0;
-    text_field.text_run_index = 2;
-    text_field.name = "Text Box";
-    text_field.value = "Text";
-    text_field.is_read_only = false;
-    text_field.is_required = false;
-    text_field.is_password = false;
-    page_objects_.form_fields.text_fields.push_back(std::move(text_field));
-  }
-
-  {
-    chrome_pdf::AccessibilityTextFieldInfo text_field;
-    text_field.bounds = gfx::RectF(1.0f, 10.0f, 5.0f, 6.0f);
-    text_field.index_in_page = 1;
-    text_field.text_run_index = 2;
-    text_field.name = "Text Box 2";
-    text_field.value = "Text 2";
-    text_field.is_read_only = true;
-    text_field.is_required = true;
-    text_field.is_password = true;
-    page_objects_.form_fields.text_fields.push_back(std::move(text_field));
-  }
-
-  page_info_.text_run_count = text_runs_.size();
-  page_info_.char_count = chars_.size();
-
-  CreatePdfAccessibilityTree();
-
-  pdf_accessibility_tree_->SetAccessibilityViewportInfo(viewport_info_);
-  pdf_accessibility_tree_->SetAccessibilityDocInfo(
-      CreateAccessibilityDocInfo());
-  pdf_accessibility_tree_->SetAccessibilityPageInfo(page_info_, text_runs_,
-                                                    chars_, page_objects_);
-  WaitForThreadTasks();
-  // Wait for `PdfAccessibilityTree::UnserializeNodes()`, a delayed task.
-  WaitForThreadDelayedTasks();
-
-  /*
-   * Expected tree structure
-   * Document
-   * ++ Region
-   * ++++ Paragraph
-   * ++++++ Static Text
-   * ++++ Paragraph
-   * ++++++ Static Text
-   * ++++++ Text Field
-   * ++++++ Text Field
-   */
-
-  ui::AXNode* root_node = pdf_accessibility_tree_->GetRoot();
-  CheckRootAndStatusNodes(root_node, page_count_,
-                          /*is_pdf_ocr_test=*/false, /*is_ocr_completed=*/false,
-                          /*create_empty_ocr_results=*/false);
-
-  ASSERT_GT(root_node->GetChildCount(), 1u);
-  ui::AXNode* page_node = root_node->GetChildAtIndex(1);
-  ASSERT_TRUE(page_node);
-  EXPECT_EQ(ax::mojom::Role::kRegion, page_node->GetRole());
-  ASSERT_EQ(2u, page_node->GetChildCount());
-
-  ui::AXNode* paragraph_node = page_node->GetChildAtIndex(0);
-  ASSERT_TRUE(paragraph_node);
-  EXPECT_EQ(ax::mojom::Role::kParagraph, paragraph_node->GetRole());
-  ASSERT_EQ(1u, paragraph_node->GetChildCount());
-
-  ui::AXNode* static_text_node = paragraph_node->GetChildAtIndex(0);
-  ASSERT_TRUE(static_text_node);
-  EXPECT_EQ(ax::mojom::Role::kStaticText, static_text_node->GetRole());
-  ASSERT_EQ(1u, static_text_node->GetChildCount());
-
-  paragraph_node = page_node->GetChildAtIndex(1);
-  ASSERT_TRUE(paragraph_node);
-  EXPECT_EQ(ax::mojom::Role::kParagraph, paragraph_node->GetRole());
-  const std::vector<raw_ptr<ui::AXNode, VectorExperimental>>& child_nodes =
-      paragraph_node->GetAllChildren();
-  ASSERT_EQ(3u, child_nodes.size());
-
-  static_text_node = child_nodes[0];
-  ASSERT_TRUE(static_text_node);
-  EXPECT_EQ(ax::mojom::Role::kStaticText, static_text_node->GetRole());
-  ASSERT_EQ(1u, static_text_node->GetChildCount());
-
-  ui::AXNode* text_field_node = child_nodes[1];
-  ASSERT_TRUE(text_field_node);
-  EXPECT_EQ(ax::mojom::Role::kTextField, text_field_node->GetRole());
-  EXPECT_EQ("Text Box", text_field_node->GetStringAttribute(
-                            ax::mojom::StringAttribute::kName));
-  EXPECT_EQ("Text", text_field_node->GetStringAttribute(
-                        ax::mojom::StringAttribute::kValue));
-  EXPECT_FALSE(text_field_node->HasState(ax::mojom::State::kRequired));
-  EXPECT_FALSE(text_field_node->HasState(ax::mojom::State::kProtected));
-  EXPECT_NE(ax::mojom::Restriction::kReadOnly,
-            text_field_node->data().GetRestriction());
-  EXPECT_EQ(gfx::RectF(1.0f, 1.0f, 5.0f, 6.0f),
-            text_field_node->data().relative_bounds.bounds);
-  EXPECT_EQ(0u, text_field_node->GetChildCount());
-
-  text_field_node = child_nodes[2];
-  ASSERT_TRUE(text_field_node);
-  EXPECT_EQ(ax::mojom::Role::kTextField, text_field_node->GetRole());
-  EXPECT_EQ("Text Box 2", text_field_node->GetStringAttribute(
-                              ax::mojom::StringAttribute::kName));
-  EXPECT_EQ("Text 2", text_field_node->GetStringAttribute(
-                          ax::mojom::StringAttribute::kValue));
-  EXPECT_TRUE(text_field_node->HasState(ax::mojom::State::kRequired));
-  EXPECT_TRUE(text_field_node->HasState(ax::mojom::State::kProtected));
-  EXPECT_EQ(ax::mojom::Restriction::kReadOnly,
-            text_field_node->data().GetRestriction());
-  EXPECT_EQ(gfx::RectF(1.0f, 10.0f, 5.0f, 6.0f),
-            text_field_node->data().relative_bounds.bounds);
-  EXPECT_EQ(0u, text_field_node->GetChildCount());
-}
-
-TEST_F(PdfAccessibilityTreeTest, TestButtonNodeCreation) {
-  // Enable feature flag
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndEnableFeature(
-      chrome_pdf::features::kAccessiblePDFForm);
-  text_runs_.emplace_back(kFirstTextRun);
-  text_runs_.emplace_back(kSecondTextRun);
-  chars_.insert(chars_.end(), std::begin(kDummyCharsData),
-                std::end(kDummyCharsData));
-
-  {
-    chrome_pdf::AccessibilityButtonInfo check_box;
-    check_box.bounds = gfx::RectF(1.0f, 1.0f, 5.0f, 6.0f);
-    check_box.index_in_page = 0;
-    check_box.text_run_index = 2;
-    check_box.name = "Read Only Checkbox";
-    check_box.value = "Yes";
-    check_box.is_read_only = true;
-    check_box.is_checked = true;
-    check_box.control_count = 1;
-    check_box.control_index = 0;
-    check_box.type = chrome_pdf::ButtonType::kCheckBox;
-    page_objects_.form_fields.buttons.push_back(std::move(check_box));
-  }
-
-  {
-    chrome_pdf::AccessibilityButtonInfo radio_button;
-    radio_button.bounds = gfx::RectF(1.0f, 2.0f, 5.0f, 6.0f);
-    radio_button.index_in_page = 1;
-    radio_button.text_run_index = 2;
-    radio_button.name = "Radio Button";
-    radio_button.value = "value 1";
-    radio_button.is_read_only = false;
-    radio_button.is_checked = false;
-    radio_button.control_count = 2;
-    radio_button.control_index = 0;
-    radio_button.type = chrome_pdf::ButtonType::kRadioButton;
-    page_objects_.form_fields.buttons.push_back(std::move(radio_button));
-  }
-
-  {
-    chrome_pdf::AccessibilityButtonInfo radio_button;
-    radio_button.bounds = gfx::RectF(1.0f, 3.0f, 5.0f, 6.0f);
-    radio_button.index_in_page = 2;
-    radio_button.text_run_index = 2;
-    radio_button.name = "Radio Button";
-    radio_button.value = "value 2";
-    radio_button.is_read_only = false;
-    radio_button.is_checked = true;
-    radio_button.control_count = 2;
-    radio_button.control_index = 1;
-    radio_button.type = chrome_pdf::ButtonType::kRadioButton;
-    page_objects_.form_fields.buttons.push_back(std::move(radio_button));
-  }
-
-  {
-    chrome_pdf::AccessibilityButtonInfo push_button;
-    push_button.bounds = gfx::RectF(1.0f, 4.0f, 5.0f, 6.0f);
-    push_button.index_in_page = 3;
-    push_button.text_run_index = 2;
-    push_button.name = "Push Button";
-    push_button.is_read_only = false;
-    push_button.type = chrome_pdf::ButtonType::kPushButton;
-    page_objects_.form_fields.buttons.push_back(std::move(push_button));
-  }
-
-  page_info_.text_run_count = text_runs_.size();
-  page_info_.char_count = chars_.size();
-
-  CreatePdfAccessibilityTree();
-
-  pdf_accessibility_tree_->SetAccessibilityViewportInfo(viewport_info_);
-  pdf_accessibility_tree_->SetAccessibilityDocInfo(
-      CreateAccessibilityDocInfo());
-  pdf_accessibility_tree_->SetAccessibilityPageInfo(page_info_, text_runs_,
-                                                    chars_, page_objects_);
-  WaitForThreadTasks();
-  // Wait for `PdfAccessibilityTree::UnserializeNodes()`, a delayed task.
-  WaitForThreadDelayedTasks();
-
-  /*
-   * Expected tree structure
-   * Document
-   * ++ Region
-   * ++++ Paragraph
-   * ++++++ Static Text
-   * ++++ Paragraph
-   * ++++++ Static Text
-   * ++++++ Check Box
-   * ++++++ Radio Button
-   * ++++++ Radio Button
-   * ++++++ Button
-   */
-
-  ui::AXNode* root_node = pdf_accessibility_tree_->GetRoot();
-  CheckRootAndStatusNodes(root_node, page_count_,
-                          /*is_pdf_ocr_test=*/false, /*is_ocr_completed=*/false,
-                          /*create_empty_ocr_results=*/false);
-
-  ASSERT_GT(root_node->GetChildCount(), 1u);
-  ui::AXNode* page_node = root_node->GetChildAtIndex(1);
-  ASSERT_TRUE(page_node);
-  EXPECT_EQ(ax::mojom::Role::kRegion, page_node->GetRole());
-  ASSERT_EQ(2u, page_node->GetChildCount());
-
-  ui::AXNode* paragraph_node = page_node->GetChildAtIndex(0);
-  ASSERT_TRUE(paragraph_node);
-  EXPECT_EQ(ax::mojom::Role::kParagraph, paragraph_node->GetRole());
-  ASSERT_EQ(1u, paragraph_node->GetChildCount());
-
-  ui::AXNode* static_text_node = paragraph_node->GetChildAtIndex(0);
-  ASSERT_TRUE(static_text_node);
-  EXPECT_EQ(ax::mojom::Role::kStaticText, static_text_node->GetRole());
-  ASSERT_EQ(1u, static_text_node->GetChildCount());
-
-  paragraph_node = page_node->GetChildAtIndex(1);
-  ASSERT_TRUE(paragraph_node);
-  EXPECT_EQ(ax::mojom::Role::kParagraph, paragraph_node->GetRole());
-  const std::vector<raw_ptr<ui::AXNode, VectorExperimental>>& child_nodes =
-      paragraph_node->GetAllChildren();
-  ASSERT_EQ(5u, child_nodes.size());
-
-  static_text_node = child_nodes[0];
-  ASSERT_TRUE(static_text_node);
-  EXPECT_EQ(ax::mojom::Role::kStaticText, static_text_node->GetRole());
-  ASSERT_EQ(1u, static_text_node->GetChildCount());
-
-  ui::AXNode* check_box_node = child_nodes[1];
-  ASSERT_TRUE(check_box_node);
-  EXPECT_EQ(ax::mojom::Role::kCheckBox, check_box_node->GetRole());
-  EXPECT_EQ("Read Only Checkbox", check_box_node->GetStringAttribute(
-                                      ax::mojom::StringAttribute::kName));
-  EXPECT_EQ("Yes", check_box_node->GetStringAttribute(
-                       ax::mojom::StringAttribute::kValue));
-  EXPECT_EQ(ax::mojom::CheckedState::kTrue,
-            check_box_node->data().GetCheckedState());
-  EXPECT_EQ(1,
-            check_box_node->GetIntAttribute(ax::mojom::IntAttribute::kSetSize));
-  EXPECT_EQ(
-      1, check_box_node->GetIntAttribute(ax::mojom::IntAttribute::kPosInSet));
-  EXPECT_EQ(ax::mojom::Restriction::kReadOnly,
-            check_box_node->data().GetRestriction());
-  EXPECT_EQ(gfx::RectF(1.0f, 1.0f, 5.0f, 6.0f),
-            check_box_node->data().relative_bounds.bounds);
-  EXPECT_EQ(0u, check_box_node->GetChildCount());
-
-  ui::AXNode* radio_button_node = child_nodes[2];
-  ASSERT_TRUE(radio_button_node);
-  EXPECT_EQ(ax::mojom::Role::kRadioButton, radio_button_node->GetRole());
-  EXPECT_EQ("Radio Button", radio_button_node->GetStringAttribute(
-                                ax::mojom::StringAttribute::kName));
-  EXPECT_EQ("value 1", radio_button_node->GetStringAttribute(
-                           ax::mojom::StringAttribute::kValue));
-  EXPECT_EQ(ax::mojom::CheckedState::kNone,
-            radio_button_node->data().GetCheckedState());
-  EXPECT_EQ(
-      2, radio_button_node->GetIntAttribute(ax::mojom::IntAttribute::kSetSize));
-  EXPECT_EQ(1, radio_button_node->GetIntAttribute(
-                   ax::mojom::IntAttribute::kPosInSet));
-  EXPECT_NE(ax::mojom::Restriction::kReadOnly,
-            radio_button_node->data().GetRestriction());
-  EXPECT_EQ(gfx::RectF(1.0f, 2.0f, 5.0f, 6.0f),
-            radio_button_node->data().relative_bounds.bounds);
-  EXPECT_EQ(0u, radio_button_node->GetChildCount());
-
-  radio_button_node = child_nodes[3];
-  ASSERT_TRUE(radio_button_node);
-  EXPECT_EQ(ax::mojom::Role::kRadioButton, radio_button_node->GetRole());
-  EXPECT_EQ("Radio Button", radio_button_node->GetStringAttribute(
-                                ax::mojom::StringAttribute::kName));
-  EXPECT_EQ("value 2", radio_button_node->GetStringAttribute(
-                           ax::mojom::StringAttribute::kValue));
-  EXPECT_EQ(ax::mojom::CheckedState::kTrue,
-            radio_button_node->data().GetCheckedState());
-  EXPECT_EQ(
-      2, radio_button_node->GetIntAttribute(ax::mojom::IntAttribute::kSetSize));
-  EXPECT_EQ(2, radio_button_node->GetIntAttribute(
-                   ax::mojom::IntAttribute::kPosInSet));
-  EXPECT_EQ(ax::mojom::Restriction::kNone,
-            radio_button_node->data().GetRestriction());
-  EXPECT_EQ(gfx::RectF(1.0f, 3.0f, 5.0f, 6.0f),
-            radio_button_node->data().relative_bounds.bounds);
-  EXPECT_EQ(0u, radio_button_node->GetChildCount());
-
-  ui::AXNode* push_button_node = child_nodes[4];
-  ASSERT_TRUE(push_button_node);
-  EXPECT_EQ(ax::mojom::Role::kButton, push_button_node->GetRole());
-  EXPECT_EQ("Push Button", push_button_node->GetStringAttribute(
-                               ax::mojom::StringAttribute::kName));
-  EXPECT_EQ(gfx::RectF(1.0f, 4.0f, 5.0f, 6.0f),
-            push_button_node->data().relative_bounds.bounds);
-  EXPECT_EQ(0u, push_button_node->GetChildCount());
-}
-
-TEST_F(PdfAccessibilityTreeTest, TestListboxNodeCreation) {
-  // Enable feature flag
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndEnableFeature(
-      chrome_pdf::features::kAccessiblePDFForm);
-  text_runs_.emplace_back(kFirstTextRun);
-  text_runs_.emplace_back(kSecondTextRun);
-  chars_.insert(chars_.end(), std::begin(kDummyCharsData),
-                std::end(kDummyCharsData));
-
-  struct ListboxOptionInfo {
-    std::string name;
-    bool is_selected;
-  };
-
-  const ListboxOptionInfo kExpectedOptions[][3] = {
-      {{"Alpha", false}, {"Beta", true}, {"Gamma", true}},
-      {{"Foo", false}, {"Bar", true}, {"Qux", false}}};
-
-  const gfx::RectF kExpectedBounds[] = {{1.0f, 1.0f, 5.0f, 6.0f},
-                                        {1.0f, 10.0f, 5.0f, 6.0f}};
-
-  {
-    chrome_pdf::AccessibilityChoiceFieldInfo choice_field;
-    choice_field.bounds = gfx::RectF(1.0f, 1.0f, 5.0f, 6.0f);
-    choice_field.index_in_page = 0;
-    choice_field.text_run_index = 2;
-    choice_field.type = chrome_pdf::ChoiceFieldType::kListBox;
-    choice_field.name = "List Box";
-    choice_field.is_read_only = false;
-    choice_field.is_multi_select = true;
-    choice_field.has_editable_text_box = false;
-    for (const ListboxOptionInfo& expected_option : kExpectedOptions[0]) {
-      chrome_pdf::AccessibilityChoiceFieldOptionInfo choice_field_option;
-      choice_field_option.name = expected_option.name;
-      choice_field_option.is_selected = expected_option.is_selected;
-      choice_field.options.push_back(std::move(choice_field_option));
-    }
-    page_objects_.form_fields.choice_fields.push_back(std::move(choice_field));
-  }
-
-  {
-    chrome_pdf::AccessibilityChoiceFieldInfo choice_field;
-    choice_field.bounds = gfx::RectF(1.0f, 10.0f, 5.0f, 6.0f);
-    choice_field.index_in_page = 1;
-    choice_field.text_run_index = 2;
-    choice_field.type = chrome_pdf::ChoiceFieldType::kListBox;
-    choice_field.name = "Read Only List Box";
-    choice_field.is_read_only = true;
-    choice_field.is_multi_select = false;
-    choice_field.has_editable_text_box = false;
-    for (const ListboxOptionInfo& expected_option : kExpectedOptions[1]) {
-      chrome_pdf::AccessibilityChoiceFieldOptionInfo choice_field_option;
-      choice_field_option.name = expected_option.name;
-      choice_field_option.is_selected = expected_option.is_selected;
-      choice_field.options.push_back(std::move(choice_field_option));
-    }
-    page_objects_.form_fields.choice_fields.push_back(std::move(choice_field));
-  }
-
-  page_info_.text_run_count = text_runs_.size();
-  page_info_.char_count = chars_.size();
-
-  CreatePdfAccessibilityTree();
-
-  pdf_accessibility_tree_->SetAccessibilityViewportInfo(viewport_info_);
-  pdf_accessibility_tree_->SetAccessibilityDocInfo(
-      CreateAccessibilityDocInfo());
-  pdf_accessibility_tree_->SetAccessibilityPageInfo(page_info_, text_runs_,
-                                                    chars_, page_objects_);
-  WaitForThreadTasks();
-  // Wait for `PdfAccessibilityTree::UnserializeNodes()`, a delayed task.
-  WaitForThreadDelayedTasks();
-
-  /*
-   * Expected tree structure
-   * Document
-   * ++ Region
-   * ++++ Paragraph
-   * ++++++ Static Text
-   * ++++ Paragraph
-   * ++++++ Static Text
-   * ++++++ Listbox
-   * ++++++++ Listbox Option
-   * ++++++++ Listbox Option
-   * ++++++++ Listbox Option
-   * ++++++ Listbox
-   * ++++++++ Listbox Option
-   * ++++++++ Listbox Option
-   * ++++++++ Listbox Option
-   */
-
-  ui::AXNode* root_node = pdf_accessibility_tree_->GetRoot();
-  CheckRootAndStatusNodes(root_node, page_count_,
-                          /*is_pdf_ocr_test=*/false, /*is_ocr_completed=*/false,
-                          /*create_empty_ocr_results=*/false);
-
-  ASSERT_GT(root_node->GetChildCount(), 1u);
-  ui::AXNode* page_node = root_node->GetChildAtIndex(1);
-  ASSERT_TRUE(page_node);
-  EXPECT_EQ(ax::mojom::Role::kRegion, page_node->GetRole());
-  ASSERT_EQ(2u, page_node->GetChildCount());
-
-  ui::AXNode* paragraph_node = page_node->GetChildAtIndex(0);
-  ASSERT_TRUE(paragraph_node);
-  EXPECT_EQ(ax::mojom::Role::kParagraph, paragraph_node->GetRole());
-  ASSERT_EQ(1u, paragraph_node->GetChildCount());
-
-  ui::AXNode* static_text_node = paragraph_node->GetChildAtIndex(0);
-  ASSERT_TRUE(static_text_node);
-  EXPECT_EQ(ax::mojom::Role::kStaticText, static_text_node->GetRole());
-  ASSERT_EQ(1u, static_text_node->GetChildCount());
-
-  paragraph_node = page_node->GetChildAtIndex(1);
-  ASSERT_TRUE(paragraph_node);
-  EXPECT_EQ(ax::mojom::Role::kParagraph, paragraph_node->GetRole());
-  const std::vector<raw_ptr<ui::AXNode, VectorExperimental>>& child_nodes =
-      paragraph_node->GetAllChildren();
-  ASSERT_EQ(3u, child_nodes.size());
-
-  static_text_node = child_nodes[0];
-  ASSERT_TRUE(static_text_node);
-  EXPECT_EQ(ax::mojom::Role::kStaticText, static_text_node->GetRole());
-  ASSERT_EQ(1u, static_text_node->GetChildCount());
-
-  {
-    ui::AXNode* listbox_node = child_nodes[1];
-    ASSERT_TRUE(listbox_node);
-    EXPECT_EQ(ax::mojom::Role::kListBox, listbox_node->GetRole());
-    EXPECT_NE(ax::mojom::Restriction::kReadOnly,
-              listbox_node->data().GetRestriction());
-    EXPECT_EQ("List Box", listbox_node->GetStringAttribute(
-                              ax::mojom::StringAttribute::kName));
-    EXPECT_TRUE(listbox_node->HasState(ax::mojom::State::kMultiselectable));
-    EXPECT_TRUE(listbox_node->HasState(ax::mojom::State::kFocusable));
-    EXPECT_EQ(kExpectedBounds[0], listbox_node->data().relative_bounds.bounds);
-    ASSERT_EQ(std::size(kExpectedOptions[0]), listbox_node->GetChildCount());
-    const std::vector<raw_ptr<ui::AXNode, VectorExperimental>>&
-        listbox_child_nodes = listbox_node->GetAllChildren();
-    for (const auto [expected, node] :
-         std::views::zip(kExpectedOptions[0], listbox_child_nodes)) {
-      EXPECT_EQ(ax::mojom::Role::kListBoxOption, node->GetRole());
-      EXPECT_NE(ax::mojom::Restriction::kReadOnly,
-                node->data().GetRestriction());
-      EXPECT_EQ(expected.name,
-                node->GetStringAttribute(ax::mojom::StringAttribute::kName));
-      EXPECT_EQ(expected.is_selected,
-                node->GetBoolAttribute(ax::mojom::BoolAttribute::kSelected));
-      EXPECT_TRUE(node->HasState(ax::mojom::State::kFocusable));
-      EXPECT_EQ(kExpectedBounds[0], node->data().relative_bounds.bounds);
-    }
-  }
-
-  {
-    ui::AXNode* listbox_node = child_nodes[2];
-    ASSERT_TRUE(listbox_node);
-    EXPECT_EQ(ax::mojom::Role::kListBox, listbox_node->GetRole());
-    EXPECT_EQ(ax::mojom::Restriction::kReadOnly,
-              listbox_node->data().GetRestriction());
-    EXPECT_EQ("Read Only List Box", listbox_node->GetStringAttribute(
-                                        ax::mojom::StringAttribute::kName));
-    EXPECT_FALSE(listbox_node->HasState(ax::mojom::State::kMultiselectable));
-    EXPECT_TRUE(listbox_node->HasState(ax::mojom::State::kFocusable));
-    EXPECT_EQ(kExpectedBounds[1], listbox_node->data().relative_bounds.bounds);
-    ASSERT_EQ(std::size(kExpectedOptions[1]), listbox_node->GetChildCount());
-    const std::vector<raw_ptr<ui::AXNode, VectorExperimental>>&
-        listbox_child_nodes = listbox_node->GetAllChildren();
-    for (const auto [expected, node] :
-         std::views::zip(kExpectedOptions[1], listbox_child_nodes)) {
-      EXPECT_EQ(ax::mojom::Role::kListBoxOption, node->GetRole());
-      EXPECT_EQ(ax::mojom::Restriction::kReadOnly,
-                node->data().GetRestriction());
-      EXPECT_EQ(expected.name,
-                node->GetStringAttribute(ax::mojom::StringAttribute::kName));
-      EXPECT_EQ(expected.is_selected,
-                node->GetBoolAttribute(ax::mojom::BoolAttribute::kSelected));
-      EXPECT_TRUE(node->HasState(ax::mojom::State::kFocusable));
-      EXPECT_EQ(kExpectedBounds[1], node->data().relative_bounds.bounds);
-    }
-  }
-}
-
-TEST_F(PdfAccessibilityTreeTest, TestComboboxNodeCreation) {
-  // Enable feature flag
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitAndEnableFeature(
-      chrome_pdf::features::kAccessiblePDFForm);
-  text_runs_.emplace_back(kFirstTextRun);
-  text_runs_.emplace_back(kSecondTextRun);
-  chars_.insert(chars_.end(), std::begin(kDummyCharsData),
-                std::end(kDummyCharsData));
-
-  struct ComboboxOptionInfo {
-    std::string name;
-    bool is_selected;
-  };
-
-  const ComboboxOptionInfo kExpectedOptions[][3] = {
-      {{"Albania", false}, {"Belgium", true}, {"Croatia", true}},
-      {{"Apple", false}, {"Banana", true}, {"Cherry", false}}};
-
-  const gfx::RectF kExpectedBounds[] = {{1.0f, 1.0f, 5.0f, 6.0f},
-                                        {1.0f, 10.0f, 5.0f, 6.0f}};
-
-  {
-    chrome_pdf::AccessibilityChoiceFieldInfo choice_field;
-    choice_field.bounds = gfx::RectF(1.0f, 1.0f, 5.0f, 6.0f);
-    choice_field.index_in_page = 0;
-    choice_field.text_run_index = 2;
-    choice_field.type = chrome_pdf::ChoiceFieldType::kComboBox;
-    choice_field.name = "Editable Combo Box";
-    choice_field.is_read_only = false;
-    choice_field.is_multi_select = true;
-    choice_field.has_editable_text_box = true;
-    for (const ComboboxOptionInfo& expected_option : kExpectedOptions[0]) {
-      chrome_pdf::AccessibilityChoiceFieldOptionInfo choice_field_option;
-      choice_field_option.name = expected_option.name;
-      choice_field_option.is_selected = expected_option.is_selected;
-      choice_field.options.push_back(std::move(choice_field_option));
-    }
-    page_objects_.form_fields.choice_fields.push_back(std::move(choice_field));
-  }
-
-  {
-    chrome_pdf::AccessibilityChoiceFieldInfo choice_field;
-    choice_field.bounds = gfx::RectF(1.0f, 10.0f, 5.0f, 6.0f);
-    choice_field.index_in_page = 1;
-    choice_field.text_run_index = 2;
-    choice_field.type = chrome_pdf::ChoiceFieldType::kComboBox;
-    choice_field.name = "Read Only Combo Box";
-    choice_field.is_read_only = true;
-    choice_field.is_multi_select = false;
-    choice_field.has_editable_text_box = false;
-    for (const ComboboxOptionInfo& expected_option : kExpectedOptions[1]) {
-      chrome_pdf::AccessibilityChoiceFieldOptionInfo choice_field_option;
-      choice_field_option.name = expected_option.name;
-      choice_field_option.is_selected = expected_option.is_selected;
-      choice_field.options.push_back(std::move(choice_field_option));
-    }
-    page_objects_.form_fields.choice_fields.push_back(std::move(choice_field));
-  }
-
-  page_info_.text_run_count = text_runs_.size();
-  page_info_.char_count = chars_.size();
-
-  CreatePdfAccessibilityTree();
-
-  pdf_accessibility_tree_->SetAccessibilityViewportInfo(viewport_info_);
-  pdf_accessibility_tree_->SetAccessibilityDocInfo(
-      CreateAccessibilityDocInfo());
-  pdf_accessibility_tree_->SetAccessibilityPageInfo(page_info_, text_runs_,
-                                                    chars_, page_objects_);
-  WaitForThreadTasks();
-  // Wait for `PdfAccessibilityTree::UnserializeNodes()`, a delayed task.
-  WaitForThreadDelayedTasks();
-
-  /*
-   * Expected tree structure
-   * Document
-   * ++ Region
-   * ++++ Paragraph
-   * ++++++ Static Text
-   * ++++ Paragraph
-   * ++++++ Static Text
-   * ++++++ Combobox Grouping
-   * ++++++++ Text Field With Combobox
-   * ++++++++ Listbox
-   * ++++++++++ Listbox Option
-   * ++++++++++ Listbox Option
-   * ++++++++++ Listbox Option
-   * ++++++ Combobox Grouping
-   * ++++++++ Combobox Menu Button
-   * ++++++++ Listbox
-   * ++++++++++ Listbox Option
-   * ++++++++++ Listbox Option
-   * ++++++++++ Listbox Option
-   */
-
-  ui::AXNode* root_node = pdf_accessibility_tree_->GetRoot();
-  CheckRootAndStatusNodes(root_node, page_count_,
-                          /*is_pdf_ocr_test=*/false, /*is_ocr_completed=*/false,
-                          /*create_empty_ocr_results=*/false);
-
-  ASSERT_GT(root_node->GetChildCount(), 1u);
-  ui::AXNode* page_node = root_node->GetChildAtIndex(1);
-  ASSERT_TRUE(page_node);
-  EXPECT_EQ(ax::mojom::Role::kRegion, page_node->GetRole());
-  ASSERT_EQ(2u, page_node->GetChildCount());
-
-  ui::AXNode* paragraph_node = page_node->GetChildAtIndex(0);
-  ASSERT_TRUE(paragraph_node);
-  EXPECT_EQ(ax::mojom::Role::kParagraph, paragraph_node->GetRole());
-  ASSERT_EQ(1u, paragraph_node->GetChildCount());
-
-  ui::AXNode* static_text_node = paragraph_node->GetChildAtIndex(0);
-  ASSERT_TRUE(static_text_node);
-  EXPECT_EQ(ax::mojom::Role::kStaticText, static_text_node->GetRole());
-  ASSERT_EQ(1u, static_text_node->GetChildCount());
-
-  paragraph_node = page_node->GetChildAtIndex(1);
-  ASSERT_TRUE(paragraph_node);
-  EXPECT_EQ(ax::mojom::Role::kParagraph, paragraph_node->GetRole());
-  const std::vector<raw_ptr<ui::AXNode, VectorExperimental>>& child_nodes =
-      paragraph_node->GetAllChildren();
-  ASSERT_EQ(3u, child_nodes.size());
-
-  static_text_node = child_nodes[0];
-  ASSERT_TRUE(static_text_node);
-  EXPECT_EQ(ax::mojom::Role::kStaticText, static_text_node->GetRole());
-  ASSERT_EQ(1u, static_text_node->GetChildCount());
-
-  {
-    ui::AXNode* combobox_node = child_nodes[1];
-    ASSERT_TRUE(combobox_node);
-    EXPECT_EQ(ax::mojom::Role::kComboBoxGrouping, combobox_node->GetRole());
-    EXPECT_NE(ax::mojom::Restriction::kReadOnly,
-              combobox_node->data().GetRestriction());
-    EXPECT_TRUE(combobox_node->HasState(ax::mojom::State::kFocusable));
-    EXPECT_EQ(kExpectedBounds[0], combobox_node->data().relative_bounds.bounds);
-    ASSERT_EQ(2u, combobox_node->GetChildCount());
-    const std::vector<raw_ptr<ui::AXNode, VectorExperimental>>&
-        combobox_child_nodes = combobox_node->GetAllChildren();
-
-    ui::AXNode* combobox_input_node = combobox_child_nodes[0];
-    EXPECT_EQ(ax::mojom::Role::kTextFieldWithComboBox,
-              combobox_input_node->GetRole());
-    EXPECT_NE(ax::mojom::Restriction::kReadOnly,
-              combobox_input_node->data().GetRestriction());
-    EXPECT_EQ("Editable Combo Box", combobox_input_node->GetStringAttribute(
-                                        ax::mojom::StringAttribute::kName));
-    EXPECT_EQ("Belgium", combobox_input_node->GetStringAttribute(
-                             ax::mojom::StringAttribute::kValue));
-    EXPECT_TRUE(combobox_input_node->HasState(ax::mojom::State::kFocusable));
-    EXPECT_EQ(kExpectedBounds[0],
-              combobox_input_node->data().relative_bounds.bounds);
-
-    ui::AXNode* combobox_popup_node = combobox_child_nodes[1];
-    EXPECT_EQ(ax::mojom::Role::kListBox, combobox_popup_node->GetRole());
-    EXPECT_NE(ax::mojom::Restriction::kReadOnly,
-              combobox_popup_node->data().GetRestriction());
-    EXPECT_TRUE(
-        combobox_popup_node->HasState(ax::mojom::State::kMultiselectable));
-    EXPECT_EQ(kExpectedBounds[0],
-              combobox_popup_node->data().relative_bounds.bounds);
-    ASSERT_EQ(std::size(kExpectedOptions[0]),
-              combobox_popup_node->GetChildCount());
-    const std::vector<raw_ptr<ui::AXNode, VectorExperimental>>&
-        popup_child_nodes = combobox_popup_node->GetAllChildren();
-    for (const auto [expected, node] :
-         std::views::zip(kExpectedOptions[0], popup_child_nodes)) {
-      EXPECT_EQ(ax::mojom::Role::kListBoxOption, node->GetRole());
-      EXPECT_NE(ax::mojom::Restriction::kReadOnly,
-                node->data().GetRestriction());
-      EXPECT_EQ(expected.name,
-                node->GetStringAttribute(ax::mojom::StringAttribute::kName));
-      EXPECT_EQ(expected.is_selected,
-                node->GetBoolAttribute(ax::mojom::BoolAttribute::kSelected));
-      EXPECT_TRUE(node->HasState(ax::mojom::State::kFocusable));
-      EXPECT_EQ(kExpectedBounds[0], node->data().relative_bounds.bounds);
-    }
-    EXPECT_EQ(popup_child_nodes[1]->data().id,
-              combobox_input_node->GetIntAttribute(
-                  ax::mojom::IntAttribute::kActivedescendantId));
-    const auto& controls_ids = combobox_input_node->GetIntListAttribute(
-        ax::mojom::IntListAttribute::kControlsIds);
-    ASSERT_EQ(1u, controls_ids.size());
-    EXPECT_EQ(controls_ids[0], combobox_popup_node->data().id);
-  }
-
-  {
-    ui::AXNode* combobox_node = child_nodes[2];
-    ASSERT_TRUE(combobox_node);
-    EXPECT_EQ(ax::mojom::Role::kComboBoxGrouping, combobox_node->GetRole());
-    EXPECT_EQ(ax::mojom::Restriction::kReadOnly,
-              combobox_node->data().GetRestriction());
-    EXPECT_TRUE(combobox_node->HasState(ax::mojom::State::kFocusable));
-    EXPECT_EQ(kExpectedBounds[1], combobox_node->data().relative_bounds.bounds);
-    ASSERT_EQ(2u, combobox_node->GetChildCount());
-    const std::vector<raw_ptr<ui::AXNode, VectorExperimental>>&
-        combobox_child_nodes = combobox_node->GetAllChildren();
-
-    ui::AXNode* combobox_input_node = combobox_child_nodes[0];
-    EXPECT_EQ(ax::mojom::Role::kComboBoxMenuButton,
-              combobox_input_node->GetRole());
-    EXPECT_EQ(ax::mojom::Restriction::kReadOnly,
-              combobox_input_node->data().GetRestriction());
-    EXPECT_EQ("Read Only Combo Box", combobox_input_node->GetStringAttribute(
-                                         ax::mojom::StringAttribute::kName));
-    EXPECT_EQ("Banana", combobox_input_node->GetStringAttribute(
-                            ax::mojom::StringAttribute::kValue));
-    EXPECT_TRUE(combobox_input_node->HasState(ax::mojom::State::kFocusable));
-    EXPECT_EQ(kExpectedBounds[1],
-              combobox_input_node->data().relative_bounds.bounds);
-
-    ui::AXNode* combobox_popup_node = combobox_child_nodes[1];
-    EXPECT_EQ(ax::mojom::Role::kListBox, combobox_popup_node->GetRole());
-    EXPECT_EQ(ax::mojom::Restriction::kReadOnly,
-              combobox_popup_node->data().GetRestriction());
-    EXPECT_EQ(kExpectedBounds[1],
-              combobox_popup_node->data().relative_bounds.bounds);
-    ASSERT_EQ(std::size(kExpectedOptions[1]),
-              combobox_popup_node->GetChildCount());
-    const std::vector<raw_ptr<ui::AXNode, VectorExperimental>>&
-        popup_child_nodes = combobox_popup_node->GetAllChildren();
-    for (const auto [expected, node] :
-         std::views::zip(kExpectedOptions[1], popup_child_nodes)) {
-      EXPECT_EQ(ax::mojom::Role::kListBoxOption, node->GetRole());
-      EXPECT_EQ(ax::mojom::Restriction::kReadOnly,
-                node->data().GetRestriction());
-      EXPECT_EQ(expected.name,
-                node->GetStringAttribute(ax::mojom::StringAttribute::kName));
-      EXPECT_EQ(expected.is_selected,
-                node->GetBoolAttribute(ax::mojom::BoolAttribute::kSelected));
-      EXPECT_TRUE(node->HasState(ax::mojom::State::kFocusable));
-      EXPECT_EQ(kExpectedBounds[1], node->data().relative_bounds.bounds);
-    }
-    EXPECT_EQ(popup_child_nodes[1]->data().id,
-              combobox_input_node->GetIntAttribute(
-                  ax::mojom::IntAttribute::kActivedescendantId));
-    const auto& controls_ids = combobox_input_node->GetIntListAttribute(
-        ax::mojom::IntListAttribute::kControlsIds);
-    ASSERT_EQ(1u, controls_ids.size());
-    EXPECT_EQ(controls_ids[0], combobox_popup_node->data().id);
-  }
 }
 
 TEST_F(PdfAccessibilityTreeTest, TestPreviousNextOnLine) {

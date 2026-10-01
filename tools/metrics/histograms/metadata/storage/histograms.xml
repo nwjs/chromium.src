@@ -101,20 +101,6 @@ chromium-metrics-reviews@google.com.
   <variant name="Under100KB" summary="DB size under 100KB."/>
 </variants>
 
-<histogram
-    name="API.EffectiveStorageAccess.AllowedByStorageAccessType.Subsampled"
-    enum="AllowedByStorageAccessType" expires_after="2026-10-10">
-  <owner>selya@chromium.org</owner>
-  <owner>cfredric@chromium.org</owner>
-  <summary>
-    Records whether storage-access or top-level-storage-access allow access to
-    cookies in a given context. This will be recorded every time cookies are
-    read or set.
-
-    Subsampled to 1% of all cases.
-  </summary>
-</histogram>
-
 <histogram name="API.StorageAccess.AllowedRequests4.Subsampled"
     enum="StorageAccessResult" expires_after="2026-10-25">
   <owner>mkwst@chromium.org</owner>
@@ -249,7 +235,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Clipboard.Write" enum="ClipboardFormatWrite"
-    expires_after="2026-12-27">
+    expires_after="2027-02-28">
   <owner>huangdarwin@chromium.org</owner>
   <owner>src/ui/base/clipboard/OWNERS</owner>
   <summary>
@@ -275,7 +261,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="IndexedDB.BackendDuration.WriteBlobs.{IndexedDBBackingStoreType}"
-    units="ms" expires_after="2027-01-03">
+    units="ms" expires_after="2027-03-07">
   <owner>leimy@chromium.org</owner>
   <owner>evanstade@microsoft.com</owner>
   <owner>abhishek.shanthkumar@microsoft.com</owner>
@@ -290,7 +276,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="IndexedDB.BackendDuration.{Operation}.{IndexedDBBackingStoreType}"
-    units="ms" expires_after="2027-01-03">
+    units="ms" expires_after="2027-03-07">
   <owner>leimy@chromium.org</owner>
   <owner>evanstade@microsoft.com</owner>
   <owner>abhishek.shanthkumar@microsoft.com</owner>
@@ -334,7 +320,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="IndexedDB.BackingStore.ReadBlob.{IndexedDBBackingStoreType}"
-    enum="NetErrorCodes" expires_after="2027-01-03">
+    enum="NetErrorCodes" expires_after="2027-03-07">
   <owner>leimy@chromium.org</owner>
   <owner>evanstade@microsoft.com</owner>
   <owner>abhishek.shanthkumar@microsoft.com</owner>
@@ -350,9 +336,23 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="IndexedDB.BackingStore.SizeOnDisk" units="KiB"
+    expires_after="2027-09-11">
+  <owner>leimy@chromium.org</owner>
+  <owner>evanstade@microsoft.com</owner>
+  <owner>chrome-owp-storage@google.com</owner>
+  <summary>
+    Logs the total size of an on-disk backing store. This is logged every time
+    the size is calculated *by looking at the disk*, which can happen for
+    reasons such as some non-IndexedDB quota client wanting to know how much
+    space is left in a bucket. This is primarily due to the desire to avoid
+    extra work to calculate usage at a time such as IDBFactory shutdown.
+  </summary>
+</histogram>
+
 <histogram
     name="IndexedDB.BackingStore.{Operation}.{IndexedDBBackingStoreType}"
-    enum="IndexedDbStatusType" expires_after="2027-01-03">
+    enum="IndexedDbStatusType" expires_after="2027-03-07">
   <owner>leimy@chromium.org</owner>
   <owner>evanstade@microsoft.com</owner>
   <owner>abhishek.shanthkumar@microsoft.com</owner>
@@ -417,7 +417,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="IndexedDB.ContextShutdownDuration2" units="ms"
-    expires_after="2026-10-02">
+    expires_after="2027-09-02">
   <owner>leimy@chromium.org</owner>
   <owner>evanstade@microsoft.com</owner>
   <owner>abhishek.shanthkumar@microsoft.com</owner>
@@ -460,7 +460,7 @@ chromium-metrics-reviews@google.com.
 
 <histogram
     name="IndexedDB.DatabaseConnectionOpenResult.{IndexedDBBackingStoreType}"
-    enum="DatabaseConnectionOpenResult" expires_after="2027-01-03">
+    enum="DatabaseConnectionOpenResult" expires_after="2027-03-07">
   <owner>leimy@chromium.org</owner>
   <owner>evanstade@microsoft.com</owner>
   <owner>abhishek.shanthkumar@microsoft.com</owner>
@@ -475,7 +475,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="IndexedDB.DeleteBucketDataSuccess.{IndexedDBBackingStoreType}"
-    enum="BooleanSuccess" expires_after="2027-01-03">
+    enum="BooleanSuccess" expires_after="2027-03-07">
   <owner>leimy@chromium.org</owner>
   <owner>evanstade@microsoft.com</owner>
   <owner>abhishek.shanthkumar@microsoft.com</owner>
@@ -726,7 +726,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="IndexedDB.SQLite.FreelistPercentageAtClose" units="%"
-    expires_after="2026-12-27">
+    expires_after="2027-02-28">
   <owner>leimy@chromium.org</owner>
   <owner>evanstade@microsoft.com</owner>
   <owner>abhishek.shanthkumar@microsoft.com</owner>
@@ -818,6 +818,30 @@ chromium-metrics-reviews@google.com.
   </summary>
 </histogram>
 
+<histogram name="IndexedDB.SqliteMigration.Duration" units="ms"
+    expires_after="2027-08-26">
+  <owner>leimy@chromium.org</owner>
+  <owner>evanstade@microsoft.com</owner>
+  <owner>chrome-owp-storage@google.com</owner>
+  <summary>
+    Logs the duration of a migration attempt. This includes all the extra work
+    during backing store shutdown that is done to execute a migration, whether
+    or not it's successful.
+  </summary>
+</histogram>
+
+<histogram name="IndexedDB.SqliteMigration.Event"
+    enum="IndexedDbMigrationEvent" expires_after="2027-08-26">
+  <owner>leimy@chromium.org</owner>
+  <owner>evanstade@microsoft.com</owner>
+  <owner>chrome-owp-storage@google.com</owner>
+  <summary>
+    Logs the outcome of preliminary work to migrate a LevelDB-backed store to
+    SQLite. This will either be an error, or a value that indicates a migration
+    attempt will proceed. This is logged once per potential migration attempt.
+  </summary>
+</histogram>
+
 <histogram name="IndexedDB.SqliteMigration.RenameBlobResult"
     enum="PlatformFileError" expires_after="2027-02-04">
   <owner>leimy@chromium.org</owner>
@@ -827,6 +851,17 @@ chromium-metrics-reviews@google.com.
   <summary>
     Records the result of renaming a blob file during IndexedDB backing store
     migration from LevelDB to SQLite.
+  </summary>
+</histogram>
+
+<histogram name="IndexedDB.SqliteMigration.Status" enum="IndexedDbStatusType"
+    expires_after="2027-08-26">
+  <owner>leimy@chromium.org</owner>
+  <owner>evanstade@microsoft.com</owner>
+  <owner>chrome-owp-storage@google.com</owner>
+  <summary>
+    Logs the outcome of a migration attempt. If the status is not OK, the
+    migration will have been aborted.
   </summary>
 </histogram>
 
@@ -855,7 +890,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="IndexedDB.TransactionTimeout.{TransactionCount}IsConnected"
-    enum="Boolean" expires_after="2027-01-03">
+    enum="Boolean" expires_after="2027-03-07">
   <owner>fdoray@chromium.org</owner>
   <owner>catan-team@chromium.org</owner>
   <summary>
@@ -951,7 +986,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="LevelDBEnv.SyncResult" enum="PlatformFileError"
-    expires_after="2026-12-27">
+    expires_after="2027-02-28">
   <owner>estade@chromium.org</owner>
   <owner>chrome-owp-storage@google.com</owner>
   <summary>
@@ -1266,7 +1301,7 @@ chromium-metrics-reviews@google.com.
 </histogram>
 
 <histogram name="Storage.Buckets.Parameters.QuotaKb" units="KB"
-    expires_after="2027-01-03">
+    expires_after="2027-03-07">
   <owner>estade@chromium.org</owner>
   <owner>chrome-owp-storage@google.com</owner>
   <summary>

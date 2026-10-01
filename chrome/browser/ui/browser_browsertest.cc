@@ -2,8 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "chrome/browser/ui/browser.h"
-
 #include <stddef.h>
 #include <stdint.h>
 
@@ -67,6 +65,7 @@
 #include "chrome/browser/sessions/session_service_factory.h"
 #include "chrome/browser/themes/theme_service.h"
 #include "chrome/browser/translate/chrome_translate_client.h"
+#include "chrome/browser/ui/bookmarks/bookmark_bar.h"
 #include "chrome/browser/ui/bookmarks/bookmark_bar_controller.h"
 #include "chrome/browser/ui/browser_command_controller.h"
 #include "chrome/browser/ui/browser_commands.h"
@@ -85,6 +84,7 @@
 #include "chrome/browser/ui/exclusive_access/exclusive_access_manager.h"
 #include "chrome/browser/ui/fullscreen/browser_window_fullscreen_controller.h"
 #include "chrome/browser/ui/interaction/browser_elements.h"
+#include "chrome/browser/ui/navigator/browser_navigator_params.h"
 #include "chrome/browser/ui/search/search_tab_helper.h"
 #include "chrome/browser/ui/startup/launch_mode_recorder.h"
 #include "chrome/browser/ui/startup/startup_browser_creator.h"
@@ -93,6 +93,7 @@
 #include "chrome/browser/ui/startup/web_app_startup_utils.h"
 #include "chrome/browser/ui/tabs/pinned_tab_codec.h"
 #include "chrome/browser/ui/tabs/split_tab_metrics.h"
+#include "chrome/browser/ui/tabs/tab_enums.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/ui_features.h"
 #include "chrome/browser/ui/unload_controller.h"
@@ -136,6 +137,7 @@
 #include "components/services/app_service/public/cpp/app_launch_util.h"
 #include "components/sessions/core/command_storage_manager_test_helper.h"
 #include "components/strings/grit/components_strings.h"
+#include "components/tab_groups/tab_group_id.h"
 #include "components/translate/core/browser/language_state.h"
 #include "components/translate/core/common/language_detection_details.h"
 #include "components/web_modal/web_contents_modal_dialog_manager.h"
@@ -144,6 +146,7 @@
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/favicon_status.h"
 #include "content/public/browser/host_zoom_map.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/reload_type.h"
@@ -181,6 +184,7 @@
 #include "ui/base/mojom/window_show_state.mojom.h"
 #include "ui/base/page_transition_types.h"
 #include "ui/base/ui_base_features.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/display/types/display_constants.h"
 #include "ui/views/focus/focus_manager.h"
 
@@ -740,10 +744,10 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, ClearPendingOnFailUnlessNTP) {
   GURL abort_url(embedded_test_server()->GetURL("/nocontent"));
   {
     content::LoadStopObserver stop_observer(web_contents);
-    browser()->OpenURL(
-        OpenURLParams(abort_url, Referrer(), WindowOpenDisposition::CURRENT_TAB,
-                      ui::PAGE_TRANSITION_TYPED, false),
-        /*navigation_handle_callback=*/{});
+    browser()->OpenURL(OpenURLParams::CreateBrowserInitiated(
+                           abort_url, WindowOpenDisposition::CURRENT_TAB,
+                           ui::PAGE_TRANSITION_TYPED),
+                       /*navigation_handle_callback=*/{});
     stop_observer.Wait();
     EXPECT_TRUE(web_contents->GetController().GetPendingEntry());
     EXPECT_EQ(abort_url, web_contents->GetVisibleURL());
@@ -757,10 +761,10 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, ClearPendingOnFailUnlessNTP) {
   // Now navigating to a 204 URL should clear the pending entry.
   {
     content::LoadStopObserver stop_observer(web_contents);
-    browser()->OpenURL(
-        OpenURLParams(abort_url, Referrer(), WindowOpenDisposition::CURRENT_TAB,
-                      ui::PAGE_TRANSITION_TYPED, false),
-        /*navigation_handle_callback=*/{});
+    browser()->OpenURL(OpenURLParams::CreateBrowserInitiated(
+                           abort_url, WindowOpenDisposition::CURRENT_TAB,
+                           ui::PAGE_TRANSITION_TYPED),
+                       /*navigation_handle_callback=*/{});
     stop_observer.Wait();
     EXPECT_FALSE(web_contents->GetController().GetPendingEntry());
     EXPECT_EQ(real_url, web_contents->GetVisibleURL());
@@ -1098,8 +1102,8 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, BeforeUnloadVsBeforeReload) {
   // Navigate to another url, and check that we get a "before unload" dialog.
   GURL url2(url::kAboutBlankURL);
   browser()->OpenURL(
-      OpenURLParams(url2, Referrer(), WindowOpenDisposition::CURRENT_TAB,
-                    ui::PAGE_TRANSITION_TYPED, false),
+      OpenURLParams::CreateBrowserInitiated(
+          url2, WindowOpenDisposition::CURRENT_TAB, ui::PAGE_TRANSITION_TYPED),
       /*navigation_handle_callback=*/{});
 
   alert = ui_test_utils::WaitForAppModalDialog();
@@ -1170,11 +1174,10 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, NewTabFromLinkInGroupedTabOpensInGroup) {
   // Open a new background tab.
   WebContents* const contents =
       browser()->tab_strip_model()->GetActiveWebContents();
-  OpenURLFromTab(
-      contents,
-      OpenURLParams(embedded_test_server()->GetURL("/empty.html"), Referrer(),
-                    WindowOpenDisposition::NEW_BACKGROUND_TAB,
-                    ui::PAGE_TRANSITION_TYPED, false));
+  OpenURLFromTab(contents, OpenURLParams::CreateBrowserInitiated(
+                               embedded_test_server()->GetURL("/empty.html"),
+                               WindowOpenDisposition::NEW_BACKGROUND_TAB,
+                               ui::PAGE_TRANSITION_TYPED));
 
   // It should have inherited the tab group from the first tab.
   EXPECT_EQ(group_id, model->GetTabGroupForTab(1));
@@ -2174,9 +2177,7 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, TabFullscreenHiddenBookmarkBarSplitView) {
   content::WebContents* web_contents =
       browser()->tab_strip_model()->GetActiveWebContents();
 
-  browser()
-      ->GetFeatures()
-      .exclusive_access_manager()
+  ExclusiveAccessManager::From(browser())
       ->fullscreen_controller()
       ->EnterFullscreenModeForTab(web_contents->GetPrimaryMainFrame());
 
@@ -2838,8 +2839,7 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, DISABLED_ChangeDisplayMode) {
   auto* app_contents = app_browser->tab_strip_model()->GetActiveWebContents();
   CheckDisplayModeMQ(u"standalone", app_contents);
 
-  app_browser->GetFeatures()
-      .exclusive_access_manager()
+  ExclusiveAccessManager::From(app_browser)
       ->context()
       ->EnterFullscreen(
           url::Origin(),
@@ -3484,7 +3484,7 @@ IN_PROC_BROWSER_TEST_F(GuestSessionBrowserTest, CreateGuestSessionBrowser) {
   EXPECT_TRUE(guest_profile->IsOffTheRecord());
 
   // Try creating a browser in original non-OTR guest profile - it should fail.
-  EXPECT_EQ(Browser::CreationStatus::kErrorProfileUnsuitable,
+  EXPECT_EQ(BrowserWindowInterface::CreationStatus::kErrorProfileUnsuitable,
             GetBrowserWindowCreationStatusForProfile(
                 *guest_profile->GetOriginalProfile()));
 }
@@ -3611,7 +3611,7 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, DisablePrintOnCrashedTab) {
   content::WebContents* contents = tab_strip_model->GetActiveWebContents();
 
   CommandUpdater* command_updater =
-      browser()->GetFeatures().browser_command_controller();
+      chrome::BrowserCommandController::From(browser());
 
   EXPECT_FALSE(contents->IsCrashed());
   EXPECT_TRUE(command_updater->IsCommandEnabled(IDC_PRINT));
@@ -3638,7 +3638,7 @@ IN_PROC_BROWSER_TEST_F(BrowserTest, DisableZoomOnCrashedTab) {
       zoom_controller->SetZoomLevel(zoom_controller->GetDefaultZoomLevel()));
 
   CommandUpdater* command_updater =
-      browser()->GetFeatures().browser_command_controller();
+      chrome::BrowserCommandController::From(browser());
 
   EXPECT_TRUE(zoom_controller->IsAtDefaultZoom());
   EXPECT_FALSE(contents->IsCrashed());

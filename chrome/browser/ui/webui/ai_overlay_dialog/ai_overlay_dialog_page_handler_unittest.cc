@@ -9,12 +9,14 @@
 #include "base/command_line.h"
 #include "base/files/file_util.h"
 #include "base/test/run_until.h"
+#include "base/test/scoped_feature_list.h"
 #include "base/test/test_future.h"
 #include "chrome/browser/ui/ai_overlay_dialog/ai_overlay_dialog_controller_views.h"
 #include "chrome/browser/ui/browser_window/test/mock_browser_window_interface.h"
 #include "chrome/browser/ui/tabs/tab_model.h"
 #include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "chrome/browser/ui/tabs/test_tab_strip_model_delegate.h"
+#include "chrome/browser/ui/ui_features.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/test/base/chrome_render_view_host_test_harness.h"
 #include "mojo/public/cpp/bindings/pending_receiver.h"
@@ -42,6 +44,17 @@ class MockPage : public ai_overlay_dialog::mojom::Page {
   void SetInputCaptionsVisible(bool visible) override {}
   void SetOutputCaptionsVisible(bool visible) override {}
   void SetUsePersona(bool use_persona) override {}
+  void OnStreamingSessionStateChanged(
+      bool connected,
+      const std::string& session_id,
+      const std::string& error_message) override {}
+  void OnTranscriptions(const std::string& input_transcription,
+                        const std::string& output_transcription) override {}
+  void OnAudioOutput(mojo_base::BigBuffer audio_data,
+                     int64_t sequence_number) override {}
+  void OnGenerationStateChanged(bool started,
+                                bool completed,
+                                bool interrupted) override {}
 };
 
 class AiOverlayDialogPageHandlerTest : public ChromeRenderViewHostTestHarness {
@@ -92,7 +105,22 @@ class AiOverlayDialogPageHandlerTest : public ChromeRenderViewHostTestHarness {
     return handler_remote_;
   }
 
- private:
+  void RecreateHandler() {
+    handler_.reset();
+    controller_.reset();
+    handler_remote_.reset();
+    page_receiver_.reset();
+
+    controller_ = std::make_unique<AiOverlayDialogControllerViews>(
+        &browser_window_interface_);
+    mojo::PendingRemote<ai_overlay_dialog::mojom::Page> page_remote;
+    page_receiver_.Bind(page_remote.InitWithNewPipeAndPassReceiver());
+    handler_ = std::make_unique<AiOverlayDialogPageHandler>(
+        handler_remote_.BindNewPipeAndPassReceiver(), std::move(page_remote),
+        &browser_window_interface_);
+  }
+
+ protected:
   const tabs::TabModel::PreventFeatureInitializationForTesting
       prevent_tab_features_;
   TestTabStripModelDelegate tab_strip_model_delegate_;
@@ -187,6 +215,21 @@ TEST_F(AiOverlayDialogPageHandlerTest, RememberedNotesDictionaryStorage) {
     EXPECT_EQ("updated_val", notes[0]->value);
   }
 
+  // 3c. Verify persistence across resets / controller re-creations.
+  {
+    // Re-create controller and handler to simulate overlay reset.
+    RecreateHandler();
+
+    base::test::TestFuture<
+        std::vector<ai_overlay_dialog::mojom::RememberedNotePtr>>
+        get_future;
+    handler_remote()->GetRememberedNotes(get_future.GetCallback());
+    auto notes = get_future.Take();
+    ASSERT_EQ(1u, notes.size());
+    EXPECT_EQ("test_key", notes[0]->key);
+    EXPECT_EQ("updated_val", notes[0]->value);
+  }
+
   // 4. Delete the note by passing an empty string value.
   {
     auto delete_note =
@@ -238,6 +281,26 @@ TEST_F(AiOverlayDialogPageHandlerTest, SaveDebugFile_WithDebugLogsEnabled) {
            base::ReadFileToString(img_path, &img_contents) &&
            img_contents == "test";
   }));
+}
+
+TEST_F(AiOverlayDialogPageHandlerTest, StreamingSession_DisabledByDefault) {
+  // When kAiOverlayDialogUseMes is not enabled, calling StartStreamingSession
+  // should safely no-op.
+  handler_remote()->StartStreamingSession();
+  handler_remote()->SendTextInput("hello");
+  handler_remote()->StopStreamingSession();
+  handler_remote().FlushForTesting();
+}
+
+TEST_F(AiOverlayDialogPageHandlerTest, StreamingSession_EnabledWithMes) {
+  base::test::ScopedFeatureList feature_list;
+  feature_list.InitWithFeaturesAndParameters(
+      {{features::kAiOverlayDialog, {{"use_mes", "true"}}}}, {});
+
+  handler_remote()->StartStreamingSession();
+  handler_remote()->SendTextInput("hello");
+  handler_remote()->StopStreamingSession();
+  handler_remote().FlushForTesting();
 }
 
 }  // namespace

@@ -58,6 +58,7 @@
 #include "third_party/blink/public/mojom/fetch/fetch_api_request.mojom-blink.h"
 #include "third_party/blink/public/mojom/frame/frame.mojom-blink.h"
 #include "third_party/blink/public/mojom/loader/request_context_frame_type.mojom-blink.h"
+#include "third_party/blink/public/mojom/navigation/navigation_params.mojom-blink.h"
 #include "third_party/blink/public/platform/modules/service_worker/web_service_worker_network_provider.h"
 #include "third_party/blink/public/platform/task_type.h"
 #include "third_party/blink/public/platform/web_content_settings_client.h"
@@ -68,6 +69,7 @@
 #include "third_party/blink/public/web/web_navigation_type.h"
 #include "third_party/blink/renderer/bindings/core/v8/script_controller.h"
 #include "third_party/blink/renderer/bindings/core/v8/serialization/serialized_script_value.h"
+#include "third_party/blink/renderer/core/ad_tracker/extension_script_tracker.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/document_init.h"
 #include "third_party/blink/renderer/core/dom/element.h"
@@ -250,7 +252,7 @@ void FrameLoader::Trace(Visitor* visitor) const {
 
 void FrameLoader::Init(
     const DocumentToken& document_token,
-    const base::UnguessableToken& initiator_state_token,
+    const InitiatorStateToken& initiator_state_token,
     std::unique_ptr<PolicyContainer> policy_container,
     const StorageKey& storage_key,
     ukm::SourceId document_ukm_source_id,
@@ -719,6 +721,14 @@ void FrameLoader::StartNavigation(FrameLoadRequest& request,
     element->CancelPendingLazyLoad();
 
   ResourceRequest& resource_request = request.GetResourceRequest();
+  String script_injector_host;
+  if (GetDocumentLoader() &&
+      GetDocumentLoader()->GetScriptInjectionPolicy() ==
+          mojom::blink::ScriptInjectionPolicy::kNavigationProtection) {
+    if (auto* extension_script_tracker = frame_->GetExtensionScriptTracker()) {
+      script_injector_host = extension_script_tracker->ExtensionScriptInStack();
+    }
+  }
   const KURL& url = resource_request.Url();
   LocalDOMWindow* origin_window = request.GetOriginWindow();
   NavigationPolicy policy = request.GetNavigationPolicy();
@@ -1028,16 +1038,6 @@ void FrameLoader::StartNavigation(FrameLoadRequest& request,
           ? CSPDisposition::DO_NOT_CHECK
           : CSPDisposition::CHECK;
 
-  // Mark this frame as initiator if the request has not specified an initiator.
-  base::UnguessableToken initiator_state_token =
-      request.GetInitiatorStateToken().is_empty()
-          ? frame_->GetInitiatorStateToken()
-          : request.GetInitiatorStateToken();
-  CHECK(!initiator_state_token.is_empty());
-  DocumentToken initiator_document_token =
-      request.GetInitiatorDocumentToken().value_or(
-          frame_->GetDocument()->Token());
-
   if (!policy_override)
   Client()->BeginNavigation(
       resource_request, request.GetRequestorBaseURL(), request.GetFrameType(),
@@ -1051,13 +1051,13 @@ void FrameLoader::StartNavigation(FrameLoadRequest& request,
       request.Form(), should_check_main_world_csp, request.GetBlobURLToken(),
       request.GetInputStartTime(), request.GetCreationTime(),
       request.HrefTranslate().GetString(), request.GetInitiatorFrameToken(),
-      initiator_state_token, initiator_document_token,
+      request.GetInitiatorStateToken(), request.GetInitiatorDocumentToken(),
       request.GetSourceLocation(),
       request.TakeInitiatorNavigationStateKeepAliveHandle(),
       request.IsContainerInitiated(),
       request.GetWindowFeatures().explicit_opener,
       request.TakeResumeDeferredCommitListener(),
-      request.GetScriptToolInvocationId());
+      request.GetScriptToolInvocationId(), script_injector_host);
 }
 
 static void FillStaticResponseIfNeeded(WebNavigationParams* params,

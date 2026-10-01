@@ -392,45 +392,43 @@ class LocalNetworkAccessWebSocketsBrowserTest
 };
 
 IN_PROC_BROWSER_TEST_F(LocalNetworkAccessWebSocketsBrowserTest,
-                       DISABLED_LNAWebSocketConnectionHasPermission) {
+                       LNAWebSocketConnectionHasPermission) {
   bubble_factory()->set_response_type(ACCEPT_ALL);
   ConnectToLNAWebSocket("/websocket/connect_to.html");
   EXPECT_EQ("PASS", WaitAndGetTitle());
 }
 
 IN_PROC_BROWSER_TEST_F(LocalNetworkAccessWebSocketsBrowserTest,
-                       DISABLED_LNAWebSocketConnectionDeniedPermission) {
+                       LNAWebSocketConnectionDeniedPermission) {
   bubble_factory()->set_response_type(DENY_ALL);
   ConnectToLNAWebSocket("/websocket/connect_to.html");
   EXPECT_EQ("FAIL", WaitAndGetTitle());
 }
 
 IN_PROC_BROWSER_TEST_F(LocalNetworkAccessWebSocketsBrowserTest,
-                       DISABLED_LNAInsecureWebSocketConnectionHasPermission) {
+                       LNAInsecureWebSocketConnectionHasPermission) {
   bubble_factory()->set_response_type(ACCEPT_ALL);
   ConnectToInsecureLNAWebSocket("/websocket/connect_to.html");
   EXPECT_EQ("PASS", WaitAndGetTitle());
 }
 
 IN_PROC_BROWSER_TEST_F(LocalNetworkAccessWebSocketsBrowserTest,
-                       DISABLED_LNAInsecureWebSocketDeniedPermission) {
+                       LNAInsecureWebSocketDeniedPermission) {
   bubble_factory()->set_response_type(DENY_ALL);
   ConnectToInsecureLNAWebSocket("/websocket/connect_to.html");
   EXPECT_EQ("FAIL", WaitAndGetTitle());
 }
 
-IN_PROC_BROWSER_TEST_F(
-    LocalNetworkAccessWebSocketsBrowserTest,
-    DISABLED_LNAInsecureWebSocketTargetAddressSpaceHasPermission) {
+IN_PROC_BROWSER_TEST_F(LocalNetworkAccessWebSocketsBrowserTest,
+                       LNAInsecureWebSocketTargetAddressSpaceHasPermission) {
   bubble_factory()->set_response_type(ACCEPT_ALL);
   ConnectToInsecureLNAWebSocketWithTargetAddressSpace(
       "/websocket/connect_to_with_target_address_space_loopback.html");
   EXPECT_EQ("PASS", WaitAndGetTitle());
 }
 
-IN_PROC_BROWSER_TEST_F(
-    LocalNetworkAccessWebSocketsBrowserTest,
-    DISABLED_LNAInsecureWebSocketTargetAddressSpaceDeniedPermission) {
+IN_PROC_BROWSER_TEST_F(LocalNetworkAccessWebSocketsBrowserTest,
+                       LNAInsecureWebSocketTargetAddressSpaceDeniedPermission) {
   bubble_factory()->set_response_type(DENY_ALL);
   ConnectToInsecureLNAWebSocketWithTargetAddressSpace(
       "/websocket/connect_to_with_target_address_space_loopback.html");
@@ -438,30 +436,28 @@ IN_PROC_BROWSER_TEST_F(
 }
 
 IN_PROC_BROWSER_TEST_F(LocalNetworkAccessWebSocketsBrowserTest,
-                       DISABLED_LNAWorkerWebSocketConnectionHasPermission) {
+                       LNAWorkerWebSocketConnectionHasPermission) {
   bubble_factory()->set_response_type(ACCEPT_ALL);
   ConnectToLNAWebSocket("/websocket/connect_to_using_worker.html");
   EXPECT_EQ("PASS", WaitAndGetTitle());
 }
 
 IN_PROC_BROWSER_TEST_F(LocalNetworkAccessWebSocketsBrowserTest,
-                       DISABLED_LNAWorkerWebSocketConnectionDeniedPermission) {
+                       LNAWorkerWebSocketConnectionDeniedPermission) {
   bubble_factory()->set_response_type(DENY_ALL);
   ConnectToLNAWebSocket("/websocket/connect_to_using_worker.html");
   EXPECT_EQ("FAIL", WaitAndGetTitle());
 }
 
-IN_PROC_BROWSER_TEST_F(
-    LocalNetworkAccessWebSocketsBrowserTest,
-    DISABLED_LNAWorkerInsecureWebSocketConnectionHasPermission) {
+IN_PROC_BROWSER_TEST_F(LocalNetworkAccessWebSocketsBrowserTest,
+                       LNAWorkerInsecureWebSocketConnectionHasPermission) {
   bubble_factory()->set_response_type(ACCEPT_ALL);
   ConnectToInsecureLNAWebSocket("/websocket/connect_to_using_worker.html");
   EXPECT_EQ("PASS", WaitAndGetTitle());
 }
 
-IN_PROC_BROWSER_TEST_F(
-    LocalNetworkAccessWebSocketsBrowserTest,
-    DISABLED_LNAWorkerInsecureWebSocketConnectionDeniedPermission) {
+IN_PROC_BROWSER_TEST_F(LocalNetworkAccessWebSocketsBrowserTest,
+                       LNAWorkerInsecureWebSocketConnectionDeniedPermission) {
   bubble_factory()->set_response_type(DENY_ALL);
   ConnectToInsecureLNAWebSocket("/websocket/connect_to_using_worker.html");
   EXPECT_EQ("FAIL", WaitAndGetTitle());
@@ -1174,6 +1170,39 @@ IN_PROC_BROWSER_TEST_F(WebSocketBrowserHTTPSConnectToTest,
   std::string message;
   EXPECT_TRUE(message_queue1.WaitForMessage(&message));
   EXPECT_THAT(message, Not(HasSubstr("cookie=1")));
+  EXPECT_EQ("PASS", WaitAndGetTitle());
+}
+
+IN_PROC_BROWSER_TEST_F(WebSocketBrowserHTTPSConnectToTest,
+                       ConnectFromDedicatedWorker) {
+  wss_server_.SetSSLConfig(net::EmbeddedTestServer::CERT_TEST_NAMES);
+  ASSERT_TRUE(wss_server_.Start());
+  ConnectTo(kHostA,
+            net::test_server::GetWebSocketURL(wss_server_, kHostA,
+                                              "/echo-with-no-extension"),
+            "/websocket/connect_to_using_worker.html");
+  EXPECT_EQ("PASS", WaitAndGetTitle());
+}
+
+IN_PROC_BROWSER_TEST_F(WebSocketBrowserHTTPSConnectToTest,
+                       ConnectFromSharedWorker) {
+  wss_server_.SetSSLConfig(net::EmbeddedTestServer::CERT_TEST_NAMES);
+  ASSERT_TRUE(wss_server_.Start());
+  ConnectTo(kHostA,
+            net::test_server::GetWebSocketURL(wss_server_, kHostA,
+                                              "/echo-with-no-extension"),
+            "/websocket/connect_to_using_shared_worker.html");
+  EXPECT_EQ("PASS", WaitAndGetTitle());
+}
+
+IN_PROC_BROWSER_TEST_F(WebSocketBrowserHTTPSConnectToTest,
+                       ConnectFromServiceWorker) {
+  wss_server_.SetSSLConfig(net::EmbeddedTestServer::CERT_TEST_NAMES);
+  ASSERT_TRUE(wss_server_.Start());
+  ConnectTo(kHostA,
+            net::test_server::GetWebSocketURL(wss_server_, kHostA,
+                                              "/echo-with-no-extension"),
+            "/websocket/connect_to_using_service_worker.html");
   EXPECT_EQ("PASS", WaitAndGetTitle());
 }
 

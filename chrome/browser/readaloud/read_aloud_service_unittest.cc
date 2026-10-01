@@ -25,12 +25,13 @@
 #include "components/dom_distiller/core/proto/distilled_page.pb.h"
 #include "components/media_router/browser/test/mock_media_router.h"
 #include "content/public/browser/navigation_controller.h"
+#include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/web_contents.h"
 #include "media/audio/audio_device_description.h"
 #include "media/base/audio_parameters.h"
 #include "media/mojo/mojom/audio_data_pipe.mojom.h"
 #include "media/mojo/mojom/audio_output_stream.mojom.h"
-#include "mojo/public/mojom/base/work_in_progress.mojom.h"
+#include "mojo/public/cpp/test_support/test_utils.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "ui/accessibility/accessibility_features.h"
@@ -38,6 +39,8 @@
 namespace readaloud {
 
 namespace {
+
+constexpr char kTestVoiceId[] = "msf00006";
 
 class MockDelegate : public ReadAloudService::Delegate {
  public:
@@ -81,6 +84,10 @@ class MockDelegate : public ReadAloudService::Delegate {
               (const GURL& url, bool is_readable),
               (override));
   MOCK_METHOD(void, OnNativeDestroyed, (), (override));
+  MOCK_METHOD(void,
+              OnTextChunked,
+              (const std::vector<std::u16string>&),
+              (override));
 };
 
 class MockDomDistillerService
@@ -122,13 +129,18 @@ class FakePlaybackController
 
   void Bind(
       mojo::PendingReceiver<read_aloud::mojom::ReadAloudPlaybackController>
-          receiver) {
+          receiver,
+      mojo::PendingRemote<read_aloud::mojom::ReadAloudPlaybackControllerClient>
+          client) {
     receiver_.reset();
     receiver_.Bind(std::move(receiver));
+    client_.reset();
+    client_.Bind(std::move(client));
   }
 
   void Reset() {
     receiver_.reset();
+    client_.reset();
     received_segments_.clear();
     last_audio_stream_.reset();
     last_data_pipe_.reset();
@@ -211,10 +223,14 @@ class FakePlaybackController
   }
   bool has_audio_stream() const { return last_audio_stream_.is_valid(); }
   bool has_data_pipe() const { return !last_data_pipe_.is_null(); }
+  read_aloud::mojom::ReadAloudPlaybackControllerClient* client() {
+    return client_.get();
+  }
 
  private:
   mojo::Receiver<read_aloud::mojom::ReadAloudPlaybackController> receiver_{
       this};
+  mojo::Remote<read_aloud::mojom::ReadAloudPlaybackControllerClient> client_;
   std::vector<read_aloud::mojom::TextSegmentPtr> received_segments_;
   mojo::PendingRemote<media::mojom::AudioOutputStream> last_audio_stream_;
   media::mojom::ReadWriteAudioDataPipePtr last_data_pipe_;
@@ -235,9 +251,7 @@ class ReadAloudServiceTest : public ChromeRenderViewHostTestHarness {
  public:
   void SetUp() override {
     ChromeRenderViewHostTestHarness::SetUp();
-    scoped_feature_list_.InitWithFeatures(
-        {features::kReadAloudNative, mojo_base::mojom::kMojomWorkInProgress},
-        {});
+    scoped_feature_list_.InitAndEnableFeature(features::kReadAloudNative);
 
     dom_distiller::DomDistillerServiceFactory::GetInstance()->SetTestingFactory(
         profile(), base::BindRepeating(&BuildMockDomDistillerService));
@@ -315,9 +329,11 @@ class ReadAloudServiceTest : public ChromeRenderViewHostTestHarness {
 
   void BindController(
       mojo::PendingReceiver<read_aloud::mojom::ReadAloudPlaybackController>
-          receiver) {
+          receiver,
+      mojo::PendingRemote<read_aloud::mojom::ReadAloudPlaybackControllerClient>
+          client) {
     if (fake_controller_) {
-      fake_controller_->Bind(std::move(receiver));
+      fake_controller_->Bind(std::move(receiver), std::move(client));
     }
   }
 
@@ -368,9 +384,9 @@ TEST_F(ReadAloudServiceTest, DistillPageAndArticleReady) {
   // Simulate DomDistiller finishing distillation with multi-page article.
   dom_distiller::DistilledArticleProto proto;
   dom_distiller::DistilledPageProto* page1 = proto.add_pages();
-  page1->set_html("First page content");
+  page1->set_text_content("First page content");
   dom_distiller::DistilledPageProto* page2 = proto.add_pages();
-  page2->set_html("Second page content");
+  page2->set_text_content("Second page content");
 
   delegate_ptr->OnArticleReady(&proto);
 
@@ -389,7 +405,7 @@ TEST_F(ReadAloudServiceTest, DistillPageAndArticleReady) {
   EXPECT_EQ(u"Second page content", segments[1]->text);
 }
 
-TEST_F(ReadAloudServiceTest, DistillPageAndArticleReadyEmptyPageHtml) {
+TEST_F(ReadAloudServiceTest, DistillPageAndArticleReadyWithEmptyPage) {
   NavigateAndCommit(GURL("https://www.example.com/article"));
 
   SetFakeController(std::make_unique<FakePlaybackController>());
@@ -416,9 +432,9 @@ TEST_F(ReadAloudServiceTest, DistillPageAndArticleReadyEmptyPageHtml) {
   // Distilled article where second page is empty string.
   dom_distiller::DistilledArticleProto proto;
   dom_distiller::DistilledPageProto* page1 = proto.add_pages();
-  page1->set_html("Page 1 text");
+  page1->set_text_content("Page 1 text");
   dom_distiller::DistilledPageProto* page2 = proto.add_pages();
-  page2->set_html("");
+  page2->set_text_content("");
 
   delegate_ptr->OnArticleReady(&proto);
   base::RunLoop().RunUntilIdle();
@@ -994,14 +1010,16 @@ TEST_F(ReadAloudServiceTest, VoicePreviewDispatchesPlayingAndStoppedStates) {
   MockDelegate* delegate_ptr = delegate.get();
   service()->SetDelegate(std::move(delegate));
 
+  testing::InSequence s;
   EXPECT_CALL(*delegate_ptr,
               OnVoicePreviewPlaybackStateChanged(
-                  "msf00006", ReadAloudService::PlaybackState::kPlaying))
+                  kTestVoiceId, ReadAloudService::PlaybackState::kBuffering))
       .Times(1);
-  service()->PreviewVoice("msf00006");
+  service()->PreviewVoice(kTestVoiceId);
 
-  EXPECT_CALL(*delegate_ptr, OnVoicePreviewPlaybackStateChanged(
-                                 "", ReadAloudService::PlaybackState::kStopped))
+  EXPECT_CALL(*delegate_ptr,
+              OnVoicePreviewPlaybackStateChanged(
+                  /*voice_id=*/"", ReadAloudService::PlaybackState::kStopped))
       .Times(1);
   service()->StopVoicePreview();
 
@@ -1025,9 +1043,9 @@ TEST_F(ReadAloudServiceTest, PreviewVoicePausesActivePlayback) {
       .Times(1);
   EXPECT_CALL(*delegate_ptr,
               OnVoicePreviewPlaybackStateChanged(
-                  "msf00006", ReadAloudService::PlaybackState::kPlaying))
+                  kTestVoiceId, ReadAloudService::PlaybackState::kBuffering))
       .Times(1);
-  service()->PreviewVoice("msf00006");
+  service()->PreviewVoice(kTestVoiceId);
 
   // Stopping playback returns article state to stopped before teardown.
   EXPECT_CALL(*delegate_ptr,
@@ -1041,7 +1059,7 @@ TEST_F(ReadAloudServiceTest, PreviewVoicePausesActivePlayback) {
 TEST_F(ReadAloudServiceTest, PlayResumesPlaybackAfterVoicePreview) {
   std::unique_ptr<content::WebContents> test_contents = CreateTestWebContents();
   service()->Play(test_contents.get());
-  service()->PreviewVoice("msf00006");
+  service()->PreviewVoice(kTestVoiceId);
 
   auto delegate = std::make_unique<testing::StrictMock<MockDelegate>>();
   MockDelegate* delegate_ptr = delegate.get();
@@ -1142,6 +1160,32 @@ TEST_F(ReadAloudServiceTest,
             EXPECT_EQ(response_bytes.size(), 0u);
           }));
   EXPECT_TRUE(callback_called);
+}
+
+TEST_F(ReadAloudServiceTest, OnTextChunkedForwardsToDelegate) {
+  auto delegate = std::make_unique<testing::StrictMock<MockDelegate>>();
+  MockDelegate* delegate_ptr = delegate.get();
+  service()->SetDelegate(std::move(delegate));
+
+  std::vector<std::u16string> chunks = {u"First chunk.", u"Second chunk!"};
+
+  EXPECT_CALL(*delegate_ptr, OnTextChunked(chunks)).Times(1);
+  EXPECT_CALL(*delegate_ptr, OnNativeDestroyed()).Times(1);
+
+  service()->OnTextChunked(chunks);
+}
+
+TEST_F(ReadAloudServiceTest, OnTextChunkedExceedsLimit) {
+  NavigateAndCommit(GURL("https://www.example.com/article"));
+  SetFakeController(std::make_unique<FakePlaybackController>());
+  service()->Initialize(web_contents());
+
+  mojo::test::BadMessageObserver bad_message_observer;
+  std::vector<std::u16string> chunks(readaloud::kMaxTextChunks + 1, u"chunk");
+  fake_controller()->client()->OnTextChunked(chunks);
+
+  EXPECT_EQ("Received invalid chunk payload",
+            bad_message_observer.WaitForBadMessage());
 }
 
 }  // namespace readaloud

@@ -149,6 +149,7 @@
 #include "net/test/embedded_test_server/register_basic_auth_handler.h"
 #include "net/traffic_annotation/network_traffic_annotation_test_helper.h"
 #include "remoting/host/chromeos/features.h"
+#include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "services/network/public/cpp/weak_wrapper_shared_url_loader_factory.h"
 #include "services/network/test/test_url_loader_factory.h"
 #include "testing/gmock/include/gmock/gmock.h"
@@ -569,6 +570,8 @@ class WizardControllerFlowTest : public WizardControllerTest {
     device_disabled_screen_view_ =
         std::make_unique<MockDeviceDisabledScreenView>();
     MockScreen(std::make_unique<DeviceDisabledScreen>(
+        g_browser_process->platform_part()
+            ->device_restriction_schedule_controller(),
         device_disabled_screen_view_->AsWeakPtr()));
     EXPECT_CALL(*device_disabled_screen_view_, Show(_)).Times(0);
 

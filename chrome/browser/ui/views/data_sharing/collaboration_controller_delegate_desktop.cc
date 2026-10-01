@@ -32,6 +32,8 @@
 #include "components/signin/public/base/signin_metrics.h"
 #include "components/signin/public/identity_manager/account_info.h"
 #include "ui/base/base_window.h"
+#include "ui/base/page_transition_types.h"
+#include "ui/base/window_open_disposition.h"
 #include "ui/views/bubble/bubble_dialog_model_host.h"
 #include "ui/views/widget/widget.h"
 
@@ -140,7 +142,8 @@ DialogText GetPromptDialogTextFromStatus(
 void ShowSignInAndSyncUi(Profile* profile,
                          signin_metrics::AccessPoint access_point) {
   signin_ui_util::EnableSyncFromSingleAccountPromo(
-      profile, GetAccountInfoFromProfile(profile), access_point);
+      profile, GetAccountInfoFromProfile(profile).GetCoreAccountInfo(),
+      access_point);
 }
 
 signin_metrics::AccessPoint GetAccessPointForFlowType(
@@ -192,8 +195,8 @@ void CollaborationControllerDelegateDesktop::ShowError(const ErrorInfo& error,
 
   DataSharingBubbleController::From(browser_)->Close();
 
-  ShowErrorDialog(error);
   error_ui_callback_ = std::move(result);
+  ShowErrorDialog(error);
 }
 
 void CollaborationControllerDelegateDesktop::Cancel(ResultCallback result) {
@@ -209,8 +212,8 @@ void CollaborationControllerDelegateDesktop::ShowAuthenticationUi(
     ResultCallback result) {
   access_point_ = GetAccessPointForFlowType(flow_type);
 
-  MaybeShowSignInOrSyncPromptDialog();
   authentication_ui_callback_ = std::move(result);
+  MaybeShowSignInOrSyncPromptDialog();
 }
 
 void CollaborationControllerDelegateDesktop::NotifySignInAndSyncStatusChange() {
@@ -430,8 +433,14 @@ void CollaborationControllerDelegateDesktop::ShowErrorDialog(
   }
 
   std::unique_ptr<ui::DialogModel> dialog_model = builder.Build();
-  error_dialog_widget_ =
+  // Showing the dialog may run a nested loop on some platforms, during which
+  // the flow may exit and destroy `this`.
+  auto weak_this = weak_ptr_factory_.GetWeakPtr();
+  views::Widget* widget =
       chrome::ShowBrowserModal(browser_, std::move(dialog_model));
+  if (weak_this) {
+    error_dialog_widget_ = widget;
+  }
 }
 
 #if BUILDFLAG(IS_WIN) || BUILDFLAG(IS_MAC) || BUILDFLAG(IS_LINUX)
@@ -595,8 +604,14 @@ void CollaborationControllerDelegateDesktop::
   }
 
   std::unique_ptr<ui::DialogModel> dialog_model = dialog_builder.Build();
-  prompt_dialog_widget_ =
+  // Showing the dialog may run a nested loop on some platforms, during which
+  // the flow may exit and destroy `this`.
+  auto weak_this = weak_ptr_factory_.GetWeakPtr();
+  views::Widget* widget =
       chrome::ShowBrowserModal(browser_, std::move(dialog_model));
+  if (weak_this) {
+    prompt_dialog_widget_ = widget;
+  }
 }
 
 void CollaborationControllerDelegateDesktop::OnPromptDialogOk() {

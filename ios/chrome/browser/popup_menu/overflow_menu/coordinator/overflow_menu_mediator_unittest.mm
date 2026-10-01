@@ -83,6 +83,7 @@
 #import "ios/chrome/browser/shared/model/prefs/browser_prefs.h"
 #import "ios/chrome/browser/shared/model/prefs/pref_names.h"
 #import "ios/chrome/browser/shared/model/profile/test/test_profile_ios.h"
+#import "ios/chrome/browser/shared/model/profile/test/test_profile_manager_ios.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_list_observer_bridge.h"
 #import "ios/chrome/browser/shared/model/web_state_list/web_state_opener.h"
@@ -90,11 +91,11 @@
 #import "ios/chrome/browser/shared/public/commands/popup_menu_commands.h"
 #import "ios/chrome/browser/shared/public/features/features.h"
 #import "ios/chrome/browser/shared/ui/util/uikit_ui_util.h"
+#import "ios/chrome/browser/signin/model/account_profile_mapper.h"
 #import "ios/chrome/browser/signin/model/authentication_service.h"
 #import "ios/chrome/browser/signin/model/authentication_service_factory.h"
 #import "ios/chrome/browser/signin/model/chrome_account_manager_service.h"
 #import "ios/chrome/browser/signin/model/chrome_account_manager_service_factory.h"
-#import "ios/chrome/browser/signin/model/fake_authentication_service_delegate.h"
 #import "ios/chrome/browser/signin/model/fake_system_identity.h"
 #import "ios/chrome/browser/signin/model/fake_system_identity_manager.h"
 #import "ios/chrome/browser/signin/model/identity_manager_factory.h"
@@ -206,19 +207,18 @@ class OverflowMenuMediatorTest : public PlatformTest {
                 ProfileIOS, password_manager::MockPasswordStoreInterface>));
     builder.AddTestingFactory(
         AuthenticationServiceFactory::GetInstance(),
-        AuthenticationServiceFactory::GetFactoryWithDelegateForTesting(
-            std::make_unique<FakeAuthenticationServiceDelegate>()));
+        AuthenticationServiceFactory::GetDefaultFactory());
     builder.AddTestingFactory(SyncServiceFactory::GetInstance(),
                               base::BindRepeating(&CreateTestSyncService));
 
-    profile_ = std::move(builder).Build();
+    profile_ = profile_manager_.AddProfileWithBuilder(std::move(builder));
 
     web::test::OverrideJavaScriptFeatures(
-        profile_.get(),
+        profile_,
         {language::LanguageDetectionJavaScriptFeature::GetInstance()});
 
     // Set up the TestBrowser.
-    browser_ = std::make_unique<TestBrowser>(profile_.get());
+    browser_ = std::make_unique<TestBrowser>(profile_);
 
     // Set up the WebStateList.
     auto navigation_manager = std::make_unique<ToolbarTestNavigationManager>();
@@ -233,13 +233,13 @@ class OverflowMenuMediatorTest : public PlatformTest {
         std::make_unique<web::FakeWebState>();
     test_web_state->SetNavigationManager(std::move(navigation_manager));
     test_web_state->SetLoading(true);
-    test_web_state->SetBrowserState(profile_.get());
+    test_web_state->SetBrowserState(profile_);
     web_state_ = test_web_state.get();
 
     auto frames_manager = std::make_unique<web::FakeWebFramesManager>();
     auto main_frame = web::FakeWebFrame::CreateMainWebFrame(
         /*security_origin=*/url);
-    main_frame->set_browser_state(profile_.get());
+    main_frame->set_browser_state(profile_);
     frames_manager->AddWebFrame(std::move(main_frame));
     web::ContentWorld content_world =
         language::LanguageDetectionJavaScriptFeature::GetInstance()
@@ -271,10 +271,18 @@ class OverflowMenuMediatorTest : public PlatformTest {
     // observers when browser_ gets destroyed.
     [mediator_ disconnect];
     [orderer_ disconnect];
+    mediator_ = nil;
+    orderer_ = nil;
+    model_ = nil;
+    baseViewController_ = nil;
     overlay_presenter_->SetPresentationContext(nullptr);
     overlay_presenter_ = nullptr;
     web_state_ = nullptr;
+    navigation_item_.reset();
+    reading_list_model_.reset();
+    bookmark_model_ = nullptr;
     browser_.reset();
+    profile_ = nullptr;
 
     CleanupNSUserDefaults();
 
@@ -337,7 +345,7 @@ class OverflowMenuMediatorTest : public PlatformTest {
   }
 
   void SetUpBookmarks() {
-    bookmark_model_ = ios::BookmarkModelFactory::GetForProfile(profile_.get());
+    bookmark_model_ = ios::BookmarkModelFactory::GetForProfile(profile_);
     DCHECK(bookmark_model_);
     bookmarks::test::WaitForBookmarkModelToLoad(bookmark_model_);
     mediator_.bookmarkModel = bookmark_model_;
@@ -364,7 +372,7 @@ class OverflowMenuMediatorTest : public PlatformTest {
         ReaderModeTabHelper::FromWebState(web_state_);
     if (!tab_helper) {
       ReaderModeTabHelper::CreateForWebState(
-          web_state_, DistillerServiceFactory::GetForProfile(profile_.get()));
+          web_state_, DistillerServiceFactory::GetForProfile(profile_));
       SnapshotSourceTabHelper::CreateForWebState(web_state_);
       tab_helper = ReaderModeTabHelper::FromWebState(web_state_);
     }
@@ -383,7 +391,7 @@ class OverflowMenuMediatorTest : public PlatformTest {
     auto frames_manager = std::make_unique<web::FakeWebFramesManager>();
     auto main_frame = web::FakeWebFrame::CreateMainWebFrame(
         /*security_origin=*/url);
-    main_frame->set_browser_state(profile_.get());
+    main_frame->set_browser_state(profile_);
     frames_manager->AddWebFrame(std::move(main_frame));
     web::ContentWorld content_world =
         language::LanguageDetectionJavaScriptFeature::GetInstance()
@@ -473,7 +481,7 @@ class OverflowMenuMediatorTest : public PlatformTest {
   }
 
   signin::IdentityManager* identity_manager() {
-    return IdentityManagerFactory::GetForProfile(profile_.get());
+    return IdentityManagerFactory::GetForProfile(profile_);
   }
 
   FakeSystemIdentityManager* fake_system_identity_manager() {
@@ -485,8 +493,8 @@ class OverflowMenuMediatorTest : public PlatformTest {
     const FakeSystemIdentity* identity = [FakeSystemIdentity fakeIdentity1];
     fake_system_identity_manager()->AddIdentityWithUnknownCapabilities(
         identity);
-    AuthenticationServiceFactory::GetForProfile(profile_.get())
-        ->SignIn(identity, signin_metrics::AccessPoint::kStartPage);
+    AuthenticationServiceFactory::GetForProfile(profile_)->SignIn(
+        identity, signin_metrics::AccessPoint::kStartPage);
     CoreAccountInfo core_account_info =
         identity_manager()->GetPrimaryAccountInfo(
             signin::ConsentLevel::kSignin);
@@ -503,21 +511,22 @@ class OverflowMenuMediatorTest : public PlatformTest {
   // AuthenticationServiceFactory. Valid local state prefs for testing the
   // mediator are usually hosted in `localStatePrefs_`.
   IOSChromeScopedTestingLocalState scoped_testing_local_state_;
-  std::unique_ptr<TestProfileIOS> profile_;
+  TestProfileManagerIOS profile_manager_;
+  raw_ptr<TestProfileIOS> profile_ = nullptr;
   std::unique_ptr<Browser> browser_;
   raw_ptr<OverlayPresenter> overlay_presenter_ = nullptr;
 
   FakeOverlayPresentationContext presentation_context_;
-  OverflowMenuModel* model_;
-  OverflowMenuMediator* mediator_;
-  OverflowMenuOrderer* orderer_;
-  raw_ptr<bookmarks::BookmarkModel> bookmark_model_;
+  OverflowMenuModel* model_ = nil;
+  OverflowMenuMediator* mediator_ = nil;
+  OverflowMenuOrderer* orderer_ = nil;
+  raw_ptr<bookmarks::BookmarkModel> bookmark_model_ = nullptr;
   std::unique_ptr<ReadingListModel> reading_list_model_;
   std::unique_ptr<TestingPrefServiceSimple> profilePrefs_;
   std::unique_ptr<TestingPrefServiceSimple> localStatePrefs_;
-  raw_ptr<web::FakeWebState> web_state_;
+  raw_ptr<web::FakeWebState> web_state_ = nullptr;
   std::unique_ptr<web::NavigationItem> navigation_item_;
-  UIViewController* baseViewController_;
+  UIViewController* baseViewController_ = nil;
   translate::LanguageDetectionModel language_detection_model_;
   TestingPrefServiceSimple pref_service_;
   feature_engagement::test::MockTracker tracker_;
@@ -556,10 +565,6 @@ TEST_F(OverflowMenuMediatorTest, TestMenuItemsCount) {
   if (send_tab_to_self::AreIOSTabRemindersEnabled() && !mediator_.incognito) {
     number_of_action_items++;
   }
-  if (IsHideToolbarEnabled()) {
-    number_of_action_items++;
-  }
-
   // New Tab, New Incognito Tab.
   NSUInteger number_of_tab_actions = 2;
   BOOL showReloadStopAction;
@@ -603,8 +608,8 @@ TEST_F(OverflowMenuMediatorTest, FeedbackItemHiddenWhenCapabilityFalse) {
 
   FakeSystemIdentity* identity = [FakeSystemIdentity fakeIdentity1];
   fake_system_identity_manager()->AddIdentityWithUnknownCapabilities(identity);
-  AuthenticationServiceFactory::GetForProfile(profile_.get())
-      ->SignIn(identity, signin_metrics::AccessPoint::kStartPage);
+  AuthenticationServiceFactory::GetForProfile(profile_)->SignIn(
+      identity, signin_metrics::AccessPoint::kStartPage);
 
   CoreAccountInfo core_account_info =
       identity_manager()->GetPrimaryAccountInfo(signin::ConsentLevel::kSignin);
@@ -643,8 +648,8 @@ TEST_F(OverflowMenuMediatorTest, TestFeedbackItemShownWhenCapabilityTrue) {
 
   const FakeSystemIdentity* identity = [FakeSystemIdentity fakeIdentity1];
   fake_system_identity_manager()->AddIdentityWithUnknownCapabilities(identity);
-  AuthenticationServiceFactory::GetForProfile(profile_.get())
-      ->SignIn(identity, signin_metrics::AccessPoint::kStartPage);
+  AuthenticationServiceFactory::GetForProfile(profile_)->SignIn(
+      identity, signin_metrics::AccessPoint::kStartPage);
 
   CoreAccountInfo core_account_info =
       identity_manager()->GetPrimaryAccountInfo(signin::ConsentLevel::kSignin);
@@ -775,43 +780,6 @@ TEST_F(OverflowMenuMediatorTest, TestItemsStatusOnNTP) {
 
   EXPECT_TRUE(HasItem(kToolsMenuNewTabId, /*enabled=*/YES));
   EXPECT_FALSE(HasItem(kToolsMenuSiteInformation, /*enabled=*/YES));
-  if (IsHideToolbarEnabled()) {
-    EXPECT_TRUE(HasItem(kToolsMenuHideToolbars, /*enabled=*/NO));
-  }
-}
-
-// Tests that the share action is not added to the overflow menu when the share
-// icon is visible in the omnibox.
-TEST_F(OverflowMenuMediatorTest, TestShareActionNotVisibleByDefault) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitWithFeaturesAndParameters(
-      {{kChromeNextIa, {{"chrome_next_ia_share_icon_visible", "true"}}},
-       {kComposeboxIpad, {}}},
-      {});
-
-  CreateMediator(/*incognito=*/NO);
-  SetUpActiveWebState();
-  web_state_->SetCurrentURL(GURL("http://chromium.org"));
-  mediator_.webStateList = browser_->GetWebStateList();
-  mediator_.model = model_;
-  EXPECT_FALSE(HasItem(kToolsMenuShareId, /*enabled=*/YES));
-}
-
-// Tests that the share action is added to the overflow menu when ChromeNextIa
-// is enabled without the share icon being visible.
-TEST_F(OverflowMenuMediatorTest, TestShareActionVisibleWithChromeNextIa) {
-  base::test::ScopedFeatureList scoped_feature_list;
-  scoped_feature_list.InitWithFeaturesAndParameters(
-      {{kChromeNextIa, {{"chrome_next_ia_share_icon_visible", "false"}}},
-       {kComposeboxIpad, {}}},
-      {});
-
-  CreateMediator(/*incognito=*/NO);
-  SetUpActiveWebState();
-  web_state_->SetCurrentURL(GURL("http://chromium.org"));
-  mediator_.webStateList = browser_->GetWebStateList();
-  mediator_.model = model_;
-  EXPECT_TRUE(HasItem(kToolsMenuShareId, /*enabled=*/YES));
 }
 
 // Tests that the "Add to Reading List" button is disabled while overlay UI is
@@ -890,20 +858,21 @@ TEST_F(OverflowMenuMediatorTest, TestEnterpriseInfoShownForUserLevelPolicies) {
   FakeSystemIdentity* fake_system_identity =
       [FakeSystemIdentity fakeManagedIdentity];
   fake_system_identity_manager()->AddIdentity(fake_system_identity);
+  GetApplicationContext()
+      ->GetAccountProfileMapper()
+      ->MakePersonalProfileManagedWithGaiaID(fake_system_identity.gaiaId);
 
   // Emulate signing in with managed account.
   AuthenticationService* authentication_service =
-      AuthenticationServiceFactory::GetForProfile(profile_.get());
-  ChromeAccountManagerService* account_manager =
-      ChromeAccountManagerServiceFactory::GetForProfile(profile_.get());
-  authentication_service->SignIn(account_manager->GetDefaultIdentity(),
+      AuthenticationServiceFactory::GetForProfile(profile_);
+  authentication_service->SignIn(fake_system_identity,
                                  signin_metrics::AccessPoint::kStartPage);
   EXPECT_TRUE(authentication_service->HasPrimaryIdentityManaged());
 
   CreateMediator(/*incognito=*/NO);
   // Set the objects needed to detect the signed in managed account.
   mediator_.authenticationService =
-      AuthenticationServiceFactory::GetForProfile(profile_.get());
+      AuthenticationServiceFactory::GetForProfile(profile_);
 
   // Force model update.
   mediator_.model = model_;
@@ -984,7 +953,7 @@ TEST_F(OverflowMenuMediatorTest, TestIdentityButtonHiddenWhenSignedOut) {
   // Setup the mediator.
   CreateMediator(/*incognito=*/NO);
   mediator_.authenticationService =
-      AuthenticationServiceFactory::GetForProfile(profile_.get());
+      AuthenticationServiceFactory::GetForProfile(profile_);
   mediator_.model = model_;
 
   // Check the identity item is not there.
@@ -1000,13 +969,13 @@ TEST_F(OverflowMenuMediatorTest, TestIdentityButtonVisibleWhenSignedIn) {
   // Sign in user.
   const FakeSystemIdentity* identity = [FakeSystemIdentity fakeIdentity1];
   fake_system_identity_manager()->AddIdentity(identity);
-  AuthenticationServiceFactory::GetForProfile(profile_.get())
-      ->SignIn(identity, signin_metrics::AccessPoint::kStartPage);
+  AuthenticationServiceFactory::GetForProfile(profile_)->SignIn(
+      identity, signin_metrics::AccessPoint::kStartPage);
 
   // Check the identity group.
   CreateMediator(/*incognito=*/NO);
   mediator_.authenticationService =
-      AuthenticationServiceFactory::GetForProfile(profile_.get());
+      AuthenticationServiceFactory::GetForProfile(profile_);
   mediator_.model = model_;
 
   // Check the identity group.
@@ -1034,13 +1003,13 @@ TEST_F(OverflowMenuMediatorTest, TestIdentityButtonHiddenInIncognitoMode) {
   // Sign in user.
   const FakeSystemIdentity* identity = [FakeSystemIdentity fakeIdentity1];
   fake_system_identity_manager()->AddIdentity(identity);
-  AuthenticationServiceFactory::GetForProfile(profile_.get())
-      ->SignIn(identity, signin_metrics::AccessPoint::kStartPage);
+  AuthenticationServiceFactory::GetForProfile(profile_)->SignIn(
+      identity, signin_metrics::AccessPoint::kStartPage);
 
   // Create mediator in incognito mode.
   CreateMediator(/*incognito=*/YES);
   mediator_.authenticationService =
-      AuthenticationServiceFactory::GetForProfile(profile_.get());
+      AuthenticationServiceFactory::GetForProfile(profile_);
   mediator_.model = model_;
 
   // Check the identity item is not present.
@@ -1078,8 +1047,8 @@ TEST_F(OverflowMenuMediatorTest, TestBookmarksToolsMenuButtons) {
   EXPECT_FALSE(HasItem(kToolsMenuAddToBookmarks, /*enabled=*/YES));
   EXPECT_TRUE(HasItem(kToolsMenuEditBookmark, /*enabled=*/YES));
 
-  ios::BookmarkModelFactory::GetForProfile(profile_.get())
-      ->RemoveAllUserBookmarks(FROM_HERE);
+  ios::BookmarkModelFactory::GetForProfile(profile_)->RemoveAllUserBookmarks(
+      FROM_HERE);
   EXPECT_TRUE(HasItem(kToolsMenuAddToBookmarks, /*enabled=*/YES));
   EXPECT_FALSE(HasItem(kToolsMenuEditBookmark, /*enabled=*/YES));
 }
@@ -1537,8 +1506,7 @@ TEST_F(OverflowMenuMediatorTest, TestReadingModeMenu) {
 TEST_F(OverflowMenuMediatorTest, TestCustomizeHomePageShownOnNTP) {
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitWithFeatures(
-      /*enabled_features=*/{kComposeboxIpad, kChromeNextIa,
-                            kOverflowMenuNTPRefactor,
+      /*enabled_features=*/{kChromeNextIa, kOverflowMenuNTPRefactor,
                             kOverflowMenuHomeCustomizationEntrypoint},
       /*disabled_features=*/{});
 
@@ -1558,8 +1526,7 @@ TEST_F(OverflowMenuMediatorTest, TestCustomizeHomePageShownOnNTP) {
 TEST_F(OverflowMenuMediatorTest, TestCustomizeHomePageHasPreviewImage) {
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitWithFeatures(
-      /*enabled_features=*/{kComposeboxIpad, kChromeNextIa,
-                            kOverflowMenuNTPRefactor,
+      /*enabled_features=*/{kChromeNextIa, kOverflowMenuNTPRefactor,
                             kOverflowMenuHomeCustomizationEntrypoint},
       /*disabled_features=*/{});
 
@@ -1569,7 +1536,7 @@ TEST_F(OverflowMenuMediatorTest, TestCustomizeHomePageHasPreviewImage) {
   SetUpActiveWebState();
   mediator_.webStateList = browser_->GetWebStateList();
   mediator_.backgroundCustomizationService =
-      HomeBackgroundCustomizationServiceFactory::GetForProfile(profile_.get());
+      HomeBackgroundCustomizationServiceFactory::GetForProfile(profile_);
 
   // Force model update.
   mediator_.model = model_;
@@ -1596,8 +1563,7 @@ TEST_F(OverflowMenuMediatorTest,
        TestCustomizeHomePageHasPreviewImageWithCustomBackgroundFallback) {
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitWithFeatures(
-      /*enabled_features=*/{kComposeboxIpad, kChromeNextIa,
-                            kOverflowMenuNTPRefactor,
+      /*enabled_features=*/{kChromeNextIa, kOverflowMenuNTPRefactor,
                             kOverflowMenuHomeCustomizationEntrypoint},
       /*disabled_features=*/{});
 
@@ -1608,7 +1574,7 @@ TEST_F(OverflowMenuMediatorTest,
   mediator_.webStateList = browser_->GetWebStateList();
 
   HomeBackgroundCustomizationService* backgroundCustomizationService =
-      HomeBackgroundCustomizationServiceFactory::GetForProfile(profile_.get());
+      HomeBackgroundCustomizationServiceFactory::GetForProfile(profile_);
   backgroundCustomizationService->SetCurrentBackground(
       GURL("https://example.com/bg.jpg"), GURL("https://example.com/thumb.jpg"),
       "attribution1", "attribution2", GURL("https://example.com/action"),
@@ -1616,7 +1582,7 @@ TEST_F(OverflowMenuMediatorTest,
 
   mediator_.backgroundCustomizationService = backgroundCustomizationService;
   mediator_.userUploadedImageManager =
-      UserUploadedImageManagerFactory::GetForProfile(profile_.get());
+      UserUploadedImageManagerFactory::GetForProfile(profile_);
   image_fetcher::MockImageFetcher mockImageFetcher;
   EXPECT_CALL(mockImageFetcher, FetchImageAndData_(_, _, _, _))
       .Times(testing::AtLeast(1))
@@ -1653,8 +1619,7 @@ TEST_F(OverflowMenuMediatorTest,
 TEST_F(OverflowMenuMediatorTest, TestCustomizeHomePageNotShownOnWebPage) {
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitWithFeatures(
-      /*enabled_features=*/{kComposeboxIpad, kChromeNextIa,
-                            kOverflowMenuNTPRefactor,
+      /*enabled_features=*/{kChromeNextIa, kOverflowMenuNTPRefactor,
                             kOverflowMenuHomeCustomizationEntrypoint},
       /*disabled_features=*/{});
 
@@ -1674,8 +1639,7 @@ TEST_F(OverflowMenuMediatorTest, TestCustomizeHomePageNotShownOnWebPage) {
 TEST_F(OverflowMenuMediatorTest, TestCustomizeHomePageNotShownInIncognito) {
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitWithFeatures(
-      /*enabled_features=*/{kComposeboxIpad, kChromeNextIa,
-                            kOverflowMenuNTPRefactor,
+      /*enabled_features=*/{kChromeNextIa, kOverflowMenuNTPRefactor,
                             kOverflowMenuHomeCustomizationEntrypoint},
       /*disabled_features=*/{});
 

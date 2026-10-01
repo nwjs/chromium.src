@@ -25,6 +25,7 @@
 #include "components/privacy_sandbox/privacy_sandbox_features.h"
 #include "components/tabs/public/mock_tab_interface.h"
 #include "components/user_education/common/feature_promo/feature_promo_result.h"
+#include "content/public/browser/navigation_controller.h"
 #include "content/public/test/browser_task_environment.h"
 #include "content/public/test/test_renderer_host.h"
 #include "content/public/test/web_contents_tester.h"
@@ -207,38 +208,20 @@ class CookieControlsPageActionControllerTest
 // the status says it should be hidden.
 TEST_F(CookieControlsPageActionControllerTest, IconVisibleWhenBubbleShowing) {
   EXPECT_CALL(*fake_bubble_delegate(), HasBubble()).WillOnce(Return(true));
-
-  // The icon should be forced to show because the bubble is visible.
   EXPECT_CALL(page_action_controller(), Hide(kActionShowCookieControls))
       .Times(0);
   EXPECT_CALL(page_action_controller(), Show(kActionShowCookieControls))
       .Times(1);
-
-  // Call with icon_visible=false, which should be ignored.
-  controller().OnCookieControlsIconStatusChanged(
-      /*icon_visible=*/false, CookieControlsState::kAllowed3pc);
+  controller().OnCookieControlsIconStatusChanged(CookieControlsState::kHidden);
 }
 
-TEST_F(CookieControlsPageActionControllerTest,
-       IconDoesNotAnimateWhenShouldHighlightIsFalse) {
-  EXPECT_CALL(page_action_controller(), Show(kActionShowCookieControls))
-      .Times(1);
-  EXPECT_CALL(page_action_controller(),
-              ShowSuggestionChip(kActionShowCookieControls, _))
-      .Times(0);
-  controller().OnCookieControlsIconStatusChanged(
-      /*icon_visible=*/true, CookieControlsState::kBlocked3pc);
-}
-
-TEST_F(CookieControlsPageActionControllerTest,
-       IconHiddenWhenIconVisibleIsFalse) {
+TEST_F(CookieControlsPageActionControllerTest, IconHiddenWhenStateIsHidden) {
   EXPECT_CALL(*fake_bubble_delegate(), HasBubble()).WillOnce(Return(false));
   EXPECT_CALL(page_action_controller(), Hide(kActionShowCookieControls))
       .Times(1);
   EXPECT_CALL(page_action_controller(), Show(kActionShowCookieControls))
       .Times(0);
-  controller().OnCookieControlsIconStatusChanged(
-      /*icon_visible=*/false, CookieControlsState::kAllowed3pc);
+  controller().OnCookieControlsIconStatusChanged(CookieControlsState::kHidden);
 }
 
 TEST_F(CookieControlsPageActionControllerTest, WebContentsChangeUpdatesIcon) {
@@ -247,7 +230,7 @@ TEST_F(CookieControlsPageActionControllerTest, WebContentsChangeUpdatesIcon) {
   EXPECT_CALL(page_action_controller(),
               OverrideTooltip(kActionShowCookieControls, BlockedLabel()));
   controller().OnCookieControlsIconStatusChanged(
-      /*icon_visible=*/true, CookieControlsState::kBlocked3pc);
+      CookieControlsState::kBlocked3pc);
   EXPECT_EQ(page_action_controller().last_text(), BlockedLabel());
   testing::Mock::VerifyAndClearExpectations(&page_action_controller());
 
@@ -262,14 +245,13 @@ TEST_F(CookieControlsPageActionControllerTest, WebContentsChangeUpdatesIcon) {
   EXPECT_CALL(page_action_controller(),
               OverrideTooltip(kActionShowCookieControls, AllowedLabel()));
   controller().OnCookieControlsIconStatusChanged(
-      /*icon_visible=*/true, CookieControlsState::kAllowed3pc);
+      CookieControlsState::kAllowed3pc);
   EXPECT_EQ(page_action_controller().last_text(), AllowedLabel());
 }
 
 TEST_F(CookieControlsPageActionControllerTest, IconRespondsToBubbleHidden) {
   EXPECT_CALL(page_action_controller(), Hide(kActionShowCookieControls))
       .Times(1);
-
   fake_bubble_delegate()->TriggerBubbleClosed();
 }
 
@@ -293,8 +275,7 @@ INSTANTIATE_TEST_SUITE_P(
 
 TEST_P(CookieControlsPageActionControllerActionTest, ExecuteAction) {
   // Setup controller so that the icon is visible.
-  controller().OnCookieControlsIconStatusChanged(true,
-                                                 GetParam().controls_state);
+  controller().OnCookieControlsIconStatusChanged(GetParam().controls_state);
 
   EXPECT_CALL(*fake_bubble_delegate(), ShowBubble);
   controller().ExecutePageAction(nullptr);

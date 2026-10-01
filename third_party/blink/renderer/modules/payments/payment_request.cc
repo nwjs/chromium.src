@@ -222,6 +222,10 @@ struct TypeConverter<AddressErrorsPtr, blink::AddressErrors> {
 }  // namespace mojo
 
 namespace blink {
+
+BASE_FEATURE(kPaymentRequestAvoidConnectionErrorRace,
+             base::FEATURE_ENABLED_BY_DEFAULT);
+
 namespace {
 
 // Validates ShippingOption or PaymentItem, which happen to have identical
@@ -802,14 +806,13 @@ bool AllowedToUsePaymentRequest(ExecutionContext* execution_context) {
 void WarnIgnoringQueryQuotaForCanMakePayment(
     ExecutionContext& execution_context,
     const char* method_name) {
-  const String& error = UNSAFE_TODO(String::Format(
-      "Quota reached for PaymentRequest.%s(). This would normally "
-      "reject the promise, but allowing continued usage on localhost and "
-      "file:// scheme origins.",
-      method_name));
+  const String& error =
+      StrCat({"Quota reached for PaymentRequest.", method_name,
+              "(). This would normally reject the promise, but allowing "
+              "continued usage on localhost and file:// scheme origins."});
   execution_context.AddConsoleMessage(MakeGarbageCollected<ConsoleMessage>(
-      mojom::ConsoleMessageSource::kJavaScript,
-      mojom::ConsoleMessageLevel::kWarning, error));
+      ConsoleMessage::Source::kJavaScript, ConsoleMessage::Level::kWarning,
+      error));
 }
 
 // Records metrics for an activationless Show() call based on the request
@@ -1099,6 +1102,12 @@ ScriptPromise<IDLUndefined> PaymentRequest::abort(
     exception_state.ThrowDOMException(
         DOMExceptionCode::kInvalidStateError,
         "No show() or retry() in progress, so nothing to abort");
+    return EmptyPromise();
+  }
+
+  if (!payment_provider_.is_bound()) {
+    exception_state.ThrowDOMException(DOMExceptionCode::kInvalidStateError,
+                                      "Cannot abort payment");
     return EmptyPromise();
   }
 
@@ -1415,6 +1424,17 @@ void PaymentRequest::OnUpdatePaymentDetailsTimeoutForTesting() {
   OnUpdatePaymentDetailsTimeout(nullptr);
 }
 
+void PaymentRequest::OnPaymentProviderConnectionError() {
+  payment_provider_.reset();
+
+  // If client_receiver_ is still bound, let it drain its message queue,
+  // and let its disconnect handler call OnConnectionError.
+  if (client_receiver_.is_bound()) {
+    return;
+  }
+  OnConnectionError();
+}
+
 void PaymentRequest::OnConnectionError() {
   OnError(PaymentErrorReason::UNKNOWN,
           "Renderer process could not establish or lost IPC connection to the "
@@ -1510,6 +1530,7 @@ PaymentRequest::PaymentRequest(
   scoped_refptr<base::SingleThreadTaskRunner> task_runner =
       execution_context->GetTaskRunner(TaskType::kUserInteraction);
 
+  // Bind `payment_provider_`, which handles renderer-to-browser calls.
   if (mock_payment_provider) {
     payment_provider_.Bind(
         std::move(mock_payment_provider),
@@ -1518,12 +1539,25 @@ PaymentRequest::PaymentRequest(
     DomWindow()->GetBrowserInterfaceBroker().GetInterface(
         payment_provider_.BindNewPipeAndPassReceiver(task_runner));
   }
-  payment_provider_.set_disconnect_handler(
-      BindOnce(&PaymentRequest::OnConnectionError, WrapWeakPersistent(this)));
+  if (base::FeatureList::IsEnabled(kPaymentRequestAvoidConnectionErrorRace)) {
+    payment_provider_.set_disconnect_handler(
+        BindOnce(&PaymentRequest::OnPaymentProviderConnectionError,
+                 WrapWeakPersistent(this)));
+  } else {
+    payment_provider_.set_disconnect_handler(
+        BindOnce(&PaymentRequest::OnConnectionError, WrapWeakPersistent(this)));
+  }
 
   UseCounter::Count(execution_context, WebFeature::kPaymentRequestInitialized);
+
+  // Bind `client_receiver_`, which handles browser-to-renderer callbacks.
   mojo::PendingRemote<payments::mojom::blink::PaymentRequestClient> client;
   client_receiver_.Bind(client.InitWithNewPipeAndPassReceiver(), task_runner);
+  if (base::FeatureList::IsEnabled(kPaymentRequestAvoidConnectionErrorRace)) {
+    client_receiver_.set_disconnect_handler(
+        BindOnce(&PaymentRequest::OnConnectionError, WrapWeakPersistent(this)));
+  }
+
   payment_provider_->Init(
       std::move(client), std::move(validated_method_data),
       std::move(validated_details),
@@ -1540,7 +1574,9 @@ void PaymentRequest::OnPaymentMethodChange(const String& method_name,
   DCHECK(!complete_resolver_);
 
   if (!RuntimeEnabledFeatures::PaymentMethodChangeEventEnabled()) {
-    payment_provider_->OnPaymentDetailsNotUpdated();
+    if (payment_provider_.is_bound()) {
+      payment_provider_->OnPaymentDetailsNotUpdated();
+    }
     return;
   }
 
@@ -1885,7 +1921,9 @@ void PaymentRequest::OnCompleteTimeout(TimerBase*) {
       mojom::ConsoleMessageSource::kJavaScript,
       mojom::ConsoleMessageLevel::kError,
       "Timed out waiting for a PaymentResponse.complete() call."));
-  payment_provider_->Complete(payments::mojom::blink::PaymentComplete(kFail));
+  if (payment_provider_.is_bound()) {
+    payment_provider_->Complete(payments::mojom::blink::PaymentComplete(kFail));
+  }
   ClearResolversAndCloseMojoConnection();
 }
 
@@ -1899,6 +1937,7 @@ void PaymentRequest::OnUpdatePaymentDetailsTimeout(TimerBase*) {
 
 void PaymentRequest::ClearResolversAndCloseMojoConnection() {
   complete_timer_.Stop();
+  update_payment_details_timer_.Stop();
   complete_resolver_.Clear();
   accept_resolver_.Clear();
   retry_resolver_.Clear();
@@ -1944,7 +1983,9 @@ void PaymentRequest::DispatchPaymentRequestUpdateEvent(
         MakeGarbageCollected<ConsoleMessage>(
             mojom::ConsoleMessageSource::kJavaScript,
             mojom::ConsoleMessageLevel::kWarning, message));
-    payment_provider_->OnPaymentDetailsNotUpdated();
+    if (payment_provider_.is_bound()) {
+      payment_provider_->OnPaymentDetailsNotUpdated();
+    }
     // Make sure that updateWith() is only allowed to be called within the
     // same event loop as the event dispatch. See
     // https://w3c.github.io/payment-request/#paymentrequest-updated-algorithm

@@ -22,7 +22,6 @@ import com.android.webview.chromium.WebContent;
 import com.android.webview.chromium.WebViewChromiumAwInit;
 import com.android.webview.chromium.WebkitToSharedGlueConverter;
 
-import org.chromium.android_webview.AwProxyController;
 import org.chromium.android_webview.AwServiceWorkerController;
 import org.chromium.android_webview.AwTracingController;
 import org.chromium.android_webview.StartupCallSite;
@@ -841,13 +840,13 @@ public class SupportLibWebViewChromiumFactory implements WebViewProviderFactoryB
         try (TraceEvent event =
                 TraceEvent.scoped("WebView.APICall.AndroidX.GET_PROXY_CONTROLLER")) {
             recordApiCall(ApiCall.GET_PROXY_CONTROLLER);
-            AwProxyController proxyController = mAwInit.getAwProxyController();
+            mAwInit.getStartupController()
+                    .triggerAndWaitForChromiumStarted(StartupCallSite.GET_AW_PROXY_CONTROLLER);
             synchronized (mAwInit.getLazyInitLock()) {
                 if (mProxyController == null) {
                     mProxyController =
                             BoundaryInterfaceReflectionUtil.createInvocationHandlerFor(
-                                    new SupportLibProxyControllerAdapter(
-                                            mAwInit.getRunQueue(), proxyController));
+                                    new SupportLibProxyControllerAdapter(mAwInit.getRunQueue()));
                 }
 
                 return mProxyController;
@@ -901,7 +900,7 @@ public class SupportLibWebViewChromiumFactory implements WebViewProviderFactoryB
             StartupDiagnostics.Callback chromiumCallback =
                     result -> handleStartupResult(onSuccess, result);
 
-            mAwInit.startUpWebView(
+            WebkitToSharedGlueConverter.startUpWebView(
                     chromiumCallback,
                     startUpConfig.mShouldRunUiThreadStartUpTasks,
                     startUpConfig.mProfileNamesToLoad);
@@ -1022,7 +1021,7 @@ public class SupportLibWebViewChromiumFactory implements WebViewProviderFactoryB
                                         supportLibResult));
                     };
 
-            mAwInit.startUpWebView(
+            WebkitToSharedGlueConverter.startUpWebView(
                     callback,
                     webViewStartUpConfig.shouldRunUiThreadStartUpTasks(),
                     getProfilesToLoad(webViewStartUpConfig));
