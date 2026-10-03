@@ -7,6 +7,7 @@
 #include "build/build_config.h"
 #include "chrome/browser/themes/theme_service.h"
 #include "chrome/browser/themes/theme_service_factory.h"
+#include "chrome/browser/ui/browser.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/opaque_browser_frame_view.h"
 #include "chrome/browser/ui/views/frame/opaque_browser_frame_view_layout.h"
