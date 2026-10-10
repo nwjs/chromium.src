@@ -5821,7 +5821,7 @@
 <translation id="5452716108542782563">「<ph name="NAME" />」拡張機能がこの設定を制御しています。既定の検索エンジンを変更するには、<ph name="BEGIN_LINK_DISABLE" />拡張機能を無効にする<ph name="END_LINK_DISABLE" />か、<ph name="BEGIN_LINK_MANAGE" />設定を管理<ph name="END_LINK_MANAGE" />します。</translation>
 <translation id="5452976525201205853"><ph name="LANGUAGE" />（オフラインで利用可能）</translation>
 <translation id="5454166040603940656">- <ph name="PROVIDER" /></translation>
-<translation id="5457082343331641453">検索に追加</translation>
+<translation id="5457082343331641453">検索に追加する</translation>
 <translation id="5457459357461771897">パソコンからの写真、音楽、その他のメディアの読み取りと削除</translation>
 <translation id="5457795687441958389">ログアウト状態を保持</translation>
 <translation id="5458214261780477893">Dvorak</translation>
@@ -8989,7 +8989,7 @@
 <translation id="7920715534283810633"><ph name="FILE_NAMES" /> を開けません</translation>
 <translation id="7921347341284348270">この管理対象アカウントではスマートフォンの通知を表示できません。別のアカウントでお試しください。<ph name="LINK_BEGIN" />詳細<ph name="LINK_END" /></translation>
 <translation id="7921395044508886182">サイトで JavaScript の最適化を使用できます</translation>
-<translation id="7921782882718083488">このページを要約</translation>
+<translation id="7921782882718083488">このページを要約して</translation>
 <translation id="7921901223958867679">この拡張機能により <ph name="HOST" /> の読み取りと変更が可能です</translation>
 <translation id="7922606348470480702">1 つの拡張機能</translation>
 <translation id="7924075559900107275">長期サポート候補</translation>

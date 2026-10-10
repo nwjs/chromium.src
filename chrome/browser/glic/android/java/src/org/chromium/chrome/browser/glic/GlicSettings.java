@@ -131,13 +131,20 @@ public class GlicSettings extends ChromeBaseSettingsFragment {
                 getArguments() != null
                         ? getArguments().getString(GlicNavigationUtils.EXTRA_HIGHLIGHT_FIELD)
                         : null;
+        String highlightPrefKey = null;
         if (GlicNavigationUtils.FIELD_LOCATION_PERMISSION.equals(highlightField)) {
-            view.post(
-                    () -> {
-                        if (!isAdded() || getView() == null) return;
-                        scrollAndHighlightPreference(PERMISSION_LOCATION);
-                    });
+            highlightPrefKey = PERMISSION_LOCATION;
+        } else if (GlicNavigationUtils.FIELD_MICROPHONE_PERMISSION.equals(highlightField)) {
+            highlightPrefKey = PERMISSION_MICROPHONE;
         }
+        if (highlightPrefKey == null) return;
+
+        final String prefKey = highlightPrefKey;
+        view.post(
+                () -> {
+                    if (!isAdded() || getView() == null) return;
+                    scrollAndHighlightPreference(prefKey);
+                });
     }
 
     private void scrollAndHighlightPreference(String key) {
@@ -288,24 +295,34 @@ public class GlicSettings extends ChromeBaseSettingsFragment {
             ensureFineLocationPermissionGranted();
         }
 
-        ChromeSwitchPreference microphonePref =
-                setupSwitchPreference(
-                        PERMISSION_MICROPHONE,
-                        ChromePreferenceKeys.GLIC_MICROPHONE_SETTING_ENABLED,
-                        GlicPrefNames.GLIC_MICROPHONE_ENABLED,
-                        (preference, newValue) -> {
-                            boolean enabled = (boolean) newValue;
-                            if (enabled) {
-                                RecordUserAction.record("Glic.Settings.Microphone.Enabled");
-                                ensureRecordAudioPermissionGranted();
-                            } else {
-                                RecordUserAction.record("Glic.Settings.Microphone.Disabled");
-                            }
-                            return true;
-                        });
+        if (ChromeFeatureList.isEnabled(ChromeFeatureList.GLIC_VOICE)) {
+            ChromeSwitchPreference microphonePref =
+                    setupSwitchPreference(
+                            PERMISSION_MICROPHONE,
+                            ChromePreferenceKeys.GLIC_MICROPHONE_SETTING_ENABLED,
+                            GlicPrefNames.GLIC_MICROPHONE_ENABLED,
+                            (preference, newValue) -> {
+                                boolean enabled = (boolean) newValue;
+                                if (enabled) {
+                                    RecordUserAction.record("Glic.Settings.Microphone.Enabled");
+                                    ensureRecordAudioPermissionGranted();
+                                } else {
+                                    RecordUserAction.record("Glic.Settings.Microphone.Disabled");
+                                }
+                                return true;
+                            });
 
-        if (microphonePref.isChecked()) {
-            ensureRecordAudioPermissionGranted();
+            if (microphonePref.isChecked()) {
+                ensureRecordAudioPermissionGranted();
+            }
+        } else {
+            // Skip setup entirely rather than only hiding the preference: the setup path
+            // requests the RECORD_AUDIO permission when the pref is already enabled, which
+            // would prompt the user for a toggle they can no longer see.
+            Preference microphonePref = findPreference(PERMISSION_MICROPHONE);
+            if (microphonePref != null) {
+                microphonePref.setVisible(false);
+            }
         }
 
         ChromeExpandableSwitchPreference tabAccessPref =
@@ -901,6 +918,9 @@ public class GlicSettings extends ChromeBaseSettingsFragment {
                     if (!ChromeFeatureList.isEnabled(
                             ChromeFeatureList.ACTOR_LOGIN_PERMISSIONS_UI)) {
                         indexData.removeEntryForKey(prefFrag, PERMISSION_ACTOR_LOGIN);
+                    }
+                    if (!ChromeFeatureList.isEnabled(ChromeFeatureList.GLIC_VOICE)) {
+                        indexData.removeEntryForKey(prefFrag, PERMISSION_MICROPHONE);
                     }
                     boolean shouldShowWebActuation =
                             GlicEnabling.shouldShowWebActuationToggle(profile);

@@ -1206,6 +1206,27 @@
             ]
         }
     ],
+    "AndroidWindowOcclusion": [
+        {
+            "platforms": [
+                "android"
+            ],
+            "experiments": [
+                {
+                    "name": "FlexibleOcclusionMediumRateLimit",
+                    "params": {
+                        "calculate_occlusion_rate_limit_ms": "100",
+                        "minimum_visibility_size_threshold": "10",
+                        "occlusion_optimizations": "true",
+                        "tracking_mode": "self_occlusion"
+                    },
+                    "enable_features": [
+                        "AndroidWindowOcclusion"
+                    ]
+                }
+            ]
+        }
+    ],
     "AndroidYuvOverlayEvenAlignment": [
         {
             "platforms": [
@@ -9402,11 +9423,12 @@
                 {
                     "name": "Default",
                     "params": {
+                        "actor-page-tool-timeout": "30s",
                         "glic-actor-eligible-tiers": "1,2",
-                        "glic-actor-page-tool-timeout": "30s",
                         "glic_actor_enterprise_pref_default": "disabled_by_default"
                     },
                     "enable_features": [
+                        "ActorPageToolTimeout",
                         "GlicActor",
                         "GlicActorUi"
                     ]

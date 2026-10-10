@@ -792,10 +792,10 @@ class RasterDecoderImpl final : public RasterDecoder,
   void RestoreStateForAttrib(GLuint attrib, bool restore_array_binding);
   void DeletePaintCachePathsINTERNALHelper(
       GLsizei n,
-      const volatile GLuint* paint_cache_ids);
+      const volatile GLuint64* paint_cache_ids);
   void DeletePaintCacheEffectsINTERNALHelper(
       GLsizei n,
-      const volatile GLuint* paint_cache_ids);
+      const volatile GLuint64* paint_cache_ids);
   void DoClearPaintCacheINTERNAL();
 
 #if defined(NDEBUG)
@@ -2788,13 +2788,13 @@ class TransferCacheDeserializeHelperImpl final
 
 void RasterDecoderImpl::DeletePaintCachePathsINTERNALHelper(
     GLsizei n,
-    const volatile GLuint* paint_cache_ids) {
+    const volatile GLuint64* paint_cache_ids) {
   paint_cache_->Purge(cc::PaintCacheDataType::kPath, n, paint_cache_ids);
 }
 
 void RasterDecoderImpl::DeletePaintCacheEffectsINTERNALHelper(
     GLsizei n,
-    const volatile GLuint* paint_cache_ids) {
+    const volatile GLuint64* paint_cache_ids) {
   paint_cache_->Purge(cc::PaintCacheDataType::kSkRuntimeEffect, n,
                       paint_cache_ids);
 }
@@ -2973,13 +2973,10 @@ void RasterDecoderImpl::DoBeginRasterCHROMIUM(GLfloat r,
   // incorrect.
   if (needs_clear) {
     raster_canvas_->drawColor(sk_color_4f, SkBlendMode::kSrc);
-    if (graphite_shared_context()) {
-      should_clear_shared_image_ = true;
-    } else {
-      shared_image_->SetCleared();
-    }
+    // Remember that we can mark the shared image as cleared if the deferred
+    // GPU work is flushed successfully.
+    should_clear_shared_image_ = true;
   }
-  DCHECK(graphite_shared_context() || shared_image_->IsCleared());
 }
 
 scoped_refptr<Buffer> RasterDecoderImpl::GetShmBuffer(uint32_t shm_id) {

@@ -40,6 +40,10 @@ public class UiAndroidFeatureList {
     public static final MutableFlagWithSafeDefault sBottomSheetRemeasureFix =
             newMutableFlagWithSafeDefault(UiAndroidFeatures.BOTTOM_SHEET_REMEASURE_FIX, true);
 
+    public static final MutableFlagWithSafeDefault sPointerLockMouseDensityCompensation =
+            newMutableFlagWithSafeDefault(
+                    UiAndroidFeatures.POINTER_LOCK_MOUSE_DENSITY_COMPENSATION, true);
+
     public static final MutableFlagWithSafeDefault sPointerLockMouseScaling =
             newMutableFlagWithSafeDefault(UiAndroidFeatures.POINTER_LOCK_MOUSE_SCALING, true);
 
@@ -53,7 +57,7 @@ public class UiAndroidFeatureList {
             newCachedFlag(
                     UiAndroidFeatures.ANDROID_WINDOW_OCCLUSION,
                     /* defaultValue= */ false,
-                    /* defaultValueInTests= */ false);
+                    /* defaultValueInTests= */ true);
 
     // Whether to apply optimizations to the window when it is occluded. When false, occlusion
     // metrics will still be collected, but the actual behavior of the window remains unchanged.

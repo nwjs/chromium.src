@@ -618,6 +618,7 @@ SettingsUI::SettingsUI(content::WebUI* web_ui)
        base::FeatureList::IsEnabled(contextual_cueing::kContextualCueingV2)},
       {"showInlineCueMenuControl",
        base::FeatureList::IsEnabled(features::kGlicSelectionPrompt) &&
+           !features::kGlicSelectionPromptUpdatesOnly.Get() &&
            glic_enablement.ShouldShowSettingsPage()},
       {"showSkillsSettingPage",
        base::FeatureList::IsEnabled(features::kSkillsEnabled)},
